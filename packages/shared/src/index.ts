@@ -1,8 +1,9 @@
 /**
- * @kotrain/shared, types and IPC contracts shared between the Electron main
+ * @agent-nekko/shared, types and IPC contracts shared between the Electron main
  * process, preload bridge, renderer, and the pure-TS core engine.
  */
 
+export * from './brand-env.js';
 export * from './models.js';
 export * from './capacity.js';
 export * from './runtimes.js';

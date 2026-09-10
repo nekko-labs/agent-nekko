@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractPrUrls, parsePrUrl, collectSessionPrUrls } from '@kotrain/shared';
+import { extractPrUrls, parsePrUrl, collectSessionPrUrls } from '@agent-nekko/shared';
 
 describe('extractPrUrls', () => {
   it('pulls unique PR URLs out of text and trims trailing punctuation', () => {

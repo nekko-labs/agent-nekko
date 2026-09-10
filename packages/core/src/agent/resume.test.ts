@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatMessage, ToolCall } from '@kotrain/shared';
+import type { ChatMessage, ToolCall } from '@agent-nekko/shared';
 import { INTERRUPTED_TOOL_OUTPUT, repairInterruptedHistory } from './resume.js';
 
 const call = (id: string): ToolCall => ({ id, name: 'bash', input: { command: 'npm test' } });

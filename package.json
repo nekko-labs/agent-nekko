@@ -1,6 +1,6 @@
 {
   "name": "agent-nekko-workspace",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "description": "Agent Nekko: your local agent, backed by frontier intelligence, with CLI/MCP integration and workflows.",
   "license": "MIT",
@@ -16,20 +16,20 @@
     "apps/cloud"
   ],
   "scripts": {
-    "build": "npm run build:core && npm run build -w @kotrain/host && npm run build --workspace=apps/cli && npm run build -w @kotrain/desktop",
-    "build:core": "npm run build -w @kotrain/shared && npm run build -w @kotrain/core",
-    "build:web": "npm run build:core && npm run build -w @kotrain/host && npm run build --workspace=apps/cli && npm run build -w @kotrain/desktop && npm run build -w @kotrain/server && npm run build -w @kotrain/cloud",
-    "cloud": "npm run build:core && npm run build -w @kotrain/host && npm run build -w @kotrain/desktop && npm run build -w @kotrain/cloud && npm run start -w @kotrain/cloud",
-    "dev": "npm run dev -w @kotrain/desktop",
-    "local": "npm run build:core && npm run build -w @kotrain/host && npm run build -w @kotrain/desktop && npm run start -w @kotrain/desktop",
-    "web": "npm run build:web && npm run start -w @kotrain/server",
-    "bundle:web": "npm run build:web && npm run bundle -w @kotrain/server",
+    "build": "npm run build:core && npm run build -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run build -w @agent-nekko/desktop",
+    "build:core": "npm run build -w @agent-nekko/shared && npm run build -w @agent-nekko/core",
+    "build:web": "npm run build:core && npm run build -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run build -w @agent-nekko/desktop && npm run build -w @agent-nekko/server && npm run build -w @agent-nekko/cloud",
+    "cloud": "npm run build:core && npm run build -w @agent-nekko/host && npm run build -w @agent-nekko/desktop && npm run build -w @agent-nekko/cloud && npm run start -w @agent-nekko/cloud",
+    "dev": "npm run dev -w @agent-nekko/desktop",
+    "local": "npm run build:core && npm run build -w @agent-nekko/host && npm run build -w @agent-nekko/desktop && npm run start -w @agent-nekko/desktop",
+    "web": "npm run build:web && npm run start -w @agent-nekko/server",
+    "bundle:web": "npm run build:web && npm run bundle -w @agent-nekko/server",
     "test:cli-package": "node scripts/smoke-cli-pack.mjs",
     "test:brand": "node --test scripts/rebrand.test.mjs",
-    "test": "npm run test:brand && npm run test -w @kotrain/shared && npm run test -w @kotrain/core && npm run test -w @kotrain/desktop && npm run test -w @kotrain/cloud && npm run test -w @kotrain/host && npm run test -w @kotrain/server && npm run test -w @kotrain/relay && npm run test --workspace=apps/cli",
-    "typecheck": "npm run build:core && npm run typecheck -w @kotrain/shared && npm run typecheck -w @kotrain/core && npm run typecheck -w @kotrain/host && npm run build --workspace=apps/cli && npm run typecheck --workspace=apps/cli && npm run typecheck -w @kotrain/desktop && npm run typecheck -w @kotrain/server && npm run typecheck -w @kotrain/relay && npm run typecheck -w @kotrain/cloud",
-    "relay": "npm run build -w @kotrain/relay && npm run start -w @kotrain/relay",
-    "dist": "npm run build && npm run dist -w @kotrain/desktop"
+    "test": "npm run test:brand && npm run test -w @agent-nekko/shared && npm run test -w @agent-nekko/core && npm run test -w @agent-nekko/desktop && npm run test -w @agent-nekko/cloud && npm run test -w @agent-nekko/host && npm run test -w @agent-nekko/server && npm run test -w @agent-nekko/relay && npm run test --workspace=apps/cli",
+    "typecheck": "npm run build:core && npm run typecheck -w @agent-nekko/shared && npm run typecheck -w @agent-nekko/core && npm run typecheck -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run typecheck --workspace=apps/cli && npm run typecheck -w @agent-nekko/desktop && npm run typecheck -w @agent-nekko/server && npm run typecheck -w @agent-nekko/relay && npm run typecheck -w @agent-nekko/cloud",
+    "relay": "npm run build -w @agent-nekko/relay && npm run start -w @agent-nekko/relay",
+    "dist": "npm run build && npm run dist -w @agent-nekko/desktop"
   },
   "engines": {
     "node": ">=22.12.0"

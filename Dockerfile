@@ -4,7 +4,7 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 
-# Electron is a devDependency of @kotrain/desktop; the web edition only needs the
+# Electron is a devDependency of @agent-nekko/desktop; the web edition only needs the
 # renderer build, so skip downloading the (large) Electron binary.
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 
@@ -46,4 +46,4 @@ USER node
 EXPOSE 1440
 VOLUME ["/data", "/workspace"]
 
-CMD ["sh", "-c", "if [ -z \"$KOTRAIN_TOKEN\" ]; then KOTRAIN_TOKEN=$(node -e \"console.log(require('node:crypto').randomBytes(24).toString('base64url'))\"); export KOTRAIN_TOKEN; echo \"Kotrain token: $KOTRAIN_TOKEN\"; fi; exec node apps/server/dist/index.js"]
+CMD ["sh", "-c", "if [ -z \"$NEKKO_TOKEN$KOTRAIN_TOKEN\" ]; then NEKKO_TOKEN=$(node -e \"console.log(require('node:crypto').randomBytes(24).toString('base64url'))\"); export NEKKO_TOKEN; echo \"Agent Nekko token: $NEKKO_TOKEN\"; fi; exec node apps/server/dist/index.js"]

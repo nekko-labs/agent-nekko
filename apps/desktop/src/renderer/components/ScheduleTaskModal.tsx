@@ -1,5 +1,5 @@
 import React, { useId, useState } from 'react';
-import type { NewTask, TaskKind, KeepAlive } from '@kotrain/shared';
+import type { NewTask, TaskKind, KeepAlive } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { CloseIcon } from '../icons.js';
 import { Modal } from './primitives/index.js';
@@ -47,7 +47,7 @@ export function ScheduleTaskModal({
       ...(kind === 'recurring' ? { intervalMs } : {}),
       ...(kind === 'background' ? { keepAlive, intervalMs, ...(keepAlive === 'until' ? { condition: condition.trim() } : {}) } : {}),
     };
-    await window.kotrain.createTask(task);
+    await window.nekko.createTask(task);
     pushToast('success', `${kind === 'scheduled' ? 'Scheduled' : kind === 'recurring' ? 'Recurring' : 'Background'} task created.`);
     onClose();
   };

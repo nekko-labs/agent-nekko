@@ -1,7 +1,7 @@
 // End-to-end integration test against a real local model server.
 // Usage: node scripts/itest-local.mjs [baseUrl] [model]
 // Defaults target the user's LM Studio instance.
-import { createProvider, runAgent, BUILTIN_TOOLS } from '@kotrain/core';
+import { createProvider, runAgent, BUILTIN_TOOLS } from '@agent-nekko/core';
 import { readFileSync, writeFileSync, mkdtempSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

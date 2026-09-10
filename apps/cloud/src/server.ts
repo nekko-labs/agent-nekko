@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import { createHost, createDispatcher, withDataDir, type Host } from '@kotrain/host';
-import { IpcChannels, IpcEvents } from '@kotrain/shared';
+import { createHost, createDispatcher, withDataDir, type Host } from '@agent-nekko/host';
+import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import { CloudStore, publicAccount, type Account } from './accounts.js';
 import { entitlements, requireWithin } from './entitlements.js';
 import { createBilling, planChangeFromEvent, type Billing, type PaidPlan } from './billing.js';
@@ -95,7 +95,7 @@ export function createCloudServer(opts: CloudServerOptions): { app: FastifyInsta
     });
 
     // --- Relay (managed passthrough) ---
-    // A gated relay (KOTRAIN_RELAY_AUTHZ_URL pointing here) asks whether the
+    // A gated relay (NEKKO_RELAY_AUTHZ_URL pointing here) asks whether the
     // agent presenting this bearer token may enroll. Any authenticated account
     // qualifies today (managed relay is free during beta); the reply carries the
     // plan's device allowance so limits can be surfaced/enforced downstream.

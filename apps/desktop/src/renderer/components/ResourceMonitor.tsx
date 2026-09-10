@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { GpuStats, MonitorKind, SystemStats } from '@kotrain/shared';
-import { MONITOR_HINTS, MONITOR_KINDS, MONITOR_LABELS, gpuMemoryLabel, monitorSources, resolveMonitors } from '@kotrain/shared';
+import type { GpuStats, MonitorKind, SystemStats } from '@agent-nekko/shared';
+import { MONITOR_HINTS, MONITOR_KINDS, MONITOR_LABELS, gpuMemoryLabel, monitorSources, resolveMonitors } from '@agent-nekko/shared';
+import { readBrandKey } from '../brandStorage.js';
 import { useStore } from '../store.js';
 import { ChevronIcon } from '../icons.js';
 
@@ -42,12 +43,12 @@ function publish(next: ResourceSample) {
 
 function poll() {
   if (sources.system) {
-    window.kotrain.getSystemStats?.().then((s) => {
+    window.nekko.getSystemStats?.().then((s) => {
       if (sources.system) publish({ ...sample, system: s });
     }).catch(() => {});
   }
   if (sources.gpu) {
-    window.kotrain.getGpuStats?.().then((g) => {
+    window.nekko.getGpuStats?.().then((g) => {
       if (sources.gpu) publish({ ...sample, gpu: g });
     }).catch(() => {});
   }
@@ -98,7 +99,7 @@ export function useMonitors(): Record<MonitorKind, boolean> {
 
 /** Flip one monitor on/off (persisted; the sampler follows on the next render). */
 function setMonitor(current: Record<MonitorKind, boolean>, kind: MonitorKind, on: boolean) {
-  window.kotrain.updateSettings({ monitors: { ...current, [kind]: on } })
+  window.nekko.updateSettings({ monitors: { ...current, [kind]: on } })
     .then(() => useStore.getState().refreshSettings())
     .catch(() => {});
 }
@@ -158,7 +159,7 @@ function Meter({ label, value, pct, sub }: { label: string; value: string; pct: 
  * It publishes its own rectangle to the store, which is what lets the floating
  * chip warp into this section instead of covering it.
  */
-const DOCK_OPEN_KEY = 'kotrain.resourceDock.open';
+const DOCK_OPEN_KEY = 'nekko.resourceDock.open';
 
 export function ResourceDock() {
   const monitors = useMonitors();
@@ -168,7 +169,7 @@ export function ResourceDock() {
   // Collapsible, because the meters are tall and the panel above them (folders,
   // file tree, context) is where the work happens.
   const [open, setOpen] = useState(() =>
-    typeof window === 'undefined' ? true : window.localStorage.getItem(DOCK_OPEN_KEY) !== 'off');
+    typeof window === 'undefined' ? true : readBrandKey(window.localStorage, DOCK_OPEN_KEY) !== 'off');
   const toggle = () => setOpen((v) => {
     const next = !v;
     try { window.localStorage.setItem(DOCK_OPEN_KEY, next ? 'on' : 'off'); } catch { /* best effort */ }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@kotrain/shared';
-import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel } from '@kotrain/shared';
+import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@agent-nekko/shared';
+import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { SubscriptionSignIn } from '../SubscriptionSignIn.js';
@@ -31,7 +31,7 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
   useEffect(() => {
     void refreshProviders();
     let alive = true;
-    window.kotrain
+    window.nekko
       .probeProviders()
       .then((list) => {
         if (!alive) return;
@@ -55,7 +55,7 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
   // it as an auth:'subscription' provider (same path as the Models tab).
   const connectSubscription =
     (oauthProvider: 'claude' | 'chatgpt', customModelId?: string) => async (status: OAuthStatus) => {
-      await window.kotrain.saveProvider(subscriptionProviderConfig(status, { customModelId }));
+      await window.nekko.saveProvider(subscriptionProviderConfig(status, { customModelId }));
       pushToast('success', `Signed in with your ${oauthProvider === 'claude' ? 'Claude' : 'ChatGPT'} subscription.`);
       await refresh();
     };
@@ -79,9 +79,9 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
       // A saved provider could share the probe's deterministic id (kind-local)
       // for a different server - give this add its own id rather than overwrite.
       const cfg = providers.some((p) => p.id === d.id) ? { ...d, id: `${d.kind}-${Date.now().toString(36)}` } : d;
-      await window.kotrain.saveProvider(cfg);
+      await window.nekko.saveProvider(cfg);
       setTests((m) => ({ ...m, [cfg.id]: { state: 'testing' } }));
-      const r = await window.kotrain
+      const r = await window.nekko
         .testProvider(cfg.id)
         .catch((e) => ({ ok: false, message: (e as Error).message }));
       setTests((m) => ({ ...m, [cfg.id]: { state: 'done', ...r } }));
@@ -99,7 +99,7 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
 
   const testSaved = async (id: string) => {
     setTests((m) => ({ ...m, [id]: { state: 'testing' } }));
-    const r = await window.kotrain
+    const r = await window.nekko
       .testProvider(id)
       .catch((e) => ({ ok: false, message: (e as Error).message }));
     setTests((m) => ({ ...m, [id]: { state: 'done', ...r } }));
@@ -441,7 +441,7 @@ function DefaultOffer({ providers }: { providers: ProviderConfig[] }) {
     let alive = true;
     setModels(null);
     setModelId('');
-    window.kotrain
+    window.nekko
       .listModels(pid)
       .then((m) => {
         if (!alive) return;
@@ -462,7 +462,7 @@ function DefaultOffer({ providers }: { providers: ProviderConfig[] }) {
     if (!pid || saving) return;
     setSaving(true);
     try {
-      const next = await window.kotrain.updateSettings({
+      const next = await window.nekko.updateSettings({
         defaultProviderId: pid,
         ...(modelId ? { defaultModelId: modelId } : {}),
       });

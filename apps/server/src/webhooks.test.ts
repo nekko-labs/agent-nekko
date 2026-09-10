@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import Fastify from 'fastify';
-import { createHost, setDataDir, type Host } from '@kotrain/host';
+import { createHost, setDataDir, type Host } from '@agent-nekko/host';
 import { registerWebhookRoutes } from './webhooks.js';
 
 let dir = '';

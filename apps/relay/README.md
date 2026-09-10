@@ -1,4 +1,4 @@
-# Kotrain relay
+# Agent Nekko relay
 
 A dumb, end-to-end-encrypted pipe that pairs remote devices (your phone) with a
 local agent (your desktop) by room code, so a phone can drive your local model
@@ -14,16 +14,16 @@ per-connection rate limit, and client/room limits. Full user-facing guide,
 including self-hosting (Docker / Compose / Coolify / Fly): [docs/REMOTE.md](../../docs/REMOTE.md).
 
 ```bash
-npm run build -w @kotrain/relay
-npm run start -w @kotrain/relay      # ws://0.0.0.0:4400/relay
+npm run build -w @agent-nekko/relay
+npm run start -w @agent-nekko/relay      # ws://0.0.0.0:4400/relay
 
 # or the container (build from the repo root)
-docker build -f apps/relay/Dockerfile -t kotrain-relay .
-docker run -p 4400:4400 kotrain-relay
+docker build -f apps/relay/Dockerfile -t agent-nekko-relay .
+docker run -p 4400:4400 agent-nekko-relay
 ```
 
-Env: `KOTRAIN_RELAY_PORT` (4400), `KOTRAIN_RELAY_HOST` (0.0.0.0),
-`KOTRAIN_RELAY_AUTHZ_URL` (optional: gate agent enrollment on a Kotrain Cloud
+Env: `NEKKO_RELAY_PORT` (4400), `NEKKO_RELAY_HOST` (0.0.0.0),
+`NEKKO_RELAY_AUTHZ_URL` (optional: gate agent enrollment on a Agent Nekko Cloud
 account for managed hosting; agents then connect with `&access=<bearer>` and the
 relay POSTs it to this URL, expecting `{ok:true}`).
 
@@ -42,7 +42,7 @@ the token the phone registered (`register-push` frame). Configure APNs:
 | `APNS_KEY_P8` | Contents of the APNs auth key `.p8` (PEM, with newlines) |
 | `APNS_KEY_ID` | The key's 10-char Key ID |
 | `APNS_TEAM_ID` | Apple Team ID |
-| `APNS_BUNDLE_ID` | App bundle id (default `dev.nekkolabs.kotrain`) |
+| `APNS_BUNDLE_ID` | App bundle id (default `dev.nekkolabs.agentnekko`) |
 | `APNS_PRODUCTION` | `1` for the production APNs host (default: sandbox) |
 
 **Android (FCM)**: set `FCM_SERVICE_ACCOUNT` to the full service-account JSON

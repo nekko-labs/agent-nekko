@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ContextBundle, Session, WorkspaceFolder } from '@kotrain/shared';
-import { getSessionWorkspaceIds, estimateTokens } from '@kotrain/shared';
+import type { ContextBundle, Session, WorkspaceFolder } from '@agent-nekko/shared';
+import { getSessionWorkspaceIds, estimateTokens } from '@agent-nekko/shared';
 import { FolderIcon, FileIcon, PlusIcon, TrashIcon, ExternalIcon, ChevronIcon } from '../icons.js';
 import { useStore } from '../store.js';
 import { SpecPanel } from './SpecPanel.js';
@@ -9,7 +9,7 @@ import { DirTree } from './FileTree.js';
 import { sourceMeta } from '../contextSources.js';
 
 /** Remembered height of the Folders section when a tree is open. */
-const EXPLORER_KEY = 'kotrain.contextPanel.explorerHeight';
+const EXPLORER_KEY = 'nekko.contextPanel.explorerHeight';
 const DEFAULT_EXPLORER_H = 260;
 const MIN_EXPLORER_H = 110;
 const MIN_CONTEXT_H = 180;
@@ -89,7 +89,7 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
 
   const refreshBundle = () => {
     if (!sessionId) return;
-    window.kotrain.previewContext(sessionId, []).then((b) => {
+    window.nekko.previewContext(sessionId, []).then((b) => {
       setBundle(b);
       setExcluded(new Set(b.items.filter((i) => !i.included).map((i) => i.id)));
       setPinned(new Set(b.items.filter((i) => i.pinned).map((i) => i.id)));
@@ -136,7 +136,7 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
   if (!sessionId) return <Empty />;
 
   const persist = (nextExcluded: Set<string>, nextPinned: Set<string>) => {
-    window.kotrain.setContextPrefs(sessionId, { excluded: [...nextExcluded], pinned: [...nextPinned] });
+    window.nekko.setContextPrefs(sessionId, { excluded: [...nextExcluded], pinned: [...nextPinned] });
   };
 
   const toggle = (id: string) => {
@@ -155,27 +155,27 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
 
   // --- Sources actions ---
   const addFolder = async () => {
-    await window.kotrain.addWorkspace();
+    await window.nekko.addWorkspace();
     await refreshSettings();
   };
   const removeFolder = async (id: string) => {
-    await window.kotrain.removeWorkspace(id);
+    await window.nekko.removeWorkspace(id);
     if (session) {
       const supporting = (session.supportingWorkspaceIds ?? []).filter((wid) => wid !== id);
       if (session.workspaceId === id) {
         const [nextPrimary, ...nextSupporting] = supporting;
-        await window.kotrain.setSessionWorkspace(sessionId, nextPrimary);
-        await window.kotrain.setSessionSupportingWorkspaces(sessionId, nextSupporting);
+        await window.nekko.setSessionWorkspace(sessionId, nextPrimary);
+        await window.nekko.setSessionSupportingWorkspaces(sessionId, nextSupporting);
       } else {
-        await window.kotrain.setSessionSupportingWorkspaces(sessionId, supporting);
+        await window.nekko.setSessionSupportingWorkspaces(sessionId, supporting);
       }
       await refreshSessions();
     }
     await refreshSettings();
   };
   const setFolderSelection = async (primaryId: string | undefined, supportingIds: string[]) => {
-    await window.kotrain.setSessionWorkspace(sessionId, primaryId);
-    await window.kotrain.setSessionSupportingWorkspaces(sessionId, supportingIds);
+    await window.nekko.setSessionWorkspace(sessionId, primaryId);
+    await window.nekko.setSessionSupportingWorkspaces(sessionId, supportingIds);
     await refreshSessions();
   };
   const includeFolder = async (id: string) => {
@@ -201,17 +201,17 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
     ]);
   };
   const addFiles = async () => {
-    const picked = await window.kotrain.openFilesDialog();
+    const picked = await window.nekko.openFilesDialog();
     if (!picked.length) return;
     const next = Array.from(new Set([...attached, ...picked]));
-    await window.kotrain.setSessionAttachments(sessionId, next);
+    await window.nekko.setSessionAttachments(sessionId, next);
     await refreshSessions();
   };
   const removeFile = async (path: string) => {
-    await window.kotrain.setSessionAttachments(sessionId, attached.filter((p) => p !== path));
+    await window.nekko.setSessionAttachments(sessionId, attached.filter((p) => p !== path));
     await refreshSessions();
   };
-  const open = (target: string) => window.kotrain.openPath(target);
+  const open = (target: string) => window.nekko.openPath(target);
   const openInPane = (path: string) => useStore.getState().openFilePane(path);
 
   const toggleTree = (id: string) =>

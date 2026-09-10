@@ -5,7 +5,7 @@ import type {
   GuardrailRule,
   MemoryEntry,
   MemoryScope,
-  KotrainApi,
+  NekkoApi,
   ProviderConfig,
   SendOptions,
   AgentEvent,
@@ -14,8 +14,8 @@ import type {
   TerminalEvent,
   OAuthStatus,
   SubscriptionLimits,
-} from '@kotrain/shared';
-import { IpcChannels, IpcEvents } from '@kotrain/shared';
+} from '@agent-nekko/shared';
+import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import {
   TITLEBAR_HEIGHT,
   TITLEBAR_OVERLAY_CHANNEL,
@@ -25,7 +25,7 @@ import {
 
 const inv = ipcRenderer.invoke.bind(ipcRenderer);
 
-const api: KotrainApi = {
+const api: NekkoApi = {
   getSettings: () => inv(IpcChannels.settingsGet),
   updateSettings: (patch) => inv(IpcChannels.settingsUpdate, patch),
 
@@ -245,17 +245,17 @@ const api: KotrainApi = {
     return () => ipcRenderer.removeListener(IpcEvents.changesUpdated, listener);
   },
   onTasksUpdated: (cb) => {
-    const listener = (_: unknown, tasks: import('@kotrain/shared').AutomationTask[]) => cb(tasks);
+    const listener = (_: unknown, tasks: import('@agent-nekko/shared').AutomationTask[]) => cb(tasks);
     ipcRenderer.on(IpcEvents.tasksUpdated, listener);
     return () => ipcRenderer.removeListener(IpcEvents.tasksUpdated, listener);
   },
   onTrainingUpdated: (cb) => {
-    const listener = (_: unknown, runs: import('@kotrain/shared').TrainingRun[]) => cb(runs);
+    const listener = (_: unknown, runs: import('@agent-nekko/shared').TrainingRun[]) => cb(runs);
     ipcRenderer.on(IpcEvents.trainingUpdated, listener);
     return () => ipcRenderer.removeListener(IpcEvents.trainingUpdated, listener);
   },
   onWorkflowsUpdated: (cb) => {
-    const listener = (_: unknown, snapshot: import('@kotrain/shared').WorkflowsSnapshot) => cb(snapshot);
+    const listener = (_: unknown, snapshot: import('@agent-nekko/shared').WorkflowsSnapshot) => cb(snapshot);
     ipcRenderer.on(IpcEvents.workflowsUpdated, listener);
     return () => ipcRenderer.removeListener(IpcEvents.workflowsUpdated, listener);
   },
@@ -271,10 +271,10 @@ const api: KotrainApi = {
   },
 };
 
-contextBridge.exposeInMainWorld('kotrain', api);
+contextBridge.exposeInMainWorld('nekko', api);
 
 /**
- * The window-chrome bridge, separate from the app API on purpose: `KotrainApi`
+ * The window-chrome bridge, separate from the app API on purpose: `NekkoApi`
  * is the contract the web transport also implements, and a browser tab has no
  * title bar to draw. Its absence is how the renderer knows it isn't in the
  * desktop shell.
@@ -285,4 +285,4 @@ const chrome: WindowChromeBridge = {
   setTitleBarOverlay: (theme: TitleBarOverlayTheme) => ipcRenderer.send(TITLEBAR_OVERLAY_CHANNEL, theme),
 };
 
-contextBridge.exposeInMainWorld('kotrainChrome', chrome);
+contextBridge.exposeInMainWorld('nekkoChrome', chrome);

@@ -1,4 +1,4 @@
-import { createHost } from '@kotrain/host';
+import { createHost } from '@agent-nekko/host';
 
 /**
  * Relay-agent mode for the server CLI: create a host and expose it over a relay

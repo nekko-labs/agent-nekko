@@ -1,4 +1,4 @@
-import type { WorkspaceFolder } from '@kotrain/shared';
+import type { WorkspaceFolder } from '@agent-nekko/shared';
 
 export interface PromptContext {
   workspaces: WorkspaceFolder[];

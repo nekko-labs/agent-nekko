@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInfo, ProviderConfig, ToolCall } from '@kotrain/shared';
+import type { ChatMessage, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 
 /** A tool the model may call, in a provider-neutral shape. */
 export interface ToolSpec {

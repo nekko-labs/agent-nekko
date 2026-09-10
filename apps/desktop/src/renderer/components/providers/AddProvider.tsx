@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind } from '@kotrain/shared';
-import { PROVIDER_DEFAULTS } from '@kotrain/shared';
+import type { OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind } from '@agent-nekko/shared';
+import { PROVIDER_DEFAULTS } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { SubscriptionSignIn } from '../SubscriptionSignIn.js';
 import { CheckIcon } from '../../icons.js';
@@ -110,7 +110,7 @@ export function AddProvider({
   // fresh access token at request time.
   const connectSubscription = async (status: OAuthStatus) => {
     const chatgpt = status.provider === 'chatgpt' || kind === 'chatgpt';
-    await window.kotrain.saveProvider(
+    await window.nekko.saveProvider(
       subscriptionProviderConfig(status, { kind, label, baseUrl, customModelId }),
     );
     pushToast('success', `Signed in with your ${chatgpt ? 'ChatGPT' : 'Claude'} subscription.`);
@@ -129,13 +129,13 @@ export function AddProvider({
   const test = async () => {
     setTesting(true);
     setResult(null);
-    const r = await window.kotrain.testProviderConfig(draft());
+    const r = await window.nekko.testProviderConfig(draft());
     setResult(r);
     setTesting(false);
   };
 
   const save = async () => {
-    await window.kotrain.saveProvider(draft());
+    await window.nekko.saveProvider(draft());
     onDone();
   };
 

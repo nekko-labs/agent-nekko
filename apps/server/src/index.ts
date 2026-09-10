@@ -6,15 +6,15 @@ import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import { createHost, createDispatcher } from '@kotrain/host';
-import { IpcChannels, IpcEvents } from '@kotrain/shared';
+import { createHost, createDispatcher } from '@agent-nekko/host';
+import { brandEnv, IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import { runRelayAgent } from './relay-agent.js';
 import { runCli } from 'kotrain/run';
 import { isLoopbackHost, tokenMatches, validateBindSecurity } from './security.js';
 import { createApiSecurityHook } from './request-security.js';
 import { registerWebhookRoutes } from './webhooks.js';
 
-/** Subcommands handled by the embedded CLI (so `npx kotrain mcp|chat|…` works). */
+/** Subcommands handled by the embedded CLI (so `npx agent-nekko mcp|chat|…` works). */
 const CLI_SUBCOMMANDS = new Set([
   'mcp', 'chat', 'status', 'sessions', 'watch', 'workspace', 'prompts', 'tasks',
   'skills', 'tools', 'models', 'train', 'help', 'version',
@@ -22,17 +22,13 @@ const CLI_SUBCOMMANDS = new Set([
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** KOTRAIN_* env with legacy NEKKOS_* / OPENPAW_* fallbacks (earlier-brand installs). */
-function env(name: string): string | undefined {
-  return (
-    process.env[`KOTRAIN_${name}`] ?? process.env[`NEKKOS_${name}`] ?? process.env[`OPENPAW_${name}`]
-  );
-}
-/** Default data dir: ~/.kotrain, but keep using a ~/.nekkos or ~/.open-paw if one exists. */
+/** NEKKO_* env, falling back to every earlier brand prefix. See `brandEnv`. */
+const env = brandEnv;
+/** Default data dir: ~/.nekko, but keep using an earlier brand's dir if one exists. */
 function defaultDataDir(): string {
-  const next = join(homedir(), '.kotrain');
+  const next = join(homedir(), '.nekko');
   if (existsSync(next)) return next;
-  for (const name of ['.nekkos', '.open-paw']) {
+  for (const name of ['.kotrain', '.nekkos', '.open-paw']) {
     const legacy = join(homedir(), name);
     if (existsSync(legacy)) return legacy;
   }
@@ -62,7 +58,7 @@ function findRendererDir(): string {
 const RENDERER_DIR = findRendererDir();
 
 async function main() {
-  // Subcommand → embedded CLI (e.g. `npx kotrain mcp`, `kotrain status`).
+  // Subcommand → embedded CLI (e.g. `npx agent-nekko mcp`, `kotrain status`).
   const sub = process.argv[2];
   if (sub && CLI_SUBCOMMANDS.has(sub)) {
     await runCli(process.argv.slice(2));
@@ -85,17 +81,17 @@ async function main() {
   if (!existsSync(join(RENDERER_DIR, 'index.html'))) {
     console.error(
       `[kotrain] Renderer not found at ${RENDERER_DIR}.\n` +
-        `Build it first (npm run build -w @kotrain/desktop) or set KOTRAIN_RENDERER_DIR.`,
+        `Build it first (npm run build -w @agent-nekko/desktop) or set NEKKO_RENDERER_DIR.`,
     );
     process.exit(1);
   }
   validateBindSecurity(HOST, TOKEN, ALLOW_UNAUTHENTICATED);
 
   // Report this build's version (for the web edition's refresh-when-updated check).
-  if (!process.env.KOTRAIN_VERSION) {
+  if (env('VERSION') === undefined) {
     try {
       const { createRequire } = await import('node:module');
-      process.env.KOTRAIN_VERSION = createRequire(import.meta.url)('../package.json').version ?? '0.0.0';
+      process.env.NEKKO_VERSION = createRequire(import.meta.url)('../package.json').version ?? '0.0.0';
     } catch {
       /* leave unset → host reports 0.0.0 */
     }

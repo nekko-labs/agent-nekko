@@ -1,7 +1,7 @@
-// Exercises the full @kotrain/host path (settings store → sessions → chat
+// Exercises the full @agent-nekko/host path (settings store → sessions → chat
 // orchestrator → provider → event emitter), proving the host extraction
 // preserved behavior. Usage: node scripts/itest-host.mjs [baseUrl] [model]
-import { createHost } from '@kotrain/host';
+import { createHost } from '@agent-nekko/host';
 import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

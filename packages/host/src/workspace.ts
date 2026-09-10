@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
-import type { IndexedFile, IndexStatus, SearchHit, WorkspaceFolder } from '@kotrain/shared';
-import { IGNORED_DIRS, isIndexable, detectLanguage, extractOutline } from '@kotrain/core';
+import type { IndexedFile, IndexStatus, SearchHit, WorkspaceFolder } from '@agent-nekko/shared';
+import { IGNORED_DIRS, isIndexable, detectLanguage, extractOutline } from '@agent-nekko/core';
 
 const indexCache = new Map<string, IndexedFile[]>();
 const statusCache = new Map<string, IndexStatus>();

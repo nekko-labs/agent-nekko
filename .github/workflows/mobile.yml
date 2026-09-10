@@ -33,7 +33,7 @@ jobs:
           ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v7
         with:
-          name: kotrain-android-debug
+          name: agent-nekko-android-debug
           path: apps/mobile/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 

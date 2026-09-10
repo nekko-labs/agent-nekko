@@ -1,4 +1,4 @@
-import type { FitPlan, FitReason } from '@kotrain/shared';
+import type { FitPlan, FitReason } from '@agent-nekko/shared';
 
 /**
  * Turning a projection into one sentence a person can act on.

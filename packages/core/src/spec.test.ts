@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseTasks, toggleTaskLine, getMethodology, SPEC_METHODOLOGIES } from '@kotrain/shared';
+import { parseTasks, toggleTaskLine, getMethodology, SPEC_METHODOLOGIES } from '@agent-nekko/shared';
 
 const SAMPLE = `# Tasks
 

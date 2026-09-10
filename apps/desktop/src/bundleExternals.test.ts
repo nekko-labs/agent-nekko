@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { preservePackagedProfile } from './main/appIdentity.js';
 
-// Guards the launch crash that shipped in v0.4.0. The @kotrain/* workspace packages are
+// Guards the launch crash that shipped in v0.4.0. The @agent-nekko/* workspace packages are
 // ESM-only (their "exports" map offers just an "import" condition) while main and
 // preload build to CJS, so if electron-vite leaves them external the packaged app
 // dies immediately with ERR_PACKAGE_PATH_NOT_EXPORTED. They must be bundled in.
@@ -17,7 +17,7 @@ import { preservePackagedProfile } from './main/appIdentity.js';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const workspaceDeps = Object.keys(pkg.dependencies ?? {}).filter((d) => d.startsWith('@kotrain/'));
+const workspaceDeps = Object.keys(pkg.dependencies ?? {}).filter((d) => d.startsWith('@agent-nekko/'));
 
 describe('staged product identity', () => {
   let appData: string;
@@ -42,7 +42,7 @@ describe('staged product identity', () => {
 
   it('creates only the profile directory before setting paths on a fresh install', () => {
     const app = mockApp();
-    const profile = join(appData, 'Kotrain');
+    const profile = join(appData, 'Agent Nekko');
     expect(existsSync(profile)).toBe(false);
     expect(() => preservePackagedProfile(app)).not.toThrow();
     expect(app.getPath).toHaveBeenCalledExactlyOnceWith('appData');
@@ -52,20 +52,57 @@ describe('staged product identity', () => {
     ]);
     expect(statSync(profile).isDirectory()).toBe(true);
     expect(readdirSync(profile)).toEqual([]);
-    expect(existsSync(join(profile, 'kotrain'))).toBe(false);
+    expect(existsSync(join(profile, 'agent-nekko'))).toBe(false);
     const main = readFileSync(join(root, 'src/main/index.ts'), 'utf8');
     const pin = main.indexOf('preservePackagedProfile(app);');
     expect(pin).toBeGreaterThan(0);
     expect(pin).toBeLessThan(main.indexOf('const isPrimary = claimSingleInstance();'));
     expect(pin).toBeLessThan(main.indexOf('app.whenReady()'));
-    expect(main).toContain("join(app.getPath('userData'), 'kotrain')");
+    expect(main).toContain("join(app.getPath('userData'), 'agent-nekko')");
+  });
+
+  // The appId change makes a renamed build a fresh install, so the profile
+  // folder can finally follow the product name. Nobody may lose data over it.
+  it('adopts the newest earlier-brand profile on first run, minus throwaway caches', () => {
+    const legacy = join(appData, 'Kotrain');
+    mkdirSync(join(legacy, 'kotrain'), { recursive: true });
+    mkdirSync(join(legacy, 'Local Storage'), { recursive: true });
+    mkdirSync(join(legacy, 'GPUCache'), { recursive: true });
+    writeFileSync(join(legacy, 'kotrain', 'settings.json'), '{"theme":"dark"}\n');
+    writeFileSync(join(legacy, 'Local Storage', 'sentinel'), 'kept');
+    writeFileSync(join(legacy, 'GPUCache', 'blob'), 'dropped');
+    // An older brand as well: the newest one wins.
+    mkdirSync(join(appData, 'Open Paw', 'open-paw'), { recursive: true });
+    writeFileSync(join(appData, 'Open Paw', 'open-paw', 'settings.json'), '{"theme":"light"}\n');
+
+    preservePackagedProfile(mockApp());
+
+    const profile = join(appData, 'Agent Nekko');
+    expect(readFileSync(join(profile, 'kotrain', 'settings.json'), 'utf8')).toBe('{"theme":"dark"}\n');
+    expect(readFileSync(join(profile, 'Local Storage', 'sentinel'), 'utf8')).toBe('kept');
+    expect(existsSync(join(profile, 'GPUCache'))).toBe(false);
+    // The original is left alone, so a downgrade still finds its data.
+    expect(existsSync(join(legacy, 'kotrain', 'settings.json'))).toBe(true);
+  });
+
+  it('leaves an existing profile alone rather than re-adopting over it', () => {
+    const profile = join(appData, 'Agent Nekko');
+    mkdirSync(join(profile, 'agent-nekko'), { recursive: true });
+    writeFileSync(join(profile, 'agent-nekko', 'settings.json'), '{"theme":"current"}\n');
+    mkdirSync(join(appData, 'Kotrain', 'kotrain'), { recursive: true });
+    writeFileSync(join(appData, 'Kotrain', 'kotrain', 'settings.json'), '{"theme":"stale"}\n');
+
+    preservePackagedProfile(mockApp());
+
+    expect(readdirSync(profile)).toEqual(['agent-nekko']);
+    expect(readFileSync(join(profile, 'agent-nekko', 'settings.json'), 'utf8')).toBe('{"theme":"current"}\n');
   });
 
   it('preserves existing browser and host data across repeated initialization', () => {
     const app = mockApp();
-    const profile = join(appData, 'Kotrain');
+    const profile = join(appData, 'Agent Nekko');
     const browserData = join(profile, 'Local Storage');
-    const hostData = join(profile, 'kotrain');
+    const hostData = join(profile, 'agent-nekko');
     mkdirSync(browserData, { recursive: true });
     mkdirSync(hostData, { recursive: true });
     const sentinel = Buffer.from([0, 1, 127, 128, 255]);
@@ -78,7 +115,7 @@ describe('staged product identity', () => {
 
     expect(readFileSync(join(browserData, 'sentinel'))).toEqual(sentinel);
     expect(readFileSync(join(hostData, 'settings.json'), 'utf8')).toBe(settings);
-    expect(readdirSync(profile).sort()).toEqual(['Local Storage', 'kotrain']);
+    expect(readdirSync(profile).sort()).toEqual(['Local Storage', 'agent-nekko']);
     expect(app.setPath.mock.calls).toEqual([
       ['userData', profile],
       ['sessionData', profile],
@@ -93,20 +130,20 @@ describe('staged product identity', () => {
     expect(app.getPath).not.toHaveBeenCalled();
     expect(app.setPath).not.toHaveBeenCalled();
     expect(readdirSync(appData)).toEqual([]);
-    expect(existsSync(join(appData, 'Kotrain'))).toBe(false);
+    expect(existsSync(join(appData, 'Agent Nekko'))).toBe(false);
   });
 
-  it('changes display names without changing update artifacts or bundle identities', () => {
+  it('carries the current brand through every packaged identity and filename', () => {
     const builder = readFileSync(join(root, 'electron-builder.yml'), 'utf8');
     expect(builder).toContain('productName: Agent Nekko');
-    expect(builder).toContain('appId: dev.nekkolabs.kotrain');
-    expect(builder).toContain('executableName: Kotrain');
-    expect(builder.match(/artifactName: Kotrain-\$\{version\}-\$\{arch\}\.\$\{ext\}/g)).toHaveLength(3);
+    expect(builder).toContain('appId: dev.nekkolabs.agentnekko');
+    expect(builder).toContain('executableName: AgentNekko');
+    expect(builder.match(/artifactName: AgentNekko-\$\{version\}-\$\{arch\}\.\$\{ext\}/g)).toHaveLength(3);
     expect(builder).toContain('repo: agent-nekko');
-    expect(pkg.name).toBe('@kotrain/desktop');
+    expect(pkg.name).toBe('@agent-nekko/desktop');
     const mobile = readFileSync(join(root, '../mobile/capacitor.config.ts'), 'utf8');
     expect(mobile).toContain("appName: 'Agent Nekko'");
-    expect(mobile).toContain("appId: 'dev.nekkolabs.kotrain'");
+    expect(mobile).toContain("appId: 'dev.nekkolabs.agentnekko'");
     const manifest = JSON.parse(readFileSync(join(root, 'src/renderer/public/manifest.webmanifest'), 'utf8'));
     expect(manifest.name).toBe('Agent Nekko');
     expect(manifest.short_name).toBe('Agent Nekko');

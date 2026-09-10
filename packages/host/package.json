@@ -1,5 +1,5 @@
 {
-  "name": "@kotrain/host",
+  "name": "@agent-nekko/host",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,8 +17,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@kotrain/core": "*",
-    "@kotrain/shared": "*",
+    "@agent-nekko/core": "*",
+    "@agent-nekko/shared": "*",
     "@lydell/node-pty": "^1.2.0-beta.14"
   }
 }

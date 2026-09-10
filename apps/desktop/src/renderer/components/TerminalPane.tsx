@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { TerminalEvent, TerminalInfo } from '@kotrain/shared';
+import type { TerminalEvent, TerminalInfo } from '@agent-nekko/shared';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -49,25 +49,25 @@ export function TerminalPane({ terminalId }: { terminalId: string }) {
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
-    term.loadAddon(new WebLinksAddon((_, uri) => window.kotrain.openPath(uri)));
+    term.loadAddon(new WebLinksAddon((_, uri) => window.nekko.openPath(uri)));
     term.open(el);
     try { fit.fit(); } catch { /* not laid out yet */ }
     term.focus();
 
     // Restore scrollback, then size the pty to our fitted viewport.
-    window.kotrain.terminalSnapshot(terminalId).then((snap) => {
+    window.nekko.terminalSnapshot(terminalId).then((snap) => {
       if (!snap) return;
       setInfo(snap.info);
       if (snap.buffer) term.write(snap.buffer);
-      window.kotrain.resizeTerminal(terminalId, term.cols, term.rows);
+      window.nekko.resizeTerminal(terminalId, term.cols, term.rows);
     }).catch(() => {});
 
     // Renderer → pty.
-    const onData = term.onData((d) => window.kotrain.writeTerminal(terminalId, d));
-    const onResize = term.onResize(({ cols, rows }) => window.kotrain.resizeTerminal(terminalId, cols, rows));
+    const onData = term.onData((d) => window.nekko.writeTerminal(terminalId, d));
+    const onResize = term.onResize(({ cols, rows }) => window.nekko.resizeTerminal(terminalId, cols, rows));
 
     // pty → renderer.
-    const offEvent = window.kotrain.onTerminalEvent((e: TerminalEvent) => {
+    const offEvent = window.nekko.onTerminalEvent((e: TerminalEvent) => {
       if (!('terminalId' in e) || e.terminalId !== terminalId) return;
       if (e.type === 'data') term.write(e.data);
       else if (e.type === 'exit') {

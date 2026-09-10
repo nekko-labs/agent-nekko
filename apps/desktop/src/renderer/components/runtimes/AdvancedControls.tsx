@@ -6,7 +6,7 @@ import {
   type ModelFacts,
   type RuntimeCapabilities,
   type RuntimeKind,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import { CheckIcon, CopyIcon } from '../../icons.js';
 import { formatTokens } from './verdict.js';
 

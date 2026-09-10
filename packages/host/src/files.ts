@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import type { DirEntry, FileContent } from '@kotrain/shared';
+import type { DirEntry, FileContent } from '@agent-nekko/shared';
 
 /**
  * Direct, user-initiated file access for the in-app file explorer, viewer, and

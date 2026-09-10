@@ -9,8 +9,8 @@
  * A runner returns a ToolResult-shaped outcome (`output` + `isError`); thrown
  * errors (missing params, bad URLs) are normalized by runWorkflowAction.
  */
-import type { ConnectorConfig, ToolResult, WorkflowActionSpec, WorkflowEvent } from '@kotrain/shared';
-import { findWorkflowAction, slugify } from '@kotrain/shared';
+import type { ConnectorConfig, ToolResult, WorkflowActionSpec, WorkflowEvent } from '@agent-nekko/shared';
+import { findWorkflowAction, slugify } from '@agent-nekko/shared';
 import { gitlabBase } from './index.js';
 
 /** An action's outcome, ToolResult-shaped: text for the run log + an error flag. */

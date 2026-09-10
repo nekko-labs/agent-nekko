@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { runAgent, windowHistory } from './loop.js';
 import { INTERRUPTED_NOTE, INTERRUPTED_TOOL_OUTPUT, RESUME_PROMPT } from './resume.js';
 import type { ChatRequest, Provider, ProviderChunk } from '../providers/types.js';
-import type { ChatMessage, ToolCall, ToolResult } from '@kotrain/shared';
+import type { ChatMessage, ToolCall, ToolResult } from '@agent-nekko/shared';
 
 /** A user/assistant message pair helper for building histories. */
 function msg(role: ChatMessage['role'], content: string): ChatMessage {

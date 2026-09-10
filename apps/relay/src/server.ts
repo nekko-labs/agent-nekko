@@ -10,7 +10,7 @@ import { createPushSender, type PushSender } from './push.js';
  * between them. It never inspects payloads beyond the routing envelope, so it
  * carries end-to-end-encrypted traffic unchanged (zero-knowledge for content).
  *
- * v2 protocol (see @kotrain/shared remote.ts for the same contract):
+ * v2 protocol (see @agent-nekko/shared remote.ts for the same contract):
  *   - every client connection gets a `cid`; client frames reach the agent as
  *     { type:'c', cid, data } and the agent unicasts { type:'d', cid, data }.
  *     No client ever receives another client's traffic.
@@ -22,7 +22,7 @@ import { createPushSender, type PushSender } from './push.js';
  *
  * Hardening: pairing-key hashes compared in constant time, frame-size cap, a
  * per-connection token-bucket rate limit, client + room caps, and an optional
- * agent-enrollment gate (KOTRAIN_RELAY_AUTHZ_URL) for managed/paid hosting.
+ * agent-enrollment gate (NEKKO_RELAY_AUTHZ_URL) for managed/paid hosting.
  */
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest();
@@ -164,8 +164,8 @@ export function buildRelay(opts: RelayOptions = {}): { app: FastifyInstance; roo
           socket.close(
             4003,
             authzUrl
-              ? 'relay access denied by KOTRAIN_RELAY_AUTHZ_URL'
-              : 'unauthenticated enrollment disabled; set KOTRAIN_RELAY_ALLOW_UNAUTHENTICATED=1 or configure KOTRAIN_RELAY_AUTHZ_URL',
+              ? 'relay access denied by NEKKO_RELAY_AUTHZ_URL'
+              : 'unauthenticated enrollment disabled; set NEKKO_RELAY_ALLOW_UNAUTHENTICATED=1 or configure NEKKO_RELAY_AUTHZ_URL',
           );
           cleanup(code);
           return;

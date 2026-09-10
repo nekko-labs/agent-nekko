@@ -1,5 +1,5 @@
 import os from 'os';
-import type { SystemStats } from '@kotrain/shared';
+import type { SystemStats } from '@agent-nekko/shared';
 
 /**
  * CPU load + RAM use for the monitor surfaces, from `os` alone (no native module,

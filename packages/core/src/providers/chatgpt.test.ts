@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ChatGptProvider } from './chatgpt.js';
-import type { ProviderConfig } from '@kotrain/shared';
+import type { ProviderConfig } from '@agent-nekko/shared';
 import type { ProviderChunk } from './types.js';
 
 const cfg: ProviderConfig = {

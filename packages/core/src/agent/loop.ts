@@ -1,5 +1,5 @@
-import type { AgentEvent, ChatMessage, ToolCall, ToolResult } from '@kotrain/shared';
-import { DEFAULT_MAX_STEPS } from '@kotrain/shared';
+import type { AgentEvent, ChatMessage, ToolCall, ToolResult } from '@agent-nekko/shared';
+import { DEFAULT_MAX_STEPS } from '@agent-nekko/shared';
 import type { Provider, ToolSpec } from '../providers/types.js';
 import { BUILTIN_TOOLS } from './tools.js';
 import { RUNAWAY_NOTE, createRunawayGuard } from './runaway.js';

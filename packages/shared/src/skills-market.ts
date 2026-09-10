@@ -19,7 +19,32 @@ import type { SkillCategory, SkillDef, SkillWorkflow } from './skills.js';
 export type SkillSource = 'nekkolabs' | 'community' | 'vaizer';
 
 /** Where a skill can be installed. */
-export type InstallTarget = 'kotrain' | 'claude' | 'codex';
+export type InstallTarget = 'agent-nekko' | 'claude' | 'codex';
+
+/**
+ * Install targets are persisted on every install record and accepted over MCP,
+ * so the names this app shipped under stay valid inputs and are folded onto
+ * the current one on the way in.
+ */
+const LEGACY_INSTALL_TARGETS: Record<string, InstallTarget> = {
+  kotrain: 'agent-nekko',
+  nekkos: 'agent-nekko',
+  'open-paw': 'agent-nekko',
+};
+
+/** Every value accepted for a target, current name first (drives the MCP enum). */
+export const INSTALL_TARGETS: readonly string[] = [
+  'agent-nekko',
+  'claude',
+  'codex',
+  ...Object.keys(LEGACY_INSTALL_TARGETS),
+];
+
+/** Fold a stored or caller-supplied target onto the current name. */
+export function normalizeInstallTarget(target: string | undefined): InstallTarget {
+  if (!target) return 'agent-nekko';
+  return LEGACY_INSTALL_TARGETS[target] ?? (target as InstallTarget);
+}
 
 export interface InstallTargetInfo {
   id: InstallTarget;
@@ -76,7 +101,7 @@ export interface InstalledSkillRecord {
 }
 
 /** First-party skills by Nekko Labs. */
-export const KOTRAIN_SKILLS: MarketplaceSkill[] = [
+export const NEKKO_SKILLS: MarketplaceSkill[] = [
   {
     id: 'kotrain-review-council',
     name: 'review-council',
@@ -309,7 +334,7 @@ export const POPULAR_SKILLS: MarketplaceSkill[] = [
   },
 ];
 
-export const MARKET_SKILLS: MarketplaceSkill[] = [...KOTRAIN_SKILLS, ...POPULAR_SKILLS];
+export const MARKET_SKILLS: MarketplaceSkill[] = [...NEKKO_SKILLS, ...POPULAR_SKILLS];
 
 export function getMarketSkill(id: string): MarketplaceSkill | undefined {
   return MARKET_SKILLS.find((s) => s.id === id);

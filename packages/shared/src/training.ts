@@ -365,11 +365,11 @@ export function runFolderSlug(run: Pick<TrainingRun, 'name' | 'id'>): string {
 
 /**
  * The workspace-relative folder a run keeps its artifacts in. Training runs use
- * "kotrain-training/<slug>"; goal runs use "kotrain-goal/<slug>". The host tells
+ * "nekko-training/<slug>"; goal runs use "nekko-goal/<slug>". The host tells
  * the agent to work here, and the dashboard shows/opens it, so both agree.
  */
 export function runOutputDir(run: Pick<TrainingRun, 'name' | 'id' | 'kind'>): string {
-  return `${run.kind === 'goal' ? 'kotrain-goal' : 'kotrain-training'}/${runFolderSlug(run)}`;
+  return `${run.kind === 'goal' ? 'nekko-goal' : 'nekko-training'}/${runFolderSlug(run)}`;
 }
 
 /** Short human runtime, e.g. "15h", "2d 4h", "34m". */

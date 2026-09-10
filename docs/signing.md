@@ -1,6 +1,6 @@
 # Release signing
 
-How Kotrain's macOS builds get signed and notarized, what is wired, and what
+How Agent Nekko's macOS builds get signed and notarized, what is wired, and what
 needs a human with an Apple account.
 
 Everything here is **secret-gated**. With no signing secrets configured the
@@ -19,7 +19,7 @@ worked.
 
 ## macOS
 
-Kotrain is packaged by electron-builder, which does the signing, hardened
+Agent Nekko is packaged by electron-builder, which does the signing, hardened
 runtime, and notarization itself. There is no hand-rolled `codesign` pipeline
 here, and no `Developer ID Installer` certificate is needed, because the
 artifacts are `.dmg`/`.zip` rather than a `.pkg`.
@@ -37,7 +37,7 @@ Silicon. It steps aside when `CSC_LINK` is set.
 
 ### The entitlements, and why each one is there
 
-The hardened runtime disables things Electron and Kotrain need. See the
+The hardened runtime disables things Electron and Agent Nekko need. See the
 comments in [`build/entitlements.mac.plist`](../apps/desktop/build/entitlements.mac.plist);
 the short version:
 
@@ -168,7 +168,7 @@ message directing the maintainer to configure the trusted publisher or add
 
 npm's documented setup is under an existing package's settings, and npm does
 not currently provide a PyPI-style pending publisher for a package name that
-has never been published. Publish `kotrain` once manually with account
+has never been published. Publish `agent-nekko` once manually with account
 authentication and 2FA:
 
 ```bash
@@ -176,13 +176,13 @@ npm login
 npm publish --workspace=apps/cli --access public
 ```
 
-Then open the `kotrain` package settings on npmjs.com and add a GitHub Actions
+Then open the `agent-nekko` package settings on npmjs.com and add a GitHub Actions
 trusted publisher with:
 
 | Field | Value |
 | --- | --- |
 | Organization or user | `nekko-labs` |
-| Repository | `kotrain` |
+| Repository | `agent-nekko` |
 | Workflow filename | `release.yml` |
 | Allowed action | `npm publish` |
 
@@ -216,9 +216,9 @@ The release workflow already runs these on every signed macOS build and fails
 if any of them do. To check a downloaded `.dmg` by hand:
 
 ```bash
-codesign --verify --deep --strict --verbose=2 /Applications/Kotrain.app
-spctl --assess --type execute --verbose=4 /Applications/Kotrain.app
-xcrun stapler validate /Applications/Kotrain.app
+codesign --verify --deep --strict --verbose=2 /Applications/Agent Nekko.app
+spctl --assess --type execute --verbose=4 /Applications/Agent Nekko.app
+xcrun stapler validate /Applications/Agent Nekko.app
 ```
 
 `spctl` should say `accepted` with `source=Notarized Developer ID`.
@@ -228,7 +228,7 @@ xcrun stapler validate /Applications/Kotrain.app
 Only needed when debugging the signing config itself.
 
 ```bash
-CSC_NAME="Nekko Labs LLC (3HM5598S99)" npm run dist -w @kotrain/desktop
+CSC_NAME="Nekko Labs LLC (3HM5598S99)" npm run dist -w @agent-nekko/desktop
 ```
 
 `CSC_NAME` takes the certificate's **common name without the type prefix**.

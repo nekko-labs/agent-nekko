@@ -20,7 +20,7 @@ const cfg: BillingConfig = {
   secretKey: 'sk_test_123',
   webhookSecret: SECRET,
   prices: { pro: 'price_pro', team: 'price_team' },
-  publicUrl: 'https://cloud.kotrain.com',
+  publicUrl: 'https://cloud.agentnekko.com',
 };
 
 describe('verifyStripeSignature', () => {

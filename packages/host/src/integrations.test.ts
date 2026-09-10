@@ -76,7 +76,7 @@ describe('agent-tool detection and subagent install', () => {
     const text = readFileSync(join(home, '.codex', 'config.toml'), 'utf8');
     expect(text).toContain('model = "gpt-5"');
     expect(text).toContain('[mcp_servers.agent-nekko]');
-    expect(text).toContain('args = ["-y", "kotrain", "mcp"]');
+    expect(text).toContain('args = ["-y", "agent-nekko", "mcp"]');
     expect(readFileSync(join(home, '.codex', 'config.toml.bak'), 'utf8')).toBe('model = "gpt-5"\n');
 
     // Second install is a no-op success, not a duplicate section.
@@ -147,7 +147,7 @@ describe('agent-tool detection and subagent install', () => {
     mkdirSync(join(home, '.codex'));
     writeFileSync(
       join(home, '.codex', 'config.toml'),
-      'args = [\n  "-y",\n  "kotrain",\n]\ndoc = """\nmulti line\n"""\n',
+      'args = [\n  "-y",\n  "agent-nekko",\n]\ndoc = """\nmulti line\n"""\n',
     );
     const res = installSubagent('codex', home);
     expect(res.ok).toBe(true);
@@ -175,8 +175,10 @@ describe('agent-tool detection and subagent install', () => {
     for (const tool of ['claude', 'codex', 'cursor', 'windsurf'] as const) {
       const s = subagentSnippet(tool);
       expect(s.target).toBeTruthy();
+      // Both the server key and the npx package it runs are the current name;
+      // the snippet is copy-pasted by users, so it must not advertise an old one.
       expect(s.snippet).toContain('agent-nekko');
-      expect(s.snippet).toContain('kotrain');
+      expect(s.snippet).not.toMatch(/kotrain|nekkos|open-paw/i);
     }
     expect(subagentSnippet('codex').snippet).toContain('[mcp_servers.agent-nekko]');
     expect(subagentSnippet('claude').snippet).toContain('"mcpServers"');

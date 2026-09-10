@@ -2,8 +2,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { WorkflowStep } from '@kotrain/shared';
-import { MAX_STEP_LOOPS } from '@kotrain/shared';
+import type { WorkflowStep } from '@agent-nekko/shared';
+import { MAX_STEP_LOOPS } from '@agent-nekko/shared';
 import { setDataDir } from './paths.js';
 import {
   cancelWorkflowRun,

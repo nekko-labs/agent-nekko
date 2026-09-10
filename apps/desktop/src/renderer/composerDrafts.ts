@@ -1,3 +1,5 @@
+import { readBrandKey } from './brandStorage.js';
+
 /**
  * Unsent composer text and pending images, kept per chat.
  *
@@ -6,7 +8,7 @@
  * the draft here means it is still waiting when you come back.
  */
 
-const KEY = 'kotrain.composerDrafts';
+const KEY = 'nekko.composerDrafts';
 
 /**
  * Rough ceiling for the whole draft map. Pending images are data URLs, so a
@@ -28,7 +30,7 @@ type DraftMap = Record<string, ComposerDraft>;
 function readAll(): DraftMap {
   if (typeof window === 'undefined') return {};
   try {
-    const parsed: unknown = JSON.parse(window.localStorage.getItem(KEY) ?? 'null');
+    const parsed: unknown = JSON.parse(readBrandKey(window.localStorage, KEY) ?? 'null');
     if (!parsed || typeof parsed !== 'object') return {};
     const out: DraftMap = {};
     for (const [id, value] of Object.entries(parsed as Record<string, unknown>)) {

@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode } from '@kotrain/shared';
+import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
 import { ThemePresetPicker } from '../components/ThemePresetPicker.js';
-import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION } from '@kotrain/shared';
+import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION } from '@agent-nekko/shared';
 import { ShieldIcon, SunIcon, TrashIcon, RobotIcon, WandIcon } from '../icons.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
 import { useT, LANGUAGES } from '../i18n.js';
@@ -30,26 +30,26 @@ export function SettingsView() {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const prevOnboardingOpen = useRef(onboardingOpen);
 
-  useEffect(() => { window.kotrain.getSettings().then(setSettings); }, []);
+  useEffect(() => { window.nekko.getSettings().then(setSettings); }, []);
 
   // When the wizard overlay closes, re-read settings so the Settings view
   // behind it reflects any theme/onboarding changes made inside the wizard.
   useEffect(() => {
     if (prevOnboardingOpen.current && !onboardingOpen) {
-      void window.kotrain.getSettings().then(setSettings);
+      void window.nekko.getSettings().then(setSettings);
     }
     prevOnboardingOpen.current = onboardingOpen;
   }, [onboardingOpen]);
 
   const update = async (patch: Partial<AppSettings>) => {
-    const next = await window.kotrain.updateSettings(patch);
+    const next = await window.nekko.updateSettings(patch);
     setSettings(next);
     useStore.setState({ settings: next });
     applyTheme();
   };
 
   /** Re-read settings the host changed on its own (connecting Hypergate writes an MCP entry). */
-  const reload = useCallback(async () => setSettings(await window.kotrain.getSettings()), []);
+  const reload = useCallback(async () => setSettings(await window.nekko.getSettings()), []);
 
   /** Reopen the first-run wizard: clear the completion flag, then show it. */
   const replaySetup = async () => {
@@ -370,7 +370,7 @@ function BackupSection({ settings, onSettings }: { settings: AppSettings; onSett
         const parsed = JSON.parse(await file.text());
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('Not a settings object');
         if (!window.confirm('Import these settings? This overwrites your current configuration.')) return;
-        const next = await window.kotrain.updateSettings(parsed);
+        const next = await window.nekko.updateSettings(parsed);
         onSettings(next);
         await refreshProviders();
         pushToast('success', 'Settings imported.');
@@ -400,7 +400,7 @@ function DataSection({ onSettings }: { onSettings: (s: AppSettings) => void }) {
   const clear = async (scope: 'today' | 'month' | 'all', label: string) => {
     if (!window.confirm(`Delete ${label}? This can't be undone.`)) return;
     setBusy(true);
-    const n = await window.kotrain.clearSessions(scope);
+    const n = await window.nekko.clearSessions(scope);
     await refreshSessions();
     useStore.setState({ activeSessionId: null });
     setBusy(false);
@@ -410,7 +410,7 @@ function DataSection({ onSettings }: { onSettings: (s: AppSettings) => void }) {
   const reset = async () => {
     if (!window.confirm('Reset all settings to defaults? Your providers and preferences will be cleared (chats are kept).')) return;
     setBusy(true);
-    const s = await window.kotrain.resetSettings();
+    const s = await window.nekko.resetSettings();
     onSettings(s);
     await refreshProviders();
     setBusy(false);
@@ -421,7 +421,7 @@ function DataSection({ onSettings }: { onSettings: (s: AppSettings) => void }) {
     if (!window.confirm('Delete EVERYTHING, all chats, settings, memory, and usage? This cannot be undone.')) return;
     if (!window.confirm('Are you absolutely sure? This wipes all Agent Nekko data.')) return;
     setBusy(true);
-    const s = await window.kotrain.wipeAllData();
+    const s = await window.nekko.wipeAllData();
     onSettings(s);
     await refreshSessions();
     await refreshProviders();
@@ -513,7 +513,7 @@ function McpSection({
   const connect = async () => {
     setBusy(true);
     try {
-      const st = await window.kotrain.getMcpStatus();
+      const st = await window.nekko.getMcpStatus();
       setStatus(st);
       const tools = st.reduce((n, s) => n + s.tools.length, 0);
       pushToast('success', `Connected ${st.filter((s) => s.connected).length}/${st.length} server(s), ${tools} tool(s).`);
@@ -578,7 +578,7 @@ function McpSection({
           </p>
           <button
             className="btn btn-ghost ml-auto shrink-0 px-2! py-0.5! text-[11px] text-accent"
-            onClick={() => window.kotrain.openPath('https://hypergate.app')}
+            onClick={() => window.nekko.openPath('https://hypergate.app')}
           >
             Get Hypergate ↗
           </button>

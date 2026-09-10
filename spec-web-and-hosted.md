@@ -1,8 +1,8 @@
-# Kotrain, Web, Docker & Hosted Editions (Spec)
+# Agent Nekko, Web, Docker & Hosted Editions (Spec)
 
 > Added 2026-06-20. Expands the canonical [master-build-prompt.md](master-build-prompt.md) with three new pillars requested by Philip:
 > 1. An **offline web edition** that runs the *same code* as the native app via one npm command or `docker compose`.
-> 2. A **paid hosted edition** ("Kotrain Cloud") with subscriptions, an always-available **Zero Data Retention (ZDR)** option, cloud-hosted chat history + file management, and **phone connectivity to your locally-running model**.
+> 2. A **paid hosted edition** ("Agent Nekko Cloud") with subscriptions, an always-available **Zero Data Retention (ZDR)** option, cloud-hosted chat history + file management, and **phone connectivity to your locally-running model**.
 > 3. **Positioning**: real on-device + codebase usability (vs LM Studio's chat-only experience) with IDE-like file viewing/editing (vs terminal-only CLIs).
 
 This is a planning/spec document. Implementation lands in phases (see [Build plan](#build-plan--phases)).
@@ -11,10 +11,10 @@ This is a planning/spec document. Implementation lands in phases (see [Build pla
 
 ## 1. Editions overview
 
-| | **Desktop** (today) | **Self-hosted web** | **Docker** | **Kotrain Cloud** (paid) |
+| | **Desktop** (today) | **Self-hosted web** | **Docker** | **Agent Nekko Cloud** (paid) |
 |---|---|---|---|---|
 | Runtime | Electron | Node server + browser | Node server in a container | Managed multi-tenant service |
-| Install | installer / `npm run dev` | `npx kotrain` or `npm run web` | `docker compose up` | sign in at app.kotrain.com |
+| Install | installer / `npm run dev` | `npx agent-nekko` or `npm run web` | `docker compose up` | sign in at app.agentnekko.com |
 | Runs your code & files | ✅ local FS | ✅ local FS | ✅ mounted volume | ✅ via paired local agent |
 | Local models | ✅ | ✅ | ✅ (host network) | ✅ via secure relay |
 | Cost | free, OSS | free, OSS | free, OSS | subscription |
@@ -22,7 +22,7 @@ This is a planning/spec document. Implementation lands in phases (see [Build pla
 | Phone access |, | LAN only | LAN only | ✅ from anywhere |
 | Data retention | local only | local only | local only | **ZDR option always on offer** |
 
-**One promise across all of them:** the engine (`@kotrain/core`) and the entire React UI are identical. Only the *host transport* differs.
+**One promise across all of them:** the engine (`@agent-nekko/core`) and the entire React UI are identical. Only the *host transport* differs.
 
 ---
 
@@ -31,7 +31,7 @@ This is a planning/spec document. Implementation lands in phases (see [Build pla
 ### 2.1 Where we are
 - `packages/core`, pure engine (providers, agent loop, guardrails, context, indexer, memory, connectors). Already transport-agnostic. ✅
 - `apps/desktop/src/main/*`, **host services** (settings store, sessions, chat orchestrator, sandboxed tool executor, workspace indexer, memory store, usage log, connector fetch) currently live here and are wired to the renderer through Electron IPC (`ipc.ts` + `preload`).
-- `apps/desktop/src/renderer/*`, React UI that calls `window.kotrain.*` (the `KotrainApi` contract in `@kotrain/shared`).
+- `apps/desktop/src/renderer/*`, React UI that calls `window.nekko.*` (the `NekkoApi` contract in `@agent-nekko/shared`).
 
 ### 2.2 The refactor: extract `packages/host`
 Move the service logic out of `apps/desktop/src/main` into a new transport-agnostic **`packages/host`**:
@@ -39,26 +39,26 @@ Move the service logic out of `apps/desktop/src/main` into a new transport-agnos
 ```
 packages/host/        // Node-only, no Electron, no HTTP, just services + a Host facade
   services/           // settings, sessions, chat, tools, workspace, memory, usage, connectors
-  host.ts             // createHost(opts) → an object implementing every KotrainApi method
+  host.ts             // createHost(opts) → an object implementing every NekkoApi method
                       // + an event emitter for AgentEvent / IndexProgress
   storage.ts          // pluggable persistence (local FS today; cloud adapter for Cloud)
 ```
 
-`createHost()` returns one object whose methods are exactly the `KotrainApi` surface (minus the `on*` subscriptions, which become an EventEmitter). Every edition wraps the same `Host`:
+`createHost()` returns one object whose methods are exactly the `NekkoApi` surface (minus the `on*` subscriptions, which become an EventEmitter). Every edition wraps the same `Host`:
 
 - **Electron** (`apps/desktop/src/main`): `ipcMain.handle(channel, (e,...args) => host[method](...args))`; forwards `host.on('agentEvent', …)` to `webContents.send`. (This is a thin rewrite of today's `ipc.ts`.)
 - **Web server** (`apps/server`): one HTTP route per request method + a WebSocket for streamed events. (Details in §3.)
 
 ### 2.3 Renderer transport adapter
-The renderer must get `window.kotrain` regardless of runtime. Introduce a tiny bootstrap that picks an adapter:
+The renderer must get `window.nekko` regardless of runtime. Introduce a tiny bootstrap that picks an adapter:
 
-- **Electron**: the existing `preload` exposes `window.kotrain` (unchanged).
-- **Web**: a bundled `web-client.ts` defines `window.kotrain` where each method is a `fetch('/api/<channel>', {body})` call, and `onAgentEvent` / `onIndexProgress` subscribe to a WebSocket (or SSE). It is API-compatible with `KotrainApi`, so **no view code changes**.
+- **Electron**: the existing `preload` exposes `window.nekko` (unchanged).
+- **Web**: a bundled `web-client.ts` defines `window.nekko` where each method is a `fetch('/api/<channel>', {body})` call, and `onAgentEvent` / `onIndexProgress` subscribe to a WebSocket (or SSE). It is API-compatible with `NekkoApi`, so **no view code changes**.
 
-Selection is by build target / presence of the preload bridge: `window.kotrain ??= makeWebClient()`.
+Selection is by build target / presence of the preload bridge: `window.nekko ??= makeWebClient()`.
 
 ### 2.4 Net effect
-`@kotrain/core` + `apps/desktop/src/renderer` are shared verbatim. New code is: `packages/host` (mostly moved), `apps/server` (new, thin), and `renderer/web-client.ts` (new, thin). The desktop `main` shrinks to a host wiring file.
+`@agent-nekko/core` + `apps/desktop/src/renderer` are shared verbatim. New code is: `packages/host` (mostly moved), `apps/server` (new, thin), and `renderer/web-client.ts` (new, thin). The desktop `main` shrinks to a host wiring file.
 
 ---
 
@@ -73,7 +73,7 @@ Selection is by build target / presence of the preload bridge: `window.kotrain ?
 5. Opens the default browser at `http://localhost:1440`.
 
 Run paths:
-- `npx kotrain` (published bin) → downloads + starts the server.
+- `npx agent-nekko` (published bin) → downloads + starts the server.
 - In-repo: `npm run web` → builds renderer + core + host, starts `apps/server`.
 - The server is **offline-first**: it makes no outbound calls except to the model servers and connectors the user configures.
 
@@ -82,17 +82,17 @@ Ship a `Dockerfile` + `docker-compose.yml`:
 
 ```yaml
 services:
-  kotrain:
-    image: ghcr.io/nekko-labs/kotrain:latest    # or build: .
+  agent-nekko:
+    image: ghcr.io/nekko-labs/agent-nekko:latest    # or build: .
     ports: ["1440:1440"]
     volumes:
       - ./workspace:/workspace                # codebases the agent may touch
-      - kotrain-data:/data                      # settings, sessions, memory, usage
+      - agent-nekko-data:/data                      # settings, sessions, memory, usage
     environment:
-      - KOTRAIN_SANDBOX=workspace-jail
-      - KOTRAIN_DATA_DIR=/data
+      - NEKKO_SANDBOX=workspace-jail
+      - NEKKO_DATA_DIR=/data
     extra_hosts: ["host.docker.internal:host-gateway"]   # reach a model server on the host
-volumes: { kotrain-data: {} }
+volumes: { agent-nekko-data: {} }
 ```
 
 - Workspaces map to mounted volumes; the **workspace-jail sandbox** confines tool file access to `/workspace`.
@@ -107,12 +107,12 @@ The web server grants file + shell access to whoever can reach it. Therefore:
 
 ---
 
-## 4. Kotrain Cloud (paid, hosted)
+## 4. Agent Nekko Cloud (paid, hosted)
 
 The managed edition. Everything the OSS app does, plus convenience that only a hosted service can provide, without giving up local execution or privacy.
 
 ### 4.1 What it adds over self-hosting
-1. **Zero-setup access** from any browser at `app.kotrain.com`.
+1. **Zero-setup access** from any browser at `app.agentnekko.com`.
 2. **Cloud chat history**: sessions sync across devices, encrypted at rest.
 3. **Cloud file management**: a cloud workspace (upload/organize/version files) alongside your local ones.
 4. **Phone connectivity to your local model**: use your phone to drive the model running on your home/office machine, from anywhere (§4.5). This is the headline cloud feature.
@@ -141,15 +141,15 @@ A first-class, always-available mode (not an enterprise-only afterthought):
 - **Verifiability**: published data-flow diagram; retention settings visible in-app; audit log of what was/wasn't stored.
 
 ### 4.5 Phone connectivity to your local model (the relay)
-Goal: open Kotrain on your phone, talk to the LLM running on your home machine, securely, through NAT, without port-forwarding.
+Goal: open Agent Nekko on your phone, talk to the LLM running on your home machine, securely, through NAT, without port-forwarding.
 
 ```
-[ Phone / browser ]  --TLS-->  [ Kotrain Cloud relay ]  <--outbound WSS--  [ Local agent on your machine ]
-       (Cloud web UI)              (auth + routing,            (desktop app or `kotrain agent`;
+[ Phone / browser ]  --TLS-->  [ Agent Nekko Cloud relay ]  <--outbound WSS--  [ Local agent on your machine ]
+       (Cloud web UI)              (auth + routing,            (desktop app or `agent-nekko agent`;
                                     no plaintext storage)        holds the model + tools + files)
 ```
 
-- **Local agent**: the desktop app (or a headless `kotrain agent` / the self-hosted server) opens a persistent **outbound** WSS connection to the relay and registers under the user's account with a device pairing token. No inbound ports.
+- **Local agent**: the desktop app (or a headless `agent-nekko agent` / the self-hosted server) opens a persistent **outbound** WSS connection to the relay and registers under the user's account with a device pairing token. No inbound ports.
 - **Relay**: authenticates both ends, matches a phone session to the right agent, and forwards an encrypted channel. The relay is a dumb pipe for inference/tool traffic.
 - **End-to-end encryption**: agent↔client traffic is encrypted with keys established at pairing (relay sees ciphertext for message bodies). This is what makes relayed local-model use **inherently ZDR**.
 - **What runs where**: inference runs on the local machine's model server; tool calls (read/edit files, run commands, index) execute on the local machine under its guardrails/sandbox. The phone is a thin client.
@@ -169,14 +169,14 @@ Goal: open Kotrain on your phone, talk to the LLM running on your home machine, 
 Capture these on the website + README.
 
 ### 5.1 vs LM Studio (and Ollama UIs)
-> **LM Studio runs models. Kotrain runs *with your work*.**
+> **LM Studio runs models. Agent Nekko runs *with your work*.**
 - LM Studio / most local UIs are **chat-only**, a great model runner with a chat box, but no awareness of your files or projects.
-- Kotrain **reads, edits, searches, and runs** in your actual codebases: multi-folder index, file viewer + inline editing, tool-using agent, per-project memory, guardrails. Same easy local-model setup, but the model can *do the work*, not just talk about it.
+- Agent Nekko **reads, edits, searches, and runs** in your actual codebases: multi-folder index, file viewer + inline editing, tool-using agent, per-project memory, guardrails. Same easy local-model setup, but the model can *do the work*, not just talk about it.
 
 ### 5.2 vs terminal CLIs (Claude Code, aider, etc.)
 > **The power of an agentic CLI, with eyes.**
 - Terminal agents are powerful but blind, you can't *see* what changed without `git diff`, and editing means leaving the tool.
-- Kotrain gives an **IDE-like surface**: browse the indexed file tree, view files, see diffs, and edit inline, while the agent works alongside you. Approvals and the Context Inspector make every action visible.
+- Agent Nekko gives an **IDE-like surface**: browse the indexed file tree, view files, see diffs, and edit inline, while the agent works alongside you. Approvals and the Context Inspector make every action visible.
 
 ### 5.3 Messaging pillars
 1. **Local-first, truly usable**: your models + your files, on your machine.
@@ -197,7 +197,7 @@ Capture these on the website + README.
 
 Numbers are placeholders pending cost modeling (relay bandwidth, storage). ZDR is available on **all** paid plans, not gated to Team.
 
-**Relay passthrough decision (2026-07-22, T100)**: self-hosting the relay is free forever and first-class (one Docker command, `ghcr.io/nekko-labs/kotrain-relay`; Compose/Coolify/Fly recipes in docs/REMOTE.md). The **managed relay** (`kotrain-relay.fly.dev`) runs free during beta with per-connection rate limits; at Cloud launch it becomes part of the paid plans by pointing `KOTRAIN_RELAY_AUTHZ_URL` at the cloud's `/api/relay/authorize` (already implemented; checks the account and returns the plan's `maxDevices`). Rationale: the relay only routes ciphertext, so managed hosting is a low-liability bandwidth cost that maps cleanly to a subscription, while self-hosting preserves the open-source promise.
+**Relay passthrough decision (2026-07-22, T100)**: self-hosting the relay is free forever and first-class (one Docker command, `ghcr.io/nekko-labs/agent-nekko-relay`; Compose/Coolify/Fly recipes in docs/REMOTE.md). The **managed relay** (`kotrain-relay.fly.dev`) runs free during beta with per-connection rate limits; at Cloud launch it becomes part of the paid plans by pointing `NEKKO_RELAY_AUTHZ_URL` at the cloud's `/api/relay/authorize` (already implemented; checks the account and returns the plan's `maxDevices`). Rationale: the relay only routes ciphertext, so managed hosting is a low-liability bandwidth cost that maps cleanly to a subscription, while self-hosting preserves the open-source promise.
 
 ---
 
@@ -208,11 +208,11 @@ Phase ordering keeps the OSS app shippable throughout.
 - [ ] **P2.1, Host extraction**: move `apps/desktop/src/main` services into `packages/host`; rewrite desktop `main` as thin IPC wiring over `createHost()`. No user-visible change; keep build + tests green.
 - [ ] **P2.2, Web server**: `apps/server` (Fastify) mapping the IPC contract to HTTP + WS; `renderer/web-client.ts` adapter; `npm run web`; localhost bind + token for non-local.
 - [ ] **P2.3, Docker**: `Dockerfile`, `docker-compose.yml`, `host.docker.internal` model access, volume-mounted workspaces, non-root, published image via CI.
-- [ ] **P2.4, Packaging/publish**: `npx kotrain` bin; website download/run section updated; docs.
-- [ ] **P3.1, Cloud foundation**: accounts/auth, Postgres, entitlements, app.kotrain.com shell reusing the same renderer with a cloud transport.
+- [ ] **P2.4, Packaging/publish**: `npx agent-nekko` bin; website download/run section updated; docs.
+- [ ] **P3.1, Cloud foundation**: accounts/auth, Postgres, entitlements, app.agentnekko.com shell reusing the same renderer with a cloud transport.
 - [x] **P3.2, Payments**: Stripe Checkout + Portal + signature-verified webhooks → `store.setPlan`; entitlement gating (already existed). Gated on `STRIPE_SECRET_KEY`; live charges need keys. See §4.3.
 - [ ] **P3.3, ZDR + cloud history/files**: retention modes, encrypted storage, sync engine, ZDR badges + audit.
-- [x] **P3.4, Relay + phone**: DONE (T100). Relay v2 (per-device cids, unicast, kick, limits, optional cloud authz gate), agent-side device registry with 10-min single-use pairing codes + rename/revoke/rotate, HELLO handshake over the E2E channel, phone bottom-nav, per-device push tokens, managed relay live at `wss://kotrain-relay.fly.dev`, self-host image `ghcr.io/nekko-labs/kotrain-relay`. Notably the device registry lives on the AGENT, so revocation shipped without the Cloud account model; the cloud's `/api/relay/authorize` gate exists for making the managed relay a paid perk at launch. See docs/REMOTE.md.
+- [x] **P3.4, Relay + phone**: DONE (T100). Relay v2 (per-device cids, unicast, kick, limits, optional cloud authz gate), agent-side device registry with 10-min single-use pairing codes + rename/revoke/rotate, HELLO handshake over the E2E channel, phone bottom-nav, per-device push tokens, managed relay live at `wss://kotrain-relay.fly.dev`, self-host image `ghcr.io/nekko-labs/agent-nekko-relay`. Notably the device registry lives on the AGENT, so revocation shipped without the Cloud account model; the cloud's `/api/relay/authorize` gate exists for making the managed relay a paid perk at launch. See docs/REMOTE.md.
 - [ ] **P3.5, Managed connectors**: pre-registered OAuth apps for Gmail/Drive/Slack/Discord.
 
 ## 8. Open questions

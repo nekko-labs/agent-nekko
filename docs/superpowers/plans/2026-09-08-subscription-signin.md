@@ -42,7 +42,7 @@
 - Create: `packages/shared/src/oauth.ts` — `OAuthProvider`, `OAuthTokenSet`, `OAuthSessionInfo`, channel constants.
 - Modify: `packages/shared/src/models.ts` — `ProviderKind` += `'chatgpt'`; `ProviderConfig` += `auth?: 'apikey' | 'subscription'`, `accountId?: string`, `tokenKey?: string`; `PROVIDER_DEFAULTS` entry for `chatgpt`.
 - Modify: `packages/shared/src/settings.ts` — nothing needed (providers already persist); confirm `tokens.json` never lands in settings export/import (it should be excluded or flagged).
-- Modify: `packages/shared/src/ipc.ts` — `oauth:*` channel names + `KotrainApi` methods.
+- Modify: `packages/shared/src/ipc.ts` — `oauth:*` channel names + `NekkoApi` methods.
 - Create: `packages/host/src/oauth.ts` — PKCE, loopback listener, exchange, refresh, token store, CLI-import readers.
 - Modify: `packages/host/src/host.ts`, `dispatch.ts` — five-touch wiring.
 - Modify: `apps/desktop/src/preload/index.ts`, `apps/desktop/src/renderer/web-client.ts` — five-touch wiring (client methods only; the flow itself runs host-side).
@@ -116,7 +116,7 @@ if (this.config.auth === 'subscription') {
 
 - [ ] **T1: shared OAuth types + IPC contract**
   - Create `packages/shared/src/oauth.ts` (types above).
-  - `packages/shared/src/ipc.ts`: channels `oauth:begin`, `oauth:finish`, `oauth:cancel`, `oauth:status`, `oauth:signout`, `providers:importCliAuth`; `KotrainApi` methods `oauthBegin(provider)`, `oauthFinish(sessionId, code)`, `oauthCancel(sessionId)`, `oauthStatus(provider)`, `oauthSignOut(providerConfigId)`, `importCliAuth()` → which CLIs had credentials found.
+  - `packages/shared/src/ipc.ts`: channels `oauth:begin`, `oauth:finish`, `oauth:cancel`, `oauth:status`, `oauth:signout`, `providers:importCliAuth`; `NekkoApi` methods `oauthBegin(provider)`, `oauthFinish(sessionId, code)`, `oauthCancel(sessionId)`, `oauthStatus(provider)`, `oauthSignOut(providerConfigId)`, `importCliAuth()` → which CLIs had credentials found.
   - Extend `ProviderConfig` (`auth`, `tokenKey`, `accountId`) and add `'chatgpt'` kind + `PROVIDER_DEFAULTS` entry (`baseUrl: 'https://chatgpt.com/backend-api'`, `needsKey: false`, label `'ChatGPT (subscription)'`).
 
 - [ ] **T2: host OAuth service**

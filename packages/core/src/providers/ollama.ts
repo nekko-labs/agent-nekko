@@ -1,4 +1,4 @@
-import type { ModelInfo, ProviderConfig, ToolCall } from '@kotrain/shared';
+import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { DecodeClock } from './decode-clock.js';
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { AppSettings, Session, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@kotrain/shared';
-import { getMarketSkill, marketToSkillDef, THEME_PRESETS } from '@kotrain/shared';
+import type { AppSettings, Session, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
+import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 
@@ -258,7 +258,7 @@ export const useStore = create<UiState>((set, get) => ({
       return { monitorDockRect: r };
     }),
   newChat: async () => {
-    const s = await window.kotrain.createSession(get().activeWorkspaceId ?? undefined);
+    const s = await window.nekko.createSession(get().activeWorkspaceId ?? undefined);
     await get().refreshSessions();
     set({ activeSessionId: s.id, view: 'chat' });
     get().openChatPane(s.id);
@@ -271,7 +271,7 @@ export const useStore = create<UiState>((set, get) => ({
 
   refreshSettings: async () => {
     try {
-      const settings = await window.kotrain.getSettings();
+      const settings = await window.nekko.getSettings();
       const onboardingOpen = shouldAutoOpenOnboarding(settings);
       set({ settings, onboardingOpen, settingsLoaded: true });
       get().applyTheme();
@@ -289,7 +289,7 @@ export const useStore = create<UiState>((set, get) => ({
   },
 
   refreshSessions: async () => {
-    const sessions = await window.kotrain.listSessions();
+    const sessions = await window.nekko.listSessions();
     set({ sessions });
     if (!get().activeSessionId && sessions[0]) set({ activeSessionId: sessions[0].id });
   },
@@ -298,9 +298,9 @@ export const useStore = create<UiState>((set, get) => ({
   installedSkillDefs: [],
   refreshSkills: async () => {
     try {
-      const installedSkills = await window.kotrain.listInstalledSkills();
+      const installedSkills = await window.nekko.listInstalledSkills();
       const installedSkillDefs = installedSkills
-        .filter((r) => r.target === 'kotrain')
+        .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
         // Vaizer (non-catalog) installs carry their own snapshot on the record.
         .map((r) => r.skill ?? getMarketSkill(r.skillId))
         .filter((m): m is NonNullable<typeof m> => !!m)
@@ -324,7 +324,7 @@ export const useStore = create<UiState>((set, get) => ({
   setActiveSession: (id) => set({ activeSessionId: id }),
 
   refreshProviders: async () => {
-    const providers = await window.kotrain.listProviders();
+    const providers = await window.nekko.listProviders();
     set({ providers });
     const active = get().activeProviderId ?? providers[0]?.id ?? null;
     if (active) {
@@ -338,7 +338,7 @@ export const useStore = create<UiState>((set, get) => ({
 
   selectProvider: async (id) => {
     set({ activeProviderId: id, models: [] });
-    const models = await window.kotrain.listModels(id);
+    const models = await window.nekko.listModels(id);
     set({ models });
     // Keep the current model if this provider serves it, otherwise leave it
     // unset: a chat then asks which model to use instead of inheriting a guess.
@@ -348,12 +348,12 @@ export const useStore = create<UiState>((set, get) => ({
     if (!models.some((m) => m.id === get().activeModelId)) set({ activeModelId: null });
     // Remember as the default for new chats and next launch.
     const activeModelId = get().activeModelId;
-    window.kotrain.updateSettings({ defaultProviderId: id, ...(activeModelId ? { defaultModelId: activeModelId } : {}) });
+    window.nekko.updateSettings({ defaultProviderId: id, ...(activeModelId ? { defaultModelId: activeModelId } : {}) });
   },
 
   selectModel: (id) => {
     set({ activeModelId: id });
-    window.kotrain.updateSettings({ defaultProviderId: get().activeProviderId ?? undefined, defaultModelId: id });
+    window.nekko.updateSettings({ defaultProviderId: get().activeProviderId ?? undefined, defaultModelId: id });
   },
 
   toggleContextPanel: () => set((s) => ({ contextPanelOpen: !s.contextPanelOpen })),
@@ -390,7 +390,7 @@ export const useStore = create<UiState>((set, get) => ({
 
   refreshTerminals: async () => {
     try {
-      set({ terminals: await window.kotrain.listTerminals() });
+      set({ terminals: await window.nekko.listTerminals() });
     } catch {
       /* terminals unsupported on this transport */
     }
@@ -398,7 +398,7 @@ export const useStore = create<UiState>((set, get) => ({
 
   newTerminal: async (workspaceId, shell) => {
     const wid = workspaceId ?? get().activeWorkspaceId ?? undefined;
-    const t = await window.kotrain.createTerminal({ workspaceId: wid, shell });
+    const t = await window.nekko.createTerminal({ workspaceId: wid, shell });
     await get().refreshTerminals();
     set({ view: 'chat' });
     get().openTerminalPane(t.id);
@@ -483,7 +483,7 @@ export const useStore = create<UiState>((set, get) => ({
   hypergate: undefined,
   refreshHypergate: async (port) => {
     try {
-      const found = await window.kotrain.detectHypergate(port);
+      const found = await window.nekko.detectHypergate(port);
       // Probing is anonymous by design, so a re-probe of the same daemon must
       // not forget what connecting to it taught us (which agent we are).
       set((s) => ({
@@ -497,7 +497,7 @@ export const useStore = create<UiState>((set, get) => ({
   },
   connectHypergate: async (port) => {
     try {
-      const info = await window.kotrain.connectHypergate(port);
+      const info = await window.nekko.connectHypergate(port);
       if (!info) {
         get().pushToast('error', `Hypergate isn't running on port ${port ?? 7777}. Start it, then connect again.`);
         set({ hypergate: null });
@@ -523,7 +523,7 @@ export const useStore = create<UiState>((set, get) => ({
     // Target the active chat; create one if there isn't a usable session.
     let sid = get().activeSessionId;
     if (!sid || !get().sessions.some((s) => s.id === sid)) {
-      const s = await window.kotrain.createSession(get().activeWorkspaceId ?? undefined);
+      const s = await window.nekko.createSession(get().activeWorkspaceId ?? undefined);
       await get().refreshSessions();
       sid = s.id;
       set({ activeSessionId: sid });
@@ -535,7 +535,7 @@ export const useStore = create<UiState>((set, get) => ({
 
   refreshSessionPrs: async (sessionId) => {
     try {
-      const prs = await window.kotrain.listSessionPrs(sessionId);
+      const prs = await window.nekko.listSessionPrs(sessionId);
       set((s) => ({ prsBySession: { ...s.prsBySession, [sessionId]: prs } }));
     } catch {
       /* older host without PR channels, or gh/API unavailable */
@@ -621,19 +621,19 @@ export const useStore = create<UiState>((set, get) => ({
     const byId = new Map(s.workspaces.map((w) => [w.id, w]));
     const workspaces = orderedIds.map((id) => byId.get(id)).filter((w): w is NonNullable<typeof w> => !!w);
     if (workspaces.length !== s.workspaces.length) return; // guard against a lost entry
-    await window.kotrain.updateSettings({ workspaces });
+    await window.nekko.updateSettings({ workspaces });
     await get().refreshSettings();
   },
 
   layoutChats: async (targetWorkspaceId, orderedIds, moveId) => {
-    if (moveId) await window.kotrain.setSessionWorkspace(moveId, targetWorkspaceId);
-    await Promise.all(orderedIds.map((id, i) => window.kotrain.setSessionOptions(id, { order: i })));
+    if (moveId) await window.nekko.setSessionWorkspace(moveId, targetWorkspaceId);
+    await Promise.all(orderedIds.map((id, i) => window.nekko.setSessionOptions(id, { order: i })));
     await get().refreshSessions();
   },
 
   layoutTerminals: async (targetWorkspaceId, orderedIds, moveId) => {
-    if (moveId) await window.kotrain.updateTerminal(moveId, { workspaceId: targetWorkspaceId ?? null });
-    await Promise.all(orderedIds.map((id, i) => window.kotrain.updateTerminal(id, { order: i })));
+    if (moveId) await window.nekko.updateTerminal(moveId, { workspaceId: targetWorkspaceId ?? null });
+    await Promise.all(orderedIds.map((id, i) => window.nekko.updateTerminal(id, { order: i })));
     await get().refreshTerminals();
   },
 }));

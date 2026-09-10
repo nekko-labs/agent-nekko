@@ -21,7 +21,7 @@ describe('LimitsService header capture', () => {
 
   it('emits a normalized snapshot from Anthropic response headers', () => {
     const events = new EventEmitter();
-    const emitted: Array<{ tokenKey: string; limits: import('@kotrain/shared').SubscriptionLimits }> = [];
+    const emitted: Array<{ tokenKey: string; limits: import('@agent-nekko/shared').SubscriptionLimits }> = [];
     events.on('limitsUpdated', (e) => emitted.push(e));
     initLimits(events);
 
@@ -234,7 +234,7 @@ describe('LimitsService ChatGPT /wham/usage poll', () => {
     );
 
     const events = new EventEmitter();
-    const emitted: Array<{ tokenKey: string; limits: import('@kotrain/shared').SubscriptionLimits }> = [];
+    const emitted: Array<{ tokenKey: string; limits: import('@agent-nekko/shared').SubscriptionLimits }> = [];
     events.on('limitsUpdated', (e) => emitted.push(e));
     initLimits(events);
 

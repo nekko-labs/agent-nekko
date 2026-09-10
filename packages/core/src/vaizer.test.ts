@@ -11,7 +11,7 @@ import {
   marketWorkflow,
   layoutWorkflow,
   MARKET_SKILLS,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 
 describe('vaizer catalog snapshot', () => {
   it('bundled snapshot is well-formed and offline-marked', () => {

@@ -68,7 +68,7 @@ export function HypergatePane({ url }: { url: string }) {
           <button
             className="rounded-sm p-1 text-ink-faint hover:text-ink"
             title="Open in external browser"
-            onClick={() => window.kotrain.openPath(url)}
+            onClick={() => window.nekko.openPath(url)}
           >
             <ExternalIcon className="h-3.5 w-3.5" />
           </button>

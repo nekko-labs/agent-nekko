@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
-import type { AgentToolId, AgentToolStatus, SubagentInstallResult, SubagentSnippet } from '@kotrain/shared';
+import type { AgentToolId, AgentToolStatus, SubagentInstallResult, SubagentSnippet } from '@agent-nekko/shared';
 import { backupFile, writeJsonAtomic, writeTextAtomic } from './secure-file.js';
 
 /**
  * Installing Agent Nekko as an MCP subagent inside other agent CLIs. Each tool
  * is detected by its user-level config directory; install merges an
- * `agent-nekko` entry (`npx -y kotrain mcp`, the portable invocation) into the
+ * `agent-nekko` entry (`npx -y agent-nekko mcp`, the portable invocation) into the
  * tool's MCP config file. The existing file is copied to `<file>.bak` before
  * any write, and writes go through the atomic temp+rename helpers so a crash
  * can't leave a half-written config.
@@ -71,7 +71,7 @@ const TOOLS: AgentToolSpec[] = [
 ];
 
 /** The TOML block appended to Codex's config.toml. */
-const TOML_SECTION = `[mcp_servers.${SERVER_NAME}]\ncommand = "npx"\nargs = ["-y", "kotrain", "mcp"]\n`;
+const TOML_SECTION = `[mcp_servers.${SERVER_NAME}]\ncommand = "npx"\nargs = ["-y", "agent-nekko", "mcp"]\n`;
 
 /** Matches an existing `[mcp_servers.agent-nekko]`/`[mcp_servers.kotrain]` table header, bare or quoted. */
 const TOML_ENTRY_RE = new RegExp(
@@ -311,6 +311,6 @@ export function subagentSnippet(tool: AgentToolId): SubagentSnippet {
   }
   return {
     target: spec.snippetTarget,
-    snippet: `"mcpServers": {\n  "${SERVER_NAME}": {\n    "command": "npx",\n    "args": ["-y", "kotrain", "mcp"]\n  }\n}`,
+    snippet: `"mcpServers": {\n  "${SERVER_NAME}": {\n    "command": "npx",\n    "args": ["-y", "agent-nekko", "mcp"]\n  }\n}`,
   };
 }

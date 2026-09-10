@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppSettings } from '@kotrain/shared';
+import type { AppSettings } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { ThemePresetPicker } from '../ThemePresetPicker.js';
 
@@ -12,7 +12,7 @@ export function ThemeStep() {
   const { settings, applyTheme } = useStore();
 
   const update = async (patch: Partial<AppSettings>) => {
-    const next = await window.kotrain.updateSettings(patch);
+    const next = await window.nekko.updateSettings(patch);
     useStore.setState({ settings: next });
     applyTheme();
   };

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { ContextBundle, ContextItem, EffortLevel } from '@kotrain/shared';
-import { formatUSD } from '@kotrain/shared';
+import type { ContextBundle, ContextItem, EffortLevel } from '@agent-nekko/shared';
+import { formatUSD } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { sourceMeta } from '../contextSources.js';
 
@@ -162,7 +162,7 @@ export function EffortMenu() {
   }, [open]);
 
   const pick = (level: EffortLevel) => {
-    window.kotrain.updateSettings({ effort: level });
+    window.nekko.updateSettings({ effort: level });
     useStore.getState().refreshSettings();
     setOpen(false);
   };

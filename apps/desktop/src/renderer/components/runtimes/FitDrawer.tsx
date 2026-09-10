@@ -6,7 +6,7 @@ import {
   type ModelFacts,
   type RuntimeCapabilities,
   type RuntimeKind,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import { FitBar } from './FitBar.js';
 import { AdvancedControls } from './AdvancedControls.js';
 import { formatTokens, verdictColor, verdictLabel, verdictNotes, verdictSentence } from './verdict.js';
@@ -60,7 +60,7 @@ export function FitDrawer({
     const seq = ++latest.current;
     setPlanning(true);
     const t = setTimeout(async () => {
-      const next = await window.kotrain.runtimePlan(providerId, facts.id, request).catch(() => null);
+      const next = await window.nekko.runtimePlan(providerId, facts.id, request).catch(() => null);
       // A slower earlier request must not overwrite a newer answer.
       if (seq !== latest.current) return;
       setPlan(next);
@@ -73,7 +73,7 @@ export function FitDrawer({
 
   const load = async () => {
     setLoading(true);
-    const res = await window.kotrain
+    const res = await window.nekko
       .runtimeLoad(providerId, facts.id, {
         contextTokens: request.contextTokens,
         gpuLayers:

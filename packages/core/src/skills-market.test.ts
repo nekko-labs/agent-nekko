@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   MARKET_SKILLS,
-  KOTRAIN_SKILLS,
+  NEKKO_SKILLS,
   POPULAR_SKILLS,
   popularSkills,
   getMarketSkill,
@@ -10,7 +10,7 @@ import {
   skillToMarkdown,
   layoutWorkflow,
   SKILLS,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 
 describe('skills marketplace catalog', () => {
   it('has unique ids and names across the whole catalog', () => {
@@ -31,7 +31,7 @@ describe('skills marketplace catalog', () => {
       expect(s.instructions.length).toBeGreaterThan(20);
       expect(s.author.length).toBeGreaterThan(0);
     }
-    for (const s of KOTRAIN_SKILLS) expect(s.source).toBe('nekkolabs');
+    for (const s of NEKKO_SKILLS) expect(s.source).toBe('nekkolabs');
     for (const s of POPULAR_SKILLS) expect(s.source).toBe('community');
   });
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import type { PairingGrant, RemoteDevice, RemoteStatus } from '@kotrain/shared';
+import type { PairingGrant, RemoteDevice, RemoteStatus } from '@agent-nekko/shared';
 import { Badge } from './primitives/index.js';
 
 /**
@@ -27,7 +27,7 @@ export function RemoteAccess() {
   const editedUrl = useRef(false);
 
   const refresh = async () => {
-    const s = await window.kotrain.getRemoteStatus();
+    const s = await window.nekko.getRemoteStatus();
     setStatus(s);
     if (s.relayUrl && !editedUrl.current) setRelayUrl(s.relayUrl);
   };
@@ -61,9 +61,9 @@ export function RemoteAccess() {
       setLink('');
       return;
     }
-    void window.kotrain.getRemotePairing().then((p) => {
+    void window.nekko.getRemotePairing().then((p) => {
       if (!p) return setLink('');
-      setLink(`${location.protocol.startsWith('http') ? location.origin + '/' : 'kotrain-pair:'}?relay=${encodeURIComponent(
+      setLink(`${location.protocol.startsWith('http') ? location.origin + '/' : 'agent-nekko-pair:'}?relay=${encodeURIComponent(
         p.relayUrl,
       )}&room=${p.room}&key=${p.key}&pair=${liveGrant.code}`);
     });
@@ -77,31 +77,31 @@ export function RemoteAccess() {
   const enable = async () => {
     if (!relayUrl.trim()) return;
     setBusy(true);
-    setStatus(await window.kotrain.enableRemote(relayUrl.trim()));
+    setStatus(await window.nekko.enableRemote(relayUrl.trim()));
     setBusy(false);
   };
   const disable = async () => {
     setBusy(true);
     setGrant(null);
-    setStatus(await window.kotrain.disableRemote());
+    setStatus(await window.nekko.disableRemote());
     setBusy(false);
   };
   const pair = async () => {
-    setGrant(await window.kotrain.startRemotePairing());
+    setGrant(await window.nekko.startRemotePairing());
     setNow(Date.now());
   };
   const revoke = async (d: RemoteDevice) => {
     if (!confirm(`Revoke "${d.name}"? It loses access immediately and must be paired again.`)) return;
-    await window.kotrain.revokeRemoteDevice(d.id);
+    await window.nekko.revokeRemoteDevice(d.id);
     void refresh();
   };
   const rotate = async () => {
     if (!confirm('Rotate the pairing secret? Every paired device is removed and must pair again with a fresh QR.')) return;
     setGrant(null);
-    setStatus(await window.kotrain.rotateRemoteSecret());
+    setStatus(await window.nekko.rotateRemoteSecret());
   };
   const saveRename = async (id: string) => {
-    if (renameText.trim()) await window.kotrain.renameRemoteDevice(id, renameText.trim());
+    if (renameText.trim()) await window.nekko.renameRemoteDevice(id, renameText.trim());
     setRenaming(null);
     void refresh();
   };

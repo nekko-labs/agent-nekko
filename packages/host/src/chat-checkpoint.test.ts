@@ -2,8 +2,8 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentEvent, ProviderConfig, Session } from '@kotrain/shared';
-import type { Provider, ProviderChunk } from '@kotrain/core';
+import type { AgentEvent, ProviderConfig, Session } from '@agent-nekko/shared';
+import type { Provider, ProviderChunk } from '@agent-nekko/core';
 
 /**
  * A long agent run has to survive being cut off. These exercise the two halves
@@ -19,8 +19,8 @@ import type { Provider, ProviderChunk } from '@kotrain/core';
 let rounds: Array<ProviderChunk[] | Error> = [];
 let round = 0;
 
-vi.mock('@kotrain/core', async () => {
-  const actual = await vi.importActual<typeof import('@kotrain/core')>('@kotrain/core');
+vi.mock('@agent-nekko/core', async () => {
+  const actual = await vi.importActual<typeof import('@agent-nekko/core')>('@agent-nekko/core');
   return {
     ...actual,
     createProvider: (config: ProviderConfig): Provider => ({

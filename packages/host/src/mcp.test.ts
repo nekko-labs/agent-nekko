@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { McpServerConfig } from '@kotrain/shared';
+import type { McpServerConfig } from '@agent-nekko/shared';
 import { HYPERGATE_ENTRY_ID, hypergateBase, hypergateEntry, withHypergate } from './mcp.js';
 
 const INFO = { url: 'http://localhost:7777/mcp', token: 'tok', servers: 3, version: '0.22.0', port: 7777 };

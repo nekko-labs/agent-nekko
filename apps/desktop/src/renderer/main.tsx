@@ -16,7 +16,7 @@ function registerServiceWorker() {
 }
 
 function startApp(root: ReturnType<typeof createRoot>) {
-  // In Electron the preload bridge already defined window.kotrain; in the
+  // In Electron the preload bridge already defined window.nekko; in the
   // web/Docker/Cloud editions this installs the HTTP/WS client (Cloud sends the
   // signed-in account's Bearer token). Either way the UI below is identical.
   ensureKotrain();

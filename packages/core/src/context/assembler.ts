@@ -1,5 +1,5 @@
-import { estimateTokens } from '@kotrain/shared';
-import type { ContextBundle, ContextItem, MemoryEntry } from '@kotrain/shared';
+import { estimateTokens } from '@agent-nekko/shared';
+import type { ContextBundle, ContextItem, MemoryEntry } from '@agent-nekko/shared';
 
 /** Inputs the assembler uses to build the context bundle for a turn. */
 export interface AssembleInput {

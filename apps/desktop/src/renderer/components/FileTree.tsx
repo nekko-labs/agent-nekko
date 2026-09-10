@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { DirEntry } from '@kotrain/shared';
+import type { DirEntry } from '@agent-nekko/shared';
 import { FileTypeIcon } from '../fileIcons.js';
 import { FolderIcon } from '../icons.js';
 
@@ -19,7 +19,7 @@ function DirChildren({ path, depth, onOpen }: { path: string; depth: number; onO
   const [entries, setEntries] = useState<DirEntry[] | null>(null);
   useEffect(() => {
     let live = true;
-    window.kotrain.listDir(path).then((e) => { if (live) setEntries(e); }).catch(() => { if (live) setEntries([]); });
+    window.nekko.listDir(path).then((e) => { if (live) setEntries(e); }).catch(() => { if (live) setEntries([]); });
     return () => { live = false; };
   }, [path]);
 

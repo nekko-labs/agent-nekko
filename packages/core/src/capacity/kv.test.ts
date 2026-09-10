@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ModelFacts, FitRequest } from '@kotrain/shared';
+import type { ModelFacts, FitRequest } from '@agent-nekko/shared';
 import { kvCacheBytes, estimateOverheadBytes, headDimOf } from './kv.js';
 
 const llama8b: ModelFacts = {

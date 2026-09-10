@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { createProvider } from '@kotrain/core';
-import type { SpecDocDef, SpecDocRole, SpecDocStatus } from '@kotrain/shared';
-import { getMethodology, getSessionWorkspaceIds, toggleTaskLine } from '@kotrain/shared';
+import { createProvider } from '@agent-nekko/core';
+import type { SpecDocDef, SpecDocRole, SpecDocStatus } from '@agent-nekko/shared';
+import { getMethodology, getSessionWorkspaceIds, toggleTaskLine } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 import { getSession, saveSession } from './sessions.js';
 import { resolveSubscriptionProvider } from './oauth.js';

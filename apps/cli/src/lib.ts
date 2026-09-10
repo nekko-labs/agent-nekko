@@ -1,8 +1,8 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
-import { createHost } from '@kotrain/host';
-import { IpcEvents } from '@kotrain/shared';
+import { createHost } from '@agent-nekko/host';
+import { brandEnv, IpcEvents } from '@agent-nekko/shared';
 import type {
   AppSettings,
   Session,
@@ -26,18 +26,17 @@ import type {
   MarketplaceSkill,
   UsageSummary,
   VaizerCatalog,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 
-/** The data dir for the in-process (local) client. KOTRAIN_DATA_DIR wins, then
- * the legacy NEKKOS_DATA_DIR / OPENPAW_DATA_DIR, then ~/.kotrain (keeping a
- * ~/.nekkos or ~/.open-paw from an earlier brand if one already exists). */
+/** The data dir for the in-process (local) client. NEKKO_DATA_DIR wins, then
+ * the same suffix under any earlier brand prefix, then ~/.nekko (keeping a
+ * ~/.kotrain, ~/.nekkos or ~/.open-paw from an earlier brand if one exists). */
 export function dataDir(): string {
-  const fromEnv =
-    process.env.KOTRAIN_DATA_DIR || process.env.NEKKOS_DATA_DIR || process.env.OPENPAW_DATA_DIR;
+  const fromEnv = brandEnv('DATA_DIR');
   if (fromEnv) return fromEnv;
-  const next = join(homedir(), '.kotrain');
+  const next = join(homedir(), '.nekko');
   if (existsSync(next)) return next;
-  for (const name of ['.nekkos', '.open-paw']) {
+  for (const name of ['.kotrain', '.nekkos', '.open-paw']) {
     const legacy = join(homedir(), name);
     if (existsSync(legacy)) return legacy;
   }
@@ -217,10 +216,10 @@ function httpClient(url: string, token?: string): Client {
   };
 }
 
-/** Build a client from env/flags: `--url`/KOTRAIN_URL → HTTP, else local. */
+/** Build a client from env/flags: `--url`/NEKKO_URL → HTTP, else local. */
 export function getClient(opts: { url?: string; token?: string } = {}): Client {
-  const url = opts.url || process.env.KOTRAIN_URL;
-  return url ? httpClient(url, opts.token || process.env.KOTRAIN_TOKEN) : localClient();
+  const url = opts.url || brandEnv('URL');
+  return url ? httpClient(url, opts.token || brandEnv('TOKEN')) : localClient();
 }
 
 /** Resolve provider + model from flags, the session, then saved defaults. */
@@ -399,7 +398,7 @@ export interface ChatRunResult {
   usage?: { inputTokens: number; outputTokens: number };
 }
 
-export function approvalPolicy(value = process.env.KOTRAIN_APPROVE): ApprovalPolicy {
+export function approvalPolicy(value = brandEnv('APPROVE')): ApprovalPolicy {
   if (!value) return 'guardrails';
   if (value === 'guardrails' || value === 'yolo' || value === 'ask') return value;
   throw new Error(`Invalid approval policy "${value}". Use guardrails, yolo, or ask.`);

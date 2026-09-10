@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 /**
  * The host's data directory is injected by each runtime (Electron passes
- * `app.getPath('userData')/kotrain`; the web server passes its own dir) so the
+ * `app.getPath('userData')/agent-nekko`; the web server passes its own dir) so the
  * service layer stays free of any runtime-specific dependency.
  *
  * A single process normally serves one data dir (`_dir`, set via `setDataDir`).

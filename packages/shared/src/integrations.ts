@@ -1,6 +1,6 @@
 /**
  * Agent-CLI tools Agent Nekko can be installed into as an MCP subagent
- * (`npx -y kotrain mcp`). The host detects each tool by its config directory
+ * (`npx -y agent-nekko mcp`). The host detects each tool by its config directory
  * and merges an `agent-nekko` server entry into its MCP config file, backing
  * the file up to `<file>.bak` first. No secrets cross this surface: only
  * detection booleans, config paths, and copy-paste snippets.

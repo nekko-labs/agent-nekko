@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@kotrain/shared';
-import { formatUSD, isLocalProvider } from '@kotrain/shared';
+import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
+import { formatUSD, isLocalProvider } from '@agent-nekko/shared';
 
 /** Relative time from now to a future timestamp, in compact words. */
 function timeUntil(ms: number): string {
@@ -61,8 +61,8 @@ export function UsageLimitsChip({
       return;
     }
     let live = true;
-    window.kotrain.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
-    const off = window.kotrain.onLimitsUpdated((e) => {
+    window.nekko.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
+    const off = window.nekko.onLimitsUpdated((e) => {
       if (e.tokenKey === tokenKey) setLimits(e.limits);
     });
     return () => { live = false; off(); };

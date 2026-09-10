@@ -303,7 +303,7 @@ export type WorkflowTriggerKind = 'manual' | 'schedule' | 'cli' | 'slack' | 'git
 export const WORKFLOW_TRIGGER_KINDS: Array<{ kind: WorkflowTriggerKind; label: string; hint: string }> = [
   { kind: 'manual', label: 'Manual', hint: 'Only when you press Run.' },
   { kind: 'schedule', label: 'Schedule', hint: 'On a cron expression or a fixed interval.' },
-  { kind: 'cli', label: 'CLI', hint: 'From the terminal: kotrain workflow run <command>.' },
+  { kind: 'cli', label: 'CLI', hint: 'From the terminal: agent-nekko workflow run <command>.' },
   { kind: 'slack', label: 'Slack', hint: 'When a message matches in a channel.' },
   { kind: 'git', label: 'Git provider', hint: 'On a pull request, push, or comment event.' },
   { kind: 'connector', label: 'Connector', hint: 'Poll an integration (Slack, Linear, Jira, GitHub, GitLab) for new events.' },

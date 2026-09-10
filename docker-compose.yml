@@ -1,23 +1,25 @@
-# Kotrain, self-hosted web edition in Docker.
+# Agent Nekko, self-hosted web edition in Docker.
 #   docker compose up        (build + run)
 # Then open http://localhost:1440
 services:
-  kotrain:
+  agent-nekko:
     build: .
     # Or use a published image instead of building:
-    # image: ghcr.io/nekko-labs/kotrain:latest
+    # image: ghcr.io/nekko-labs/agent-nekko:latest
     # Published to the host's localhost only. To expose on your LAN, change to
-    # "1440:1440" AND set KOTRAIN_TOKEN below (or read the generated token from
+    # "1440:1440" AND set NEKKO_TOKEN below (or read the generated token from
     # `docker compose logs`).
     ports:
       - "127.0.0.1:1440:1440"
     volumes:
       # Codebases the agent may read/edit (workspace-jail sandbox confines it here).
       - ./workspace:/workspace
-      # Settings, sessions, memory, usage.
+      # Settings, sessions, memory, usage. Named for an earlier brand on
+      # purpose: renaming it would point compose at a new empty volume and
+      # strand the data of anyone already self-hosting.
       - kotrain-data:/data
     environment:
-      - KOTRAIN_SANDBOX=workspace-jail
+      - NEKKO_SANDBOX=workspace-jail
     # Lets the container reach a model server (Ollama/LM Studio/vLLM) on the host,
     # e.g. base URL http://host.docker.internal:1234
     extra_hosts:

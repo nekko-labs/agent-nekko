@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { AgentToolId, AgentToolStatus, SubagentSnippet } from '@kotrain/shared';
+import type { AgentToolId, AgentToolStatus, SubagentSnippet } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { ConnectorGrid } from '../ConnectorGrid.js';
@@ -21,7 +21,7 @@ export function IntegrationsStep() {
 
   useEffect(() => {
     let alive = true;
-    window.kotrain
+    window.nekko
       .detectAgentTools()
       .then((list) => {
         if (alive) setTools(list);
@@ -38,7 +38,7 @@ export function IntegrationsStep() {
     if (installing) return;
     setInstalling(id);
     try {
-      const res = await window.kotrain.installSubagent(id);
+      const res = await window.nekko.installSubagent(id);
       setTools(res.tools);
       pushToast(
         res.ok ? 'success' : 'error',
@@ -202,7 +202,7 @@ function ManualSnippet({ id }: { id: AgentToolId }) {
     setSnippet(null);
     setFailed(false);
     setCopied(false);
-    window.kotrain
+    window.nekko
       .subagentSnippet(id)
       .then((s) => {
         if (alive) setSnippet(s);

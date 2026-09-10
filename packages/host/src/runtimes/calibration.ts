@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
-import type { RuntimeKind } from '@kotrain/shared';
+import type { RuntimeKind } from '@agent-nekko/shared';
 import { dataDir } from '../paths.js';
 
 /**

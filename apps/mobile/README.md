@@ -38,7 +38,7 @@ Prereqs: **iOS** needs macOS + Xcode + CocoaPods; **Android** needs Android Stud
 
 ```bash
 # 1. Build the shared web UI (from the repo root)
-npm run build -w @kotrain/desktop
+npm run build -w @agent-nekko/desktop
 
 # 2. Install + sync the web assets into this Capacitor project
 cd apps/mobile
@@ -56,7 +56,7 @@ npx cap open android      # Android Studio
 
 After changing the web UI, re-run `npm run sync-web && npx cap sync`.
 
-`appId` is `dev.nekkolabs.kotrain`, matching the desktop bundle id.
+`appId` is `dev.nekkolabs.agentnekko`, matching the desktop bundle id.
 
 ## Next steps (tracked)
 

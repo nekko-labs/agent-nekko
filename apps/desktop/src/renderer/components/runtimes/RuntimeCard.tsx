@@ -5,7 +5,7 @@ import {
   type ProviderConfig,
   type RuntimeKind,
   type RuntimeStatus,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { AddressField } from './AddressField.js';
 import { FitDrawer } from './FitDrawer.js';
@@ -41,8 +41,8 @@ export function RuntimeCard({
 
   const refresh = useCallback(async () => {
     const [s, f] = await Promise.all([
-      window.kotrain.runtimeStatus(provider.id).catch(() => null),
-      window.kotrain.runtimeFacts(provider.id).catch(() => [] as ModelFacts[]),
+      window.nekko.runtimeStatus(provider.id).catch(() => null),
+      window.nekko.runtimeFacts(provider.id).catch(() => [] as ModelFacts[]),
     ]);
     setStatus(s);
     setFacts(f);
@@ -56,7 +56,7 @@ export function RuntimeCard({
 
   const start = async () => {
     setBusy('starting');
-    const res = await window.kotrain.runtimeStart(provider.id).catch((e: Error) => ({ error: e.message }));
+    const res = await window.nekko.runtimeStart(provider.id).catch((e: Error) => ({ error: e.message }));
     setBusy(null);
     // RuntimeStatus carries an optional `error` of its own, so `'error' in res`
     // does not discriminate the union. A failure is the shape with no `kind`.
@@ -69,7 +69,7 @@ export function RuntimeCard({
 
   const stop = async (force = false) => {
     setBusy('stopping');
-    const res = await window.kotrain
+    const res = await window.nekko
       .runtimeStop(provider.id, force)
       .catch((e: Error) => ({ ok: false, message: e.message }));
     setBusy(null);

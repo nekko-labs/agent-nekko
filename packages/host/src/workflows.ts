@@ -13,7 +13,7 @@ import type {
   WorkflowStepRun,
   WorkflowTriggerKind,
   WorkflowsSnapshot,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import {
   CONNECTOR_CATALOG,
   GIT_PROVIDERS,
@@ -27,14 +27,14 @@ import {
   readStepOutcome,
   slugify,
   stepOutcomeInstruction,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import {
   renderTemplate,
   runWorkflowAction,
   templateContext,
   type WorkflowActionContext,
   type WorkflowTemplateContext,
-} from '@kotrain/core';
+} from '@agent-nekko/core';
 import { dataDir, getSettings } from './store.js';
 import { createSession, deleteSession, getSession, saveSession } from './sessions.js';
 import { abortChat, sendChat } from './chat.js';

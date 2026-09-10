@@ -7,8 +7,8 @@ import {
   type RuntimeDetection,
   type RuntimeStatus,
   type StopResult,
-} from '@kotrain/shared';
-import { headDimOf } from '@kotrain/core';
+} from '@agent-nekko/shared';
+import { headDimOf } from '@agent-nekko/core';
 import { apiRoot, getJson, postJson, type RuntimeAdapter, type RuntimeContext } from './types.js';
 
 /**

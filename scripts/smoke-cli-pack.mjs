@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const temp = mkdtempSync(join(tmpdir(), 'kotrain-cli-pack-'));
+const temp = mkdtempSync(join(tmpdir(), 'agent-nekko-cli-pack-'));
 const tarballs = join(temp, 'tarballs');
 const unpacked = join(temp, 'package');
 const installed = join(temp, 'installed');
@@ -32,7 +32,7 @@ function run(command, args, options = {}) {
 function jsonCommand(args, executable = 'agent-nekko') {
   const output = run(join(binDir, executable), args, {
     cwd: temp,
-    env: { ...process.env, KOTRAIN_URL: '', KOTRAIN_DATA_DIR: dataDir },
+    env: { ...process.env, NEKKO_URL: '', NEKKO_DATA_DIR: dataDir },
   });
   try {
     return JSON.parse(output);
@@ -61,8 +61,8 @@ try {
       `Packed package is missing the agent-nekko, kotrain, and nekkos bin entries (got ${JSON.stringify(packageJson.bin)}).`,
     );
   }
-  if (packageJson.name !== 'kotrain' || packageJson.repository?.url !== 'git+https://github.com/nekko-labs/agent-nekko.git') {
-    throw new Error('Published package identity must remain kotrain until the publishing cutover.');
+  if (packageJson.name !== 'agent-nekko' || packageJson.repository?.url !== 'git+https://github.com/nekko-labs/agent-nekko.git') {
+    throw new Error('Published package identity must be agent-nekko.');
   }
   const packedDist = readdirSync(join(unpacked, 'dist')).sort();
   const expectedDist = ['index.d.ts', 'index.js', 'run.d.ts', 'run.js'];
@@ -76,14 +76,14 @@ try {
   }
 
   run('npm', ['install', '--prefix', unpacked, '--ignore-scripts', '--no-package-lock']);
-  symlinkSync('..', join(unpacked, 'node_modules/kotrain'), 'dir');
+  symlinkSync('..', join(unpacked, 'node_modules/agent-nekko'), 'dir');
   const runImport = run(
     process.execPath,
-    ['-e', "import('kotrain/run').then((m) => console.log(typeof m.runCli))"],
+    ['-e', "import('agent-nekko/run').then((m) => console.log(typeof m.runCli))"],
     { cwd: unpacked, stdio: ['ignore', 'pipe', 'inherit'] },
   );
-  if (runImport !== 'function') throw new Error(`kotrain/run import failed: ${runImport}`);
-  console.log(`kotrain/run import: ${runImport}`);
+  if (runImport !== 'function') throw new Error(`agent-nekko/run import failed: ${runImport}`);
+  console.log(`agent-nekko/run import: ${runImport}`);
   const nativeDependency = run(
     process.execPath,
     ['-e', "import('@lydell/node-pty').then(() => console.log('native node-pty: resolved'))"],
@@ -96,7 +96,7 @@ try {
 
   run('npm', ['install', '--prefix', installed, '--ignore-scripts', '--no-package-lock', tarball]);
   for (const executable of executables) {
-    const options = { cwd: temp, env: { ...process.env, KOTRAIN_URL: '', KOTRAIN_DATA_DIR: dataDir } };
+    const options = { cwd: temp, env: { ...process.env, NEKKO_URL: '', NEKKO_DATA_DIR: dataDir } };
     const help = run(join(binDir, executable), ['--help'], options);
     if (!help.startsWith('Agent Nekko CLI (agent-nekko ') || !help.includes('Legacy aliases: kotrain, nekkos')) {
       throw new Error(`${executable} --help did not identify Agent Nekko and its legacy aliases.`);
@@ -128,7 +128,7 @@ try {
   for (const executable of executables) {
     mcp = spawn(join(binDir, executable), ['mcp'], {
       cwd: temp,
-      env: { ...process.env, KOTRAIN_URL: '', KOTRAIN_DATA_DIR: dataDir },
+      env: { ...process.env, NEKKO_URL: '', NEKKO_DATA_DIR: dataDir },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     mcpClosed = new Promise((resolveClosed) => mcp.once('close', resolveClosed));

@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ConnectorConfig, ConnectorKind, Workflow, WorkflowEvent, WorkflowTrigger } from '@kotrain/shared';
-import { getConnector } from '@kotrain/core';
+import type { ConnectorConfig, ConnectorKind, Workflow, WorkflowEvent, WorkflowTrigger } from '@agent-nekko/shared';
+import { getConnector } from '@agent-nekko/core';
 import { dataDir } from './paths.js';
 import { getSettings } from './store.js';
 import { writeJsonAtomic } from './secure-file.js';

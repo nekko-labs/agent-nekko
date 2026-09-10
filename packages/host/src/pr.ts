@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
-import type { PrAction, PrActionResult, PrChecks, PrDiff, PrDiffFile, PrInfo, PrState } from '@kotrain/shared';
-import { collectSessionPrUrls, parsePrUrl } from '@kotrain/shared';
+import type { PrAction, PrActionResult, PrChecks, PrDiff, PrDiffFile, PrInfo, PrState } from '@agent-nekko/shared';
+import { collectSessionPrUrls, parsePrUrl } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 import { getSession } from './sessions.js';
 

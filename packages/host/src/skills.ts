@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { InstallTarget, InstallTargetInfo, InstalledSkillRecord, MarketplaceSkill, SkillDef } from '@kotrain/shared';
-import { getMarketSkill, marketToSkillDef, skillToMarkdown } from '@kotrain/shared';
+import type { InstallTarget, InstallTargetInfo, InstalledSkillRecord, MarketplaceSkill, SkillDef } from '@agent-nekko/shared';
+import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, skillToMarkdown } from '@agent-nekko/shared';
 import { dataDir } from './store.js';
 
 /**
  * Skills marketplace installs. Records live in skills.json under the data dir.
- * The `kotrain` target is purely a record (installed skills join the `/` menu
+ * The `agent-nekko` target is purely a record (installed skills join the `/` menu
  * and the Skills tab); `claude`/`codex` write a SKILL.md folder into the app's
  * user-level skills directory so other agents pick the skill up too.
  */
@@ -46,13 +46,13 @@ export function listInstalledSkills(): InstalledSkillRecord[] {
 }
 
 /**
- * Kotrain-target installs as runnable skills. Non-catalog installs (Vaizer)
+ * Agent Nekko-target installs as runnable skills. Non-catalog installs (Vaizer)
  * carry their own snapshot on the record; catalog ones resolve by id. Used by a
  * workflow's skill step to find what it should run.
  */
 export function listInstalledSkillDefs(): SkillDef[] {
   return listInstalledSkills()
-    .filter((r) => r.target === 'kotrain')
+    .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
     .map((r) => r.skill ?? getMarketSkill(r.skillId))
     .filter((m): m is MarketplaceSkill => !!m)
     .map(marketToSkillDef);
@@ -62,7 +62,7 @@ export function skillTargets(): InstallTargetInfo[] {
   const claudeDir = join(homedir(), '.claude');
   const codexDir = join(homedir(), '.codex');
   return [
-    { id: 'kotrain', label: 'Agent Nekko', hint: 'joins the / menu and Skills tab', available: true },
+    { id: 'agent-nekko', label: 'Agent Nekko', hint: 'joins the / menu and Skills tab', available: true },
     {
       id: 'claude',
       label: 'Claude Code',
@@ -82,9 +82,12 @@ export function skillTargets(): InstallTargetInfo[] {
 
 export function installSkill(
   skillId: string,
-  target: InstallTarget,
+  rawTarget: InstallTarget,
   payload?: MarketplaceSkill,
 ): { ok: boolean; message?: string; installed: InstalledSkillRecord[] } {
+  // A caller (or an older stored record being reinstalled) may still name a
+  // previous brand; everything below works with the current name.
+  const target = normalizeInstallTarget(rawTarget);
   // Skills outside the built-in catalog (e.g. Vaizer) arrive as a payload
   // snapshot; built-in ones resolve from the catalog.
   const builtIn = getMarketSkill(skillId);
@@ -100,7 +103,7 @@ export function installSkill(
   }
 
   let path: string | undefined;
-  if (target !== 'kotrain') {
+  if (target !== 'agent-nekko') {
     const base = targetDir(target)!;
     path = join(base, skill.name);
     // Never clobber a skill folder we didn't create (no record for it).

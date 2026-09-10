@@ -66,8 +66,8 @@ import type {
   SystemStats,
   LmsProbe,
   SubscriptionLimits,
-} from '@kotrain/shared';
-import { isLocalProvider } from '@kotrain/shared';
+} from '@agent-nekko/shared';
+import { brandEnv, isLocalProvider } from '@agent-nekko/shared';
 import { createRuntimes } from './runtimes/index.js';
 import {
   createProvider,
@@ -76,7 +76,7 @@ import {
   getConnector,
   classifyCommand,
   BUILTIN_TOOLS,
-} from '@kotrain/core';
+} from '@agent-nekko/core';
 import { setDataDir, dataDir } from './paths.js';
 import { getSettings, saveSettings, resetSettings } from './store.js';
 import * as sessions from './sessions.js';
@@ -175,7 +175,7 @@ import { randomUUID } from 'crypto';
 
 /**
  * The transport-agnostic host. `createHost()` returns an object implementing the
- * full KotrainApi surface (sans the renderer-side `on*` subscriptions, which are
+ * full NekkoApi surface (sans the renderer-side `on*` subscriptions, which are
  * served by `events`) plus a couple of methods the UI layer drives differently
  * per runtime (e.g. `addWorkspaceByPath`, since Electron uses a native dialog
  * while the web server takes a path string).
@@ -312,11 +312,11 @@ export interface Host {
   installSkill(
     skillId: string,
     target: InstallTarget,
-    payload?: import('@kotrain/shared').MarketplaceSkill,
+    payload?: import('@agent-nekko/shared').MarketplaceSkill,
   ): { ok: boolean; message?: string; installed: InstalledSkillRecord[] };
   uninstallSkill(skillId: string, target: InstallTarget): InstalledSkillRecord[];
   /** Vaizer skills hub (optional): catalog + a skill's SKILL.md. */
-  vaizerCatalog(refresh?: boolean): Promise<import('@kotrain/shared').VaizerCatalog>;
+  vaizerCatalog(refresh?: boolean): Promise<import('@agent-nekko/shared').VaizerCatalog>;
   vaizerSkillMd(slug: string): Promise<string | null>;
 
   /** Automation tasks: scheduled, recurring, and long-running background agents. */
@@ -367,11 +367,11 @@ export interface Host {
   enableRemote(relayUrl: string): RemoteStatus;
   disableRemote(): RemoteStatus;
   remoteStatus(): RemoteStatus;
-  remotePairing(): import('@kotrain/shared').RemotePairing | null;
-  startRemotePairing(): import('@kotrain/shared').PairingGrant;
-  listRemoteDevices(): import('@kotrain/shared').RemoteDevice[];
-  revokeRemoteDevice(deviceId: string): import('@kotrain/shared').RemoteDevice[];
-  renameRemoteDevice(deviceId: string, name: string): import('@kotrain/shared').RemoteDevice[];
+  remotePairing(): import('@agent-nekko/shared').RemotePairing | null;
+  startRemotePairing(): import('@agent-nekko/shared').PairingGrant;
+  listRemoteDevices(): import('@agent-nekko/shared').RemoteDevice[];
+  revokeRemoteDevice(deviceId: string): import('@agent-nekko/shared').RemoteDevice[];
+  renameRemoteDevice(deviceId: string, name: string): import('@agent-nekko/shared').RemoteDevice[];
   rotateRemoteSecret(): RemoteStatus;
   /** The remote-access service itself (headless relay-agent mode attaches here). */
   remote: import('./remote.js').RemoteService;
@@ -387,13 +387,13 @@ export interface Host {
   /** Connect (or reconnect) configured MCP servers and return their status. */
   mcpStatus(): Promise<McpServerStatus[]>;
   /** Probe for a local Hypergate daemon and return its gateway info (no side effects). */
-  detectHypergate(port?: number): Promise<import('@kotrain/shared').HypergateInfo | null>;
+  detectHypergate(port?: number): Promise<import('@agent-nekko/shared').HypergateInfo | null>;
   /**
    * Connect this install to a local Hypergate daemon in one step: probe it,
    * claim this install's scoped agent token, save the MCP entry, and bring its
    * tools online. Null when no daemon is listening on that port.
    */
-  connectHypergate(port?: number): Promise<import('@kotrain/shared').HypergateInfo | null>;
+  connectHypergate(port?: number): Promise<import('@agent-nekko/shared').HypergateInfo | null>;
 }
 
 export function createHost(opts: { dataDir: string }): Host {
@@ -733,7 +733,7 @@ export function createHost(opts: { dataDir: string }): Host {
     },
     importCliAuth: async () => importCliAuth(),
 
-    appInfo: () => ({ version: process.env.KOTRAIN_VERSION ?? '0.0.0', platform: process.platform, edition: 'web' }),
+    appInfo: () => ({ version: brandEnv('VERSION') ?? '0.0.0', platform: process.platform, edition: 'web' }),
     mcpStatus: async () => {
       const configs = getSettings().mcpServers ?? [];
       await syncMcp(configs);

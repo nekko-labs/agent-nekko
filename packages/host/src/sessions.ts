@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { join } from 'path';
-import type { Session } from '@kotrain/shared';
+import type { Session } from '@agent-nekko/shared';
 import { dataDir } from './store.js';
 
 function sessionsDir(): string {

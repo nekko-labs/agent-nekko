@@ -3,7 +3,7 @@
  *
  * Kotrain draws its own title bar so the OS buttons sit on the same line, in
  * the same colour, as the app behind them. Only the desktop shell has one:
- * `window.kotrainChrome` is exposed by the Electron preload and is simply
+ * `window.nekkoChrome` is exposed by the Electron preload and is simply
  * absent in a browser tab or a Capacitor build, which is how everything here
  * knows to do nothing.
  *
@@ -21,8 +21,8 @@ interface WindowChrome {
 
 /** The bridge, or `undefined` when this isn't the desktop shell. */
 export const windowChrome: WindowChrome | undefined = (
-  window as unknown as { kotrainChrome?: WindowChrome }
-).kotrainChrome;
+  window as unknown as { nekkoChrome?: WindowChrome }
+).nekkoChrome;
 
 /** Whether the app is responsible for drawing its own title bar. */
 export const hasAppChrome = Boolean(windowChrome);

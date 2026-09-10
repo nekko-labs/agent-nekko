@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import type { Workflow } from '@kotrain/shared';
+import type { Workflow } from '@agent-nekko/shared';
 import { setDataDir } from './paths.js';
 import { saveSettings } from './store.js';
 import { createWorkflow, listWorkflowRuns } from './workflows.js';

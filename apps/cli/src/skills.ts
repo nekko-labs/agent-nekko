@@ -1,5 +1,5 @@
-import { getMarketSkill, vaizerToMarketSkill } from '@kotrain/shared';
-import type { MarketplaceSkill, VaizerCatalogSkill } from '@kotrain/shared';
+import { getMarketSkill, vaizerToMarketSkill } from '@agent-nekko/shared';
+import type { MarketplaceSkill, VaizerCatalogSkill } from '@agent-nekko/shared';
 import type { Client } from './lib.js';
 
 /** The subset of the client this module needs, so tests can pass a stub. */

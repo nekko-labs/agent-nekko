@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import { WORKFLOW_ACTIONS } from '@kotrain/shared';
-import type { ConnectorConfig, WorkflowEvent } from '@kotrain/shared';
+import { WORKFLOW_ACTIONS } from '@agent-nekko/shared';
+import type { ConnectorConfig, WorkflowEvent } from '@agent-nekko/shared';
 import {
   getWorkflowAction,
   renderTemplate,
