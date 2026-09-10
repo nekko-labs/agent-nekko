@@ -227,7 +227,7 @@ The core engine is Electron-free so it can be tested in isolation and reused.
 External harnesses can drive the same host through the CLI or MCP server:
 
 ```bash
-npm install --global agent-nekko
+npm install --global agent-nekko   # publishing with the next release; until then: kotrain
 npx agent-nekko status --json
 npx agent-nekko mcp
 ```

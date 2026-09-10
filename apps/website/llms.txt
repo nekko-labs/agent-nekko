@@ -77,7 +77,7 @@ Alongside voice and computer control, Agent Nekko is exploring shared team workf
 
 Get the current desktop installer from the [latest release](https://github.com/nekko-labs/agent-nekko/releases/latest): Windows `.exe`/`.msi`, macOS `.dmg`, Linux `.AppImage`/`.deb`. The website detects the platform and resolves real release assets, falling back to GitHub Releases if the API is unavailable.
 
-For the browser version you run yourself, use a source checkout, install dependencies with `npm install`, then run `npm run web`. Running `npx agent-nekko` without a command shows CLI help, not the browser app. Use `docker compose up` from a checkout for Docker, and `agent-nekko mcp` for a configured CLI installation. The `agent-nekko` package provides `agent-nekko` plus `kotrain` and `nekkos` aliases, so older commands still work. See the install documentation for prerequisites before installing.
+For the browser version you run yourself, use a source checkout, install dependencies with `npm install`, then run `npm run web`. Running `npx agent-nekko` without a command shows CLI help, not the browser app. Use `docker compose up` from a checkout for Docker, and `agent-nekko mcp` for a configured CLI installation. The `agent-nekko` package provides `agent-nekko` plus `kotrain` and `nekkos` aliases, so older commands still work. That package has not been published to npm yet, so `npx agent-nekko` does not resolve; the published package is still `kotrain` at 0.6.0 and is the same CLI. See the install documentation for prerequisites before installing.
 
 ## Pages and source
 
