@@ -1,5 +1,5 @@
-import type { ProviderConfig } from '@kotrain/shared';
-import { DISCOVERY_TARGETS } from '@kotrain/shared';
+import type { ProviderConfig } from '@agent-nekko/shared';
+import { DISCOVERY_TARGETS } from '@agent-nekko/shared';
 import type { Provider } from './types.js';
 import { OpenAICompatProvider } from './openai-compat.js';
 import { AnthropicProvider } from './anthropic.js';

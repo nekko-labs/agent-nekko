@@ -1,5 +1,5 @@
 /**
- * Parsing the `kotrain://` URLs other apps use to reach this one.
+ * Parsing the `agent-nekko://` URLs other apps use to reach this one.
  *
  * Kept apart from the component that acts on them because this is the security
  * boundary: the URL is the only part of the exchange another program controls,
@@ -12,9 +12,18 @@
 export const DEFAULT_HYPERGATE_PORT = 7777;
 
 /**
- * The port in a `kotrain://hypergate/connect` link, or null if the URL is not
- * one. A link with no `port` means the default, which is what Hypergate emits
- * when it is running where it always runs.
+ * Schemes that reach this app: the current one first, then every brand it has
+ * shipped under. A Hypergate built against an older name still emits
+ * `kotrain://`, and that install is not going to be upgraded in lockstep with
+ * this one, so the older schemes stay accepted rather than silently failing.
+ */
+export const LINK_SCHEMES = ['agent-nekko', 'kotrain', 'nekkos'] as const;
+
+/**
+ * The port in an `agent-nekko://hypergate/connect` link, or null if the URL is
+ * not one. A link with no `port` means the default, which is what Hypergate
+ * emits when it is running where it always runs. Legacy brand schemes are
+ * accepted too, see `LINK_SCHEMES`.
  */
 export function hypergateConnectPort(url: string): number | null {
   let parsed: URL;
@@ -23,8 +32,8 @@ export function hypergateConnectPort(url: string): number | null {
   } catch {
     return null;
   }
-  if (parsed.protocol !== 'kotrain:') return null;
-  // `kotrain://hypergate/connect` parses with "hypergate" as the host.
+  if (!LINK_SCHEMES.some((scheme) => parsed.protocol === `${scheme}:`)) return null;
+  // `agent-nekko://hypergate/connect` parses with "hypergate" as the host.
   if (parsed.host !== 'hypergate' || parsed.pathname.replace(/\/+$/, '') !== '/connect') return null;
   const raw = parsed.searchParams.get('port');
   if (raw === null) return DEFAULT_HYPERGATE_PORT;

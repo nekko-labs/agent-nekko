@@ -228,7 +228,7 @@ xcrun stapler validate /Applications/Kotrain.app
 Only needed when debugging the signing config itself.
 
 ```bash
-CSC_NAME="Nekko Labs LLC (3HM5598S99)" npm run dist -w @kotrain/desktop
+CSC_NAME="Nekko Labs LLC (3HM5598S99)" npm run dist -w @agent-nekko/desktop
 ```
 
 `CSC_NAME` takes the certificate's **common name without the type prefix**.

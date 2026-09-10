@@ -1,9 +1,10 @@
-appId: dev.nekkolabs.kotrain
+appId: dev.nekkolabs.agentnekko
 productName: Agent Nekko
-# electron-builder 26 derives this from the npm package name (@kotrain/desktop →
-# "@kotraindesktop") and then rejects the @ as unsafe; pin it to what older
-# versions defaulted to (the product name), so nothing else moves.
-executableName: Kotrain
+# electron-builder 26 derives this from the npm package name (@agent-nekko/desktop
+# → "@agent-nekkodesktop") and then rejects the @ as unsafe, so pin it. Spelled
+# without the space in "Agent Nekko" on purpose: this is the on-disk binary
+# name, and artifactName below matches it so download URLs need no escaping.
+executableName: AgentNekko
 copyright: Copyright © 2026 Nekko Labs
 afterPack: scripts/after-pack.cjs
 directories:
@@ -20,6 +21,15 @@ asarUnpack:
   - "**/node_modules/@lydell/node-pty-*/**"
 extraMetadata:
   main: out/main/index.js
+# macOS resolves URL schemes from Info.plist, so setAsDefaultProtocolClient in
+# main is not enough for a packaged build. Older brand schemes stay listed: a
+# Hypergate built against one of them still emits it.
+protocols:
+  - name: Agent Nekko
+    schemes:
+      - agent-nekko
+      - kotrain
+      - nekkos
 publish:
   provider: github
   owner: nekko-labs
@@ -27,7 +37,7 @@ publish:
 win:
   target:
     - nsis
-  artifactName: Kotrain-${version}-${arch}.${ext}
+  artifactName: AgentNekko-${version}-${arch}.${ext}
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
@@ -48,7 +58,7 @@ mac:
     - dmg
     - zip
   category: public.app-category.developer-tools
-  artifactName: Kotrain-${version}-${arch}.${ext}
+  artifactName: AgentNekko-${version}-${arch}.${ext}
   # Developer ID signing + notarization. electron-builder signs when CSC_LINK
   # and CSC_KEY_PASSWORD are in the environment, and skips signing entirely
   # when they are not — in which case the afterPack hook ad-hoc signs instead
@@ -72,7 +82,7 @@ linux:
     - deb
   category: Development
   syncDesktopName: true
-  artifactName: Kotrain-${version}-${arch}.${ext}
+  artifactName: AgentNekko-${version}-${arch}.${ext}
 deb:
   # Replace this GitHub noreply fallback when the project publishes a mailbox.
   maintainer: Nekko Labs <nekko-labs@users.noreply.github.com>

@@ -1,4 +1,4 @@
-import type { GuardrailRule } from '@kotrain/shared';
+import type { GuardrailRule } from '@agent-nekko/shared';
 
 /**
  * Default guardrail ruleset. These ship enabled out of the box so that risky

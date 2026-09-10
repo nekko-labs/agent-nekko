@@ -111,7 +111,7 @@ unauthenticated mode on a public endpoint.
 A machine without a screen (server, homelab box) can expose itself with the relay-agent mode:
 
 ```bash
-KOTRAIN_RELAY_URL=wss://your-relay KOTRAIN_ROOM=myroom KOTRAIN_PAIR_KEY=<secret> npx kotrain
+KOTRAIN_RELAY_URL=wss://your-relay KOTRAIN_ROOM=myroom KOTRAIN_PAIR_KEY=<secret> npx agent-nekko
 ```
 
 It prints a one-time pairing code (10 minutes) at boot and keeps the same persistent device

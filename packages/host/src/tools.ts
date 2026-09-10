@@ -9,8 +9,8 @@ import {
   writeFileSync,
 } from 'fs';
 import { dirname, isAbsolute, join, relative, resolve } from 'path';
-import type { ToolCall, ToolResult, AppSettings, ChatMode } from '@kotrain/shared';
-import { classifyCommand } from '@kotrain/core';
+import type { ToolCall, ToolResult, AppSettings, ChatMode } from '@agent-nekko/shared';
+import { classifyCommand } from '@agent-nekko/core';
 import { recordOriginal } from './changes.js';
 
 const execAsync = promisify(exec);

@@ -10,7 +10,7 @@ WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/relay/package.json apps/relay/package.json
 # --include-workspace-root pulls the root devDeps (typescript, @types/node).
-RUN npm ci -w @kotrain/relay --include-workspace-root
+RUN npm ci -w @agent-nekko/relay --include-workspace-root
 COPY apps/relay apps/relay
 RUN npx tsc -p apps/relay/tsconfig.json
 
@@ -18,7 +18,7 @@ FROM node:22-slim AS deps
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY apps/relay/package.json apps/relay/package.json
-RUN npm ci -w @kotrain/relay --omit=dev
+RUN npm ci -w @agent-nekko/relay --omit=dev
 
 FROM node:22-slim
 ENV NODE_ENV=production

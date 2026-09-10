@@ -1,5 +1,5 @@
 {
-  "name": "@kotrain/desktop",
+  "name": "@agent-nekko/desktop",
   "version": "0.6.1",
   "private": true,
   "description": "Agent Nekko desktop app.",
@@ -20,9 +20,9 @@
     "release": "electron-vite build && electron-builder --publish always"
   },
   "dependencies": {
-    "@kotrain/core": "*",
-    "@kotrain/host": "*",
-    "@kotrain/shared": "*",
+    "@agent-nekko/core": "*",
+    "@agent-nekko/host": "*",
+    "@agent-nekko/shared": "*",
     "@lydell/node-pty": "^1.2.0-beta.14",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",

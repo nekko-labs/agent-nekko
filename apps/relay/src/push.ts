@@ -147,7 +147,7 @@ export function createPushSender(env: NodeJS.ProcessEnv = process.env): PushSend
   const keyP8 = env.APNS_KEY_P8;
   const keyId = env.APNS_KEY_ID;
   const teamId = env.APNS_TEAM_ID;
-  const bundleId = env.APNS_BUNDLE_ID ?? 'dev.nekkolabs.kotrain';
+  const bundleId = env.APNS_BUNDLE_ID ?? 'dev.nekkolabs.agentnekko';
   const apnsHost = env.APNS_PRODUCTION === '1' ? 'api.push.apple.com' : 'api.sandbox.push.apple.com';
   const apnsReady = !!(keyP8 && keyId && teamId);
   const apnsJwt = apnsReady ? makeApnsJwt({ keyP8: keyP8!, keyId: keyId!, teamId: teamId! }) : null;

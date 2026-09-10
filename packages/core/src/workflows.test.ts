@@ -17,8 +17,8 @@ import {
   triggerLabel,
   unreachableSteps,
   workflowEdges,
-} from '@kotrain/shared';
-import type { Workflow, WorkflowStep, WorkflowTrigger } from '@kotrain/shared';
+} from '@agent-nekko/shared';
+import type { Workflow, WorkflowStep, WorkflowTrigger } from '@agent-nekko/shared';
 
 function step(id: string, over: Partial<WorkflowStep> = {}): WorkflowStep {
   return { id, name: id, kind: 'prompt', run: `do ${id}`, ...over };

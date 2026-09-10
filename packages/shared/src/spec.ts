@@ -37,7 +37,7 @@ export interface SpecMethodology {
 
 /**
  * Built-in methodologies. `spec-tasks` is the default lightweight
- * spec/tasks flow; `kotrain` matches this project's spec/plan/tasks
+ * spec/tasks flow; `agent-nekko` matches this project's spec/plan/tasks
  * convention; `kiro` mirrors Amazon Kiro's requirements/design/tasks naming;
  * `lean` is the original single-spec flow.
  */
@@ -52,9 +52,9 @@ export const SPEC_METHODOLOGIES: SpecMethodology[] = [
     ],
   },
   {
-    id: 'kotrain',
+    id: 'agent-nekko',
     label: 'Spec → Plan → Tasks',
-    description: 'Kotrain default: a spec, a technical plan, then a task checklist.',
+    description: 'Agent Nekko default: a spec, a technical plan, then a task checklist.',
     docs: [
       { id: 'spec', filename: 'spec.md', label: 'Spec', role: 'spec', description: 'What & why, vision, users, requirements.' },
       { id: 'plan', filename: 'plan.md', label: 'Plan', role: 'plan', description: 'How, architecture, stack, conventions.' },
@@ -84,8 +84,16 @@ export const SPEC_METHODOLOGIES: SpecMethodology[] = [
 export const DEFAULT_SPEC_METHODOLOGY = 'spec-tasks';
 
 /** Look up a methodology by id, falling back to the default. */
+/**
+ * Methodology ids persisted under an earlier brand. Without this a session
+ * saved as `kotrain` would fall through to the default and quietly lose its
+ * plan document.
+ */
+const LEGACY_METHODOLOGY_IDS: Record<string, string> = { kotrain: 'agent-nekko', nekkos: 'agent-nekko' };
+
 export function getMethodology(id: string | undefined): SpecMethodology {
-  return SPEC_METHODOLOGIES.find((m) => m.id === id) ?? SPEC_METHODOLOGIES[0];
+  const resolved = (id && LEGACY_METHODOLOGY_IDS[id]) ?? id;
+  return SPEC_METHODOLOGIES.find((m) => m.id === resolved) ?? SPEC_METHODOLOGIES[0];
 }
 
 /** Live status of one artifact for the UI. */

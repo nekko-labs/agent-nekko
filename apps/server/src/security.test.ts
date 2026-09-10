@@ -4,7 +4,7 @@ import { hostAllowed, originAllowed, tokenMatches, validateBindSecurity } from '
 describe('web server security policy', () => {
   it('keeps loopback binds unauthenticated', () => {
     expect(() => validateBindSecurity('127.0.0.1', '', false)).not.toThrow();
-    expect(() => validateBindSecurity('0.0.0.0', '', false)).toThrow(/KOTRAIN_TOKEN/);
+    expect(() => validateBindSecurity('0.0.0.0', '', false)).toThrow(/NEKKO_TOKEN/);
     expect(() => validateBindSecurity('0.0.0.0', '', true)).not.toThrow();
   });
 

@@ -8,7 +8,7 @@ import type {
   RuntimeStatus,
   StartOptions,
   StopResult,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 
 /**
  * One interface over three quite different servers.

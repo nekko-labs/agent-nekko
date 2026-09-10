@@ -4,8 +4,8 @@ import { getClient, resolveModel, runChat, approvalPolicy, dataDir, type ChatOut
 import { runMcpServer } from './mcp.js';
 import { resolveInstall } from './skills.js';
 import { VERSION } from './version.js';
-import { cliCommand, triggerLabel } from '@kotrain/shared';
-import type { AgentEvent, NewTask } from '@kotrain/shared';
+import { brandEnv, cliCommand, normalizeInstallTarget, triggerLabel } from '@agent-nekko/shared';
+import type { AgentEvent, NewTask } from '@agent-nekko/shared';
 
 export const EXIT_CODES = {
   success: 0,
@@ -57,13 +57,13 @@ Legacy aliases: kotrain, nekkos (same commands and options).
 Install: npm install -g kotrain (npm package name unchanged).
 
 Target:
-  --url <http://host:port>       Remote server (or KOTRAIN_URL)
-  --token <token>                Bearer token (or KOTRAIN_TOKEN)
+  --url <http://host:port>       Remote server (or NEKKO_URL)
+  --token <token>                Bearer token (or NEKKO_TOKEN)
 
 chat:
   --session <id> --new --workspace <id> --provider <id> --model <id>
   --file <path>                  Read a multi-line prompt from a file
-  --approve <guardrails|yolo|ask> Approval policy (default: guardrails, or KOTRAIN_APPROVE)
+  --approve <guardrails|yolo|ask> Approval policy (default: guardrails, or NEKKO_APPROVE)
   --json                         One JSON result object
   --stream ndjson                Typed event per line
   --timeout <seconds>            Abort after this many seconds
@@ -73,7 +73,7 @@ Exit codes:
   0 success · 2 usage · 3 nothing configured · 4 guardrail blocked
   5 provider/model failure · 6 timeout · 7 unreachable/unauthorized remote
 
-Local data dir: ${dataDir()} (override with KOTRAIN_DATA_DIR)`;
+Local data dir: ${dataDir()} (override with NEKKO_DATA_DIR)`;
 
 const value = (flags: Record<string, string | boolean>, name: string) =>
   typeof flags[name] === 'string' ? flags[name] as string : undefined;
@@ -189,7 +189,7 @@ export async function runCli(argv: string[]): Promise<void> {
           remote,
         }, true);
       }
-      console.log(`Agent Nekko, ${value(flags, 'url') || process.env.KOTRAIN_URL || dataDir()}`);
+      console.log(`Agent Nekko, ${value(flags, 'url') || brandEnv('URL') || dataDir()}`);
       console.log(`Providers: ${s.providers.map((p) => `${p.label} (${p.id})`).join(', ') || 'none'}`);
       console.log(`Default model: ${s.defaultModelId ?? '-'}`);
       console.log(`Workspaces: ${s.workspaces.map((w) => w.name).join(', ') || 'none'}`);
@@ -390,7 +390,7 @@ export async function runCli(argv: string[]): Promise<void> {
         return void print(
           await client.installSkill(
             skillId,
-            (value(flags, 'target') ?? 'kotrain') as import('@kotrain/shared').InstallTarget,
+            normalizeInstallTarget(value(flags, 'target')),
             payload,
           ),
           json,

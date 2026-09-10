@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LineComment } from '@kotrain/shared';
+import type { LineComment } from '@agent-nekko/shared';
 import { Markdown } from './Markdown.js';
 import { FileTypeIcon } from '../fileIcons.js';
 import { ExternalIcon, CloseIcon, UndoIcon, RedoIcon, CopyIcon, PasteIcon } from '../icons.js';

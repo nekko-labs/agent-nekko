@@ -1,5 +1,5 @@
 /**
- * @kotrain/host, the transport-agnostic host. Bundles every service (settings,
+ * @agent-nekko/host, the transport-agnostic host. Bundles every service (settings,
  * sessions, chat orchestration, sandboxed tools, workspace index, memory, usage,
  * connectors) behind `createHost()`. Electron, the web server, and Kotrain Cloud
  * all wrap the same Host so they run identical behavior.

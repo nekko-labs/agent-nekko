@@ -1,4 +1,4 @@
-import type { KotrainApi } from '@kotrain/shared';
+import type { KotrainApi } from '@agent-nekko/shared';
 
 declare global {
   interface Window {

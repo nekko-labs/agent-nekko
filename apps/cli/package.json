@@ -1,5 +1,5 @@
 {
-  "name": "kotrain",
+  "name": "agent-nekko",
   "version": "0.6.1",
   "type": "module",
   "description": "Agent Nekko CLI + MCP server, drive your local agent from the terminal or other tools (Claude Code, Codex, …).",

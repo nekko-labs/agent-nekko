@@ -1,4 +1,4 @@
-import { IpcEvents, deriveKey, seal, open, type RemoteHelloReply } from '@kotrain/shared';
+import { IpcEvents, deriveKey, seal, open, type RemoteHelloReply } from '@agent-nekko/shared';
 import { createDispatcher } from './dispatch.js';
 import type { Host } from './host.js';
 

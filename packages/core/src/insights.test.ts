@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { optimizationTips } from '@kotrain/shared';
-import type { InsightsInput, Session, UsageSummary, ProviderConfig } from '@kotrain/shared';
+import { optimizationTips } from '@agent-nekko/shared';
+import type { InsightsInput, Session, UsageSummary, ProviderConfig } from '@agent-nekko/shared';
 
 function session(id: string, modelId: string, msgCount: number): Session {
   return {

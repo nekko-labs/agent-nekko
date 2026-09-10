@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@kotrain/shared';
-import { formatUSD, isLocalProvider } from '@kotrain/shared';
+import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
+import { formatUSD, isLocalProvider } from '@agent-nekko/shared';
 
 /** Relative time from now to a future timestamp, in compact words. */
 function timeUntil(ms: number): string {

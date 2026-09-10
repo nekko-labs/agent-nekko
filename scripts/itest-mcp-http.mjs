@@ -3,7 +3,7 @@
 // adds a scratch echo server through the daemon API, connects Kotrain'
 // host MCP client to the gateway URL, and lists + calls a tool through it.
 // Usage: node scripts/itest-mcp-http.mjs [daemonBase]
-import { createHost } from '@kotrain/host';
+import { createHost } from '@agent-nekko/host';
 import { mkdtempSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';

@@ -10,7 +10,7 @@
     {
       "name": "web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "start", "-w", "@kotrain/server"],
+      "runtimeArgs": ["run", "start", "-w", "@agent-nekko/server"],
       "port": 1440
     }
   ]

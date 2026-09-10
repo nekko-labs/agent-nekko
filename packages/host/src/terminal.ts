@@ -1,6 +1,6 @@
 import * as nodePty from '@lydell/node-pty';
 import { existsSync } from 'fs';
-import type { TerminalInfo, TerminalEvent, TerminalSnapshot, ShellOption } from '@kotrain/shared';
+import type { TerminalInfo, TerminalEvent, TerminalSnapshot, ShellOption } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 
 /**

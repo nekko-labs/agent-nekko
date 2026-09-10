@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import type { PairingGrant, RemoteDevice, RemoteStatus } from '@kotrain/shared';
+import type { PairingGrant, RemoteDevice, RemoteStatus } from '@agent-nekko/shared';
 import { Badge } from './primitives/index.js';
 
 /**

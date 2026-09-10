@@ -1,6 +1,6 @@
 import { execFile } from 'child_process';
 import os from 'os';
-import type { GpuStats } from '@kotrain/shared';
+import type { GpuStats } from '@agent-nekko/shared';
 import { parseIoregAccelerators, toGpuDevices } from './gpu-macos.js';
 
 /**

@@ -186,7 +186,7 @@ describe('relay v2 routing', () => {
     expect((await denied.closed).code).toBe(4003);
     const deniedBad = await connect(url, { room: 'r6', role: 'agent', key: 'k', access: 'bad' });
     expect((await deniedBad.closed).code).toBe(4003);
-    expect((await deniedBad.closed).reason).toContain('KOTRAIN_RELAY_AUTHZ_URL');
+    expect((await deniedBad.closed).reason).toContain('NEKKO_RELAY_AUTHZ_URL');
 
     const agent = await connect(url, { room: 'r6', role: 'agent', key: 'k', access: 'good-token' });
     while (!rooms.get('r6')?.agent) await new Promise((r) => setTimeout(r, 10));
@@ -198,6 +198,6 @@ describe('relay v2 routing', () => {
   it('explains when unauthenticated enrollment is disabled', async () => {
     const { url } = await startRelay({ allowUnauthenticated: false });
     const denied = await connect(url, { room: 'r7', role: 'agent', key: 'k' });
-    expect((await denied.closed).reason).toContain('KOTRAIN_RELAY_ALLOW_UNAUTHENTICATED');
+    expect((await denied.closed).reason).toContain('NEKKO_RELAY_ALLOW_UNAUTHENTICATED');
   });
 });

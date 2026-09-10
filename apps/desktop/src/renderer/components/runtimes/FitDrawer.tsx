@@ -6,7 +6,7 @@ import {
   type ModelFacts,
   type RuntimeCapabilities,
   type RuntimeKind,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import { FitBar } from './FitBar.js';
 import { AdvancedControls } from './AdvancedControls.js';
 import { formatTokens, verdictColor, verdictLabel, verdictNotes, verdictSentence } from './verdict.js';

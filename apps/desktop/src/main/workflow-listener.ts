@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
-import type { Host } from '@kotrain/host';
+import { brandEnv } from '@agent-nekko/shared';
+import type { Host } from '@agent-nekko/host';
 
 /**
  * Opt-in loopback webhook listener for the desktop app.
@@ -11,7 +12,7 @@ import type { Host } from '@kotrain/host';
  * edition, and forwards validated calls to the host.
  */
 
-const PORT = Number(process.env.KOTRAIN_LOOPBACK_PORT ?? 1441);
+const PORT = Number(brandEnv('LOOPBACK_PORT') ?? 1441);
 const HOST = '127.0.0.1';
 const BODY_LIMIT = 10 * 1024 * 1024;
 const RATE_WINDOW_MS = 60_000;

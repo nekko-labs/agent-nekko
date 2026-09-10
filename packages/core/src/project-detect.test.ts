@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { detectSessionWorkspace } from '@kotrain/shared';
-import type { ProjectHint } from '@kotrain/shared';
+import { detectSessionWorkspace } from '@agent-nekko/shared';
+import type { ProjectHint } from '@agent-nekko/shared';
 
 const WS: ProjectHint[] = [
   { id: 'w1', name: 'agent-nekko', path: 'C:/Users/phili/code/agent-nekko' },

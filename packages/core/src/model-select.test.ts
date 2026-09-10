@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { recommendModel, pickAutoModel, isComplexPrompt, modelTier } from '@kotrain/shared';
-import type { ModelInfo } from '@kotrain/shared';
+import { recommendModel, pickAutoModel, isComplexPrompt, modelTier } from '@agent-nekko/shared';
+import type { ModelInfo } from '@agent-nekko/shared';
 
 const model = (id: string, name = id): ModelInfo => ({ id, providerId: 'p', name });
 

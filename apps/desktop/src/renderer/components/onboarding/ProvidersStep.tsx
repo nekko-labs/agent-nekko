@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@kotrain/shared';
-import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel } from '@kotrain/shared';
+import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@agent-nekko/shared';
+import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { SubscriptionSignIn } from '../SubscriptionSignIn.js';

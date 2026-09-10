@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { AppInfo, UpdateInfo } from '@kotrain/shared';
+import type { AppInfo, UpdateInfo } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 
 const LS_LAST_VERSION = 'op_last_version';

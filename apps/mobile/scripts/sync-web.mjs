@@ -1,5 +1,5 @@
 // Copy the built React renderer into the Capacitor web dir (apps/mobile/www).
-// Run `npm run build -w @kotrain/desktop` first (the `build` script does both).
+// Run `npm run build -w @agent-nekko/desktop` first (the `build` script does both).
 import { cpSync, existsSync, rmSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
@@ -9,7 +9,7 @@ const src = resolve(here, '../../desktop/out/renderer');
 const dest = resolve(here, '../www');
 
 if (!existsSync(src)) {
-  console.error(`[mobile] Renderer not found at ${src}.\nBuild it first: npm run build -w @kotrain/desktop`);
+  console.error(`[mobile] Renderer not found at ${src}.\nBuild it first: npm run build -w @agent-nekko/desktop`);
   process.exit(1);
 }
 

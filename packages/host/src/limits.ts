@@ -1,7 +1,7 @@
 /** Host-side subscription-limits capture and polling service. */
 
 import { EventEmitter } from 'node:events';
-import type { LimitWindow, OAuthProvider, ProviderKind, SubscriptionLimits } from '@kotrain/shared';
+import type { LimitWindow, OAuthProvider, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
 import { getToken, ensureFreshToken } from './oauth.js';
 import { getSettings } from './store.js';
 

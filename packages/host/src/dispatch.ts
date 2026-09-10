@@ -1,4 +1,4 @@
-import { IpcChannels } from '@kotrain/shared';
+import { IpcChannels } from '@agent-nekko/shared';
 import type { Host } from './host.js';
 
 /**

@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { GpuStats, MonitorKind, SystemStats } from '@kotrain/shared';
-import { MONITOR_HINTS, MONITOR_KINDS, MONITOR_LABELS, gpuMemoryLabel, monitorSources, resolveMonitors } from '@kotrain/shared';
+import type { GpuStats, MonitorKind, SystemStats } from '@agent-nekko/shared';
+import { MONITOR_HINTS, MONITOR_KINDS, MONITOR_LABELS, gpuMemoryLabel, monitorSources, resolveMonitors } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { ChevronIcon } from '../icons.js';
 

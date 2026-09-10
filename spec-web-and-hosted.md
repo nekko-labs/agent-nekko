@@ -22,7 +22,7 @@ This is a planning/spec document. Implementation lands in phases (see [Build pla
 | Phone access |, | LAN only | LAN only | ✅ from anywhere |
 | Data retention | local only | local only | local only | **ZDR option always on offer** |
 
-**One promise across all of them:** the engine (`@kotrain/core`) and the entire React UI are identical. Only the *host transport* differs.
+**One promise across all of them:** the engine (`@agent-nekko/core`) and the entire React UI are identical. Only the *host transport* differs.
 
 ---
 
@@ -31,7 +31,7 @@ This is a planning/spec document. Implementation lands in phases (see [Build pla
 ### 2.1 Where we are
 - `packages/core`, pure engine (providers, agent loop, guardrails, context, indexer, memory, connectors). Already transport-agnostic. ✅
 - `apps/desktop/src/main/*`, **host services** (settings store, sessions, chat orchestrator, sandboxed tool executor, workspace indexer, memory store, usage log, connector fetch) currently live here and are wired to the renderer through Electron IPC (`ipc.ts` + `preload`).
-- `apps/desktop/src/renderer/*`, React UI that calls `window.kotrain.*` (the `KotrainApi` contract in `@kotrain/shared`).
+- `apps/desktop/src/renderer/*`, React UI that calls `window.kotrain.*` (the `KotrainApi` contract in `@agent-nekko/shared`).
 
 ### 2.2 The refactor: extract `packages/host`
 Move the service logic out of `apps/desktop/src/main` into a new transport-agnostic **`packages/host`**:
@@ -58,7 +58,7 @@ The renderer must get `window.kotrain` regardless of runtime. Introduce a tiny b
 Selection is by build target / presence of the preload bridge: `window.kotrain ??= makeWebClient()`.
 
 ### 2.4 Net effect
-`@kotrain/core` + `apps/desktop/src/renderer` are shared verbatim. New code is: `packages/host` (mostly moved), `apps/server` (new, thin), and `renderer/web-client.ts` (new, thin). The desktop `main` shrinks to a host wiring file.
+`@agent-nekko/core` + `apps/desktop/src/renderer` are shared verbatim. New code is: `packages/host` (mostly moved), `apps/server` (new, thin), and `renderer/web-client.ts` (new, thin). The desktop `main` shrinks to a host wiring file.
 
 ---
 

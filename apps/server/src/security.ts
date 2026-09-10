@@ -8,7 +8,7 @@ export function isLoopbackHost(host: string): boolean {
 export function validateBindSecurity(host: string, token: string, allowUnauthenticated: boolean): void {
   if (!isLoopbackHost(host) && !token && !allowUnauthenticated) {
     throw new Error(
-      `Refusing to bind Agent Nekko to ${host} without authentication. Set KOTRAIN_TOKEN=<strong-random-token>, or explicitly set KOTRAIN_ALLOW_UNAUTHENTICATED=1 when another trusted auth layer protects this service.`,
+      `Refusing to bind Agent Nekko to ${host} without authentication. Set NEKKO_TOKEN=<strong-random-token>, or explicitly set NEKKO_ALLOW_UNAUTHENTICATED=1 when another trusted auth layer protects this service.`,
     );
   }
 }

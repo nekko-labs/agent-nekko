@@ -5,11 +5,11 @@ import react from '@vitejs/plugin-react';
 // Our own workspace packages must be bundled into the main and preload output,
 // never left as runtime requires. They are ESM-only (`"type": "module"` with an
 // `exports` map whose only condition is `import`), while main and preload build
-// to CJS, so a runtime `require('@kotrain/shared')` fails to resolve and Electron
+// to CJS, so a runtime `require('@agent-nekko/shared')` fails to resolve and Electron
 // dies on launch with ERR_PACKAGE_PATH_NOT_EXPORTED. electron-vite 5 externalizes
 // every `dependencies` entry by default (`build.externalizeDeps` defaults to
 // true, which electron-vite 2 did not do), so each one has to be excluded here.
-const workspacePackages = ['@kotrain/core', '@kotrain/host', '@kotrain/shared'];
+const workspacePackages = ['@agent-nekko/core', '@agent-nekko/host', '@agent-nekko/shared'];
 
 export default defineConfig({
   main: {

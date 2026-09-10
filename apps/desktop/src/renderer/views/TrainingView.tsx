@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { DatasetRef, BaseModelRef, NewTrainingRun, TrainingConfig, TrainingRun } from '@kotrain/shared';
+import type { DatasetRef, BaseModelRef, NewTrainingRun, TrainingConfig, TrainingRun } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { ArtifactsCard, ChampionCard, HintComposer, IdeaMaze, RunLog, RunModelPicker, RunNowStrip, RunStatTiles, RunStatusChip } from '../components/RunBoard.js';
 

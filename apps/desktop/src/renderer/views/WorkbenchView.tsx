@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, Session, ShellOption, TerminalInfo, WorkspaceFolder } from '@kotrain/shared';
-import { collectSessionPrUrls, parsePrUrl } from '@kotrain/shared';
+import type { AgentEvent, Session, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
+import { collectSessionPrUrls, parsePrUrl } from '@agent-nekko/shared';
 import { useStore, type WbGroup, type WbPane } from '../store.js';
 import { ChatPane } from '../components/ChatPane.js';
 import { TerminalPane } from '../components/TerminalPane.js';

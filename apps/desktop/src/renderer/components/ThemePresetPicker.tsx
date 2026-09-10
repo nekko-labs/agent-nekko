@@ -1,6 +1,6 @@
 import React from 'react';
-import type { AppSettings, ThemePreset } from '@kotrain/shared';
-import { THEME_PRESETS } from '@kotrain/shared';
+import type { AppSettings, ThemePreset } from '@agent-nekko/shared';
+import { THEME_PRESETS } from '@agent-nekko/shared';
 import { useT } from '../i18n.js';
 
 /**

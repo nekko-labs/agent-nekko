@@ -1,5 +1,5 @@
 {
-  "name": "@kotrain/cloud",
+  "name": "@agent-nekko/cloud",
   "version": "0.1.5",
   "private": true,
   "type": "module",
@@ -14,8 +14,8 @@
   "dependencies": {
     "@fastify/static": "^10.1.2",
     "@fastify/websocket": "^11.3.0",
-    "@kotrain/host": "*",
-    "@kotrain/shared": "*",
+    "@agent-nekko/host": "*",
+    "@agent-nekko/shared": "*",
     "fastify": "^5.11.2"
   }
 }

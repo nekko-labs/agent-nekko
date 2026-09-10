@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, DesignBoard, DesignPage } from '@kotrain/shared';
+import type { AgentEvent, DesignBoard, DesignPage } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { PlusIcon, CloseIcon, ExternalIcon, TrashIcon } from '../icons.js';
 import { Modal } from '../components/primitives/index.js';

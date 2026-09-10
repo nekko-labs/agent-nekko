@@ -14,8 +14,8 @@ import {
   type StopResult,
   type SystemStats,
   type GpuStats,
-} from '@kotrain/shared';
-import { planFit } from '@kotrain/core';
+} from '@agent-nekko/shared';
+import { planFit } from '@agent-nekko/core';
 import { execFile } from 'child_process';
 import { createOllamaAdapter } from './ollama.js';
 import { createLmStudioAdapter } from './lmstudio.js';

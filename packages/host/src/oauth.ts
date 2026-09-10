@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
-import type { OAuthProvider, OAuthSessionInfo, OAuthStatus, OAuthTokenSet, ProviderConfig } from '@kotrain/shared';
+import type { OAuthProvider, OAuthSessionInfo, OAuthStatus, OAuthTokenSet, ProviderConfig } from '@agent-nekko/shared';
 import { dataDir } from './paths.js';
 import { ensurePrivateFile, writeJsonAtomic } from './secure-file.js';
 

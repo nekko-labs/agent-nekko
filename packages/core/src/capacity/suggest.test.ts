@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HardwareFacts, ModelFacts, FitRequest } from '@kotrain/shared';
+import type { HardwareFacts, ModelFacts, FitRequest } from '@agent-nekko/shared';
 import { planFit } from './plan.js';
 
 const GB = 1024 ** 3;

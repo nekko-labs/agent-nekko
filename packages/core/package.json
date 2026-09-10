@@ -1,5 +1,5 @@
 {
-  "name": "@kotrain/core",
+  "name": "@agent-nekko/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,6 +17,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@kotrain/shared": "*"
+    "@agent-nekko/shared": "*"
   }
 }

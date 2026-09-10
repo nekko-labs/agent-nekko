@@ -5,7 +5,7 @@ import {
   type ProviderConfig,
   type RuntimeKind,
   type RuntimeStatus,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { AddressField } from './AddressField.js';
 import { FitDrawer } from './FitDrawer.js';

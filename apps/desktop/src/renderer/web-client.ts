@@ -1,5 +1,5 @@
-import { IpcChannels, IpcEvents, deriveKey, seal, open, RELEASE_NOTES_URL } from '@kotrain/shared';
-import type { AppSettings, AgentEvent, IndexStatus, KotrainApi, AppInfo, UpdateInfo, TerminalEvent, OAuthStatus, SubscriptionLimits } from '@kotrain/shared';
+import { IpcChannels, IpcEvents, deriveKey, seal, open, RELEASE_NOTES_URL } from '@agent-nekko/shared';
+import type { AppSettings, AgentEvent, IndexStatus, KotrainApi, AppInfo, UpdateInfo, TerminalEvent, OAuthStatus, SubscriptionLimits } from '@agent-nekko/shared';
 
 /**
  * Browser transport for the web/Docker editions: implements the same KotrainApi
@@ -18,9 +18,9 @@ function makeWebClient(): KotrainApi {
   const indexCbs = new Set<(s: IndexStatus) => void>();
   const terminalCbs = new Set<(e: TerminalEvent) => void>();
   const changesCbs = new Set<(e: { sessionId: string }) => void>();
-  const tasksCbs = new Set<(t: import('@kotrain/shared').AutomationTask[]) => void>();
-  const trainingCbs = new Set<(r: import('@kotrain/shared').TrainingRun[]) => void>();
-  const workflowCbs = new Set<(s: import('@kotrain/shared').WorkflowsSnapshot) => void>();
+  const tasksCbs = new Set<(t: import('@agent-nekko/shared').AutomationTask[]) => void>();
+  const trainingCbs = new Set<(r: import('@agent-nekko/shared').TrainingRun[]) => void>();
+  const workflowCbs = new Set<(s: import('@agent-nekko/shared').WorkflowsSnapshot) => void>();
   const oauthStatusCbs = new Set<(s: OAuthStatus) => void>();
   const limitsUpdatedCbs = new Set<(e: { tokenKey: string; limits: SubscriptionLimits }) => void>();
   // Server build version captured when this tab loaded (for refresh detection).

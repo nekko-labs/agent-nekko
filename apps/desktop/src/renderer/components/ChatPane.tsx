@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AgentEvent, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo } from '@kotrain/shared';
-import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel } from '@kotrain/shared';
+import type { AgentEvent, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo } from '@agent-nekko/shared';
+import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { Markdown } from './Markdown.js';

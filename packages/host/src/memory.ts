@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import type { MemoryEntry, MemoryScope } from '@kotrain/shared';
-import { serializeMemory, parseMemory } from '@kotrain/core';
+import type { MemoryEntry, MemoryScope } from '@agent-nekko/shared';
+import { serializeMemory, parseMemory } from '@agent-nekko/core';
 import { dataDir } from './store.js';
 
 function memDir(): string {

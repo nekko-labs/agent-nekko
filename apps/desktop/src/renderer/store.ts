@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { AppSettings, Session, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@kotrain/shared';
-import { getMarketSkill, marketToSkillDef, THEME_PRESETS } from '@kotrain/shared';
+import type { AppSettings, Session, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
+import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 
@@ -300,7 +300,7 @@ export const useStore = create<UiState>((set, get) => ({
     try {
       const installedSkills = await window.kotrain.listInstalledSkills();
       const installedSkillDefs = installedSkills
-        .filter((r) => r.target === 'kotrain')
+        .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
         // Vaizer (non-catalog) installs carry their own snapshot on the record.
         .map((r) => r.skill ?? getMarketSkill(r.skillId))
         .filter((m): m is NonNullable<typeof m> => !!m)

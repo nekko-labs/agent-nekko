@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { MemoryEntry, MemoryScope } from '@kotrain/shared';
+import type { MemoryEntry, MemoryScope } from '@agent-nekko/shared';
 import { PlusIcon, TrashIcon } from '../icons.js';
 
 export function MemoryView() {

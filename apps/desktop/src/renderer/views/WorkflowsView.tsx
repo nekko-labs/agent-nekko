@@ -9,7 +9,7 @@ import type {
   WorkflowTrigger,
   WorkflowTriggerKind,
   WorkflowsSnapshot,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import {
   UNCATEGORIZED,
   WORKFLOW_TEMPLATES,
@@ -23,7 +23,7 @@ import {
   runDurationMs,
   stepSummary,
   triggerLabel,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Badge, EmptyHint, Modal, StatusDot } from '../components/primitives/index.js';
 import { WorkflowCanvas } from '../components/WorkflowCanvas.js';

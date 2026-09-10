@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { ChatMode, McpServerStatus, Session } from '@kotrain/shared';
+import type { ChatMode, McpServerStatus, Session } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { WrenchIcon, PlaneIcon, MaskIcon, PlugIcon, PlusIcon } from '../icons.js';
 

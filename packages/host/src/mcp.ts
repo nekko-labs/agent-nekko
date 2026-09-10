@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
-import type { ToolSpec } from '@kotrain/core';
-import type { McpServerConfig, McpServerStatus, HypergateInfo, ToolResult, ToolCall } from '@kotrain/shared';
+import type { ToolSpec } from '@agent-nekko/core';
+import { brandEnv } from '@agent-nekko/shared';
+import type { McpServerConfig, McpServerStatus, HypergateInfo, ToolResult, ToolCall } from '@agent-nekko/shared';
 
 /**
  * Minimal MCP client, hand-rolled so we add no dependency. Two transports:
@@ -249,7 +250,7 @@ const HYPERGATE_SERVICES = ['hypergated', 'kotrain-mcpd'];
 export const hypergateBase = (port?: number): string =>
   port
     ? `http://localhost:${port}`
-    : (process.env.HYPERGATE_URL ?? process.env.KOTRAIN_MCP_URL ?? `http://localhost:${DEFAULT_HYPERGATE_PORT}`);
+    : (process.env.HYPERGATE_URL ?? brandEnv('MCP_URL') ?? `http://localhost:${DEFAULT_HYPERGATE_PORT}`);
 
 /**
  * Probe for a running Hypergate daemon.

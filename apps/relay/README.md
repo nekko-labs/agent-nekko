@@ -14,8 +14,8 @@ per-connection rate limit, and client/room limits. Full user-facing guide,
 including self-hosting (Docker / Compose / Coolify / Fly): [docs/REMOTE.md](../../docs/REMOTE.md).
 
 ```bash
-npm run build -w @kotrain/relay
-npm run start -w @kotrain/relay      # ws://0.0.0.0:4400/relay
+npm run build -w @agent-nekko/relay
+npm run start -w @agent-nekko/relay      # ws://0.0.0.0:4400/relay
 
 # or the container (build from the repo root)
 docker build -f apps/relay/Dockerfile -t kotrain-relay .
@@ -42,7 +42,7 @@ the token the phone registered (`register-push` frame). Configure APNs:
 | `APNS_KEY_P8` | Contents of the APNs auth key `.p8` (PEM, with newlines) |
 | `APNS_KEY_ID` | The key's 10-char Key ID |
 | `APNS_TEAM_ID` | Apple Team ID |
-| `APNS_BUNDLE_ID` | App bundle id (default `dev.nekkolabs.kotrain`) |
+| `APNS_BUNDLE_ID` | App bundle id (default `dev.nekkolabs.agentnekko`) |
 | `APNS_PRODUCTION` | `1` for the production APNs host (default: sandbox) |
 
 **Android (FCM)**: set `FCM_SERVICE_ACCOUNT` to the full service-account JSON

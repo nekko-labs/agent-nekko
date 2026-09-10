@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { OnboardingState } from '@kotrain/shared';
-import { ONBOARDING_VERSION } from '@kotrain/shared';
+import type { OnboardingState } from '@agent-nekko/shared';
+import { ONBOARDING_VERSION } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { WizardShell } from '../components/onboarding/WizardShell.js';
 import {

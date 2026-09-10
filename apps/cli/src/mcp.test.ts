@@ -78,7 +78,10 @@ describe('MCP tool identity and legacy dispatch', () => {
       toolCases.map(([suffix]) => `agent-nekko_${suffix}`),
     );
     const install = messages[0].result.tools.find((tool: { name: string }) => tool.name === 'agent-nekko_skill_install');
-    expect(install.inputSchema.properties.target.enum).toEqual(['kotrain', 'claude', 'codex']);
+    // Current target first, then the values older callers and stored records use.
+    expect(install.inputSchema.properties.target.enum).toEqual([
+      'agent-nekko', 'claude', 'codex', 'kotrain', 'nekkos', 'open-paw',
+    ]);
     expect(JSON.stringify(messages[0])).not.toContain('kotrain_train_status');
     expect(JSON.stringify(messages[0])).not.toContain('kotrain_status');
   });
@@ -96,7 +99,7 @@ describe('MCP tool identity and legacy dispatch', () => {
         ]);
       }
       if (suffix === 'skill_install') {
-        expect(client.installSkill).toHaveBeenCalledWith('skill', 'kotrain', undefined);
+        expect(client.installSkill).toHaveBeenCalledWith('skill', 'agent-nekko', undefined);
       }
     });
   });
@@ -116,7 +119,7 @@ describe('MCP stdio transport', () => {
     }
     const dataDir = mkdtempSync(join(tmpdir(), 'kotrain-mcp-test-'));
     const child = spawn(process.execPath, [binary, 'mcp'], {
-      env: { ...process.env, KOTRAIN_URL: '', KOTRAIN_DATA_DIR: dataDir },
+      env: { ...process.env, NEKKO_URL: '', NEKKO_DATA_DIR: dataDir },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     const lines: string[] = [];

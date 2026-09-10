@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
-import type { StopResult } from '@kotrain/shared';
+import type { StopResult } from '@agent-nekko/shared';
 import { stopLocalServer } from '../servers.js';
 
 /**

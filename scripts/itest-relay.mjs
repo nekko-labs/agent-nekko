@@ -10,7 +10,7 @@ import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { deriveKey, seal, open } from '@kotrain/shared';
+import { deriveKey, seal, open } from '@agent-nekko/shared';
 
 const args = process.argv.slice(2);
 const relayArg = args.find((a) => a.startsWith('--relay='));
@@ -40,7 +40,7 @@ const check = (name, ok, detail = '') => {
 if (!relayArg) {
   procs.push(
     spawn('node', ['apps/relay/dist/index.js'], {
-      env: { ...process.env, KOTRAIN_RELAY_PORT: String(RELAY_PORT), KOTRAIN_RELAY_HOST: '127.0.0.1' },
+      env: { ...process.env, NEKKO_RELAY_PORT: String(RELAY_PORT), NEKKO_RELAY_HOST: '127.0.0.1' },
       stdio: 'ignore',
     }),
   );
@@ -52,10 +52,10 @@ let pairCode = null;
 const agent = spawn('node', ['apps/server/dist/index.js'], {
   env: {
     ...process.env,
-    KOTRAIN_RELAY_URL: RELAY_URL,
-    KOTRAIN_ROOM: ROOM,
-    KOTRAIN_PAIR_KEY: PAIR_KEY,
-    KOTRAIN_DATA_DIR: dataDir,
+    NEKKO_RELAY_URL: RELAY_URL,
+    NEKKO_ROOM: ROOM,
+    NEKKO_PAIR_KEY: PAIR_KEY,
+    NEKKO_DATA_DIR: dataDir,
   },
   stdio: ['ignore', 'pipe', 'inherit'],
 });

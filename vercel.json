@@ -10,13 +10,19 @@
     {
       "source": "/(.*)\\.(png|jpg|jpeg|svg|webp|ico|woff2)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/(.*)\\.(css|js)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     }
   ],
@@ -26,27 +32,10 @@
       "has": [
         {
           "type": "host",
-          "value": "^(?:(?:www\\.)?nekkoagent\\.com|www\\.agentnekko\\.com)$"
+          "value": "^(?:(?:www\\.)?nekkoagent\\.com|www\\.agentnekko\\.com|(?:www\\.)?kotrain\\.com|(?:www\\.)?kotrain\\.app|(?:www\\.)?nekkos\\.app|(?:www\\.)?nekkos\\.dev)$"
         }
       ],
       "destination": "https://agentnekko.com/:path*",
-      "permanent": true
-    },
-    {
-      "source": "/(.*)",
-      "has": [{ "type": "host", "value": "^www\\.kotrain\\.com$" }],
-      "destination": "https://kotrain.com/$1",
-      "permanent": true
-    },
-    {
-      "source": "/(.*)",
-      "has": [
-        {
-          "type": "host",
-          "value": "^(?:www\\.)?(?:kotrain\\.app|nekkos\\.app|nekkos\\.dev)$"
-        }
-      ],
-      "destination": "https://kotrain.com/$1",
       "permanent": true
     }
   ]

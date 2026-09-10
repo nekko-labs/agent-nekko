@@ -2,7 +2,7 @@
  * Fit-planning types: what we know about a model, what the machine has, and the
  * projection that answers "will this fit, where will it run, and why".
  *
- * The math lives in @kotrain/core (pure, no I/O). These are the contracts that
+ * The math lives in @agent-nekko/core (pure, no I/O). These are the contracts that
  * travel between it, the host adapters that gather the facts, and the renderer
  * that draws the result.
  *

@@ -2,8 +2,8 @@ import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
 import { fileURLToPath } from 'url';
 import { join, resolve, sep } from 'path';
 import { existsSync, cpSync } from 'fs';
-import { createHost } from '@kotrain/host';
-import { IpcEvents } from '@kotrain/shared';
+import { createHost } from '@agent-nekko/host';
+import { IpcEvents } from '@agent-nekko/shared';
 import { registerIpc } from './ipc.js';
 import { checkForUpdates } from './update.js';
 import { loadWindowBounds, saveWindowBounds } from './windowState.js';
@@ -26,11 +26,17 @@ preservePackagedProfile(app);
  */
 const DEFAULT_OVERLAY: TitleBarOverlayTheme = { color: '#0c0c11', symbolColor: '#a3a1b0' };
 
-/** The URL scheme other apps use to reach Kotrain (`kotrain://hypergate/connect`). */
-const PROTOCOL = 'kotrain';
+/**
+ * The URL schemes other apps use to reach Agent Nekko
+ * (`agent-nekko://hypergate/connect`). The current name is first and is what
+ * gets advertised; the older brands stay registered because a Hypergate built
+ * against one of them still emits it, and that install upgrades on its own
+ * schedule.
+ */
+const PROTOCOLS = ['agent-nekko', 'kotrain', 'nekkos'] as const;
 
 /**
- * A `kotrain://` URL waiting for a window to hand it to.
+ * An `agent-nekko://` URL waiting for a window to hand it to.
  *
  * A cold launch *from* a link arrives before the renderer exists, so the link
  * is parked here and replayed once the page says it is listening. Only the
@@ -39,9 +45,9 @@ const PROTOCOL = 'kotrain';
  */
 let pendingLink: string | null = null;
 
-/** Pick the `kotrain://` URL out of a command line (Windows and Linux pass it as an argument). */
+/** Pick an `agent-nekko://` URL out of a command line (Windows and Linux pass it as an argument). */
 function linkFromArgv(argv: string[]): string | null {
-  return argv.find((a) => a.startsWith(`${PROTOCOL}://`)) ?? null;
+  return argv.find((a) => PROTOCOLS.some((scheme) => a.startsWith(`${scheme}://`))) ?? null;
 }
 
 /**
@@ -191,15 +197,18 @@ function createWindow(): void {
 }
 
 /**
- * Installs from an earlier brand kept their data under the "Nekkos" or
- * "Open Paw" userData dir (whatever productName was then). Copy it into the
- * Kotrain location once, on first run after the rename, so nobody loses
- * chats/settings.
+ * Installs from an earlier brand kept their data under the "Kotrain",
+ * "Nekkos" or "Open Paw" userData dir (whatever productName was then). Copy it
+ * into the Agent Nekko location once, on first run after the rename, so nobody
+ * loses chats/settings. Newest brand first: an install that already went
+ * through one rename has the most recent data under the latest of these.
  */
 function migrateLegacyData(nextDir: string): void {
   try {
     if (existsSync(nextDir)) return;
     const legacies = [
+      join(app.getPath('userData'), 'kotrain'),
+      join(app.getPath('userData'), '..', 'Kotrain', 'kotrain'),
       join(app.getPath('userData'), '..', 'Nekkos', 'nekkos'),
       join(app.getPath('userData'), '..', 'Open Paw', 'open-paw'),
     ];
@@ -210,7 +219,7 @@ function migrateLegacyData(nextDir: string): void {
       }
     }
   } catch (err) {
-    console.error('[kotrain] legacy data migration failed:', err);
+    console.error('[agent-nekko] legacy data migration failed:', err);
   }
 }
 
@@ -246,10 +255,12 @@ function registerTitleBarOverlaySync(): void {
 function claimSingleInstance(): boolean {
   // In development the executable is Electron itself, so the registration has
   // to name the script too or the OS would launch a bare Electron shell.
-  if (process.defaultApp) {
-    if (process.argv.length >= 2) app.setAsDefaultProtocolClient(PROTOCOL, process.execPath, [resolve(process.argv[1])]);
-  } else {
-    app.setAsDefaultProtocolClient(PROTOCOL);
+  for (const scheme of PROTOCOLS) {
+    if (process.defaultApp) {
+      if (process.argv.length >= 2) app.setAsDefaultProtocolClient(scheme, process.execPath, [resolve(process.argv[1])]);
+    } else {
+      app.setAsDefaultProtocolClient(scheme);
+    }
   }
 
   if (!app.requestSingleInstanceLock()) return false;
@@ -293,7 +304,7 @@ app.whenReady().then(() => {
   // from it.
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
 
-  const dataDir = join(app.getPath('userData'), 'kotrain');
+  const dataDir = join(app.getPath('userData'), 'agent-nekko');
   migrateLegacyData(dataDir);
   const host = createHost({ dataDir });
   registerIpc(host);

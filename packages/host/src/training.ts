@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import type { AgentEvent, ArtifactKind, ExperimentNode, NewTrainingRun, PlanStep, RunArtifact, TrainingRun } from '@kotrain/shared';
-import { RUN_DONE_TOKEN, RUN_MAX_TURNS_DEFAULT, bestExperiment, isBetterScore, planProgress, runStats, runOutputDir } from '@kotrain/shared';
+import type { AgentEvent, ArtifactKind, ExperimentNode, NewTrainingRun, PlanStep, RunArtifact, TrainingRun } from '@agent-nekko/shared';
+import { RUN_DONE_TOKEN, RUN_MAX_TURNS_DEFAULT, bestExperiment, isBetterScore, planProgress, runStats, runOutputDir } from '@agent-nekko/shared';
 import { dataDir, getSettings } from './store.js';
 import { getSession, saveSession, createSession, deleteSession } from './sessions.js';
 import { sendChat } from './chat.js';

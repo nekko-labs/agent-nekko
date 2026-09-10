@@ -5,7 +5,7 @@ import {
   type RuntimeMetrics,
   type RuntimeStatus,
   type StopResult,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import { apiRoot, getJson, trimUrl, type RuntimeAdapter, type RuntimeContext } from './types.js';
 
 /**

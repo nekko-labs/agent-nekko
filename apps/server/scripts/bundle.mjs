@@ -1,8 +1,8 @@
 // Produce a self-contained, publishable `kotrain` package under cli-dist/:
-//   - index.mjs : the server + @kotrain/host/core/shared bundled by esbuild
+//   - index.mjs : the server + @agent-nekko/host/core/shared bundled by esbuild
 //   - web/      : the built renderer (the UI)
-//   - package.json : name "kotrain", bin, and the few runtime deps
-// Run after building the renderer (npm run build -w @kotrain/desktop).
+//   - package.json : name "agent-nekko", bin, and the few runtime deps
+// Run after building the renderer (npm run build -w @agent-nekko/desktop).
 import { build } from 'esbuild';
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -15,7 +15,7 @@ const out = join(serverDir, 'cli-dist');
 
 const renderer = join(repoRoot, 'apps/desktop/out/renderer');
 if (!existsSync(join(renderer, 'index.html'))) {
-  console.error('Build the renderer first: npm run build -w @kotrain/desktop');
+  console.error('Build the renderer first: npm run build -w @agent-nekko/desktop');
   process.exit(1);
 }
 
@@ -43,7 +43,7 @@ const version = JSON.parse(readFileSync(join(serverDir, 'package.json'), 'utf8')
 const pkg = {
   name: 'kotrain',
   version,
-  description: 'Local-first AI coding & cowork, the self-hosted web edition. Run with `npx kotrain`.',
+  description: 'Local-first AI coding & cowork, the self-hosted web edition. Run with `npx agent-nekko`.',
   license: 'MIT',
   type: 'module',
   bin: { 'kotrain': 'index.mjs' },
@@ -58,7 +58,7 @@ const pkg = {
 writeFileSync(join(out, 'package.json'), JSON.stringify(pkg, null, 2));
 writeFileSync(
   join(out, 'README.md'),
-  '# Kotrain (web edition + CLI/MCP)\n\nWeb server:\n\n```bash\nnpx kotrain\n```\n\nThen open http://localhost:1440.\n\nCLI / MCP (drive your local agent from the terminal or other tools):\n\n```bash\nnpx kotrain status\nnpx kotrain chat "summarize README.md"\nnpx kotrain mcp        # MCP server on stdio (e.g. claude mcp add kotrain -- npx kotrain mcp)\n```\n\nSee https://github.com/nekko-labs/agent-nekko\n',
+  '# Kotrain (web edition + CLI/MCP)\n\nWeb server:\n\n```bash\nnpx agent-nekko\n```\n\nThen open http://localhost:1440.\n\nCLI / MCP (drive your local agent from the terminal or other tools):\n\n```bash\nnpx agent-nekko status\nnpx agent-nekko chat "summarize README.md"\nnpx agent-nekko mcp        # MCP server on stdio (e.g. claude mcp add kotrain -- npx agent-nekko mcp)\n```\n\nSee https://github.com/nekko-labs/agent-nekko\n',
 );
 
 console.log(`\n✓ Bundled publishable package → ${out}`);

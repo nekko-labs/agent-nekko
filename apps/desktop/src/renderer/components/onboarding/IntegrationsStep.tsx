@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { AgentToolId, AgentToolStatus, SubagentSnippet } from '@kotrain/shared';
+import type { AgentToolId, AgentToolStatus, SubagentSnippet } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { ConnectorGrid } from '../ConnectorGrid.js';

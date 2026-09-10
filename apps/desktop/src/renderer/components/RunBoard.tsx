@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ArtifactKind, ExperimentNode, MazeNode, ModelInfo, ProviderConfig, TrainingRun } from '@kotrain/shared';
-import { formatRuntime, layoutMaze, runOutputDir, runStats, isLocalProvider, formatModelPriceLabel } from '@kotrain/shared';
+import type { ArtifactKind, ExperimentNode, MazeNode, ModelInfo, ProviderConfig, TrainingRun } from '@agent-nekko/shared';
+import { formatRuntime, layoutMaze, runOutputDir, runStats, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { LogSurface, StatTile } from './primitives/index.js';
 import { STATUS } from '../tokens.js';

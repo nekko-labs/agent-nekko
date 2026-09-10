@@ -148,7 +148,7 @@ Same engine, same UI, multiple runtimes (see the design in the project spec):
 | **Phone remote control** | pair your phone (QR, one-time code) and run chats/training/goals on your home machine from anywhere, end-to-end encrypted; managed relay free in beta, or [self-host it](docs/REMOTE.md) with one Docker command | ✅ available |
 | **Kotrain Cloud** (paid) | managed hosting: subscriptions, always-available **Zero-Data-Retention** mode, cloud chat-history + file management | 🔜 planned |
 
-The desktop, web, and (coming) Docker editions all run the **same engine + same React UI**, only the transport differs (Electron IPC vs HTTP/WebSocket), via the shared `@kotrain/host`.
+The desktop, web, and (coming) Docker editions all run the **same engine + same React UI**, only the transport differs (Electron IPC vs HTTP/WebSocket), via the shared `@agent-nekko/host`.
 
 ### Run the web edition
 

@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentEvent, ModelInfo, ProviderConfig, Session } from '@kotrain/shared';
-import type { ChatRequest, Provider, ProviderChunk } from '@kotrain/core';
+import type { AgentEvent, ModelInfo, ProviderConfig, Session } from '@agent-nekko/shared';
+import type { ChatRequest, Provider, ProviderChunk } from '@agent-nekko/core';
 
 let requests: Array<{ providerId: string; request: ChatRequest }> = [];
 let listings: string[] = [];
@@ -19,8 +19,8 @@ const connectorFetch = vi.hoisted(() => vi.fn(async () => []));
 
 vi.mock('./spec.js', () => ({ buildSpec }));
 vi.mock('./mcp.js', () => ({ syncMcp, mcpToolSpecs, isMcpTool, callMcpTool }));
-vi.mock('@kotrain/core', async () => {
-  const actual = await vi.importActual<typeof import('@kotrain/core')>('@kotrain/core');
+vi.mock('@agent-nekko/core', async () => {
+  const actual = await vi.importActual<typeof import('@agent-nekko/core')>('@agent-nekko/core');
   return {
     ...actual,
     getConnector: () => ({ fetch: connectorFetch }),
@@ -46,7 +46,7 @@ const { setDataDir } = await import('./paths.js');
 const { saveSettings } = await import('./store.js');
 const { createSession, getSession, saveSession, listSessions } = await import('./sessions.js');
 const { sendChat, previewContext, resolveApproval } = await import('./chat.js');
-const { BUILTIN_TOOLS } = await import('@kotrain/core');
+const { BUILTIN_TOOLS } = await import('@agent-nekko/core');
 let dir: string;
 let providers: ProviderConfig[];
 

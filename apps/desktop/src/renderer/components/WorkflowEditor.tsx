@@ -12,7 +12,7 @@ import type {
   WorkflowTransition,
   WorkflowTrigger,
   WorkflowTriggerKind,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import {
   CONNECTOR_CATALOG,
   DEFAULT_WORKFLOW_CATEGORIES,
@@ -30,7 +30,7 @@ import {
   nextCronRun,
   slugify,
   unreachableSteps,
-} from '@kotrain/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Modal } from './primitives/index.js';
 import { WorkflowCanvas } from './WorkflowCanvas.js';

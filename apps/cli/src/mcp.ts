@@ -1,9 +1,10 @@
+import { INSTALL_TARGETS, normalizeInstallTarget } from '@agent-nekko/shared';
 import { getClient, resolveModel, runChat, approvalPolicy, type Client } from './lib.js';
 import { resolveInstall } from './skills.js';
 import { VERSION } from './version.js';
 
 /**
- * MCP stdio server exposing Kotrain to other tools (Claude Code, Codex, …).
+ * MCP stdio server exposing Agent Nekko to other tools (Claude Code, Codex, …).
  * Hand-rolled JSON-RPC 2.0 over newline-delimited stdio, the MCP stdio
  * transport. Other agents can trigger this machine's agent, make chat requests,
  * spin up sessions (swarm by calling chat across several sessions), and read
@@ -118,7 +119,7 @@ const TOOLS = [
   {
     name: 'agent-nekko_skill_install',
     description: 'Install a skill.',
-    inputSchema: { type: 'object', properties: { skillId: { type: 'string' }, target: { type: 'string', enum: ['kotrain', 'claude', 'codex'] } }, required: ['skillId'] },
+    inputSchema: { type: 'object', properties: { skillId: { type: 'string' }, target: { type: 'string', enum: INSTALL_TARGETS } }, required: ['skillId'] },
   },
   {
     name: 'agent-nekko_tools_list',
@@ -266,7 +267,7 @@ async function callTool(client: Client, name: string, args: Record<string, any>)
       return JSON.stringify(
         await client.installSkill(
           skillId,
-          (args.target ?? 'kotrain') as import('@kotrain/shared').InstallTarget,
+          normalizeInstallTarget(args.target as string | undefined),
           payload,
         ),
       );

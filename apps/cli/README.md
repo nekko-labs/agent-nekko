@@ -17,7 +17,7 @@ This rebrand source adds `agent-nekko` as the canonical executable, retaining
 packed source has been verified, but npm still serves 0.6.0 as of 2026-09-07;
 that older published version does not include the new executable. After a
 release containing this change, `agent-nekko status` will work from the same
-package. Existing `npx kotrain` usage continues to work. A separately named
+package. Existing `npx agent-nekko` usage continues to work. A separately named
 `agent-nekko` npm package is not yet published.
 
 From a checkout:

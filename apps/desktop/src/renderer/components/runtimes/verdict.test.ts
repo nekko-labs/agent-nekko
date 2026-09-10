@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FitPlan } from '@kotrain/shared';
+import type { FitPlan } from '@agent-nekko/shared';
 import { formatBytes, formatTokens, verdictNotes, verdictSentence } from './verdict.js';
 
 const GB = 1024 ** 3;

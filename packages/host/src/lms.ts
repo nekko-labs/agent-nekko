@@ -2,7 +2,7 @@ import { execFile } from 'child_process';
 import { existsSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { LmsProbe } from '@kotrain/shared';
+import type { LmsProbe } from '@agent-nekko/shared';
 
 /**
  * Per-model load/unload for LM Studio by shelling out to its `lms` CLI.

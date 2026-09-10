@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { PrInfo, PrAction, PrDiff, PrChecks } from '@kotrain/shared';
-import { parsePrUrl } from '@kotrain/shared';
+import type { PrInfo, PrAction, PrDiff, PrChecks } from '@agent-nekko/shared';
+import { parsePrUrl } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 
 /** Summarise a chat's PRs for the sidebar/header badges. */

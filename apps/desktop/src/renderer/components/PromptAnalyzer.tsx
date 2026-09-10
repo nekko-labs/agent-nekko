@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { ContextItem, SpecDocStatus, WorkspaceFolder } from '@kotrain/shared';
+import type { ContextItem, SpecDocStatus, WorkspaceFolder } from '@agent-nekko/shared';
 import {
   analyzePrompt,
   detectFolderMentions,

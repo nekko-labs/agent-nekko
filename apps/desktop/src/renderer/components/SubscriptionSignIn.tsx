@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { OAuthProvider, OAuthSessionInfo, OAuthStatus } from '@kotrain/shared';
+import type { OAuthProvider, OAuthSessionInfo, OAuthStatus } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { ExternalIcon } from '../icons.js';
 

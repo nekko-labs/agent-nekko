@@ -1,4 +1,4 @@
-import { kvBytesPerElement, type FitRequest, type ModelFacts } from '@kotrain/shared';
+import { kvBytesPerElement, type FitRequest, type ModelFacts } from '@agent-nekko/shared';
 
 /**
  * KV-cache bytes for a model at a given context and parallelism:

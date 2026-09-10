@@ -3,7 +3,7 @@ import {
   SKILLS,
   SKILL_CATEGORIES,
   layoutWorkflow,
-  KOTRAIN_SKILLS,
+  NEKKO_SKILLS,
   popularSkills,
   getMarketSkill,
   marketWorkflow,
@@ -20,7 +20,8 @@ import {
   type InstalledSkillRecord,
   type InstallTargetInfo,
   type InstallTarget,
-} from '@kotrain/shared';
+  normalizeInstallTarget,
+} from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { StarIcon, SendIcon } from '../icons.js';
 
@@ -232,7 +233,7 @@ function fmtMetric(n: number): string {
 function MarketplaceTab() {
   const { sendToChat, installedSkills, refreshSkills, pushToast } = useStore();
   const [query, setQuery] = useState('');
-  const [selectedId, setSelectedId] = useState<string>(KOTRAIN_SKILLS[0]?.id ?? '');
+  const [selectedId, setSelectedId] = useState<string>(NEKKO_SKILLS[0]?.id ?? '');
   const [targets, setTargets] = useState<InstallTargetInfo[]>([]);
   const [busy, setBusy] = useState(false);
   // Vaizer hub (optional): renders from the offline snapshot/cache; the
@@ -296,7 +297,7 @@ function MarketplaceTab() {
       hint: 'Skills you added, and where they live',
       items: [...installedBySkill.keys()].map(resolve).filter((s): s is MarketplaceSkill => !!s).filter(matches),
     },
-    { key: 'kotrain', title: 'Nekko Labs', hint: 'First-party skills we maintain', items: KOTRAIN_SKILLS.filter(matches) },
+    { key: 'agent-nekko', title: 'Nekko Labs', hint: 'First-party skills we maintain', items: NEKKO_SKILLS.filter(matches) },
     { key: 'vaizer', title: 'Vaizer', hint: 'The public skills hub, official + community', items: vaizerSkills.filter(matches) },
     { key: 'popular', title: 'Popular online', hint: 'Ranked by public stars/installs', items: popular.filter(matches) },
   ];
@@ -469,7 +470,7 @@ function MarketplaceTab() {
                   </div>
                 )}
               </div>
-              {selectedInstalls.some((r) => r.target === 'kotrain') && (
+              {selectedInstalls.some((r) => normalizeInstallTarget(r.target) === 'agent-nekko') && (
                 <button
                   className="btn btn-primary shrink-0 gap-1.5"
                   onClick={() => sendToChat(marketToSkillDef(selected).template, false)}

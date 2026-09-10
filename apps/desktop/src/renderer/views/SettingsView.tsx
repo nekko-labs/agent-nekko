@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode } from '@kotrain/shared';
+import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
 import { ThemePresetPicker } from '../components/ThemePresetPicker.js';
-import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION } from '@kotrain/shared';
+import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION } from '@agent-nekko/shared';
 import { ShieldIcon, SunIcon, TrashIcon, RobotIcon, WandIcon } from '../icons.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
 import { useT, LANGUAGES } from '../i18n.js';

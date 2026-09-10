@@ -10,7 +10,7 @@ Published package:
 
 ```bash
 npm install --global kotrain
-npx kotrain status
+npx agent-nekko status
 ```
 
 From a checkout:

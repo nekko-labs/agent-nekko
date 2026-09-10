@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { AnthropicProvider } from './anthropic.js';
-import type { ProviderConfig } from '@kotrain/shared';
+import type { ProviderConfig } from '@agent-nekko/shared';
 
 const apiKeyCfg: ProviderConfig = {
   id: 'p1',

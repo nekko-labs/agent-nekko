@@ -270,7 +270,7 @@ export function detectFolderMentions(text: string, projects: MentionProject[]): 
   };
 
   // 1) Known projects, matched by name or folder basename as a whole token.
-  //    Longest term first so "nekko-dojo" wins over a bare "kotrain".
+  //    Longest term first so "nekko-dojo" wins over a bare "agent-nekko".
   const terms: Array<{ id: string; term: string }> = [];
   for (const p of projects) {
     for (const term of new Set([p.name, p.base].filter((t): t is string => typeof t === 'string' && t.trim().length >= 3))) {

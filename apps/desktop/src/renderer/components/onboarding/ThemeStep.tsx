@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppSettings } from '@kotrain/shared';
+import type { AppSettings } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { ThemePresetPicker } from '../ThemePresetPicker.js';
 

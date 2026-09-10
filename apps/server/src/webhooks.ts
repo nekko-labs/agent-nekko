@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { Host } from '@kotrain/host';
+import type { Host } from '@agent-nekko/host';
 
 /**
  * Registers `POST /api/hooks/:slug` on a Fastify instance.

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { DirEntry } from '@kotrain/shared';
+import type { DirEntry } from '@agent-nekko/shared';
 import { FileTypeIcon } from '../fileIcons.js';
 import { FolderIcon } from '../icons.js';
 

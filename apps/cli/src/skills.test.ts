@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { VAIZER_SNAPSHOT, getMarketSkill } from '@kotrain/shared';
-import type { VaizerCatalog } from '@kotrain/shared';
+import { VAIZER_SNAPSHOT, getMarketSkill } from '@agent-nekko/shared';
+import type { VaizerCatalog } from '@agent-nekko/shared';
 import { resolveInstall, type SkillResolverClient } from './skills.js';
 
 const SKILL_MD = `---

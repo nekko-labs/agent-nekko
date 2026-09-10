@@ -25,9 +25,9 @@ function fakeClient(events: any[] = [], mode: 'ask' | 'guardrails' | 'yolo' = 'a
 }
 
 describe('CLI identity and compatibility', () => {
-  it('publishes under kotrain with canonical and legacy executable aliases', () => {
+  it('publishes under agent-nekko with canonical and legacy executable aliases', () => {
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-    expect(manifest.name).toBe('kotrain');
+    expect(manifest.name).toBe('agent-nekko');
     expect(manifest.repository.url).toBe('git+https://github.com/nekko-labs/agent-nekko.git');
     expect(manifest.bin).toEqual({
       'agent-nekko': 'dist/index.js',
@@ -44,9 +44,9 @@ describe('CLI identity and compatibility', () => {
       expect(help).toMatch(/^Agent Nekko CLI \(agent-nekko /);
       expect(help).toContain('agent-nekko status|sessions|watch');
       expect(help).toContain('Legacy aliases: kotrain, nekkos');
-      expect(help).toContain('KOTRAIN_URL');
-      expect(help).toContain('KOTRAIN_TOKEN');
-      expect(help).toContain('KOTRAIN_DATA_DIR');
+      expect(help).toContain('NEKKO_URL');
+      expect(help).toContain('NEKKO_TOKEN');
+      expect(help).toContain('NEKKO_DATA_DIR');
     } finally {
       log.mockRestore();
     }

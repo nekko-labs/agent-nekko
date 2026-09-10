@@ -1,4 +1,4 @@
-import type { GpuDevice } from '@kotrain/shared';
+import type { GpuDevice } from '@agent-nekko/shared';
 
 /**
  * macOS GPU statistics, parsed out of `ioreg`.

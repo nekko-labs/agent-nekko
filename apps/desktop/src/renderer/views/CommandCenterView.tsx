@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, ProviderConfig, Session, TerminalInfo, UsageSummary, AutomationTask } from '@kotrain/shared';
-import type { RemoteStatus } from '@kotrain/shared';
-import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider } from '@kotrain/shared';
-import type { OptimizationTip, AgentType } from '@kotrain/shared';
+import type { AgentEvent, ProviderConfig, Session, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
+import type { RemoteStatus } from '@agent-nekko/shared';
+import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider } from '@agent-nekko/shared';
+import type { OptimizationTip, AgentType } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Badge, EmptyHint, PanelList } from '../components/primitives/index.js';
 import { ChatIcon, ServerIcon, PlusIcon, CheckIcon, TerminalIcon, RobotIcon, TrashIcon } from '../icons.js';
@@ -843,7 +843,7 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
 
 function ServicesPanel({ providers, usage }: { providers: ProviderConfig[]; usage: UsageSummary | null }) {
   const [remote, setRemote] = useState<RemoteStatus | null>(null);
-  const [mcp, setMcp] = useState<import('@kotrain/shared').McpServerStatus[]>([]);
+  const [mcp, setMcp] = useState<import('@agent-nekko/shared').McpServerStatus[]>([]);
   useEffect(() => { window.kotrain.getRemoteStatus().then(setRemote).catch(() => setRemote(null)); }, []);
   useEffect(() => { window.kotrain.getMcpStatus().then(setMcp).catch(() => setMcp([])); }, []);
   return (

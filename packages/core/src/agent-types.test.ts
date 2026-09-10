@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { classifyAgent, detectSkill, agentSignals, classifySession } from '@kotrain/shared';
-import type { Session, AutomationTask } from '@kotrain/shared';
+import { classifyAgent, detectSkill, agentSignals, classifySession } from '@agent-nekko/shared';
+import type { Session, AutomationTask } from '@agent-nekko/shared';
 
 describe('detectSkill', () => {
   it('reads a leading /command', () => {

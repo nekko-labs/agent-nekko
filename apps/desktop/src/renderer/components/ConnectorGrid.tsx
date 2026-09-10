@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { ConnectorConfig, ConnectorKind, ConnectorMeta, ConnectorResource } from '@kotrain/shared';
-import { CONNECTOR_CATALOG } from '@kotrain/shared';
+import type { ConnectorConfig, ConnectorKind, ConnectorMeta, ConnectorResource } from '@agent-nekko/shared';
+import { CONNECTOR_CATALOG } from '@agent-nekko/shared';
 import { ConnectorIcon } from '../connectorIcons.js';
 import { Badge } from './primitives/index.js';
 

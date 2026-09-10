@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Session } from '@kotrain/shared';
+import type { Session } from '@agent-nekko/shared';
 import { WarningIcon, CloseIcon } from '../icons.js';
 import { useStore } from '../store.js';
 

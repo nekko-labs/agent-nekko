@@ -1,4 +1,4 @@
-import type { ConnectorKind, ConnectorResource } from '@kotrain/shared';
+import type { ConnectorKind, ConnectorResource } from '@agent-nekko/shared';
 
 /** One event returned by a connector poll; listeners map these to WorkflowEvents. */
 export interface ConnectorPollEvent {

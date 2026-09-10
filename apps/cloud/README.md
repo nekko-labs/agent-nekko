@@ -1,6 +1,6 @@
-# @kotrain/cloud, Kotrain Cloud (hosted edition)
+# @agent-nekko/cloud, Kotrain Cloud (hosted edition)
 
-The multi-account, hosted edition. It wraps the **same** host engine (`@kotrain/host`)
+The multi-account, hosted edition. It wraps the **same** host engine (`@agent-nekko/host`)
 and the **same** React UI as the desktop and self-hosted web editions, just per
 authenticated account, with feature limits enforced server-side by plan.
 

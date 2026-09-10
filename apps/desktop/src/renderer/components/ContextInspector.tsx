@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ContextBundle, Session, WorkspaceFolder } from '@kotrain/shared';
-import { getSessionWorkspaceIds, estimateTokens } from '@kotrain/shared';
+import type { ContextBundle, Session, WorkspaceFolder } from '@agent-nekko/shared';
+import { getSessionWorkspaceIds, estimateTokens } from '@agent-nekko/shared';
 import { FolderIcon, FileIcon, PlusIcon, TrashIcon, ExternalIcon, ChevronIcon } from '../icons.js';
 import { useStore } from '../store.js';
 import { SpecPanel } from './SpecPanel.js';

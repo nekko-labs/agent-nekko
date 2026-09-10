@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import { createProvider } from '@kotrain/core';
-import type { DesignBoard, DesignPage, GenerateDesignInput } from '@kotrain/shared';
+import { createProvider } from '@agent-nekko/core';
+import type { DesignBoard, DesignPage, GenerateDesignInput } from '@agent-nekko/shared';
 import { dataDir, getSettings } from './store.js';
 import { resolveSubscriptionProvider } from './oauth.js';
 

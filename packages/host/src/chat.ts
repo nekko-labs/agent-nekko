@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentEvent, ChatMessage, ContextBundle, ProviderConfig, SendOptions, Session, ToolCall } from '@kotrain/shared';
-import { EFFORT_TEMPERATURE, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint } from '@kotrain/shared';
+import type { AgentEvent, ChatMessage, ContextBundle, ProviderConfig, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
+import { EFFORT_TEMPERATURE, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -15,7 +15,7 @@ import {
   REPORT_ARTIFACT_TOOL,
   UPDATE_PLAN_TOOL,
   repairInterruptedHistory,
-} from '@kotrain/core';
+} from '@agent-nekko/core';
 import { reportExperiment, reportArtifact, updateRunPlan } from './training.js';
 import { getSettings } from './store.js';
 import { getSession, saveSession, createSession } from './sessions.js';

@@ -1,8 +1,8 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { AppSettings, OAuthStatus, ProviderConfig } from '@kotrain/shared';
-import { ONBOARDING_VERSION } from '@kotrain/shared';
+import type { AppSettings, OAuthStatus, ProviderConfig } from '@agent-nekko/shared';
+import { ONBOARDING_VERSION } from '@agent-nekko/shared';
 import { WizardShell } from './WizardShell.js';
 import { WelcomeStep } from './WelcomeStep.js';
 import { ProvidersStep } from './ProvidersStep.js';

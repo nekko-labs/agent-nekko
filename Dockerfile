@@ -4,7 +4,7 @@
 FROM node:20-slim AS builder
 WORKDIR /app
 
-# Electron is a devDependency of @kotrain/desktop; the web edition only needs the
+# Electron is a devDependency of @agent-nekko/desktop; the web edition only needs the
 # renderer build, so skip downloading the (large) Electron binary.
 ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 
