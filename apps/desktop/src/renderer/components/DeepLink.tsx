@@ -29,7 +29,7 @@ export function DeepLinkListener() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const off = window.kotrain.onDeepLink((url) => {
+    const off = window.nekko.onDeepLink((url) => {
       const port = hypergateConnectPort(url);
       const { pushToast, refreshHypergate, settings } = useStore.getState();
       if (port === null) {

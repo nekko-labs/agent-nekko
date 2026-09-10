@@ -52,7 +52,7 @@ export function ModelsView() {
   const discover = async () => {
     setDiscovering(true);
     const before = providers.length;
-    const after = await window.kotrain.discoverProviders();
+    const after = await window.nekko.discoverProviders();
     await refreshProviders();
     setDiscovering(false);
     const added = after.length - before;
@@ -226,17 +226,17 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
   const toggleFavorite = async (key: string) => {
     const set = new Set(settings?.favoriteModels ?? []);
     set.has(key) ? set.delete(key) : set.add(key);
-    await window.kotrain.updateSettings({ favoriteModels: [...set] });
+    await window.nekko.updateSettings({ favoriteModels: [...set] });
     refreshSettings();
   };
 
   const load = async () => {
-    setModels(await window.kotrain.listModels(provider.id).catch(() => []));
+    setModels(await window.nekko.listModels(provider.id).catch(() => []));
   };
 
   const test = async () => {
     setConn({ state: 'testing' });
-    const r = await window.kotrain.testProvider(provider.id);
+    const r = await window.nekko.testProvider(provider.id);
     setConn({ state: r.ok ? 'ok' : 'fail', message: r.message });
   };
 
@@ -245,10 +245,10 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     load();
     test();
     if (provider.kind === 'lmstudio') {
-      window.kotrain.lmsAvailable(provider.id).then(setLms).catch(() => setLms({ available: false }));
+      window.nekko.lmsAvailable(provider.id).then(setLms).catch(() => setLms({ available: false }));
     }
     if (provider.auth === 'subscription') {
-      window.kotrain.oauthStatus(provider.id).then(setSub).catch(() => setSub(null));
+      window.nekko.oauthStatus(provider.id).then(setSub).catch(() => setSub(null));
     }
     /* eslint-disable-next-line */
   }, [provider.id, provider.tokenKey]);
@@ -257,7 +257,7 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
   // card points at (e.g. a mid-chat renewal lands while the page is open).
   useEffect(() => {
     if (!subscription) return;
-    return window.kotrain.onOAuthStatus((s) => {
+    return window.nekko.onOAuthStatus((s) => {
       if (s.tokenKey && s.tokenKey === provider.tokenKey) setSub(s);
     });
   }, [subscription, provider.tokenKey]);
@@ -267,8 +267,8 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     const tokenKey = provider.tokenKey;
     if (!tokenKey) { setLimits(null); return; }
     let live = true;
-    window.kotrain.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
-    const off = window.kotrain.onLimitsUpdated((e) => {
+    window.nekko.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
+    const off = window.nekko.onLimitsUpdated((e) => {
       if (e.tokenKey === tokenKey) setLimits(e.limits);
     });
     return () => { live = false; off(); };
@@ -276,8 +276,8 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
 
   const signOutSubscription = async () => {
     setRelinking(false);
-    await window.kotrain.oauthSignOut(provider.id);
-    setSub(await window.kotrain.oauthStatus(provider.id).catch(() => null));
+    await window.nekko.oauthSignOut(provider.id);
+    setSub(await window.nekko.oauthStatus(provider.id).catch(() => null));
     pushToast('info', `Signed out of the ${subName} subscription.`);
   };
 
@@ -288,15 +288,15 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     // A re-auth can land under a different tokenKey; sign the old one out
     // before repointing the provider so it doesn't linger in the host store.
     if (provider.tokenKey && provider.tokenKey !== status.tokenKey) {
-      await window.kotrain.oauthSignOut(provider.id).catch(() => {});
+      await window.nekko.oauthSignOut(provider.id).catch(() => {});
     }
-    await window.kotrain.saveProvider({
+    await window.nekko.saveProvider({
       ...provider,
       auth: 'subscription',
       tokenKey: status.tokenKey || provider.tokenKey,
       accountId: status.accountId ?? provider.accountId,
     });
-    setSub(await window.kotrain.oauthStatus(provider.id).catch(() => null));
+    setSub(await window.nekko.oauthStatus(provider.id).catch(() => null));
     pushToast('success', `Signed in with your ${subName} subscription.`);
     onChanged();
   };
@@ -305,7 +305,7 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
   const saveCustomModel = async (next: string) => {
     const trimmed = next.trim();
     if (trimmed === (provider.customModelId ?? '')) return;
-    await window.kotrain.saveProvider({
+    await window.nekko.saveProvider({
       ...provider,
       customModelId: trimmed || undefined,
     });
@@ -333,8 +333,8 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     setBusy(m.id);
     try {
       const r = loaded
-        ? await window.kotrain.loadModel(provider.id, m.id)
-        : await window.kotrain.unloadModel(provider.id, m.id);
+        ? await window.nekko.loadModel(provider.id, m.id)
+        : await window.nekko.unloadModel(provider.id, m.id);
       if (r && !r.ok) pushToast('error', r.message ?? `Couldn't ${loaded ? 'load' : 'unload'} ${m.id}.`);
       await load();
     } finally {
@@ -345,7 +345,7 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
   const stopServer = async () => {
     if (!window.confirm(`Stop the ${provider.label} server? This unloads its models and ends the process.`)) return;
     setStopping(true);
-    const r = await window.kotrain.stopServer(provider.id);
+    const r = await window.nekko.stopServer(provider.id);
     pushToast(r.ok ? 'success' : 'error', r.message);
     setStopping(false);
     setTimeout(test, 600); // reflect the now-offline state
@@ -385,8 +385,8 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
           onClick={async () => {
             // Removing a subscription provider also drops its stored token so a
             // deleted card can't leave a live session behind.
-            if (provider.tokenKey) await window.kotrain.oauthSignOut(provider.id).catch(() => {});
-            await window.kotrain.removeProvider(provider.id);
+            if (provider.tokenKey) await window.nekko.oauthSignOut(provider.id).catch(() => {});
+            await window.nekko.removeProvider(provider.id);
             onChanged();
           }}
           title="Remove"
@@ -495,7 +495,7 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
           <input className="input py-1.5 text-[12px]" placeholder="pull a model, e.g. llama3.2" value={pullName} onChange={(e) => setPullName(e.target.value)} />
           <button
             className="btn btn-outline py-1.5 text-[12px]"
-            onClick={async () => { setConn({ state: 'testing', message: 'pulling…' }); const r = await window.kotrain.pullModel(provider.id, pullName); setConn({ state: r.ok ? 'ok' : 'fail', message: r.message }); load(); }}
+            onClick={async () => { setConn({ state: 'testing', message: 'pulling…' }); const r = await window.nekko.pullModel(provider.id, pullName); setConn({ state: r.ok ? 'ok' : 'fail', message: r.message }); load(); }}
           >
             Pull
           </button>

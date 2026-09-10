@@ -242,8 +242,8 @@ function MarketplaceTab() {
   const [vaizerBusy, setVaizerBusy] = useState(false);
 
   useEffect(() => {
-    window.kotrain.skillTargets().then(setTargets).catch(() => setTargets([]));
-    window.kotrain.vaizerCatalog().then(setVaizer).catch(() => {});
+    window.nekko.skillTargets().then(setTargets).catch(() => setTargets([]));
+    window.nekko.vaizerCatalog().then(setVaizer).catch(() => {});
     refreshSkills();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -251,7 +251,7 @@ function MarketplaceTab() {
   const refreshVaizer = async () => {
     setVaizerBusy(true);
     try {
-      const cat = await window.kotrain.vaizerCatalog(true);
+      const cat = await window.nekko.vaizerCatalog(true);
       setVaizer(cat);
       pushToast(
         cat.source === 'live' ? 'success' : 'info',
@@ -312,10 +312,10 @@ function MarketplaceTab() {
       // Vaizer skills install their real, current SKILL.md when reachable.
       let payload: MarketplaceSkill | undefined;
       if (selected.source === 'vaizer') {
-        const md = await window.kotrain.vaizerSkillMd(selected.name).catch(() => null);
+        const md = await window.nekko.vaizerSkillMd(selected.name).catch(() => null);
         payload = md ? { ...selected, instructions: splitSkillMd(md).body, markdown: md } : selected;
       }
-      const res = await window.kotrain.installSkill(selected.id, target, payload);
+      const res = await window.nekko.installSkill(selected.id, target, payload);
       if (res.ok) {
         pushToast('success', `Installed /${selected.name} to ${targets.find((t) => t.id === target)?.label ?? target}.`);
       } else {
@@ -333,7 +333,7 @@ function MarketplaceTab() {
     if (!selected || busy) return;
     setBusy(true);
     try {
-      await window.kotrain.uninstallSkill(selected.id, target);
+      await window.nekko.uninstallSkill(selected.id, target);
       pushToast('info', `Removed /${selected.name} from ${targets.find((t) => t.id === target)?.label ?? target}.`);
       await refreshSkills();
     } finally {
@@ -374,7 +374,7 @@ function MarketplaceTab() {
                     </button>
                     <button
                       className="text-[10px] text-accent hover:underline"
-                      onClick={() => window.kotrain.openPath(VAIZER_SITE_URL)}
+                      onClick={() => window.nekko.openPath(VAIZER_SITE_URL)}
                       title="Browse the Vaizer skills catalog at vaizer.app"
                     >
                       Browse ↗
@@ -454,7 +454,7 @@ function MarketplaceTab() {
                   {selected.stars != null && <span>★ {fmtMetric(selected.stars)} stars</span>}
                   {selected.installs != null && <span>⤓ {fmtMetric(selected.installs)} installs</span>}
                   {selected.url && (
-                    <button className="text-accent hover:underline" onClick={() => window.kotrain.openPath(selected.url!)}>
+                    <button className="text-accent hover:underline" onClick={() => window.nekko.openPath(selected.url!)}>
                       {selected.url.replace(/^https?:\/\//, '')} ↗
                     </button>
                   )}

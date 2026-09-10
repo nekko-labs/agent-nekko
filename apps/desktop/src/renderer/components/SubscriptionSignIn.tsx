@@ -45,7 +45,7 @@ export function SubscriptionSignIn({
   // oauthFinish return value, so whichever path lands first wins by clearing
   // sessionRef; the other sees null and stands down.
   useEffect(() => {
-    const off = window.kotrain.onOAuthStatus((s) => {
+    const off = window.nekko.onOAuthStatus((s) => {
       const session = sessionRef.current;
       if (s.provider !== oauthProvider || !session) return;
       if (s.state === 'success' && s.connected) {
@@ -62,7 +62,7 @@ export function SubscriptionSignIn({
       } else if (s.state === 'error') {
         // A failed exchange leaves the host session (and its loopback
         // listener) open, so close it out before dropping the ref.
-        void window.kotrain.oauthCancel(session.id).catch(() => {});
+        void window.nekko.oauthCancel(session.id).catch(() => {});
         sessionRef.current = null;
         setPhase({ kind: 'error', message: s.message ?? 'Sign-in failed.' });
       }
@@ -74,7 +74,7 @@ export function SubscriptionSignIn({
   // loopback listener and expiry timer don't linger host-side.
   useEffect(
     () => () => {
-      if (sessionRef.current) void window.kotrain.oauthCancel(sessionRef.current.id);
+      if (sessionRef.current) void window.nekko.oauthCancel(sessionRef.current.id);
     },
     [],
   );
@@ -82,11 +82,11 @@ export function SubscriptionSignIn({
   const begin = async () => {
     setPhase({ kind: 'starting' });
     try {
-      const session = await window.kotrain.oauthBegin(oauthProvider);
+      const session = await window.nekko.oauthBegin(oauthProvider);
       sessionRef.current = session;
       setPhase({ kind: 'waiting', session });
       // Desktop maps this to shell.openExternal; the web build window.open()s it.
-      await window.kotrain.openPath(session.authUrl).catch(() => {});
+      await window.nekko.openPath(session.authUrl).catch(() => {});
     } catch (e) {
       sessionRef.current = null;
       setPhase({ kind: 'error', message: (e as Error).message });
@@ -98,7 +98,7 @@ export function SubscriptionSignIn({
     sessionRef.current = null;
     setPasted('');
     setPhase({ kind: 'idle' });
-    if (session) await window.kotrain.oauthCancel(session.id).catch(() => {});
+    if (session) await window.nekko.oauthCancel(session.id).catch(() => {});
   };
 
   const finish = async () => {
@@ -110,7 +110,7 @@ export function SubscriptionSignIn({
     sessionRef.current = null;
     setFinishing(true);
     try {
-      const status = await window.kotrain.oauthFinish(session.id, text);
+      const status = await window.nekko.oauthFinish(session.id, text);
       setPasted('');
       setPhase({ kind: 'idle' });
       await onConnectedRef.current(status);
@@ -118,7 +118,7 @@ export function SubscriptionSignIn({
       setPhase({ kind: 'error', message: (e as Error).message });
       // The failed exchange left the host session open; close it so its
       // loopback listener and expiry timer don't linger.
-      void window.kotrain.oauthCancel(session.id).catch(() => {});
+      void window.nekko.oauthCancel(session.id).catch(() => {});
     } finally {
       setFinishing(false);
     }
@@ -131,7 +131,7 @@ export function SubscriptionSignIn({
   const importCli = async () => {
     setImporting(true);
     try {
-      const found = await window.kotrain.importCliAuth();
+      const found = await window.nekko.importCliAuth();
       if (found[oauthProvider]) {
         await onConnectedRef.current({
           tokenKey: oauthProvider,
@@ -160,7 +160,7 @@ export function SubscriptionSignIn({
         </p>
         <button
           className="inline-flex items-center gap-1 text-[12px] text-accent hover:underline"
-          onClick={() => void window.kotrain.openPath(session.authUrl).catch(() => {})}
+          onClick={() => void window.nekko.openPath(session.authUrl).catch(() => {})}
         >
           <ExternalIcon className="h-3 w-3" /> Reopen the sign-in page
         </button>

@@ -175,7 +175,7 @@ import { randomUUID } from 'crypto';
 
 /**
  * The transport-agnostic host. `createHost()` returns an object implementing the
- * full KotrainApi surface (sans the renderer-side `on*` subscriptions, which are
+ * full NekkoApi surface (sans the renderer-side `on*` subscriptions, which are
  * served by `events`) plus a couple of methods the UI layer drives differently
  * per runtime (e.g. `addWorkspaceByPath`, since Electron uses a native dialog
  * while the web server takes a path string).

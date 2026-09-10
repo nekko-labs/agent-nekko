@@ -20,7 +20,7 @@
 - **The UI asks capabilities, never kind.** No `if (kind === 'vllm')` in `apps/desktop/src/renderer`.
 - **vLLM is connect-existing only.** No `start` implementation. Nothing unverifiable ships as a working button.
 - **Stopping a process we do not own requires confirmation.** Owned processes stop without asking.
-- IPC additions touch five files in order: `packages/shared/src/ipc.ts` (channel + `KotrainApi`), `packages/host/src/host.ts` (`Host` interface + impl), `packages/host/src/dispatch.ts` (table), `apps/desktop/src/preload/index.ts`, `apps/desktop/src/renderer/web-client.ts`. Missing one breaks either desktop or web silently.
+- IPC additions touch five files in order: `packages/shared/src/ipc.ts` (channel + `NekkoApi`), `packages/host/src/host.ts` (`Host` interface + impl), `packages/host/src/dispatch.ts` (table), `apps/desktop/src/preload/index.ts`, `apps/desktop/src/renderer/web-client.ts`. Missing one breaks either desktop or web silently.
 - Run `npm test` and `npm run typecheck` from the repo root before each commit that touches types.
 
 ---
@@ -45,7 +45,7 @@
 
 **Modify:**
 - `packages/shared/src/index.ts` - export the two new modules.
-- `packages/shared/src/ipc.ts` - 6 new channels + `KotrainApi` methods.
+- `packages/shared/src/ipc.ts` - 6 new channels + `NekkoApi` methods.
 - `packages/host/src/host.ts` - `Host` interface + implementations delegating to `createRuntimes`.
 - `packages/host/src/dispatch.ts` - 6 table rows.
 - `apps/desktop/src/preload/index.ts`, `apps/desktop/src/renderer/web-client.ts` - 6 passthroughs each.
@@ -971,7 +971,7 @@ const hw: HardwareFacts = {
 - Modify: `packages/shared/src/ipc.ts`, `packages/host/src/host.ts`, `packages/host/src/dispatch.ts`, `apps/desktop/src/preload/index.ts`, `apps/desktop/src/renderer/web-client.ts`
 
 **Interfaces:**
-- Produces, on `window.kotrain`:
+- Produces, on `window.nekko`:
 ```ts
 runtimeStatus(providerId: string): Promise<RuntimeStatus | null>;
 runtimeStart(providerId: string): Promise<RuntimeStatus | { error: string }>;
@@ -982,7 +982,7 @@ runtimePlan(providerId: string, modelId: string, req: FitRequest): Promise<FitPl
 ```
 
 - [ ] **Step 1: Add channels** to `IpcChannels`: `runtimeStatus: 'runtime:status'`, `runtimeStart: 'runtime:start'`, `runtimeStop: 'runtime:stop'`, `runtimeLoad: 'runtime:load'`, `runtimeFacts: 'runtime:facts'`, `runtimePlan: 'runtime:plan'`.
-- [ ] **Step 2: Add the six signatures** to the `KotrainApi` interface in the same file.
+- [ ] **Step 2: Add the six signatures** to the `NekkoApi` interface in the same file.
 - [ ] **Step 3: Add them to the `Host` interface** and implement in `createHost` by delegating to `createRuntimes`. Leave the existing `loadModel` / `unloadModel` / `stopServer` in place: the phone client and older surfaces call them.
 - [ ] **Step 4: Add six rows** to the `dispatch.ts` table, six passthroughs to `preload/index.ts`, six to `web-client.ts`.
 - [ ] **Step 5: Typecheck and commit**

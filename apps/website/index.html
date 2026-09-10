@@ -45,7 +45,7 @@
       media="print"
       onload="this.media='all'"
     />
-    <!-- Structured data: so search and answer engines describe Kotrain accurately -->
+    <!-- Structured data: so search and answer engines describe Agent Nekko accurately -->
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -428,9 +428,9 @@
           <div class="card glass"><span class="mf-num">01</span><h3>Desktop app</h3><p>Download for macOS, Windows, or Linux.</p><a class="card-link" href="#download">Get the app</a></div>
           <div class="card glass"><span class="mf-num">02</span><h3>In your browser</h3><p>Run it yourself from a source checkout: <code>npm install</code>, then <code>npm run web</code>. Tasks using AI on your computer can work offline after setup.</p><a class="card-link" href="https://github.com/nekko-labs/agent-nekko#readme">Setup guide</a></div>
           <div class="card glass"><span class="mf-num">03</span><h3>In Docker</h3><p>For container-based setups, run <code>docker compose up</code> from a source checkout and connect your project folders and model servers.</p><a class="card-link" href="https://github.com/nekko-labs/agent-nekko/blob/main/docker-compose.yml">Compose setup</a></div>
-          <div class="card glass"><span class="mf-num">04</span><h3>From other tools</h3><p>The CLI is Nekko's command-line interface. Use the current <code>kotrain</code> command, or <code>kotrain mcp</code> to connect tools that support the MCP standard.</p><a class="card-link" href="https://github.com/nekko-labs/agent-nekko/blob/main/apps/cli/README.md">Client setup</a></div>
+          <div class="card glass"><span class="mf-num">04</span><h3>From other tools</h3><p>The CLI is Nekko's command-line interface. Run <code>agent-nekko</code>, or <code>agent-nekko mcp</code> to connect tools that support the MCP standard.</p><a class="card-link" href="https://github.com/nekko-labs/agent-nekko/blob/main/apps/cli/README.md">Client setup</a></div>
         </div>
-        <p class="micro center reveal">The rebrand source adds an <code>agent-nekko</code> executable, but it is not yet in published packages. Use current Kotrain commands and installers until release. The planned npm package is <code>agent-nekko</code>, not yet published.</p>
+        <p class="micro center reveal">Published as <code>agent-nekko</code> on npm. The older <code>kotrain</code> and <code>nekkos</code> commands still work, so existing scripts keep running.</p>
       </section>
 
       <section id="roadmap" class="chapter roadmap">
@@ -446,7 +446,7 @@
       <section id="download" class="chapter download">
         <p class="eyebrow reveal">READY WHEN YOU ARE</p>
         <h2 class="reveal">Download Agent Nekko</h2>
-        <p class="chapter-lede reveal">Free, open-source software. Pick the build for your machine. Releases currently carry the Kotrain name; model providers and hardware may have their own costs.</p>
+        <p class="chapter-lede reveal">Free, open-source software. Pick the build for your machine. Model providers and hardware may have their own costs.</p>
 
         <!-- smart download: primary button = detected OS/arch, caret = every other build -->
         <div class="dl-cta reveal">
@@ -488,7 +488,7 @@
         </div>
 
         <p class="micro center reveal">Or build from source: <code>git clone</code> · <code>npm install</code> · <code>npm run dev</code></p>
-        <p class="micro center reveal">Current macOS builds are unsigned. Only if you trust the downloaded release, clear quarantine with <code>xattr -cr "/Applications/Kotrain.app"</code>. <a href="https://github.com/nekko-labs/agent-nekko#macos-kotrain-is-damaged-and-cant-be-opened-">Read the install guidance</a></p>
+        <p class="micro center reveal">macOS builds are signed and notarized from v0.6.0 on. An older release is not, and macOS may call it <em>damaged</em>: clear quarantine with <code>xattr -cr "/Applications/Agent Nekko.app"</code>, or just take a current build. <a href="https://github.com/nekko-labs/agent-nekko#macos-says-the-app-is-damaged-and-cant-be-opened">Read the install guidance</a></p>
         <p class="micro center reveal">Windows builds are unsigned for now (SmartScreen: More info → Run anyway); free code signing by the <a href="https://signpath.org" target="_blank" rel="noopener">SignPath Foundation</a> is in progress.</p>
       </section>
     </main>

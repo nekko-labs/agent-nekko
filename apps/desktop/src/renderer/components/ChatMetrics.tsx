@@ -162,7 +162,7 @@ export function EffortMenu() {
   }, [open]);
 
   const pick = (level: EffortLevel) => {
-    window.kotrain.updateSettings({ effort: level });
+    window.nekko.updateSettings({ effort: level });
     useStore.getState().refreshSettings();
     setOpen(false);
   };

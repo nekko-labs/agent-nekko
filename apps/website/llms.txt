@@ -10,7 +10,7 @@ Nekko, the mascot, is a hand-drawn, slender outline cat with ginger ears and tai
 
 - Primary website: https://agentnekko.com/
 - Backup domain: nekkoagent.com. Use agentnekko.com as the canonical URL.
-- The product was previously called Kotrain. The rebrand uses `agent-nekko` for new slugs, executable names, and npm package names. Current public release assets and legacy commands still use Kotrain during the cutover; source changes do not imply a published package or repository move.
+- The product was previously called Kotrain, and before that Nekkos and Open Paw. Everything now ships as Agent Nekko: the `agent-nekko` npm package, the `AgentNekko` installers, and the agentnekko.com site. The older `kotrain` and `nekkos` commands remain as aliases, and older release assets keep the names they were published under.
 - Source and releases remain at https://github.com/nekko-labs/agent-nekko. Do not substitute an unverified repository or package name.
 
 ## Five ways to use Nekko
@@ -19,7 +19,7 @@ Nekko, the mascot, is a hand-drawn, slender outline cat with ginger ears and tai
 
 Work in the Nekko app with AI on your computer or an online service such as Anthropic, OpenAI, or OpenRouter. You can also connect supported coding tools through the command-line interface (CLI) or MCP, a standard for connecting AI tools. Claude Code, Cursor, Codex, and OpenClaw can connect where their CLI or MCP configuration supports it. These are configurable connections, not bundled native integrations or a claim of testing every client.
 
-The current MCP command is `kotrain mcp`; see the CLI documentation for setup. Nekko can also connect to other MCP servers to use their tools.
+The MCP command is `agent-nekko mcp`; see the CLI documentation for setup. Nekko can also connect to other MCP servers to use their tools.
 
 ### 2. Choose the right AI for the job
 
@@ -59,7 +59,7 @@ Current implementation provides file and terminal tools and CPU/RAM plus macOS/N
 
 ## Choose what stays on your computer
 
-With an AI model and its runner already installed on your computer, supported tasks can run offline. Online AI services, downloads, connectors, and remote services need internet access and may send data to the providers you configure. Choosing local AI does not mean every operation stays local. Desktop, self-hosted browser, and Docker editions share the same core software. Data paths currently retain the Kotrain name, including `~/.kotrain` for CLI and web defaults.
+With an AI model and its runner already installed on your computer, supported tasks can run offline. Online AI services, downloads, connectors, and remote services need internet access and may send data to the providers you configure. Choosing local AI does not mean every operation stays local. Desktop, self-hosted browser, and Docker editions share the same core software. Data lives in `~/.nekko` for CLI and web defaults; an existing `~/.kotrain` from an earlier name keeps being used, and `NEKKO_*` environment variables fall back to the older prefixes.
 
 ## See what your AI is doing
 
@@ -77,7 +77,7 @@ Alongside voice and computer control, Agent Nekko is exploring shared team workf
 
 Get the current desktop installer from the [latest release](https://github.com/nekko-labs/agent-nekko/releases/latest): Windows `.exe`/`.msi`, macOS `.dmg`, Linux `.AppImage`/`.deb`. The website detects the platform and resolves real release assets, falling back to GitHub Releases if the API is unavailable.
 
-For the browser version you run yourself, use a source checkout, install dependencies with `npm install`, then run `npm run web`. Running `npx agent-nekko` without a command shows CLI help, not the browser app. Use `docker compose up` from a checkout for Docker, and `kotrain mcp` for a configured CLI installation. The rebrand source adds an `agent-nekko` executable alongside legacy commands; do not assume this is included in older published packages. The `agent-nekko` npm package itself has not been published. See the install documentation for prerequisites and unsigned-build guidance before installing.
+For the browser version you run yourself, use a source checkout, install dependencies with `npm install`, then run `npm run web`. Running `npx agent-nekko` without a command shows CLI help, not the browser app. Use `docker compose up` from a checkout for Docker, and `agent-nekko mcp` for a configured CLI installation. The `agent-nekko` package provides `agent-nekko` plus `kotrain` and `nekkos` aliases, so older commands still work. See the install documentation for prerequisites before installing.
 
 ## Pages and source
 

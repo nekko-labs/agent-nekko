@@ -97,7 +97,7 @@ async function downloadImage(src: string): Promise<void> {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `kotrain-image.${ext === 'jpeg' ? 'jpg' : ext || 'png'}`;
+  a.download = `agent-nekko-image.${ext === 'jpeg' ? 'jpg' : ext || 'png'}`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
@@ -301,21 +301,21 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // Track how many files the agent changed this chat (for the Changes button).
   useEffect(() => {
     let live = true;
-    const load = () => window.kotrain.listChanges(sessionId).then((c) => { if (live) setChangeCount(c.length); }).catch(() => {});
+    const load = () => window.nekko.listChanges(sessionId).then((c) => { if (live) setChangeCount(c.length); }).catch(() => {});
     load();
-    const off = window.kotrain.onChangesUpdated((e) => { if (e.sessionId === sessionId) load(); });
+    const off = window.nekko.onChangesUpdated((e) => { if (e.sessionId === sessionId) load(); });
     return () => { live = false; off(); };
   }, [sessionId]);
 
   useEffect(() => onRunningChange?.(streaming), [streaming, onRunningChange]);
 
   const refreshCtx = () => {
-    window.kotrain.previewContext(sessionId, []).then(setCtx).catch(() => setCtx(null));
+    window.nekko.previewContext(sessionId, []).then(setCtx).catch(() => setCtx(null));
   };
 
   // Load the session; seed provider/model from it (or the global defaults).
   useEffect(() => {
-    window.kotrain.getSession(sessionId).then((s) => {
+    window.nekko.getSession(sessionId).then((s) => {
       setSession(s);
       const st = useStore.getState();
       setProviderId(s?.providerId ?? st.activeProviderId ?? providers[0]?.id ?? null);
@@ -333,7 +333,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   useEffect(() => {
     if (!providerId) { setModels([]); setModelsLoaded(false); return; }
     setModelsLoaded(false);
-    window.kotrain.listModels(providerId).then((m) => {
+    window.nekko.listModels(providerId).then((m) => {
       setModels(m);
       setModelId((cur) => (cur === AUTO_MODEL_ID || (cur && m.some((x) => x.id === cur)) ? cur : null));
       setModelsLoaded(true);
@@ -342,7 +342,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
   // Per-chat estimated cost. usageSummary already zeroes subscription providers.
   useEffect(() => {
-    window.kotrain.getUsageSummary().then((u) => {
+    window.nekko.getUsageSummary().then((u) => {
       const s = u.bySession[sessionId];
       setCost(s ? (s.cost ?? 0) : 0);
     }).catch(() => setCost(0));
@@ -378,7 +378,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
   // Stream agent events for this session only.
   useEffect(() => {
-    const off = window.kotrain.onAgentEvent((e: AgentEvent) => {
+    const off = window.nekko.onAgentEvent((e: AgentEvent) => {
       if (e.sessionId !== sessionId) return;
       // A reply may start host-side (a queued follow-up, or a task-driven run):
       // reflect it as streaming even though this pane didn't call send().
@@ -490,7 +490,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     // Hold the streamed reply on screen until its persisted copy is in state,
     // then clear the live buffers in the same commit, so the end of a reply
     // never flashes the answer out and back in.
-    window.kotrain.getSession(sessionId).then((s) => {
+    window.nekko.getSession(sessionId).then((s) => {
       setSession(s);
       setLiveText('');
       setLiveReasoning('');
@@ -693,7 +693,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
       const goal = goalMatch[1].trim();
       const brain = requireBrain(goal);
       if (!brain) return;
-      await window.kotrain.createTask({
+      await window.nekko.createTask({
         title: `Goal: ${goal.slice(0, 40)}`,
         kind: 'background',
         keepAlive: 'until',
@@ -727,7 +727,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         }],
       } : prev,
     );
-    await window.kotrain.sendChat({
+    await window.nekko.sendChat({
       sessionId,
       providerId: brain.providerId,
       modelId: brain.modelId,
@@ -743,7 +743,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
       const workspaces = useStore.getState().settings?.workspaces ?? [];
       const wsId = detectSessionWorkspace({ text, workspaces, attachedPaths: session.attachedPaths ?? [] });
       if (wsId) {
-        const updated = await window.kotrain.setSessionWorkspace(sessionId, wsId);
+        const updated = await window.nekko.setSessionWorkspace(sessionId, wsId);
         if (updated) setSession(updated);
         useStore.getState().refreshSessions();
       }
@@ -755,7 +755,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const queueDraft = async () => {
     const text = draft.trim();
     if (!text) return;
-    const updated = await window.kotrain.queuePrompt(sessionId, text);
+    const updated = await window.nekko.queuePrompt(sessionId, text);
     setDraft('');
     clearDraft(sessionId);
     if (updated) setSession(updated);
@@ -763,7 +763,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   };
 
   const removeQueued = async (index: number) => {
-    const updated = await window.kotrain.dequeuePrompt(sessionId, index);
+    const updated = await window.nekko.dequeuePrompt(sessionId, index);
     if (updated) setSession(updated);
     refreshSessions();
   };
@@ -786,7 +786,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     if (!newText.trim()) return;
     const brain = requireBrain(newText);
     if (!brain) return;
-    await window.kotrain.truncateSession(sessionId, messageId);
+    await window.nekko.truncateSession(sessionId, messageId);
     beginTurn();
     setSession((prev) => {
       if (!prev) return prev;
@@ -794,7 +794,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
       const kept = idx >= 0 ? prev.messages.slice(0, idx) : prev.messages;
       return { ...prev, messages: [...kept, { id: 'tmp', role: 'user', content: newText, createdAt: Date.now() }] };
     });
-    await window.kotrain.sendChat({ sessionId, providerId: brain.providerId, modelId: brain.modelId, text: newText });
+    await window.nekko.sendChat({ sessionId, providerId: brain.providerId, modelId: brain.modelId, text: newText });
   };
 
   // Carry on from a reply that stopped part-way. The transcript is left exactly
@@ -808,7 +808,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     if (!brain) return;
     setErrorNotice(null);
     beginTurn();
-    await window.kotrain.sendChat({
+    await window.nekko.sendChat({
       sessionId,
       providerId: brain.providerId,
       modelId: brain.modelId,
@@ -843,7 +843,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
   const approve = async (okDecision: boolean) => {
     if (!approval) return;
-    await window.kotrain.approveTool(sessionId, approval.call.id, okDecision);
+    await window.nekko.approveTool(sessionId, approval.call.id, okDecision);
     setApproval(null);
   };
 
@@ -871,7 +871,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   useEffect(() => { setAtFiles([]); }, [session?.workspaceId]);
   useEffect(() => {
     if (atQuery !== null && session?.workspaceId && atFiles.length === 0) {
-      window.kotrain.listFiles(session.workspaceId).then(setAtFiles).catch(() => {});
+      window.nekko.listFiles(session.workspaceId).then(setAtFiles).catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [atQuery, session?.workspaceId]);
@@ -919,9 +919,9 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const pickFile = async (f: IndexedFile) => {
     if (!session) return;
     const next = Array.from(new Set([...(session.attachedPaths ?? []), f.path]));
-    await window.kotrain.setSessionAttachments(session.id, next);
+    await window.nekko.setSessionAttachments(session.id, next);
     setDraft((d) => d.replace(/(?:^|\s)@([^\s@]*)$/, (full) => (/^\s/.test(full) ? ' ' : '') + '@' + f.relPath + ' '));
-    setSession(await window.kotrain.getSession(session.id));
+    setSession(await window.nekko.getSession(session.id));
     refreshCtx();
     composerRef.current?.focus();
   };
@@ -976,11 +976,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   };
 
   const addFiles = async () => {
-    const picked = await window.kotrain.openFilesDialog();
+    const picked = await window.nekko.openFilesDialog();
     if (!session || !picked.length) return;
     const next = Array.from(new Set([...(session.attachedPaths ?? []), ...picked]));
-    await window.kotrain.setSessionAttachments(session.id, next);
-    setSession(await window.kotrain.getSession(session.id));
+    await window.nekko.setSessionAttachments(session.id, next);
+    setSession(await window.nekko.getSession(session.id));
     refreshCtx();
   };
 
@@ -993,7 +993,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const thinkingSupported = !!modelId && modelId !== AUTO_MODEL_ID && modelSupportsThinking({ id: modelId, name: selectedModelInfo?.name });
   const thinkingOn = session?.thinking !== false;
   const setThinkingPref = (value: boolean) => {
-    window.kotrain.setSessionOptions(sessionId, { thinking: value }).then((s) => { if (s) setSession(s); }).catch(() => {});
+    window.nekko.setSessionOptions(sessionId, { thinking: value }).then((s) => { if (s) setSession(s); }).catch(() => {});
   };
 
   // Auto mode: the model the next message will actually run on. Shown whether or
@@ -1240,7 +1240,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                   // back and the chat fell back to its old provider (which may
                   // have no models at all, leaving it unsendable).
                   const auto = v === AUTO_MODEL_ID;
-                  window.kotrain
+                  window.nekko
                     .setSessionOptions(sessionId, {
                       autoModel: auto,
                       ...(pid ? { providerId: pid } : {}),
@@ -1254,7 +1254,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                 <AutoQualityMenu
                   quality={autoQuality}
                   onPick={(q) => {
-                    window.kotrain
+                    window.nekko
                       .setSessionOptions(sessionId, { autoQuality: q })
                       .then((s) => { if (s) setSession(s); })
                       .catch(() => {});
@@ -1522,7 +1522,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                         <button
                           role="menuitem"
                           className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] hover:bg-surface-2"
-                          onClick={() => { closeAttachMenu(); void window.kotrain.addWorkspace(); }}
+                          onClick={() => { closeAttachMenu(); void window.nekko.addWorkspace(); }}
                           onMouseEnter={closeSkillsFly}
                         >
                           Folder
@@ -1619,7 +1619,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                     </button>
                   )}
                   {streaming ? (
-                    <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.kotrain.abortChat(sessionId)}>Stop</button>
+                    <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>
                   ) : (
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
@@ -1727,7 +1727,7 @@ function ModelPicker({
     let live = true;
     Promise.all(
       providers.map((p) =>
-        window.kotrain.listModels(p.id)
+        window.nekko.listModels(p.id)
           .then((m) => [p.id, m] as const)
           .catch(() => [p.id, [] as ModelInfo[]] as const),
       ),
@@ -1739,7 +1739,7 @@ function ModelPicker({
   const toggleFavorite = async (key: string) => {
     const next = new Set(settings?.favoriteModels ?? []);
     next.has(key) ? next.delete(key) : next.add(key);
-    await window.kotrain.updateSettings({ favoriteModels: [...next] });
+    await window.nekko.updateSettings({ favoriteModels: [...next] });
     refreshSettings();
   };
 

@@ -111,7 +111,7 @@ export function ArtifactsCard({ run }: { run: TrainingRun }) {
   const wsPath = settings?.workspaces?.find((w) => w.id === run.workspaceId)?.path ?? settings?.workspaces?.[0]?.path;
   const outDir = runOutputDir(run);
   const artifacts = run.artifacts ?? [];
-  const open = (rel: string) => void window.kotrain.openPath(joinPath(wsPath, rel));
+  const open = (rel: string) => void window.nekko.openPath(joinPath(wsPath, rel));
   return (
     <div className="card px-3.5 py-3">
       <div className="flex items-center justify-between gap-2">
@@ -356,7 +356,7 @@ export function HintComposer({
     const t = text.trim();
     if (!t) return;
     setText('');
-    await window.kotrain.addTrainingHint(run.id, t);
+    await window.nekko.addTrainingHint(run.id, t);
   };
   return (
     <div className="card px-3.5 py-3">
@@ -456,7 +456,7 @@ export function RunModelPicker({
     if (!providerId) { setModels([]); return; }
     let alive = true;
     setLoading(true);
-    window.kotrain.listModels(providerId)
+    window.nekko.listModels(providerId)
       .then((ms) => { if (alive) setModels(ms); })
       .catch(() => { if (alive) setModels([]); })
       .finally(() => { if (alive) setLoading(false); });

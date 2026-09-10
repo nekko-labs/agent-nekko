@@ -34,7 +34,7 @@ export function DesignBoardView() {
   // Sessions in this workspace whose agent is actively working (→ "updating").
   const [working, setWorking] = useState<Set<string>>(new Set());
 
-  const load = () => { if (wsId) window.kotrain.getDesignBoard(wsId).then(setBoard).catch(() => setBoard(null)); };
+  const load = () => { if (wsId) window.nekko.getDesignBoard(wsId).then(setBoard).catch(() => setBoard(null)); };
   useEffect(() => { setSelected(null); load(); /* eslint-disable-next-line */ }, [wsId]);
 
   // An agent editing files in this workspace marks pages "updating" and reloads
@@ -44,7 +44,7 @@ export function DesignBoardView() {
     [sessions, wsId],
   );
   useEffect(() => {
-    const off = window.kotrain.onAgentEvent((e: AgentEvent) => {
+    const off = window.nekko.onAgentEvent((e: AgentEvent) => {
       if (!wsSessionIds.has(e.sessionId)) return;
       setWorking((prev) => {
         const n = new Set(prev);
@@ -58,7 +58,7 @@ export function DesignBoardView() {
     // eslint-disable-next-line
   }, [wsSessionIds]);
   useEffect(() => {
-    const off = window.kotrain.onChangesUpdated((e) => { if (wsSessionIds.has(e.sessionId)) setReloadNonce((x) => x + 1); });
+    const off = window.nekko.onChangesUpdated((e) => { if (wsSessionIds.has(e.sessionId)) setReloadNonce((x) => x + 1); });
     return off;
   }, [wsSessionIds]);
 
@@ -81,7 +81,7 @@ export function DesignBoardView() {
     });
     setMode(null);
     try {
-      const next = await window.kotrain.generateDesign(wsId, input);
+      const next = await window.nekko.generateDesign(wsId, input);
       setBoard(next);
       // Surface the fresh card's sheet so refine/notes are one tap away.
       if (!input.pageId) {
@@ -98,12 +98,12 @@ export function DesignBoardView() {
 
   const addPage = async (label: string, url: string) => {
     if (!wsId || !url.trim()) return;
-    setBoard(await window.kotrain.addDesignPage(wsId, label, url));
+    setBoard(await window.nekko.addDesignPage(wsId, label, url));
     setMode(null);
   };
   const removePage = async (pageId: string) => {
     if (!wsId) return;
-    setBoard(await window.kotrain.removeDesignPage(wsId, pageId));
+    setBoard(await window.nekko.removeDesignPage(wsId, pageId));
     if (selected === pageId) setSelected(null);
   };
 
@@ -184,8 +184,8 @@ export function DesignBoardView() {
             onOpenBrowser={() => { useStore.getState().openBrowserPane(selectedPage.url); useStore.getState().setView('chat'); }}
             onOpenFile={selectedPage.file ? () => { useStore.getState().openFilePane(selectedPage.file!); useStore.getState().setView('chat'); } : undefined}
             onRefine={(text) => generate({ prompt: text, pageId: selectedPage.id })}
-            onAddNote={async (text) => { if (wsId) setBoard(await window.kotrain.addDesignNote(wsId, selectedPage.id, text)); }}
-            onResolveNote={async (id) => { if (wsId) setBoard(await window.kotrain.resolveDesignNote(wsId, selectedPage.id, id)); }}
+            onAddNote={async (text) => { if (wsId) setBoard(await window.nekko.addDesignNote(wsId, selectedPage.id, text)); }}
+            onResolveNote={async (id) => { if (wsId) setBoard(await window.nekko.resolveDesignNote(wsId, selectedPage.id, id)); }}
             onComment={(text, run) => sendToChat(
               selectedPage.kind === 'concept'
                 ? `Re the design concept "${selectedPage.label}"${selectedPage.file ? ` (prototype file: ${selectedPage.file})` : ''}, ${text}`

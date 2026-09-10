@@ -19,7 +19,7 @@ const CHECK_META: Record<PrChecks, { label: string; color: string; dot: string }
   none: { label: '', color: '', dot: '' },
 };
 
-const openExternally = (url: string) => window.kotrain.openPath(url).catch(() => {});
+const openExternally = (url: string) => window.nekko.openPath(url).catch(() => {});
 
 /** A few drifting stars for the merged-PR celebration background. */
 function Stars() {
@@ -71,7 +71,7 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
     setConfirm(null);
     setBusy(action);
     try {
-      const res = await window.kotrain.prAction(url, action);
+      const res = await window.nekko.prAction(url, action);
       useStore.getState().pushToast(res.ok ? 'success' : 'error', res.message);
       if (sessionId) await useStore.getState().refreshSessionPrs(sessionId);
     } catch (e) {
@@ -224,7 +224,7 @@ export function PrPane({ url }: { url: string }) {
 
   useEffect(() => {
     setLoaded(false);
-    window.kotrain.getPrDiff(url).then((d) => { setDiff(d); setLoaded(true); }).catch(() => setLoaded(true));
+    window.nekko.getPrDiff(url).then((d) => { setDiff(d); setLoaded(true); }).catch(() => setLoaded(true));
   }, [url]);
 
   const totals = useMemo(() => {

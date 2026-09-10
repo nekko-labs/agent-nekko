@@ -1,18 +1,19 @@
 import { IpcChannels, IpcEvents, deriveKey, seal, open, RELEASE_NOTES_URL } from '@agent-nekko/shared';
-import type { AppSettings, AgentEvent, IndexStatus, KotrainApi, AppInfo, UpdateInfo, TerminalEvent, OAuthStatus, SubscriptionLimits } from '@agent-nekko/shared';
+import type { AppSettings, AgentEvent, IndexStatus, NekkoApi, AppInfo, UpdateInfo, TerminalEvent, OAuthStatus, SubscriptionLimits } from '@agent-nekko/shared';
+import { readBrandKey } from './brandStorage.js';
 
 /**
- * Browser transport for the web/Docker editions: implements the same KotrainApi
+ * Browser transport for the web/Docker editions: implements the same NekkoApi
  * the Electron preload exposes, but over HTTP (`POST /api/:channel`) and a
  * WebSocket (`/api/events`). Installed only when no Electron preload bridge is
  * present, so the React UI is byte-for-byte identical across runtimes.
  */
-function makeWebClient(): KotrainApi {
+function makeWebClient(): NekkoApi {
   // Token (only needed when the server is exposed beyond localhost). Accept it
   // from the URL once, then remember it for the session.
   const urlToken = new URLSearchParams(location.search).get('token');
-  if (urlToken) sessionStorage.setItem('kotrain_token', urlToken);
-  const token = () => sessionStorage.getItem('kotrain_token') ?? '';
+  if (urlToken) sessionStorage.setItem('nekko_token', urlToken);
+  const token = () => readBrandKey(sessionStorage, 'nekko_token') ?? '';
 
   const agentCbs = new Set<(e: AgentEvent) => void>();
   const indexCbs = new Set<(s: IndexStatus) => void>();
@@ -508,9 +509,9 @@ function makeWebClient(): KotrainApi {
   };
 }
 
-/** Install the web client only if no Electron preload bridge already set window.kotrain. */
+/** Install the web client only if no Electron preload bridge already set window.nekko. */
 export function ensureKotrain(): void {
-  if (!(window as any).kotrain) {
-    (window as any).kotrain = makeWebClient();
+  if (!(window as any).nekko) {
+    (window as any).nekko = makeWebClient();
   }
 }

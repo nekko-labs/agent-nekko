@@ -50,7 +50,7 @@ export function AddressField({
       return;
     }
     setSaving(true);
-    await window.kotrain.saveProvider({ ...provider, baseUrl: next }).catch(() => {});
+    await window.nekko.saveProvider({ ...provider, baseUrl: next }).catch(() => {});
     setSaving(false);
     setEditing(false);
     onSaved();

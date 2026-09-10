@@ -7,7 +7,7 @@ export function MemoryView() {
   const [entries, setEntries] = useState<MemoryEntry[]>([]);
   const [editing, setEditing] = useState<MemoryEntry | null>(null);
 
-  const load = async () => setEntries(await window.kotrain.listMemory(scope));
+  const load = async () => setEntries(await window.nekko.listMemory(scope));
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [scope]);
 
   const blank = (): MemoryEntry => ({
@@ -22,7 +22,7 @@ export function MemoryView() {
 
   const save = async () => {
     if (!editing) return;
-    await window.kotrain.saveMemory(editing);
+    await window.nekko.saveMemory(editing);
     setEditing(null);
     load();
   };
@@ -49,7 +49,7 @@ export function MemoryView() {
             <div key={m.id} className="card cursor-pointer p-3" onClick={() => setEditing(m)}>
               <div className="flex items-center justify-between">
                 <span className="truncate text-[13px] font-medium">{m.title || '(untitled)'}</span>
-                <button className="text-ink-faint" onClick={async (e) => { e.stopPropagation(); await window.kotrain.deleteMemory(m.id); load(); }}>
+                <button className="text-ink-faint" onClick={async (e) => { e.stopPropagation(); await window.nekko.deleteMemory(m.id); load(); }}>
                   <TrashIcon className="h-4 w-4" />
                 </button>
               </div>

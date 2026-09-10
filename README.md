@@ -55,14 +55,16 @@ away, with the same gentle activity timing.
 Built by [Nekko Labs](https://nekkolabs.com), MIT-licensed, and developed in the
 open. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
-### Rebrand status
+### Renamed from Kotrain
 
-The new home is **agentnekko.com**, with **nekkoagent.com** reserved as a backup.
-The GitHub, Vercel, domain, and package cutovers are staged. Existing download
-links below still lead to the published Kotrain releases. Existing `kotrain`
-commands, data paths, and integrations remain supported; the `agent-nekko`
-executable alias is being added in this source tree. It is not yet a published
-`agent-nekko` npm package. See the [cutover checklist](TASKS.md#now--in-progress).
+The home is **agentnekko.com** (with **nekkoagent.com** as a backup), the npm
+package is **`agent-nekko`**, and installers are named **`AgentNekko-…`**.
+Releases published before the rename keep the filenames they shipped under.
+
+Nothing you already had stops working. The `kotrain` and `nekkos` commands are
+kept as aliases, `KOTRAIN_*` environment variables are still read behind
+`NEKKO_*`, an existing `~/.kotrain` keeps being used, and the desktop app adopts
+its previous profile on first run. `kotrain://` deep links still resolve.
 
 ### On the roadmap
 
@@ -116,13 +118,15 @@ AppImage/deb and macOS DMG releases include their updater metadata. A release
 installed from a manually downloaded artifact may still require the matching
 installer format for updates.
 
-> **Releases before v0.6.0** are unsigned. macOS quarantines them and may say the app is *damaged* or move it to the Trash. The app is fine; clear the quarantine flag once with `xattr -cr "/Applications/Kotrain.app"`, or upgrade to a signed build.
+#### macOS says the app is damaged and can't be opened
+
+**Releases before v0.6.0** are unsigned. macOS quarantines them and may say the app is *damaged* or move it to the Trash. The app is fine; clear the quarantine flag once with `xattr -cr "/Applications/Kotrain.app"` (that is the bundle name those releases shipped), or take a current signed build. From v0.6.0 on, macOS builds are signed with a Developer ID and notarized.
 
 ### Uninstalling
 
 - **Windows**: *Settings → Apps → Installed apps → Agent Nekko → Uninstall*, or the **Uninstall Agent Nekko** shortcut in the Start Menu folder. The uninstaller asks whether to also delete your chats and settings (choose **No** to keep them for a reinstall).
-- **macOS**: drag **Agent Nekko** from Applications to the Trash. To also remove data: `rm -rf "$HOME/Library/Application Support/Kotrain"`.
-- **Linux**: remove the AppImage, or `sudo apt remove kotrain` for the `.deb`.
+- **macOS**: drag **Agent Nekko** from Applications to the Trash. To also remove data: `rm -rf "$HOME/Library/Application Support/Agent Nekko"` (and `.../Kotrain` if you used a build from before the rename).
+- **Linux**: remove the AppImage, or `sudo apt remove agentnekko` for the `.deb`.
 
 ## Why Agent Nekko
 
@@ -146,7 +150,7 @@ Same engine, same UI, multiple runtimes (see the design in the project spec):
 | **Self-hosted web** | `npm run web`, offline, the same UI in your browser | ✅ available |
 | **Docker** | `docker compose up`, workspaces as volumes, local models via `host.docker.internal` | ✅ available |
 | **Phone remote control** | pair your phone (QR, one-time code) and run chats/training/goals on your home machine from anywhere, end-to-end encrypted; managed relay free in beta, or [self-host it](docs/REMOTE.md) with one Docker command | ✅ available |
-| **Kotrain Cloud** (paid) | managed hosting: subscriptions, always-available **Zero-Data-Retention** mode, cloud chat-history + file management | 🔜 planned |
+| **Agent Nekko Cloud** (paid) | managed hosting: subscriptions, always-available **Zero-Data-Retention** mode, cloud chat-history + file management | 🔜 planned |
 
 The desktop, web, and (coming) Docker editions all run the **same engine + same React UI**, only the transport differs (Electron IPC vs HTTP/WebSocket), via the shared `@agent-nekko/host`.
 
@@ -161,12 +165,12 @@ Same app, in your browser, fully offline. It binds to `localhost` by default. A
 non-loopback bind refuses to start unless `KOTRAIN_TOKEN` is set; use
 `Authorization: Bearer <token>` for API requests and append `?token=…` only for
 browser WebSocket access. If a trusted reverse proxy provides authentication,
-the explicit escape hatch is `KOTRAIN_ALLOW_UNAUTHENTICATED=1`. Host and Origin
+the explicit escape hatch is `NEKKO_ALLOW_UNAUTHENTICATED=1`. Host and Origin
 checks can be extended for a proxy with comma-separated
-`KOTRAIN_ALLOWED_HOSTS` and `KOTRAIN_ALLOWED_ORIGINS`. Data lives in
-`~/.kotrain` (override with `KOTRAIN_DATA_DIR`).
+`NEKKO_ALLOWED_HOSTS` and `NEKKO_ALLOWED_ORIGINS`. Data lives in
+`~/.nekko` (override with `NEKKO_DATA_DIR`), or an existing `~/.kotrain`.
 
-![Kotrain web edition](docs/screenshots/web-edition.png)
+![Agent Nekko web edition](docs/screenshots/web-edition.png)
 
 ### Run with Docker
 
@@ -176,9 +180,10 @@ docker compose up        # build + run, then open http://localhost:1440
 
 Mount your codebases into `./workspace` (the sandbox confines file tools there),
 and reach a model server on your host at `http://host.docker.internal:<port>`.
-Settings/sessions persist in the `kotrain-data` volume. Compose generates and
-prints a random token; read it with `docker compose logs` (or set your own
-`KOTRAIN_TOKEN`) before exposing the service beyond localhost.
+Settings/sessions persist in the `kotrain-data` volume (still named for the
+earlier brand on purpose, so an existing self-hosted install keeps its data).
+Compose generates and prints a random token; read it with `docker compose logs`
+(or set your own `NEKKO_TOKEN`) before exposing the service beyond localhost.
 
 Cloud keeps inference and tools **on your machine**, the relay is an
 end-to-end-encrypted pipe to a paired local agent, so using your own model stays
@@ -222,9 +227,9 @@ The core engine is Electron-free so it can be tested in isolation and reused.
 External harnesses can drive the same host through the CLI or MCP server:
 
 ```bash
-npm install --global kotrain
-npx kotrain status --json
-npx kotrain mcp
+npm install --global agent-nekko
+npx agent-nekko status --json
+npx agent-nekko mcp
 ```
 
 From a checkout:

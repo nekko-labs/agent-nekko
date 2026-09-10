@@ -19,8 +19,8 @@ export function TrainingView() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    void window.kotrain.listTrainingRuns().then(setRuns);
-    return window.kotrain.onTrainingUpdated(setRuns);
+    void window.nekko.listTrainingRuns().then(setRuns);
+    return window.nekko.onTrainingUpdated(setRuns);
   }, []);
 
   // Goal runs are listed here too. The Goals tab they used to live on is now
@@ -82,11 +82,11 @@ export function TrainingView() {
 }
 
 function RunDashboard({ run, onOpenChat }: { run: TrainingRun; onOpenChat: (sessionId: string) => void }) {
-  const start = () => void window.kotrain.startTrainingRun(run.id);
-  const pause = () => void window.kotrain.pauseTrainingRun(run.id);
-  const stop = () => void window.kotrain.stopTrainingRun(run.id);
+  const start = () => void window.nekko.startTrainingRun(run.id);
+  const pause = () => void window.nekko.pauseTrainingRun(run.id);
+  const stop = () => void window.nekko.stopTrainingRun(run.id);
   const remove = () => {
-    if (confirm(`Delete run "${run.name}"? The experiment history is lost.`)) void window.kotrain.deleteTrainingRun(run.id);
+    if (confirm(`Delete run "${run.name}"? The experiment history is lost.`)) void window.nekko.deleteTrainingRun(run.id);
   };
   const cfg = run.config ?? {};
   // Run controls live in one cluster (Start · Pause · Stop); Open chat + Delete
@@ -205,8 +205,8 @@ function NewRunForm({
       ...(providerId && modelId.trim() ? { providerId, modelId: modelId.trim() } : {}),
     };
     try {
-      const run = await window.kotrain.createTrainingRun(input);
-      if (startNow) await window.kotrain.startTrainingRun(run.id);
+      const run = await window.nekko.createTrainingRun(input);
+      if (startNow) await window.nekko.startTrainingRun(run.id);
       onCreated(run);
     } finally {
       setBusy(false);

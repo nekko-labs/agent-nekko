@@ -127,7 +127,7 @@ export function WorkbenchView() {
   const newMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { refreshTerminals(); }, [refreshTerminals]);
-  useEffect(() => { window.kotrain.listShells().then(setShells).catch(() => {}); }, []);
+  useEffect(() => { window.nekko.listShells().then(setShells).catch(() => {}); }, []);
 
   // Close the "+" create menu on an outside click.
   useEffect(() => {
@@ -150,7 +150,7 @@ export function WorkbenchView() {
   // sub-agents by refreshing the list when an unknown id appears.
   useEffect(() => {
     const known = new Set(sessions.map((s) => s.id));
-    const off = window.kotrain.onAgentEvent((e: AgentEvent) => {
+    const off = window.nekko.onAgentEvent((e: AgentEvent) => {
       const next = statusFromEvent(e.type);
       setStatuses((prev) => {
         const m = new Map(prev);

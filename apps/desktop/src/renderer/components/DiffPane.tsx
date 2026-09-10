@@ -37,19 +37,19 @@ export function DiffPane({ sessionId }: { sessionId: string }) {
   const [changes, setChanges] = useState<FileChange[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  const reload = () => window.kotrain.listChanges(sessionId).then((c) => { setChanges(c); setLoaded(true); }).catch(() => setLoaded(true));
+  const reload = () => window.nekko.listChanges(sessionId).then((c) => { setChanges(c); setLoaded(true); }).catch(() => setLoaded(true));
 
   useEffect(() => {
     reload();
-    const off = window.kotrain.onChangesUpdated((e) => { if (e.sessionId === sessionId) reload(); });
+    const off = window.nekko.onChangesUpdated((e) => { if (e.sessionId === sessionId) reload(); });
     return off;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  const keepAll = async () => { await window.kotrain.acceptAllChanges(sessionId); reload(); };
+  const keepAll = async () => { await window.nekko.acceptAllChanges(sessionId); reload(); };
   const revertAll = async () => {
-    await Promise.all(changes.map((c) => window.kotrain.writeFile(c.path, c.original)));
-    await window.kotrain.acceptAllChanges(sessionId);
+    await Promise.all(changes.map((c) => window.nekko.writeFile(c.path, c.original)));
+    await window.nekko.acceptAllChanges(sessionId);
     reload();
   };
 
@@ -110,14 +110,14 @@ function FileDiff({ sessionId, change, onChanged }: { sessionId: string; change:
     return out.join('\n');
   };
 
-  const keepFile = async () => { await window.kotrain.acceptChange(sessionId, change.path); onChanged(); };
+  const keepFile = async () => { await window.nekko.acceptChange(sessionId, change.path); onChanged(); };
   const revertFile = async () => {
-    await window.kotrain.writeFile(change.path, change.original);
-    await window.kotrain.acceptChange(sessionId, change.path);
+    await window.nekko.writeFile(change.path, change.original);
+    await window.nekko.acceptChange(sessionId, change.path);
     onChanged();
   };
   const revertSelected = async () => {
-    await window.kotrain.writeFile(change.path, mergedAfterRevert());
+    await window.nekko.writeFile(change.path, mergedAfterRevert());
     setRevert(new Set());
     onChanged();
   };

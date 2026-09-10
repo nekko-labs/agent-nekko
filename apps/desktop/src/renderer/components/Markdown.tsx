@@ -422,7 +422,7 @@ function Ref({ href, basePath, children }: { href: string; basePath?: string; ch
       className="wrap-break-word underline"
       style={{ color: 'var(--accent)' }}
       title={`Open ${target}`}
-      onClick={() => window.kotrain.openPath(target)}
+      onClick={() => window.nekko.openPath(target)}
     >
       {children}
     </button>
@@ -450,7 +450,7 @@ function ImageRef({ alt, src, basePath }: { alt: string; src: string; basePath?:
     <button
       className={`${className} hover:bg-surface-2 hover:text-ink`}
       title={`Open ${target}`}
-      onClick={() => window.kotrain.openPath(target)}
+      onClick={() => window.nekko.openPath(target)}
     >
       {body}
     </button>

@@ -61,8 +61,8 @@ export function UsageLimitsChip({
       return;
     }
     let live = true;
-    window.kotrain.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
-    const off = window.kotrain.onLimitsUpdated((e) => {
+    window.nekko.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
+    const off = window.nekko.onLimitsUpdated((e) => {
       if (e.tokenKey === tokenKey) setLimits(e.limits);
     });
     return () => { live = false; off(); };

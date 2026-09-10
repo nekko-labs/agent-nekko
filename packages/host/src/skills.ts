@@ -7,7 +7,7 @@ import { dataDir } from './store.js';
 
 /**
  * Skills marketplace installs. Records live in skills.json under the data dir.
- * The `kotrain` target is purely a record (installed skills join the `/` menu
+ * The `agent-nekko` target is purely a record (installed skills join the `/` menu
  * and the Skills tab); `claude`/`codex` write a SKILL.md folder into the app's
  * user-level skills directory so other agents pick the skill up too.
  */

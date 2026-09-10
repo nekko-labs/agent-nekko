@@ -37,7 +37,7 @@ export function OnboardingView() {
         steps,
         ...(complete ? { completedAt: Date.now() } : {}),
       };
-      const next = await window.kotrain.updateSettings({ onboarding });
+      const next = await window.nekko.updateSettings({ onboarding });
       useStore.setState({ settings: next });
       return next;
     },

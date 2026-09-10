@@ -47,7 +47,7 @@ export function ScheduleTaskModal({
       ...(kind === 'recurring' ? { intervalMs } : {}),
       ...(kind === 'background' ? { keepAlive, intervalMs, ...(keepAlive === 'until' ? { condition: condition.trim() } : {}) } : {}),
     };
-    await window.kotrain.createTask(task);
+    await window.nekko.createTask(task);
     pushToast('success', `${kind === 'scheduled' ? 'Scheduled' : kind === 'recurring' ? 'Recurring' : 'Background'} task created.`);
     onClose();
   };

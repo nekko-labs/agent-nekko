@@ -20,11 +20,11 @@ export function CommandCenterView() {
   const now = Date.now();
 
   useEffect(() => {
-    window.kotrain.getUsageSummary().then(setUsage);
+    window.nekko.getUsageSummary().then(setUsage);
     refreshSessions();
     refreshTerminals();
-    window.kotrain.listTasks().then(setTasks).catch(() => setTasks([]));
-    const off = window.kotrain.onTasksUpdated(setTasks);
+    window.nekko.listTasks().then(setTasks).catch(() => setTasks([]));
+    const off = window.nekko.onTasksUpdated(setTasks);
     return off;
   }, [refreshSessions, refreshTerminals]);
 
@@ -39,11 +39,11 @@ export function CommandCenterView() {
   // Track running sessions live; surface freshly spawned sub-agents.
   useEffect(() => {
     const known = new Set(sessions.map((s) => s.id));
-    const off = window.kotrain.onAgentEvent((e: AgentEvent) => {
+    const off = window.nekko.onAgentEvent((e: AgentEvent) => {
       if (e.type === 'done' || e.type === 'error') {
         runStarts.current.delete(e.sessionId);
         setRunning((r) => { const n = new Set(r); n.delete(e.sessionId); return n; });
-        window.kotrain.getUsageSummary().then(setUsage);
+        window.nekko.getUsageSummary().then(setUsage);
         refreshSessions(); // pick up the dequeued prompt + final message
       } else {
         if (!runStarts.current.has(e.sessionId)) runStarts.current.set(e.sessionId, Date.now());
@@ -376,7 +376,7 @@ function NowRow({
         <span className="ml-auto shrink-0 tabular-nums text-[11.5px] font-medium" style={{ color: 'var(--success)' }}>
           {startedAt ? `working ${elapsed(now - startedAt)}` : 'working…'}
         </span>
-        <button className="btn btn-outline shrink-0 px-2.5 py-1 text-[12px]" onClick={() => window.kotrain.abortChat(session.id)}>Stop</button>
+        <button className="btn btn-outline shrink-0 px-2.5 py-1 text-[12px]" onClick={() => window.nekko.abortChat(session.id)}>Stop</button>
         <button className="btn btn-ghost shrink-0 px-2.5 py-1 text-[12px]" onClick={() => onOpen(session.id)}>Open →</button>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[18px] text-[11.5px] text-ink-faint">
@@ -399,7 +399,7 @@ function NowRow({
                 <button
                   className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-red-400"
                   title="Remove from queue"
-                  onClick={async () => { await window.kotrain.dequeuePrompt(session.id, i); onRefresh(); }}
+                  onClick={async () => { await window.nekko.dequeuePrompt(session.id, i); onRefresh(); }}
                 >
                   <TrashIcon className="h-3 w-3" />
                 </button>
@@ -487,14 +487,14 @@ function AutomationsBoard({ tasks, running, now, onOpen }: { tasks: AutomationTa
                   </span>
                   <span className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
                     {t.status !== 'done' && (
-                      <button className="btn btn-ghost px-2 py-0.5 text-[11.5px]" onClick={() => window.kotrain.runTaskNow(t.id)}>Run now</button>
+                      <button className="btn btn-ghost px-2 py-0.5 text-[11.5px]" onClick={() => window.nekko.runTaskNow(t.id)}>Run now</button>
                     )}
                     {t.status === 'active' ? (
-                      <button className="btn btn-ghost px-2 py-0.5 text-[11.5px]" onClick={() => window.kotrain.updateTask(t.id, { status: 'paused' })}>Pause</button>
+                      <button className="btn btn-ghost px-2 py-0.5 text-[11.5px]" onClick={() => window.nekko.updateTask(t.id, { status: 'paused' })}>Pause</button>
                     ) : t.status === 'paused' ? (
-                      <button className="btn btn-ghost px-2 py-0.5 text-[11.5px]" onClick={() => window.kotrain.updateTask(t.id, { status: 'active' })}>Resume</button>
+                      <button className="btn btn-ghost px-2 py-0.5 text-[11.5px]" onClick={() => window.nekko.updateTask(t.id, { status: 'active' })}>Resume</button>
                     ) : null}
-                    <button className="rounded-sm p-1 text-ink-faint hover:text-red-400" title="Delete automation" onClick={() => window.kotrain.deleteTask(t.id)}><TrashIcon className="h-3.5 w-3.5" /></button>
+                    <button className="rounded-sm p-1 text-ink-faint hover:text-red-400" title="Delete automation" onClick={() => window.nekko.deleteTask(t.id)}><TrashIcon className="h-3.5 w-3.5" /></button>
                   </span>
                 </div>
                 <div className="mt-0.5 flex items-baseline gap-2 pl-[34px] text-[11.5px] text-ink-faint">
@@ -844,8 +844,8 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
 function ServicesPanel({ providers, usage }: { providers: ProviderConfig[]; usage: UsageSummary | null }) {
   const [remote, setRemote] = useState<RemoteStatus | null>(null);
   const [mcp, setMcp] = useState<import('@agent-nekko/shared').McpServerStatus[]>([]);
-  useEffect(() => { window.kotrain.getRemoteStatus().then(setRemote).catch(() => setRemote(null)); }, []);
-  useEffect(() => { window.kotrain.getMcpStatus().then(setMcp).catch(() => setMcp([])); }, []);
+  useEffect(() => { window.nekko.getRemoteStatus().then(setRemote).catch(() => setRemote(null)); }, []);
+  useEffect(() => { window.nekko.getMcpStatus().then(setMcp).catch(() => setMcp([])); }, []);
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
       <RemoteCard remote={remote} />
@@ -877,7 +877,7 @@ function ServicesPanel({ providers, usage }: { providers: ProviderConfig[]; usag
 function WorkerCard({ provider, tokens }: { provider: ProviderConfig; tokens?: { input: number; output: number } }) {
   const [state, setState] = useState<'checking' | 'online' | 'offline'>('checking');
   useEffect(() => {
-    window.kotrain.testProvider(provider.id).then((r) => setState(r.ok ? 'online' : 'offline')).catch(() => setState('offline'));
+    window.nekko.testProvider(provider.id).then((r) => setState(r.ok ? 'online' : 'offline')).catch(() => setState('offline'));
   }, [provider.id]);
   const total = tokens ? tokens.input + tokens.output : 0;
   const isLocal = isLocalProvider(provider.kind);

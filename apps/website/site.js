@@ -1,4 +1,4 @@
-// Kotrain marketing site: starfield backdrop, scroll reveals, OS highlight.
+// Agent Nekko marketing site: starfield backdrop, scroll reveals, OS highlight.
 (function () {
   // ---- drifting starfield (space-travel feel, honors reduced motion) ----
   const canvas = document.getElementById('stars');
@@ -95,10 +95,10 @@
   // The same one-liner the button downloads, in the shell that visitor actually
   // has: fetch the exact release asset, then launch it.
   const CMD = {
-    win: (u) => `iwr ${u} -OutFile kotrain-setup.exe; .\\kotrain-setup.exe`,
-    mac: (u) => `curl -L ${u} -o Kotrain.dmg && open Kotrain.dmg`,
+    win: (u) => `iwr ${u} -OutFile agent-nekko-setup.exe; .\\agent-nekko-setup.exe`,
+    mac: (u) => `curl -L ${u} -o AgentNekko.dmg && open AgentNekko.dmg`,
     linux: (u) =>
-      `curl -L ${u} -o Kotrain.AppImage && chmod +x Kotrain.AppImage && ./Kotrain.AppImage`,
+      `curl -L ${u} -o AgentNekko.AppImage && chmod +x AgentNekko.AppImage && ./AgentNekko.AppImage`,
   };
   const SHELL = { win: 'PowerShell', mac: 'Terminal', linux: 'a shell' };
 
@@ -290,7 +290,7 @@
       note.textContent = `${b.fmt} · ${b.hint}. Not your machine? Use the arrow for every other build.`;
     } else {
       note.textContent = mobile
-        ? 'Agent Nekko runs on your computer. Choose a desktop build from the menu. Current installers still use the Kotrain name.'
+        ? 'Agent Nekko runs on your computer. Choose a desktop build from the menu.'
         : 'Pick a build from the menu, or see them all on GitHub Releases.';
     }
   }

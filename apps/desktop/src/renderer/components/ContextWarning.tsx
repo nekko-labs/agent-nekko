@@ -52,7 +52,7 @@ export function ContextWarning({
   const openNewChat = async () => {
     // Create a new session under the same workspace (if any).
     const wsId = session?.workspaceId;
-    const created = await window.kotrain.createSession(wsId ?? undefined);
+    const created = await window.nekko.createSession(wsId ?? undefined);
     // Copy over provider/model if they were set on this session.
     if (session?.providerId || session?.modelId) {
       const opts: { providerId?: string; modelId?: string; autoModel?: boolean } = {};
@@ -62,11 +62,11 @@ export function ContextWarning({
       } else if (session.modelId) {
         opts.modelId = session.modelId;
       }
-      await window.kotrain.setSessionOptions(created.id, opts).catch(() => {});
+      await window.nekko.setSessionOptions(created.id, opts).catch(() => {});
     }
     // Copy over supporting workspaces
     if (session?.supportingWorkspaceIds?.length) {
-      await window.kotrain.setSessionSupportingWorkspaces(created.id, session.supportingWorkspaceIds).catch(() => {});
+      await window.nekko.setSessionSupportingWorkspaces(created.id, session.supportingWorkspaceIds).catch(() => {});
     }
     useStore.getState().refreshSessions();
     useStore.getState().openChatPane(created.id);
@@ -96,7 +96,7 @@ export function ContextWarning({
 
     // Create a new session and send the summary request.
     const wsId = session?.workspaceId;
-    const created = await window.kotrain.createSession(wsId ?? undefined);
+    const created = await window.nekko.createSession(wsId ?? undefined);
 
     // Copy over provider/model.
     if (session?.providerId || session?.modelId) {
@@ -107,10 +107,10 @@ export function ContextWarning({
       } else if (session.modelId) {
         opts.modelId = session.modelId;
       }
-      await window.kotrain.setSessionOptions(created.id, opts).catch(() => {});
+      await window.nekko.setSessionOptions(created.id, opts).catch(() => {});
     }
     if (session?.supportingWorkspaceIds?.length) {
-      await window.kotrain.setSessionSupportingWorkspaces(created.id, session.supportingWorkspaceIds).catch(() => {});
+      await window.nekko.setSessionSupportingWorkspaces(created.id, session.supportingWorkspaceIds).catch(() => {});
     }
 
     await useStore.getState().refreshSessions();

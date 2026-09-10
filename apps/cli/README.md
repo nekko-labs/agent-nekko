@@ -8,34 +8,34 @@ in-process against your data dir.
 Current published installation:
 
 ```bash
-npm install -g kotrain
-kotrain status
+npm install -g agent-nekko
+agent-nekko status
 ```
 
-This rebrand source adds `agent-nekko` as the canonical executable, retaining
-`kotrain` and `nekkos` as aliases with the same commands and options. The
-packed source has been verified, but npm still serves 0.6.0 as of 2026-09-07;
-that older published version does not include the new executable. After a
-release containing this change, `agent-nekko status` will work from the same
-package. Existing `npx agent-nekko` usage continues to work. A separately named
-`agent-nekko` npm package is not yet published.
+The package is published as **`agent-nekko`** and installs three equivalent
+executables: `agent-nekko` (canonical) plus `kotrain` and `nekkos`, kept from
+earlier names so existing scripts and MCP configs keep working. They accept the
+same commands and options.
+
+Installs of the older `kotrain` package still work; it is deprecated on npm and
+points here.
 
 From a checkout:
 
 ```bash
 npm run build --workspace=apps/cli
-node apps/cli/dist/index.js status        # or: npm link, then `kotrain status`
+node apps/cli/dist/index.js status        # or: npm link, then `agent-nekko status`
 ```
 
 ### Where it connects
 
-- **Local (default)**: runs the engine in-process against a data dir: `~/.kotrain`
-  (shared with the web/Docker edition). Set `KOTRAIN_DATA_DIR` to the desktop app's
-  dir to share that instead (`%APPDATA%/Kotrain/kotrain` on Windows,
-  `~/Library/Application Support/Kotrain/kotrain` on macOS).
-- **Remote**: pass `--url http://host:1440` (or `KOTRAIN_URL`) to talk to a
-  **running** Agent Nekko (formerly Kotrain) server over HTTP+WS, your live instance, a Docker
-  container, or another machine. Add `--token` (or `KOTRAIN_TOKEN`) if it's secured.
+- **Local (default)**: runs the engine in-process against a data dir: `~/.nekko`
+  (shared with the web/Docker edition). Set `NEKKO_DATA_DIR` to the desktop app's
+  dir to share that instead (`%APPDATA%/Agent Nekko/agent-nekko` on Windows,
+  `~/Library/Application Support/Agent Nekko/agent-nekko` on macOS).
+- **Remote**: pass `--url http://host:1440` (or `NEKKO_URL`) to talk to a
+  **running** Agent Nekko (formerly Agent Nekko) server over HTTP+WS, your live instance, a Docker
+  container, or another machine. Add `--token` (or `NEKKO_TOKEN`) if it's secured.
 
 Add `--json` to `status`/`sessions` for machine-readable output.
 
@@ -62,7 +62,7 @@ Register it in **Claude Code**:
 
 ```bash
 claude mcp add agent-nekko -- agent-nekko mcp
-# (or once published/linked: claude mcp add kotrain -- kotrain mcp)
+# (or once published/linked: claude mcp add agent-nekko -- agent-nekko mcp)
 ```
 
 Or in any MCP client config:
@@ -74,9 +74,9 @@ Or in any MCP client config:
 ### Tools exposed
 
 Discovery lists canonical `agent-nekko_*` names only. Existing MCP configurations
-using the `kotrain` executable and calls to the corresponding `kotrain_*` tool
+using the `agent-nekko` executable and calls to the corresponding `agent-nekko_*` tool
 names remain supported, with the same arguments and results. Environment
-variables, data directories, `kotrain/run` imports, and the `kotrain` skill
+variables, data directories, `agent-nekko/run` imports, and the `agent-nekko` skill
 installation target are unchanged.
 
 | Tool | What |

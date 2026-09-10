@@ -237,7 +237,7 @@ jobs:
         run: |
           node --version
           npm --version
-      - name: Publish kotrain CLI
+      - name: Publish the agent-nekko CLI
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
@@ -263,7 +263,7 @@ jobs:
             echo 'NPM_TOKEN is absent; attempting npm Trusted Publishing over OIDC.'
           fi
           set +e
-          "${publish_args[@]}" 2>&1 | tee /tmp/kotrain-npm-publish.log
+          "${publish_args[@]}" 2>&1 | tee /tmp/agent-nekko-npm-publish.log
           publish_status=${PIPESTATUS[0]}
           set -e
           if [ "$publish_status" -ne 0 ]; then

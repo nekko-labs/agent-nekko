@@ -181,7 +181,7 @@ export const REPORT_ARTIFACT_TOOL: ToolSpec = {
         description: 'What the artifact is. Use "model" for the trained model itself.',
       },
       title: { type: 'string', description: 'Short label, e.g. "Trained model (transformer)" or "AGENTS.md".' },
-      path: { type: 'string', description: 'Where it lives, relative to the workspace (or absolute), e.g. "kotrain-training/ticket-urgency/model_output".' },
+      path: { type: 'string', description: 'Where it lives, relative to the workspace (or absolute), e.g. "nekko-training/ticket-urgency/model_output".' },
       note: { type: 'string', description: 'One line on what it is and how to use it.' },
     },
     required: ['kind', 'title', 'path'],

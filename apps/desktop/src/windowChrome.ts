@@ -31,7 +31,7 @@ export interface TitleBarOverlayTheme {
   symbolColor: string;
 }
 
-/** What the preload bridge exposes as `window.kotrainChrome`. */
+/** What the preload bridge exposes as `window.nekkoChrome`. */
 export interface WindowChromeBridge {
   /** `process.platform`; the renderer only cares whether it is `'darwin'`. */
   platform: string;

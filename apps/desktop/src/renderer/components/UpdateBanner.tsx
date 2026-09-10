@@ -3,7 +3,7 @@ import type { AppInfo, UpdateInfo } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 
 const LS_LAST_VERSION = 'op_last_version';
-const LS_SKIPPED_VERSION = 'kotrain_skipped_update';
+const LS_SKIPPED_VERSION = 'nekko_skipped_update';
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export type UpdateStage =
@@ -77,7 +77,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let live = true;
     let off: (() => void) | undefined;
-    window.kotrain.getAppInfo().then((ai) => {
+    window.nekko.getAppInfo().then((ai) => {
       if (!live) return;
       setAppInfo(ai);
       // "Updated to version X", current version differs from the last one we saw.
@@ -86,7 +86,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(LS_LAST_VERSION, ai.version);
       setSkippedVersion(localStorage.getItem(LS_SKIPPED_VERSION));
     });
-    off = window.kotrain.onUpdateEvent((next) => {
+    off = window.nekko.onUpdateEvent((next) => {
       setUpdate(next);
       setError(next.state === 'error' ? next.message ?? 'Update failed.' : null);
     });
@@ -105,7 +105,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       setSkippedVersion(null);
     }
     const [next] = await Promise.all([
-      window.kotrain.checkForUpdates().catch((cause: unknown) => {
+      window.nekko.checkForUpdates().catch((cause: unknown) => {
         setError(cause instanceof Error ? cause.message : 'Update check failed.');
         return null;
       }),
@@ -128,7 +128,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     setInstalling(true);
     setError(null);
     try {
-      await window.kotrain.quitAndInstall();
+      await window.nekko.quitAndInstall();
     } catch (cause) {
       setInstalling(false);
       setError(cause instanceof Error ? cause.message : 'The update could not be installed.');
@@ -138,7 +138,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   const download = useCallback(async (installAfter: boolean) => {
     setRetryAction(installAfter ? 'download-install' : 'download');
     setError(null);
-    const next = await window.kotrain.downloadUpdate().catch((cause: unknown) => {
+    const next = await window.nekko.downloadUpdate().catch((cause: unknown) => {
       setError(cause instanceof Error ? cause.message : 'The update could not be downloaded.');
       return null;
     });
@@ -151,7 +151,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     if (installAfter && next.state === 'downloaded') {
       setInstalling(true);
       try {
-        await window.kotrain.quitAndInstall();
+        await window.nekko.quitAndInstall();
       } catch (cause) {
         setInstalling(false);
         setError(cause instanceof Error ? cause.message : 'The update could not be installed.');
@@ -340,7 +340,7 @@ export function UpdateBanner() {
 
   const isDesktop = info.edition === 'desktop';
   const notesUrl = update?.notesUrl ?? 'https://github.com/nekko-labs/agent-nekko/releases/latest';
-  const openNotes = () => window.kotrain.openPath(notesUrl);
+  const openNotes = () => window.nekko.openPath(notesUrl);
 
   // First-run prompt (desktop only, the web edition just refreshes).
   const showFirstRun =
@@ -348,12 +348,12 @@ export function UpdateBanner() {
 
   const enableAuto = async () => {
     setBusy(true);
-    await window.kotrain.updateSettings({ autoUpdate: true, autoUpdatePrompted: true });
+    await window.nekko.updateSettings({ autoUpdate: true, autoUpdatePrompted: true });
     await refreshSettings();
     setBusy(false);
   };
   const declineAuto = async () => {
-    await window.kotrain.updateSettings({ autoUpdatePrompted: true });
+    await window.nekko.updateSettings({ autoUpdatePrompted: true });
     await refreshSettings();
     setDismissedFirstRun(true);
   };
@@ -361,7 +361,7 @@ export function UpdateBanner() {
   const doUpdate = async () => {
     setBusy(true);
     if (!isDesktop) {
-      await window.kotrain.quitAndInstall(); // reloads the page
+      await window.nekko.quitAndInstall(); // reloads the page
       return;
     }
     await updater.downloadAndInstall();

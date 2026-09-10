@@ -113,7 +113,7 @@ export function PromptAnalyzer({
     let live = true;
     Promise.all(
       mentionedIds.map((id) =>
-        window.kotrain.readSpecDocs(sessionId, id)
+        window.nekko.readSpecDocs(sessionId, id)
           .then((r) => [id, r.docs.filter((d) => d.exists)] as const)
           .catch(() => [id, [] as SpecDocStatus[]] as const),
       ),

@@ -5,7 +5,7 @@ import type {
   GuardrailRule,
   MemoryEntry,
   MemoryScope,
-  KotrainApi,
+  NekkoApi,
   ProviderConfig,
   SendOptions,
   AgentEvent,
@@ -25,7 +25,7 @@ import {
 
 const inv = ipcRenderer.invoke.bind(ipcRenderer);
 
-const api: KotrainApi = {
+const api: NekkoApi = {
   getSettings: () => inv(IpcChannels.settingsGet),
   updateSettings: (patch) => inv(IpcChannels.settingsUpdate, patch),
 
@@ -271,10 +271,10 @@ const api: KotrainApi = {
   },
 };
 
-contextBridge.exposeInMainWorld('kotrain', api);
+contextBridge.exposeInMainWorld('nekko', api);
 
 /**
- * The window-chrome bridge, separate from the app API on purpose: `KotrainApi`
+ * The window-chrome bridge, separate from the app API on purpose: `NekkoApi`
  * is the contract the web transport also implements, and a browser tab has no
  * title bar to draw. Its absence is how the renderer knows it isn't in the
  * desktop shell.
@@ -285,4 +285,4 @@ const chrome: WindowChromeBridge = {
   setTitleBarOverlay: (theme: TitleBarOverlayTheme) => ipcRenderer.send(TITLEBAR_OVERLAY_CHANNEL, theme),
 };
 
-contextBridge.exposeInMainWorld('kotrainChrome', chrome);
+contextBridge.exposeInMainWorld('nekkoChrome', chrome);

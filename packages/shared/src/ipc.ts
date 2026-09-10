@@ -225,8 +225,8 @@ export const IpcEvents = {
   deepLink: 'app:deepLink',
 } as const;
 
-/** The typed API the preload bridge exposes as window.kotrain. */
-export interface KotrainApi {
+/** The typed API the preload bridge exposes as window.nekko. */
+export interface NekkoApi {
   getSettings(): Promise<AppSettings>;
   updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>;
 

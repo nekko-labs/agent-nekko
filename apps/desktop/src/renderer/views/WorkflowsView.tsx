@@ -77,8 +77,8 @@ export function WorkflowsView() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   useEffect(() => {
-    void window.kotrain.listWorkflows().then(setSnapshot).catch(() => {});
-    return window.kotrain.onWorkflowsUpdated(setSnapshot);
+    void window.nekko.listWorkflows().then(setSnapshot).catch(() => {});
+    return window.nekko.onWorkflowsUpdated(setSnapshot);
   }, []);
 
   const { workflows, runs } = snapshot;
@@ -106,7 +106,7 @@ export function WorkflowsView() {
   const runNow = async (wf: Workflow) => {
     setBusyId(wf.id);
     try {
-      const run = await window.kotrain.runWorkflow(wf.id);
+      const run = await window.nekko.runWorkflow(wf.id);
       if (!run) pushToast('error', `"${wf.name}" didn't start. It may already be running, or have no steps.`);
       else if (run.status === 'success') pushToast('success', `"${wf.name}" passed.`);
       else pushToast('error', `"${wf.name}" ${run.status}${run.message ? `: ${run.message}` : ''}`);
@@ -119,11 +119,11 @@ export function WorkflowsView() {
 
   const remove = async (wf: Workflow) => {
     if (!confirm(`Delete "${wf.name}"? Its run history goes too.`)) return;
-    setSnapshot(await window.kotrain.deleteWorkflow(wf.id));
+    setSnapshot(await window.nekko.deleteWorkflow(wf.id));
   };
 
   const duplicate = async (wf: Workflow) => {
-    const copy = await window.kotrain.duplicateWorkflow(wf.id);
+    const copy = await window.nekko.duplicateWorkflow(wf.id);
     if (copy) {
       pushToast('info', `Copied as "${copy.name}", disabled until you turn it on.`);
       setExpanded(copy.id);
@@ -131,7 +131,7 @@ export function WorkflowsView() {
   };
 
   const toggleEnabled = async (wf: Workflow) => {
-    await window.kotrain.updateWorkflow(wf.id, { enabled: !wf.enabled });
+    await window.nekko.updateWorkflow(wf.id, { enabled: !wf.enabled });
   };
 
   return (
@@ -297,12 +297,12 @@ export function WorkflowsView() {
           skills={skills}
           onClose={() => { setCreating(null); setEditing(null); }}
           onSave={async (patch) => {
-            if (editing) await window.kotrain.updateWorkflow(editing.id, patch as Partial<Workflow>);
+            if (editing) await window.nekko.updateWorkflow(editing.id, patch as Partial<Workflow>);
             else {
-              const created = await window.kotrain.createWorkflow(patch);
+              const created = await window.nekko.createWorkflow(patch);
               if (created) setExpanded(created.id);
             }
-            setSnapshot(await window.kotrain.listWorkflows());
+            setSnapshot(await window.nekko.listWorkflows());
           }}
         />
       )}
@@ -456,7 +456,7 @@ function WorkflowRow({
 
         <span className="flex shrink-0 items-center gap-1">
           {live ? (
-            <button className="btn btn-outline py-1! text-[12px]" onClick={() => void window.kotrain.cancelWorkflowRun(live.id)}>
+            <button className="btn btn-outline py-1! text-[12px]" onClick={() => void window.nekko.cancelWorkflowRun(live.id)}>
               Stop
             </button>
           ) : (

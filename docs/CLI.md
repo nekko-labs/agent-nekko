@@ -1,6 +1,6 @@
-# Kotrain CLI and MCP
+# Agent Nekko CLI and MCP
 
-The CLI makes the Kotrain host a subagent for Devin, Claude Code, Codex,
+The CLI makes the Agent Nekko host a subagent for Devin, Claude Code, Codex,
 Cursor, and other harnesses. It uses the same host engine as the desktop and
 web editions.
 
@@ -9,7 +9,7 @@ web editions.
 Published package:
 
 ```bash
-npm install --global kotrain
+npm install --global agent-nekko
 npx agent-nekko status
 ```
 
@@ -21,22 +21,22 @@ npm run build --workspace=apps/cli
 node apps/cli/dist/index.js status
 ```
 
-Use `kotrain` after a global install or linking the built package, or invoke
+Use `agent-nekko` after a global install or linking the built package, or invoke
 the bundled binary from `apps/cli/dist/index.js`. Without `--url`, the CLI runs
 an in-process host
-against `~/.kotrain` (override with `KOTRAIN_DATA_DIR`). To drive a web edition,
+against `~/.nekko` (override with `NEKKO_DATA_DIR`). To drive a web edition,
 use:
 
 ```bash
-kotrain --url http://127.0.0.1:1440 --token "$KOTRAIN_TOKEN" status --json
+agent-nekko --url http://127.0.0.1:1440 --token "$NEKKO_TOKEN" status --json
 ```
 
-`--url` can also be supplied as `KOTRAIN_URL`; `--token` can be supplied as
-`KOTRAIN_TOKEN`.
+`--url` can also be supplied as `NEKKO_URL`; `--token` can be supplied as
+`NEKKO_TOKEN`.
 
 ## Safety and approval
 
-Chat defaults to `--approve guardrails` (or `KOTRAIN_APPROVE=guardrails`).
+Chat defaults to `--approve guardrails` (or `NEKKO_APPROVE=guardrails`).
 Guardrails mode sets the session to `guardrails`: ordinary tools run, ask-rule
 approvals are refused and reported as structured `blocked` entries, and the
 turn continues. The result tells the harness to use `--approve yolo` when an
@@ -62,7 +62,7 @@ workspace list|add PATH|remove ID|index ID|search ID QUERY [--json]
 prompts [--json]
 tasks list|add|run ID|delete ID [--json]
 skills [--json]
-skills install ID [--target kotrain|claude|codex] [--json]
+skills install ID [--target agent-nekko|claude|codex] [--json]
 tools [--json]
 models [PROVIDER_ID] [--json]
 train start NAME GOAL [--provider ID] [--model ID] [--workspace ID] [--json]
@@ -71,8 +71,8 @@ watch [--session ID] [--json]
 mcp
 ```
 
-Prompts may be positional, piped through stdin (`kotrain chat -`), or loaded
-from a file (`kotrain chat --file prompt.md`). `--quiet` suppresses human
+Prompts may be positional, piped through stdin (`agent-nekko chat -`), or loaded
+from a file (`agent-nekko chat --file prompt.md`). `--quiet` suppresses human
 progress on stderr.
 
 ## Machine output
@@ -130,13 +130,13 @@ node apps/cli/dist/index.js mcp
 Claude Code:
 
 ```bash
-claude mcp add kotrain -- node /abs/path/kotrain/apps/cli/dist/index.js mcp
+claude mcp add agent-nekko -- node /abs/path/agent-nekko/apps/cli/dist/index.js mcp
 ```
 
 Codex:
 
 ```bash
-codex mcp add kotrain -- node /abs/path/kotrain/apps/cli/dist/index.js mcp
+codex mcp add agent-nekko -- node /abs/path/agent-nekko/apps/cli/dist/index.js mcp
 ```
 
 Cursor and generic `mcpServers` configuration:
@@ -144,62 +144,62 @@ Cursor and generic `mcpServers` configuration:
 ```json
 {
   "mcpServers": {
-    "kotrain": {
+    "agent-nekko": {
       "command": "node",
-      "args": ["/abs/path/kotrain/apps/cli/dist/index.js", "mcp"]
+      "args": ["/abs/path/agent-nekko/apps/cli/dist/index.js", "mcp"]
     }
   }
 }
 ```
 
-`kotrain_chat` accepts the same `approve` policy as the CLI and defaults to
-`guardrails`. `kotrain_train_start` also accepts an explicit `approve` argument;
+`agent-nekko_chat` accepts the same `approve` policy as the CLI and defaults to
+`guardrails`. `agent-nekko_train_start` also accepts an explicit `approve` argument;
 unattended training that intentionally permits ask-rules must pass
 `"approve": "yolo"`. The server negotiates MCP protocol versions, echoing a
 supported client version and otherwise selecting its newest supported version.
-`kotrain_task_create` exposes `title`, `prompt`, `kind`, `runAt`, `intervalMs`,
+`agent-nekko_task_create` exposes `title`, `prompt`, `kind`, `runAt`, `intervalMs`,
 `workspaceId`, `providerId`, `modelId`, `condition`, and `keepAlive` directly;
-`title`, `prompt`, and `kind` are required. A `kotrain_chat` result presents
+`title`, `prompt`, and `kind` are required. A `agent-nekko_chat` result presents
 the assistant reply first, followed by a metadata block containing session,
 tool-call, blocked-entry, duration, and usage details.
 
-The MCP tool list mirrors the CLI coverage: `kotrain_chat`,
-`kotrain_list_sessions`, `kotrain_new_session`, `kotrain_get_session`,
-`kotrain_workspace_list`, `kotrain_workspace_add`, `kotrain_workspace_remove`,
-`kotrain_workspace_index`, `kotrain_workspace_search`,
-`kotrain_prompts_list`, `kotrain_tasks_list`, `kotrain_task_create`,
-`kotrain_task_run`, `kotrain_task_delete`, `kotrain_skills_list`,
-`kotrain_skill_install`, `kotrain_tools_list`, `kotrain_models_list`,
-`kotrain_train_start`, `kotrain_train_status`, `kotrain_train_hint`,
-`kotrain_train_stop`, and `kotrain_status`.
+The MCP tool list mirrors the CLI coverage: `agent-nekko_chat`,
+`agent-nekko_list_sessions`, `agent-nekko_new_session`, `agent-nekko_get_session`,
+`agent-nekko_workspace_list`, `agent-nekko_workspace_add`, `agent-nekko_workspace_remove`,
+`agent-nekko_workspace_index`, `agent-nekko_workspace_search`,
+`agent-nekko_prompts_list`, `agent-nekko_tasks_list`, `agent-nekko_task_create`,
+`agent-nekko_task_run`, `agent-nekko_task_delete`, `agent-nekko_skills_list`,
+`agent-nekko_skill_install`, `agent-nekko_tools_list`, `agent-nekko_models_list`,
+`agent-nekko_train_start`, `agent-nekko_train_status`, `agent-nekko_train_hint`,
+`agent-nekko_train_stop`, and `agent-nekko_status`.
 
 ## Recipes
 
 ### Drive a repeated workflow
 
 ```bash
-kotrain tasks add --title "daily review" --kind recurring \
+agent-nekko tasks add --title "daily review" --kind recurring \
   --interval-ms 86400000 --prompt "Review the current workspace diff and summarize risks" \
   --workspace "$WORKSPACE_ID" --provider "$PROVIDER" --model "$MODEL" --json
-kotrain tasks list --json
-kotrain tasks run TASK_ID --json
+agent-nekko tasks list --json
+agent-nekko tasks run TASK_ID --json
 ```
 
 ### Fan out several sessions
 
 ```bash
-kotrain chat "Review security" --new --workspace "$W" --json > security.json &
-kotrain chat "Review tests" --new --workspace "$W" --json > tests.json &
-kotrain chat "Review API design" --new --workspace "$W" --json > api.json &
+agent-nekko chat "Review security" --new --workspace "$W" --json > security.json &
+agent-nekko chat "Review tests" --new --workspace "$W" --json > tests.json &
+agent-nekko chat "Review API design" --new --workspace "$W" --json > api.json &
 wait
 ```
 
 ### Hand off training and poll it
 
 ```bash
-kotrain train start "ranking-v1" "Improve ranking accuracy" \
+agent-nekko train start "ranking-v1" "Improve ranking accuracy" \
   --workspace "$W" --provider "$PROVIDER" --model "$MODEL" --json
-kotrain train status --json
-kotrain train hint RUN_ID "Try a larger validation split" --json
-kotrain train stop RUN_ID --json
+agent-nekko train status --json
+agent-nekko train hint RUN_ID "Try a larger validation split" --json
+agent-nekko train stop RUN_ID --json
 ```

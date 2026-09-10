@@ -89,7 +89,7 @@ describe('cloud billing (HTTP)', () => {
       secretKey: 'sk_test',
       webhookSecret: WHSEC,
       prices: { pro: 'price_pro', team: 'price_team' },
-      publicUrl: 'https://cloud.kotrain.com',
+      publicUrl: 'https://cloud.agentnekko.com',
     });
     ({ app } = createCloudServer({ dataRoot: mkdtempSync(join(tmpdir(), 'op-billing-')), billing }));
     await app.ready();

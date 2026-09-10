@@ -69,7 +69,7 @@ export function ConnectorGrid({ compact = false }: { compact?: boolean }) {
   const [busy, setBusy] = useState<ConnectorKind | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const load = async () => setConfigs(await window.kotrain.listConnectors());
+  const load = async () => setConfigs(await window.nekko.listConnectors());
   useEffect(() => {
     void load();
   }, []);
@@ -83,15 +83,15 @@ export function ConnectorGrid({ compact = false }: { compact?: boolean }) {
     setBusy(k);
     setErrors((e) => ({ ...e, [k]: '' }));
     try {
-      await window.kotrain.connectConnector(k, token, settings);
-      const res = await window.kotrain.fetchConnector(k);
-      setConfigs(await window.kotrain.listConnectors());
+      await window.nekko.connectConnector(k, token, settings);
+      const res = await window.nekko.fetchConnector(k);
+      setConfigs(await window.nekko.listConnectors());
       setTokens((t) => ({ ...t, [k]: '' }));
       setFields((f) => ({ ...f, [k]: {} }));
       setPreview((p) => ({ ...p, [k]: res }));
     } catch (e) {
-      await window.kotrain.disconnectConnector(k);
-      setConfigs(await window.kotrain.listConnectors());
+      await window.nekko.disconnectConnector(k);
+      setConfigs(await window.nekko.listConnectors());
       setErrors((er) => ({ ...er, [k]: (e as Error).message || 'Could not connect, check the credentials.' }));
     } finally {
       setBusy(null);
@@ -99,13 +99,13 @@ export function ConnectorGrid({ compact = false }: { compact?: boolean }) {
   };
 
   const disconnect = async (k: ConnectorKind) => {
-    setConfigs(await window.kotrain.disconnectConnector(k));
+    setConfigs(await window.nekko.disconnectConnector(k));
     setPreview((p) => ({ ...p, [k]: undefined }));
   };
 
   const fetchData = async (k: ConnectorKind) => {
     try {
-      const res = await window.kotrain.fetchConnector(k);
+      const res = await window.nekko.fetchConnector(k);
       setPreview((p) => ({ ...p, [k]: res }));
     } catch (e) {
       setPreview((p) => ({ ...p, [k]: (e as Error).message }));
@@ -235,7 +235,7 @@ function ConnectorCard({
           </div>
           <p className="mt-1.5 text-[11px] text-ink-faint">
             {help.hint}{' '}
-            <button className="text-accent hover:underline" onClick={() => window.kotrain.openPath(help.url)}>
+            <button className="text-accent hover:underline" onClick={() => window.nekko.openPath(help.url)}>
               Where to get it →
             </button>
           </p>

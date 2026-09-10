@@ -106,7 +106,7 @@ event name, repo, branch - dispatched through the generic event door. On the ser
 
 ```
 POST https://<your-host>/api/workflow:event
-Authorization: Bearer <KOTRAIN_TOKEN>
+Authorization: Bearer <NEKKO_TOKEN>
 { "args": [{
     "kind": "git", "provider": "github", "event": "pr_opened",
     "repo": "owner/name", "branch": "feature-x",

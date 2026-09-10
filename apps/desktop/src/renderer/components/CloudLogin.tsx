@@ -10,7 +10,7 @@ const LS_TOKEN = 'kotrain_token';
  * self-hosted server (no `/api/auth/config`), so only the hosted edition gates.
  */
 export async function cloudAuthRequired(): Promise<boolean> {
-  if ((window as any).kotrain) return false; // Electron preload, never cloud
+  if ((window as any).nekko) return false; // Electron preload, never cloud
   try {
     const cfg = await fetch('/api/auth/config');
     if (!cfg.ok) return false;

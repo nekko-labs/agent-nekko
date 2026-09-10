@@ -12,7 +12,7 @@ export function ThemeStep() {
   const { settings, applyTheme } = useStore();
 
   const update = async (patch: Partial<AppSettings>) => {
-    const next = await window.kotrain.updateSettings(patch);
+    const next = await window.nekko.updateSettings(patch);
     useStore.setState({ settings: next });
     applyTheme();
   };

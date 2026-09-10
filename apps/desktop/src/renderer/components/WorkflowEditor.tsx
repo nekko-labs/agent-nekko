@@ -875,7 +875,7 @@ function TriggerEditor({
             onChange={(e) => onPatch({ command: e.target.value || undefined })}
           />
           <span className="mt-1 block text-[11px] text-ink-faint">
-            Run it with <code className="font-mono">kotrain workflow trigger {trigger.command?.trim() || (slugSource ? cliCommand({ name: slugSource } as Workflow, undefined) : '<command>')}</code>
+            Run it with <code className="font-mono">agent-nekko workflow trigger {trigger.command?.trim() || (slugSource ? cliCommand({ name: slugSource } as Workflow, undefined) : '<command>')}</code>
           </span>
         </label>
       )}

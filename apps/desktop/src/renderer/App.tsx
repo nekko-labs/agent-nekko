@@ -118,7 +118,7 @@ export function App() {
       try {
         const { LocalNotifications } = await import('@capacitor/local-notifications');
         await LocalNotifications.requestPermissions();
-        off = window.kotrain.onAgentEvent((e) => {
+        off = window.nekko.onAgentEvent((e) => {
           if (e.type === 'done' && document.hidden) {
             LocalNotifications.schedule({
               notifications: [{ id: nid++, title: 'Agent Nekko finished', body: 'Your task is ready in Agent Nekko.' }],
@@ -145,7 +145,7 @@ export function App() {
         const perm = await PushNotifications.requestPermissions();
         if (perm.receive !== 'granted') return;
         await PushNotifications.addListener('registration', (t) => {
-          if (!cancelled) window.kotrain.registerPushToken(t.value, platform).catch(() => {});
+          if (!cancelled) window.nekko.registerPushToken(t.value, platform).catch(() => {});
         });
         await PushNotifications.register();
       } catch {

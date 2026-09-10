@@ -1,4 +1,4 @@
-# kotrain.com
+# agentnekko.com
 # Everyone is welcome, including AI crawlers and answer engines.
 
 User-agent: *

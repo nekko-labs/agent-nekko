@@ -35,7 +35,7 @@ function McpMenu() {
   useEffect(() => {
     if (!open || status !== null || servers.length === 0) return;
     setChecking(true);
-    window.kotrain.getMcpStatus()
+    window.nekko.getMcpStatus()
       .then(setStatus)
       .catch(() => setStatus([]))
       .finally(() => setChecking(false));
@@ -46,7 +46,7 @@ function McpMenu() {
 
   const toggle = async (id: string) => {
     const next = servers.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s));
-    await window.kotrain.updateSettings({ mcpServers: next });
+    await window.nekko.updateSettings({ mcpServers: next });
     await useStore.getState().refreshSettings();
     // Config changed: re-probe so the dots reflect the new enablement.
     setStatus(null);
@@ -128,7 +128,7 @@ function McpMenu() {
             <button
               role="menuitem"
               className="flex w-full items-start gap-1.5 rounded-lg px-2.5 py-1.5 text-left text-[11px] text-ink-faint hover:bg-surface-2"
-              onClick={() => window.kotrain.openPath(HYPERGATE_URL)}
+              onClick={() => window.nekko.openPath(HYPERGATE_URL)}
               title="Hypergate: local-first, secure MCP server management"
             >
               <ShieldSmall />
@@ -183,7 +183,7 @@ export function ChatControls({
   const [toolQuery, setToolQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { window.kotrain.listTools().then(setTools); }, []);
+  useEffect(() => { window.nekko.listTools().then(setTools); }, []);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) { setToolsOpen(false); setModeOpen(false); }
@@ -208,7 +208,7 @@ export function ChatControls({
     : tools;
 
   const patch = async (p: Partial<Session>) => {
-    const next = await window.kotrain.setSessionOptions(session.id, p as any);
+    const next = await window.nekko.setSessionOptions(session.id, p as any);
     onChange(next);
   };
 

@@ -28,7 +28,7 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
   const hasWorkspace = workspaceIds.length > 0;
 
   const refresh = (targetWorkspaceId = selectedWorkspaceId) => {
-    window.kotrain.readSpecDocs(sessionId, targetWorkspaceId).then((r) => {
+    window.nekko.readSpecDocs(sessionId, targetWorkspaceId).then((r) => {
       setDocs(r.docs);
       setMethodologyId(r.methodologyId);
     });
@@ -55,14 +55,14 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
 
   const changeMethodology = async (id: string) => {
     setMethodologyId(id);
-    await window.kotrain.setSpecMethodology(sessionId, id);
+    await window.nekko.setSpecMethodology(sessionId, id);
     await refreshSessions();
     refresh(selectedWorkspaceId);
   };
 
   const build = async (docId: string) => {
     setBusy(docId);
-    const res = await window.kotrain.buildSpecDoc(sessionId, docId, selectedWorkspaceId);
+    const res = await window.nekko.buildSpecDoc(sessionId, docId, selectedWorkspaceId);
     setBusy(null);
     if (res.ok) {
       const label = methodology.docs.find((d) => d.id === docId)?.label ?? 'Document';
@@ -77,7 +77,7 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
     setBusy('all');
     let failed: string | null = null;
     for (const d of methodology.docs) {
-      const res = await window.kotrain.buildSpecDoc(sessionId, d.id, selectedWorkspaceId);
+      const res = await window.nekko.buildSpecDoc(sessionId, d.id, selectedWorkspaceId);
       if (!res.ok) {
         failed = res.message ?? `Could not build ${d.label}.`;
         break;
@@ -90,12 +90,12 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
   };
 
   const toggleLive = async () => {
-    await window.kotrain.setSpecLinked(sessionId, !session?.specLinked);
+    await window.nekko.setSpecLinked(sessionId, !session?.specLinked);
     await refreshSessions();
   };
 
   const toggleTask = async (line: number) => {
-    const res = await window.kotrain.toggleSpecTask(sessionId, line, selectedWorkspaceId);
+    const res = await window.nekko.toggleSpecTask(sessionId, line, selectedWorkspaceId);
     if (res.ok) refresh(selectedWorkspaceId);
     else pushToast('error', res.message ?? 'Could not update the task.');
   };
