@@ -8,17 +8,19 @@ in-process against your data dir.
 Current published installation:
 
 ```bash
-npm install -g agent-nekko
+npm install -g agent-nekko   # publishing with the next release
 agent-nekko status
 ```
 
-The package is published as **`agent-nekko`** and installs three equivalent
-executables: `agent-nekko` (canonical) plus `kotrain` and `nekkos`, kept from
-earlier names so existing scripts and MCP configs keep working. They accept the
-same commands and options.
+The package name is **`agent-nekko`**. It has not reached the registry yet: the
+v0.7.0 release is blocked on macOS signing (see [TASKS.md](../../TASKS.md)) and
+the publish step runs only once the whole matrix passes. Until then,
+`npm install -g kotrain` installs the same CLI at 0.6.0.
 
-Installs of the older `kotrain` package still work; it is deprecated on npm and
-points here.
+Either package installs three equivalent executables: `agent-nekko` (canonical
+from 0.7.0 on) plus `kotrain` and `nekkos`, kept from earlier names so existing
+scripts and MCP configs keep working. They accept the same commands and options.
+Once `agent-nekko` publishes, `kotrain` is deprecated on npm and points here.
 
 From a checkout:
 

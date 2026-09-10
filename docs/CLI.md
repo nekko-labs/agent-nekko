@@ -9,7 +9,7 @@ web editions.
 Published package:
 
 ```bash
-npm install --global agent-nekko
+npm install --global agent-nekko   # publishing with the next release; until then: kotrain
 npx agent-nekko status
 ```
 
