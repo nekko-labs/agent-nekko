@@ -503,14 +503,14 @@ export function createHost(opts: { dataDir: string }): Host {
     },
     loadModel: async (providerId, model) => {
       const p = findProvider(providerId);
-      if (p?.kind === 'ollama') { await new OllamaProvider(p).setLoaded(model, true); return { ok: true }; }
+      if (p?.kind === 'ollama') return new OllamaProvider(p).setLoaded(model, true);
       // LM Studio has no HTTP load; drive its `lms` CLI for a local instance.
       if (p?.kind === 'lmstudio') return lmsLoad(p.baseUrl, model);
       return { ok: true };
     },
     unloadModel: async (providerId, model) => {
       const p = findProvider(providerId);
-      if (p?.kind === 'ollama') { await new OllamaProvider(p).setLoaded(model, false); return { ok: true }; }
+      if (p?.kind === 'ollama') return new OllamaProvider(p).setLoaded(model, false);
       // LM Studio has no HTTP per-model unload; drive its `lms` CLI instead.
       if (p?.kind === 'lmstudio') return lmsUnload(p.baseUrl, model);
       return { ok: true };

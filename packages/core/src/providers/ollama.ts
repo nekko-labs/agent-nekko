@@ -71,11 +71,16 @@ export class OllamaProvider implements Provider {
   }
 
   /** Load (or unload, with keep_alive 0) a model into memory. */
-  async setLoaded(model: string, loaded: boolean): Promise<void> {
-    await fetch(`${this.base()}/api/generate`, {
+  async setLoaded(model: string, loaded: boolean): Promise<{ ok: boolean; message?: string }> {
+    const res = await fetch(`${this.base()}/api/generate`, {
       method: 'POST',
       body: JSON.stringify({ model, keep_alive: loaded ? '30m' : 0, prompt: '' }),
-    });
+    }).catch(() => null);
+    if (res?.ok) return { ok: true };
+    return {
+      ok: false,
+      message: res ? `Ollama refused (HTTP ${res.status}).` : 'Ollama did not respond.',
+    };
   }
 
   async *chat(req: ChatRequest): AsyncIterable<ProviderChunk> {
