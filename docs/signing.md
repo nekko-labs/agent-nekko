@@ -126,7 +126,7 @@ re-export is needed for CI.
 
 The release workflow passes `WINDOWS_SIGNING_CERTS_P12` and
 `WINDOWS_CERT_PASSWORD` to electron-builder as `WIN_CSC_LINK` and
-`WIN_CSC_KEY_PASSWORD`. electron-builder 26.15.3 still supports the legacy
+`WIN_CSC_KEY_PASSWORD`. electron-builder 26.16.1 still supports the legacy
 PKCS#12/signtool path through these Windows-specific environment variables;
 Azure Trusted Signing is an alternative, not a requirement for this setup.
 With both secrets present, the NSIS installer is Authenticode-signed. If no

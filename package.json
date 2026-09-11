@@ -1,6 +1,6 @@
 {
   "name": "agent-nekko-workspace",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "private": true,
   "description": "Agent Nekko: your local agent, backed by frontier intelligence, with CLI/MCP integration and workflows.",
   "license": "MIT",

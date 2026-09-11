@@ -30,3 +30,6 @@ nekkos-designs/
 # Local agent tooling (per-machine hooks and critique scratch)
 .codex/
 .impeccable/
+
+# Agent worktrees checked out inside the repo (scratch, never source)
+.worktrees/
