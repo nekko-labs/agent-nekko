@@ -44,6 +44,7 @@ export const IpcChannels = {
   runtimeLoad: 'runtime:load',
   runtimeFacts: 'runtime:facts',
   runtimePlan: 'runtime:plan',
+  machineReadiness: 'machine:readiness',
   gpuStats: 'gpu:stats',
   systemStats: 'system:stats',
 
@@ -279,6 +280,14 @@ export interface NekkoApi {
     modelId: string,
     req: import('./capacity.js').FitRequest,
   ): Promise<import('./capacity.js').FitPlan | null>;
+  /**
+   * The AN9 machine-readiness report: probe this machine, evaluate it against
+   * the versioned offline-stack catalog, and return per-role picks plus a
+   * combined verdict. `unverified` means a needed probe did not answer.
+   */
+  machineReadiness(
+    language?: string,
+  ): Promise<import('./readiness.js').ReadinessReport>;
   /** GPU/VRAM stats for the metrics bar + Command Center (null if unavailable). */
   getGpuStats(): Promise<import('./models.js').GpuStats | null>;
   /** CPU load + RAM use for the monitor surfaces (null if unavailable). */

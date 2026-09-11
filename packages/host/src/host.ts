@@ -66,8 +66,10 @@ import type {
   SystemStats,
   LmsProbe,
   SubscriptionLimits,
+  ReadinessReport,
 } from '@agent-nekko/shared';
 import { brandEnv, isLocalProvider } from '@agent-nekko/shared';
+import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
 import {
   createProvider,
@@ -76,6 +78,8 @@ import {
   getConnector,
   classifyCommand,
   BUILTIN_TOOLS,
+  evaluateReadiness,
+  OFFLINE_STACK_CATALOG,
 } from '@agent-nekko/core';
 import { setDataDir, dataDir } from './paths.js';
 import { getSettings, saveSettings, resetSettings } from './store.js';
@@ -211,6 +215,11 @@ export interface Host {
   runtimeLoad(providerId: string, modelId: string, params: LoadParams): Promise<LoadResult>;
   runtimeFacts(providerId: string): Promise<ModelFacts[]>;
   runtimePlan(providerId: string, modelId: string, req: FitRequest): Promise<FitPlan | null>;
+  /**
+   * The AN9b machine-readiness report: probe this machine and evaluate it
+   * against the versioned offline-stack catalog (runtime + intent + STT + TTS).
+   */
+  machineReadiness(language?: string): Promise<ReadinessReport>;
   /** Stop the local model server backing a provider (kills its listening process). */
   stopServer(providerId: string): Promise<{ ok: boolean; message: string }>;
   /** GPU stats from the platform's probe (null when it can't read one). */
@@ -532,6 +541,8 @@ export function createHost(opts: { dataDir: string }): Host {
     runtimeLoad: (providerId, modelId, params) => runtimes.load(providerId, modelId, params),
     runtimeFacts: (providerId) => runtimes.facts(providerId),
     runtimePlan: (providerId, modelId, req) => runtimes.plan(providerId, modelId, req),
+    machineReadiness: async (language) =>
+      evaluateReadiness(await gatherMachineFacts(), OFFLINE_STACK_CATALOG, { language }),
 
     getGpuStats: () => getGpuStats(),
     getSystemStats: () => getSystemStats(),

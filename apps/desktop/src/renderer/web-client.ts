@@ -253,6 +253,7 @@ function makeWebClient(): NekkoApi {
     runtimeLoad: (providerId, modelId, params) => call(IpcChannels.runtimeLoad, providerId, modelId, params),
     runtimeFacts: (providerId) => call(IpcChannels.runtimeFacts, providerId),
     runtimePlan: (providerId, modelId, req) => call(IpcChannels.runtimePlan, providerId, modelId, req),
+    machineReadiness: (language) => call(IpcChannels.machineReadiness, language),
     getGpuStats: () => call(IpcChannels.gpuStats),
     getSystemStats: () => call(IpcChannels.systemStats),
 
