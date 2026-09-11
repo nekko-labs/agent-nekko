@@ -49,6 +49,7 @@ const api: NekkoApi = {
   runtimeLoad: (providerId, modelId, params) => inv(IpcChannels.runtimeLoad, providerId, modelId, params),
   runtimeFacts: (providerId) => inv(IpcChannels.runtimeFacts, providerId),
   runtimePlan: (providerId, modelId, req) => inv(IpcChannels.runtimePlan, providerId, modelId, req),
+  machineReadiness: (language) => inv(IpcChannels.machineReadiness, language),
   getGpuStats: () => inv(IpcChannels.gpuStats),
   getSystemStats: () => inv(IpcChannels.systemStats),
 

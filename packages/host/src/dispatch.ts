@@ -36,6 +36,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.runtimeLoad]: ([id, model, params]) => host.runtimeLoad(id, model, params),
     [C.runtimeFacts]: ([id]) => host.runtimeFacts(id),
     [C.runtimePlan]: ([id, model, req]) => host.runtimePlan(id, model, req),
+    [C.machineReadiness]: ([language]) => host.machineReadiness(language),
     [C.gpuStats]: () => host.getGpuStats(),
     [C.systemStats]: () => host.getSystemStats(),
 
