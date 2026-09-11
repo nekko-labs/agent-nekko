@@ -69,9 +69,33 @@ describe('OAuth core', () => {
         client_id: '9d1c250a-e61b-44d9-88ed-5944d1962f5e',
         grant_type: 'authorization_code',
         code: 'auth-code',
+        // Anthropic rejects the exchange as "Invalid request format" without it.
+        state,
         code_verifier: state,
       });
       expect(captured.headers['Content-Type']).toBe('application/json');
+    });
+
+    it('asks Claude to render the pasteable code only on the manual console callback', async () => {
+      const loopback = await beginOAuth('claude');
+      const loopbackUrl = new URL(loopback.authUrl);
+      expect(loopbackUrl.searchParams.get('redirect_uri')).toMatch(/^http:\/\/localhost:\d+\/callback$/);
+      expect(loopbackUrl.searchParams.get('code')).toBeNull();
+      cancelOAuth(loopback.id);
+
+      // With every loopback port taken, begin falls back to the console
+      // callback, which needs `code=true` to show a code worth pasting.
+      const blockers = await occupyClaudeLoopbackPorts();
+      try {
+        const manual = await beginOAuth('claude');
+        const manualUrl = new URL(manual.authUrl);
+        expect(manual.mode).toBe('manual');
+        expect(manualUrl.searchParams.get('redirect_uri')).toBe('https://console.anthropic.com/oauth/code/callback');
+        expect(manualUrl.searchParams.get('code')).toBe('true');
+        cancelOAuth(manual.id);
+      } finally {
+        await Promise.all(blockers.map((s) => new Promise<void>((r) => s.close(() => r()))));
+      }
     });
 
     it('builds a ChatGPT URL and exchanges with form-urlencoded body', async () => {
@@ -276,6 +300,29 @@ async function captureTokenExchange(
     headers: (init as any).headers as Record<string, string>,
     body: (init as any).body as any,
   };
+}
+
+/** Hold every port Claude's loopback listener scans, forcing the manual fallback. */
+async function occupyClaudeLoopbackPorts(): Promise<http.Server[]> {
+  const servers: http.Server[] = [];
+  for (let port = 8765; port <= 8795; port++) {
+    const server = http.createServer(() => {});
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(port, () => {
+          server.removeListener('error', reject);
+          resolve();
+        });
+      });
+      servers.push(server);
+    } catch {
+      // A port we cannot bind (Windows reserves ranges for Hyper-V) is a port
+      // the host cannot bind either, so it counts as occupied for this test.
+      server.close();
+    }
+  }
+  return servers;
 }
 
 function makeFakeIdToken(accountId: string): string {

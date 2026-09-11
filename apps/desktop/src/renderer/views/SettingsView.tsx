@@ -75,10 +75,6 @@ export function SettingsView() {
           <div className="flex items-center gap-2"><SunIcon className="h-4 w-4" /><h2 className="font-semibold">{tr('settings.appearance')}</h2></div>
           <ThemePresetPicker settings={settings} update={update} />
           <div className="mt-2 flex min-h-[40px] items-center justify-between">
-            <span className="text-[13px]">{tr('settings.accent')}</span>
-            <input type="color" value={settings.accent} onChange={(e) => update({ accent: e.target.value })} className="h-7 w-12 rounded-lg" />
-          </div>
-          <div className="flex min-h-[40px] items-center justify-between">
             <span className="text-[13px]">{tr('settings.mascot')}</span>
             <Toggle on={settings.mascotEnabled} onChange={(v) => update({ mascotEnabled: v })} />
           </div>

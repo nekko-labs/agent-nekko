@@ -826,6 +826,16 @@
 
   /* Preset-specific surface/ink overrides for atmospheres the base
      light/dark tokens cannot capture on their own. */
+  [data-theme='dark'][data-preset='nebula'] {
+    --paper: #0a0714;
+    --surface: #140f26;
+    --surface-2: #1f1838;
+    --ink: #ece7fb;
+    --ink-soft: #a99cc9;
+    --ink-faint: #6e6392;
+    --line: #2b2148;
+  }
+
   [data-theme='dark'][data-preset='terminal'] {
     --paper: #070a07;
     --surface: #0e1a0e;
