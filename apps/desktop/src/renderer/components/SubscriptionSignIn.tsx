@@ -34,6 +34,11 @@ export function SubscriptionSignIn({
   // The official first-party CLI whose credential file the host can import as
   // a zero-browser sign-in path.
   const cliName = oauthProvider === 'claude' ? 'Claude Code' : 'the Codex CLI';
+  // Anthropic and OpenAI only issue subscription tokens to their own registered
+  // OAuth clients, so we sign in through the first-party CLI's client id. Their
+  // consent screen therefore names that CLI, not us - say so up front, because
+  // an unexplained "Claude Code wants access" reads like the wrong app opened.
+  const consentNote = `The authorization page will say ${oauthProvider === 'claude' ? 'Claude Code' : 'Codex CLI'}, not Agent Nekko: a plan can only be used through its provider's own sign-in client, and Agent Nekko connects through that.`;
   const onConnectedRef = useRef(onConnected);
   useEffect(() => {
     onConnectedRef.current = onConnected;
@@ -158,6 +163,7 @@ export function SubscriptionSignIn({
             ? 'Finish signing in in the browser tab that opened; this window updates automatically.'
             : 'Your browser could not reach back to the app, so sign-in finishes manually: after you authorize, copy the code the page shows and paste it below.'}
         </p>
+        <p className="text-[11.5px] text-ink-faint">{consentNote}</p>
         <button
           className="inline-flex items-center gap-1 text-[12px] text-accent hover:underline"
           onClick={() => void window.nekko.openPath(session.authUrl).catch(() => {})}
@@ -202,6 +208,7 @@ export function SubscriptionSignIn({
           {phase.message}
         </p>
       )}
+      <p className="text-[11.5px] text-ink-faint">{consentNote}</p>
       <p className="text-[11.5px] text-ink-faint">
         Already signed in to {cliName}?{' '}
         <button className="text-accent hover:underline" onClick={() => void importCli()} disabled={importing}>

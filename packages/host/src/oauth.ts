@@ -16,6 +16,9 @@ const CLAUDE_MANUAL_REDIRECT_URI = 'https://console.anthropic.com/oauth/code/cal
 const CLAUDE_LOOPBACK_PORT_START = 8765;
 const CLAUDE_LOOPBACK_PORT_END = 8795;
 
+/** Bind failures that mean "this port is not ours to take", not a fatal error. */
+const UNAVAILABLE_PORT_CODES = new Set(['EADDRINUSE', 'EACCES', 'EADDRNOTAVAIL']);
+
 const CHATGPT_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 const CHATGPT_AUTHORIZE_URL = 'https://auth.openai.com/oauth/authorize';
 const CHATGPT_TOKEN_URL = 'https://auth.openai.com/oauth/token';
@@ -131,6 +134,13 @@ function buildAuthorizeUrl(
   state: string,
 ): string {
   const url = new URL(provider === 'claude' ? CLAUDE_AUTHORIZE_URL : CHATGPT_AUTHORIZE_URL);
+  // Claude's console callback only renders the `code#state` string to copy when
+  // `code=true` is set; without it the page has nothing for the manual fallback
+  // to paste. Loopback redirects must not set it, or the browser lands on that
+  // page instead of coming back to us.
+  if (provider === 'claude' && redirectUri === CLAUDE_MANUAL_REDIRECT_URI) {
+    url.searchParams.set('code', 'true');
+  }
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('client_id', provider === 'claude' ? CLAUDE_CLIENT_ID : CHATGPT_CLIENT_ID);
   url.searchParams.set('redirect_uri', redirectUri);
@@ -167,7 +177,10 @@ async function findClaudeLoopbackPort(
       } catch {
         /* best effort */
       }
-      if (e?.code !== 'EADDRINUSE') {
+      // A port can be unavailable without being in use: Windows reserves
+      // ranges for Hyper-V/WinNAT and refuses the bind with EACCES. Those are
+      // "try the next one" too, not a reason to fail the whole sign-in.
+      if (!UNAVAILABLE_PORT_CODES.has(e?.code)) {
         session.server = undefined;
         throw e;
       }
@@ -254,7 +267,7 @@ async function callbackHandler(
       res.end('invalid state');
       return;
     }
-    const tokenSet = await exchangeCode(session.provider, code, session.redirectUri, session.verifier);
+    const tokenSet = await exchangeCode(session.provider, code, session.redirectUri, session.verifier, session.state);
     const tokenKey = makeTokenKey(session.provider, tokenSet.accountId, session.id);
     setToken(tokenKey, tokenSet);
     closeSession(session);
@@ -359,7 +372,7 @@ export async function finishOAuth(sessionId: string, pasted: string): Promise<OA
     throw new Error('Invalid state parameter. The pasted code does not match this session.');
   }
 
-  const tokenSet = await exchangeCode(session.provider, code, session.redirectUri, session.verifier);
+  const tokenSet = await exchangeCode(session.provider, code, session.redirectUri, session.verifier, session.state);
   const tokenKey = makeTokenKey(session.provider, tokenSet.accountId, session.id);
   setToken(tokenKey, tokenSet);
   closeSession(session);
@@ -440,6 +453,7 @@ async function exchangeCode(
   code: string,
   redirectUri: string,
   verifier: string,
+  state: string,
 ): Promise<OAuthTokenSet> {
   const isClaude = provider === 'claude';
   const tokenUrl = isClaude ? CLAUDE_TOKEN_URL : CHATGPT_TOKEN_URL;
@@ -449,10 +463,14 @@ async function exchangeCode(
   let headers: Record<string, string>;
   if (isClaude) {
     headers = { 'Content-Type': 'application/json', Accept: 'application/json' };
+    // Anthropic's token endpoint validates the whole body against a schema and
+    // rejects it with "Invalid request format" when `state` is absent, even
+    // though the code alone would identify the grant.
     body = JSON.stringify({
       client_id: CLAUDE_CLIENT_ID,
       grant_type: 'authorization_code',
       code,
+      state,
       redirect_uri: redirectUri,
       code_verifier: verifier,
     });

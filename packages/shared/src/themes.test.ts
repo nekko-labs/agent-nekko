@@ -37,6 +37,16 @@ describe('THEME_PRESETS', () => {
     }
   });
 
+  it('no two presets render identically', () => {
+    // Nebula once shipped as a byte-for-byte copy of Dark, so the picker showed
+    // two tiles that did the same thing. A preset earns its slot by differing in
+    // mode, accent, or surface tokens.
+    const fingerprints = THEME_PRESETS.map((p) =>
+      [p.mode, p.accent, p.accent2, p.paper, p.surface, p.surface2, p.ink, p.inkSoft, p.inkFaint, p.line].join('|'),
+    );
+    expect(new Set(fingerprints).size).toBe(THEME_PRESETS.length);
+  });
+
   it('surface/ink overrides, when present, are valid 6-digit hex', () => {
     const overrideKeys: (keyof ThemePreset)[] = [
       'paper',
