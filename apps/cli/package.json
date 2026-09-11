@@ -1,6 +1,6 @@
 {
   "name": "agent-nekko",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "description": "Agent Nekko CLI + MCP server, drive your local agent from the terminal or other tools (Claude Code, Codex, …).",
   "license": "MIT",
