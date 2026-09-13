@@ -5,7 +5,7 @@
  * models the chat's provider actually exposes. Used by the ChatPane when the
  * user selects the ✨ Auto model option.
  *
- * Auto has three profiles (see `AutoQuality`) so "let Kotrain pick" isn't a
+ * Auto has three profiles (see `AutoQuality`) so "let Nekko pick" isn't a
  * single opaque policy: Cheap always reaches for the smallest capable model,
  * Quality always reaches for the strongest, and Normal reads the prompt and
  * picks between them. The pick is explained (not just returned) so the composer
@@ -14,7 +14,7 @@
 
 import type { ModelInfo } from './models.js';
 
-/** Sentinel model id meaning "let Kotrain pick per turn". */
+/** Sentinel model id meaning "let Nekko pick per turn". */
 export const AUTO_MODEL_ID = '__auto__';
 
 /** How aggressively Auto mode spends on capability. */

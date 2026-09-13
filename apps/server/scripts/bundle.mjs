@@ -1,7 +1,7 @@
-// Produce a self-contained, publishable `kotrain` package under cli-dist/:
+// Produce a self-contained, publishable `agent-nekko` package under cli-dist/:
 //   - index.mjs : the server + @agent-nekko/host/core/shared bundled by esbuild
 //   - web/      : the built renderer (the UI)
-//   - package.json : name "agent-nekko", bin, and the few runtime deps
+//   - package.json : name "agent-nekko", bin aliases, and the few runtime deps
 // Run after building the renderer (npm run build -w @agent-nekko/desktop).
 import { build } from 'esbuild';
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
@@ -41,12 +41,14 @@ cpSync(renderer, join(out, 'web'), { recursive: true });
 
 const version = JSON.parse(readFileSync(join(serverDir, 'package.json'), 'utf8')).version;
 const pkg = {
-  name: 'kotrain',
+  // `agent-nekko` is the thin CLI (apps/cli); this bundle is the self-hosted
+  // web edition, a different artifact, so it publishes under its own name.
+  name: 'agent-nekko-web',
   version,
-  description: 'Local-first AI coding & cowork, the self-hosted web edition. Run with `npx agent-nekko`.',
+  description: 'AI help on your computer: the self-hosted web edition plus CLI/MCP. Run with `npx agent-nekko-web`.',
   license: 'MIT',
   type: 'module',
-  bin: { 'kotrain': 'index.mjs' },
+  bin: { 'agent-nekko-web': 'index.mjs', 'kotrain': 'index.mjs', 'nekkos': 'index.mjs' },
   files: ['index.mjs', 'web'],
   engines: { node: '>=20' },
   dependencies: {
@@ -58,7 +60,7 @@ const pkg = {
 writeFileSync(join(out, 'package.json'), JSON.stringify(pkg, null, 2));
 writeFileSync(
   join(out, 'README.md'),
-  '# Kotrain (web edition + CLI/MCP)\n\nWeb server:\n\n```bash\nnpx agent-nekko\n```\n\nThen open http://localhost:1440.\n\nCLI / MCP (drive your local agent from the terminal or other tools):\n\n```bash\nnpx agent-nekko status\nnpx agent-nekko chat "summarize README.md"\nnpx agent-nekko mcp        # MCP server on stdio (e.g. claude mcp add kotrain -- npx agent-nekko mcp)\n```\n\nSee https://github.com/nekko-labs/agent-nekko\n',
+  '# Agent Nekko (web edition + CLI/MCP)\n\nWeb server:\n\n```bash\nnpx agent-nekko-web\n```\n\nThen open http://localhost:1440.\n\nCLI / MCP (drive your local agent from the terminal or other tools):\n\n```bash\nnpx agent-nekko-web status\nnpx agent-nekko-web chat "summarize README.md"\nnpx agent-nekko-web mcp        # MCP server on stdio (e.g. claude mcp add agent-nekko -- npx agent-nekko-web mcp)\n```\n\nSee https://github.com/nekko-labs/agent-nekko\n',
 );
 
 console.log(`\n✓ Bundled publishable package → ${out}`);

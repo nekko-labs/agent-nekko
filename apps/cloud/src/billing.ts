@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Plan } from './entitlements.js';
 
 /**
- * Kotrain Cloud billing via Stripe. Hand-rolled against the Stripe REST API (no
+ * Agent Nekko Cloud billing via Stripe. Hand-rolled against the Stripe REST API (no
  * SDK dependency, same dependency-free DNA as the relay's APNs/FCM senders):
  * a couple of form-encoded `fetch` POSTs plus an HMAC-SHA256 webhook-signature
  * verifier built on `node:crypto`. Everything is gated on `STRIPE_SECRET_KEY`

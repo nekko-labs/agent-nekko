@@ -7,7 +7,7 @@ import { dirname, resolve } from 'node:path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const build = resolve(__dirname, '../build');
-const BG = rgbaToInt(16, 23, 20, 255); // Kotrain dark #14141a
+const BG = rgbaToInt(16, 23, 20, 255); // Agent Nekko dark #14141a
 const ACCENT = rgbaToInt(167, 200, 172, 255); // #6d5efc
 
 const tintFont = (font) => {

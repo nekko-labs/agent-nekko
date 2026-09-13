@@ -15,6 +15,15 @@ import {
   type TitleBarOverlayTheme,
 } from '../windowChrome.js';
 
+if (process.env.ELECTRON_RUN_AS_NODE) {
+  // electron-vite spawns the binary with the caller's env, and this var turns
+  // it into plain Node: no `app`, no BrowserWindow, and the first real API
+  // call dies with a confusing stack (electron-updater's lazy getter). Say so
+  // plainly instead.
+  console.error('ELECTRON_RUN_AS_NODE is set: Agent Nekko must run as Electron, not Node. Unset it and retry.');
+  process.exit(1);
+}
+
 preservePackagedProfile(app);
 
 /**
@@ -54,7 +63,7 @@ function linkFromArgv(argv: string[]): string | null {
  * Send a deep link to the window, or hold it until one is ready.
  *
  * Also raises the window: the point of the link is that the user clicked
- * something in *another* app and expects Kotrain to come forward and show them
+ * something in *another* app and expects Agent Nekko to come forward and show them
  * the result.
  */
 function deliverLink(url: string): void {
@@ -247,7 +256,7 @@ function registerTitleBarOverlaySync(): void {
  * is already open.
  *
  * The single-instance lock is what makes that true: without it the OS answers
- * a link by starting a *second* Kotrain on the same data directory, two hosts
+ * a link by starting a *second* Agent Nekko on the same data directory, two hosts
  * writing one settings file. With it, the second process hands its argument to
  * the first and exits. Returns false when another instance already holds the
  * lock, meaning this process should quit immediately.
@@ -271,7 +280,7 @@ function claimSingleInstance(): boolean {
       deliverLink(link);
       return;
     }
-    // Launched again without a link: the user asked for Kotrain, so show the
+    // Launched again without a link: the user asked for Agent Nekko, so show the
     // window they already have rather than doing nothing at all.
     const win = BrowserWindow.getAllWindows()[0];
     if (win) {

@@ -10,7 +10,7 @@ import { Badge } from './primitives/index.js';
  * sees ciphertext. Self-hosting the relay is documented and first-class.
  */
 
-/** Managed relay (free during beta; becomes a Kotrain Cloud perk). */
+/** Managed relay (free during beta; becomes an Agent Nekko Cloud perk). */
 export const MANAGED_RELAY_URL = 'wss://kotrain-relay.fly.dev';
 const SELF_HOST_DOCS = 'https://github.com/nekko-labs/agent-nekko/blob/main/docs/REMOTE.md';
 
@@ -55,7 +55,7 @@ export function RemoteAccess() {
 
   // Pairing link: on an http origin (web edition) the link opens this same UI;
   // the desktop app has no web origin, so the QR carries the raw pairing params
-  // (the Kotrain phone app parses those directly).
+  // (the Agent Nekko phone app parses those directly).
   useEffect(() => {
     if (!status.enabled || !liveGrant) {
       setLink('');

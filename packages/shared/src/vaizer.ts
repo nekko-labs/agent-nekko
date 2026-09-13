@@ -1,7 +1,7 @@
 /**
  * Vaizer skills integration: an optional connection to the public Agent Skills
  * marketplace at github.com/nekko-labs/vaizer (browsable at vaizer.app/skills).
- * Vaizer is a separate app; Kotrain only reads its machine-readable catalog and
+ * Vaizer is a separate app; Agent Nekko only reads its machine-readable catalog and
  * installs skills the user explicitly picks.
  *
  * Offline-first: the marketplace shelf renders from the bundled snapshot
@@ -127,7 +127,7 @@ export const VAIZER_SNAPSHOT: VaizerCatalog = {
   ],
 };
 
-/** Map Vaizer's free-form category onto Kotrain's skill categories. */
+/** Map Vaizer's free-form category onto Agent Nekko's skill categories. */
 export function vaizerCategory(cat: string): SkillCategory {
   const c = cat.toLowerCase();
   if (/research|planning|naming|brainstorm|career|resume|job/.test(c)) return 'Research & planning';

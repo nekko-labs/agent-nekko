@@ -1,6 +1,6 @@
 /**
  * Plan → feature entitlements. The OSS app NEVER license-checks (everything is
- * on locally); only Kotrain Cloud gates features server-side, here. Keep this the
+ * on locally); only Agent Nekko Cloud gates features server-side, here. Keep this the
  * single source of truth so the dispatch layer and the `/api/auth/me` response
  * agree on what an account can do.
  */

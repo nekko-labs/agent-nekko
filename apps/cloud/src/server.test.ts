@@ -31,7 +31,7 @@ describe('cloud server (HTTP)', () => {
     expect(res.json()).toEqual({ cloud: true, billing: false }); // no Stripe keys in this suite
   });
 
-  it('rejects unauthenticated KotrainApi calls', async () => {
+  it('rejects unauthenticated NekkoApi calls', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/settings:get', payload: { args: [] } });
     expect(res.statusCode).toBe(401);
   });

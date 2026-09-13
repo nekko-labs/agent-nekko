@@ -26,7 +26,7 @@ try {
   await sleep(200);
   client.close(); // phone goes offline
   await sleep(300);
-  agent.send(JSON.stringify({ type: 'notify', title: 'Kotrain finished', body: 'done' }));
+  agent.send(JSON.stringify({ type: 'notify', title: 'Agent Nekko finished', body: 'done' }));
   await sleep(600);
 
   if (log.includes('APNs not configured')) {

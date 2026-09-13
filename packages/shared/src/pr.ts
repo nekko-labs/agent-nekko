@@ -1,6 +1,6 @@
 /** Pull-request types + helpers for the in-chat PR card, diff pane, and badges.
  *
- * Kotrain doesn't track PRs itself; a chat "has" a PR when a GitHub PR URL shows
+ * Agent Nekko doesn't track PRs itself; a chat "has" a PR when a GitHub PR URL shows
  * up in its transcript (the agent runs `gh pr create`, the URL lands in tool
  * output, or the user pastes one). We extract those URLs and hydrate live state
  * via the `gh` CLI, falling back to the GitHub REST API with the connector PAT.

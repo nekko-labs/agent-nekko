@@ -7,7 +7,7 @@ import { Modal } from './primitives/index.js';
  * `kotrain://` links from other apps.
  *
  * One route today: `kotrain://hypergate/connect?port=7777`, which is what
- * Hypergate's "Connect Kotrain" button fires. The link is a *request*, never
+ * Hypergate's "Connect Agent Nekko" button fires. The link is a *request*, never
  * the action: any program on the machine can open a URL, and connecting a
  * gateway means trusting whatever tools it offers in every chat from then on.
  * So the link brings the window forward, names what is asking, and waits for a

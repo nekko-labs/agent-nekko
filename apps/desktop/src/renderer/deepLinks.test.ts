@@ -16,7 +16,7 @@ describe('hypergateConnectPort', () => {
     expect(hypergateConnectPort('kotrain://hypergate/connect/')).toBe(7777);
   });
 
-  it('rejects anything that is not a Kotrain connect link', () => {
+  it('rejects anything that is not an Agent Nekko connect link', () => {
     expect(hypergateConnectPort('https://hypergate.app/connect?port=7777')).toBeNull();
     expect(hypergateConnectPort('kotrain://settings')).toBeNull();
     expect(hypergateConnectPort('kotrain://hypergate/disconnect')).toBeNull();

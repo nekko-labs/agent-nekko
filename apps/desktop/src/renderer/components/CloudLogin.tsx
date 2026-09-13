@@ -5,7 +5,7 @@ import { NekkoAvatar } from './Mascot.js';
 const LS_TOKEN = 'kotrain_token';
 
 /**
- * Decide whether to show the Kotrain Cloud login gate before mounting the app.
+ * Decide whether to show the Agent Nekko Cloud login gate before mounting the app.
  * Returns false for the desktop app (Electron preload present) and the plain
  * self-hosted server (no `/api/auth/config`), so only the hosted edition gates.
  */
@@ -34,7 +34,7 @@ export async function cloudAuthRequired(): Promise<boolean> {
 }
 
 /**
- * Full-screen sign-in / sign-up for Kotrain Cloud. On success it stores the
+ * Full-screen sign-in / sign-up for Agent Nekko Cloud. On success it stores the
  * account session token (which the existing web-client sends as a Bearer) and
  * calls `onAuthed` so the host app mounts. The app UI itself is untouched -
  * cloud auth is a thin gate in front of the same renderer every edition uses.

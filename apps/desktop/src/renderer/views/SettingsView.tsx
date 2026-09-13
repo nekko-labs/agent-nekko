@@ -265,7 +265,7 @@ export function SettingsView() {
 
 /**
  * The agent loop's step budget: how many tool steps one reply may take before
- * Kotrain stops and answers with what it has. Committed on blur/Enter (not per
+ * Agent Nekko stops and answers with what it has. Committed on blur/Enter (not per
  * keystroke) so a half-typed number never becomes the live setting.
  */
 function AgentLoopSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {

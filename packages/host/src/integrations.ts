@@ -21,7 +21,7 @@ const SERVER_NAME = 'agent-nekko';
 /** Older installs registered under this key; they count as installed. */
 const LEGACY_SERVER_NAMES = ['kotrain'];
 /** The portable command every tool gets: the bundled CLI over stdio. */
-const MCP_ENTRY = { command: 'npx', args: ['-y', 'kotrain', 'mcp'] };
+const MCP_ENTRY = { command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] };
 
 interface AgentToolSpec {
   id: AgentToolId;

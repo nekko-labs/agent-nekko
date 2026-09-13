@@ -208,7 +208,7 @@ function adfDoc(text: string) {
 const GITHUB_HEADERS = (tok: string) => ({
   Authorization: `Bearer ${tok}`,
   Accept: 'application/vnd.github+json',
-  'User-Agent': 'kotrain',
+  'User-Agent': 'agent-nekko',
   'Content-Type': 'application/json',
 });
 

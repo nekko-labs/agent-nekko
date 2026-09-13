@@ -184,7 +184,7 @@ import { randomUUID } from 'crypto';
  * per runtime (e.g. `addWorkspaceByPath`, since Electron uses a native dialog
  * while the web server takes a path string).
  *
- * Every edition, Electron, the web server, Kotrain Cloud, wraps the same Host.
+ * Every edition, Electron, the web server, Agent Nekko Cloud, wraps the same Host.
  */
 export interface Host {
   /** Emits 'agentEvent' (AgentEvent) and 'indexProgress' (IndexStatus). */

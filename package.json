@@ -43,5 +43,11 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "vite": "^7.3.6"
+  },
+  "allowScripts": {
+    "electron@43.3.0": true,
+    "esbuild@0.28.1": true,
+    "esbuild@0.25.12": true,
+    "electron-winstaller@5.4.0": true
   }
 }

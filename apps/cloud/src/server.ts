@@ -19,7 +19,7 @@ export interface CloudServerOptions {
 }
 
 /**
- * Kotrain Cloud server. Fronts the SAME host engine + dispatcher as every other
+ * Agent Nekko Cloud server. Fronts the SAME host engine + dispatcher as every other
  * edition, but per authenticated account: each account gets an isolated data
  * dir (its own settings/sessions/memory) via `withDataDir`, and feature limits
  * are enforced server-side from the account's plan. The OSS app never does any
@@ -140,7 +140,7 @@ export function createCloudServer(opts: CloudServerOptions): { app: FastifyInsta
     const OAUTH_UNSUPPORTED = new Set<string>([IpcChannels.oauthBegin, IpcChannels.oauthFinish, IpcChannels.oauthCancel, IpcChannels.oauthSignOut, IpcChannels.providersImportCliAuth]);
     const OAUTH_UNSUPPORTED_MESSAGE = 'OAuth sign-in is only available in the desktop app.';
 
-    // --- Authenticated KotrainApi (per-account host, isolated data dir) ---
+    // --- Authenticated NekkoApi (per-account host, isolated data dir) ---
     api.post<{ Params: { channel: string }; Body: { args?: unknown[] } }>(
       '/api/:channel',
       async (req, reply) => {
