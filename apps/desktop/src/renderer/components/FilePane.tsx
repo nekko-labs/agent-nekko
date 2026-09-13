@@ -46,7 +46,7 @@ function readAutoSavePref(): boolean {
  * with auto-save, undo/redo, and clipboard actions. A gutter "+" lets you drop
  * an inline comment on any line that the agent picks up, Add to prompt (queue
  * it) or Run now (send it). Deliberately not a full IDE, just enough to read,
- * tweak, and steer changes without leaving Kotrain.
+ * tweak, and steer changes without leaving Agent Nekko.
  */
 export function FilePane({ path }: { path: string }) {
   const isMd = /\.(md|markdown)$/i.test(path);

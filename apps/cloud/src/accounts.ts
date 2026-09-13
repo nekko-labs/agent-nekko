@@ -6,7 +6,7 @@ import type { Plan } from './entitlements.js';
 /**
  * File-backed account + token store. Mirrors the host's "JSON in the data dir"
  * approach (no native DB dep) behind a small interface so a Postgres-backed
- * impl can drop in for production Kotrain Cloud without touching callers.
+ * impl can drop in for production Agent Nekko Cloud without touching callers.
  */
 export interface Account {
   id: string;

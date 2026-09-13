@@ -89,7 +89,7 @@ export function SkillsView() {
   );
 }
 
-/** Built-in skills + marketplace skills installed into Kotrain. */
+/** Built-in skills + marketplace skills installed into Agent Nekko. */
 function LibraryTab() {
   const { sendToChat, installedSkillDefs } = useStore();
   const [query, setQuery] = useState('');

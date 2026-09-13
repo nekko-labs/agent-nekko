@@ -482,7 +482,7 @@ function makeWebClient(): NekkoApi {
       limitsUpdatedCbs.add(cb);
       return () => limitsUpdatedCbs.delete(cb);
     },
-    // A browser tab has no OS handing it `kotrain://` URLs, so this is the
+    // A browser tab has no OS handing it `agent-nekko://` URLs, so this is the
     // honest implementation rather than a missing one.
     onDeepLink: () => () => {},
     onUpdateEvent: (cb) => {
@@ -511,7 +511,7 @@ function makeWebClient(): NekkoApi {
 }
 
 /** Install the web client only if no Electron preload bridge already set window.nekko. */
-export function ensureKotrain(): void {
+export function ensureNekko(): void {
   if (!(window as any).nekko) {
     (window as any).nekko = makeWebClient();
   }

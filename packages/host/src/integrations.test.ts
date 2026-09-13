@@ -47,7 +47,7 @@ describe('agent-tool detection and subagent install', () => {
     const cfg = JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8'));
     expect(cfg.theme).toBe('dark');
     expect(cfg.mcpServers.other).toEqual({ command: 'x' });
-    expect(cfg.mcpServers['agent-nekko']).toEqual({ command: 'npx', args: ['-y', 'kotrain', 'mcp'] });
+    expect(cfg.mcpServers['agent-nekko']).toEqual({ command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] });
 
     // The pre-merge file was backed up.
     const bak = JSON.parse(readFileSync(join(home, '.claude.json.bak'), 'utf8'));
@@ -161,7 +161,7 @@ describe('agent-tool detection and subagent install', () => {
     const res = installSubagent('windsurf', home);
     expect(res.ok).toBe(true);
     const cfg = JSON.parse(readFileSync(join(home, '.codeium', 'windsurf', 'mcp_config.json'), 'utf8'));
-    expect(cfg.mcpServers['agent-nekko']).toEqual({ command: 'npx', args: ['-y', 'kotrain', 'mcp'] });
+    expect(cfg.mcpServers['agent-nekko']).toEqual({ command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] });
   });
 
   it('will not install into a tool that was never detected', () => {

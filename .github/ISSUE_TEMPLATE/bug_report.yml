@@ -40,7 +40,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: Kotrain version & OS
+      label: Agent Nekko version & OS
       placeholder: e.g. 0.1.0 on Windows 11
     validations:
       required: true

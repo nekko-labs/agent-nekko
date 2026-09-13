@@ -80,7 +80,7 @@ async function main() {
 
   if (!existsSync(join(RENDERER_DIR, 'index.html'))) {
     console.error(
-      `[kotrain] Renderer not found at ${RENDERER_DIR}.\n` +
+      `[agent-nekko] Renderer not found at ${RENDERER_DIR}.\n` +
         `Build it first (npm run build -w @agent-nekko/desktop) or set NEKKO_RENDERER_DIR.`,
     );
     process.exit(1);
@@ -113,7 +113,7 @@ async function main() {
   const OAUTH_UNSUPPORTED = new Set<string>([IpcChannels.oauthBegin, IpcChannels.oauthFinish, IpcChannels.oauthCancel, IpcChannels.oauthSignOut, IpcChannels.providersImportCliAuth]);
   const OAUTH_UNSUPPORTED_MESSAGE = 'OAuth sign-in is only available in the desktop app.';
 
-  // One HTTP route fronts the whole KotrainApi via the shared dispatcher.
+  // One HTTP route fronts the whole NekkoApi via the shared dispatcher.
   app.post<{ Params: { channel: string }; Body: { args?: unknown[] } }>('/api/:channel', async (req, reply) => {
     try {
       const channel = req.params.channel;

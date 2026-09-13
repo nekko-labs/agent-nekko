@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { approvalPolicy, runChat, type Client } from './lib.js';
 import { CliError, EXIT_CODES, exitCodeForError, parseFlags, runCli } from './run.js';
+import { normalizeInstallTarget } from '@agent-nekko/shared';
 
 function fakeClient(events: any[] = [], mode: 'ask' | 'guardrails' | 'yolo' = 'ask') {
   let listener: ((event: any) => void) | undefined;
@@ -59,11 +60,13 @@ describe('CLI identity and compatibility', () => {
     });
   });
 
-  it('keeps the legacy skill target in canonical usage', async () => {
+  it('shows the canonical skill target in usage and still accepts the legacy one', async () => {
     await expect(runCli(['skills', 'install', '--url', 'http://127.0.0.1:1'])).rejects.toMatchObject({
-      message: 'Usage: agent-nekko skills install <id> [--target kotrain|claude|codex]',
+      message: 'Usage: agent-nekko skills install <id> [--target agent-nekko|claude|codex]',
       exitCode: EXIT_CODES.usage,
     });
+    // `kotrain` remains a valid target value; it normalizes to agent-nekko.
+    expect(normalizeInstallTarget('kotrain')).toBe('agent-nekko');
   });
 });
 

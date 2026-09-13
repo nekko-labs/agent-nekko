@@ -38,11 +38,11 @@ describe('vaizer catalog snapshot', () => {
 });
 
 describe('vaizerCategory', () => {
-  it('maps vaizer categories onto Kotrain skill categories', () => {
+  it('maps vaizer categories onto Agent Nekko skill categories', () => {
     expect(vaizerCategory('research')).toBe('Research & planning');
     expect(vaizerCategory('engineering')).toBe('Code quality');
     expect(vaizerCategory('delivery')).toBe('Delivery');
-    // `career` (resume-checker) has no Kotrain equivalent; it reads as analysis work.
+    // `career` (resume-checker) has no Agent Nekko equivalent; it reads as analysis work.
     expect(vaizerCategory('career')).toBe('Research & planning');
     expect(vaizerCategory('something-else')).toBe('Automation');
   });

@@ -49,7 +49,7 @@ function baseName(p: string): string {
 }
 
 /**
- * The Context Inspector, Kotrain's signature panel. Two stacked sections split
+ * The Context Inspector, Agent Nekko's signature panel. Two stacked sections split
  * by a draggable divider, the way VS Code stacks its sidebar views:
  *  1. Folders (top), the project folders grounding this chat as accordions. Each
  *     one expands into its file tree, so browsing and opening a file happens in

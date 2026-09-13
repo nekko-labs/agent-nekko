@@ -93,10 +93,39 @@ its previous profile on first run. `kotrain://` deep links still resolve.
 
 > A full picture-by-picture tour is in the **[walkthrough guide](docs/WALKTHROUGH.md)**.
 
-## Download
+## How to run Agent Nekko
 
-Grab the installer for your OS from the [latest release](https://github.com/nekko-labs/agent-nekko/releases/latest):
-Windows NSIS `.exe`, macOS `.dmg`, or Linux `.AppImage`/`.deb`.
+**1. Download the installer.** Grab it for your OS from the
+[latest GitHub release](https://github.com/nekko-labs/agent-nekko/releases/latest)
+or [agentnekko.com](https://agentnekko.com): Windows NSIS `.exe`, macOS `.dmg`,
+or Linux `.AppImage`/`.deb`.
+
+**2. Run it locally from source.** Easiest and fastest, and the way to see your
+changes while working on it:
+
+```bash
+npm install
+npm run local        # builds everything, then launches the desktop app
+```
+
+**3. Run it in Docker.** Safest option: the app, its file tools, and your
+workspaces stay inside the container.
+
+```bash
+docker compose up    # build + run, then open http://localhost:1440
+```
+
+**4. Run the web edition.** The backup approach when you don't plan to use the
+desktop app: the same engine and same UI in your browser, fully offline.
+
+```bash
+npm run web          # builds everything, serves http://localhost:1440
+```
+
+Details for each are below: [signing and the installer](#the-installer),
+[Docker](#run-with-docker), and the [web edition](#run-the-web-edition).
+
+### The installer
 
 Release macOS builds are signed with a Nekko Labs Developer ID certificate and
 notarized by Apple when the macOS signing secrets are configured, so the `.dmg`

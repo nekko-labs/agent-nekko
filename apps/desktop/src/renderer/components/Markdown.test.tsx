@@ -117,10 +117,10 @@ describe('Markdown (document mode)', () => {
   });
 
   it('strips embedded HTML down to its text, and drops layout-only lines', () => {
-    const out = doc('<div align="center">\n\n# Kotrain\n\n</div>');
+    const out = doc('<div align="center">\n\n# Nekko\n\n</div>');
     expect(out).not.toContain('&lt;div');
     expect(out).toContain('<h1');
-    expect(out).toContain('Kotrain');
+    expect(out).toContain('Nekko');
   });
 
   it('turns an HTML img into the same chip as markdown image syntax', () => {

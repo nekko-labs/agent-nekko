@@ -77,7 +77,7 @@ export function ContextWarning({
     const messages = session?.messages ?? [];
     const convoText = messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
-      .map((m) => `${m.role === 'user' ? 'You' : 'Kotrain'}: ${m.content}`)
+      .map((m) => `${m.role === 'user' ? 'You' : 'Nekko'}: ${m.content}`)
       .join('\n\n');
 
     if (!convoText.trim()) return;

@@ -8,7 +8,7 @@ import { FolderIcon } from '../icons.js';
  * folder, each directory fetching its children the first time it's expanded.
  * Clicking a file opens it in a FilePane (view/edit in-app). Not a full IDE
  * tree, no rename/DnD yet, just enough to browse and open without leaving
- * Kotrain. The disclosure header belongs to the caller: in the Context panel
+ * Agent Nekko. The disclosure header belongs to the caller: in the Context panel
  * each project folder's accordion row is the header for its tree.
  */
 export function DirTree({ root, onOpen }: { root: string; onOpen: (path: string) => void }) {

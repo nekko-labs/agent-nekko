@@ -1,7 +1,7 @@
 /**
  * The window-chrome contract, shared by main and preload.
  *
- * Kotrain draws its own title bar: one strip carrying the wordmark, with the
+ * Agent Nekko draws its own title bar: one strip carrying the wordmark, with the
  * OS buttons sitting in the same line and the same colour as the app behind
  * them. That needs two things crossing the process boundary — the platform, so
  * the renderer knows which side to leave clear, and the theme colours, so the

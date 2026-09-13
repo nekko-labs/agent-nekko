@@ -7,7 +7,7 @@ import { CheckIcon, CopyIcon, TerminalIcon } from '../../icons.js';
 
 /**
  * The integrations step, two groups. "Use Nekko inside other tools" installs
- * this app as an MCP subagent (`npx -y kotrain mcp`) into detected agent CLIs:
+ * this app as an MCP subagent (`npx -y agent-nekko mcp`) into detected agent CLIs:
  * the host merges an `agent-nekko` entry into the tool's MCP config, backing up
  * the file first, and a manual copy-paste snippet is always offered. "Connect
  * your apps" is the shared connector grid in compact form. Everything is

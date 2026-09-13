@@ -118,7 +118,7 @@ interface UiState {
    *
    * Kept in the store rather than in Settings' local state because the pairing
    * is app-wide: the sidebar offers the tab, the command palette connects, and
-   * a `kotrain://` deep link can arrive with no view mounted at all.
+   * an `agent-nekko://` deep link can arrive with no view mounted at all.
    */
   hypergate: HypergateInfo | null | undefined;
   /** Re-probe for the daemon. Cheap and side-effect free; safe to call on a timer. */
@@ -137,7 +137,7 @@ interface UiState {
   /** Open a PR's diff in a workbench pane. */
   openPrPane: (url: string) => void;
 
-  /** Marketplace installs (all targets) + the Kotrain ones as runnable skills. */
+  /** Marketplace installs (all targets) + the Agent Nekko ones as runnable skills. */
   installedSkills: InstalledSkillRecord[];
   installedSkillDefs: SkillDef[];
   refreshSkills: () => Promise<void>;

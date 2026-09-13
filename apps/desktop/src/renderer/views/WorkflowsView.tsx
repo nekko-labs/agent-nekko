@@ -495,7 +495,7 @@ function WorkflowDetail({ wf, runs, live }: { wf: Workflow; runs: WorkflowRun[];
           </Badge>
         ))}
         {wf.triggers.some((t) => t.kind === 'cli') && (
-          <span className="font-mono text-[10.5px] text-ink-faint">kotrain workflow run {cliCommand(wf)}</span>
+          <span className="font-mono text-[10.5px] text-ink-faint">agent-nekko workflow run {cliCommand(wf)}</span>
         )}
       </div>
 

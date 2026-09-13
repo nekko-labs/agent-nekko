@@ -30,9 +30,9 @@ export const SHORTCUTS: Record<'palette' | 'newAgent' | 'newTerminal' | 'context
     matches: (e) => mod(e) && !e.shiftKey && e.key.toLowerCase() === 'n',
   },
   // Backtick is the terminal key in VS Code, Cursor, and Zed (Ctrl+` opens the
-  // terminal there, Ctrl+Shift+` adds another). Kotrain has no terminal panel to
+  // terminal there, Ctrl+Shift+` adds another). Agent Nekko has no terminal panel to
   // toggle, so both chords just spawn one. Shift+` arrives as "~" on US layouts.
-  // ⌘J keeps working for anyone used to the shortcut Kotrain shipped before.
+  // ⌘J keeps working for anyone used to the shortcut shipped before the rename.
   newTerminal: {
     label: `${MOD}\``,
     matches: (e) => mod(e) && (e.key === '`' || e.key === '~' || e.key.toLowerCase() === 'j'),

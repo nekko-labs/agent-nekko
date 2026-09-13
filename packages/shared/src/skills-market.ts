@@ -9,7 +9,7 @@
  *    offline-first snapshot so the marketplace works with no internet.
  *  - **Installed**, what the user has installed, and where.
  *
- * A skill can be installed into **Kotrain** itself (it joins the `/` menu and
+ * A skill can be installed into **Agent Nekko** itself (it joins the `/` menu and
  * the Skills tab) or exported to another agent app that reads the SKILL.md
  * convention (Claude Code `~/.claude/skills`, Codex `~/.codex/skills`).
  */
@@ -59,7 +59,7 @@ export interface InstallTargetInfo {
 
 export interface MarketplaceSkill {
   id: string;
-  /** Invoked as `/name` once installed into Kotrain. */
+  /** Invoked as `/name` once installed into Agent Nekko. */
   name: string;
   description: string;
   author: string;
@@ -71,7 +71,7 @@ export interface MarketplaceSkill {
   stars?: number;
   installs?: number;
   tools?: string[];
-  /** Text dropped into the composer when run inside Kotrain. */
+  /** Text dropped into the composer when run inside Agent Nekko. */
   template: string;
   /** Longer instructions written to SKILL.md for file-based installs. */
   instructions: string;
@@ -361,7 +361,7 @@ export function marketWorkflow(skill: MarketplaceSkill): SkillWorkflow {
   return { nodes, edges };
 }
 
-/** A marketplace skill as a runnable in-app SkillDef (once installed to Kotrain). */
+/** A marketplace skill as a runnable in-app SkillDef (once installed to Agent Nekko). */
 export function marketToSkillDef(m: MarketplaceSkill): SkillDef {
   return {
     id: m.id,
@@ -388,7 +388,7 @@ export function skillToMarkdown(m: MarketplaceSkill): string {
     '',
     m.instructions,
     '',
-    `> Installed from the Kotrain skills marketplace (author: ${m.author}${m.url ? `, ${m.url}` : ''}).`,
+    `> Installed from the Agent Nekko skills marketplace (author: ${m.author}${m.url ? `, ${m.url}` : ''}).`,
     '',
   ].join('\n');
 }

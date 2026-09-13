@@ -38,7 +38,7 @@ export const githubConnector: Connector = {
     const headers = {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'kotrain',
+      'User-Agent': 'agent-nekko',
     };
     if (query) {
       const res = await fetch(
@@ -70,7 +70,7 @@ export const githubConnector: Connector = {
     const headers = {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'kotrain',
+      'User-Agent': 'agent-nekko',
     };
     const repo = (settings.repo ?? '').trim();
     const since = new Date(cursor).toISOString();

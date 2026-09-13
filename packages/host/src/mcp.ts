@@ -291,11 +291,11 @@ function portOf(base: string): number {
 }
 
 /**
- * The bearer token this Kotrain install should use on the gateway.
+ * The bearer token this Agent Nekko install should use on the gateway.
  *
- * Asks Hypergate for an agent called "Kotrain", creating it on first connect.
+ * Asks Hypergate for an agent called "Agent Nekko", creating it on first connect.
  * A scoped agent token beats the master one for the same reason a login beats
- * a root password: Hypergate can then show Kotrain in its Agents list, scope
+ * a root password: Hypergate can then show Agent Nekko in its Agents list, scope
  * which servers it may reach, attribute tool calls to it, and revoke it on its
  * own. Daemons predating that endpoint fall back to the gateway token, so an
  * older Hypergate still connects in one click.
@@ -306,7 +306,7 @@ async function hypergateToken(base: string): Promise<{ token?: string; agent?: s
     const res = await fetch(`${base}/api/clients/resolve`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ key: 'kotrain', create: true }),
+      body: JSON.stringify({ key: 'agent-nekko', create: true }),
       signal,
     });
     if (res.ok) {

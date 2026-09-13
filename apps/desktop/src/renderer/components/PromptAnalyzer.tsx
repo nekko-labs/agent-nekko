@@ -22,7 +22,7 @@ import { FolderIcon } from '../icons.js';
  * projects, codebases, and folders the prompt names — highlighting them inline
  * and surfacing the context (folders, guidelines, specs) each one pulls in — so
  * you can see what the agent will actually reference before you send. A marketing
- * edge: "Kotrain helps you write the prompt," not just answer it.
+ * edge: "Nekko helps you write the prompt," not just answer it.
  */
 const SEV_ORDER: Record<Severity, number> = { critical: 0, warn: 1, info: 2 };
 

@@ -73,7 +73,7 @@ export function assembleContext(input: AssembleInput): ContextBundle {
       id: 'system:base',
       source: 'system',
       label: 'System prompt',
-      origin: 'Kotrain',
+      origin: 'Agent Nekko',
       tokens: estimateTokens(input.systemText),
       pinned: false,
       included: true,

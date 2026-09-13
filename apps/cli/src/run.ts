@@ -54,7 +54,7 @@ Usage:
   agent-nekko --help | --version
 
 Legacy aliases: kotrain, nekkos (same commands and options).
-Install: npm install -g kotrain (npm package name unchanged).
+Install: npm install -g agent-nekko
 
 Target:
   --url <http://host:port>       Remote server (or NEKKO_URL)
@@ -380,7 +380,7 @@ export async function runCli(argv: string[]): Promise<void> {
         const id = value(flags, 'id') ?? _[2];
         if (!id) {
           throw new CliError(
-            'Usage: agent-nekko skills install <id> [--target kotrain|claude|codex]',
+            'Usage: agent-nekko skills install <id> [--target agent-nekko|claude|codex]',
             EXIT_CODES.usage,
           );
         }

@@ -1,7 +1,7 @@
 /**
  * The renderer's half of the window chrome.
  *
- * Kotrain draws its own title bar so the OS buttons sit on the same line, in
+ * Agent Nekko draws its own title bar so the OS buttons sit on the same line, in
  * the same colour, as the app behind them. Only the desktop shell has one:
  * `window.nekkoChrome` is exposed by the Electron preload and is simply
  * absent in a browser tab or a Capacitor build, which is how everything here

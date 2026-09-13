@@ -6,7 +6,7 @@
  * on a local model with a long context can be most of the wait), the tool calls
  * the agent runs between responses, and any approval the user sat on. Dividing
  * by that gives a number several times below what the runtime itself reports,
- * which is what made Kotrain's tok/s wrong.
+ * which is what made Agent Nekko's tok/s wrong.
  *
  * So the clock starts at the first generated chunk, not at the request, and
  * stops when usage arrives at the end of the stream. Providers that report their
