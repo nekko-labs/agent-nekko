@@ -6,7 +6,7 @@ Agent Nekko can run chat turns on your existing Claude (Pro/Max) or ChatGPT (Plu
 
 The host-side OAuth service runs the sign-in flow:
 
-1. **Claude** - We use the same public OAuth client that Claude Code uses. After you click "Sign in with Claude", the app opens a browser to `https://claude.ai/oauth/authorize` and starts a loopback listener on a local port. After you authorize, Anthropic redirects to the listener with an authorization code. The host exchanges that code for an access token and stores it.
+1. **Claude** - We use the same public OAuth client that Claude Code uses. After you click "Sign in with Claude", the app opens a browser to `https://claude.com/cai/oauth/authorize` and starts a loopback listener on a local port. After you authorize, Anthropic redirects to the listener with an authorization code. The host exchanges that code for an access token and stores it.
 
 2. **ChatGPT / Codex** - We use the public OAuth client that the Codex CLI uses. The app opens `https://auth.openai.com/oauth/authorize` and tries to listen on `http://localhost:1455/auth/callback` (the registered redirect for that client). After authorization, OpenAI returns an access token, a refresh token, and an `id_token`. The host decodes the `id_token` to extract your ChatGPT account id, which the backend requires.
 
