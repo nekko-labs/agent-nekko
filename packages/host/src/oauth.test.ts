@@ -40,8 +40,8 @@ describe('OAuth core', () => {
     it('builds a Claude URL where state equals the verifier', async () => {
       const session = await beginOAuth('claude');
       const url = new URL(session.authUrl);
-      expect(url.hostname).toBe('claude.ai');
-      expect(url.pathname).toBe('/oauth/authorize');
+      expect(url.hostname).toBe('claude.com');
+      expect(url.pathname).toBe('/cai/oauth/authorize');
       expect(url.searchParams.get('response_type')).toBe('code');
       expect(url.searchParams.get('client_id')).toBe('9d1c250a-e61b-44d9-88ed-5944d1962f5e');
       expect(url.searchParams.get('code_challenge_method')).toBe('S256');
@@ -90,7 +90,7 @@ describe('OAuth core', () => {
         const manual = await beginOAuth('claude');
         const manualUrl = new URL(manual.authUrl);
         expect(manual.mode).toBe('manual');
-        expect(manualUrl.searchParams.get('redirect_uri')).toBe('https://console.anthropic.com/oauth/code/callback');
+        expect(manualUrl.searchParams.get('redirect_uri')).toBe('https://platform.claude.com/oauth/code/callback');
         expect(manualUrl.searchParams.get('code')).toBe('true');
         cancelOAuth(manual.id);
       } finally {
@@ -294,7 +294,7 @@ async function captureTokenExchange(
   await fn();
   expect(mock).toHaveBeenCalledTimes(1);
   const [url, init] = mock.mock.calls[0];
-  expect(String(url)).toContain(provider === 'claude' ? 'console.anthropic.com' : 'auth.openai.com');
+  expect(String(url)).toContain(provider === 'claude' ? 'platform.claude.com' : 'auth.openai.com');
   return {
     url: String(url),
     headers: (init as any).headers as Record<string, string>,

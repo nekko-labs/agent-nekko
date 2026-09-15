@@ -9,10 +9,10 @@ import { dataDir } from './paths.js';
 import { ensurePrivateFile, writeJsonAtomic } from './secure-file.js';
 
 const CLAUDE_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
-const CLAUDE_AUTHORIZE_URL = 'https://claude.ai/oauth/authorize';
-const CLAUDE_TOKEN_URL = 'https://console.anthropic.com/v1/oauth/token';
+const CLAUDE_AUTHORIZE_URL = 'https://claude.com/cai/oauth/authorize';
+const CLAUDE_TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
 const CLAUDE_SCOPES = 'org:create_api_key user:profile user:inference';
-const CLAUDE_MANUAL_REDIRECT_URI = 'https://console.anthropic.com/oauth/code/callback';
+const CLAUDE_MANUAL_REDIRECT_URI = 'https://platform.claude.com/oauth/code/callback';
 const CLAUDE_LOOPBACK_PORT_START = 8765;
 const CLAUDE_LOOPBACK_PORT_END = 8795;
 
@@ -516,6 +516,9 @@ async function refreshTokenSet(tokenSet: OAuthTokenSet): Promise<OAuthTokenSet> 
       client_id: CLAUDE_CLIENT_ID,
       grant_type: 'refresh_token',
       refresh_token: tokenSet.refreshToken,
+      // The first-party client echoes the granted scope set on refresh; the
+      // endpoint's strict body validation rejects a grant missing it.
+      scope: tokenSet.scopes ?? CLAUDE_SCOPES,
     });
   } else {
     headers = { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' };
