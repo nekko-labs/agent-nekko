@@ -10,7 +10,8 @@ import { HypergatePane } from '../components/HypergatePane.js';
 import { DiffPane } from '../components/DiffPane.js';
 import { PrPane, PrBadge } from '../components/PrCard.js';
 import { ContextInspector } from '../components/ContextInspector.js';
-import { ChatIcon, TerminalIcon, PlusIcon, SplitIcon, CloseIcon, FileIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
+import { RunInfo } from '../components/RunInfo.js';
+import { ChatIcon, TerminalIcon, PlusIcon, CloseIcon, FileIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 
@@ -58,10 +59,10 @@ function PaneBody({ pane }: { pane: WbPane }) {
 }
 
 /**
- * The workbench: a Warp/Devin-style multi-pane surface. The left sidebar groups
- * work by project (chats, terminals, and nested sub-agents); the center hosts
- * tabbed panes that can be split side by side so many agents and terminals run
- * at once.
+ * The workbench. The left sidebar groups work by project (chats, terminals and
+ * nested sub-agents) and reports what the open chat is running; the center is
+ * the conversation, and anything opened out of it — a file, a browser, a diff, a
+ * PR, a terminal — lands in a resizable split to its right with its own tabs.
  */
 
 /** Live state of an agent, surfaced as a dot on its sidebar row and tab. */
@@ -113,9 +114,11 @@ export function WorkbenchView() {
   const {
     sessions, terminals, groups, activeGroupId, settings, activeSessionId,
     refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal,
-    setActivePane, closePane, focusGroup, splitRight, newChat, setActiveWorkspace,
+    setActivePane, closePane, focusGroup, newChat, setActiveWorkspace,
     reorderWorkspaces, layoutChats, layoutTerminals, contextPanelOpen,
+    sideSplit, setSideSplit,
   } = useStore();
+  const splitAreaRef = useRef<HTMLDivElement>(null);
 
   const [statuses, setStatuses] = useState<Map<string, AgentStatus>>(new Map());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -188,6 +191,34 @@ export function WorkbenchView() {
     setCollapsed((c) => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const titleFor = (pane: WbPane): string => paneTitle(pane, sessions, terminals);
+
+  // --- Split drag ---
+  // Pointer capture rather than window listeners, so the drag keeps tracking
+  // over the panes' own iframes and terminals (which would otherwise swallow it).
+  const startSplitDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const area = splitAreaRef.current;
+    if (!area) return;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      const rect = area.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      setSideSplit((rect.right - ev.clientX) / rect.width);
+    };
+    const onUp = () => {
+      handle.releasePointerCapture(e.pointerId);
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+  };
+
+  const onSplitKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowLeft') { e.preventDefault(); setSideSplit(sideSplit + 0.05); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); setSideSplit(sideSplit - 0.05); }
+  };
 
   // Project buckets: a "General" bucket for project-less chats (kept at the top,
   // hidden when empty), then one bucket per workspace. New chats auto-file under
@@ -392,6 +423,12 @@ export function WorkbenchView() {
           );
         })}
       </div>
+      {/* What the open chat is running: model, status, PRs, projects. */}
+      <RunInfo
+        session={sessions.find((s) => s.id === activeSessionId) ?? null}
+        state={statuses.get(activeSessionId ?? '') ?? 'idle'}
+        workspaces={settings?.workspaces ?? []}
+      />
     </div>
   );
 
@@ -411,24 +448,47 @@ export function WorkbenchView() {
         {groups.length === 0 ? (
           <EmptyState onNewChat={newChat} onNewTerminal={() => newTerminal()} />
         ) : (
-          <div className="flex min-h-0 flex-1">
-            {groups.map((g) => (
-              <PaneGroupView
-                key={g.id}
-                group={g}
-                isActive={g.id === activeGroupId}
-                canSplit={groups.length < 3}
-                statuses={statuses}
-                sessions={sessions}
-                titleFor={titleFor}
-                workspaces={settings?.workspaces ?? []}
-                onFocus={() => focusGroup(g.id)}
-                onSelect={(pid) => setActivePane(g.id, pid)}
-                onClose={(pid) => closePane(g.id, pid)}
-                onSplit={(pid) => splitRight(g.id, pid)}
-                onNewChat={() => newChat()}
-                onNewTerminal={() => newTerminal()}
-              />
+          <div ref={splitAreaRef} className="flex min-h-0 flex-1">
+            {groups.map((g, i) => (
+              <React.Fragment key={g.id}>
+                {/* The divider between the two columns. A real drag handle, not
+                    a hairline: the split is the main thing you adjust here. */}
+                {i > 0 && (
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="Resize the side panel"
+                    tabIndex={0}
+                    className="group relative w-px shrink-0 cursor-col-resize bg-line"
+                    onPointerDown={startSplitDrag}
+                    onKeyDown={onSplitKey}
+                  >
+                    <span className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-accent/30 group-focus-visible:bg-accent/40" />
+                  </div>
+                )}
+                <PaneGroupView
+                  group={g}
+                  isActive={g.id === activeGroupId}
+                  statuses={statuses}
+                  sessions={sessions}
+                  titleFor={titleFor}
+                  workspaces={settings?.workspaces ?? []}
+                  // The chat column takes whatever the side column leaves; with
+                  // no side column open it takes everything.
+                  style={
+                    groups.length < 2
+                      ? { flex: '1 1 0%' }
+                      : g.role === 'side'
+                        ? { flex: `0 0 ${Math.round(sideSplit * 100)}%`, minWidth: 220 }
+                        : { flex: '1 1 0%', minWidth: 320 }
+                  }
+                  onFocus={() => focusGroup(g.id)}
+                  onSelect={(pid) => setActivePane(g.id, pid)}
+                  onClose={(pid) => closePane(g.id, pid)}
+                  onNewChat={() => newChat()}
+                  onNewTerminal={() => newTerminal()}
+                />
+              </React.Fragment>
             ))}
           </div>
         )}
@@ -537,13 +597,14 @@ function TerminalRow({ term, onOpen }: { term: TerminalInfo; onOpen: (id: string
 }
 
 function PaneGroupView({
-  group, isActive, canSplit, statuses, sessions, titleFor, workspaces,
-  onFocus, onSelect, onClose, onSplit, onNewChat, onNewTerminal,
+  group, isActive, statuses, sessions, titleFor, workspaces, style,
+  onFocus, onSelect, onClose, onNewChat, onNewTerminal,
 }: {
-  group: WbGroup; isActive: boolean; canSplit: boolean; statuses: Map<string, AgentStatus>;
+  group: WbGroup; isActive: boolean; statuses: Map<string, AgentStatus>;
   sessions: Session[]; titleFor: (p: WbPane) => string; workspaces: WorkspaceFolder[];
+  style?: React.CSSProperties;
   onFocus: () => void; onSelect: (paneId: string) => void; onClose: (paneId: string) => void;
-  onSplit: (paneId: string) => void; onNewChat: () => void; onNewTerminal: () => void;
+  onNewChat: () => void; onNewTerminal: () => void;
 }) {
   const active = group.panes.find((p) => p.id === group.activeId) ?? group.panes[0];
   // The project a chat tab belongs to (tabs from different projects sit side by
@@ -554,7 +615,7 @@ function PaneGroupView({
     return wid ? workspaces.find((w) => w.id === wid)?.name ?? null : null;
   };
   return (
-    <div className="flex min-w-0 flex-1 flex-col border-r border-line" onMouseDown={onFocus}>
+    <div className="flex min-w-0 flex-col" style={style} onMouseDown={onFocus}>
       {/* Tab strip: real tabs, reachable and switchable from the keyboard. */}
       <div className="flex items-center gap-1 overflow-x-auto border-b border-line px-1.5 py-1" style={{ background: 'var(--surface-2)' }} role="tablist">
         {group.panes.map((p) => {
@@ -599,10 +660,10 @@ function PaneGroupView({
           );
         })}
         <div className="ml-auto flex shrink-0 items-center gap-0.5 pl-1">
-          <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title={`New chat (${SHORTCUTS.newAgent.label})`} onClick={onNewChat}><PlusIcon className="h-3.5 w-3.5" /></button>
-          <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title={`New terminal (${SHORTCUTS.newTerminal.label})`} onClick={onNewTerminal}><TerminalIcon className="h-3.5 w-3.5" /></button>
-          {canSplit && group.panes.length > 1 && active && (
-            <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title="Split tab to the right" onClick={() => onSplit(active.id)}><SplitIcon className="h-3.5 w-3.5" /></button>
+          {group.role === 'chat' ? (
+            <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title={`New chat (${SHORTCUTS.newAgent.label})`} onClick={onNewChat}><PlusIcon className="h-3.5 w-3.5" /></button>
+          ) : (
+            <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title={`New terminal (${SHORTCUTS.newTerminal.label})`} onClick={onNewTerminal}><TerminalIcon className="h-3.5 w-3.5" /></button>
           )}
         </div>
       </div>

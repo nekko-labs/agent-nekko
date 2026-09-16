@@ -7,7 +7,7 @@ import { CONTEXT_SOURCE, STATUS, SURFACE } from './tokens.js';
  * Context Inspector, so the color vocabulary can never drift between the two.
  * Colors resolve through the semantic provenance tokens (see tokens.ts).
  */
-export const SOURCE_META: Record<ContextItem['source'] | 'draft', { label: string; color: string; explain: string }> = {
+export const SOURCE_META: Record<ContextItem['source'] | 'draft' | 'reply', { label: string; color: string; explain: string }> = {
   system: {
     label: 'System prompt',
     color: CONTEXT_SOURCE.system,
@@ -54,6 +54,13 @@ export const SOURCE_META: Record<ContextItem['source'] | 'draft', { label: strin
     label: 'Your message',
     color: SURFACE.accent,
     explain: "What you're typing now. It joins the conversation the moment you send, so it already counts against the window.",
+  },
+  // Renderer-only: the reply in flight. Its text, tool calls, and results are
+  // replayed in the next request, so they cost window space before the turn ends.
+  reply: {
+    label: 'This reply',
+    color: STATUS.info,
+    explain: 'What the agent is writing right now, plus the tools it is running. All of it is carried into the next step of the same turn.',
   },
 };
 

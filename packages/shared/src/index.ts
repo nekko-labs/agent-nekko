@@ -5,6 +5,7 @@
 
 export * from './brand-env.js';
 export * from './models.js';
+export * from './model-availability.js';
 export * from './capacity.js';
 export * from './readiness.js';
 export * from './runtimes.js';
@@ -38,6 +39,8 @@ export * from './spec.js';
 export * from './orchestration.js';
 export * from './insights.js';
 export * from './model-select.js';
+export * from './prompt-plan.js';
+export * from './agent-steps.js';
 export * from './oauth.js';
 export * from './monitor.js';
 export * from './themes.js';

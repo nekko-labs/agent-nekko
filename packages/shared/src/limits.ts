@@ -5,8 +5,13 @@ export interface LimitWindow {
   id: string;
   label: string;
   scope: 'session' | 'weekly' | 'model';
-  /** For model-scoped windows, the model family this window tracks. */
-  modelId?: string;
+  /**
+   * For model-scoped windows, the family this window tracks as a lowercase
+   * substring of the model ids it covers (`opus`, `sonnet`, …). A family rather
+   * than an exact id on purpose: the window applies to every generation of that
+   * model, so `opus` keeps covering `claude-opus-5` after `claude-opus-4-8`.
+   */
+  modelFamily?: string;
   /** 0-100 percentage of the limit currently used. */
   usedPercent: number;
   /** Epoch milliseconds when this window resets. */
@@ -52,6 +57,7 @@ export interface ModelPricing {
 export const MODEL_PRICING: ModelPricing[] = [
   { match: 'claude-opus', input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 },
   { match: 'claude-sonnet', input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 },
+  { match: 'claude-fable', input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 },
   { match: 'claude-haiku', input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.10 },
   { match: 'gpt-4o-mini', input: 0.15, output: 0.6 },
   { match: 'gpt-4o', input: 2.5, output: 10 },

@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AgentEvent, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo } from '@agent-nekko/shared';
-import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
+import type { AgentEvent, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
+import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
+import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { Markdown } from './Markdown.js';
 import { ContextGauge, EffortMenu } from './ChatMetrics.js';
+import { PlanRail } from './PlanRail.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { ContextWarning } from './ContextWarning.js';
 import { ChatControls } from './ChatControls.js';
@@ -14,7 +16,7 @@ import { ScheduleTaskModal } from './ScheduleTaskModal.js';
 import { PrCard, PrBadge } from './PrCard.js';
 import { MiniNekko, NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
-import { PanelIcon, ShieldIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, ToolStepIcon, RobotIcon, StarIcon } from '../icons.js';
+import { PanelIcon, ShieldIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, ToolStepIcon, RobotIcon, StarIcon, ChatIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -26,6 +28,23 @@ const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't c
  * thousands of renders into a few dozen.
  */
 const STREAM_FLUSH_MS = 50;
+
+/**
+ * How often a running turn re-reads its context bundle. Each completed step is
+ * checkpointed to disk, so a preview between steps is accurate; the throttle
+ * keeps a tool-heavy turn from asking on every single result.
+ */
+const CTX_REFRESH_MS = 1_500;
+
+/**
+ * Pane widths the layout keys off, measured on the pane itself.
+ *
+ * `PLAN_RAIL_MIN_PANE` is the point below which showing the rail would cost the
+ * conversation more than the rail is worth; `NARROW_PANE` is where the 75%
+ * column stops helping and the text should just use the pane.
+ */
+const PLAN_RAIL_MIN_PANE = 900;
+const NARROW_PANE = 620;
 
 /**
  * Cap on a live buffer's length. The engine cuts a looping model off (see
@@ -210,6 +229,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const [liveTools, setLiveTools] = useState<ToolCall[]>([]);
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   const [ctx, setCtx] = useState<ContextBundle | null>(null);
+  // Tokens this turn has produced that the last context bundle doesn't include
+  // yet. Everything the agent writes (its reply, its tool calls, their results)
+  // is replayed in the next request's prompt, so the window fills as the turn
+  // runs; without this the gauge sat still for minutes and jumped at the end.
+  const [liveCtxTokens, setLiveCtxTokens] = useState(0);
+  const liveCtxRef = useRef(0);
+  const lastCtxRefresh = useRef(0);
   const [tps, setTps] = useState(0);
   const [thinking, setThinking] = useState(false);
   const [atFiles, setAtFiles] = useState<IndexedFile[]>([]);
@@ -224,6 +250,16 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // The context panel toggle lives in the store so the ⌘\ shortcut and the
   // command palette's "Toggle context panel" act on this pane too.
   const ctxOpen = useStore((s) => s.contextPanelOpen);
+  // The plan/sub-agent rail beside the transcript (see PlanRail). Whether there
+  // is room for it depends on this pane, not on the window: the workbench splits,
+  // so a viewport breakpoint would keep the rail open in a pane squeezed to a
+  // third of a wide screen and drop it from a narrow window that has nothing
+  // else on it.
+  const planRailWanted = useStore((s) => s.planRailOpen);
+  const paneRef = useRef<HTMLDivElement>(null);
+  const paneWidth = useElementWidth(paneRef);
+  const planRailOpen = planRailWanted && paneWidth >= PLAN_RAIL_MIN_PANE;
+  const wideEnoughForRail = paneWidth >= PLAN_RAIL_MIN_PANE;
   // The armed skill lives in the store (per session) so the Context Inspector on
   // the right can show it and count its tokens while it's active.
   const activeSkill = useStore((s) => s.activeSkillBySession[sessionId] ?? null);
@@ -309,8 +345,31 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
   useEffect(() => onRunningChange?.(streaming), [streaming, onRunningChange]);
 
+  /**
+   * Pull a fresh context bundle and settle the live estimate against it.
+   *
+   * The agent loop appends each assistant message and tool result to the
+   * session as it goes, so a mid-turn preview is real, not stale. Whatever has
+   * streamed since the request went out stays in `liveCtxRef` (the bundle can't
+   * know about it yet), which is why the mark is subtracted rather than reset:
+   * tokens that arrived during the round trip would otherwise be dropped.
+   */
   const refreshCtx = () => {
-    window.nekko.previewContext(sessionId, []).then(setCtx).catch(() => setCtx(null));
+    const mark = liveCtxRef.current;
+    lastCtxRefresh.current = Date.now();
+    window.nekko.previewContext(sessionId, [])
+      .then((b) => {
+        setCtx(b);
+        liveCtxRef.current = Math.max(0, liveCtxRef.current - mark);
+        setLiveCtxTokens(liveCtxRef.current);
+      })
+      .catch(() => setCtx(null));
+  };
+
+  /** Refresh at most every CTX_REFRESH_MS, for the per-step mid-turn updates. */
+  const refreshCtxThrottled = () => {
+    if (Date.now() - lastCtxRefresh.current < CTX_REFRESH_MS) return;
+    refreshCtx();
   };
 
   // Load the session; seed provider/model from it (or the global defaults).
@@ -360,6 +419,12 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     pendingReasoning.current = '';
     if (text) setLiveText((t) => clampLive(t + text));
     if (reasoning) setLiveReasoning((t) => clampLive(t + reasoning));
+    // The same batch that paints the transcript moves the context gauge, so the
+    // estimate costs one extra number per frame rather than one per token.
+    if (text || reasoning) {
+      liveCtxRef.current += estimateTokens(text) + estimateTokens(reasoning);
+      setLiveCtxTokens(liveCtxRef.current);
+    }
   };
 
   const scheduleFlush = () => {
@@ -419,12 +484,19 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           }
           liveToolsRef.current = [...liveToolsRef.current, e.call];
           setLiveTools((tc) => [...tc, e.call]);
+          liveCtxRef.current += estimateTokens(e.call.name) + estimateTokens(JSON.stringify(e.call.input ?? {}));
+          setLiveCtxTokens(liveCtxRef.current);
           break;
         case 'tool_approval_required':
           setApproval({ call: e.call, reason: e.reason, severity: e.severity });
           setMascotMood('thinking');
           break;
-        case 'tool_result': setApproval(null); break;
+        case 'tool_result':
+          setApproval(null);
+          // The step just landed on disk, so the bundle can account for it (and
+          // for the tool's output, which the renderer never sees in full).
+          refreshCtxThrottled();
+          break;
         case 'error':
           useStore.getState().pushToast('error', e.message || 'Something went wrong.');
           setErrorNotice(e.message || 'Something went wrong.');
@@ -614,6 +686,8 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     turnDecodeMsRef.current = 0;
     liveToolsRef.current = [];
     liveTextRef.current = '';
+    liveCtxRef.current = 0;
+    setLiveCtxTokens(0);
     setTurnOut(0);
     setElapsed(0);
     setMascotMood('thinking');
@@ -640,7 +714,9 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const autoPickFor = (text: string) => {
     const favSet = new Set(settings?.favoriteModels ?? []);
     const favs = new Set(models.filter((m) => favSet.has(`${providerId}::${m.id}`)).map((m) => m.id));
-    return pickAutoModel(models, text, { quality: autoQuality, preferred: favs });
+    // Auto never reaches for a model the plan can't serve right now: picking a
+    // capped model is a turn that fails on send rather than a smarter choice.
+    return pickAutoModel(runnableModels, text, { quality: autoQuality, preferred: favs });
   };
 
   // The concrete model to run this reply on: the picked one, or, in Auto mode -
@@ -680,9 +756,14 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const send = async (override?: string) => {
     const input = override ?? draft;
     const skill = activeSkill;
-    const text = skill
-      ? [skill.template.trimEnd(), input.trim()].filter(Boolean).join('\n\n')
-      : input;
+    // A plan only reaches the agent when the rail's checkbox says so, so the
+    // panel stays a scratchpad by default and becomes an instruction on request.
+    const planBlock = session?.plan?.send ? planAsPromptBlock(session.plan) : '';
+    const text = [
+      skill ? skill.template.trimEnd() : '',
+      input.trim(),
+      planBlock,
+    ].filter(Boolean).join('\n\n');
     const images = pendingImages;
     if (!text.trim() && images.length === 0 && !skill) return;
 
@@ -760,6 +841,16 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     clearDraft(sessionId);
     if (updated) setSession(updated);
     refreshSessions();
+  };
+
+  /**
+   * Park the plan on the session. The rail edits it constantly (every keystroke
+   * re-decodes an untouched plan), so this writes through rather than holding a
+   * second copy in renderer state that could drift from what a reload sees.
+   */
+  const savePlan = (plan: PromptPlan | undefined) => {
+    setSession((prev) => (prev ? { ...prev, plan } : prev));
+    window.nekko.setSessionOptions(sessionId, { plan }).catch(() => {});
   };
 
   const removeQueued = async (index: number) => {
@@ -986,6 +1077,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
   const providerKind = providers.find((p) => p.id === providerId)?.kind;
   const activeProvider = providers.find((p) => p.id === providerId);
+  // This provider's live usage windows, and the models they still leave usable.
+  const providerLimits = useProviderLimits(activeProvider);
+  const runnableModels = models.filter(
+    (m) => resolveModelAvailability({ model: m, provider: activeProvider, limits: providerLimits }).status === 'ready',
+  );
   const isCloudModel = !providerKind || !isLocalProvider(providerKind);
   const isSubscription = activeProvider?.auth === 'subscription';
   // Reasoning toggle: offered only for a concrete, reasoning-capable model.
@@ -1026,8 +1122,18 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
   const queued = session?.queue ?? [];
 
+  /**
+   * How wide the conversation and its controls run inside the pane.
+   *
+   * Three quarters, not a fixed 768px column: on a desktop workbench pane the
+   * old cap left the composer at about half the width with dead margin on both
+   * sides. When the plan rail is showing it already takes the right quarter, so
+   * the column below it goes full width rather than indenting twice.
+   */
+  const contentWidth = planRailOpen || paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
+
   return (
-    <div className="flex h-full min-w-0 overflow-hidden">
+    <div ref={paneRef} className="flex h-full min-w-0 overflow-hidden">
       <section className="flex min-w-0 w-full flex-1 flex-col overflow-x-hidden">
         <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -1056,6 +1162,16 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
             {!!session?.messages.length && (
               <button className="btn btn-ghost px-2 py-1" onClick={exportChat} title="Export chat as Markdown"><DownloadIcon /></button>
             )}
+            {wideEnoughForRail && (
+              <button
+                className={`btn btn-ghost px-2 py-1 ${planRailOpen ? 'text-accent' : ''}`}
+                onClick={() => useStore.getState().togglePlanRail()}
+                title="Toggle the plan, sub-agents, and queue panel"
+                aria-pressed={planRailOpen}
+              >
+                <ListIcon className="h-4 w-4" />
+              </button>
+            )}
             <button
               className={`btn btn-ghost hidden px-2 py-1 lg:inline-flex ${ctxOpen ? 'text-accent' : ''}`}
               onClick={() => useStore.getState().toggleContextPanel()}
@@ -1069,7 +1185,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
         <div className="relative flex min-h-0 w-full flex-1">
           <div ref={scrollRef} onScroll={onScroll} className="w-full flex-1 overflow-y-auto overflow-x-hidden px-4 py-5">
-            <div className="mx-auto w-full max-w-3xl space-y-5">
+            <div className={`${contentWidth} space-y-5`}>
               {!session?.messages.length && !liveText && !liveReasoning && (
                 <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
                   <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
@@ -1183,8 +1299,8 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
               })()}
               <ContextWarning
                 sessionId={sessionId}
-                used={ctx ? (ctx.items.filter((i) => i.included).reduce((s, i) => s + i.tokens, 0)) : 0}
-                windowTokens={ctx?.contextWindow ?? 0}
+                used={(ctx ? ctx.items.filter((i) => i.included).reduce((s, i) => s + i.tokens, 0) : 0) + liveCtxTokens}
+                windowTokens={selectedModelInfo?.contextLength ?? ctx?.contextWindow ?? 0}
                 session={session}
               />
               <ReplyStatus
@@ -1212,7 +1328,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         {approval && <ApprovalBar approval={approval} onDecide={approve} />}
 
         <div className="border-t border-line px-4 pb-4 pt-1.5">
-          <div className="mx-auto w-full max-w-3xl">
+          <div className={contentWidth}>
             {/* The instrument strip, two rows so a long model name has room and
                 nothing wraps: how this agent RUNS on top (mode + tools, with the
                 privacy switches on the right), which BRAIN it uses underneath
@@ -1606,6 +1722,8 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                     subscription={isSubscription}
                     skill={activeSkill ? { name: activeSkill.name, tokens: estimateTokens(activeSkill.template) } : null}
                     draftTokens={draft.trim() ? estimateTokens(draft) : 0}
+                    liveTokens={liveCtxTokens}
+                    contextWindow={selectedModelInfo?.contextLength}
                   />
                   <UsageLimitsChip provider={activeProvider} session={session ?? undefined} cost={cost} />
                   <div className="flex-1" />
@@ -1637,6 +1755,22 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           </div>
         </div>
       </section>
+
+      {/* The work rail, in the quarter the transcript gives back. Kept inside
+          the chat pane (not the workbench's right panel) because everything in
+          it belongs to this one conversation. */}
+      {planRailOpen && (
+        <div className="w-1/4 min-w-[224px] max-w-[320px] shrink-0">
+          <PlanRail
+            sessionId={sessionId}
+            session={session}
+            draft={draft}
+            streaming={streaming}
+            onPlanChange={savePlan}
+            onClose={() => useStore.getState().togglePlanRail()}
+          />
+        </div>
+      )}
 
       {scheduleOpen && (
         <ScheduleTaskModal
@@ -1708,6 +1842,9 @@ function ModelPicker({
   // Models per provider, fetched when the menu opens so the list covers every
   // provider (the `models` prop only holds the active provider's).
   const [byProvider, setByProvider] = useState<Record<string, ModelInfo[]>>({});
+  // Live usage limits for every signed-in provider, so a model that can't run
+  // right now can say so instead of quietly failing on send.
+  const limitsByToken = useAllProviderLimits(providers, open);
   const ref = useRef<HTMLDivElement>(null);
   const hintId = React.useId();
 
@@ -1768,11 +1905,24 @@ function ModelPicker({
     setOpen(false);
   };
 
+  /**
+   * Why a model can't be run, or null when it can. Provider-agnostic: the
+   * catalog's own claim (a model gated behind a bigger plan) combined with the
+   * live usage windows for whichever account this provider signs in as.
+   */
+  const availabilityOf = (p: ProviderConfig, m: ModelInfo) =>
+    resolveModelAvailability({ model: m, provider: p, limits: p.tokenKey ? limitsByToken[p.tokenKey] : undefined });
+
   const row = (p: ProviderConfig, m: ModelInfo, showProvider: boolean) => {
     const key = `${p.id}::${m.id}`;
     const fav = favSet.has(key);
     const selected = p.id === providerId && modelId === m.id;
     const price = formatModelPriceLabel({ modelId: m.id, auth: p.auth, isLocal: isLocalProvider(p.kind) });
+    // A blocked model stays in the list and says why. Hiding it makes a model
+    // that exists look like one the app never heard of.
+    const availability = availabilityOf(p, m);
+    const blocked = availability.status === 'blocked';
+    const why = availability.detail ?? blockLabel(availability);
     return (
       <div
         key={key}
@@ -1781,12 +1931,30 @@ function ModelPicker({
         <button
           role="option"
           aria-selected={selected}
-          className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-1.5 text-left text-[12px]"
+          aria-disabled={blocked}
+          disabled={blocked}
+          className={`flex min-w-0 flex-1 flex-col px-2.5 py-1.5 text-left ${blocked ? 'cursor-not-allowed' : ''}`}
           onClick={() => pick(p.id, m.id)}
+          title={blocked ? `${m.name} · ${why}` : m.name}
         >
-          <span className="min-w-0 truncate">{m.name}</span>
-          {price && <span className="ml-auto shrink-0 text-[10px] text-ink-faint" title="Estimated list price per 1M tokens">{price}</span>}
-          {showProvider && <span className="shrink-0 text-[10px] text-ink-faint">{p.label}</span>}
+          <div className="flex w-full items-center gap-2">
+            <span className={`text-[12.5px] font-medium leading-tight ${blocked ? 'text-ink-faint' : ''}`}>{m.name}</span>
+            {blocked && (
+              <span
+                className="shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-semibold leading-none"
+                style={{
+                  background: 'color-mix(in srgb, var(--danger) 14%, transparent)',
+                  color: 'var(--danger)',
+                }}
+              >
+                {blockLabel(availability)}
+              </span>
+            )}
+            {showProvider && <span className="ml-auto shrink-0 text-[10px] text-ink-faint">{p.label}</span>}
+          </div>
+          <span className="truncate text-[10px] text-ink-faint" title={blocked ? why : 'Estimated list price per 1M tokens'}>
+            {blocked ? why : price}
+          </span>
         </button>
         <button
           className={`shrink-0 rounded-sm p-1.5 ${fav ? 'text-accent' : 'text-ink-faint hover:text-ink'}`}
@@ -2015,20 +2183,28 @@ function fmtTime(ts: number): string {
 }
 
 /**
- * A collapsed, expandable summary of a run of the model's working steps. Reads
- * as one line ("Worked on 6 steps · read_file, grep") that expands to the
- * individual tool calls, reasoning, and narration. Entrance animation only
- * while live-streaming; persisted groups render statically so the end-of-turn
- * handoff doesn't replay it.
+ * A turn's working steps, as the sequence they actually were.
+ *
+ * This used to be one line — "Worked on 6 steps · read_file, grep" — that hid
+ * the order behind a click, and the order is the interesting part: what the
+ * model thought, what it did about it, what it found, what it did next. So each
+ * step is its own numbered row, in order, one line each: a thought shows where
+ * it landed, a tool shows what it was pointed at, narration shows its first
+ * line. Every row still opens to its full content, and the whole run still
+ * collapses to the old one-liner, so a 40-step turn doesn't take over the
+ * transcript.
  */
 function ActivityGroup({ items, streaming = false }: { items: Activity[]; streaming?: boolean }) {
-  const [open, setOpen] = useState(false);
+  // Open while the turn runs (watching it work is the point), folded away
+  // afterwards so a finished transcript reads as answers.
+  const [open, setOpen] = useState(streaming);
   const tools = items.filter((it): it is Extract<Activity, { kind: 'tool' }> => it.kind === 'tool');
   const toolCount = tools.length;
-  const names = Array.from(new Set(tools.map((t) => t.call.name)));
   const summary = streaming
     ? (toolCount ? `Working · ${tools[tools.length - 1].call.name}` : 'Thinking')
-    : (toolCount ? `Worked on ${toolCount} step${toolCount === 1 ? '' : 's'}` : 'Thought it through');
+    : (toolCount
+        ? `Worked on ${items.length} step${items.length === 1 ? '' : 's'}`
+        : 'Thought it through');
   return (
     <div className={`${streaming ? 'fade-in ' : ''}mt-1 font-mono text-[12px]`}>
       <button
@@ -2039,23 +2215,91 @@ function ActivityGroup({ items, streaming = false }: { items: Activity[]; stream
         <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
         <ToolStepIcon className="h-3 w-3 shrink-0 text-accent" />
         <span className="font-medium text-ink-soft">{summary}</span>
-        {!streaming && names.length > 0 && <span className="min-w-0 truncate text-ink-faint">· {names.join(', ')}</span>}
+        {!streaming && toolCount > 0 && (
+          <span className="min-w-0 truncate text-ink-faint">
+            · {Array.from(new Set(tools.map((t) => t.call.name))).join(', ')}
+          </span>
+        )}
         {streaming && <span className="dots" />}
       </button>
       {open && (
-        <div className="ml-[7px] mt-0.5 space-y-0.5 border-l border-line pl-2.5">
-          {items.map((it, i) => {
-            if (it.kind === 'tool') return <ToolCard key={`${it.call.id}_${i}`} call={it.call} />;
-            if (it.kind === 'reasoning') return <ReasoningBlock key={`r${i}`} text={it.text} live={false} duration={it.duration} />;
-            return (
-              <div key={`n${i}`} className="py-0.5 font-sans text-[13px] text-ink-soft">
-                <Markdown text={it.text} />
-              </div>
-            );
-          })}
-        </div>
+        <ol className="ml-[7px] mt-0.5 border-l border-line pl-2.5">
+          {items.map((it, i) => (
+            <StepRow
+              key={stepKey(it, i)}
+              index={i + 1}
+              item={it}
+              // The last row of a live run is the one happening now.
+              live={streaming && i === items.length - 1}
+            />
+          ))}
+        </ol>
       )}
     </div>
+  );
+}
+
+/** A stable-ish key per step (tool calls have ids; thoughts and notes don't). */
+function stepKey(it: Activity, i: number): string {
+  return it.kind === 'tool' ? `${it.call.id}_${i}` : `${it.kind}_${i}`;
+}
+
+/**
+ * One step in the sequence: a numbered, single-line row that opens to the whole
+ * thing. The headline is what a reader needs to follow the run without opening
+ * anything, which for a thought means its conclusion, not its opening.
+ */
+function StepRow({ index, item, live }: { index: number; item: Activity; live: boolean }) {
+  const [open, setOpen] = useState(false);
+
+  const kind =
+    item.kind === 'tool' ? (item.call.name === 'spawn_agent' ? 'agent' : 'tool') : item.kind;
+  const headline =
+    item.kind === 'reasoning'
+      ? summarizeThought(item.text) || 'Thought it through'
+      : item.kind === 'note'
+        ? truncateWords(item.text.replace(/\s+/g, ' ').trim(), 90)
+        : summarizeToolCall(item.call);
+
+  const label =
+    item.kind === 'reasoning'
+      ? live ? 'Thinking' : item.duration != null ? `Thought ${item.duration}s` : 'Thought'
+      : item.kind === 'note'
+        ? 'Said'
+        : item.call.name;
+
+  const icon =
+    kind === 'reasoning' ? <ThoughtIcon className="h-3 w-3 shrink-0 text-ink-faint" />
+      : kind === 'agent' ? <RobotIcon className="h-3 w-3 shrink-0 text-accent" />
+        : kind === 'note' ? <ChatIcon className="h-3 w-3 shrink-0 text-ink-faint" />
+          : <ToolStepIcon className="h-3 w-3 shrink-0 text-ink-faint" />;
+
+  return (
+    <li className="list-none">
+      <button
+        className="flex w-full items-baseline gap-1.5 py-0.5 text-left text-ink-faint hover:text-ink-soft"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span className="w-4 shrink-0 text-right text-[10px] tabular-nums opacity-60">{index}</span>
+        <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
+        <span className="self-center">{icon}</span>
+        <span className={`shrink-0 font-medium ${live ? 'text-accent' : 'text-ink-soft'}`}>{label}</span>
+        {headline && <span className="min-w-0 truncate">· {headline}</span>}
+        {live && <span className="dots" />}
+      </button>
+      {open && (
+        item.kind === 'note' ? (
+          <div className="ml-[34px] border-l border-line py-0.5 pl-2 font-sans text-[13px] text-ink-soft">
+            <Markdown text={item.text} />
+          </div>
+        ) : (
+          <pre className="ml-[34px] mt-0.5 max-h-60 overflow-auto whitespace-pre-wrap border-l border-line pl-2 text-[12px] leading-relaxed text-ink-faint">
+            {item.kind === 'reasoning' ? item.text : JSON.stringify(item.call.input, null, 2)}
+          </pre>
+        )
+      )}
+    </li>
   );
 }
 
@@ -2104,6 +2348,26 @@ function ReplyStatus({
     );
   }
   return null;
+}
+
+/**
+ * The measured width of an element, for layout decisions a CSS breakpoint can't
+ * make: inside a splittable workbench, "is there room" is a question about the
+ * pane, and the viewport can't answer it. Returns 0 until the first measurement,
+ * so callers should treat 0 as "narrow" and let the real value arrive.
+ */
+function useElementWidth(ref: React.RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return width;
 }
 
 /** Compact thinking indicator — matches tool card style. */

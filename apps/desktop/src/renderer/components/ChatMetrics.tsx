@@ -20,6 +20,8 @@ export function ContextGauge({
   subscription,
   skill,
   draftTokens = 0,
+  liveTokens = 0,
+  contextWindow,
 }: {
   bundle: ContextBundle | null;
   cost?: number;
@@ -29,10 +31,21 @@ export function ContextGauge({
   skill?: { name: string; tokens: number } | null;
   /** Tokens of the unsent draft, so the gauge tracks what you're typing. */
   draftTokens?: number;
+  /**
+   * Tokens the running turn has produced since the bundle was built. The agent's
+   * own replies and tool traffic are replayed in the next request, so they are
+   * window usage the moment they exist, not once the turn ends.
+   */
+  liveTokens?: number;
+  /**
+   * The picked model's real window, which beats the bundle's id-based guess and
+   * updates the instant the model changes rather than on the next reply.
+   */
+  contextWindow?: number;
 }) {
   const included = (bundle?.items ?? []).filter((i: ContextItem) => i.included);
-  const used = included.reduce((s, i) => s + i.tokens, 0) + (skill?.tokens ?? 0) + draftTokens;
-  const windowTokens = bundle?.contextWindow ?? 0;
+  const used = included.reduce((s, i) => s + i.tokens, 0) + (skill?.tokens ?? 0) + draftTokens + liveTokens;
+  const windowTokens = contextWindow ?? bundle?.contextWindow ?? 0;
   const pct = windowTokens ? Math.min(100, (used / windowTokens) * 100) : 0;
 
   const bySource = included.reduce<Record<string, number>>((acc, i) => {
@@ -41,6 +54,7 @@ export function ContextGauge({
   }, {});
   if (skill?.tokens) bySource.skill = (bySource.skill ?? 0) + skill.tokens;
   if (draftTokens) bySource.draft = (bySource.draft ?? 0) + draftTokens;
+  if (liveTokens) bySource.reply = (bySource.reply ?? 0) + liveTokens;
 
   // Rows for the breakdown, biggest first, each with its share of the window.
   const rows = Object.entries(bySource)
