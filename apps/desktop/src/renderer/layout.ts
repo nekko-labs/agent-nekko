@@ -13,6 +13,17 @@
 /** Which side of a pane a new window lands on. */
 export type Direction = 'up' | 'down' | 'left' | 'right';
 
+/**
+ * Where a dragged window is being offered: an edge to split along, or the
+ * middle, which trades the two windows' places instead of making a new one.
+ *
+ * Swapping needs its own target because the edges cannot express it. Dropping a
+ * window on the left edge of the neighbour already to its right produces the
+ * order it was already in, so the gesture people reach for ("put these two the
+ * other way round") looked like a drop that did nothing.
+ */
+export type DropTarget = Direction | 'swap';
+
 /** What a single window shows. */
 export type PaneKind = 'chat' | 'terminal' | 'file' | 'files' | 'browser' | 'diff' | 'pr' | 'hypergate';
 
@@ -190,6 +201,32 @@ export function movePane(root: WbNode | null, paneId: string, targetPaneId: stri
   // collapsed): nothing sensible to drop onto, so leave the layout alone.
   if (!without || !findPane(without, targetPaneId)) return root;
   return splitPane(without, targetPaneId, dir, pane);
+}
+
+/**
+ * Trade two windows' places, leaving the shape of the workspace alone.
+ *
+ * Every other move rewrites the tree; this one rewrites two leaves and nothing
+ * else, so both windows keep the size and position their slot had. That is the
+ * point: a swap is the one rearrangement where the user is telling you the
+ * layout is already right and only the contents are in the wrong order.
+ */
+export function swapPanes(root: WbNode | null, aId: string, bId: string): WbNode | null {
+  if (!root || aId === bId) return root;
+  const a = findPane(root, aId);
+  const b = findPane(root, bId);
+  if (!a || !b) return root;
+
+  const swap = (node: WbNode): WbNode => {
+    if (isSplit(node)) return { ...node, children: node.children.map(swap) };
+    // The ids travel with their slots, so anything holding a pane id (the active
+    // pane, a drag in flight) keeps pointing at the window the user is looking at
+    // rather than at whatever moved into its place.
+    if (node.id === aId) return { ...node, kind: b.kind, refId: b.refId };
+    if (node.id === bId) return { ...node, kind: a.kind, refId: a.refId };
+    return node;
+  };
+  return swap(root);
 }
 
 /**

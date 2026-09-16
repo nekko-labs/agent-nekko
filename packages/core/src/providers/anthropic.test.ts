@@ -1,5 +1,10 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { AnthropicProvider, rejectsSampling } from './anthropic.js';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import {
+  AnthropicProvider,
+  isSamplingParamError,
+  rejectsSampling,
+  resetLearnedSampling,
+} from './anthropic.js';
 import type { EffortLevel, ProviderConfig } from '@agent-nekko/shared';
 
 const apiKeyCfg: ProviderConfig = {
@@ -132,8 +137,104 @@ describe('rejectsSampling', () => {
     }
   });
 
-  it('leaves models it cannot parse on the sampling path', () => {
-    expect(rejectsSampling('my-proxy/claude-opus-5')).toBe(false);
+  it('reads a Claude name through a proxy prefix', () => {
+    // This used to fall through to the sampling path, on the reasoning that a
+    // proxy might serve something else under that name. In practice it serves
+    // exactly what it says, and a wrong guess cost the user a 400. Reading the
+    // name is the better bet now that a wrong guess is recovered rather than
+    // fatal.
+    expect(rejectsSampling('my-proxy/claude-opus-5')).toBe(true);
+    expect(rejectsSampling('my-proxy/claude-sonnet-4-6')).toBe(false);
+  });
+
+  it('leaves a name it cannot parse at all on the sampling path', () => {
+    expect(rejectsSampling('some-finetune-v2')).toBe(false);
     expect(rejectsSampling('')).toBe(false);
+  });
+});
+
+describe('sampling parameter recovery', () => {
+  beforeEach(() => resetLearnedSampling());
+
+  /** A 400 in Anthropic's error shape. */
+  const samplingError = (message: string) =>
+    new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message } }), {
+      status: 400,
+    });
+
+  const drain = async (it: AsyncIterable<unknown>) => {
+    const out = [];
+    for await (const c of it) out.push(c);
+    return out;
+  };
+
+  const bodyOf = (call: unknown[]) => JSON.parse((call[1] as RequestInit).body as string);
+
+  it('retries without the temperature when the model rejects it, and remembers', async () => {
+    // The exact failure a user hit: a model our version rule read as still
+    // sampling, which the API says is past that.
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(samplingError('`temperature` is deprecated for this model.'))
+      .mockResolvedValue(sseResponse(['event: message_stop\ndata: {"type":"message_stop"}\n\n']));
+
+    const provider = new AnthropicProvider(apiKeyCfg);
+    await drain(provider.chat({ model: 'claude-opus-4-6', messages: [], system: '' } as never));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(bodyOf(fetchMock.mock.calls[0])).toHaveProperty('temperature');
+    const retry = bodyOf(fetchMock.mock.calls[1]);
+    expect(retry.temperature).toBeUndefined();
+    expect(retry.output_config).toEqual({ effort: 'high' });
+
+    // The next turn is right the first time: the API's answer outranks the guess.
+    expect(rejectsSampling('claude-opus-4-6')).toBe(true);
+  });
+
+  it('retries the other way when a model rejects the effort knob', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(samplingError('`output_config` is not supported for this model.'))
+      .mockResolvedValue(sseResponse(['event: message_stop\ndata: {"type":"message_stop"}\n\n']));
+
+    const provider = new AnthropicProvider(apiKeyCfg);
+    await drain(provider.chat({ model: 'claude-opus-5', messages: [], system: '' } as never));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(bodyOf(fetchMock.mock.calls[1])).toHaveProperty('temperature');
+    expect(rejectsSampling('claude-opus-5')).toBe(false);
+  });
+
+  it('does not retry a 400 that is about something else', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(samplingError('max_tokens: must be greater than 0'));
+
+    const provider = new AnthropicProvider(apiKeyCfg);
+    await expect(drain(provider.chat({ model: 'claude-opus-5', messages: [], system: '' } as never))).rejects.toThrow(
+      /anthropic 400/,
+    );
+    // One attempt: retrying a real failure just produces the same error twice.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads a vendor-prefixed id, which the anchored rule would have missed', () => {
+    expect(rejectsSampling('anthropic/claude-opus-5')).toBe(true);
+    expect(rejectsSampling('anthropic/claude-sonnet-4-6')).toBe(false);
+  });
+});
+
+describe('isSamplingParamError', () => {
+  it('names the parameter the API objected to', () => {
+    expect(isSamplingParamError(400, '`temperature` is deprecated for this model.')).toBe('temperature');
+    expect(isSamplingParamError(400, 'top_p: unsupported parameter')).toBe('temperature');
+    expect(isSamplingParamError(400, '`output_config` is not supported')).toBe('effort');
+  });
+
+  it('ignores anything that is not a 400 about a sampling parameter', () => {
+    expect(isSamplingParamError(429, '`temperature` is deprecated')).toBeNull();
+    expect(isSamplingParamError(400, 'credit balance is too low')).toBeNull();
+    // A model *name* containing the word must not be mistaken for a complaint.
+    expect(isSamplingParamError(400, 'model `temperature-test` not found')).toBeNull();
   });
 });

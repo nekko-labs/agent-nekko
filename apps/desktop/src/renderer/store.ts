@@ -9,6 +9,7 @@ import {
   findPane,
   findPaneByRef,
   movePane as moveInTree,
+  swapPanes as swapInTree,
   newPaneId,
   removePane,
   resizeSplit,
@@ -247,6 +248,8 @@ interface UiState {
   retargetPane: (paneId: string, refId: string) => void;
   /** Drag a window onto a side of another one, anywhere in the same workspace. */
   movePane: (paneId: string, targetPaneId: string, dir: Direction) => void;
+  /** Trade two windows' places, leaving the workspace's shape alone. */
+  swapPanes: (paneId: string, targetPaneId: string) => void;
   closePane: (paneId: string) => void;
   setActivePane: (paneId: string) => void;
   /** Drag the divider at `index` inside a split (fraction of the split, from its start). */
@@ -767,6 +770,14 @@ export const useStore = create<UiState>((set, get) => ({
       const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
       if (!ws) return {};
       return updateWorkspace(s, ws.id, (w) => ({ ...w, root: moveInTree(w.root, paneId, targetPaneId, dir) }));
+    });
+  },
+
+  swapPanes: (paneId, targetPaneId) => {
+    set((s) => {
+      const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+      if (!ws) return {};
+      return updateWorkspace(s, ws.id, (w) => ({ ...w, root: swapInTree(w.root, paneId, targetPaneId) }));
     });
   },
 
