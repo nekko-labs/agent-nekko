@@ -499,6 +499,7 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
               });
         },
         temperature: EFFORT_TEMPERATURE[settings.effort ?? 'normal'],
+        effort: settings.effort ?? 'normal',
         maxIterations: clampMaxSteps(settings.maxSteps),
         maxOutputTokens: clampMaxOutputTokens(settings.maxOutputTokens),
         think: session.thinking,

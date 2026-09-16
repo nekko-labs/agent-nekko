@@ -18,10 +18,10 @@ import { Modal } from '../components/primitives/index.js';
  * comments that feed the prompt (Add to prompt / Run now).
  */
 export function DesignBoardView() {
-  const { settings, sessions, activeWorkspaceId, setActiveWorkspace, sendToChat, openChatPane } = useStore();
+  const { settings, sessions, activeProjectId, setActiveProject, sendToChat, openChatPane } = useStore();
   const workspaces = settings?.workspaces ?? [];
-  const wsId = activeWorkspaceId && workspaces.some((w) => w.id === activeWorkspaceId)
-    ? activeWorkspaceId
+  const wsId = activeProjectId && workspaces.some((w) => w.id === activeProjectId)
+    ? activeProjectId
     : workspaces[0]?.id ?? null;
 
   const [board, setBoard] = useState<DesignBoard | null>(null);
@@ -122,7 +122,7 @@ export function DesignBoardView() {
       <header className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
         <h1 className="text-[15px] font-semibold">Design</h1>
         {workspaces.length > 1 && (
-          <select className="input py-1 text-[12px]" value={wsId} onChange={(e) => setActiveWorkspace(e.target.value)}>
+          <select className="input py-1 text-[12px]" value={wsId} onChange={(e) => setActiveProject(e.target.value)}>
             {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
           </select>
         )}

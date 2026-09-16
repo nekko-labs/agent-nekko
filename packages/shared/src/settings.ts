@@ -33,7 +33,11 @@ export const DEFAULT_PROMPTS: PromptTemplate[] = [
   { id: 'refactor', name: 'refactor', body: 'Refactor this for clarity and simplicity without changing behavior.' },
 ];
 
-/** Sampling effort, maps to temperature in the chat request. */
+/**
+ * How hard the model should work on a turn. Providers translate this to their
+ * own knob: a sampling temperature on models that still take one, and
+ * `output_config.effort` on the Claude models that dropped sampling.
+ */
 export type EffortLevel = 'low' | 'normal' | 'high';
 
 export const EFFORT_TEMPERATURE: Record<EffortLevel, number> = {

@@ -1223,3 +1223,67 @@
     animation: none;
   }
 }
+
+/* ── Split compass ──────────────────────────────────────────────────────────
+   The control that says where a new window goes: a glyph for the window you
+   are in, four targets around it, and a line running out to each one. The
+   lines idle as a slow faint crawl and pick up speed and the accent colour
+   under the direction you're pointing at, so the widget answers "which way?"
+   before you have read a single label. */
+.compass-line {
+  --compass-flow: 2.8s;
+  position: absolute;
+  background-repeat: repeat;
+  opacity: 0.45;
+  transition: opacity 0.18s ease;
+}
+.compass-line-h {
+  height: 1px;
+  background-image: linear-gradient(to right, currentColor 0 3px, transparent 3px 7px);
+  background-size: 7px 1px;
+  animation: compass-flow-h var(--compass-flow) linear infinite;
+}
+.compass-line-v {
+  width: 1px;
+  background-image: linear-gradient(to bottom, currentColor 0 3px, transparent 3px 7px);
+  background-size: 1px 7px;
+  animation: compass-flow-v var(--compass-flow) linear infinite;
+}
+/* Pointing at a direction: the line to it runs faster and brighter. */
+.compass-line-live {
+  --compass-flow: 0.6s;
+  opacity: 1;
+}
+/* Away from the centre for the two that run backwards, so every line still
+   flows outwards from the window you are splitting. */
+.compass-line-reverse {
+  animation-direction: reverse;
+}
+@keyframes compass-flow-h {
+  to {
+    background-position: 7px 0;
+  }
+}
+@keyframes compass-flow-v {
+  to {
+    background-position: 0 7px;
+  }
+}
+
+/* The drop bands a dragged window lights up along each edge of another. */
+.pane-dropzone {
+  position: absolute;
+  z-index: 20;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+.pane-dropzone-live {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .compass-line-h,
+  .compass-line-v {
+    animation: none;
+  }
+}

@@ -1,4 +1,4 @@
-import type { AgentEvent, ChatMessage, ToolCall, ToolResult } from '@agent-nekko/shared';
+import type { AgentEvent, ChatMessage, EffortLevel, ToolCall, ToolResult } from '@agent-nekko/shared';
 import { DEFAULT_MAX_STEPS } from '@agent-nekko/shared';
 import type { Provider, ToolSpec } from '../providers/types.js';
 import { BUILTIN_TOOLS } from './tools.js';
@@ -20,6 +20,8 @@ export interface RunAgentOptions {
   maxIterations?: number;
   /** Sampling temperature (from the effort setting). */
   temperature?: number;
+  /** The effort setting itself, for models that take it instead of a temperature. */
+  effort?: EffortLevel;
   /** Reasoning toggle passed to the provider (true/false/undefined = default). */
   think?: boolean;
   /**
@@ -140,6 +142,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         system: opts.system,
         tools: sendTools,
         temperature: opts.temperature,
+        effort: opts.effort,
         think: opts.think,
         maxOutputTokens: opts.maxOutputTokens,
         signal: ctl.signal,
