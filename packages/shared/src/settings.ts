@@ -138,6 +138,11 @@ export interface AppSettings {
    */
   engine?: import('./engine.js').EngineSettings;
   /**
+   * The local API server that makes this app reachable by the CLI and MCP.
+   * Absent = never switched on, which reads as DEFAULT_API_SERVER_SETTINGS.
+   */
+  apiServer?: import('./api-server.js').ApiServerSettings;
+  /**
    * Hugging Face access token, used only to reach repos the user already has
    * access to. Never required: the catalog and every public model work without
    * one.

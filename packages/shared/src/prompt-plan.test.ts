@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   addPlanStep,
   decomposePrompt,
+  insertPlanStep,
+  mergePlanStepUp,
   movePlanStep,
   planAsPromptBlock,
   planFromPrompt,
@@ -100,6 +102,39 @@ describe('plan editing', () => {
     plan = updatePlanStep(plan, plan.steps[0].id, { status: 'done' });
     plan = updatePlanStep(plan, plan.steps[1].id, { status: 'skipped' });
     expect(planProgressCount(plan)).toEqual({ done: 2, total: 3 });
+  });
+});
+
+describe('typing a plan', () => {
+  it('inserts after a step rather than at the end, and names the new one', () => {
+    const plan = planFromPrompt('- Fix the parser\n- Open a PR');
+    const { plan: next, id } = insertPlanStep(plan, plan.steps[0].id, 'Add a test');
+    expect(next.steps.map((s) => s.text)).toEqual(['Fix the parser', 'Add a test', 'Open a PR']);
+    expect(next.steps[1].id).toBe(id);
+    expect(next.edited).toBe(true);
+  });
+
+  it('appends when the step it was given is gone', () => {
+    const plan = planFromPrompt('- Fix the parser\n- Open a PR');
+    const { plan: next } = insertPlanStep(plan, 'no-such-step', 'Add a test');
+    expect(next.steps[next.steps.length - 1].text).toBe('Add a test');
+  });
+
+  it('merges a step into the one above and says where the caret lands', () => {
+    const plan = planFromPrompt('- Fix the parser\n- Open a PR');
+    const { plan: next, id, caret } = mergePlanStepUp(plan, plan.steps[1].id);
+    expect(next.steps).toHaveLength(1);
+    expect(next.steps[0].text).toBe('Fix the parserOpen a PR');
+    expect(id).toBe(plan.steps[0].id);
+    // The join, so Backspace is undone by typing what was just removed.
+    expect(caret).toBe('Fix the parser'.length);
+  });
+
+  it('leaves the first step alone: there is nothing above it', () => {
+    const plan = planFromPrompt('- Fix the parser\n- Open a PR');
+    const merged = mergePlanStepUp(plan, plan.steps[0].id);
+    expect(merged.plan).toBe(plan);
+    expect(merged.id).toBeUndefined();
   });
 });
 

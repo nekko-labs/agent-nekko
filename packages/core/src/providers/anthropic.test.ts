@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import {
   AnthropicProvider,
+  firstSamplingShape,
   isSamplingParamError,
+  nextSamplingShape,
   rejectsSampling,
   resetLearnedSampling,
 } from './anthropic.js';
@@ -205,6 +207,65 @@ describe('sampling parameter recovery', () => {
     expect(rejectsSampling('claude-opus-5')).toBe(false);
   });
 
+  it('drops the sampling parameter entirely when a model rejects both knobs', async () => {
+    // The dead end a single flip left the user in: the version rule guesses
+    // effort, the API wants neither, and the turn used to die on the retry.
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(samplingError('`output_config` is not supported for this model.'))
+      .mockResolvedValueOnce(samplingError('`temperature` is deprecated for this model.'))
+      .mockResolvedValue(sseResponse(DONE_STREAM));
+
+    const provider = new AnthropicProvider(apiKeyCfg);
+    await drain(provider.chat({ model: 'claude-opus-5', messages: [], system: '' } as never));
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const last = bodyOf(fetchMock.mock.calls[2]);
+    expect(last.temperature).toBeUndefined();
+    expect(last.output_config).toBeUndefined();
+
+    // And the next turn opens on the shape that worked rather than paying for
+    // the same two rejections again.
+    expect(firstSamplingShape('claude-opus-5')).toBe('neither');
+  });
+
+  it('gives up once every shape has been rejected', async () => {
+    // A fresh Response per call: a body can only be read once, so reusing one
+    // would end the ladder early for reasons the API never gave.
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async () => samplingError('`temperature` is deprecated for this model.'));
+
+    const provider = new AnthropicProvider(apiKeyCfg);
+    await expect(
+      drain(provider.chat({ model: 'claude-sonnet-4-6', messages: [], system: '' } as never)),
+    ).rejects.toThrow(/anthropic 400/);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it('remembers only the shape that actually worked', async () => {
+    // A flip that is itself rejected must not be recorded as the answer.
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(samplingError('`temperature` is deprecated for this model.'))
+      .mockResolvedValue(sseResponse(DONE_STREAM));
+
+    const provider = new AnthropicProvider(apiKeyCfg);
+    await drain(provider.chat({ model: 'claude-opus-4-6', messages: [], system: '' } as never));
+
+    expect(firstSamplingShape('claude-opus-4-6')).toBe('effort');
+  });
+
+  it('surfaces an error the stream reports after it was accepted', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      sseResponse(['data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}\n\n']),
+    );
+
+    const provider = new AnthropicProvider(apiKeyCfg);
+    await expect(
+      drain(provider.chat({ model: 'claude-sonnet-4-6', messages: [], system: '' } as never)),
+    ).rejects.toThrow(/Overloaded/);
+  });
+
   it('does not retry a 400 that is about something else', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
@@ -236,5 +297,20 @@ describe('isSamplingParamError', () => {
     expect(isSamplingParamError(400, 'credit balance is too low')).toBeNull();
     // A model *name* containing the word must not be mistaken for a complaint.
     expect(isSamplingParamError(400, 'model `temperature-test` not found')).toBeNull();
+  });
+});
+
+describe('nextSamplingShape', () => {
+  it('flips to the other named knob before falling back to neither', () => {
+    expect(nextSamplingShape('temperature', new Set(['temperature'] as const))).toBe('effort');
+    expect(nextSamplingShape('effort', new Set(['effort'] as const))).toBe('temperature');
+  });
+
+  it('falls back to no sampling parameter once both named knobs are spent', () => {
+    expect(nextSamplingShape('effort', new Set(['temperature', 'effort'] as const))).toBe('neither');
+  });
+
+  it('has nothing left after neither', () => {
+    expect(nextSamplingShape('neither', new Set(['temperature', 'effort', 'neither'] as const))).toBeNull();
   });
 });

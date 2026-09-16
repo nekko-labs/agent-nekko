@@ -127,6 +127,76 @@
   }
 }
 
+@utility create-row {
+  /* A row of the sidebar's create menu. Each one carries its own hue in
+     --row-tone, which the tile wears at rest and the whole row picks up under
+     the cursor: the menu is a short list of *different* things, and four
+     identical grey lines said the opposite. */
+  --row-tone: var(--accent);
+  border: 1px solid transparent;
+  transition:
+    background var(--dur-fast) ease,
+    border-color var(--dur-fast) ease,
+    transform var(--dur-fast) var(--ease-out);
+  &:hover {
+    background: color-mix(in srgb, var(--row-tone) 12%, transparent);
+    border-color: color-mix(in srgb, var(--row-tone) 30%, transparent);
+  }
+  &:active {
+    transform: scale(0.985);
+  }
+}
+
+@utility create-row-hero {
+  /* Starting an agent is the reason this menu exists, so it reads as the
+     headline: a brand wash at rest, not only on hover. */
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
+  &:hover {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  }
+}
+
+@utility create-tile {
+  @apply grid h-8 w-8 shrink-0 place-items-center rounded-lg;
+  background: color-mix(in srgb, var(--row-tone, var(--accent)) 16%, transparent);
+  color: var(--row-tone, var(--accent));
+}
+
+@utility create-tile-brand {
+  /* The one tile that is the brand itself rather than a tint of a status color. */
+  background: var(--brand-grad);
+  color: #fff;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@utility plan-step {
+  /* One step of the plan rail. It has to read as a line of the list at rest and
+     as a text field the instant the cursor is in it, so the border only appears
+     on focus: a rail of eight boxed inputs looks like a form, and a plan is not
+     one. */
+  @apply rounded-md border border-transparent bg-transparent px-1 py-1 text-[12px] leading-snug outline-hidden;
+  color: var(--ink-soft);
+  transition:
+    border-color 0.12s ease,
+    background 0.12s ease;
+  &::placeholder {
+    color: var(--ink-faint);
+  }
+  &:focus {
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+}
+
+@utility plan-step-skipped {
+  /* Out of scope, and struck through as such — still editable, still readable. */
+  color: var(--ink-faint);
+  text-decoration: line-through;
+}
+
 @utility composer {
   /* The chat composer: one rounded surface holding the textarea and its
      actions, with the focus ring on the whole card. */

@@ -45,9 +45,9 @@ const CLAUDE_CODE_SYSTEM_PREFIX = "You are Claude Code, Anthropic's official CLI
 export function rejectsSampling(model: string): boolean {
   const id = normalizeModelId(model);
   // What the API itself told us, which outranks any guess we could make from
-  // the name. See `learnSamplingSupport`.
-  const learned = LEARNED_SAMPLING.get(id);
-  if (learned !== undefined) return learned;
+  // the name. See `learnSamplingShape`.
+  const learned = LEARNED_SHAPE.get(id);
+  if (learned !== undefined) return learned !== 'temperature';
 
   const m = /^claude-(opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d+))?/.exec(id);
   if (!m) return false;
@@ -71,24 +71,52 @@ function normalizeModelId(model: string): string {
 }
 
 /**
+ * Which knob a request carries. `neither` sends no sampling parameter at all
+ * and lets the API pick, which is the only shape left when a model turns out to
+ * reject both of the named ones.
+ */
+export type SamplingShape = 'temperature' | 'effort' | 'neither';
+
+/**
  * What the API has told us about a model's sampling support, by id.
  *
  * The version rule above is a guess, and a guess about a model released after
  * this build is a guess that can be wrong. When it is wrong Anthropic answers
  * 400 and the user loses their turn, which is too high a price for a naming
  * heuristic. So a rejection is treated as information: the request is retried
- * the other way and the answer is remembered, and every later request for that
- * model is right the first time.
+ * the other way and the shape that *worked* is remembered, and every later
+ * request for that model is right the first time.
  */
-const LEARNED_SAMPLING = new Map<string, boolean>();
+const LEARNED_SHAPE = new Map<string, SamplingShape>();
+
+/** Remember the shape a request actually succeeded with. */
+export function learnSamplingShape(model: string, shape: SamplingShape): void {
+  LEARNED_SHAPE.set(normalizeModelId(model), shape);
+}
 
 export function learnSamplingSupport(model: string, rejects: boolean): void {
-  LEARNED_SAMPLING.set(normalizeModelId(model), rejects);
+  learnSamplingShape(model, rejects ? 'effort' : 'temperature');
+}
+
+/** The shape to open with: what we learned, else what the version rule guesses. */
+export function firstSamplingShape(model: string): SamplingShape {
+  return LEARNED_SHAPE.get(normalizeModelId(model)) ?? (rejectsSampling(model) ? 'effort' : 'temperature');
+}
+
+/**
+ * The next shape to try after `shape` was rejected, or null when every one has
+ * been. `neither` is always last: it is the fallback that cannot be wrong, but
+ * it also gives up the effort setting, so it is only reached once both named
+ * knobs have actually failed.
+ */
+export function nextSamplingShape(shape: SamplingShape, tried: ReadonlySet<SamplingShape>): SamplingShape | null {
+  const order: SamplingShape[] = shape === 'temperature' ? ['effort', 'neither'] : ['temperature', 'neither'];
+  return order.find((s) => s !== shape && !tried.has(s)) ?? null;
 }
 
 /** Test seam: forget everything learned from the API. */
 export function resetLearnedSampling(): void {
-  LEARNED_SAMPLING.clear();
+  LEARNED_SHAPE.clear();
 }
 
 /**
@@ -178,7 +206,13 @@ export class AnthropicProvider implements Provider {
 
   async *chat(req: ChatRequest): AsyncIterable<ProviderChunk> {
     const effort = ANTHROPIC_EFFORT[req.effort ?? 'normal'];
-    const send = (useEffort: boolean) =>
+    const knob = (shape: SamplingShape) =>
+      shape === 'effort'
+        ? { output_config: { effort } }
+        : shape === 'temperature'
+          ? { temperature: req.temperature ?? 0.7 }
+          : {};
+    const send = (shape: SamplingShape) =>
       fetch(`${this.config.baseUrl}/v1/messages`, {
         method: 'POST',
         headers: this.headers(),
@@ -186,7 +220,7 @@ export class AnthropicProvider implements Provider {
           model: req.model,
           max_tokens: req.maxOutputTokens ?? 4096,
           stream: true,
-          ...(useEffort ? { output_config: { effort } } : { temperature: req.temperature ?? 0.7 }),
+          ...knob(shape),
           system: this.systemParam(req.system),
           messages: this.toAnthropicMessages(req),
           tools: req.tools?.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })),
@@ -194,25 +228,30 @@ export class AnthropicProvider implements Provider {
         signal: req.signal,
       });
 
-    let useEffort = rejectsSampling(req.model);
-    let res = await send(useEffort);
-
     // A 400 about the sampling parameter means our guess about this model was
-    // wrong, not that the turn should fail. Flip it, remember the answer for
-    // next time, and send the same turn again.
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      const wrongParam = isSamplingParamError(res.status, text);
-      if (!wrongParam) throw new Error(`anthropic ${res.status}: ${text.slice(0, 200)}`);
+    // wrong, not that the turn should fail. Work through the shapes until one
+    // is accepted, then remember the one that worked.
+    //
+    // Both named knobs are tried before giving up, and a model that rejects
+    // both still gets its turn with no sampling parameter at all. That last
+    // rung is the difference between a model we have never seen answering and
+    // the user reading "`temperature` is deprecated for this model" — which is
+    // exactly what a single flip produced whenever the fallback was rejected
+    // too.
+    let shape = firstSamplingShape(req.model);
+    const tried = new Set<SamplingShape>();
+    let res: Response;
+    for (;;) {
+      tried.add(shape);
+      res = await send(shape);
+      if (res.ok) break;
 
-      useEffort = wrongParam === 'temperature';
-      learnSamplingSupport(req.model, useEffort);
-      res = await send(useEffort);
-      if (!res.ok) {
-        const retryText = await res.text().catch(() => '');
-        throw new Error(`anthropic ${res.status}: ${retryText.slice(0, 200)}`);
-      }
+      const text = await res.text().catch(() => '');
+      const next = isSamplingParamError(res.status, text) ? nextSamplingShape(shape, tried) : null;
+      if (!next) throw new Error(`anthropic ${res.status}: ${text.slice(0, 200)}`);
+      shape = next;
     }
+    learnSamplingShape(req.model, shape);
     req.onHeaders?.(res.headers);
 
     let curTool: { id: string; name: string; json: string } | null = null;
@@ -229,6 +268,11 @@ export class AnthropicProvider implements Provider {
         continue;
       }
       switch (ev.type) {
+        // A stream that has already been accepted can still fail, and it says so
+        // in-band. Without this the turn simply stopped, mid-sentence, with no
+        // reason given anywhere.
+        case 'error':
+          throw new Error(`anthropic stream error: ${ev.error?.message ?? 'unknown error'}`);
         case 'message_start':
           inputTokens = ev.message?.usage?.input_tokens ?? 0;
           break;

@@ -1,4 +1,4 @@
-import { IpcChannels, IpcEvents, deriveKey, seal, open, RELEASE_NOTES_URL } from '@agent-nekko/shared';
+import { IpcChannels, IpcEvents, deriveKey, seal, open, withApiServerDefaults, RELEASE_NOTES_URL } from '@agent-nekko/shared';
 import type { AppSettings, AgentEvent, IndexStatus, NekkoApi, AppInfo, UpdateInfo, TerminalEvent, OAuthStatus, SubscriptionLimits } from '@agent-nekko/shared';
 import { readBrandKey } from './brandStorage.js';
 
@@ -8,6 +8,22 @@ import { readBrandKey } from './brandStorage.js';
  * WebSocket (`/api/events`). Installed only when no Electron preload bridge is
  * present, so the React UI is byte-for-byte identical across runtimes.
  */
+/**
+ * The local API server, as this edition has to answer for it: it already is one,
+ * and it is the one serving this page. `available: false` is what stops the
+ * Models tab offering a start button with nothing behind it.
+ */
+function webApiServerStatus() {
+  return {
+    settings: withApiServerDefaults(undefined),
+    running: true,
+    available: false,
+    url: location.origin,
+    clients: 0,
+    requests: 0,
+  };
+}
+
 function makeWebClient(): NekkoApi {
   // Token (only needed when the server is exposed beyond localhost). Accept it
   // from the URL once, then remember it for the session.
@@ -271,6 +287,12 @@ function makeWebClient(): NekkoApi {
     engineDownloads: () => call(IpcChannels.engineDownloads),
     engineCancelDownload: (id) => call(IpcChannels.engineCancelDownload, id),
     engineDismissDownload: (id) => call(IpcChannels.engineDismissDownload, id),
+    // This edition already is the server, so there is nothing to switch on: the
+    // Models tab reads `running: false` here and says so instead of offering a
+    // toggle that could not do anything.
+    apiServerStatus: async () => webApiServerStatus(),
+    apiServerSave: async () => webApiServerStatus(),
+    apiServerNewToken: async () => webApiServerStatus(),
     machineReadiness: (language) => call(IpcChannels.machineReadiness, language),
     getGpuStats: () => call(IpcChannels.gpuStats),
     getSystemStats: () => call(IpcChannels.systemStats),

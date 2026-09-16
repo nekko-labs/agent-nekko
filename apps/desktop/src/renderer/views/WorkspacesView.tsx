@@ -80,6 +80,40 @@ function PaneBody({ pane }: { pane: WbPane }) {
 type DragItem = { kind: 'project' | 'workspace'; id: string; ws: string | undefined };
 
 /**
+ * Hues the shell rows cycle through, so a machine with PowerShell, Git Bash and
+ * WSL reads as three things rather than one repeated three times. Semantic
+ * tokens only: a theme change moves them with everything else.
+ */
+const SHELL_TONES = ['var(--success)', 'var(--info)', 'var(--warning)', 'var(--accent-2)'];
+
+/** One colored row of the create menu: a tinted icon tile and a label. */
+function CreateRow({
+  tone,
+  icon,
+  label,
+  title,
+  onClick,
+}: {
+  tone: string;
+  icon: React.ReactNode;
+  label: string;
+  title?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="create-row flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left"
+      style={{ '--row-tone': tone } as React.CSSProperties}
+      title={title}
+      onClick={onClick}
+    >
+      <span className="create-tile">{icon}</span>
+      <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{label}</span>
+    </button>
+  );
+}
+
+/**
  * Sort by manual drag order when set, else by a fallback (recency for chats,
  * age for terminals). Manually-ordered items sort above never-dragged ones.
  */
@@ -125,6 +159,7 @@ export function WorkspacesView() {
   const [drag, setDrag] = useState<DragItem | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const newMenuRef = useRef<HTMLDivElement>(null);
+  const newMenuTimer = useRef<number>(0);
 
   useEffect(() => { refreshTerminals(); }, [refreshTerminals]);
   useEffect(() => { window.nekko.listShells().then(setShells).catch(() => {}); }, []);
@@ -137,6 +172,27 @@ export function WorkspacesView() {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, []);
+  useEffect(() => () => window.clearTimeout(newMenuTimer.current), []);
+
+  /**
+   * The create menu opens on hover, like the split compass does: starting a new
+   * agent is the most common thing anyone does here, and it should not cost a
+   * click to find out what the "+" offers. Leaving starts a short grace period
+   * instead of closing outright, so the gap between the button and the menu is
+   * crossable with an ordinary hand.
+   */
+  const openNewMenu = () => {
+    window.clearTimeout(newMenuTimer.current);
+    setNewMenuOpen(true);
+  };
+  const closeNewMenuSoon = () => {
+    window.clearTimeout(newMenuTimer.current);
+    newMenuTimer.current = window.setTimeout(() => setNewMenuOpen(false), 220);
+  };
+  const closeNewMenu = () => {
+    window.clearTimeout(newMenuTimer.current);
+    setNewMenuOpen(false);
+  };
 
   // Open the active session as a workspace if there are none (e.g. arriving
   // from the Command Center or command palette).
@@ -291,46 +347,61 @@ export function WorkspacesView() {
           >
             <PanelIcon className="h-3.5 w-3.5" />
           </button>
-          <button className="btn btn-ghost px-2 py-1" title="New workspace or terminal"
-            onClick={() => setNewMenuOpen((o) => !o)}><PlusIcon /></button>
+          <button
+            className={`btn btn-ghost px-2 py-1 ${newMenuOpen ? 'text-accent' : ''}`}
+            title="New workspace or terminal"
+            aria-expanded={newMenuOpen}
+            onMouseEnter={openNewMenu}
+            onFocus={openNewMenu}
+            onClick={() => (newMenuOpen ? closeNewMenu() : openNewMenu())}
+          >
+            <PlusIcon />
+          </button>
           {newMenuOpen && (
-            <div className="card absolute right-0 top-9 z-40 w-60 p-1.5 shadow-lg">
+            <div
+              className="card absolute right-0 top-9 z-40 w-64 p-1.5 shadow-lg"
+              style={{ background: 'var(--paper)' }}
+              onMouseEnter={openNewMenu}
+              onMouseLeave={closeNewMenuSoon}
+            >
+              {/* The hero row. Everything else in this menu opens a window; this
+                  one starts the work, so it gets the brand gradient and the rest
+                  get a hue apiece rather than four identical grey lines. */}
               <button
-                className="flex w-full items-start gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2"
-                onClick={() => { setNewMenuOpen(false); newChat(); }}
+                className="create-row create-row-hero flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left"
+                onClick={() => { closeNewMenu(); newChat(); }}
               >
-                <ChatIcon className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
+                <span className="create-tile create-tile-brand">
+                  <ChatIcon className="h-4 w-4" />
+                </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium">New agent</span>
+                  <span className="block text-[13px] font-semibold">New agent</span>
                   <span className="block text-[11px] text-ink-faint">A workspace around a new chat</span>
                 </span>
-                <kbd className="kbd mt-0.5">{SHORTCUTS.newAgent.label}</kbd>
+                <kbd className="kbd">{SHORTCUTS.newAgent.label}</kbd>
               </button>
 
-              <div className="my-1 border-t border-line" />
-              <div className="flex items-center justify-between gap-2 px-2.5 pb-0.5 pt-1">
+              <div className="flex items-center justify-between gap-2 px-2.5 pb-0.5 pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Terminal</p>
                 <kbd className="kbd">{SHORTCUTS.newTerminal.label}</kbd>
               </div>
               {shells.length === 0 ? (
-                <button
-                  className="flex w-full items-start gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2"
-                  onClick={() => { setNewMenuOpen(false); newTerminal(); }}
-                >
-                  <TerminalIcon className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
-                  <span className="text-[13px] font-medium">New terminal</span>
-                </button>
+                <CreateRow
+                  tone="var(--success)"
+                  icon={<TerminalIcon className="h-4 w-4" />}
+                  label="New terminal"
+                  onClick={() => { closeNewMenu(); newTerminal(); }}
+                />
               ) : (
-                shells.map((sh) => (
-                  <button
+                shells.map((sh, i) => (
+                  <CreateRow
                     key={sh.id}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2"
+                    tone={SHELL_TONES[i % SHELL_TONES.length]}
+                    icon={<TerminalIcon className="h-4 w-4" />}
+                    label={sh.label}
                     title={sh.path}
-                    onClick={() => { setNewMenuOpen(false); newTerminal(undefined, sh.path); }}
-                  >
-                    <TerminalIcon className="h-4 w-4 shrink-0 text-ink-faint" />
-                    <span className="min-w-0 flex-1 truncate text-[13px]">{sh.label}</span>
-                  </button>
+                    onClick={() => { closeNewMenu(); newTerminal(undefined, sh.path); }}
+                  />
                 ))
               )}
             </div>

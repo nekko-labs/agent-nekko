@@ -9,6 +9,7 @@ import { checkForUpdates } from './update.js';
 import { loadWindowBounds, saveWindowBounds } from './windowState.js';
 import { preservePackagedProfile } from './appIdentity.js';
 import { closeWorkflowLoopbackListener, manageWorkflowLoopbackListener } from './workflow-listener.js';
+import { closeApiServer, syncApiServer } from './api-server.js';
 import {
   TITLEBAR_HEIGHT,
   TITLEBAR_OVERLAY_CHANNEL,
@@ -287,6 +288,10 @@ app.whenReady().then(() => {
   const host = createHost({ dataDir });
   registerIpc(host);
   manageWorkflowLoopbackListener(host);
+  // Whatever the local API server was left switched on as, it comes back up
+  // with the app: a CLI or MCP client pointed at it should not need the window
+  // touched first.
+  syncApiServer(host);
   registerTitleBarOverlaySync();
   // A link that launched the app is already on this process's command line
   // (Windows/Linux); park it so the first load replays it.
@@ -305,7 +310,11 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   closeWorkflowLoopbackListener();
+  closeApiServer();
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', closeWorkflowLoopbackListener);
+app.on('before-quit', () => {
+  closeWorkflowLoopbackListener();
+  closeApiServer();
+});

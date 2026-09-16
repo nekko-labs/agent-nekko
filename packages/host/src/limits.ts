@@ -17,33 +17,66 @@ const POLL_STALE_MS = 35_000;
 
 const ANTHROPIC_PREFIX = 'anthropic-ratelimit-unified-';
 
-const ANTHROPIC_WINDOWS: Array<{
-  id: string;
-  scope: LimitWindow['scope'];
-  label: string;
-  headerSuffix: string;
-  jsonKey: string;
-  modelFamily?: string;
-}> = [
-  { id: '5h', scope: 'session', label: '5-hour', headerSuffix: '5h', jsonKey: 'five_hour' },
-  { id: '7d', scope: 'weekly', label: '7-day', headerSuffix: '7d', jsonKey: 'seven_day' },
-  {
-    id: '7d_sonnet',
-    scope: 'model',
-    label: '7-day Sonnet',
-    headerSuffix: '7d_sonnet',
-    jsonKey: 'seven_day_sonnet',
-    modelFamily: 'sonnet',
-  },
-  {
-    id: '7d_opus',
-    scope: 'model',
-    label: '7-day Opus',
-    headerSuffix: '7d_opus',
-    jsonKey: 'seven_day_opus',
-    modelFamily: 'opus',
-  },
+/**
+ * Anthropic's window names, in both spellings: `5h` / `7d` on the rate-limit
+ * headers, `five_hour` / `seven_day` in the usage JSON.
+ */
+const ANTHROPIC_PERIODS: Array<{ id: string; header: string; json: string; label: string; scope: LimitWindow['scope'] }> = [
+  { id: '5h', header: '5h', json: 'five_hour', label: '5-hour', scope: 'session' },
+  { id: '7d', header: '7d', json: 'seven_day', label: '7-day', scope: 'weekly' },
 ];
+
+/**
+ * One window Anthropic reports, read from its name rather than from a list.
+ *
+ * The per-model windows are `<period>_<family>`: `7d_opus`, `7d_sonnet`, and
+ * now `7d_fable`. A fixed list of them meant every new model family was
+ * invisible here until someone shipped a build that mentioned it by name —
+ * which is exactly why the Fable window never appeared — so the family is taken
+ * from the name Anthropic sent. A period we do not recognise is still reported,
+ * under its raw name, rather than dropped.
+ */
+export function describeAnthropicWindow(
+  period: string,
+  family: string | undefined,
+): { id: string; label: string; scope: LimitWindow['scope']; modelFamily?: string } {
+  const known = ANTHROPIC_PERIODS.find((p) => p.id === period);
+  const label = known?.label ?? period;
+  if (!family) {
+    return { id: period, label, scope: known?.scope ?? 'weekly' };
+  }
+  return {
+    id: `${period}_${family}`,
+    label: `${label} ${titleCase(family)}`,
+    scope: 'model',
+    modelFamily: family,
+  };
+}
+
+/** `fable` → `Fable`, `claude_next` → `Claude Next`. */
+function titleCase(value: string): string {
+  return value
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ');
+}
+
+/**
+ * Split a window name into its period and, when it has one, its model family.
+ * Accepts either spelling, so the headers and the usage JSON produce the same
+ * window ids and the two sources can update each other.
+ */
+function splitAnthropicWindow(name: string): { period: string; family?: string } | null {
+  for (const p of ANTHROPIC_PERIODS) {
+    for (const spelling of [p.header, p.json]) {
+      if (name === spelling) return { period: p.id };
+      if (name.startsWith(`${spelling}_`)) return { period: p.id, family: name.slice(spelling.length + 1) };
+    }
+  }
+  // An unrecognised period with no family we can separate out: report it whole.
+  return name ? { period: name } : null;
+}
 
 /** Wire the service to the host's event bus. Called once in createHost. */
 export function initLimits(eventBus: EventEmitter): void {
@@ -275,24 +308,23 @@ function parseAnthropicHeaders(
   const map = headerMap(headers);
   const windows: LimitWindow[] = [];
 
-  for (const spec of ANTHROPIC_WINDOWS) {
-    const util = getHeader(map, `${ANTHROPIC_PREFIX}${spec.headerSuffix}-utilization`);
-    if (util == null) continue;
+  // Every `…-<window>-utilization` header there is, rather than the handful we
+  // happened to know the names of when this shipped.
+  for (const [key, util] of map) {
+    if (!key.startsWith(ANTHROPIC_PREFIX) || !key.endsWith('-utilization')) continue;
+    const name = key.slice(ANTHROPIC_PREFIX.length, -'-utilization'.length);
+    const parts = splitAnthropicWindow(name);
+    if (!parts) continue;
 
     const utilization = parseFloat(util);
     if (!Number.isFinite(utilization)) continue;
 
-    const reset = getHeader(map, `${ANTHROPIC_PREFIX}${spec.headerSuffix}-reset`);
+    const reset = getHeader(map, `${ANTHROPIC_PREFIX}${name}-reset`);
     const resetAt = reset ? parseInt(reset, 10) * 1000 : 0;
-    const status = normalizeStatus(
-      getHeader(map, `${ANTHROPIC_PREFIX}${spec.headerSuffix}-status`) ?? 'allowed',
-    );
+    const status = normalizeStatus(getHeader(map, `${ANTHROPIC_PREFIX}${name}-status`) ?? 'allowed');
 
     windows.push({
-      id: spec.id,
-      label: spec.label,
-      scope: spec.scope,
-      modelFamily: spec.modelFamily,
+      ...describeAnthropicWindow(parts.period, parts.family),
       // Headers report a fraction (0.62 = 62%), unlike the usage JSON below.
       usedPercent: clampPercent(utilization * 100),
       resetAt,
@@ -300,7 +332,18 @@ function parseAnthropicHeaders(
     });
   }
 
-  return { windows, updatedAt: Date.now(), staleAfterMs: HEADER_STALE_MS };
+  return { windows: sortWindows(windows), updatedAt: Date.now(), staleAfterMs: HEADER_STALE_MS };
+}
+
+/**
+ * Window order: the two plan-wide windows first, then the per-model ones
+ * alphabetically. Discovery hands them over in whatever order the provider
+ * serialized them, and a list that reshuffles itself between polls is harder to
+ * read than one that is merely incomplete.
+ */
+function sortWindows(windows: LimitWindow[]): LimitWindow[] {
+  const rank = (w: LimitWindow) => (w.scope === 'session' ? 0 : w.scope === 'weekly' ? 1 : 2);
+  return [...windows].sort((a, b) => rank(a) - rank(b) || a.label.localeCompare(b.label));
 }
 
 /**
@@ -324,11 +367,15 @@ function clampPercent(value: number): number {
 function parseAnthropicUsageJson(json: Record<string, unknown>): SubscriptionLimits {
   const windows: LimitWindow[] = [];
 
-  for (const spec of ANTHROPIC_WINDOWS) {
-    const win = json[spec.jsonKey];
-    if (!win || typeof win !== 'object' || win === null) continue;
-
+  for (const [key, win] of Object.entries(json)) {
+    if (!win || typeof win !== 'object') continue;
+    const parts = splitAnthropicWindow(key);
+    if (!parts) continue;
+    // A key that parses only because `splitAnthropicWindow` reports anything it
+    // cannot split is not a window: `extra_usage` has no utilization figure.
     const obj = win as Record<string, unknown>;
+    if (obj.utilization === undefined) continue;
+
     const utilization =
       typeof obj.utilization === 'number'
         ? obj.utilization
@@ -346,10 +393,7 @@ function parseAnthropicUsageJson(json: Record<string, unknown>): SubscriptionLim
     }
 
     windows.push({
-      id: spec.id,
-      label: spec.label,
-      scope: spec.scope,
-      modelFamily: spec.modelFamily,
+      ...describeAnthropicWindow(parts.period, parts.family),
       usedPercent,
       resetAt: resetsAt > 0 ? resetsAt : 0,
       status,
@@ -357,7 +401,7 @@ function parseAnthropicUsageJson(json: Record<string, unknown>): SubscriptionLim
   }
 
   return {
-    windows,
+    windows: sortWindows(windows),
     ...parseAnthropicCredits(json),
     updatedAt: Date.now(),
     staleAfterMs: POLL_STALE_MS,
