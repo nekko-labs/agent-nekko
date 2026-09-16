@@ -310,7 +310,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   closeWorkflowLoopbackListener();
-  closeApiServer();
+  // The API server deliberately survives this: on macOS the app is still
+  // running with no window open, and a CLI or MCP client pointed at it should
+  // not lose its connection because someone closed the last window. Quitting
+  // takes it down, below.
   if (process.platform !== 'darwin') app.quit();
 });
 
