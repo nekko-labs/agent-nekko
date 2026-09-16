@@ -11,7 +11,7 @@ import { CommandPalette } from './components/CommandPalette.js';
 import { UpdateBanner } from './components/UpdateBanner.js';
 import { RelayPairing } from './components/RelayPairing.js';
 import { DeepLinkListener } from './components/DeepLink.js';
-import { WorkbenchView } from './views/WorkbenchView.js';
+import { WorkspacesView } from './views/WorkspacesView.js';
 import { DesignBoardView } from './views/DesignBoardView.js';
 import { SkillsView } from './views/SkillsView.js';
 import { TrainingView } from './views/TrainingView.js';
@@ -206,7 +206,7 @@ export function App() {
             </button>
           )}
           {view === 'command' && <CommandCenterView />}
-          {view === 'chat' && <WorkbenchView />}
+          {view === 'chat' && <WorkspacesView />}
           {view === 'skills' && <SkillsView />}
           {view === 'training' && <TrainingView />}
           {view === 'workflows' && <WorkflowsView />}

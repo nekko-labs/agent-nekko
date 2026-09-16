@@ -1,4 +1,4 @@
-import type { ChatMessage, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import type { ChatMessage, EffortLevel, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 
 /** A tool the model may call, in a provider-neutral shape. */
 export interface ToolSpec {
@@ -14,6 +14,14 @@ export interface ChatRequest {
   system?: string;
   tools?: ToolSpec[];
   temperature?: number;
+  /**
+   * The same "how hard should it work" setting `temperature` carries, in the
+   * form the newer Claude models want. They removed the sampling parameters
+   * outright — sending `temperature` to Opus 5 is a 400 — and replaced them
+   * with a coarse effort level, so both travel on the request and each provider
+   * sends whichever of the two its model accepts.
+   */
+  effort?: EffortLevel;
   /**
    * Reasoning toggle for models that support it: `true` requests thinking,
    * `false` suppresses it, `undefined` leaves the server/model default. Providers

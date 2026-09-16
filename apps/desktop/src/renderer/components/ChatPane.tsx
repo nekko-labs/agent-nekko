@@ -217,7 +217,7 @@ interface PendingApproval {
  * pane subscribes to agent events filtered by its own sessionId.
  */
 export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; onRunningChange?: (running: boolean) => void }) {
-  const { providers, settings, setMascotMood, refreshSessions, activeWorkspaceId } = useStore();
+  const { providers, settings, setMascotMood, refreshSessions } = useStore();
 
   const [session, setSession] = useState<Session | null>(null);
   // Seed the composer from whatever was parked for this chat, so an unsent

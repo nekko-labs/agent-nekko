@@ -1,4 +1,4 @@
-import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import type { EffortLevel, ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { parseSSE } from './sse.js';
 import { DecodeClock } from './decode-clock.js';
@@ -28,6 +28,40 @@ const CLAUDE_MODELS: Array<{ id: string; name: string; ctx: number; availability
  */
 const OAUTH_BETA = 'oauth-2025-04-20';
 const CLAUDE_CODE_SYSTEM_PREFIX = "You are Claude Code, Anthropic's official CLI for Claude.";
+
+/**
+ * Does this model reject the sampling parameters?
+ *
+ * Anthropic removed `temperature` / `top_p` / `top_k` from the 4.7 generation
+ * onwards — sending one to Opus 5 fails the whole request with a 400 rather
+ * than being ignored — and replaced them with the coarse `output_config.effort`
+ * knob. The split is by version, not by a list of ids, so a model released
+ * after this build still lands on the right side of it: 4.6 and older sample,
+ * 4.7 and newer take an effort level. Fable and Mythos never sampled at all.
+ *
+ * Anything that doesn't parse as a Claude family model (a proxy's own naming, a
+ * custom deployment id) keeps the old behaviour and gets a temperature.
+ */
+export function rejectsSampling(model: string): boolean {
+  const m = /^claude-(opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d+))?/.exec(model);
+  if (!m) return false;
+  const [, family, majorRaw, minorRaw] = m;
+  if (family === 'fable' || family === 'mythos') return true;
+  const major = Number(majorRaw);
+  const minor = Number(minorRaw ?? 0);
+  return major > 4 || (major === 4 && minor >= 7);
+}
+
+/**
+ * Our three effort levels in Anthropic's five. `normal` maps to `high` because
+ * that is the API's own default: picking `medium` for it would quietly make
+ * every Claude chat think less than it did before this mapping existed.
+ */
+const ANTHROPIC_EFFORT: Record<EffortLevel, 'low' | 'high' | 'max'> = {
+  low: 'low',
+  normal: 'high',
+  high: 'max',
+};
 
 /** Client for the Anthropic Messages API (native, with SSE streaming). */
 export class AnthropicProvider implements Provider {
@@ -84,11 +118,14 @@ export class AnthropicProvider implements Provider {
   }
 
   async *chat(req: ChatRequest): AsyncIterable<ProviderChunk> {
+    const effort = ANTHROPIC_EFFORT[req.effort ?? 'normal'];
     const body = {
       model: req.model,
       max_tokens: req.maxOutputTokens ?? 4096,
       stream: true,
-      temperature: req.temperature ?? 0.7,
+      ...(rejectsSampling(req.model)
+        ? { output_config: { effort } }
+        : { temperature: req.temperature ?? 0.7 }),
       system: this.systemParam(req.system),
       messages: this.toAnthropicMessages(req),
       tools: req.tools?.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })),

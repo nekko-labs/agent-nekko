@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { AnthropicProvider } from './anthropic.js';
-import type { ProviderConfig } from '@agent-nekko/shared';
+import { AnthropicProvider, rejectsSampling } from './anthropic.js';
+import type { EffortLevel, ProviderConfig } from '@agent-nekko/shared';
 
 const apiKeyCfg: ProviderConfig = {
   id: 'p1',
@@ -31,12 +31,25 @@ function sseResponse(lines: string[]): Response {
 
 const DONE_STREAM = ['data: {"type":"message_stop"}\n\n'];
 
-async function runChat(cfg: ProviderConfig, system?: string) {
+async function runChat(
+  cfg: ProviderConfig,
+  system?: string,
+  extra: { model?: string; effort?: EffortLevel } = {},
+) {
   const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(DONE_STREAM));
-  for await (const _ of new AnthropicProvider(cfg).chat({ model: 'claude-sonnet-4-6', messages: [], system })) {
+  const chat = new AnthropicProvider(cfg).chat({
+    model: extra.model ?? 'claude-sonnet-4-6',
+    messages: [],
+    system,
+    temperature: 0.7,
+    effort: extra.effort,
+  });
+  for await (const _ of chat) {
     /* drain */
   }
-  const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+  // The last call, not the first: a test that runs two chats re-spies on the
+  // same mock, so the calls accumulate.
+  const [url, init] = spy.mock.calls[spy.mock.calls.length - 1] as unknown as [string, RequestInit];
   return { url, headers: init.headers as Record<string, string>, body: JSON.parse(init.body as string) };
 }
 
@@ -71,6 +84,25 @@ describe('AnthropicProvider subscription auth', () => {
     expect(body.system[0].text).toContain('Claude Code');
   });
 
+  it('sends an effort level instead of a temperature on models that dropped sampling', async () => {
+    const { body } = await runChat(apiKeyCfg, undefined, { model: 'claude-opus-5', effort: 'normal' });
+    expect(body.temperature).toBeUndefined();
+    expect(body.output_config).toEqual({ effort: 'high' });
+  });
+
+  it('maps the low and high effort settings to the ends of the range', async () => {
+    const low = await runChat(apiKeyCfg, undefined, { model: 'claude-opus-5', effort: 'low' });
+    expect(low.body.output_config).toEqual({ effort: 'low' });
+    const high = await runChat(apiKeyCfg, undefined, { model: 'claude-opus-5', effort: 'high' });
+    expect(high.body.output_config).toEqual({ effort: 'max' });
+  });
+
+  it('still sends a temperature to models that accept one', async () => {
+    const { body } = await runChat(apiKeyCfg, undefined, { model: 'claude-sonnet-4-6', effort: 'normal' });
+    expect(body.temperature).toBe(0.7);
+    expect(body.output_config).toBeUndefined();
+  });
+
   it('test() reports subscription sign-in state', async () => {
     expect(await new AnthropicProvider(subCfg).test()).toEqual({
       ok: true,
@@ -79,5 +111,29 @@ describe('AnthropicProvider subscription auth', () => {
     const signedOut = await new AnthropicProvider({ ...subCfg, apiKey: undefined }).test();
     expect(signedOut.ok).toBe(false);
     expect(signedOut.message).toMatch(/sign in/i);
+  });
+});
+
+describe('rejectsSampling', () => {
+  it('rejects sampling from the 4.7 generation onwards', () => {
+    for (const m of ['claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-5', 'claude-opus-6']) {
+      expect(rejectsSampling(m), m).toBe(true);
+    }
+  });
+
+  it('rejects sampling on every Fable and Mythos model', () => {
+    expect(rejectsSampling('claude-fable-5-1')).toBe(true);
+    expect(rejectsSampling('claude-mythos-5-1')).toBe(true);
+  });
+
+  it('keeps sampling on 4.6 and older, including dated ids', () => {
+    for (const m of ['claude-opus-4-6', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001', 'claude-3-5-sonnet-20241022']) {
+      expect(rejectsSampling(m), m).toBe(false);
+    }
+  });
+
+  it('leaves models it cannot parse on the sampling path', () => {
+    expect(rejectsSampling('my-proxy/claude-opus-5')).toBe(false);
+    expect(rejectsSampling('')).toBe(false);
   });
 });

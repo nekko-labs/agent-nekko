@@ -3,6 +3,24 @@ import type { AppSettings, Session, ProviderConfig, ModelInfo, TerminalInfo, Ins
 import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
+import {
+  allPanes,
+  canSplit,
+  findPane,
+  findPaneByRef,
+  movePane as moveInTree,
+  newPaneId,
+  removePane,
+  resizeSplit,
+  retargetPane as retargetInTree,
+  splitPane as splitInTree,
+  type Direction,
+  type PaneKind,
+  type WbNode,
+  type WbPane,
+} from './layout.js';
+
+export type { Direction, PaneKind, WbNode, WbPane } from './layout.js';
 
 export type View = 'command' | 'chat' | 'models' | 'connectors' | 'memory' | 'settings' | 'design' | 'skills' | 'training' | 'workflows';
 
@@ -53,54 +71,30 @@ export interface Toast {
   message: string;
 }
 
-/** A single workbench tab: a chat, terminal, file, browser, diff, PR, or Hypergate view. */
-export interface WbPane {
-  id: string;
-  kind: 'chat' | 'terminal' | 'file' | 'browser' | 'diff' | 'pr' | 'hypergate';
-  /**
-   * What the pane points at: sessionId (chat/diff), terminalId (terminal),
-   * absolute file path (file), URL (browser), PR URL (pr), or the Hypergate
-   * manager's URL (hypergate).
-   */
-  refId: string;
-}
-
 /**
- * Which column a group is: the conversation, or everything you opened out of it.
+ * One workspace: a named arrangement of windows you switch to as a whole.
  *
- * The workbench used to be N interchangeable columns you arranged by hand, so a
- * file the agent opened landed as a tab beside the chat and pushed it out of
- * view. Two fixed roles instead, the shape every other harness settles on: the
- * chat holds the left, and files, browsers, terminals, diffs and PRs open in a
- * split to the right with their own tab strip. Nothing to arrange, and reading
- * a file never costs you sight of the agent that opened it.
+ * Each card in the left sidebar is one of these. A workspace is opened around
+ * something — usually the chat that started the work — and grows whatever
+ * windows that work needs: the file the agent touched, a terminal, a browser, a
+ * second agent. Its `root` is a split tree (see layout.ts), so every window in
+ * it is on screen at once and switching workspaces swaps the whole arrangement
+ * rather than one tab.
  */
-export type WbRole = 'chat' | 'side';
-
-/** Pane kinds that belong in the side column rather than beside the chat. */
-export function paneRole(kind: WbPane['kind']): WbRole {
-  return kind === 'chat' ? 'chat' : 'side';
-}
-
-/** A column of tabbed panes: the chat column, and the side column beside it. */
-export interface WbGroup {
+export interface Workspace {
   id: string;
-  role: WbRole;
-  panes: WbPane[];
-  activeId: string | null;
+  /**
+   * What the workspace is about, and what its sidebar card reports on. Kept
+   * even if that window is closed, so a workspace never loses its identity
+   * mid-session.
+   */
+  anchor: { kind: PaneKind; refId: string };
+  root: WbNode | null;
+  /** The window keyboard input and "open here" actions go to. */
+  activePaneId: string | null;
 }
 
 const PLAN_RAIL_KEY = 'nekko.planRail';
-const SPLIT_KEY = 'nekko.sidePaneWidth';
-
-/** Remembered width of the side column, as a fraction of the workbench. */
-function readSideSplit(): number {
-  try {
-    const saved = Number(localStorage.getItem(SPLIT_KEY));
-    if (Number.isFinite(saved) && saved >= 0.2 && saved <= 0.8) return saved;
-  } catch { /* private mode */ }
-  return 0.45;
-}
 
 /**
  * The rail's remembered state. On by default; the chat pane hides it anyway when
@@ -114,9 +108,8 @@ function readPlanRailOpen(): boolean {
   return true;
 }
 
-let paneSeq = 0;
-const newPaneId = () => `pane_${(++paneSeq).toString(36)}`;
-const newGroupId = () => `grp_${(++paneSeq).toString(36)}`;
+let wsSeq = 0;
+const newWorkspaceId = () => `ws_${(++wsSeq).toString(36)}`;
 
 interface UiState {
   settings: AppSettings | null;
@@ -141,7 +134,13 @@ interface UiState {
   mascotMood: MascotMood;
   toasts: Toast[];
   paletteOpen: boolean;
-  activeWorkspaceId: string | null;
+  /**
+   * The project folder new work is filed under. Named for the folder, not for
+   * the workspaces below it: `settings.workspaces` is the folder list the rest
+   * of the app has always called projects in the UI, and a `Workspace` here is
+   * the arrangement of windows on screen.
+   */
+  activeProjectId: string | null;
 
   /**
    * Where the chat's full monitoring section sits on screen (null when it isn't
@@ -151,10 +150,11 @@ interface UiState {
   monitorDockRect: { x: number; y: number; w: number; h: number } | null;
   setMonitorDockRect: (r: { x: number; y: number; w: number; h: number } | null) => void;
 
-  // Workbench: tabbed, splittable panes (chats + terminals) and live terminals.
+  // Workspaces: one split layout of windows each, plus the live terminals they
+  // can show.
   terminals: TerminalInfo[];
-  groups: WbGroup[];
-  activeGroupId: string | null;
+  workspaces: Workspace[];
+  activeWorkspaceId: string | null;
 
   /** Pending message to hand a chat's composer (set by editor comments / design notes). */
   composerInbox: ComposerInbox | null;
@@ -181,7 +181,7 @@ interface UiState {
   prsBySession: Record<string, PrInfo[]>;
   /** Fetch a chat's PRs (gh/API, host-cached) and stash them for cards + badges. */
   refreshSessionPrs: (sessionId: string) => Promise<void>;
-  /** Open a PR's diff in a workbench pane. */
+  /** Open a PR's diff as a window in the active workspace. */
   openPrPane: (url: string) => void;
 
   /** Marketplace installs (all targets) + the Agent Nekko ones as runnable skills. */
@@ -202,7 +202,7 @@ interface UiState {
   draftBySession: Record<string, string>;
   setSessionDraft: (sessionId: string, text: string) => void;
 
-  setActiveWorkspace: (id: string | null) => void;
+  setActiveProject: (id: string | null) => void;
   pushToast: (kind: Toast['kind'], message: string) => void;
   dismissToast: (id: string) => void;
   setPaletteOpen: (open: boolean) => void;
@@ -232,12 +232,27 @@ interface UiState {
   sendToChat: (text: string, run: boolean) => Promise<void>;
   /** Open the diff/approve review for a session's changed files. */
   openDiffPane: (sessionId: string) => void;
-  closePane: (groupId: string, paneId: string) => void;
-  setActivePane: (groupId: string, paneId: string) => void;
-  focusGroup: (groupId: string) => void;
-  /** Fraction of the workbench the side column takes (0.2 - 0.8). */
-  sideSplit: number;
-  setSideSplit: (fraction: number) => void;
+
+  /** Switch to a workspace (and to the chat it is about). */
+  setActiveWorkspace: (id: string) => void;
+  /** Close a whole workspace and every window in it. */
+  closeWorkspace: (id: string) => void;
+  /** Put a new window on one side of an existing one. */
+  splitPane: (paneId: string, dir: Direction, kind: PaneKind, refId?: string) => void;
+  /** Start a chat and put it beside an existing window, in the same workspace. */
+  newChatInPane: (paneId: string, dir: Direction) => Promise<void>;
+  /** Start a terminal and put it beside an existing window, in the same workspace. */
+  newTerminalInPane: (paneId: string, dir: Direction) => Promise<void>;
+  /** Point an open window at something else (an explorer at another folder). */
+  retargetPane: (paneId: string, refId: string) => void;
+  /** Drag a window onto a side of another one, anywhere in the same workspace. */
+  movePane: (paneId: string, targetPaneId: string, dir: Direction) => void;
+  closePane: (paneId: string) => void;
+  setActivePane: (paneId: string) => void;
+  /** Drag the divider at `index` inside a split (fraction of the split, from its start). */
+  resizePanes: (splitId: string, index: number, fraction: number) => void;
+  /** Whether `paneId` can still grow that way inside the 8×8 ceiling. */
+  canSplitPane: (paneId: string, dir: Direction) => boolean;
 
   // Sidebar drag-and-drop: persist project order and per-project item order.
   reorderWorkspaces: (orderedIds: string[]) => Promise<void>;
@@ -245,32 +260,104 @@ interface UiState {
   layoutTerminals: (targetWorkspaceId: string | undefined, orderedIds: string[], moveId: string | null) => Promise<void>;
 }
 
-/** Find an existing pane for a chat/terminal ref across all groups. */
-function locatePane(groups: WbGroup[], kind: WbPane['kind'], refId: string): { groupId: string; paneId: string } | null {
-  for (const g of groups) {
-    const p = g.panes.find((x) => x.kind === kind && x.refId === refId);
-    if (p) return { groupId: g.id, paneId: p.id };
+/** Where a window already showing this thing lives, across every workspace. */
+function locatePane(
+  workspaces: Workspace[],
+  kind: PaneKind,
+  refId: string,
+): { workspaceId: string; paneId: string } | null {
+  for (const w of workspaces) {
+    const p = findPaneByRef(w.root, kind, refId);
+    if (p) return { workspaceId: w.id, paneId: p.id };
   }
   return null;
 }
 
 /**
- * Add a pane to the column its kind belongs to, creating that column if it
- * isn't open yet. The chat column always sorts before the side column, so the
- * side one appearing never shuffles what is already on screen.
+ * Bring an already-open window to the front of its workspace. Focusing a chat
+ * also makes it the session the rest of the app reports on, so the context
+ * panel and the sidebar card follow what you just clicked.
  */
-function addPane(groups: WbGroup[], pane: WbPane): { groups: WbGroup[]; activeGroupId: string } {
-  const role = paneRole(pane.kind);
-  const existing = groups.find((g) => g.role === role);
-  if (existing) {
-    return {
-      groups: groups.map((g) => (g.id === existing.id ? { ...g, panes: [...g.panes, pane], activeId: pane.id } : g)),
-      activeGroupId: existing.id,
-    };
-  }
-  const created: WbGroup = { id: newGroupId(), role, panes: [pane], activeId: pane.id };
-  const next = role === 'chat' ? [created, ...groups] : [...groups, created];
-  return { groups: next, activeGroupId: created.id };
+function focusPane(s: UiState, workspaceId: string, paneId: string): Partial<UiState> {
+  const pane = findPane(s.workspaces.find((w) => w.id === workspaceId)?.root ?? null, paneId);
+  return {
+    view: 'chat' as View,
+    activeWorkspaceId: workspaceId,
+    workspaces: s.workspaces.map((w) => (w.id === workspaceId ? { ...w, activePaneId: paneId } : w)),
+    activeSessionId: pane?.kind === 'chat' ? pane.refId : s.activeSessionId,
+  };
+}
+
+/**
+ * Open a window in the workspace you are looking at, beside the one you are
+ * looking at — the same place a tab used to appear, except the chat stays on
+ * screen next to it. With no workspace open yet the window becomes one of its
+ * own, so an action from the Command Center or a deep link always lands
+ * somewhere.
+ */
+function openInActive(s: UiState, pane: WbPane): Partial<UiState> {
+  const active = s.workspaces.find((w) => w.id === s.activeWorkspaceId) ?? s.workspaces[0];
+  if (!active?.root) return addWorkspace(s, pane);
+  // Beside the focused window when that is a chat, otherwise beside the chat
+  // the workspace is about: a file opened out of a run shouldn't land inside
+  // whatever browser you last clicked on.
+  const target =
+    active.activePaneId ??
+    findPaneByRef(active.root, active.anchor.kind, active.anchor.refId)?.id ??
+    null;
+  if (!target) return {};
+  const dir: Direction = canSplit(active.root, target, 'right') ? 'right' : 'down';
+  return {
+    view: 'chat' as View,
+    activeWorkspaceId: active.id,
+    workspaces: s.workspaces.map((w) =>
+      w.id === active.id
+        ? { ...w, root: splitInTree(w.root, target, dir, pane), activePaneId: pane.id }
+        : w,
+    ),
+  };
+}
+
+/**
+ * The project folder the workspace holding this window is about, read off its
+ * anchor. Used so work added inside a workspace inherits its project instead of
+ * whichever one happens to be selected globally.
+ */
+function projectOfPane(s: UiState, paneId: string): string | undefined {
+  const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+  if (!ws) return undefined;
+  if (ws.anchor.kind === 'chat') return s.sessions.find((x) => x.id === ws.anchor.refId)?.workspaceId;
+  if (ws.anchor.kind === 'terminal') return s.terminals.find((t) => t.id === ws.anchor.refId)?.workspaceId;
+  return undefined;
+}
+
+/** Start a new workspace around one window and switch to it. */
+function addWorkspace(s: UiState, pane: WbPane): Partial<UiState> {
+  const created: Workspace = {
+    id: newWorkspaceId(),
+    anchor: { kind: pane.kind, refId: pane.refId },
+    root: pane,
+    activePaneId: pane.id,
+  };
+  return {
+    view: 'chat' as View,
+    workspaces: [...s.workspaces, created],
+    activeWorkspaceId: created.id,
+    activeSessionId: pane.kind === 'chat' ? pane.refId : s.activeSessionId,
+  };
+}
+
+/** Rewrite one workspace's tree, dropping it entirely once it holds nothing. */
+function updateWorkspace(s: UiState, id: string, fn: (w: Workspace) => Workspace): Partial<UiState> {
+  const workspaces = s.workspaces
+    .map((w) => (w.id === id ? fn(w) : w))
+    .filter((w) => w.root !== null);
+  return {
+    workspaces,
+    activeWorkspaceId: workspaces.some((w) => w.id === s.activeWorkspaceId)
+      ? s.activeWorkspaceId
+      : workspaces[workspaces.length - 1]?.id ?? null,
+  };
 }
 
 export const useStore = create<UiState>((set, get) => ({
@@ -290,14 +377,14 @@ export const useStore = create<UiState>((set, get) => ({
   mascotMood: 'waving',
   toasts: [],
   paletteOpen: false,
-  activeWorkspaceId: null,
+  activeProjectId: null,
   terminals: [],
-  groups: [],
-  activeGroupId: null,
+  workspaces: [],
+  activeWorkspaceId: null,
   prsBySession: {},
   composerInbox: null,
 
-  setActiveWorkspace: (id) => set({ activeWorkspaceId: id }),
+  setActiveProject: (id) => set({ activeProjectId: id }),
   pushToast: (kind, message) => {
     const id = `t_${Date.now().toString(36)}_${Math.floor(performance.now())}`;
     set((s) => ({ toasts: [...s.toasts, { id, kind, message }] }));
@@ -315,7 +402,7 @@ export const useStore = create<UiState>((set, get) => ({
       return { monitorDockRect: r };
     }),
   newChat: async () => {
-    const s = await window.nekko.createSession(get().activeWorkspaceId ?? undefined);
+    const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
     await get().refreshSessions();
     set({ activeSessionId: s.id, view: 'chat' });
     get().openChatPane(s.id);
@@ -335,8 +422,8 @@ export const useStore = create<UiState>((set, get) => ({
       if (!get().activeProviderId && settings.defaultProviderId) {
         set({ activeProviderId: settings.defaultProviderId, activeModelId: settings.defaultModelId ?? null });
       }
-      if (!get().activeWorkspaceId && settings.workspaces?.[0]) {
-        set({ activeWorkspaceId: settings.workspaces[0].id });
+      if (!get().activeProjectId && settings.workspaces?.[0]) {
+        set({ activeProjectId: settings.workspaces[0].id });
       }
     } catch {
       // Never leave the app on the loading gate: if settings can't be read,
@@ -461,86 +548,69 @@ export const useStore = create<UiState>((set, get) => ({
   },
 
   newTerminal: async (workspaceId, shell) => {
-    const wid = workspaceId ?? get().activeWorkspaceId ?? undefined;
+    const wid = workspaceId ?? get().activeProjectId ?? undefined;
     const t = await window.nekko.createTerminal({ workspaceId: wid, shell });
     await get().refreshTerminals();
     set({ view: 'chat' });
     get().openTerminalPane(t.id);
   },
 
+  // A chat is what a workspace is usually about, so opening one that has no
+  // workspace yet starts a workspace rather than adding a window to whatever
+  // was on screen.
   openChatPane: (sessionId) => {
     set((s) => {
-      const hit = locatePane(s.groups, 'chat', sessionId);
-      if (hit) {
-        return {
-          activeSessionId: sessionId,
-          activeGroupId: hit.groupId,
-          groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
-        };
-      }
-      const next = addPane(s.groups, { id: newPaneId(), kind: 'chat', refId: sessionId });
-      return { ...next, activeSessionId: sessionId };
+      const hit = locatePane(s.workspaces, 'chat', sessionId);
+      if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
+      return addWorkspace(s, { id: newPaneId(), kind: 'chat', refId: sessionId });
     });
   },
 
   openTerminalPane: (terminalId) => {
     set((s) => {
-      const hit = locatePane(s.groups, 'terminal', terminalId);
-      if (hit) {
-        return {
-          activeGroupId: hit.groupId,
-          groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
-        };
-      }
-      return addPane(s.groups, { id: newPaneId(), kind: 'terminal', refId: terminalId });
+      const hit = locatePane(s.workspaces, 'terminal', terminalId);
+      if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
+      return openInActive(s, { id: newPaneId(), kind: 'terminal', refId: terminalId });
     });
   },
 
   openFilePane: (path) => {
     set((s) => {
-      const hit = locatePane(s.groups, 'file', path);
-      if (hit) {
-        return {
-          activeGroupId: hit.groupId,
-          groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
-        };
-      }
-      return { ...addPane(s.groups, { id: newPaneId(), kind: 'file', refId: path }), view: 'chat' as View };
+      const hit = locatePane(s.workspaces, 'file', path);
+      if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
+      return openInActive(s, { id: newPaneId(), kind: 'file', refId: path });
     });
   },
 
   openBrowserPane: (url) => {
     set((s) => {
       const ref = url || 'about:blank';
-      const hit = locatePane(s.groups, 'browser', ref);
-      if (hit) {
-        return {
-          activeGroupId: hit.groupId,
-          groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
-        };
-      }
-      return { ...addPane(s.groups, { id: newPaneId(), kind: 'browser', refId: ref }), view: 'chat' as View };
+      const hit = locatePane(s.workspaces, 'browser', ref);
+      if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
+      return openInActive(s, { id: newPaneId(), kind: 'browser', refId: ref });
     });
   },
 
   openHypergatePane: () => {
     set((s) => {
-      // One manager, so one tab: any existing Hypergate pane is *the* pane,
-      // whatever URL it was opened with (the port can change between runs).
-      const hit = s.groups.flatMap((g) => g.panes.map((p) => ({ g, p }))).find((x) => x.p.kind === 'hypergate');
       const url = s.hypergate?.uiUrl ?? `http://localhost:${s.hypergate?.port ?? 7777}/`;
+      // One manager, so one window: any existing Hypergate pane is *the* pane,
+      // whatever URL it was opened with (the port can change between runs), and
+      // it is re-pointed at the current one rather than duplicated.
+      const hit = s.workspaces
+        .flatMap((w) => allPanes(w.root).map((p) => ({ w, p })))
+        .find((x) => x.p.kind === 'hypergate');
       if (hit) {
         return {
-          activeGroupId: hit.g.id,
-          view: 'chat' as View,
-          groups: s.groups.map((g) =>
-            g.id === hit.g.id
-              ? { ...g, activeId: hit.p.id, panes: g.panes.map((p) => (p.id === hit.p.id ? { ...p, refId: url } : p)) }
-              : g,
+          ...focusPane(s, hit.w.id, hit.p.id),
+          workspaces: s.workspaces.map((w) =>
+            w.id === hit.w.id
+              ? { ...w, activePaneId: hit.p.id, root: retargetInTree(w.root, hit.p.id, url) }
+              : w,
           ),
         };
       }
-      return { ...addPane(s.groups, { id: newPaneId(), kind: 'hypergate', refId: url }), view: 'chat' as View };
+      return openInActive(s, { id: newPaneId(), kind: 'hypergate', refId: url });
     });
   },
 
@@ -587,7 +657,7 @@ export const useStore = create<UiState>((set, get) => ({
     // Target the active chat; create one if there isn't a usable session.
     let sid = get().activeSessionId;
     if (!sid || !get().sessions.some((s) => s.id === sid)) {
-      const s = await window.nekko.createSession(get().activeWorkspaceId ?? undefined);
+      const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
       await get().refreshSessions();
       sid = s.id;
       set({ activeSessionId: sid });
@@ -608,63 +678,133 @@ export const useStore = create<UiState>((set, get) => ({
 
   openPrPane: (url) => {
     set((s) => {
-      const hit = locatePane(s.groups, 'pr', url);
-      if (hit) {
-        return {
-          activeGroupId: hit.groupId,
-          groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
-        };
-      }
-      return { ...addPane(s.groups, { id: newPaneId(), kind: 'pr', refId: url }), view: 'chat' as View };
+      const hit = locatePane(s.workspaces, 'pr', url);
+      if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
+      return openInActive(s, { id: newPaneId(), kind: 'pr', refId: url });
     });
   },
 
   openDiffPane: (sessionId) => {
     set((s) => {
-      const hit = locatePane(s.groups, 'diff', sessionId);
-      if (hit) {
-        return {
-          activeGroupId: hit.groupId,
-          groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
-        };
-      }
-      return { ...addPane(s.groups, { id: newPaneId(), kind: 'diff', refId: sessionId }), view: 'chat' as View };
+      const hit = locatePane(s.workspaces, 'diff', sessionId);
+      if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
+      return openInActive(s, { id: newPaneId(), kind: 'diff', refId: sessionId });
     });
   },
 
-  closePane: (groupId, paneId) => {
+  setActiveWorkspace: (id) => {
     set((s) => {
-      let groups = s.groups
-        .map((g) => {
-          if (g.id !== groupId) return g;
-          const panes = g.panes.filter((p) => p.id !== paneId);
-          const activeId = g.activeId === paneId ? panes[panes.length - 1]?.id ?? null : g.activeId;
-          return { ...g, panes, activeId };
-        })
-        .filter((g) => g.panes.length > 0);
-      const activeGroupId = groups.some((g) => g.id === s.activeGroupId) ? s.activeGroupId : groups[0]?.id ?? null;
-      return { groups, activeGroupId };
-    });
-  },
-
-  setActivePane: (groupId, paneId) => {
-    set((s) => {
-      const pane = s.groups.find((g) => g.id === groupId)?.panes.find((p) => p.id === paneId);
+      const ws = s.workspaces.find((w) => w.id === id);
+      if (!ws) return {};
+      // Report on the chat you'd be looking at, which is the focused window when
+      // that's a chat and the workspace's own chat otherwise.
+      const focused = findPane(ws.root, ws.activePaneId ?? '');
+      const chat = focused?.kind === 'chat' ? focused : allPanes(ws.root).find((p) => p.kind === 'chat');
       return {
-        activeGroupId: groupId,
-        activeSessionId: pane?.kind === 'chat' ? pane.refId : s.activeSessionId,
-        groups: s.groups.map((g) => (g.id === groupId ? { ...g, activeId: paneId } : g)),
+        view: 'chat' as View,
+        activeWorkspaceId: id,
+        activeSessionId: chat?.refId ?? s.activeSessionId,
       };
     });
   },
 
-  focusGroup: (groupId) => set({ activeGroupId: groupId }),
+  closeWorkspace: (id) => {
+    set((s) => {
+      const workspaces = s.workspaces.filter((w) => w.id !== id);
+      return {
+        workspaces,
+        activeWorkspaceId:
+          s.activeWorkspaceId === id ? workspaces[workspaces.length - 1]?.id ?? null : s.activeWorkspaceId,
+      };
+    });
+  },
 
-  sideSplit: readSideSplit(),
-  setSideSplit: (fraction) => {
-    const clamped = Math.min(0.8, Math.max(0.2, fraction));
-    try { localStorage.setItem(SPLIT_KEY, String(clamped)); } catch { /* private mode */ }
-    set({ sideSplit: clamped });
+  splitPane: (paneId, dir, kind, refId) => {
+    set((s) => {
+      const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+      if (!ws || !canSplit(ws.root, paneId, dir)) return {};
+      const pane: WbPane = { id: newPaneId(), kind, refId: refId ?? '' };
+      return {
+        ...updateWorkspace(s, ws.id, (w) => ({
+          ...w,
+          root: splitInTree(w.root, paneId, dir, pane),
+          activePaneId: pane.id,
+        })),
+        activeWorkspaceId: ws.id,
+        activeSessionId: kind === 'chat' ? pane.refId : s.activeSessionId,
+      };
+    });
+  },
+
+  // Creating a chat or a terminal has to reach the host first, so these can't
+  // be folded into `splitPane`. The project comes from the workspace being
+  // split rather than the global one: a second agent added to a project's
+  // workspace belongs to that project.
+  newChatInPane: async (paneId, dir) => {
+    const project = projectOfPane(get(), paneId) ?? get().activeProjectId ?? undefined;
+    const session = await window.nekko.createSession(project);
+    await get().refreshSessions();
+    get().splitPane(paneId, dir, 'chat', session.id);
+  },
+
+  newTerminalInPane: async (paneId, dir) => {
+    const project = projectOfPane(get(), paneId) ?? get().activeProjectId ?? undefined;
+    const term = await window.nekko.createTerminal({ workspaceId: project });
+    await get().refreshTerminals();
+    get().splitPane(paneId, dir, 'terminal', term.id);
+  },
+
+  retargetPane: (paneId, refId) => {
+    set((s) => {
+      const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+      if (!ws) return {};
+      return updateWorkspace(s, ws.id, (w) => ({ ...w, root: retargetInTree(w.root, paneId, refId) }));
+    });
+  },
+
+  movePane: (paneId, targetPaneId, dir) => {
+    set((s) => {
+      const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+      if (!ws) return {};
+      return updateWorkspace(s, ws.id, (w) => ({ ...w, root: moveInTree(w.root, paneId, targetPaneId, dir) }));
+    });
+  },
+
+  closePane: (paneId) => {
+    set((s) => {
+      const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+      if (!ws) return {};
+      return updateWorkspace(s, ws.id, (w) => {
+        const root = removePane(w.root, paneId);
+        return {
+          ...w,
+          root,
+          activePaneId: w.activePaneId === paneId ? allPanes(root)[0]?.id ?? null : w.activePaneId,
+        };
+      });
+    });
+  },
+
+  setActivePane: (paneId) => {
+    set((s) => {
+      const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+      return ws ? focusPane(s, ws.id, paneId) : {};
+    });
+  },
+
+  resizePanes: (splitId, index, fraction) => {
+    set((s) => {
+      if (!s.activeWorkspaceId) return {};
+      return updateWorkspace(s, s.activeWorkspaceId, (w) => ({
+        ...w,
+        root: resizeSplit(w.root, splitId, index, fraction),
+      }));
+    });
+  },
+
+  canSplitPane: (paneId, dir) => {
+    const ws = get().workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+    return ws ? canSplit(ws.root, paneId, dir) : false;
   },
 
   reorderWorkspaces: async (orderedIds) => {
