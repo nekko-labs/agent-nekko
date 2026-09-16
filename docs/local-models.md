@@ -1,25 +1,75 @@
 # Running models locally
 
-Agent Nekko can start your local model server, load a model into it with the settings
-you choose, and tell you honestly whether it will fit before you wait through the load.
-This is what the Models page shows you and why.
+Agent Nekko runs models two ways: with its **own engine**, which needs nothing else
+installed, or by driving a server you already run (Ollama, LM Studio, vLLM). Either way
+it loads a model with the settings you choose and tells you honestly whether it will fit
+before you wait through the load. This is what the Models page shows you and why.
 
-## The three servers, and what each one can do
+## The Nekko engine
+
+The engine is llama.cpp, managed by Agent Nekko. You press one button, a few hundred
+megabytes come down from llama.cpp's own releases, and the app can serve models. Nothing
+is downloaded before that press.
+
+**Which build.** Picked from what the GPU probe actually found, not from the platform:
+CUDA only where `nvidia-smi` answers, Vulkan for a GPU we cannot identify, Metal on Apple
+Silicon, CPU where there is no evidence of anything else. A slow engine that runs beats a
+fast one that fails to start. Every other build for your machine stays in the list if you
+disagree. If you already have a `llama-server`, point at it instead: Agent Nekko will run
+it and never update or remove it.
+
+**Where models come from.** A short curated list answers "what should I run"; search
+covers everything else, straight against Hugging Face with no account. Each model expands
+into its real builds with their real download sizes. Downloads resume after an
+interruption and only land once the file parses as a GGUF, so a half-finished model never
+shows up looking complete. A GGUF you already have is adopted without being copied, and
+pointing the models folder at an existing library adopts everything in it.
+
+**One address, several models.** The engine serves on `http://127.0.0.1:11500/v1` by
+default, with a `llama-server` process per loaded model behind it. Several models stay
+resident; a request for one that is not loaded loads it; an idle one is evicted on a
+timer; and the address survives every load and unload. It is OpenAI-compatible, so point
+Claude Code, Cursor, Continue or anything else at it and name a model from `/v1/models`.
+
+**Two ways to configure a load.** *Simple* asks one question, how much of this machine
+the model may use, and solves it into a real context length, GPU offload and KV cache
+type, then says what it chose and what it costs. *Advanced* is every llama.cpp flag:
+context, GPU layers, KV cache type, parallel slots, flash attention, batch and physical
+batch, threads, mmap and mlock, RoPE base and scale, seed, idle TTL. They are the same
+state, so moving one moves the other, and either can be saved as that model's default.
+
+**The Server tab** carries port, whether it is reachable from your network or only this
+computer, an API key, allowed browser origins, how many models may be resident, the idle
+timeout, load-on-demand, start-with-the-app, and the models folder. The defaults are
+loopback-only with no key, which is safe; binding to the network is a deliberate act and
+the app says what it means next to the setting.
+
+Because the engine holds the file, it reads the GGUF header directly, so the projection
+below is **exact** for its own models where it has to report parts of itself as unknown
+for somebody else's.
+
+## Servers you already run
+
+### What each one can do
 
 They are not the same shape, and the app does not pretend they are.
 
-| | Ollama | LM Studio | vLLM |
-|---|---|---|---|
-| Start / stop from here | yes | yes | **no**, connect only |
-| Load a model on demand | yes | yes | no, one model per process |
-| Set context per load | yes | yes | at launch only |
-| Set GPU offload | yes | yes | at launch only |
-| Parallel slots | restart required | no | at launch only |
-| KV cache type | restart required | no | at launch only |
-| Reports per-model VRAM | **yes** | no | no |
-| Layer geometry for the planner | **yes** | no | no |
+| | Nekko engine | Ollama | LM Studio | vLLM |
+|---|---|---|---|---|
+| Start / stop from here | yes | yes | yes | **no**, connect only |
+| Load a model on demand | yes | yes | yes | no, one model per process |
+| Set context per load | yes | yes | yes | at launch only |
+| Set GPU offload | yes | yes | yes | at launch only |
+| Parallel slots | **per load** | restart required | no | at launch only |
+| KV cache type | **per load** | restart required | no | at launch only |
+| Reports per-model VRAM | **measured** | **yes** | no | no |
+| Layer geometry for the planner | **from the file** | **yes** | no | no |
+| Batch, threads, flash attention, rope | **yes** | no | no | at launch only |
+| Installs the engine for you | **yes** | no | no | no |
+| Downloads models for you | **yes** | yes | no | no |
 
-**Ollama** is the most controllable and the only one that reports its own CPU spill.
+Of the servers you bring yourself, **Ollama** is the most controllable and the only one
+that reports its own CPU spill.
 `/api/ps` gives both the model's total size and how much of it is in VRAM, and the gap
 between those two numbers is exactly what did not fit. `/api/show` publishes the layer
 count, KV head count, and embedding length, which is what lets the planner compute an
