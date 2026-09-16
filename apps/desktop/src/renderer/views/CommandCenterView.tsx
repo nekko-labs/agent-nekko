@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, PendingInput, ProviderConfig, Session, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
 import type { RemoteStatus } from '@agent-nekko/shared';
-import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider } from '@agent-nekko/shared';
-import type { OptimizationTip, AgentType } from '@agent-nekko/shared';
+import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider, reduceLiveActivity } from '@agent-nekko/shared';
+import type { OptimizationTip, AgentType, LiveActivity } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Badge, EmptyHint, PanelList } from '../components/primitives/index.js';
 import { ServerIcon, PlusIcon, CheckIcon, TerminalIcon, TrashIcon } from '../icons.js';
@@ -21,6 +21,15 @@ export function CommandCenterView() {
   const [, setTick] = useState(0);
   // First-sighting timestamps for in-flight runs, so Now rows can show elapsed.
   const runStarts = useRef(new Map<string, number>());
+  /**
+   * What each running chat is doing right now, folded from its event stream.
+   *
+   * A ref rather than state on purpose: text arrives a token at a time, and
+   * putting that through `setState` would re-render every card on the board
+   * dozens of times a second. The tick below repaints at a readable rate and
+   * the cards read the latest fold when they do.
+   */
+  const activity = useRef(new Map<string, LiveActivity>());
   const now = Date.now();
 
   useEffect(() => {
@@ -50,6 +59,12 @@ export function CommandCenterView() {
   useEffect(() => {
     const known = new Set(sessions.map((s) => s.id));
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
+      // Fold every event into the session's live rail before anything else, so
+      // a card repainted by the tick below is never a step behind.
+      const folded = reduceLiveActivity(activity.current.get(e.sessionId), e, Date.now());
+      if (folded) activity.current.set(e.sessionId, folded);
+      else activity.current.delete(e.sessionId);
+
       if (e.type === 'question' || e.type === 'tool_approval_required' || e.type === 'question_resolved' || e.type === 'tool_result') {
         refreshPending();
       }
@@ -68,11 +83,13 @@ export function CommandCenterView() {
     return off;
   }, [sessions, refreshSessions]);
 
-  // Tick once a second while work is in flight (elapsed timers), and every 30s
-  // regardless (the automation next-run countdowns).
+  // Tick while work is in flight (elapsed timers and the live step rails), and
+  // every 30s regardless (the automation next-run countdowns). Twice a second
+  // is fast enough to read as live and slow enough that a streaming reply does
+  // not repaint the whole board on every token.
   useEffect(() => {
     if (running.size === 0) return;
-    const t = setInterval(() => setTick((n) => n + 1), 1000);
+    const t = setInterval(() => setTick((n) => n + 1), 500);
     return () => clearInterval(t);
   }, [running.size]);
   useEffect(() => {
@@ -129,10 +146,18 @@ export function CommandCenterView() {
   const openTerminal = (id: string) => { openTerminalPane(id); setView('chat'); };
 
   const liveTerminals = terminals.filter((t) => t.running).length;
+  // Chats parked on a question or an approval. The board has a lane for them,
+  // but the strip is what you read first, and "3 waiting on you" is the one
+  // number worth interrupting a glance for.
+  const waitingOnYou = topLevel.filter((s) => !!pending[s.id]).length;
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl px-8 py-8">
+      {/* Wide on purpose: the board is three lanes of cards that each carry a
+          live step rail and a slice of the conversation, and at the old 72rem
+          every one of them truncated mid-sentence. The cap is high enough to
+          give a lane real width on a big display, and still centres on one. */}
+      <div className="mx-auto w-full max-w-[1760px] px-6 py-8 xl:px-10">
         <div className="flex items-center justify-between">
           <h1 className="text-gradient text-2xl font-semibold">Command Center</h1>
           <div className="flex gap-2">
@@ -144,6 +169,8 @@ export function CommandCenterView() {
         {/* The monitor strip: the whole machine's vitals in one quiet line. */}
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-y border-line py-2.5 text-[12px] text-ink-faint">
           <Stat live={running.size > 0} value={running.size} label={running.size === 1 ? 'agent working' : 'agents working'} />
+          <StatDivider />
+          <Stat value={waitingOnYou} label="waiting on you" tone={waitingOnYou > 0 ? 'var(--warning)' : undefined} />
           <StatDivider />
           <Stat value={tasks.filter((t) => t.status === 'active').length} label="automations active" />
           <StatDivider />
@@ -183,6 +210,7 @@ export function CommandCenterView() {
           pending={pending}
           childrenOf={childrenOf}
           runStarts={runStarts.current}
+          activity={activity.current}
           now={now}
           onOpen={openChat}
           onRefresh={() => { refreshSessions(); refreshPending(); }}
@@ -216,14 +244,14 @@ export function CommandCenterView() {
 
 /* ---------- monitor strip ---------- */
 
-function Stat({ value, label, live }: { value: number | string; label: string; live?: boolean }) {
+function Stat({ value, label, live, tone }: { value: number | string; label: string; live?: boolean; tone?: string }) {
   return (
     <span className="flex items-center gap-1.5">
       {live != null && (
         <span className={`h-1.5 w-1.5 rounded-full ${live ? 'animate-pulse' : ''}`} style={{ background: live ? 'var(--success)' : 'var(--ink-faint)' }} />
       )}
-      <span className="tabular-nums font-semibold text-ink">{value}</span>
-      <span>{label}</span>
+      <span className="tabular-nums font-semibold text-ink" style={tone ? { color: tone } : undefined}>{value}</span>
+      <span style={tone ? { color: tone } : undefined}>{label}</span>
     </span>
   );
 }

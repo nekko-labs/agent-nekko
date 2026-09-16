@@ -82,3 +82,40 @@ export function sessionLane(input: {
 export function waitingSince(pending: PendingInput | undefined): number {
   return pending?.question?.askedAt ?? pending?.approval?.requestedAt ?? 0;
 }
+
+/** One side of the exchange, as a card shows it. */
+export interface TurnExcerpt {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  at: number;
+  /** The reply this came from was cut off part-way. */
+  interrupted?: boolean;
+}
+
+/**
+ * The tail of the conversation, as the back-and-forth it was.
+ *
+ * A card used to show one clamped paragraph of the last assistant message,
+ * which is the half of the exchange you already know the least about: without
+ * the instruction above it, a reply reads as a non-sequitur. So both sides come
+ * back, newest last, with the working steps dropped — an assistant message that
+ * only called tools said nothing, and the rail above covers what it did.
+ */
+export function recentTurns(messages: ChatMessage[], limit: number): TurnExcerpt[] {
+  const out: TurnExcerpt[] = [];
+  for (let i = messages.length - 1; i >= 0 && out.length < limit; i--) {
+    const m = messages[i];
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    const text = m.content.trim();
+    if (!text) continue;
+    out.push({
+      id: m.id,
+      role: m.role,
+      text,
+      at: m.createdAt,
+      ...(m.interrupted ? { interrupted: true } : {}),
+    });
+  }
+  return out.reverse();
+}
