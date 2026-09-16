@@ -59,12 +59,14 @@ open. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 The home is **agentnekko.com** (with **nekkoagent.com** as a backup), the npm
 package is **`agent-nekko`**, and installers are named **`AgentNekko-…`**.
-Releases published before the rename keep the filenames they shipped under.
+Releases published before the rename keep the filenames they shipped under,
+and the earlier domains redirect here.
 
-Nothing you already had stops working. The `kotrain` and `nekkos` commands are
-kept as aliases, `KOTRAIN_*` environment variables are still read behind
-`NEKKO_*`, an existing `~/.kotrain` keeps being used, and the desktop app adopts
-its previous profile on first run. `kotrain://` deep links still resolve.
+The rename is a clean cut: only `NEKKO_*` environment variables are read, data
+lives in `~/.nekko` / `%APPDATA%\Agent Nekko`, and only `agent-nekko://` deep
+links resolve. An older install's data does not migrate on its own; move
+`~/.kotrain` (or `~/.nekkos`, `~/.open-paw`) to `~/.nekko` by hand if you still
+have one.
 
 ### On the roadmap
 
@@ -191,13 +193,13 @@ npm run web        # builds everything, then serves at http://localhost:1440
 ```
 
 Same app, in your browser, fully offline. It binds to `localhost` by default. A
-non-loopback bind refuses to start unless `KOTRAIN_TOKEN` is set; use
+non-loopback bind refuses to start unless `NEKKO_TOKEN` is set; use
 `Authorization: Bearer <token>` for API requests and append `?token=…` only for
 browser WebSocket access. If a trusted reverse proxy provides authentication,
 the explicit escape hatch is `NEKKO_ALLOW_UNAUTHENTICATED=1`. Host and Origin
 checks can be extended for a proxy with comma-separated
 `NEKKO_ALLOWED_HOSTS` and `NEKKO_ALLOWED_ORIGINS`. Data lives in
-`~/.nekko` (override with `NEKKO_DATA_DIR`), or an existing `~/.kotrain`.
+`~/.nekko` (override with `NEKKO_DATA_DIR`).
 
 ![Agent Nekko web edition](docs/screenshots/web-edition.png)
 
@@ -209,8 +211,7 @@ docker compose up        # build + run, then open http://localhost:1440
 
 Mount your codebases into `./workspace` (the sandbox confines file tools there),
 and reach a model server on your host at `http://host.docker.internal:<port>`.
-Settings/sessions persist in the `kotrain-data` volume (still named for the
-earlier brand on purpose, so an existing self-hosted install keeps its data).
+Settings/sessions persist in the `agent-nekko-data` volume.
 Compose generates and prints a random token; read it with `docker compose logs`
 (or set your own `NEKKO_TOKEN`) before exposing the service beyond localhost.
 
@@ -256,7 +257,7 @@ The core engine is Electron-free so it can be tested in isolation and reused.
 External harnesses can drive the same host through the CLI or MCP server:
 
 ```bash
-npm install --global agent-nekko   # publishing with the next release; until then: kotrain
+npm install --global agent-nekko   # publishing with the next release
 npx agent-nekko status --json
 npx agent-nekko mcp
 ```
@@ -269,7 +270,7 @@ node apps/cli/dist/index.js status --json
 node apps/cli/dist/index.js mcp
 ```
 
-Use `--url http://host:port --token "$KOTRAIN_TOKEN"` for a running web
+Use `--url http://host:port --token "$NEKKO_TOKEN"` for a running web
 edition. Chat defaults to guardrails approval; see the complete command list,
 machine-output schemas, safety model, MCP registration examples, and recipes
 in [docs/CLI.md](docs/CLI.md).

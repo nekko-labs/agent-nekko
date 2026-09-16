@@ -399,9 +399,7 @@ export function runMcpServer(opts: { url?: string; token?: string } = {}): void 
       ok(id, { tools: TOOLS });
     } else if (method === 'tools/call') {
       try {
-        const requestedName = params?.name;
-        const canonicalName = typeof requestedName === 'string' ? requestedName.replace(/^kotrain_/, 'agent-nekko_') : requestedName;
-        const name = TOOLS.some((tool) => tool.name === canonicalName) ? canonicalName : requestedName;
+        const name = params?.name;
         const text = await callTool(client, name, params?.arguments ?? {});
         if (name === 'agent-nekko_chat') {
           const result = JSON.parse(text) as {

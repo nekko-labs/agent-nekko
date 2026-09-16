@@ -155,16 +155,8 @@ export async function generateDesign(workspaceId: string, input: GenerateDesignI
   const ws = settings.workspaces.find((w) => w.id === workspaceId);
   if (ws) {
     try {
-      // Prefer nekko-designs, but keep filling a folder from an earlier brand
-      // if the workspace already has one (no split-brain folders).
       let dir = join(ws.path, 'nekko-designs');
-      if (!existsSync(dir)) {
-        const legacy = ['kotrain-designs', 'nekkos-designs']
-          .map((name) => join(ws.path, name))
-          .find(existsSync);
-        if (legacy) dir = legacy;
-        else mkdirSync(dir, { recursive: true });
-      }
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
       if (!filePath) {
         const slug = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'design';
         filePath = join(dir, `${slug}-${randomUUID().slice(0, 6)}.html`);

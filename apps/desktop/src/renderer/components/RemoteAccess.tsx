@@ -11,7 +11,7 @@ import { Badge } from './primitives/index.js';
  */
 
 /** Managed relay (free during beta; becomes an Agent Nekko Cloud perk). */
-export const MANAGED_RELAY_URL = 'wss://kotrain-relay.fly.dev';
+export const MANAGED_RELAY_URL = 'wss://agent-nekko-relay.fly.dev';
 const SELF_HOST_DOCS = 'https://github.com/nekko-labs/agent-nekko/blob/main/docs/REMOTE.md';
 
 export function RemoteAccess() {

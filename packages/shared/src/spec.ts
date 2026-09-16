@@ -84,16 +84,8 @@ export const SPEC_METHODOLOGIES: SpecMethodology[] = [
 export const DEFAULT_SPEC_METHODOLOGY = 'spec-tasks';
 
 /** Look up a methodology by id, falling back to the default. */
-/**
- * Methodology ids persisted under an earlier brand. Without this a session
- * saved as `kotrain` would fall through to the default and quietly lose its
- * plan document.
- */
-const LEGACY_METHODOLOGY_IDS: Record<string, string> = { kotrain: 'agent-nekko', nekkos: 'agent-nekko' };
-
 export function getMethodology(id: string | undefined): SpecMethodology {
-  const resolved = (id && LEGACY_METHODOLOGY_IDS[id]) ?? id;
-  return SPEC_METHODOLOGIES.find((m) => m.id === resolved) ?? SPEC_METHODOLOGIES[0];
+  return SPEC_METHODOLOGIES.find((m) => m.id === id) ?? SPEC_METHODOLOGIES[0];
 }
 
 /** Live status of one artifact for the UI. */

@@ -966,7 +966,7 @@
   }
 }
 
-/* Mascot animations: Kotrain works in zero-g, so everything is slow and floaty */
+/* Mascot animations: Nekko works in zero-g, so everything is slow and floaty */
 @keyframes nekko-float {
   0%, 100% { transform: translateY(0) rotate(-1.4deg); }
   50% { transform: translateY(-4px) rotate(1.8deg); }

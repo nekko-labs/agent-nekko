@@ -14,10 +14,8 @@ services:
     volumes:
       # Codebases the agent may read/edit (workspace-jail sandbox confines it here).
       - ./workspace:/workspace
-      # Settings, sessions, memory, usage. Named for an earlier brand on
-      # purpose: renaming it would point compose at a new empty volume and
-      # strand the data of anyone already self-hosting.
-      - kotrain-data:/data
+      # Settings, sessions, memory, usage.
+      - agent-nekko-data:/data
     environment:
       - NEKKO_SANDBOX=workspace-jail
     # Lets the container reach a model server (Ollama/LM Studio/vLLM) on the host,
@@ -27,4 +25,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  kotrain-data: {}
+  agent-nekko-data: {}

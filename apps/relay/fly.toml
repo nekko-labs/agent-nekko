@@ -1,6 +1,6 @@
 # Fly.io config for the managed Agent Nekko relay (relay.agent-nekko.com candidate).
 # Deploy from the REPO ROOT (the Dockerfile needs the workspace manifests):
-#   fly apps create kotrain-relay                 (first time)
+#   fly apps create agent-nekko-relay             (first time)
 #   fly deploy -c apps/relay/fly.toml --dockerfile apps/relay/Dockerfile .
 # Keep it at ONE machine (fly scale count 1): rooms live in a machine's memory,
 # so the agent and its phones must land on the same instance.
@@ -8,7 +8,7 @@
 #   fly secrets set APNS_KEY_P8=... APNS_KEY_ID=... APNS_TEAM_ID=... \
 #     FCM_SERVICE_ACCOUNT=... NEKKO_RELAY_AUTHZ_URL=https://cloud.agent-nekko.com/api/relay/authorize
 
-app = "kotrain-relay"
+app = "agent-nekko-relay"
 primary_region = "nrt"
 
 [build]

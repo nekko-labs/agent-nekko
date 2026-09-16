@@ -44,7 +44,7 @@ function validSkill(s: unknown): s is VaizerCatalogSkill {
     typeof o.slug === 'string' &&
     /^[a-z0-9-]+$/.test(o.slug) &&
     typeof o.description === 'string' &&
-    (o.tier === 'kotrain-official' || o.tier === 'community')
+    (o.tier === 'nekko-official' || o.tier === 'community')
   );
 }
 

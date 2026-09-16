@@ -49,7 +49,7 @@ and it's why relayed local-model use is inherently zero-data-retention for conte
 
 ## Choosing a relay
 
-### Managed relay (default): `wss://kotrain-relay.fly.dev`
+### Managed relay (default): `wss://agent-nekko-relay.fly.dev`
 
 Zero setup; free during beta with per-connection rate limits. When Agent Nekko Cloud launches, the
 managed relay becomes part of the paid plans (it already supports gating via

@@ -6,8 +6,8 @@ import evaluate
 
 # --- Configuration ---
 MODEL_CHECKPOINT = "Helsinki-NLP/opus-mt-en-ja" 
-DATASET_PATH = "kotrain-training/japanese_translation/processed_dataset"
-OUTPUT_DIR = "kotrain-training/japanese_translation/model_output"
+DATASET_PATH = "nekko-training/japanese_translation/processed_dataset"
+OUTPUT_DIR = "nekko-training/japanese_translation/model_output"
 
 def train_model():
     """Loads tokenized data, initializes the model, and trains it."""

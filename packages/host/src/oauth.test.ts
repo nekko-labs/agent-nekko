@@ -21,7 +21,7 @@ describe('OAuth core', () => {
   let fetchMock: Mock;
 
   beforeEach(() => {
-    dir = mkdtempSync(join(tmpdir(), 'kotrain-oauth-'));
+    dir = mkdtempSync(join(tmpdir(), 'nekko-oauth-'));
     setDataDir(dir);
     fetchMock = vi.fn();
     globalThis.fetch = fetchMock as any;

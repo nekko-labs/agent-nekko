@@ -14,13 +14,10 @@ agent-nekko status
 
 The package name is **`agent-nekko`**. It has not reached the registry yet: the
 v0.7.0 release is blocked on macOS signing (see [TASKS.md](../../TASKS.md)) and
-the publish step runs only once the whole matrix passes. Until then,
-`npm install -g kotrain` installs the same CLI at 0.6.0.
+the publish step runs only once the whole matrix passes. Until then, run it
+from a source checkout (below).
 
-Either package installs three equivalent executables: `agent-nekko` (canonical
-from 0.7.0 on) plus `kotrain` and `nekkos`, kept from earlier names so existing
-scripts and MCP configs keep working. They accept the same commands and options.
-Once `agent-nekko` publishes, `kotrain` is deprecated on npm and points here.
+The package installs a single executable: `agent-nekko`.
 
 From a checkout:
 

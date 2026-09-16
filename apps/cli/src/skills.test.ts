@@ -22,7 +22,7 @@ function stubClient(over: Partial<SkillResolverClient> = {}): SkillResolverClien
 
 describe('resolveInstall', () => {
   it('passes built-in catalog skills straight through with no payload', async () => {
-    const builtIn = 'kotrain-review-council';
+    const builtIn = 'agent-nekko-review-council';
     expect(getMarketSkill(builtIn)).toBeDefined();
 
     const res = await resolveInstall(stubClient(), builtIn);

@@ -4,9 +4,9 @@ import { hypergateConnectPort } from '../deepLinks.js';
 import { Modal } from './primitives/index.js';
 
 /**
- * `kotrain://` links from other apps.
+ * `agent-nekko://` links from other apps.
  *
- * One route today: `kotrain://hypergate/connect?port=7777`, which is what
+ * One route today: `agent-nekko://hypergate/connect?port=7777`, which is what
  * Hypergate's "Connect Agent Nekko" button fires. The link is a *request*, never
  * the action: any program on the machine can open a URL, and connecting a
  * gateway means trusting whatever tools it offers in every chat from then on.
@@ -49,7 +49,7 @@ export function DeepLinkListener() {
           port,
           version: found.version,
           servers: found.servers,
-          known: (settings?.mcpServers ?? []).some((s) => s.id === 'hypergate' || s.id === 'kotrain-mcp'),
+          known: (settings?.mcpServers ?? []).some((s) => s.id === 'hypergate'),
         });
       })();
     });

@@ -61,7 +61,7 @@ describe('composerDrafts', () => {
   });
 
   it('survives corrupt stored json', () => {
-    storage.map.set('kotrain.composerDrafts', '{not json');
+    storage.map.set('nekko.composerDrafts', '{not json');
     expect(loadDraft('a')).toBeNull();
     saveDraft('a', { text: 'fresh', images: [] });
     expect(loadDraft('a')?.text).toBe('fresh');

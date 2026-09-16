@@ -3,11 +3,8 @@
   "version": "0.7.1",
   "private": true,
   "type": "module",
-  "description": "Kotrain self-hosted web server, same engine + UI as the desktop app.",
+  "description": "Agent Nekko self-hosted web server, same engine + UI as the desktop app.",
   "main": "./dist/index.js",
-  "bin": {
-    "kotrain": "./dist/index.js"
-  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -21,7 +18,7 @@
     "@agent-nekko/host": "*",
     "@agent-nekko/shared": "*",
     "fastify": "^5.11.2",
-    "kotrain": "*"
+    "agent-nekko": "*"
   },
   "devDependencies": {
     "esbuild": "^0.25.12"

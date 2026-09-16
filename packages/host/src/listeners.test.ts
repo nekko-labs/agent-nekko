@@ -12,7 +12,7 @@ let dir = '';
 let fetchMock: Mock;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'kotrain-listeners-'));
+  dir = mkdtempSync(join(tmpdir(), 'nekko-listeners-'));
   setDataDir(dir);
   resetWorkflowListeners();
   fetchMock = vi.fn();

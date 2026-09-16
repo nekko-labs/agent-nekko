@@ -15,7 +15,7 @@ beforeEach(() => {
 
 describe('LimitsService header capture', () => {
   beforeEach(() => {
-    const dir = mkdtempSync(join(tmpdir(), 'kotrain-limits-'));
+    const dir = mkdtempSync(join(tmpdir(), 'nekko-limits-'));
     setDataDir(dir);
   });
 
@@ -109,7 +109,7 @@ describe('LimitsService header capture', () => {
 
 describe('LimitsService ChatGPT /wham/usage poll', () => {
   beforeEach(() => {
-    const dir = mkdtempSync(join(tmpdir(), 'kotrain-limits-'));
+    const dir = mkdtempSync(join(tmpdir(), 'nekko-limits-'));
     setDataDir(dir);
     vi.useFakeTimers();
     vi.setSystemTime(TEST_NOW);
@@ -246,7 +246,7 @@ describe('LimitsService ChatGPT /wham/usage poll', () => {
 
 describe('LimitsService Claude /api/oauth/usage poll', () => {
   beforeEach(() => {
-    const dir = mkdtempSync(join(tmpdir(), 'kotrain-limits-'));
+    const dir = mkdtempSync(join(tmpdir(), 'nekko-limits-'));
     setDataDir(dir);
     vi.useFakeTimers();
     vi.setSystemTime(TEST_NOW);
@@ -292,7 +292,7 @@ describe('LimitsService Claude /api/oauth/usage poll', () => {
 
 describe('getLimits', () => {
   beforeEach(() => {
-    const dir = mkdtempSync(join(tmpdir(), 'kotrain-limits-'));
+    const dir = mkdtempSync(join(tmpdir(), 'nekko-limits-'));
     setDataDir(dir);
     vi.useFakeTimers();
     vi.setSystemTime(TEST_NOW);

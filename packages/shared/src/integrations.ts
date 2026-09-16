@@ -15,7 +15,7 @@ export interface AgentToolStatus {
   configPath: string;
   /** The tool's config directory exists, i.e. the CLI is installed/has run. */
   detected: boolean;
-  /** The agent-nekko (or legacy kotrain) MCP entry is already present. */
+  /** The agent-nekko MCP entry is already present. */
   installed: boolean;
 }
 

@@ -39,8 +39,8 @@ npm run cloud            # from repo root: builds engine + renderer, serves :431
 Environment:
 
 - `CLOUD_PORT` (default `4318`), `CLOUD_HOST` (default `127.0.0.1`)
-- `CLOUD_DATA_DIR` (default `~/.nekko-cloud`, or an existing `~/.kotrain-cloud`), cloud metadata + per-account dirs
-- `KOTRAIN_RENDERER_DIR`, override the served renderer build
+- `CLOUD_DATA_DIR` (default `~/.nekko-cloud`), cloud metadata + per-account dirs
+- `NEKKO_RENDERER_DIR`, override the served renderer build
 - `CLOUD_PUBLIC_URL`, public base URL, for Checkout success/cancel/portal redirects
 - Billing (optional; billing stays disabled if `STRIPE_SECRET_KEY` is unset):
   `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_TEAM`

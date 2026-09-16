@@ -39,7 +39,7 @@ let dir = '';
 
 beforeEach(() => {
   // A fresh data dir per test, so workflows.json and workflow-runs.json start empty.
-  dir = mkdtempSync(join(tmpdir(), 'kotrain-workflows-'));
+  dir = mkdtempSync(join(tmpdir(), 'nekko-workflows-'));
   setDataDir(dir);
 });
 

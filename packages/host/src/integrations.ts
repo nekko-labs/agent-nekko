@@ -18,8 +18,6 @@ import { backupFile, writeJsonAtomic, writeTextAtomic } from './secure-file.js';
 
 /** The server key written into every tool's MCP config. */
 const SERVER_NAME = 'agent-nekko';
-/** Older installs registered under this key; they count as installed. */
-const LEGACY_SERVER_NAMES = ['kotrain'];
 /** The portable command every tool gets: the bundled CLI over stdio. */
 const MCP_ENTRY = { command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] };
 
@@ -73,9 +71,9 @@ const TOOLS: AgentToolSpec[] = [
 /** The TOML block appended to Codex's config.toml. */
 const TOML_SECTION = `[mcp_servers.${SERVER_NAME}]\ncommand = "npx"\nargs = ["-y", "agent-nekko", "mcp"]\n`;
 
-/** Matches an existing `[mcp_servers.agent-nekko]`/`[mcp_servers.kotrain]` table header, bare or quoted. */
+/** Matches an existing `[mcp_servers.agent-nekko]` table header, bare or quoted. */
 const TOML_ENTRY_RE = new RegExp(
-  `^\\s*\\[\\s*mcp_servers\\s*\\.\\s*"?(?:${[SERVER_NAME, ...LEGACY_SERVER_NAMES].join('|')})"?\\s*\\]\\s*$`,
+  `^\\s*\\[\\s*mcp_servers\\s*\\.\\s*"?${SERVER_NAME}"?\\s*\\]\\s*$`,
   'm',
 );
 
@@ -220,7 +218,7 @@ function isInstalled(spec: AgentToolSpec, home: string): boolean {
   try {
     const cfg = JSON.parse(text) as { mcpServers?: Record<string, unknown> };
     const servers = cfg?.mcpServers ?? {};
-    return Boolean(servers[SERVER_NAME] || LEGACY_SERVER_NAMES.some((n) => servers[n]));
+    return Boolean(servers[SERVER_NAME]);
   } catch {
     return false; // unparseable config isn't "installed"; install reports it
   }

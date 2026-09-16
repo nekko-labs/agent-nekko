@@ -227,17 +227,8 @@ export const DEFAULT_HYPERGATE_PORT = 7777;
 /** The MCP entry id Hypergate gets in settings. Constant, so re-connecting replaces it. */
 export const HYPERGATE_ENTRY_ID = 'hypergate';
 
-/**
- * Entry ids earlier versions used for the same gateway, cleared on connect.
- *
- * The daemon was called KotrainMCP before the product became Hypergate; an
- * install that connected back then still has that row, and leaving it would
- * mean two entries pointed at one gateway, every tool offered twice.
- */
-export const LEGACY_HYPERGATE_ENTRY_IDS = ['kotrain-mcp'];
-
-/** `service` values a Hypergate daemon answers `/health` with (older name included). */
-const HYPERGATE_SERVICES = ['hypergated', 'kotrain-mcpd'];
+/** `service` values a Hypergate daemon answers `/health` with. */
+const HYPERGATE_SERVICES = ['hypergated'];
 
 /**
  * The daemon's base URL.
@@ -325,7 +316,7 @@ async function hypergateToken(base: string): Promise<{ token?: string; agent?: s
 }
 
 /**
- * Everything the connect button (and the `kotrain://` deep link) needs: probe
+ * Everything the connect button (and the `agent-nekko://` deep link) needs: probe
  * the daemon, then get this install its own credential on it.
  *
  * Returns null when nothing is listening, so both callers can say "Hypergate
@@ -354,18 +345,17 @@ export const hypergateEntry = (info: HypergateInfo): McpServerConfig => ({
 
 /**
  * Put the gateway into a server list: replace the existing entry if there is
- * one (a re-connect after a token rotation is the common case), drop the
- * pre-rename entry, and otherwise append.
+ * one (a re-connect after a token rotation is the common case), and otherwise
+ * append.
  */
 export function withHypergate(servers: McpServerConfig[], info: HypergateInfo): McpServerConfig[] {
   const entry = hypergateEntry(info);
-  const rest = servers.filter((s) => !LEGACY_HYPERGATE_ENTRY_IDS.includes(s.id));
-  const existing = rest.find((s) => s.id === HYPERGATE_ENTRY_ID);
+  const existing = servers.find((s) => s.id === HYPERGATE_ENTRY_ID);
   // Keep the user's own edits to the row (they may have renamed it) and only
   // overwrite what the daemon is authoritative about.
   return existing
-    ? rest.map((s) => (s.id === HYPERGATE_ENTRY_ID ? { ...s, ...entry, name: s.name || entry.name } : s))
-    : [...rest, entry];
+    ? servers.map((s) => (s.id === HYPERGATE_ENTRY_ID ? { ...s, ...entry, name: s.name || entry.name } : s))
+    : [...servers, entry];
 }
 
 /** Connection status for the UI. */

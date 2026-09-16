@@ -12,7 +12,7 @@ describe('agent-tool detection and subagent install', () => {
   let home: string;
 
   beforeEach(() => {
-    home = mkdtempSync(join(tmpdir(), 'kotrain-int-'));
+    home = mkdtempSync(join(tmpdir(), 'nekko-int-'));
   });
 
   it('reports every tool undetected and not installed on a bare HOME', () => {
@@ -86,16 +86,19 @@ describe('agent-tool detection and subagent install', () => {
     expect(readFileSync(join(home, '.codex', 'config.toml'), 'utf8')).toBe(text);
   });
 
-  it('counts a legacy kotrain entry as installed', () => {
+  it('does not count a legacy kotrain entry as installed', () => {
     mkdirSync(join(home, '.claude'));
     writeFileSync(
       join(home, '.claude.json'),
       JSON.stringify({ mcpServers: { kotrain: { command: 'npx', args: ['-y', 'kotrain', 'mcp'] } } }),
     );
-    expect(detectAgentTools(home).find((t) => t.id === 'claude')?.installed).toBe(true);
+    expect(detectAgentTools(home).find((t) => t.id === 'claude')?.installed).toBe(false);
     const res = installSubagent('claude', home);
     expect(res.ok).toBe(true);
-    expect(res.message).toContain('Already installed');
+    // The install added the canonical entry alongside the stale one.
+    const cfg = JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8'));
+    expect(cfg.mcpServers['agent-nekko']).toBeTruthy();
+    expect(cfg.mcpServers.kotrain).toBeTruthy();
   });
 
   it('refuses to clobber an unparseable config and leaves it untouched', () => {

@@ -19,7 +19,7 @@ describe('vaizer catalog snapshot', () => {
     expect(VAIZER_SNAPSHOT.skills.length).toBeGreaterThan(0);
     for (const s of VAIZER_SNAPSHOT.skills) {
       expect(s.slug).toMatch(/^[a-z0-9-]+$/);
-      expect(['kotrain-official', 'community']).toContain(s.tier);
+      expect(['nekko-official', 'community']).toContain(s.tier);
       expect(s.description.length).toBeGreaterThan(0);
     }
   });

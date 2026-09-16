@@ -27,7 +27,7 @@ Env: `NEKKO_RELAY_PORT` (4400), `NEKKO_RELAY_HOST` (0.0.0.0),
 account for managed hosting; agents then connect with `&access=<bearer>` and the
 relay POSTs it to this URL, expecting `{ok:true}`).
 
-The managed instance lives at `wss://kotrain-relay.fly.dev`
+The managed instance lives at `wss://agent-nekko-relay.fly.dev`
 (`fly deploy -c apps/relay/fly.toml --dockerfile apps/relay/Dockerfile .` from
 the repo root; keep it at one machine, rooms are in-memory).
 

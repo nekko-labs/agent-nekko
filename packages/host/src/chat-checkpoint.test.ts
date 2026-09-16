@@ -45,8 +45,8 @@ let dir: string;
 let workspace: string;
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'kotrain-checkpoint-'));
-  workspace = mkdtempSync(join(tmpdir(), 'kotrain-ws-'));
+  dir = mkdtempSync(join(tmpdir(), 'nekko-checkpoint-'));
+  workspace = mkdtempSync(join(tmpdir(), 'nekko-ws-'));
   setDataDir(dir);
   saveSettings({
     workspaces: [{ id: 'w1', name: 'ws', path: workspace, addedAt: 0 }],

@@ -32,8 +32,6 @@ describe('CLI identity and compatibility', () => {
     expect(manifest.repository.url).toBe('git+https://github.com/nekko-labs/agent-nekko.git');
     expect(manifest.bin).toEqual({
       'agent-nekko': 'dist/index.js',
-      kotrain: 'dist/index.js',
-      nekkos: 'dist/index.js',
     });
   });
 
@@ -44,7 +42,6 @@ describe('CLI identity and compatibility', () => {
       const help = String(log.mock.calls[0][0]);
       expect(help).toMatch(/^Agent Nekko CLI \(agent-nekko /);
       expect(help).toContain('agent-nekko status|sessions|watch');
-      expect(help).toContain('Legacy aliases: kotrain, nekkos');
       expect(help).toContain('NEKKO_URL');
       expect(help).toContain('NEKKO_TOKEN');
       expect(help).toContain('NEKKO_DATA_DIR');
@@ -60,13 +57,13 @@ describe('CLI identity and compatibility', () => {
     });
   });
 
-  it('shows the canonical skill target in usage and still accepts the legacy one', async () => {
+  it('shows the canonical skill target in usage and normalizes unknown values', async () => {
     await expect(runCli(['skills', 'install', '--url', 'http://127.0.0.1:1'])).rejects.toMatchObject({
       message: 'Usage: agent-nekko skills install <id> [--target agent-nekko|claude|codex]',
       exitCode: EXIT_CODES.usage,
     });
-    // `kotrain` remains a valid target value; it normalizes to agent-nekko.
-    expect(normalizeInstallTarget('kotrain')).toBe('agent-nekko');
+    expect(normalizeInstallTarget('claude')).toBe('claude');
+    expect(normalizeInstallTarget('bogus')).toBe('agent-nekko');
   });
 });
 

@@ -53,7 +53,6 @@ Usage:
   agent-nekko mcp
   agent-nekko --help | --version
 
-Legacy aliases: kotrain, nekkos (same commands and options).
 Install: npm install -g agent-nekko
 
 Target:

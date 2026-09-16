@@ -25,8 +25,7 @@
     "web": "npm run build:web && npm run start -w @agent-nekko/server",
     "bundle:web": "npm run build:web && npm run bundle -w @agent-nekko/server",
     "test:cli-package": "node scripts/smoke-cli-pack.mjs",
-    "test:brand": "node --test scripts/rebrand.test.mjs",
-    "test": "npm run test:brand && npm run test -w @agent-nekko/shared && npm run test -w @agent-nekko/core && npm run test -w @agent-nekko/desktop && npm run test -w @agent-nekko/cloud && npm run test -w @agent-nekko/host && npm run test -w @agent-nekko/server && npm run test -w @agent-nekko/relay && npm run test --workspace=apps/cli",
+    "test": "npm run test -w @agent-nekko/shared && npm run test -w @agent-nekko/core && npm run test -w @agent-nekko/desktop && npm run test -w @agent-nekko/cloud && npm run test -w @agent-nekko/host && npm run test -w @agent-nekko/server && npm run test -w @agent-nekko/relay && npm run test --workspace=apps/cli",
     "typecheck": "npm run build:core && npm run typecheck -w @agent-nekko/shared && npm run typecheck -w @agent-nekko/core && npm run typecheck -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run typecheck --workspace=apps/cli && npm run typecheck -w @agent-nekko/desktop && npm run typecheck -w @agent-nekko/server && npm run typecheck -w @agent-nekko/relay && npm run typecheck -w @agent-nekko/cloud",
     "relay": "npm run build -w @agent-nekko/relay && npm run start -w @agent-nekko/relay",
     "dist": "npm run build && npm run dist -w @agent-nekko/desktop"

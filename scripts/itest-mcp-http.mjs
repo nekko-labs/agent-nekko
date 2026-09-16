@@ -3,8 +3,7 @@
 // adds a scratch echo server through the daemon API, connects Agent Nekko's
 // host MCP client to the gateway URL, and lists + calls a tool through it.
 //
-// Hypergate was itself renamed (kotrain-mcp → hypergate), which is why the
-// checks below name `hypergated` and `../hypergate`.
+// The checks below name `hypergated` and `../hypergate`.
 // Usage: node scripts/itest-mcp-http.mjs [daemonBase]
 import { createHost } from '@agent-nekko/host';
 import { mkdtempSync } from 'node:fs';

@@ -51,7 +51,7 @@ let dir: string;
 let providers: ProviderConfig[];
 
 beforeEach(() => {
-  dir = mkdtempSync(join(tmpdir(), 'kotrain-routing-'));
+  dir = mkdtempSync(join(tmpdir(), 'nekko-routing-'));
   setDataDir(dir);
   providers = [
     { id: 'frontier', kind: 'anthropic', label: 'Frontier', baseUrl: 'https://private.example', apiKey: 'private-token', enabled: true },

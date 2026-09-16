@@ -532,7 +532,7 @@ export interface NekkoApi {
   /** Fires when subscription limits are captured or polled for any token key. */
   onLimitsUpdated(cb: (e: { tokenKey: string; limits: SubscriptionLimits }) => void): () => void;
   /**
-   * Fires when another app asks Agent Nekko to do something through a `kotrain://`
+   * Fires when another app asks Agent Nekko to do something through an `agent-nekko://`
    * URL: today, Hypergate's "Connect Agent Nekko" button. Desktop only, since the
    * web transport has no OS to hand it one.
    */

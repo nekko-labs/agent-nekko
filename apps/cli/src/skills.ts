@@ -6,12 +6,12 @@ import type { Client } from './lib.js';
 export type SkillResolverClient = Pick<Client, 'vaizerCatalog' | 'vaizerSkillMd'>;
 
 /**
- * Work out what `kotrain skills install <id>` should hand the host.
+ * Work out what `agent-nekko skills install <id>` should hand the host.
  *
  * Built-in catalog skills resolve host-side from their id alone. Vaizer skills
  * do not: `installSkill` in `packages/host/src/skills.ts` accepts them only as
  * a `payload` snapshot, which the desktop's Vaizer shelf passes and the CLI
- * never did. That is why every `kotrain skills install <vaizer-skill>` failed
+ * never did. That is why every `agent-nekko skills install <vaizer-skill>` failed
  * with "Unknown skill." even though the shelf installed the same skill fine.
  *
  * Accepts the friendly slug (`nyaa`) as well as the canonical catalog id

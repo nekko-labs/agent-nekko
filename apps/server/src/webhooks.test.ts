@@ -11,7 +11,7 @@ let host: Host;
 let app: ReturnType<typeof Fastify>;
 
 beforeEach(async () => {
-  dir = mkdtempSync(join(tmpdir(), 'kotrain-server-webhooks-'));
+  dir = mkdtempSync(join(tmpdir(), 'nekko-server-webhooks-'));
   setDataDir(dir);
   host = createHost({ dataDir: dir });
   app = Fastify();

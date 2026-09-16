@@ -30,7 +30,7 @@ let answer = '';
 for await (const c of provider.chat({
   model,
   system: 'You are concise.',
-  messages: [{ id: '1', role: 'user', content: 'Reply with exactly: HELLO KOTRAIN', createdAt: 0 }],
+  messages: [{ id: '1', role: 'user', content: 'Reply with exactly: HELLO NEKKO', createdAt: 0 }],
 })) {
   if (c.type === 'reasoning') reasoningChars += c.delta.length;
   else if (c.type === 'text') answer += c.delta;
@@ -40,7 +40,7 @@ console.log(`reasoning chars streamed: ${reasoningChars}`);
 console.log(`answer: ${JSON.stringify(answer.trim())}`);
 
 console.log('\n== Agent loop with a real tool (read_file) ==');
-const dir = mkdtempSync(join(tmpdir(), 'kotrain-itest-'));
+const dir = mkdtempSync(join(tmpdir(), 'nekko-itest-'));
 const secretFile = join(dir, 'secret.txt');
 writeFileSync(secretFile, 'The magic word is BISCUITS.', 'utf8');
 

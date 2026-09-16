@@ -9,7 +9,7 @@ import websocket from '@fastify/websocket';
 import { createHost, createDispatcher } from '@agent-nekko/host';
 import { brandEnv, IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import { runRelayAgent } from './relay-agent.js';
-import { runCli } from 'kotrain/run';
+import { runCli } from 'agent-nekko/run';
 import { isLoopbackHost, tokenMatches, validateBindSecurity } from './security.js';
 import { createApiSecurityHook } from './request-security.js';
 import { registerWebhookRoutes } from './webhooks.js';
@@ -22,17 +22,11 @@ const CLI_SUBCOMMANDS = new Set([
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-/** NEKKO_* env, falling back to every earlier brand prefix. See `brandEnv`. */
+/** NEKKO_* env. See `brandEnv`. */
 const env = brandEnv;
-/** Default data dir: ~/.nekko, but keep using an earlier brand's dir if one exists. */
+/** Default data dir: ~/.nekko. */
 function defaultDataDir(): string {
-  const next = join(homedir(), '.nekko');
-  if (existsSync(next)) return next;
-  for (const name of ['.kotrain', '.nekkos', '.open-paw']) {
-    const legacy = join(homedir(), name);
-    if (existsSync(legacy)) return legacy;
-  }
-  return next;
+  return join(homedir(), '.nekko');
 }
 
 const PORT = Number(env('PORT') ?? 1440);
@@ -58,7 +52,7 @@ function findRendererDir(): string {
 const RENDERER_DIR = findRendererDir();
 
 async function main() {
-  // Subcommand → embedded CLI (e.g. `npx agent-nekko mcp`, `kotrain status`).
+  // Subcommand → embedded CLI (e.g. `npx agent-nekko mcp`, `agent-nekko status`).
   const sub = process.argv[2];
   if (sub && CLI_SUBCOMMANDS.has(sub)) {
     await runCli(process.argv.slice(2));

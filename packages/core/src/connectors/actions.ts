@@ -454,7 +454,7 @@ const RUNNERS: Partial<Record<string, WorkflowActionRunner>> = {
       redirect: 'manual',
       headers: {
         'Content-Type': str(params.contentType) || 'application/json',
-        'User-Agent': 'kotrain-workflow',
+        'User-Agent': 'agent-nekko-workflow',
       },
       body: required(str(params.body), 'Body'),
     });
