@@ -1,0 +1,81 @@
+import { describe, expect, it } from 'vitest';
+import { summarizeThought, summarizeToolCall, truncateWords } from './agent-steps.js';
+
+describe('summarizeThought', () => {
+  it('prefers a conclusion sentence over the restated question', () => {
+    const reasoning = [
+      'The user is asking why the limits chip shows 6200%.',
+      'I could look at the chip, or at the parser.',
+      'So the fix is to read the usage JSON as whole percent.',
+    ].join(' ');
+    expect(summarizeThought(reasoning)).toBe('So the fix is to read the usage JSON as whole percent');
+  });
+
+  it('takes the last conclusion when there are several', () => {
+    const reasoning = 'So maybe it is the headers. Actually no. Therefore the JSON endpoint is the one at fault.';
+    expect(summarizeThought(reasoning)).toBe('Therefore the JSON endpoint is the one at fault');
+  });
+
+  it('falls back to the last full sentence', () => {
+    const reasoning = 'Reading the parser now. The header path already divides correctly.';
+    expect(summarizeThought(reasoning)).toBe('The header path already divides correctly');
+  });
+
+  it('ignores a short trailing fragment', () => {
+    const reasoning = 'The window is spent and the reset is two days out. Hmm.';
+    expect(summarizeThought(reasoning)).toBe('The window is spent and the reset is two days out');
+  });
+
+  it('strips markdown and code fences', () => {
+    const reasoning = 'Looking at:\n```ts\nconst x = 1;\n```\nSo I will **update** the `parser` call.';
+    expect(summarizeThought(reasoning)).toBe('So I will update the parser call');
+  });
+
+  it('truncates a very long conclusion on a word boundary', () => {
+    const long = `So ${'the parser needs a great deal more care than anyone expected '.repeat(4)}`;
+    const out = summarizeThought(long);
+    expect(out.length).toBeLessThanOrEqual(91);
+    expect(out.endsWith('…')).toBe(true);
+    expect(out).not.toMatch(/\s…$/);
+  });
+
+  it('is empty for empty reasoning', () => {
+    expect(summarizeThought('')).toBe('');
+    expect(summarizeThought('   \n  ')).toBe('');
+  });
+});
+
+describe('summarizeToolCall', () => {
+  it('shows the command a shell call runs', () => {
+    expect(summarizeToolCall({ name: 'bash', input: { command: 'npm run typecheck' } })).toBe('npm run typecheck');
+  });
+
+  it('shows the path a file tool touched', () => {
+    expect(summarizeToolCall({ name: 'read_file', input: { path: 'packages/host/src/limits.ts' } }))
+      .toBe('packages/host/src/limits.ts');
+  });
+
+  it('prefers the pattern for a search', () => {
+    expect(summarizeToolCall({ name: 'grep', input: { pattern: 'usedPercent', path: '.' } })).toBe('usedPercent');
+  });
+
+  it('falls back to the first string argument of an unknown tool', () => {
+    expect(summarizeToolCall({ name: 'mcp__thing__do', input: { whatever: 'the subject' } })).toBe('the subject');
+  });
+
+  it('is empty when there is nothing worth showing', () => {
+    expect(summarizeToolCall({ name: 'list_dir', input: {} })).toBe('');
+    expect(summarizeToolCall({ name: 'list_dir' })).toBe('');
+    expect(summarizeToolCall({ name: 'x', input: { count: 3 } })).toBe('');
+  });
+});
+
+describe('truncateWords', () => {
+  it('leaves short text alone', () => {
+    expect(truncateWords('short', 20)).toBe('short');
+  });
+
+  it('cuts on a word boundary', () => {
+    expect(truncateWords('one two three four five', 12)).toBe('one two…');
+  });
+});

@@ -23,7 +23,7 @@ const ANTHROPIC_WINDOWS: Array<{
   label: string;
   headerSuffix: string;
   jsonKey: string;
-  modelId?: string;
+  modelFamily?: string;
 }> = [
   { id: '5h', scope: 'session', label: '5-hour', headerSuffix: '5h', jsonKey: 'five_hour' },
   { id: '7d', scope: 'weekly', label: '7-day', headerSuffix: '7d', jsonKey: 'seven_day' },
@@ -33,7 +33,7 @@ const ANTHROPIC_WINDOWS: Array<{
     label: '7-day Sonnet',
     headerSuffix: '7d_sonnet',
     jsonKey: 'seven_day_sonnet',
-    modelId: 'claude-sonnet-4-6',
+    modelFamily: 'sonnet',
   },
   {
     id: '7d_opus',
@@ -41,7 +41,7 @@ const ANTHROPIC_WINDOWS: Array<{
     label: '7-day Opus',
     headerSuffix: '7d_opus',
     jsonKey: 'seven_day_opus',
-    modelId: 'claude-opus-4-8',
+    modelFamily: 'opus',
   },
 ];
 
@@ -281,8 +281,9 @@ function parseAnthropicHeaders(
       id: spec.id,
       label: spec.label,
       scope: spec.scope,
-      modelId: spec.modelId,
-      usedPercent: Math.round(utilization * 100 * 100) / 100,
+      modelFamily: spec.modelFamily,
+      // Headers report a fraction (0.62 = 62%), unlike the usage JSON below.
+      usedPercent: clampPercent(utilization * 100),
       resetAt,
       status,
     });
@@ -291,6 +292,24 @@ function parseAnthropicHeaders(
   return { windows, updatedAt: Date.now(), staleAfterMs: HEADER_STALE_MS };
 }
 
+/**
+ * Clamp a percentage into 0-100. A scale surprise from a provider must degrade
+ * to "pegged at 100%", never to the 6200% the usage endpoint once produced when
+ * its whole-percent numbers were read as fractions.
+ */
+function clampPercent(value: number): number {
+  return Math.min(100, Math.max(0, Math.round(value * 100) / 100));
+}
+
+/**
+ * Parse `GET /api/oauth/usage`.
+ *
+ * The two Anthropic surfaces disagree on scale and the difference is load-bearing:
+ * the rate-limit *headers* report `utilization` as a fraction (`0.62`), this JSON
+ * endpoint reports whole percent (`62`). Multiplying here as the header parser
+ * does is what made a 62%-used week render as "6200%" until the first real
+ * request replaced the snapshot with header-derived numbers.
+ */
 function parseAnthropicUsageJson(json: Record<string, unknown>): SubscriptionLimits {
   const windows: LimitWindow[] = [];
 
@@ -305,12 +324,13 @@ function parseAnthropicUsageJson(json: Record<string, unknown>): SubscriptionLim
         : parseFloat(String(obj.utilization ?? ''));
     if (!Number.isFinite(utilization)) continue;
 
+    const usedPercent = clampPercent(utilization);
     const resetsAt = typeof obj.resets_at === 'string' ? Date.parse(obj.resets_at) : 0;
     const reported = normalizeStatus(typeof obj.status === 'string' ? obj.status : undefined);
     let status: LimitWindow['status'] = 'allowed';
-    if (reported === 'rate_limited' || utilization >= 1.0) {
+    if (reported === 'rate_limited' || usedPercent >= 100) {
       status = 'rate_limited';
-    } else if (reported === 'warning' || utilization >= 0.8) {
+    } else if (reported === 'warning' || usedPercent >= 80) {
       status = 'warning';
     }
 
@@ -318,8 +338,8 @@ function parseAnthropicUsageJson(json: Record<string, unknown>): SubscriptionLim
       id: spec.id,
       label: spec.label,
       scope: spec.scope,
-      modelId: spec.modelId,
-      usedPercent: Math.round(utilization * 100 * 100) / 100,
+      modelFamily: spec.modelFamily,
+      usedPercent,
       resetAt: resetsAt > 0 ? resetsAt : 0,
       status,
     });
@@ -380,7 +400,7 @@ function parseChatGptUsage(json: Record<string, unknown>): SubscriptionLimits {
         id,
         label,
         scope,
-        usedPercent: Math.round(usedPercent * 100) / 100,
+        usedPercent: clampPercent(usedPercent),
         resetAt,
         status,
       });

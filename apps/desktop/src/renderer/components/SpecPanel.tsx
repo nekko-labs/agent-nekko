@@ -101,6 +101,7 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
   };
 
   const methodology = getMethodology(methodologyId);
+  const selectedWorkspacePath = settings?.workspaces?.find((w) => w.id === selectedWorkspaceId)?.path;
   const tasksDoc = docs?.find((d) => d.role === 'tasks');
   const tasks = tasksDoc?.exists ? parseTasks(tasksDoc.content) : [];
   const doneCount = tasks.filter((t) => t.done).length;
@@ -157,7 +158,9 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
             ))}
           </select>
 
-          {/* Artifact rows */}
+          {/* Artifact rows. The name is always a link: a doc that exists opens
+              in the file pane, and one that doesn't says so rather than being a
+              dead control you can't tell apart from a live one. */}
           <div className="space-y-1.5">
             {(docs ?? methodology.docs.map((d) => ({ ...d, path: '', exists: false, content: '' }))).map((d) => (
               <div
@@ -167,20 +170,23 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
                 <div className="flex items-center justify-between gap-2">
                   <button
                     className="group flex min-w-0 items-center gap-1.5 text-left"
-                    onClick={() => d.exists && open(d.path)}
-                    disabled={!d.exists}
-                    title={d.exists ? d.path : undefined}
+                    onClick={() => (d.exists ? open(d.path) : build(d.id))}
+                    disabled={!d.exists && !!busy}
+                    title={d.exists ? `Open ${d.path}` : `Not created yet — click to write ${d.filename} from this chat`}
                   >
                     <span className="truncate text-[12.5px] font-medium">{d.label}</span>
                     <span className="chip shrink-0 text-[9px] lowercase">{d.filename}</span>
-                    {d.exists && <ExternalIcon className="h-3 w-3 shrink-0 text-ink-faint opacity-0 group-hover:opacity-100" />}
+                    {d.exists
+                      ? <ExternalIcon className="h-3 w-3 shrink-0 text-ink-faint opacity-0 group-hover:opacity-100" />
+                      : <span className="shrink-0 text-[10px] text-ink-faint">not created</span>}
                   </button>
                   <button
                     className="btn btn-outline shrink-0 text-[11px]"
                     onClick={() => build(d.id)}
                     disabled={!!busy}
+                    title={d.exists ? `Rewrite ${d.filename} from this conversation` : `Write ${d.filename} from this conversation`}
                   >
-                    {busy === d.id ? 'Building…' : d.exists ? 'Update' : 'Build'}
+                    {busy === d.id ? (d.exists ? 'Updating…' : 'Creating…') : d.exists ? 'Update' : 'Create'}
                   </button>
                 </div>
                 <p className="mt-0.5 text-[11px] leading-snug text-ink-faint">{d.description}</p>
@@ -189,10 +195,21 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
           </div>
 
           {methodology.docs.length > 1 && (
-            <button className="btn btn-outline mt-2 w-full text-[12px]" onClick={buildAll} disabled={!!busy}>
-              {busy === 'all' ? 'Building all…' : 'Build all from chat'}
+            <button
+              className="btn btn-outline mt-2 w-full text-[12px]"
+              onClick={buildAll}
+              disabled={!!busy}
+              title={`Write every ${methodology.label} document for this project from the conversation`}
+            >
+              {busy === 'all' ? 'Setting up…' : 'Set up this project'}
             </button>
           )}
+
+          {/* Guideline files. Not generated from the chat like the spec docs are:
+              AGENTS.md is a standing instruction to every agent, so a missing one
+              gets a starter you then edit, opened in the file pane. */}
+          <GuidelineDocs workspacePath={selectedWorkspacePath} onOpen={open} />
+
 
           {/* Tasks checklist */}
           {tasks.length > 0 && (
@@ -241,4 +258,129 @@ export function SpecPanel({ sessionId, session }: { sessionId: string; session: 
 function baseName(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts[parts.length - 1] ?? path;
+}
+
+/**
+ * Guideline files: the standing instructions every chat in this project carries,
+ * whether or not they were written here.
+ *
+ * `AGENTS.md` and `CLAUDE.md` are always listed, present or not. They aren't
+ * generated from the conversation the way a spec is — a guideline is a rule you
+ * decide, not a summary of what was said — so a missing one gets a short starter
+ * and opens in the editor for you to write. Other guideline conventions only
+ * appear once they exist, so the list stays short.
+ */
+const GUIDELINE_DOCS: Array<{ filename: string; description: string; always: boolean; starter: (project: string) => string }> = [
+  {
+    filename: 'AGENTS.md',
+    description: 'How any agent should work in this project.',
+    always: true,
+    starter: (project) => `# Agent workflow
+
+Conventions for any AI agent or human working in ${project}.
+
+## How to work here
+
+- (How should changes be proposed: direct commits, branches, pull requests?)
+- (What has to pass before something is done: tests, typecheck, lint?)
+- (What should never be touched without asking?)
+
+## Conventions
+
+- (Naming, formatting, comment style, anything a newcomer would get wrong.)
+`,
+  },
+  {
+    filename: 'CLAUDE.md',
+    description: 'Claude Code reads this by default.',
+    always: true,
+    starter: () => `# Claude
+
+See [AGENTS.md](AGENTS.md) for all guidance. This file exists only because Claude
+Code reads \`CLAUDE.md\` by default.
+
+Treat \`AGENTS.md\` and \`CLAUDE.md\` as the same file: put guidance in \`AGENTS.md\`
+rather than duplicating it here.
+`,
+  },
+  { filename: 'GEMINI.md', description: 'Gemini CLI guidelines.', always: false, starter: () => '' },
+  { filename: '.cursorrules', description: 'Cursor rules.', always: false, starter: () => '' },
+  { filename: '.windsurfrules', description: 'Windsurf rules.', always: false, starter: () => '' },
+];
+
+function GuidelineDocs({ workspacePath, onOpen }: { workspacePath?: string; onOpen: (path: string) => void }) {
+  const pushToast = useStore((s) => s.pushToast);
+  const [present, setPresent] = useState<Set<string> | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const refresh = () => {
+    if (!workspacePath) { setPresent(null); return; }
+    window.nekko.listDir(workspacePath)
+      .then((entries) => setPresent(new Set(entries.filter((e) => !e.dir).map((e) => e.name))))
+      .catch(() => setPresent(new Set()));
+  };
+
+  useEffect(refresh, [workspacePath]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (!workspacePath) return null;
+
+  const join = (name: string) => `${workspacePath.replace(/[\\/]+$/, '')}/${name}`;
+  const rows = GUIDELINE_DOCS.filter((g) => g.always || present?.has(g.filename));
+
+  const create = async (g: (typeof GUIDELINE_DOCS)[number]) => {
+    const path = join(g.filename);
+    setBusy(g.filename);
+    try {
+      await window.nekko.writeFile(path, g.starter(baseName(workspacePath)));
+      refresh();
+      onOpen(path);
+    } catch (e) {
+      pushToast('error', `Could not create ${g.filename}: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="mt-3">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Guidelines</p>
+      <div className="space-y-1.5">
+        {rows.map((g) => {
+          const exists = present?.has(g.filename) ?? false;
+          const path = join(g.filename);
+          return (
+            <div
+              key={g.filename}
+              className={`rounded-lg border px-2.5 py-2 ${exists ? 'border-accent/40 bg-accent/5' : 'border-line'}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  className="group flex min-w-0 items-center gap-1.5 text-left"
+                  onClick={() => (exists ? onOpen(path) : create(g))}
+                  disabled={!exists && !!busy}
+                  title={exists ? `Open ${path}` : `Not created yet — click to start ${g.filename}`}
+                >
+                  <span className="truncate text-[12.5px] font-medium">{g.filename}</span>
+                  {exists
+                    ? <ExternalIcon className="h-3 w-3 shrink-0 text-ink-faint opacity-0 group-hover:opacity-100" />
+                    : <span className="shrink-0 text-[10px] text-ink-faint">not created</span>}
+                </button>
+                {!exists && (
+                  <button
+                    className="btn btn-outline shrink-0 text-[11px]"
+                    onClick={() => create(g)}
+                    disabled={!!busy}
+                    title={`Write a starter ${g.filename} and open it`}
+                  >
+                    {busy === g.filename ? 'Creating…' : 'Create'}
+                  </button>
+                )}
+              </div>
+              <p className="mt-0.5 text-[11px] leading-snug text-ink-faint">{g.description}</p>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

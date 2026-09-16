@@ -105,6 +105,24 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, attached.length, session?.workspaceId, session?.supportingWorkspaceIds?.length, session?.messages.length]);
 
+  // Follow a running turn. `session.messages` only moves when the store reloads
+  // sessions (end of turn), but the agent checkpoints every finished step, so
+  // each tool result is a real change to what the next request will carry.
+  // Throttled, since a tool-heavy turn emits these in bursts.
+  useEffect(() => {
+    if (!sessionId) return;
+    let last = 0;
+    const off = window.nekko.onAgentEvent((e) => {
+      if (e.sessionId !== sessionId) return;
+      if (e.type !== 'tool_result' && e.type !== 'done') return;
+      if (e.type === 'tool_result' && Date.now() - last < 1_500) return;
+      last = Date.now();
+      refreshBundle();
+    });
+    return off;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
   // A folder that goes away shouldn't leave its tree "open" and hold height.
   useEffect(() => {
     setOpenTrees((prev) => {

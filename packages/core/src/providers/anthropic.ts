@@ -1,12 +1,23 @@
-import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { parseSSE } from './sse.js';
 import { DecodeClock } from './decode-clock.js';
 
-/** Known Claude models surfaced when the /models endpoint isn't used. */
-const CLAUDE_MODELS: Array<{ id: string; name: string; ctx: number }> = [
+/**
+ * Known Claude models surfaced when the /models endpoint isn't used.
+ *
+ * The whole catalog ships, including the previous generation, because a chat
+ * pinned to `claude-opus-4-8` still needs a name for it and because "Opus 5 or
+ * Opus 4.8?" is a choice worth offering rather than one to make silently. An
+ * entry carries `availability` only when the catalog already knows the model
+ * can't be served; live plan limits are layered on in the UI.
+ */
+const CLAUDE_MODELS: Array<{ id: string; name: string; ctx: number; availability?: ModelAvailability }> = [
+  { id: 'claude-opus-5', name: 'Claude Opus 5', ctx: 200000 },
   { id: 'claude-opus-4-8', name: 'Claude Opus 4.8', ctx: 200000 },
+  { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', ctx: 200000 },
   { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', ctx: 200000 },
+  { id: 'claude-fable-5-1', name: 'Claude Fable 5.1', ctx: 200000 },
   { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', ctx: 200000 },
 ];
 
@@ -58,6 +69,7 @@ export class AnthropicProvider implements Provider {
       providerId: this.config.id,
       name: m.name,
       contextLength: m.ctx,
+      ...(m.availability ? { availability: m.availability } : {}),
     }));
   }
 

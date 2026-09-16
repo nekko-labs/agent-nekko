@@ -72,7 +72,7 @@ describe('LimitsService header capture', () => {
     expect(sonnetWindow).toMatchObject({
       id: '7d_sonnet',
       scope: 'model',
-      modelId: 'claude-sonnet-4-6',
+      modelFamily: 'sonnet',
       usedPercent: 5,
     });
   });
@@ -261,11 +261,13 @@ describe('LimitsService Claude /api/oauth/usage poll', () => {
       obtainedAt: Date.now(),
     });
 
+    // `utilization` here is whole percent (85 = 85%), unlike the rate-limit
+    // headers, which report the same quantity as a fraction.
     const payload = {
-      five_hour: { utilization: 0.85, status: 'allowed', resets_at: '2026-04-11T07:00:00.528743+00:00' },
-      seven_day: { utilization: 0.13, status: 'allowed', resets_at: '2026-04-17T00:59:59.951713+00:00' },
+      five_hour: { utilization: 85, status: 'allowed', resets_at: '2026-04-11T07:00:00.528743+00:00' },
+      seven_day: { utilization: 13, status: 'allowed', resets_at: '2026-04-17T00:59:59.951713+00:00' },
       seven_day_opus: null,
-      seven_day_sonnet: { utilization: 1.0, status: 'allowed', resets_at: '2026-04-16T03:00:00.951719+00:00' },
+      seven_day_sonnet: { utilization: 100, status: 'allowed', resets_at: '2026-04-16T03:00:00.951719+00:00' },
       extra_usage: { is_enabled: false, monthly_limit: null, used_credits: null, utilization: null },
     };
 
@@ -287,6 +289,50 @@ describe('LimitsService Claude /api/oauth/usage poll', () => {
     expect(limits!.windows.find((w) => w.id === '5h')).toMatchObject({ usedPercent: 85, status: 'warning' });
     expect(limits!.windows.find((w) => w.id === '7d')).toMatchObject({ usedPercent: 13, status: 'allowed' });
     expect(limits!.windows.find((w) => w.id === '7d_sonnet')).toMatchObject({ usedPercent: 100, status: 'rate_limited' });
+  });
+
+  it('reads the usage endpoint as whole percent, not as a fraction', async () => {
+    const tokenKey = 'claude:acct-5';
+    setToken(tokenKey, {
+      provider: 'claude',
+      accessToken: 'claude-access',
+      expiresAt: Date.now() + 120_000,
+      obtainedAt: Date.now(),
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        five_hour: { utilization: 0, status: 'allowed', resets_at: '2026-04-11T07:00:00.000000+00:00' },
+        seven_day: { utilization: 62, status: 'allowed', resets_at: '2026-04-17T00:59:59.000000+00:00' },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    initLimits(new EventEmitter());
+    const limits = await poll(tokenKey);
+
+    // The bug this pins: 62 was multiplied by 100 and rendered as "6200%".
+    expect(limits!.windows.find((w) => w.id === '7d')).toMatchObject({ usedPercent: 62, status: 'allowed' });
+    expect(limits!.windows.find((w) => w.id === '5h')).toMatchObject({ usedPercent: 0, status: 'allowed' });
+  });
+
+  it('clamps an out-of-range percentage instead of rendering it', async () => {
+    const tokenKey = 'claude:acct-6';
+    setToken(tokenKey, {
+      provider: 'claude',
+      accessToken: 'claude-access',
+      expiresAt: Date.now() + 120_000,
+      obtainedAt: Date.now(),
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({
+        seven_day: { utilization: 6200, status: 'allowed', resets_at: '2026-04-17T00:59:59.000000+00:00' },
+      }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    initLimits(new EventEmitter());
+    const limits = await poll(tokenKey);
+    expect(limits!.windows[0]).toMatchObject({ usedPercent: 100, status: 'rate_limited' });
   });
 });
 

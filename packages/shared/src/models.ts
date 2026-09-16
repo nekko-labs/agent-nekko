@@ -1,5 +1,7 @@
 /** Provider + model domain types. */
 
+import type { ModelAvailability } from './model-availability.js';
+
 export type ProviderKind =
   | 'anthropic'
   | 'openai'
@@ -48,6 +50,13 @@ export interface ModelInfo {
   vramBytes?: number;
   /** Family / quantization hints. */
   details?: Record<string, string>;
+  /**
+   * What the provider already knows about whether this model can be run, for a
+   * catalog that ships entries it can't always serve (a model gated behind a
+   * bigger plan, one the vendor retired). Live usage limits are layered on top
+   * by `resolveModelAvailability`; leave this unset and the model reads as ready.
+   */
+  availability?: ModelAvailability;
 }
 
 /**

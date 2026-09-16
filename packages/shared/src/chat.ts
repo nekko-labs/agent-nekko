@@ -112,6 +112,13 @@ export interface Session {
   tags?: string[];
   /** Queued prompts to run one after another when the current turn finishes. */
   queue?: string[];
+  /**
+   * The plan for the prompt this chat is working on: decoded from the prompt,
+   * then whatever the user edited it into. Lives on the session so the rail
+   * survives a tab switch, and so a chat resumed tomorrow still shows what it
+   * was told to do.
+   */
+  plan?: import('./prompt-plan.js').PromptPlan;
   /** Manual sidebar position within its project (set by drag-to-reorder). */
   order?: number;
   createdAt: number;

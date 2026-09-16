@@ -386,6 +386,11 @@ export function Mascot({ mood, enabled }: { mood: MascotMood; enabled: boolean }
             height="87"
             fill="none"
           >
+            {/* The cat faces the app, not the rail: one mirror of the whole scene
+                (flips the poses, the wall, and the sparkles together, so nothing
+                drifts out of place). The wall itself is repositioned below to the
+                app's edge. */}
+            <g transform="scale(-1 1) translate(-114 0)">
             <defs>
               {/* The line boil: fractal noise displaces every stroke a hair,
                   re-seeding a few times a second, the wobble of traditional
@@ -406,6 +411,7 @@ export function Mascot({ mood, enabled }: { mood: MascotMood; enabled: boolean }
               {pose === 'stretching' && <StretchPose />}
               {pose === 'bug' && <BugPose />}
               {pose === 'waking' && <StandPose />}
+            </g>
             </g>
           </svg>
         </div>

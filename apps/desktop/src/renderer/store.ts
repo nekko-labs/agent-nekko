@@ -65,14 +65,55 @@ export interface WbPane {
   refId: string;
 }
 
-/** A column of tabbed panes; multiple groups sit side by side. */
+/**
+ * Which column a group is: the conversation, or everything you opened out of it.
+ *
+ * The workbench used to be N interchangeable columns you arranged by hand, so a
+ * file the agent opened landed as a tab beside the chat and pushed it out of
+ * view. Two fixed roles instead, the shape every other harness settles on: the
+ * chat holds the left, and files, browsers, terminals, diffs and PRs open in a
+ * split to the right with their own tab strip. Nothing to arrange, and reading
+ * a file never costs you sight of the agent that opened it.
+ */
+export type WbRole = 'chat' | 'side';
+
+/** Pane kinds that belong in the side column rather than beside the chat. */
+export function paneRole(kind: WbPane['kind']): WbRole {
+  return kind === 'chat' ? 'chat' : 'side';
+}
+
+/** A column of tabbed panes: the chat column, and the side column beside it. */
 export interface WbGroup {
   id: string;
+  role: WbRole;
   panes: WbPane[];
   activeId: string | null;
 }
 
-const MAX_GROUPS = 3;
+const PLAN_RAIL_KEY = 'nekko.planRail';
+const SPLIT_KEY = 'nekko.sidePaneWidth';
+
+/** Remembered width of the side column, as a fraction of the workbench. */
+function readSideSplit(): number {
+  try {
+    const saved = Number(localStorage.getItem(SPLIT_KEY));
+    if (Number.isFinite(saved) && saved >= 0.2 && saved <= 0.8) return saved;
+  } catch { /* private mode */ }
+  return 0.45;
+}
+
+/**
+ * The rail's remembered state. On by default; the chat pane hides it anyway when
+ * the pane it is in has no room, so this only records what you asked for.
+ */
+function readPlanRailOpen(): boolean {
+  try {
+    const saved = localStorage.getItem(PLAN_RAIL_KEY);
+    if (saved != null) return saved === '1';
+  } catch { /* private mode */ }
+  return true;
+}
+
 let paneSeq = 0;
 const newPaneId = () => `pane_${(++paneSeq).toString(36)}`;
 const newGroupId = () => `grp_${(++paneSeq).toString(36)}`;
@@ -87,6 +128,12 @@ interface UiState {
   activeProviderId: string | null;
   activeModelId: string | null;
   contextPanelOpen: boolean;
+  /**
+   * Whether the chat pane shows its plan / sub-agent rail. App-wide rather than
+   * per-chat, like the context panel: it's a way of working, not a property of
+   * one conversation.
+   */
+  planRailOpen: boolean;
   /** Whether the first-run setup wizard is showing over the app. */
   onboardingOpen: boolean;
   /** True after the first settings load has finished. */
@@ -170,6 +217,7 @@ interface UiState {
   selectProvider: (id: string) => Promise<void>;
   selectModel: (id: string) => void;
   toggleContextPanel: () => void;
+  togglePlanRail: () => void;
   applyTheme: () => void;
 
   refreshTerminals: () => Promise<void>;
@@ -187,7 +235,9 @@ interface UiState {
   closePane: (groupId: string, paneId: string) => void;
   setActivePane: (groupId: string, paneId: string) => void;
   focusGroup: (groupId: string) => void;
-  splitRight: (groupId: string, paneId: string) => void;
+  /** Fraction of the workbench the side column takes (0.2 - 0.8). */
+  sideSplit: number;
+  setSideSplit: (fraction: number) => void;
 
   // Sidebar drag-and-drop: persist project order and per-project item order.
   reorderWorkspaces: (orderedIds: string[]) => Promise<void>;
@@ -204,17 +254,23 @@ function locatePane(groups: WbGroup[], kind: WbPane['kind'], refId: string): { g
   return null;
 }
 
-/** Add a pane to the focused group (creating the first group if needed). */
-function addPane(groups: WbGroup[], activeGroupId: string | null, pane: WbPane): { groups: WbGroup[]; activeGroupId: string } {
-  if (groups.length === 0) {
-    const g: WbGroup = { id: newGroupId(), panes: [pane], activeId: pane.id };
-    return { groups: [g], activeGroupId: g.id };
+/**
+ * Add a pane to the column its kind belongs to, creating that column if it
+ * isn't open yet. The chat column always sorts before the side column, so the
+ * side one appearing never shuffles what is already on screen.
+ */
+function addPane(groups: WbGroup[], pane: WbPane): { groups: WbGroup[]; activeGroupId: string } {
+  const role = paneRole(pane.kind);
+  const existing = groups.find((g) => g.role === role);
+  if (existing) {
+    return {
+      groups: groups.map((g) => (g.id === existing.id ? { ...g, panes: [...g.panes, pane], activeId: pane.id } : g)),
+      activeGroupId: existing.id,
+    };
   }
-  const gid = activeGroupId && groups.some((g) => g.id === activeGroupId) ? activeGroupId : groups[0].id;
-  return {
-    groups: groups.map((g) => (g.id === gid ? { ...g, panes: [...g.panes, pane], activeId: pane.id } : g)),
-    activeGroupId: gid,
-  };
+  const created: WbGroup = { id: newGroupId(), role, panes: [pane], activeId: pane.id };
+  const next = role === 'chat' ? [created, ...groups] : [...groups, created];
+  return { groups: next, activeGroupId: created.id };
 }
 
 export const useStore = create<UiState>((set, get) => ({
@@ -228,6 +284,7 @@ export const useStore = create<UiState>((set, get) => ({
   activeModelId: null,
   // Default the context panel closed on small screens (phones).
   contextPanelOpen: typeof window !== 'undefined' ? window.innerWidth >= 1024 : true,
+  planRailOpen: readPlanRailOpen(),
   onboardingOpen: false,
   settingsLoaded: false,
   mascotMood: 'waving',
@@ -358,6 +415,13 @@ export const useStore = create<UiState>((set, get) => ({
 
   toggleContextPanel: () => set((s) => ({ contextPanelOpen: !s.contextPanelOpen })),
 
+  togglePlanRail: () =>
+    set((s) => {
+      const planRailOpen = !s.planRailOpen;
+      try { localStorage.setItem(PLAN_RAIL_KEY, planRailOpen ? '1' : '0'); } catch { /* private mode */ }
+      return { planRailOpen };
+    }),
+
   applyTheme: () => {
     const settings = get().settings;
     const theme = settings?.theme ?? 'system';
@@ -414,7 +478,7 @@ export const useStore = create<UiState>((set, get) => ({
           groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
         };
       }
-      const next = addPane(s.groups, s.activeGroupId, { id: newPaneId(), kind: 'chat', refId: sessionId });
+      const next = addPane(s.groups, { id: newPaneId(), kind: 'chat', refId: sessionId });
       return { ...next, activeSessionId: sessionId };
     });
   },
@@ -428,7 +492,7 @@ export const useStore = create<UiState>((set, get) => ({
           groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
         };
       }
-      return addPane(s.groups, s.activeGroupId, { id: newPaneId(), kind: 'terminal', refId: terminalId });
+      return addPane(s.groups, { id: newPaneId(), kind: 'terminal', refId: terminalId });
     });
   },
 
@@ -441,7 +505,7 @@ export const useStore = create<UiState>((set, get) => ({
           groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
         };
       }
-      return { ...addPane(s.groups, s.activeGroupId, { id: newPaneId(), kind: 'file', refId: path }), view: 'chat' as View };
+      return { ...addPane(s.groups, { id: newPaneId(), kind: 'file', refId: path }), view: 'chat' as View };
     });
   },
 
@@ -455,7 +519,7 @@ export const useStore = create<UiState>((set, get) => ({
           groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
         };
       }
-      return { ...addPane(s.groups, s.activeGroupId, { id: newPaneId(), kind: 'browser', refId: ref }), view: 'chat' as View };
+      return { ...addPane(s.groups, { id: newPaneId(), kind: 'browser', refId: ref }), view: 'chat' as View };
     });
   },
 
@@ -476,7 +540,7 @@ export const useStore = create<UiState>((set, get) => ({
           ),
         };
       }
-      return { ...addPane(s.groups, s.activeGroupId, { id: newPaneId(), kind: 'hypergate', refId: url }), view: 'chat' as View };
+      return { ...addPane(s.groups, { id: newPaneId(), kind: 'hypergate', refId: url }), view: 'chat' as View };
     });
   },
 
@@ -551,7 +615,7 @@ export const useStore = create<UiState>((set, get) => ({
           groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
         };
       }
-      return { ...addPane(s.groups, s.activeGroupId, { id: newPaneId(), kind: 'pr', refId: url }), view: 'chat' as View };
+      return { ...addPane(s.groups, { id: newPaneId(), kind: 'pr', refId: url }), view: 'chat' as View };
     });
   },
 
@@ -564,7 +628,7 @@ export const useStore = create<UiState>((set, get) => ({
           groups: s.groups.map((g) => (g.id === hit.groupId ? { ...g, activeId: hit.paneId } : g)),
         };
       }
-      return { ...addPane(s.groups, s.activeGroupId, { id: newPaneId(), kind: 'diff', refId: sessionId }), view: 'chat' as View };
+      return { ...addPane(s.groups, { id: newPaneId(), kind: 'diff', refId: sessionId }), view: 'chat' as View };
     });
   },
 
@@ -596,23 +660,11 @@ export const useStore = create<UiState>((set, get) => ({
 
   focusGroup: (groupId) => set({ activeGroupId: groupId }),
 
-  splitRight: (groupId, paneId) => {
-    set((s) => {
-      if (s.groups.length >= MAX_GROUPS) return s;
-      const src = s.groups.find((g) => g.id === groupId);
-      const pane = src?.panes.find((p) => p.id === paneId);
-      if (!src || !pane || src.panes.length <= 1) return s; // nothing to split off
-      const remaining = src.panes.filter((p) => p.id !== paneId);
-      const moved: WbGroup = { id: newGroupId(), panes: [pane], activeId: pane.id };
-      const groups: WbGroup[] = [];
-      for (const g of s.groups) {
-        if (g.id === groupId) {
-          groups.push({ ...g, panes: remaining, activeId: g.activeId === paneId ? remaining[remaining.length - 1]?.id ?? null : g.activeId });
-          groups.push(moved);
-        } else groups.push(g);
-      }
-      return { groups, activeGroupId: moved.id };
-    });
+  sideSplit: readSideSplit(),
+  setSideSplit: (fraction) => {
+    const clamped = Math.min(0.8, Math.max(0.2, fraction));
+    try { localStorage.setItem(SPLIT_KEY, String(clamped)); } catch { /* private mode */ }
+    set({ sideSplit: clamped });
   },
 
   reorderWorkspaces: async (orderedIds) => {
