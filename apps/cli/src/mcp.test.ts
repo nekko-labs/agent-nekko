@@ -72,21 +72,18 @@ describe('MCP tool identity and legacy dispatch', () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it('advertises only canonical tools and preserves legacy skill targets', () => {
+  it('advertises only canonical tools and skill targets', () => {
     receive(JSON.stringify({ id: 1, method: 'tools/list' }) + '\n');
     expect(messages[0].result.tools.map((tool: { name: string }) => tool.name)).toEqual(
       toolCases.map(([suffix]) => `agent-nekko_${suffix}`),
     );
     const install = messages[0].result.tools.find((tool: { name: string }) => tool.name === 'agent-nekko_skill_install');
-    // Current target first, then the values older callers and stored records use.
     expect(install.inputSchema.properties.target.enum).toEqual([
-      'agent-nekko', 'claude', 'codex', 'kotrain', 'nekkos', 'open-paw',
+      'agent-nekko', 'claude', 'codex',
     ]);
-    expect(JSON.stringify(messages[0])).not.toContain('kotrain_train_status');
-    expect(JSON.stringify(messages[0])).not.toContain('kotrain_status');
   });
 
-  describe.each(['agent-nekko', 'kotrain'])('%s tools', (prefix) => {
+  describe.each(['agent-nekko'])('%s tools', (prefix) => {
     it.each(toolCases)('dispatches %s through %s', async (suffix, method, args) => {
       receive(JSON.stringify({ id: 1, method: 'tools/call', params: { name: `${prefix}_${suffix}`, arguments: args } }) + '\n');
       await vi.waitFor(() => expect(messages).toHaveLength(1));
@@ -104,7 +101,7 @@ describe('MCP tool identity and legacy dispatch', () => {
     });
   });
 
-  it.each(['agent-nekko_missing', 'kotrain_missing', 'other_status'])('rejects unknown tool %s', async (name) => {
+  it.each(['agent-nekko_missing', 'other_status'])('rejects unknown tool %s', async (name) => {
     receive(JSON.stringify({ id: 1, method: 'tools/call', params: { name } }) + '\n');
     await vi.waitFor(() => expect(messages).toHaveLength(1));
     expect(messages[0].result).toMatchObject({ isError: true, content: [{ text: `Error: Unknown tool: ${name}` }] });
@@ -112,12 +109,12 @@ describe('MCP tool identity and legacy dispatch', () => {
 });
 
 describe('MCP stdio transport', () => {
-  it('negotiates, lists canonical tools, and accepts both status names with JSON-only stdout', async () => {
+  it('negotiates, lists canonical tools, and rejects a legacy tool name with JSON-only stdout', async () => {
     const binary = fileURLToPath(new URL('../dist/index.js', import.meta.url));
     if (!existsSync(binary)) {
       throw new Error(`Build the CLI before running this integration test: ${binary}`);
     }
-    const dataDir = mkdtempSync(join(tmpdir(), 'kotrain-mcp-test-'));
+    const dataDir = mkdtempSync(join(tmpdir(), 'nekko-mcp-test-'));
     const child = spawn(process.execPath, [binary, 'mcp'], {
       env: { ...process.env, NEKKO_URL: '', NEKKO_DATA_DIR: dataDir },
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -168,7 +165,9 @@ describe('MCP stdio transport', () => {
       );
       expect(messages.get(3).result.isError).toBeUndefined();
       expect(messages.get(3).result.content[0].text).toContain('"providers"');
-      expect(messages.get(4).result).toEqual(messages.get(3).result);
+      // The legacy prefix is gone: kotrain_status is just an unknown tool now.
+      expect(messages.get(4).result.isError).toBe(true);
+      expect(messages.get(4).result.content[0].text).toContain('Unknown tool: kotrain_status');
     } finally {
       clearTimeout(timeout!);
       const closed = new Promise<void>((resolve) => child.once('close', () => resolve()));

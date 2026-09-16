@@ -350,7 +350,7 @@ function BackupSection({ settings, onSettings }: { settings: AppSettings; onSett
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'kotrain-settings.json';
+    a.download = 'agent-nekko-settings.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -484,8 +484,8 @@ function McpSection({
   const openHypergatePane = useStore((s) => s.openHypergatePane);
   useEffect(() => { void refreshHypergate(); }, [refreshHypergate]);
   // The gateway keeps a fixed id, so "is it connected" is a lookup rather than
-  // something to track. The pre-rename id counts: that row is the same gateway.
-  const connected = servers.some((s) => s.id === 'hypergate' || s.id === 'kotrain-mcp');
+  // something to track.
+  const connected = servers.some((s) => s.id === 'hypergate');
   /** One click: claim a token, save the entry, connect it, open the tab. */
   const link = async () => {
     setLinking(true);

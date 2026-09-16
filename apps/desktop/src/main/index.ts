@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
 import { fileURLToPath } from 'url';
 import { join, resolve, sep } from 'path';
-import { existsSync, cpSync } from 'fs';
+import { existsSync } from 'fs';
 import { createHost } from '@agent-nekko/host';
 import { IpcEvents } from '@agent-nekko/shared';
 import { registerIpc } from './ipc.js';
@@ -36,13 +36,10 @@ preservePackagedProfile(app);
 const DEFAULT_OVERLAY: TitleBarOverlayTheme = { color: '#0c0c11', symbolColor: '#a3a1b0' };
 
 /**
- * The URL schemes other apps use to reach Agent Nekko
- * (`agent-nekko://hypergate/connect`). The current name is first and is what
- * gets advertised; the older brands stay registered because a Hypergate built
- * against one of them still emits it, and that install upgrades on its own
- * schedule.
+ * The URL scheme other apps use to reach Agent Nekko
+ * (`agent-nekko://hypergate/connect`).
  */
-const PROTOCOLS = ['agent-nekko', 'kotrain', 'nekkos'] as const;
+const PROTOCOLS = ['agent-nekko'] as const;
 
 /**
  * An `agent-nekko://` URL waiting for a window to hand it to.
@@ -206,33 +203,6 @@ function createWindow(): void {
 }
 
 /**
- * Installs from an earlier brand kept their data under the "Kotrain",
- * "Nekkos" or "Open Paw" userData dir (whatever productName was then). Copy it
- * into the Agent Nekko location once, on first run after the rename, so nobody
- * loses chats/settings. Newest brand first: an install that already went
- * through one rename has the most recent data under the latest of these.
- */
-function migrateLegacyData(nextDir: string): void {
-  try {
-    if (existsSync(nextDir)) return;
-    const legacies = [
-      join(app.getPath('userData'), 'kotrain'),
-      join(app.getPath('userData'), '..', 'Kotrain', 'kotrain'),
-      join(app.getPath('userData'), '..', 'Nekkos', 'nekkos'),
-      join(app.getPath('userData'), '..', 'Open Paw', 'open-paw'),
-    ];
-    for (const legacy of legacies) {
-      if (existsSync(legacy)) {
-        cpSync(legacy, nextDir, { recursive: true });
-        return;
-      }
-    }
-  } catch (err) {
-    console.error('[agent-nekko] legacy data migration failed:', err);
-  }
-}
-
-/**
  * Keep the native buttons the same colour as the strip they sit in.
  *
  * The renderer owns the theme (system, light, dark, plus a user accent), so it
@@ -252,7 +222,7 @@ function registerTitleBarOverlaySync(): void {
 }
 
 /**
- * Register `kotrain://` with the OS and make sure a link reaches the app that
+ * Register `agent-nekko://` with the OS and make sure a link reaches the app that
  * is already open.
  *
  * The single-instance lock is what makes that true: without it the OS answers
@@ -314,7 +284,6 @@ app.whenReady().then(() => {
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
 
   const dataDir = join(app.getPath('userData'), 'agent-nekko');
-  migrateLegacyData(dataDir);
   const host = createHost({ dataDir });
   registerIpc(host);
   manageWorkflowLoopbackListener(host);

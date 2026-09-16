@@ -61,36 +61,21 @@ describe('staged product identity', () => {
     expect(main).toContain("join(app.getPath('userData'), 'agent-nekko')");
   });
 
-  // The appId change makes a renamed build a fresh install, so the profile
-  // folder can finally follow the product name. Nobody may lose data over it.
-  it('adopts the newest earlier-brand profile on first run, minus throwaway caches', () => {
-    const legacy = join(appData, 'Kotrain');
-    mkdirSync(join(legacy, 'kotrain'), { recursive: true });
-    mkdirSync(join(legacy, 'Local Storage'), { recursive: true });
-    mkdirSync(join(legacy, 'GPUCache'), { recursive: true });
-    writeFileSync(join(legacy, 'kotrain', 'settings.json'), '{"theme":"dark"}\n');
-    writeFileSync(join(legacy, 'Local Storage', 'sentinel'), 'kept');
-    writeFileSync(join(legacy, 'GPUCache', 'blob'), 'dropped');
-    // An older brand as well: the newest one wins.
-    mkdirSync(join(appData, 'Open Paw', 'open-paw'), { recursive: true });
-    writeFileSync(join(appData, 'Open Paw', 'open-paw', 'settings.json'), '{"theme":"light"}\n');
+  it('starts a fresh profile rather than adopting an earlier-brand one', () => {
+    mkdirSync(join(appData, 'Some Other App'), { recursive: true });
+    writeFileSync(join(appData, 'Some Other App', 'settings.json'), '{"theme":"dark"}\n');
 
     preservePackagedProfile(mockApp());
 
     const profile = join(appData, 'Agent Nekko');
-    expect(readFileSync(join(profile, 'kotrain', 'settings.json'), 'utf8')).toBe('{"theme":"dark"}\n');
-    expect(readFileSync(join(profile, 'Local Storage', 'sentinel'), 'utf8')).toBe('kept');
-    expect(existsSync(join(profile, 'GPUCache'))).toBe(false);
-    // The original is left alone, so a downgrade still finds its data.
-    expect(existsSync(join(legacy, 'kotrain', 'settings.json'))).toBe(true);
+    expect(readdirSync(profile)).toEqual([]);
+    expect(existsSync(join(appData, 'Some Other App', 'settings.json'))).toBe(true);
   });
 
-  it('leaves an existing profile alone rather than re-adopting over it', () => {
+  it('leaves an existing profile alone on repeat runs', () => {
     const profile = join(appData, 'Agent Nekko');
     mkdirSync(join(profile, 'agent-nekko'), { recursive: true });
     writeFileSync(join(profile, 'agent-nekko', 'settings.json'), '{"theme":"current"}\n');
-    mkdirSync(join(appData, 'Kotrain', 'kotrain'), { recursive: true });
-    writeFileSync(join(appData, 'Kotrain', 'kotrain', 'settings.json'), '{"theme":"stale"}\n');
 
     preservePackagedProfile(mockApp());
 

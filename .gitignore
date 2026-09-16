@@ -14,18 +14,10 @@ coverage/
 release/
 cli-dist/
 # runtime artifacts written by training/goal/design runs when this repo is
-# itself used as an Agent Nekko workspace (dogfooding). The earlier-brand names
-# stay ignored so leftovers don't get committed.
+# itself used as an Agent Nekko workspace (dogfooding).
 nekko-training/
 nekko-goal/
 nekko-designs/
-# Earlier brand names: a workspace that already has one keeps being filled.
-kotrain-training/
-kotrain-goal/
-kotrain-designs/
-nekkos-training/
-nekkos-goal/
-nekkos-designs/
 
 # Local agent tooling (per-machine hooks and critique scratch)
 .codex/

@@ -52,7 +52,7 @@ function makeWebClient(): NekkoApi {
   let pairCode: string | null = p.get('pair');
   if (relayUrl && room && key) {
     // Persist creds and scrub them from the address bar/history right away.
-    localStorage.setItem('op_relay', JSON.stringify({ relay: relayUrl, room, key }));
+    localStorage.setItem('nekko_relay', JSON.stringify({ relay: relayUrl, room, key }));
     try {
       history.replaceState(null, '', location.pathname);
     } catch {
@@ -60,7 +60,7 @@ function makeWebClient(): NekkoApi {
     }
   } else {
     try {
-      const saved = JSON.parse(localStorage.getItem('op_relay') || 'null');
+      const saved = JSON.parse(localStorage.getItem('nekko_relay') || 'null');
       if (saved?.relay && saved?.room && saved?.key) {
         relayUrl = saved.relay;
         room = saved.room;
@@ -79,10 +79,10 @@ function makeWebClient(): NekkoApi {
 
   if (relayUrl && room && key) {
     // Stable device identity for the agent's paired-device registry.
-    let deviceId = localStorage.getItem('op_device_id');
+    let deviceId = localStorage.getItem('nekko_device_id');
     if (!deviceId) {
       deviceId = crypto.randomUUID();
-      localStorage.setItem('op_device_id', deviceId);
+      localStorage.setItem('nekko_device_id', deviceId);
     }
     const cap = (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
     const platform = cap?.getPlatform?.() ?? 'web';
@@ -110,8 +110,8 @@ function makeWebClient(): NekkoApi {
     };
     const onDenied = (reason: string) => {
       // Kicked out of the registry (revoked, or a stale/used pairing link).
-      localStorage.removeItem('op_relay');
-      sessionStorage.setItem('op_relay_denied', reason);
+      localStorage.removeItem('nekko_relay');
+      sessionStorage.setItem('nekko_relay_denied', reason);
       if (cap) location.reload(); // native shell → back to the pairing screen
       else alert(`This device can't reach the paired computer (${reason}). Pair it again from Settings → Remote access.`);
     };
@@ -119,9 +119,9 @@ function makeWebClient(): NekkoApi {
       if (frame.type === 'welcome') {
         welcomed = true;
         pairCode = null; // enrollment done; never resend the code
-        sessionStorage.removeItem('op_relay_denied');
+        sessionStorage.removeItem('nekko_relay_denied');
         // Drop a stored one-time code so it never leaks or gets replayed.
-        localStorage.setItem('op_relay', JSON.stringify({ relay: relayUrl, room, key }));
+        localStorage.setItem('nekko_relay', JSON.stringify({ relay: relayUrl, room, key }));
       } else if (frame.type === 'denied') {
         onDenied(String(frame.reason || 'denied'));
       } else if (frame.type === 'res' && pending.has(frame.id)) {

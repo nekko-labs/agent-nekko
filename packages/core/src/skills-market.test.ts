@@ -50,7 +50,7 @@ describe('skills marketplace catalog', () => {
 
 describe('marketWorkflow', () => {
   it('keeps a bespoke workflow when present', () => {
-    const council = getMarketSkill('kotrain-review-council')!;
+    const council = getMarketSkill('agent-nekko-review-council')!;
     expect(marketWorkflow(council)).toBe(council.workflow);
   });
 
@@ -73,7 +73,7 @@ describe('marketWorkflow', () => {
 
 describe('install artifacts', () => {
   it('marketToSkillDef produces a runnable in-app skill', () => {
-    const def = marketToSkillDef(getMarketSkill('kotrain-changelog')!);
+    const def = marketToSkillDef(getMarketSkill('agent-nekko-changelog')!);
     expect(def.name).toBe('changelog');
     expect(def.template.length).toBeGreaterThan(0);
     expect(def.workflow.nodes.length).toBeGreaterThan(2);

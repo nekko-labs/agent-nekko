@@ -32,7 +32,7 @@ export function ContextWarning({
   session: Session | null;
 }) {
   const pct = windowTokens ? (used / windowTokens) * 100 : 0;
-  const dismissedKey = `kotrain.ctxDismissed.${sessionId}`;
+  const dismissedKey = `nekko.ctxDismissed.${sessionId}`;
   const [dismissed, setDismissed] = useState(() => {
     try { return localStorage.getItem(dismissedKey) !== null; } catch { return false; }
   });

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NekkoAvatar } from './Mascot.js';
 
 /** Matches the token key the web-client reads for the Bearer header. */
-const LS_TOKEN = 'kotrain_token';
+const LS_TOKEN = 'nekko_token';
 
 /**
  * Decide whether to show the Agent Nekko Cloud login gate before mounting the app.

@@ -14,7 +14,7 @@ interface Command {
 export function CommandPalette() {
   const { paletteOpen, setPaletteOpen, setView, newChat, newTerminal, toggleContextPanel, settings } = useStore();
   const hypergate = useStore((s) => s.hypergate);
-  const hypergateConnected = useStore((s) => (s.settings?.mcpServers ?? []).some((m) => m.id === 'hypergate' || m.id === 'kotrain-mcp'));
+  const hypergateConnected = useStore((s) => (s.settings?.mcpServers ?? []).some((m) => m.id === 'hypergate'));
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);

@@ -4,7 +4,7 @@
 // devices, remote device management (pairing a second device from the first),
 // and live revocation (kick + re-deny).
 //
-// Usage: node scripts/itest-relay.mjs [--relay=wss://kotrain-relay.fly.dev] [baseUrl] [model]
+// Usage: node scripts/itest-relay.mjs [--relay=wss://agent-nekko-relay.fly.dev] [baseUrl] [model]
 // With no --relay, spawns a local relay from apps/relay/dist.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
@@ -21,7 +21,7 @@ const PAIR_KEY = 'secret123';
 const RELAY_PORT = 4455;
 const RELAY_URL = relayArg ? relayArg.slice('--relay='.length) : `ws://127.0.0.1:${RELAY_PORT}`;
 
-const dataDir = mkdtempSync(join(tmpdir(), 'kotrain-relay-'));
+const dataDir = mkdtempSync(join(tmpdir(), 'nekko-relay-'));
 writeFileSync(
   join(dataDir, 'settings.json'),
   JSON.stringify({ providers: [{ id: 'lm', kind: 'lmstudio', label: 'LM Studio', baseUrl, enabled: true }] }),

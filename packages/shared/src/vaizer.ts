@@ -17,7 +17,7 @@ import type { MarketplaceSkill } from './skills-market.js';
 import type { SkillCategory } from './skills.js';
 
 /** Trust tiers from the Vaizer repo. Official = built + reviewed by Nekko Labs. */
-export type VaizerTier = 'kotrain-official' | 'community';
+export type VaizerTier = 'nekko-official' | 'community';
 
 /** One entry of the Vaizer repo's catalog.json. */
 export interface VaizerCatalogSkill {
@@ -61,9 +61,9 @@ export function vaizerSkillMdUrl(slug: string): string {
 
 /**
  * The pre-2026-08-28 layout, when each skill was its own plugin. Released
- * Kotrain versions still ask for this path, and a checkout of the marketplace
- * from before the restructure still serves it, so the fetch tries it as a
- * fallback rather than silently degrading to the catalog summary.
+ * versions from before the rename still ask for this path, and a checkout of
+ * the marketplace from before the restructure still serves it, so the fetch
+ * tries it as a fallback rather than silently degrading to the catalog summary.
  */
 export function vaizerLegacySkillMdUrl(slug: string): string {
   return `https://raw.githubusercontent.com/${VAIZER_REPO}/main/plugins/${slug}/skills/${slug}/SKILL.md`;
@@ -83,7 +83,7 @@ export const VAIZER_SNAPSHOT: VaizerCatalog = {
       id: 'domain-finder',
       name: 'Domain Finder',
       slug: 'domain-finder',
-      tier: 'kotrain-official',
+      tier: 'nekko-official',
       category: 'research',
       description:
         'Brainstorm startup/project names, check domain availability across TLDs via RDAP, and vet brand/trademark conflicts.',
@@ -98,7 +98,7 @@ export const VAIZER_SNAPSHOT: VaizerCatalog = {
       id: 'nyaa',
       name: 'nyaa',
       slug: 'nyaa',
-      tier: 'kotrain-official',
+      tier: 'nekko-official',
       category: 'engineering',
       description:
         'Convene a council of four reviewer cats (security, deps/supply-chain, correctness/concurrency, style) over a PR or working diff, pulling in external bot reviews too.',
@@ -113,7 +113,7 @@ export const VAIZER_SNAPSHOT: VaizerCatalog = {
       id: 'resume-checker',
       name: 'Resume Checker',
       slug: 'resume-checker',
-      tier: 'kotrain-official',
+      tier: 'nekko-official',
       category: 'career',
       description:
         'Check a resume against automated candidate-screening (ATS) signals and AI-centric job expectations, score it against specific job postings, then interactively apply fixes and show exactly what changed.',

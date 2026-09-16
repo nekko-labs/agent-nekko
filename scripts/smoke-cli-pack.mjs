@@ -10,7 +10,7 @@ const tarballs = join(temp, 'tarballs');
 const unpacked = join(temp, 'package');
 const installed = join(temp, 'installed');
 const binDir = join(installed, 'node_modules/.bin');
-const executables = ['agent-nekko', 'kotrain', 'nekkos'];
+const executables = ['agent-nekko'];
 let mcp;
 let mcpClosed;
 const dataDir = join(temp, 'data');
@@ -58,7 +58,7 @@ try {
   );
   if (executables.some((name) => bins[name] !== 'dist/index.js')) {
     throw new Error(
-      `Packed package is missing the agent-nekko, kotrain, and nekkos bin entries (got ${JSON.stringify(packageJson.bin)}).`,
+      `Packed package is missing the agent-nekko bin entry (got ${JSON.stringify(packageJson.bin)}).`,
     );
   }
   if (packageJson.name !== 'agent-nekko' || packageJson.repository?.url !== 'git+https://github.com/nekko-labs/agent-nekko.git') {
@@ -98,8 +98,8 @@ try {
   for (const executable of executables) {
     const options = { cwd: temp, env: { ...process.env, NEKKO_URL: '', NEKKO_DATA_DIR: dataDir } };
     const help = run(join(binDir, executable), ['--help'], options);
-    if (!help.startsWith('Agent Nekko CLI (agent-nekko ') || !help.includes('Legacy aliases: kotrain, nekkos')) {
-      throw new Error(`${executable} --help did not identify Agent Nekko and its legacy aliases.`);
+    if (!help.startsWith('Agent Nekko CLI (agent-nekko ')) {
+      throw new Error(`${executable} --help did not identify Agent Nekko.`);
     }
     const version = run(join(binDir, executable), ['--version'], options);
     if (version !== packageJson.version) throw new Error(`${executable} --version returned ${version}.`);
@@ -181,11 +181,7 @@ try {
     if (canonical.result?.isError || !canonical.result?.content?.[0]?.text?.includes('"workspaces"')) {
       throw new Error('MCP agent-nekko_status returned no status payload.');
     }
-    const legacy = await request(4, 'tools/call', { name: 'kotrain_status', arguments: {} });
-    if (JSON.stringify(legacy.result) !== JSON.stringify(canonical.result)) {
-      throw new Error('MCP kotrain_status did not return the same status payload as agent-nekko_status.');
-    }
-    console.log(`${executable} MCP tools/call: agent-nekko_status and kotrain_status match`);
+    console.log(`${executable} MCP tools/call: agent-nekko_status ok`);
     mcp.kill();
     await mcpClosed;
     mcp = undefined;

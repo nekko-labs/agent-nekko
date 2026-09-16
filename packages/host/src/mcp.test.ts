@@ -37,11 +37,8 @@ describe('withHypergate', () => {
     expect(withHypergate(renamed, INFO)[0].name).toBe('My gateway');
   });
 
-  // The daemon was called KotrainMCP before the rename; two entries pointed at
-  // one gateway would offer every tool twice.
-  it('drops the pre-rename entry instead of leaving a duplicate', () => {
-    const legacy: McpServerConfig = { ...other('kotrain-mcp'), url: INFO.url, token: 'old' };
-    const next = withHypergate([legacy, other('files')], INFO);
+  it('keeps unrelated entries rather than dropping them', () => {
+    const next = withHypergate([other('files')], INFO);
     expect(next.map((s) => s.id)).toEqual(['files', HYPERGATE_ENTRY_ID]);
   });
 });

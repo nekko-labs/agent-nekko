@@ -11,7 +11,7 @@ import { Modal } from '../components/primitives/index.js';
  *    self-contained HTML code prototype.
  * 2) DESCRIBE: write a prompt and watch a design pop up, then refine it
  *    iteratively with follow-up prompts (a Claude Design-style loop).
- * Generated concepts are mirrored into the workspace's kotrain-designs/ folder
+ * Generated concepts are mirrored into the workspace's nekko-designs/ folder
  * as real HTML files, so agents (and you) keep iterating on them as code.
  * The board still holds live snapshots of the app's real pages: each is a
  * scaled read-only preview that reloads as agents edit the UI, with notes and

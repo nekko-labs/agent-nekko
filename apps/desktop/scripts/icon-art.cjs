@@ -1,5 +1,5 @@
 /**
- * The Kotrain mark, as vector art: the orbit (a comet of light running a tilted
+ * The Agent Nekko mark, as vector art: the orbit (a comet of light running a tilted
  * ring, violet into cyan, over deep space) plus the installer banners that reuse
  * it. Pure string-building with no renderer behind it, so anything that needs
  * the mark -- the desktop icon pipeline, the marketing site's favicon -- draws
@@ -66,7 +66,7 @@ function headSvg(size) {
 }
 
 /**
- * The Kotrain mark: an orbit. A comet of light running a tilted ring, violet
+ * The Agent Nekko mark: an orbit. A comet of light running a tilted ring, violet
  * into cyan (the brand gradient), over deep space. Abstract on purpose: one
  * sweeping arc plus one bright body reads at 16px, where the mascot cannot.
  *

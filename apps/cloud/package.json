@@ -3,7 +3,7 @@
   "version": "0.1.5",
   "private": true,
   "type": "module",
-  "description": "Kotrain Cloud, multi-account hosted edition. Wraps the same host engine + UI per account behind accounts/auth/entitlements.",
+  "description": "Agent Nekko Cloud, multi-account hosted edition. Wraps the same host engine + UI per account behind accounts/auth/entitlements.",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",

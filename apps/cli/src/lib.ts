@@ -1,6 +1,5 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
 import { createHost } from '@agent-nekko/host';
 import { brandEnv, IpcEvents } from '@agent-nekko/shared';
 import type {
@@ -28,19 +27,11 @@ import type {
   VaizerCatalog,
 } from '@agent-nekko/shared';
 
-/** The data dir for the in-process (local) client. NEKKO_DATA_DIR wins, then
- * the same suffix under any earlier brand prefix, then ~/.nekko (keeping a
- * ~/.kotrain, ~/.nekkos or ~/.open-paw from an earlier brand if one exists). */
+/** The data dir for the in-process (local) client. NEKKO_DATA_DIR wins, then ~/.nekko. */
 export function dataDir(): string {
   const fromEnv = brandEnv('DATA_DIR');
   if (fromEnv) return fromEnv;
-  const next = join(homedir(), '.nekko');
-  if (existsSync(next)) return next;
-  for (const name of ['.kotrain', '.nekkos', '.open-paw']) {
-    const legacy = join(homedir(), name);
-    if (existsSync(legacy)) return legacy;
-  }
-  return next;
+  return join(homedir(), '.nekko');
 }
 
 /**

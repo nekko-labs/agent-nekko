@@ -11,19 +11,13 @@
 /** The port Hypergate's daemon uses unless it was told otherwise. */
 export const DEFAULT_HYPERGATE_PORT = 7777;
 
-/**
- * Schemes that reach this app: the current one first, then every brand it has
- * shipped under. A Hypergate built against an older name still emits
- * `kotrain://`, and that install is not going to be upgraded in lockstep with
- * this one, so the older schemes stay accepted rather than silently failing.
- */
-export const LINK_SCHEMES = ['agent-nekko', 'kotrain', 'nekkos'] as const;
+/** Schemes that reach this app. */
+export const LINK_SCHEMES = ['agent-nekko'] as const;
 
 /**
  * The port in an `agent-nekko://hypergate/connect` link, or null if the URL is
  * not one. A link with no `port` means the default, which is what Hypergate
- * emits when it is running where it always runs. Legacy brand schemes are
- * accepted too, see `LINK_SCHEMES`.
+ * emits when it is running where it always runs.
  */
 export function hypergateConnectPort(url: string): number | null {
   let parsed: URL;

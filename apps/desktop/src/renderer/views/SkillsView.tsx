@@ -213,7 +213,7 @@ const SOURCE_META: Record<MarketplaceSkill['source'], { label: string; color: st
 /** Trust-tier chip for skills from Vaizer. */
 function TierChip({ tier }: { tier?: MarketplaceSkill['tier'] }) {
   if (!tier) return null;
-  const official = tier === 'kotrain-official';
+  const official = tier === 'nekko-official';
   return (
     <span
       className="shrink-0 rounded-full px-1.5 py-0 text-[9px]"

@@ -21,29 +21,17 @@ export type SkillSource = 'nekkolabs' | 'community' | 'vaizer';
 /** Where a skill can be installed. */
 export type InstallTarget = 'agent-nekko' | 'claude' | 'codex';
 
-/**
- * Install targets are persisted on every install record and accepted over MCP,
- * so the names this app shipped under stay valid inputs and are folded onto
- * the current one on the way in.
- */
-const LEGACY_INSTALL_TARGETS: Record<string, InstallTarget> = {
-  kotrain: 'agent-nekko',
-  nekkos: 'agent-nekko',
-  'open-paw': 'agent-nekko',
-};
-
-/** Every value accepted for a target, current name first (drives the MCP enum). */
+/** Every value accepted for a target (drives the MCP enum). */
 export const INSTALL_TARGETS: readonly string[] = [
   'agent-nekko',
   'claude',
   'codex',
-  ...Object.keys(LEGACY_INSTALL_TARGETS),
 ];
 
-/** Fold a stored or caller-supplied target onto the current name. */
+/** Resolve a caller-supplied target onto a known one. */
 export function normalizeInstallTarget(target: string | undefined): InstallTarget {
-  if (!target) return 'agent-nekko';
-  return LEGACY_INSTALL_TARGETS[target] ?? (target as InstallTarget);
+  if (!target || !INSTALL_TARGETS.includes(target)) return 'agent-nekko';
+  return target as InstallTarget;
 }
 
 export interface InstallTargetInfo {
@@ -78,7 +66,7 @@ export interface MarketplaceSkill {
   /** Optional bespoke workflow graph; `marketWorkflow` derives one otherwise. */
   workflow?: SkillWorkflow;
   /** Trust tier for skills from the Vaizer hub. */
-  tier?: 'kotrain-official' | 'community';
+  tier?: 'nekko-official' | 'community';
   /**
    * Verbatim SKILL.md for skills sourced outside the built-in catalog
    * (Vaizer). File-based installs write this instead of a generated summary.
@@ -103,7 +91,7 @@ export interface InstalledSkillRecord {
 /** First-party skills by Nekko Labs. */
 export const NEKKO_SKILLS: MarketplaceSkill[] = [
   {
-    id: 'kotrain-review-council',
+    id: 'agent-nekko-review-council',
     name: 'review-council',
     description: 'Summon a council of specialised reviewers over your diff: correctness, security, and simplicity, each reporting separately',
     author: 'Nekko Labs',
@@ -138,7 +126,7 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
     },
   },
   {
-    id: 'kotrain-spec-sync',
+    id: 'agent-nekko-spec-sync',
     name: 'spec-sync',
     description: 'Reconcile SPEC.md with the code: find shipped features the spec missed and spec promises the code broke',
     author: 'Nekko Labs',
@@ -152,7 +140,7 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
       'Read the workspace SPEC.md, then survey the codebase (entry points, routes, views, commands). Produce two lists: features that exist in code but are missing from the spec, and spec statements the code contradicts. Update SPEC.md so it describes the system as it actually is, keeping its existing voice and structure.',
   },
   {
-    id: 'kotrain-changelog',
+    id: 'agent-nekko-changelog',
     name: 'changelog',
     description: 'Write a user-facing changelog entry from the commits since the last release tag',
     author: 'Nekko Labs',
@@ -166,7 +154,7 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
       'Run git log from the last release tag to HEAD. Group the changes into Added / Changed / Fixed sections written for end users (plain language, no commit hashes, no internal refactors unless user-visible). Prepend the entry to CHANGELOG.md with the version and date.',
   },
   {
-    id: 'kotrain-standup',
+    id: 'agent-nekko-standup',
     name: 'standup',
     description: 'Summarize what changed in this workspace since yesterday, written as a standup update',
     author: 'Nekko Labs',
@@ -180,7 +168,7 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
       'Inspect git log and the working tree for the last 24 hours. Write a standup update with three short sections: Done (merged/committed), In progress (uncommitted or branch work), Blockers (failing tests, TODOs, unresolved conflicts). Keep each section to three bullets.',
   },
   {
-    id: 'kotrain-dep-audit',
+    id: 'agent-nekko-dep-audit',
     name: 'dep-audit',
     description: 'Audit dependencies for known vulnerabilities, unused packages, and majors you are behind on',
     author: 'Nekko Labs',
@@ -194,7 +182,7 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
       'Run the package manager audit (npm audit / cargo audit / pip-audit as appropriate), cross-check package manifests against actual imports to find unused dependencies, and list major versions the project is behind on. Produce a prioritized plan: security fixes first, then easy majors, then risky ones with their breaking changes.',
   },
   {
-    id: 'kotrain-a11y-audit',
+    id: 'agent-nekko-a11y-audit',
     name: 'a11y-audit',
     description: 'Audit UI code for accessibility: contrast, keyboard navigation, labels, and focus handling',
     author: 'Nekko Labs',

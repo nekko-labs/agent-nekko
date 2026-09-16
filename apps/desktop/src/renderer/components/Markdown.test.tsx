@@ -9,8 +9,8 @@ describe('Markdown', () => {
   it('turns a dashed run glued to a sentence into a real list', () => {
     // The shape people actually type into the composer: a lead-in line with no
     // blank line before the dashes.
-    const out = html('kotrain project.\n- first thing\n- second thing');
-    expect(out).toContain('<p>kotrain project.</p>');
+    const out = html('Agent Nekko project.\n- first thing\n- second thing');
+    expect(out).toContain('<p>Agent Nekko project.</p>');
     expect(out.match(/<li>/g)).toHaveLength(2);
     expect(out).toContain('<li>first thing</li>');
     expect(out).toContain('list-style-type:disc');
@@ -56,16 +56,16 @@ describe('Markdown', () => {
   });
 
   it('covers inline bold, italic, strike, code and links', () => {
-    const out = html('**b** *i* ~~s~~ `c` [text](https://kotrain.com)');
+    const out = html('**b** *i* ~~s~~ `c` [text](https://agentnekko.com)');
     expect(out).toContain('<strong>b</strong>');
     expect(out).toContain('<em>i</em>');
     expect(out).toContain('>s</s>');
     expect(out).toContain('>c</code>');
-    expect(out).toContain('href="https://kotrain.com"');
+    expect(out).toContain('href="https://agentnekko.com"');
   });
 
   it('auto-links a bare url', () => {
-    expect(html('see https://kotrain.com now')).toContain('href="https://kotrain.com"');
+    expect(html('see https://agentnekko.com now')).toContain('href="https://agentnekko.com"');
   });
 
   it('never renders a link to a script-bearing scheme', () => {
@@ -77,9 +77,9 @@ describe('Markdown', () => {
   });
 
   it('passes only web schemes through the link-target guard', () => {
-    expect(safeHref('https://kotrain.com')).toBe('https://kotrain.com');
-    expect(safeHref('http://kotrain.com')).toBe('http://kotrain.com');
-    expect(safeHref('mailto:hi@kotrain.com')).toBe('mailto:hi@kotrain.com');
+    expect(safeHref('https://agentnekko.com')).toBe('https://agentnekko.com');
+    expect(safeHref('http://agentnekko.com')).toBe('http://agentnekko.com');
+    expect(safeHref('mailto:hi@agentnekko.com')).toBe('mailto:hi@agentnekko.com');
     expect(safeHref('JavaScript:alert(1)')).toBeNull();
     expect(safeHref('data:text/html,<script>alert(1)</script>')).toBeNull();
     expect(safeHref('file:///etc/passwd')).toBeNull();

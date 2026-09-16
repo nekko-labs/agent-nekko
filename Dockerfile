@@ -26,9 +26,9 @@ RUN npm prune --omit=dev
 FROM node:20-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
-    KOTRAIN_HOST=0.0.0.0 \
-    KOTRAIN_PORT=1440 \
-    KOTRAIN_DATA_DIR=/data
+    NEKKO_HOST=0.0.0.0 \
+    NEKKO_PORT=1440 \
+    NEKKO_DATA_DIR=/data
 
 # Copy the pruned install + build outputs, preserving the workspace layout the
 # server expects (apps/server/dist resolves ../../desktop/out/renderer).
@@ -46,4 +46,4 @@ USER node
 EXPOSE 1440
 VOLUME ["/data", "/workspace"]
 
-CMD ["sh", "-c", "if [ -z \"$NEKKO_TOKEN$KOTRAIN_TOKEN\" ]; then NEKKO_TOKEN=$(node -e \"console.log(require('node:crypto').randomBytes(24).toString('base64url'))\"); export NEKKO_TOKEN; echo \"Agent Nekko token: $NEKKO_TOKEN\"; fi; exec node apps/server/dist/index.js"]
+CMD ["sh", "-c", "if [ -z \"$NEKKO_TOKEN\" ]; then NEKKO_TOKEN=$(node -e \"console.log(require('node:crypto').randomBytes(24).toString('base64url'))\"); export NEKKO_TOKEN; echo \"Agent Nekko token: $NEKKO_TOKEN\"; fi; exec node apps/server/dist/index.js"]

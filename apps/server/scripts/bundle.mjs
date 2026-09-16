@@ -48,7 +48,7 @@ const pkg = {
   description: 'AI help on your computer: the self-hosted web edition plus CLI/MCP. Run with `npx agent-nekko-web`.',
   license: 'MIT',
   type: 'module',
-  bin: { 'agent-nekko-web': 'index.mjs', 'kotrain': 'index.mjs', 'nekkos': 'index.mjs' },
+  bin: { 'agent-nekko-web': 'index.mjs' },
   files: ['index.mjs', 'web'],
   engines: { node: '>=20' },
   dependencies: {

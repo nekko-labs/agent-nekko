@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 const baseUrl = process.argv[2] || 'http://10.5.0.2:1338';
 const model = process.argv[3] || 'google/gemma-4-31b-qat';
 
-const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'kotrain-host-')) });
+const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-host-')) });
 
 const provider = {
   id: 'lm', kind: 'lmstudio', label: 'LM Studio', baseUrl, enabled: true,

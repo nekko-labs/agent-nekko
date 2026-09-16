@@ -6,7 +6,7 @@ import { ensurePrivateFile, writeJsonAtomic } from './secure-file.js';
 
 describe('secure JSON persistence', () => {
   it('writes complete JSON with private permissions and no temp files', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'kotrain-secure-'));
+    const dir = mkdtempSync(join(tmpdir(), 'nekko-secure-'));
     const path = join(dir, 'settings.json');
     writeJsonAtomic(path, { token: 'secret', nested: { ok: true } });
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({ token: 'secret', nested: { ok: true } });
@@ -15,7 +15,7 @@ describe('secure JSON persistence', () => {
   });
 
   it('migrates an existing permissive file to private permissions', () => {
-    const dir = mkdtempSync(join(tmpdir(), 'kotrain-secure-'));
+    const dir = mkdtempSync(join(tmpdir(), 'nekko-secure-'));
     const path = join(dir, 'remote.json');
     writeFileSync(path, '{}', { mode: 0o644 });
     ensurePrivateFile(path);

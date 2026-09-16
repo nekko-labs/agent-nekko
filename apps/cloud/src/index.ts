@@ -11,12 +11,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.CLOUD_PORT ?? 4318);
 const HOST = process.env.CLOUD_HOST ?? '127.0.0.1';
 const isLocal = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
-// Keeps an existing earlier-brand root if one is already there, same rule as
-// the desktop/CLI data dir.
 const DATA_ROOT =
-  process.env.CLOUD_DATA_DIR ??
-  ['.nekko-cloud', '.kotrain-cloud'].map((n) => join(homedir(), n)).find(existsSync) ??
-  join(homedir(), '.nekko-cloud');
+  process.env.CLOUD_DATA_DIR ?? join(homedir(), '.nekko-cloud');
 
 // Reuse the desktop-built renderer (same UI as every edition).
 function findRendererDir(): string | undefined {

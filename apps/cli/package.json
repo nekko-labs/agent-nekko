@@ -28,9 +28,7 @@
     "LICENSE"
   ],
   "bin": {
-    "agent-nekko": "dist/index.js",
-    "kotrain": "dist/index.js",
-    "nekkos": "dist/index.js"
+    "agent-nekko": "dist/index.js"
   },
   "main": "./dist/index.js",
   "exports": {

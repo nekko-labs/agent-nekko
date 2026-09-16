@@ -10,7 +10,7 @@ Nekko, the mascot, is a hand-drawn, slender outline cat with ginger ears and tai
 
 - Primary website: https://agentnekko.com/
 - Backup domain: nekkoagent.com. Use agentnekko.com as the canonical URL.
-- The product was previously called Kotrain, and before that Nekkos and Open Paw. Everything now ships as Agent Nekko: the `agent-nekko` npm package, the `AgentNekko` installers, and the agentnekko.com site. The older `kotrain` and `nekkos` commands remain as aliases, and older release assets keep the names they were published under.
+- The product was previously called Kotrain, and before that Nekkos and Open Paw. Everything now ships as Agent Nekko: the `agent-nekko` npm package, the `AgentNekko` installers, and the agentnekko.com site. Older release assets keep the names they were published under.
 - Source and releases remain at https://github.com/nekko-labs/agent-nekko. Do not substitute an unverified repository or package name.
 
 ## Five ways to use Nekko
@@ -59,7 +59,7 @@ Current implementation provides file and terminal tools and CPU/RAM plus macOS/N
 
 ## Choose what stays on your computer
 
-With an AI model and its runner already installed on your computer, supported tasks can run offline. Online AI services, downloads, connectors, and remote services need internet access and may send data to the providers you configure. Choosing local AI does not mean every operation stays local. Desktop, self-hosted browser, and Docker editions share the same core software. Data lives in `~/.nekko` for CLI and web defaults; an existing `~/.kotrain` from an earlier name keeps being used, and `NEKKO_*` environment variables fall back to the older prefixes.
+With an AI model and its runner already installed on your computer, supported tasks can run offline. Online AI services, downloads, connectors, and remote services need internet access and may send data to the providers you configure. Choosing local AI does not mean every operation stays local. Desktop, self-hosted browser, and Docker editions share the same core software. Data lives in `~/.nekko` for CLI and web defaults, and `NEKKO_*` environment variables configure it.
 
 ## See what your AI is doing
 
@@ -77,7 +77,7 @@ Alongside voice and computer control, Agent Nekko is exploring shared team workf
 
 Get the current desktop installer from the [latest release](https://github.com/nekko-labs/agent-nekko/releases/latest): Windows `.exe`/`.msi`, macOS `.dmg`, Linux `.AppImage`/`.deb`. The website detects the platform and resolves real release assets, falling back to GitHub Releases if the API is unavailable.
 
-For the browser version you run yourself, use a source checkout, install dependencies with `npm install`, then run `npm run web`. Running `npx agent-nekko` without a command shows CLI help, not the browser app. Use `docker compose up` from a checkout for Docker, and `agent-nekko mcp` for a configured CLI installation. The `agent-nekko` package provides `agent-nekko` plus `kotrain` and `nekkos` aliases, so older commands still work. That package has not been published to npm yet, so `npx agent-nekko` does not resolve; the published package is still `kotrain` at 0.6.0 and is the same CLI. See the install documentation for prerequisites before installing.
+For the browser version you run yourself, use a source checkout, install dependencies with `npm install`, then run `npm run web`. Running `npx agent-nekko` without a command shows CLI help, not the browser app. Use `docker compose up` from a checkout for Docker, and `agent-nekko mcp` for a configured CLI installation. The `agent-nekko` package has not been published to npm yet, so `npx agent-nekko` does not resolve until it is. See the install documentation for prerequisites before installing.
 
 ## Pages and source
 

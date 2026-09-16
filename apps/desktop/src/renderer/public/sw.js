@@ -1,7 +1,7 @@
-// Minimal, safe service worker: makes Kotrain installable and gives the app
+// Minimal, safe service worker: makes Agent Nekko installable and gives the app
 // shell an offline fallback. It deliberately never touches /api or WebSocket
 // traffic, only same-origin GET navigations/static assets, network-first.
-const CACHE = 'kotrain-shell-v1';
+const CACHE = 'nekko-shell-v1';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));

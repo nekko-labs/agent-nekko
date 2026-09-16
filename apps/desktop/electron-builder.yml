@@ -22,14 +22,11 @@ asarUnpack:
 extraMetadata:
   main: out/main/index.js
 # macOS resolves URL schemes from Info.plist, so setAsDefaultProtocolClient in
-# main is not enough for a packaged build. Older brand schemes stay listed: a
-# Hypergate built against one of them still emits it.
+# main is not enough for a packaged build.
 protocols:
   - name: Agent Nekko
     schemes:
       - agent-nekko
-      - kotrain
-      - nekkos
 publish:
   provider: github
   owner: nekko-labs

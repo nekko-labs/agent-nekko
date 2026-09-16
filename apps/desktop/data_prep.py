@@ -55,12 +55,12 @@ def setup_data_pipeline(csv_path: str):
     tokenized_dataset = tokenize_data(raw_dataset, tokenizer)
     
     # 4. Save the processed dataset (for reproducibility)
-    output_path = "kotrain-training/japanese_translation/processed_dataset"
+    output_path = "nekko-training/japanese_translation/processed_dataset"
     print(f"Saving tokenized dataset to {output_path}")
     tokenized_dataset.save_to_disk(output_path)
 
 if __name__ == "__main__":
     # NOTE: This assumes 'corpus.csv' is available in the parent directory of this script 
     # or that we are running from a location where the path works.
-    CORPUS_PATH = "kotrain-training/japanese_translation/data/corpus.csv"
+    CORPUS_PATH = "nekko-training/japanese_translation/data/corpus.csv"
     setup_data_pipeline(CORPUS_PATH)

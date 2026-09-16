@@ -17,41 +17,25 @@ function store(initial: Record<string, string> = {}, broken = false) {
 }
 
 describe('brandKeys', () => {
-  it('maps a dotted key onto every earlier brand', () => {
-    expect(brandKeys('nekko.composerDrafts')).toEqual([
-      'nekko.composerDrafts',
-      'kotrain.composerDrafts',
-      'nekkos.composerDrafts',
-      'open-paw.composerDrafts',
-    ]);
-  });
-
-  it('maps an underscored key too', () => {
-    expect(brandKeys('nekko_token')).toEqual(['nekko_token', 'kotrain_token', 'nekkos_token', 'open-paw_token']);
+  it('returns just the key', () => {
+    expect(brandKeys('nekko.composerDrafts')).toEqual(['nekko.composerDrafts']);
+    expect(brandKeys('nekko_token')).toEqual(['nekko_token']);
   });
 });
 
 describe('readBrandKey', () => {
-  it('prefers the current key', () => {
-    const s = store({ 'nekko.x': 'new', 'kotrain.x': 'old' });
+  it('reads the key', () => {
+    const s = store({ 'nekko.x': 'new' });
     expect(readBrandKey(s, 'nekko.x')).toBe('new');
   });
 
-  it('adopts an earlier brand value and rewrites it under the current key', () => {
+  it('does not read earlier brand keys', () => {
     const s = store({ 'kotrain.x': 'old' });
-    expect(readBrandKey(s, 'nekko.x')).toBe('old');
-    expect(s.map.get('nekko.x')).toBe('old');
-    // The original stays, so a downgrade still finds its data.
-    expect(s.map.get('kotrain.x')).toBe('old');
+    expect(readBrandKey(s, 'nekko.x')).toBeNull();
   });
 
-  it('prefers the newest brand present', () => {
-    const s = store({ 'kotrain.x': 'k', 'open-paw.x': 'o' });
-    expect(readBrandKey(s, 'nekko.x')).toBe('k');
-  });
-
-  it('keeps an empty stored value rather than falling through', () => {
-    const s = store({ 'nekko.x': '', 'kotrain.x': 'old' });
+  it('keeps an empty stored value rather than reading as absent', () => {
+    const s = store({ 'nekko.x': '' });
     expect(readBrandKey(s, 'nekko.x')).toBe('');
   });
 
@@ -60,6 +44,6 @@ describe('readBrandKey', () => {
   });
 
   it('reads as absent when storage throws', () => {
-    expect(readBrandKey(store({ 'kotrain.x': 'old' }, true), 'nekko.x')).toBeNull();
+    expect(readBrandKey(store({ 'nekko.x': 'x' }, true), 'nekko.x')).toBeNull();
   });
 });
