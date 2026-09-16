@@ -9,9 +9,11 @@ import {
   removePane,
   resizeSplit,
   splitPane,
+  swapPanes,
   type Direction,
   type WbNode,
   type WbPane,
+  type WbSplit,
 } from './layout.js';
 
 const pane = (id: string): WbPane => ({ id, kind: 'chat', refId: id });
@@ -166,5 +168,63 @@ describe('resizeSplit', () => {
     const resized = resizeSplit(root, inner!.id, 0, 0.3) as WbNode;
     expect(isSplit(resized) && resized.sizes).toEqual([0.5, 0.5]);
     expect(isSplit(resized) && isSplit(resized.children[1]) && resized.children[1].sizes).toEqual([0.3, 0.7]);
+  });
+});
+
+describe('swapPanes', () => {
+  /** Two windows side by side, the shape a swap is usually asked for in. */
+  const pair = (): WbSplit => ({
+    id: 's1',
+    dir: 'row',
+    children: [
+      { id: 'a', kind: 'chat', refId: 'chat-1' },
+      { id: 'b', kind: 'terminal', refId: 'term-1' },
+    ],
+    sizes: [0.7, 0.3],
+  });
+
+  it('trades what the two windows show, leaving the shape alone', () => {
+    const next = swapPanes(pair(), 'a', 'b') as WbSplit;
+    expect(next.sizes).toEqual([0.7, 0.3]);
+    expect(next.children.map((c) => (c as WbPane).id)).toEqual(['a', 'b']);
+    // The slots keep their ids and sizes; only the contents move.
+    expect(next.children[0]).toMatchObject({ kind: 'terminal', refId: 'term-1' });
+    expect(next.children[1]).toMatchObject({ kind: 'chat', refId: 'chat-1' });
+  });
+
+  it('swaps across different branches of the tree', () => {
+    const tree: WbSplit = {
+      id: 's1',
+      dir: 'row',
+      children: [
+        { id: 'a', kind: 'chat', refId: 'chat-1' },
+        { id: 's2', dir: 'col', children: [
+          { id: 'b', kind: 'file', refId: '/x.ts' },
+          { id: 'c', kind: 'terminal', refId: 'term-1' },
+        ], sizes: [0.5, 0.5] },
+      ],
+      sizes: [0.5, 0.5],
+    };
+    const next = swapPanes(tree, 'a', 'c') as WbSplit;
+    expect(next.children[0]).toMatchObject({ id: 'a', kind: 'terminal', refId: 'term-1' });
+    const nested = next.children[1] as WbSplit;
+    expect(nested.children[1]).toMatchObject({ id: 'c', kind: 'chat', refId: 'chat-1' });
+  });
+
+  it('leaves the tree alone for a pane that is not there, or for itself', () => {
+    const tree = pair();
+    expect(swapPanes(tree, 'a', 'a')).toBe(tree);
+    expect(swapPanes(tree, 'a', 'nope')).toBe(tree);
+    expect(swapPanes(null, 'a', 'b')).toBeNull();
+  });
+
+  it('is what the edges could not do: reversing two neighbours', () => {
+    // Dropping `a` on `b`'s left edge produces the order it already had, which
+    // is the drop that looked like it did nothing.
+    const viaEdge = movePane(pair(), 'a', 'b', 'left') as WbSplit;
+    expect(viaEdge.children.map((c) => (c as WbPane).refId)).toEqual(['chat-1', 'term-1']);
+
+    const viaSwap = swapPanes(pair(), 'a', 'b') as WbSplit;
+    expect(viaSwap.children.map((c) => (c as WbPane).refId)).toEqual(['term-1', 'chat-1']);
   });
 });

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
-import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords } from '@agent-nekko/shared';
+import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
@@ -9,6 +9,7 @@ import { Markdown } from './Markdown.js';
 import { ContextGauge, EffortMenu } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
+import { PaneActions, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
 import { ChatControls } from './ChatControls.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
@@ -216,6 +217,44 @@ interface PendingApproval {
  * the workbench. Provider/model are chosen per-pane (independent agents); the
  * pane subscribes to agent events filtered by its own sessionId.
  */
+/**
+ * The chat's own chrome, wherever it happens to be.
+ *
+ * Inside a workspace window the frame already draws a title strip with this
+ * chat's name in it, so the actions move into that strip and no second bar is
+ * drawn: two bars stacked on each other, both saying the same title, was the
+ * shape this replaces. Anywhere else there is no strip to join, so the chat
+ * draws the header it always did.
+ */
+function ChatHeader({
+  title,
+  subAgent,
+  children,
+}: {
+  title: string;
+  subAgent: boolean;
+  children: React.ReactNode;
+}) {
+  const framed = useInPaneFrame();
+  if (framed) {
+    return (
+      <PaneActions>
+        {subAgent && <span className="chip shrink-0 text-[10px]">sub-agent</span>}
+        {children}
+      </PaneActions>
+    );
+  }
+  return (
+    <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="truncate text-[13px] font-medium">{title}</span>
+        {subAgent && <span className="chip shrink-0 text-[10px]">sub-agent</span>}
+      </div>
+      <div className="flex shrink-0 items-center gap-1">{children}</div>
+    </header>
+  );
+}
+
 export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; onRunningChange?: (running: boolean) => void }) {
   const { providers, settings, setMascotMood, refreshSessions } = useStore();
 
@@ -290,6 +329,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // Live telemetry for the subtext under the chat: output tokens, elapsed
   // seconds, and a summary of the last completed reply.
   const [turnOut, setTurnOut] = useState(0);
+  /**
+   * What the reply now running has cost so far, at published list prices,
+   * accumulated per step as the usage events arrive rather than read back from
+   * the usage log after the turn ends. A long agentic turn is exactly when
+   * someone wants to see the number moving.
+   */
+  const [turnCost, setTurnCost] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [lastTurn, setLastTurn] = useState<{ out: number; tps: number; secs: number } | null>(null);
   // Keyboard state for the slash/@ menus: the highlighted row, and whether the
@@ -312,6 +358,32 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const turnDecodeMsRef = useRef(0);
   const reasoningStart = useRef(0);
   const turnOutRef = useRef(0);
+  /**
+   * Cost the provider has actually reported for this turn, summed per step.
+   *
+   * Kept apart from the estimate below because the two have different standing:
+   * this is measured, that is a guess made while we wait for the measurement.
+   */
+  const turnCostRef = useRef(0);
+  /**
+   * Tokens streamed since the last usage report, and the prompt tokens of a
+   * step that has not reported yet.
+   *
+   * Without these the figure only moved once, at the end: an OpenAI-compatible
+   * server sends its usage chunk after the last content chunk, so there is
+   * nothing measured to show during the reply people actually want to watch.
+   * These price what has arrived so far and are dropped the moment the real
+   * numbers land, so the estimate converges on the truth rather than adding to it.
+   */
+  const pendingOutRef = useRef(0);
+  const pendingInRef = useRef(0);
+  /**
+   * The model this turn is actually running on, for pricing its usage events.
+   * A ref because the agent-event listener is long-lived, and the model can be
+   * resolved per send (Auto mode), so the state variable would price a turn at
+   * whatever the picker shows now rather than at what ran.
+   */
+  const modelForCostRef = useRef<string | null>(null);
   // Ref mirrors of the live buffers: the agent-event listener closure is
   // long-lived, so reading the state variables there would see stale values.
   const liveToolsRef = useRef<ToolCall[]>([]);
@@ -407,6 +479,19 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     }).catch(() => setCost(0));
   }, [sessionId, session?.modelId, session?.messages.length]);
 
+  /**
+   * What this turn has cost so far: measured where the provider has told us,
+   * estimated where it has not yet.
+   */
+  const publishTurnCost = () => {
+    const estimate = estimateCostUSD(
+      modelForCostRef.current ?? undefined,
+      pendingInRef.current,
+      pendingOutRef.current,
+    );
+    setTurnCost(turnCostRef.current + estimate);
+  };
+
   // Commit whatever has streamed in since the last flush.
   const flushStream = () => {
     if (flushTimer.current != null) {
@@ -422,8 +507,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     // The same batch that paints the transcript moves the context gauge, so the
     // estimate costs one extra number per frame rather than one per token.
     if (text || reasoning) {
-      liveCtxRef.current += estimateTokens(text) + estimateTokens(reasoning);
+      const produced = estimateTokens(text) + estimateTokens(reasoning);
+      liveCtxRef.current += produced;
       setLiveCtxTokens(liveCtxRef.current);
+      pendingOutRef.current += produced;
+      publishTurnCost();
     }
   };
 
@@ -475,6 +563,15 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           turnDecodeMsRef.current += e.outputMs ?? 0;
           setTurnOut(turnOutRef.current);
           setTps(decodeRate(turnOutRef.current, turnDecodeMsRef.current));
+          // Each step is priced as it lands, because the input tokens of a
+          // multi-step turn are not one prompt counted once: every step resends
+          // the transcript, and that is most of what a long turn costs.
+          // Measured numbers for the step that just finished, so the estimate
+          // that stood in for it is dropped rather than added to.
+          turnCostRef.current += estimateCostUSD(modelForCostRef.current ?? undefined, e.inputTokens, e.outputTokens);
+          pendingOutRef.current = 0;
+          pendingInRef.current = 0;
+          publishTurnCost();
           break;
         }
         case 'tool_call':
@@ -684,6 +781,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     turnStart.current = Date.now();
     turnOutRef.current = 0;
     turnDecodeMsRef.current = 0;
+    turnCostRef.current = 0;
+    pendingOutRef.current = 0;
+    // The prompt is priced from the context gauge's own count the instant the
+    // turn starts, so the figure is never a zero that sits there while a large
+    // prompt is being processed.
+    pendingInRef.current = (ctx?.items ?? []).filter((i) => i.included).reduce((n, i) => n + i.tokens, 0);
+    setTurnCost(estimateCostUSD(modelForCostRef.current ?? undefined, pendingInRef.current, 0));
     liveToolsRef.current = [];
     liveTextRef.current = '';
     liveCtxRef.current = 0;
@@ -750,6 +854,9 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
       setModelMenuOpen(true);
       return null;
     }
+    // Remembered here rather than at each call site: every turn goes through
+    // this gate, so this is the one place that always knows what will run.
+    modelForCostRef.current = resolved;
     return { providerId, modelId: resolved };
   };
 
@@ -1135,12 +1242,10 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   return (
     <div ref={paneRef} className="flex h-full min-w-0 overflow-hidden">
       <section className="flex min-w-0 w-full flex-1 flex-col overflow-x-hidden">
-        <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <span className="truncate text-[13px] font-medium">{session?.title || 'New chat'}</span>
-            {session?.parentSessionId && <span className="chip shrink-0 text-[10px]">sub-agent</span>}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
+        {/* One bar per window. Inside a workspace these ride in the frame's
+            title strip, which already shows the chat's name; standalone, the
+            chat still needs a header of its own. */}
+        <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)}>
             {prs.length > 0 && (
               <button
                 className="btn btn-ghost px-2 py-1"
@@ -1180,8 +1285,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
             >
               <PanelIcon />
             </button>
-          </div>
-        </header>
+        </ChatHeader>
 
         <div className="relative flex min-h-0 w-full flex-1">
           <div ref={scrollRef} onScroll={onScroll} className="w-full flex-1 overflow-y-auto overflow-x-hidden px-4 py-5">
@@ -1725,7 +1829,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                     liveTokens={liveCtxTokens}
                     contextWindow={selectedModelInfo?.contextLength}
                   />
-                  <UsageLimitsChip provider={activeProvider} session={session ?? undefined} cost={cost} />
+                  <UsageLimitsChip
+                    provider={activeProvider}
+                    session={session ?? undefined}
+                    cost={cost}
+                    turnCost={turnCost}
+                    running={streaming}
+                  />
                   <div className="flex-1" />
                   {draft.trim() && hasProvider && (
                     <button

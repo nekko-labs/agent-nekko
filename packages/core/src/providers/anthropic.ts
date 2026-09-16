@@ -43,13 +43,72 @@ const CLAUDE_CODE_SYSTEM_PREFIX = "You are Claude Code, Anthropic's official CLI
  * custom deployment id) keeps the old behaviour and gets a temperature.
  */
 export function rejectsSampling(model: string): boolean {
-  const m = /^claude-(opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d+))?/.exec(model);
+  const id = normalizeModelId(model);
+  // What the API itself told us, which outranks any guess we could make from
+  // the name. See `learnSamplingSupport`.
+  const learned = LEARNED_SAMPLING.get(id);
+  if (learned !== undefined) return learned;
+
+  const m = /^claude-(opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d+))?/.exec(id);
   if (!m) return false;
   const [, family, majorRaw, minorRaw] = m;
   if (family === 'fable' || family === 'mythos') return true;
   const major = Number(majorRaw);
   const minor = Number(minorRaw ?? 0);
   return major > 4 || (major === 4 && minor >= 7);
+}
+
+/**
+ * A model id as the version rule can read it.
+ *
+ * Gateways and proxies prefix the vendor (`anthropic/claude-opus-5`), and the
+ * regex is anchored, so an unprefixed match would silently send a temperature to
+ * a model that rejects it. Stripping the prefix costs nothing and closes the
+ * most common way the rule gets fooled.
+ */
+function normalizeModelId(model: string): string {
+  return model.toLowerCase().trim().replace(/^.*\//, '');
+}
+
+/**
+ * What the API has told us about a model's sampling support, by id.
+ *
+ * The version rule above is a guess, and a guess about a model released after
+ * this build is a guess that can be wrong. When it is wrong Anthropic answers
+ * 400 and the user loses their turn, which is too high a price for a naming
+ * heuristic. So a rejection is treated as information: the request is retried
+ * the other way and the answer is remembered, and every later request for that
+ * model is right the first time.
+ */
+const LEARNED_SAMPLING = new Map<string, boolean>();
+
+export function learnSamplingSupport(model: string, rejects: boolean): void {
+  LEARNED_SAMPLING.set(normalizeModelId(model), rejects);
+}
+
+/** Test seam: forget everything learned from the API. */
+export function resetLearnedSampling(): void {
+  LEARNED_SAMPLING.clear();
+}
+
+/**
+ * Is this 400 about the sampling parameter we chose?
+ *
+ * Matched on the parameter name rather than on a fixed sentence, because the
+ * wording is Anthropic's to change and the parameter names are the contract.
+ * Anything else (a bad key, a too-long prompt) is a real failure and must not
+ * be retried into a second identical error.
+ */
+export function isSamplingParamError(status: number, body: string): 'temperature' | 'effort' | null {
+  if (status !== 400) return null;
+  const text = body.toLowerCase();
+  if (/`?(temperature|top_p|top_k)`?[^.]*\b(deprecat|unsupported|not supported|unexpected|remov)/.test(text)) {
+    return 'temperature';
+  }
+  if (/`?(output_config|effort)`?[^.]*\b(unsupported|not supported|unexpected|invalid|unrecognized)/.test(text)) {
+    return 'effort';
+  }
+  return null;
 }
 
 /**
@@ -119,29 +178,42 @@ export class AnthropicProvider implements Provider {
 
   async *chat(req: ChatRequest): AsyncIterable<ProviderChunk> {
     const effort = ANTHROPIC_EFFORT[req.effort ?? 'normal'];
-    const body = {
-      model: req.model,
-      max_tokens: req.maxOutputTokens ?? 4096,
-      stream: true,
-      ...(rejectsSampling(req.model)
-        ? { output_config: { effort } }
-        : { temperature: req.temperature ?? 0.7 }),
-      system: this.systemParam(req.system),
-      messages: this.toAnthropicMessages(req),
-      tools: req.tools?.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })),
-    };
+    const send = (useEffort: boolean) =>
+      fetch(`${this.config.baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: this.headers(),
+        body: JSON.stringify({
+          model: req.model,
+          max_tokens: req.maxOutputTokens ?? 4096,
+          stream: true,
+          ...(useEffort ? { output_config: { effort } } : { temperature: req.temperature ?? 0.7 }),
+          system: this.systemParam(req.system),
+          messages: this.toAnthropicMessages(req),
+          tools: req.tools?.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })),
+        }),
+        signal: req.signal,
+      });
 
-    const res = await fetch(`${this.config.baseUrl}/v1/messages`, {
-      method: 'POST',
-      headers: this.headers(),
-      body: JSON.stringify(body),
-      signal: req.signal,
-    });
-    req.onHeaders?.(res.headers);
+    let useEffort = rejectsSampling(req.model);
+    let res = await send(useEffort);
+
+    // A 400 about the sampling parameter means our guess about this model was
+    // wrong, not that the turn should fail. Flip it, remember the answer for
+    // next time, and send the same turn again.
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`anthropic ${res.status}: ${text.slice(0, 200)}`);
+      const wrongParam = isSamplingParamError(res.status, text);
+      if (!wrongParam) throw new Error(`anthropic ${res.status}: ${text.slice(0, 200)}`);
+
+      useEffort = wrongParam === 'temperature';
+      learnSamplingSupport(req.model, useEffort);
+      res = await send(useEffort);
+      if (!res.ok) {
+        const retryText = await res.text().catch(() => '');
+        throw new Error(`anthropic ${res.status}: ${retryText.slice(0, 200)}`);
+      }
     }
+    req.onHeaders?.(res.headers);
 
     let curTool: { id: string; name: string; json: string } | null = null;
     let inputTokens = 0;

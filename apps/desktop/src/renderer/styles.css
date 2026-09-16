@@ -28,6 +28,16 @@
   --radius-xl: 12px;
   --radius-2xl: 16px;
 
+  /*
+    Workbench geometry. The windows used to meet along hairlines, which read as
+    a grid of straight lines with nothing to separate one surface from the next.
+    Each one is its own rounded panel now, with a small gap between them that the
+    divider lives in.
+  */
+  --pane-radius: 14px;
+  --pane-radius-inner: 10px;
+  --pane-gap: 7px;
+
   --font-sans: Inter, system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
@@ -53,6 +63,18 @@
 @utility card {
   @apply rounded-2xl border border-line bg-surface;
   box-shadow: var(--shadow-sm);
+  corner-shape: squircle;
+}
+
+/*
+  A superellipse corner rather than a circular one: the curvature eases in
+  instead of starting abruptly, which is what makes a rounded rectangle read as
+  a soft panel rather than a box with its corners filed off. `corner-shape` is
+  ignored where it is unsupported and the plain radius still applies, so this is
+  a refinement and never a requirement.
+*/
+@utility squircle {
+  corner-shape: squircle;
 }
 
 @utility btn {
@@ -1274,16 +1296,57 @@
 .pane-dropzone {
   position: absolute;
   z-index: 20;
+  border-radius: var(--pane-radius-inner);
   transition: background 0.12s ease, box-shadow 0.12s ease;
+  /*
+    Never a drag target itself. A band that accepts pointer events fires
+    `dragleave` on the overlay the instant the pointer crosses onto it, which
+    unmounts the band, which re-fires `dragover`, which draws it again: the
+    highlight strobed on every pixel of movement.
+  */
+  pointer-events: none;
 }
 .pane-dropzone-live {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
+/* A drop in the middle trades the two windows rather than splitting. */
+.pane-dropzone-swap {
+  inset: 12%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/*
+  The window being dropped onto slides and shrinks away from the edge the drop
+  is aimed at, so the band is visibly empty space rather than a tint laid over a
+  window that has not reacted.
+*/
+.pane-grip {
+  background: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.pane-body {
+  transform-origin: center;
+  transition: transform 0.16s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.16s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .compass-line-h,
   .compass-line-v {
     animation: none;
+  }
+  /* The band still says where the drop lands; only the movement goes. */
+  .pane-body {
+    transition: opacity 0.16s ease;
+    transform: none !important;
   }
 }

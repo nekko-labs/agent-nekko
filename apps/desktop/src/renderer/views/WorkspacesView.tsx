@@ -505,7 +505,7 @@ function WorkspaceCanvas({
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const {
-    splitPane, movePane, closePane, setActivePane, canSplitPane, resizePanes,
+    splitPane, movePane, swapPanes, closePane, setActivePane, canSplitPane, resizePanes,
     newChatInPane, newTerminalInPane,
   } = useStore();
 
@@ -578,8 +578,11 @@ function WorkspaceCanvas({
           onFocus={() => setActivePane(node.id)}
           onDragStart={() => setDragging(node.id)}
           onDragEnd={() => setDragging(null)}
-          onDrop={(dir) => {
-            if (dragging) movePane(dragging, node.id, dir);
+          onDrop={(target) => {
+            if (dragging) {
+              if (target === 'swap') swapPanes(dragging, node.id);
+              else movePane(dragging, node.id, target);
+            }
             setDragging(null);
           }}
         >
@@ -588,7 +591,11 @@ function WorkspaceCanvas({
       );
     }
     return (
-      <div key={node.id} className={`flex min-h-0 min-w-0 flex-1 ${node.dir === 'row' ? 'flex-row' : 'flex-col'}`}>
+      <div
+        key={node.id}
+        className={`flex min-h-0 min-w-0 flex-1 ${node.dir === 'row' ? 'flex-row' : 'flex-col'}`}
+        style={{ gap: 'var(--pane-gap)' }}
+      >
         {node.children.map((child, i) => (
           <React.Fragment key={child.id}>
             {i > 0 && <Divider splitId={node.id} index={i - 1} dir={node.dir} onResize={resizePanes} />}
@@ -602,7 +609,10 @@ function WorkspaceCanvas({
   };
 
   return (
-    <div className="flex min-h-0 flex-1" style={{ background: 'var(--surface-2)' }}>
+    <div
+      className="flex min-h-0 flex-1"
+      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
+    >
       {renderNode(workspace.root!)}
     </div>
   );
@@ -647,12 +657,21 @@ function Divider({
       aria-orientation={row ? 'vertical' : 'horizontal'}
       aria-label="Resize these windows"
       tabIndex={0}
-      className={`group relative shrink-0 bg-line ${row ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize'}`}
+      /* The gap between two panels is the handle: there is no line to draw any
+         more, so the divider is the space itself and shows a grip on hover. */
+      className={`group relative shrink-0 ${row ? 'cursor-col-resize' : 'cursor-row-resize'}`}
+      style={{ [row ? 'width' : 'height']: 'var(--pane-gap)' } as React.CSSProperties}
       onPointerDown={start}
     >
       <span
-        className={`absolute group-hover:bg-accent/30 group-focus-visible:bg-accent/40 ${
-          row ? 'inset-y-0 -left-1 -right-1' : 'inset-x-0 -top-1 -bottom-1'
+        /* A little wider than the gap, so the handle is grabbable without
+           making the gap itself bigger than it should look. */
+        className={`absolute ${row ? 'inset-y-0 -left-1 -right-1' : 'inset-x-0 -top-1 -bottom-1'}`}
+      />
+      <span
+        aria-hidden
+        className={`pane-grip absolute rounded-full opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 ${
+          row ? 'inset-y-0 left-1/2 w-[3px] -translate-x-1/2' : 'inset-x-0 top-1/2 h-[3px] -translate-y-1/2'
         }`}
       />
     </div>

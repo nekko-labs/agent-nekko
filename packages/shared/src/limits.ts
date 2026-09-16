@@ -25,8 +25,16 @@ export interface SubscriptionLimits {
   windows: LimitWindow[];
   /** Provider plan name, e.g. "plus" for ChatGPT. */
   planType?: string;
-  /** USD credit balance, or undefined / Infinity when the plan is unlimited. */
+  /** USD credit balance, when `creditsState` is `balance`. */
   creditsBalance?: number;
+  /**
+   * What the credit figure means, so the UI never has to guess from an absent
+   * number. It used to read a missing balance as "Unlimited", which was a
+   * confident answer to a question nobody had asked the provider: a plan with
+   * extra usage switched off, and a plan we simply had not read yet, both looked
+   * like an unlimited one.
+   */
+  creditsState?: 'unlimited' | 'balance' | 'disabled' | 'unknown';
   /** Epoch milliseconds when this snapshot was captured. */
   updatedAt: number;
   /** How long after `updatedAt` the snapshot should be considered stale. */

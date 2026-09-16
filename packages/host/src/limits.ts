@@ -102,10 +102,21 @@ export function recordFromHeaders(
   if (provider !== 'anthropic' && provider !== 'claude') {
     return get(tokenKey);
   }
-  const limits = parseAnthropicHeaders(headers);
-  if (limits.windows.length === 0) {
+  const parsed = parseAnthropicHeaders(headers);
+  if (parsed.windows.length === 0) {
     return get(tokenKey);
   }
+  // Merge rather than replace. The rate-limit headers report windows and nothing
+  // else, so writing them over the snapshot dropped the plan and credit figures
+  // the usage endpoint had supplied: the popover showed them once and then lost
+  // them the moment the user sent a message.
+  const previous = get(tokenKey);
+  const limits: SubscriptionLimits = {
+    ...parsed,
+    planType: previous?.planType,
+    creditsBalance: previous?.creditsBalance,
+    creditsState: previous?.creditsState,
+  };
   store.set(tokenKey, limits);
   const bus = events;
   if (bus) {
@@ -345,7 +356,36 @@ function parseAnthropicUsageJson(json: Record<string, unknown>): SubscriptionLim
     });
   }
 
-  return { windows, updatedAt: Date.now(), staleAfterMs: POLL_STALE_MS };
+  return {
+    windows,
+    ...parseAnthropicCredits(json),
+    updatedAt: Date.now(),
+    staleAfterMs: POLL_STALE_MS,
+  };
+}
+
+/**
+ * Anthropic's credit position, from the `extra_usage` block.
+ *
+ * `extra_usage` is the pay-as-you-go allowance beyond the plan: a monthly limit
+ * and what has been spent against it. Switched off is a real answer and not the
+ * same as unlimited, and a block we cannot read is `unknown` rather than either.
+ */
+function parseAnthropicCredits(
+  json: Record<string, unknown>,
+): Pick<SubscriptionLimits, 'creditsBalance' | 'creditsState'> {
+  const extra = json.extra_usage;
+  if (!extra || typeof extra !== 'object') return { creditsState: 'unknown' };
+
+  const obj = extra as Record<string, unknown>;
+  if (obj.is_enabled === false) return { creditsState: 'disabled' };
+
+  const limit = Number(obj.monthly_limit);
+  const used = Number(obj.used_credits);
+  if (!Number.isFinite(limit)) return { creditsState: 'unknown' };
+  // A limit with nothing spent against it yet still has its whole balance left.
+  const spent = Number.isFinite(used) ? used : 0;
+  return { creditsBalance: Math.max(0, limit - spent), creditsState: 'balance' };
 }
 
 function parseChatGptUsage(json: Record<string, unknown>): SubscriptionLimits {
@@ -354,16 +394,17 @@ function parseChatGptUsage(json: Record<string, unknown>): SubscriptionLimits {
   const planType = typeof json.plan_type === 'string' ? json.plan_type : undefined;
 
   let creditsBalance: number | undefined;
+  let creditsState: SubscriptionLimits['creditsState'] = 'unknown';
   const credits = json.credits as Record<string, unknown> | undefined;
   if (credits) {
     if (credits.unlimited === true) {
-      creditsBalance = undefined;
-    } else if (credits.has_credits === true && (typeof credits.balance === 'string' || typeof credits.balance === 'number')) {
-      const v = parseFloat(String(credits.balance));
-      if (Number.isFinite(v)) creditsBalance = v;
+      creditsState = 'unlimited';
     } else if (typeof credits.balance === 'string' || typeof credits.balance === 'number') {
       const v = parseFloat(String(credits.balance));
-      if (Number.isFinite(v)) creditsBalance = v;
+      if (Number.isFinite(v)) {
+        creditsBalance = v;
+        creditsState = 'balance';
+      }
     }
   }
 
@@ -410,5 +451,5 @@ function parseChatGptUsage(json: Record<string, unknown>): SubscriptionLimits {
     addWindow('secondary_window', '7d', 'weekly', '7-day');
   }
 
-  return { windows, planType, creditsBalance, updatedAt: Date.now(), staleAfterMs: POLL_STALE_MS };
+  return { windows, planType, creditsBalance, creditsState, updatedAt: Date.now(), staleAfterMs: POLL_STALE_MS };
 }

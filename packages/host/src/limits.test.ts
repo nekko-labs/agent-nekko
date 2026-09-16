@@ -391,3 +391,95 @@ describe('getLimits', () => {
     expect(state!.windows).toHaveLength(2);
   });
 });
+
+describe('plan and credits survive a chat turn', () => {
+  it('keeps plan and credits when rate-limit headers update the windows', async () => {
+    // The bug this covers: the usage poll supplies plan and credits, the
+    // response headers supply only windows, and writing the headers over the
+    // snapshot dropped both. The popover showed them once, then lost them the
+    // moment the user sent a message.
+    const tokenKey = 'claude:acct-merge';
+    setToken(tokenKey, {
+      provider: 'claude',
+      accessToken: 'claude-access',
+      expiresAt: Date.now() + 120_000,
+      obtainedAt: Date.now(),
+    });
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          five_hour: { utilization: 10, status: 'allowed', resets_at: '2026-04-11T07:00:00Z' },
+          extra_usage: { is_enabled: true, monthly_limit: 50, used_credits: 12.5, utilization: 25 },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+
+    initLimits(new EventEmitter());
+    const polled = await poll(tokenKey);
+    expect(polled!.creditsBalance).toBe(37.5);
+    expect(polled!.creditsState).toBe('balance');
+
+    const afterHeaders = recordFromHeaders(tokenKey, 'claude', {
+      'anthropic-ratelimit-unified-5h-utilization': '0.42',
+      'anthropic-ratelimit-unified-5h-reset': '1800000000',
+      'anthropic-ratelimit-unified-5h-status': 'allowed',
+    });
+
+    expect(afterHeaders!.windows.find((w) => w.id === '5h')!.usedPercent).toBe(42);
+    expect(afterHeaders!.creditsBalance).toBe(37.5);
+    expect(afterHeaders!.creditsState).toBe('balance');
+  });
+});
+
+describe('anthropic credits', () => {
+  const pollWith = async (payload: Record<string, unknown>) => {
+    const tokenKey = `claude:acct-${Math.random().toString(36).slice(2)}`;
+    setToken(tokenKey, {
+      provider: 'claude',
+      accessToken: 'claude-access',
+      expiresAt: Date.now() + 120_000,
+      obtainedAt: Date.now(),
+    });
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+    initLimits(new EventEmitter());
+    return poll(tokenKey);
+  };
+
+  const base = { five_hour: { utilization: 1, status: 'allowed', resets_at: '2026-04-11T07:00:00Z' } };
+
+  it('reads the extra-usage allowance as a remaining balance', async () => {
+    const limits = await pollWith({ ...base, extra_usage: { is_enabled: true, monthly_limit: 100, used_credits: 30 } });
+    expect(limits!.creditsBalance).toBe(70);
+    expect(limits!.creditsState).toBe('balance');
+  });
+
+  it('counts an untouched allowance as its whole limit', async () => {
+    const limits = await pollWith({ ...base, extra_usage: { is_enabled: true, monthly_limit: 20, used_credits: null } });
+    expect(limits!.creditsBalance).toBe(20);
+  });
+
+  it('says extra usage is off rather than calling it unlimited', async () => {
+    // The real payload for a plan without extra usage, which used to render as
+    // "Credits: Unlimited".
+    const limits = await pollWith({
+      ...base,
+      extra_usage: { is_enabled: false, monthly_limit: null, used_credits: null, utilization: null },
+    });
+    expect(limits!.creditsState).toBe('disabled');
+    expect(limits!.creditsBalance).toBeUndefined();
+  });
+
+  it('says unknown when the payload carries no credit block at all', async () => {
+    const limits = await pollWith(base);
+    expect(limits!.creditsState).toBe('unknown');
+  });
+
+  it('never reports a negative balance when usage has overrun the limit', async () => {
+    const limits = await pollWith({ ...base, extra_usage: { is_enabled: true, monthly_limit: 10, used_credits: 14 } });
+    expect(limits!.creditsBalance).toBe(0);
+  });
+});

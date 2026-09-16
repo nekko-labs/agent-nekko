@@ -38,10 +38,19 @@ export function UsageLimitsChip({
   provider,
   session,
   cost = 0,
+  turnCost = 0,
+  running = false,
 }: {
   provider?: ProviderConfig;
   session?: { id?: string } | null;
   cost?: number;
+  /**
+   * What the reply now running has cost so far, accumulated live from the
+   * turn's usage events. Zero between turns.
+   */
+  turnCost?: number;
+  /** A reply is in flight, so the live figure is the one worth showing. */
+  running?: boolean;
 }) {
   const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -81,8 +90,21 @@ export function UsageLimitsChip({
 
   const stale = limits && now > limits.updatedAt + limits.staleAfterMs;
 
+  /**
+   * The running reply's cost, shown while it runs, for every provider.
+   *
+   * This is the number people actually want mid-turn ("what is this prompt
+   * costing me"), and it was the one thing the chip could not say: it read the
+   * usage log, which only moves once a turn has finished. A subscription turn
+   * gets the same figure, labelled as what the plan absorbed rather than as a
+   * bill, because "included" with no number tells you nothing about how hard
+   * you just leaned on your quota.
+   */
+  const liveTurn = running && turnCost > 0;
+
   const chipText = () => {
-    if (local) return 'Free';
+    if (local) return running ? 'Running · free' : 'Free';
+    if (liveTurn) return `${formatUSD(turnCost)} this reply`;
     if (subscription) {
       if (!provider.tokenKey) return 'Subscription · sign in';
       if (!limits) return 'Limits · …';
@@ -150,6 +172,13 @@ export function UsageLimitsChip({
           )}
         </div>
 
+        {liveTurn && (
+          <div className="mb-2 flex items-baseline justify-between border-b border-line pb-2">
+            <span className="text-ink-soft">This reply, so far</span>
+            <span className="text-[13px] font-semibold tabular-nums text-accent">{formatUSD(turnCost)}</span>
+          </div>
+        )}
+
         {subscription ? (
           <>
             {sortedWindows.length === 0 ? (
@@ -178,15 +207,20 @@ export function UsageLimitsChip({
             )}
 
             <div className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 border-t border-line pt-2 text-[10px] text-ink-faint">
-              <span>Plan: {limits?.planType ?? '—'}</span>
-              <span>Credits: {limits?.creditsBalance === undefined ? 'Unlimited' : formatUSD(limits.creditsBalance)}</span>
+              <span>Plan: {limits?.planType ?? 'not reported'}</span>
+              <span>Credits: {creditsLabel(limits)}</span>
             </div>
           </>
         ) : (
           <>
             <div className="flex items-baseline justify-between">
               <span className="text-ink-soft">This session</span>
-              <span className="text-[13px] font-semibold tabular-nums">{formatUSD(cost)}</span>
+              {/* Only while the reply is running. Once it finishes, the usage
+                  log absorbs it into `cost`, and adding it again here would
+                  count the same turn twice until the next send. */}
+              <span className="text-[13px] font-semibold tabular-nums">
+                {formatUSD(cost + (liveTurn ? turnCost : 0))}
+              </span>
             </div>
             <p className="mt-1.5 text-ink-faint">
               {local
@@ -198,4 +232,28 @@ export function UsageLimitsChip({
       </div>
     </div>
   );
+}
+
+/**
+ * What the credit figure means, said plainly.
+ *
+ * A missing balance used to render as "Unlimited", which answered a question
+ * the provider had never been asked: a plan with extra usage switched off and a
+ * plan we simply had not read yet both looked unlimited. Each state now says
+ * which one it is.
+ */
+function creditsLabel(limits: SubscriptionLimits | null): string {
+  if (!limits) return 'not read yet';
+  switch (limits.creditsState) {
+    case 'balance':
+      return limits.creditsBalance === undefined ? 'not reported' : formatUSD(limits.creditsBalance);
+    case 'unlimited':
+      return 'Unlimited';
+    case 'disabled':
+      return 'Extra usage off';
+    default:
+      // A snapshot from before this field existed, or a provider that reports
+      // no credit information at all.
+      return limits.creditsBalance === undefined ? 'not reported' : formatUSD(limits.creditsBalance);
+  }
 }
