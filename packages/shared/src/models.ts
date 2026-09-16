@@ -10,6 +10,8 @@ export type ProviderKind =
   | 'ollama'
   | 'lmstudio'
   | 'vllm'
+  /** The engine Agent Nekko runs itself (llama.cpp behind its own router). */
+  | 'llamacpp'
   | 'openai-compat';
 
 /** A configured connection to a model server / provider. */
@@ -76,7 +78,7 @@ export interface LmsProbe {
  * providers everywhere and genuinely-local behavior keys off the loopback URL
  * rather than the kind.
  */
-export const LOCAL_PROVIDER_KINDS: ProviderKind[] = ['ollama', 'lmstudio', 'vllm'];
+export const LOCAL_PROVIDER_KINDS: ProviderKind[] = ['llamacpp', 'ollama', 'lmstudio', 'vllm'];
 
 /** Whether a provider kind is an on-device local model server. */
 export function isLocalProvider(kind: ProviderKind): boolean {
@@ -147,6 +149,7 @@ export const PROVIDER_DEFAULTS: Record<ProviderKind, { baseUrl: string; needsKey
   ollama: { baseUrl: 'http://localhost:11434', needsKey: false, label: 'Ollama' },
   lmstudio: { baseUrl: 'http://localhost:1234/v1', needsKey: false, label: 'LM Studio' },
   vllm: { baseUrl: 'http://localhost:8000/v1', needsKey: false, label: 'vLLM' },
+  llamacpp: { baseUrl: 'http://127.0.0.1:11500/v1', needsKey: false, label: 'Agent Nekko engine' },
   'openai-compat': { baseUrl: 'http://localhost:8080/v1', needsKey: false, label: 'OpenAI-compatible' },
 };
 

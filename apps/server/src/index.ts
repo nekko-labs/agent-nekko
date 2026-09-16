@@ -152,6 +152,7 @@ async function main() {
     const onWorkflows = (s: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.workflowsUpdated, payload: s }));
     const onOauth = (s: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.oauthStatus, payload: s }));
     const onLimits = (e: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.limitsUpdated, payload: e }));
+    const onDownloads = (j: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.downloadsUpdated, payload: j }));
     host.events.on('agentEvent', onAgent);
     host.events.on('indexProgress', onIndex);
     host.events.on('terminalEvent', onTerminal);
@@ -159,6 +160,7 @@ async function main() {
     host.events.on('workflowsUpdated', onWorkflows);
     host.events.on('oauthStatus', onOauth);
     host.events.on('limitsUpdated', onLimits);
+    host.events.on('downloadsUpdated', onDownloads);
     socket.on('close', () => {
       host.events.off('agentEvent', onAgent);
       host.events.off('indexProgress', onIndex);
@@ -167,6 +169,7 @@ async function main() {
       host.events.off('workflowsUpdated', onWorkflows);
       host.events.off('oauthStatus', onOauth);
       host.events.off('limitsUpdated', onLimits);
+      host.events.off('downloadsUpdated', onDownloads);
     });
   });
 

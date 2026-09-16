@@ -144,6 +144,25 @@ export interface FitPlan {
   suggestions: FitSuggestion[];
 }
 
+/**
+ * The simple surface's answer.
+ *
+ * `request` is what to load with, `plan` is the projection those settings
+ * produce, and the two sentences are what the user reads instead of the numbers.
+ * The prose deliberately names memory rather than tokens per second: we can
+ * measure the first and would be inventing the second.
+ */
+export interface AutoFitSummary {
+  request: FitRequest;
+  plan: FitPlan;
+  /** One sentence naming what was chosen. */
+  headline: string;
+  /** One sentence naming what it costs, in memory left over. */
+  tradeoff: string;
+  /** Why not something larger, when something had to be given up. */
+  compromises: string[];
+}
+
 /** Measured residency after a load, kept beside the projection that predicted it. */
 export interface FitMeasurement {
   at: number;

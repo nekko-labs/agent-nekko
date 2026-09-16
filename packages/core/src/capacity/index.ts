@@ -7,3 +7,4 @@
 export * from './kv.js';
 export * from './plan.js';
 export * from './suggest.js';
+export * from './autofit.js';

@@ -24,6 +24,7 @@ function makeWebClient(): NekkoApi {
   const workflowCbs = new Set<(s: import('@agent-nekko/shared').WorkflowsSnapshot) => void>();
   const oauthStatusCbs = new Set<(s: OAuthStatus) => void>();
   const limitsUpdatedCbs = new Set<(e: { tokenKey: string; limits: SubscriptionLimits }) => void>();
+  const downloadsUpdatedCbs = new Set<(jobs: import('@agent-nekko/shared').DownloadJob[]) => void>();
   // Server build version captured when this tab loaded (for refresh detection).
   let loadVersion: string | null = null;
   const dispatchEvent = (channel: string, payload: any) => {
@@ -36,6 +37,7 @@ function makeWebClient(): NekkoApi {
     else if (channel === IpcEvents.workflowsUpdated) workflowCbs.forEach((cb) => cb(payload));
     else if (channel === IpcEvents.oauthStatus) oauthStatusCbs.forEach((cb) => cb(payload));
     else if (channel === IpcEvents.limitsUpdated) limitsUpdatedCbs.forEach((cb) => cb(payload));
+    else if (channel === IpcEvents.downloadsUpdated) downloadsUpdatedCbs.forEach((cb) => cb(payload));
   };
 
   // Relay transport: when the page is opened with ?relay=&room=&key=[&pair=],
@@ -253,6 +255,22 @@ function makeWebClient(): NekkoApi {
     runtimeLoad: (providerId, modelId, params) => call(IpcChannels.runtimeLoad, providerId, modelId, params),
     runtimeFacts: (providerId) => call(IpcChannels.runtimeFacts, providerId),
     runtimePlan: (providerId, modelId, req) => call(IpcChannels.runtimePlan, providerId, modelId, req),
+    runtimeAutoFit: (providerId, modelId, budgetFraction, parallelSlots) =>
+      call(IpcChannels.runtimeAutoFit, providerId, modelId, budgetFraction, parallelSlots),
+    engineStatus: () => call(IpcChannels.engineStatus),
+    engineInstall: (buildId) => call(IpcChannels.engineInstall, buildId),
+    engineUninstall: () => call(IpcChannels.engineUninstall),
+    engineSettingsSave: (patch) => call(IpcChannels.engineSettingsSave, patch),
+    engineModels: () => call(IpcChannels.engineModels),
+    engineImportModel: (path) => call(IpcChannels.engineImportModel, path),
+    engineDeleteModel: (id) => call(IpcChannels.engineDeleteModel, id),
+    engineSaveModelPreset: (id, preset) => call(IpcChannels.engineSaveModelPreset, id, preset),
+    engineCatalog: (query) => call(IpcChannels.engineCatalog, query),
+    engineCatalogModel: (id) => call(IpcChannels.engineCatalogModel, id),
+    engineDownloadModel: (modelId, quantLabel) => call(IpcChannels.engineDownloadModel, modelId, quantLabel),
+    engineDownloads: () => call(IpcChannels.engineDownloads),
+    engineCancelDownload: (id) => call(IpcChannels.engineCancelDownload, id),
+    engineDismissDownload: (id) => call(IpcChannels.engineDismissDownload, id),
     machineReadiness: (language) => call(IpcChannels.machineReadiness, language),
     getGpuStats: () => call(IpcChannels.gpuStats),
     getSystemStats: () => call(IpcChannels.systemStats),
@@ -481,6 +499,10 @@ function makeWebClient(): NekkoApi {
     onLimitsUpdated: (cb) => {
       limitsUpdatedCbs.add(cb);
       return () => limitsUpdatedCbs.delete(cb);
+    },
+    onDownloadsUpdated: (cb) => {
+      downloadsUpdatedCbs.add(cb);
+      return () => downloadsUpdatedCbs.delete(cb);
     },
     // A browser tab has no OS handing it `agent-nekko://` URLs, so this is the
     // honest implementation rather than a missing one.
