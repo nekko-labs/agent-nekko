@@ -49,6 +49,22 @@ const api: NekkoApi = {
   runtimeLoad: (providerId, modelId, params) => inv(IpcChannels.runtimeLoad, providerId, modelId, params),
   runtimeFacts: (providerId) => inv(IpcChannels.runtimeFacts, providerId),
   runtimePlan: (providerId, modelId, req) => inv(IpcChannels.runtimePlan, providerId, modelId, req),
+  runtimeAutoFit: (providerId, modelId, budgetFraction, parallelSlots) =>
+    inv(IpcChannels.runtimeAutoFit, providerId, modelId, budgetFraction, parallelSlots),
+  engineStatus: () => inv(IpcChannels.engineStatus),
+  engineInstall: (buildId) => inv(IpcChannels.engineInstall, buildId),
+  engineUninstall: () => inv(IpcChannels.engineUninstall),
+  engineSettingsSave: (patch) => inv(IpcChannels.engineSettingsSave, patch),
+  engineModels: () => inv(IpcChannels.engineModels),
+  engineImportModel: (path) => inv(IpcChannels.engineImportModel, path),
+  engineDeleteModel: (id) => inv(IpcChannels.engineDeleteModel, id),
+  engineSaveModelPreset: (id, preset) => inv(IpcChannels.engineSaveModelPreset, id, preset),
+  engineCatalog: (query) => inv(IpcChannels.engineCatalog, query),
+  engineCatalogModel: (id) => inv(IpcChannels.engineCatalogModel, id),
+  engineDownloadModel: (modelId, quantLabel) => inv(IpcChannels.engineDownloadModel, modelId, quantLabel),
+  engineDownloads: () => inv(IpcChannels.engineDownloads),
+  engineCancelDownload: (id) => inv(IpcChannels.engineCancelDownload, id),
+  engineDismissDownload: (id) => inv(IpcChannels.engineDismissDownload, id),
   machineReadiness: (language) => inv(IpcChannels.machineReadiness, language),
   getGpuStats: () => inv(IpcChannels.gpuStats),
   getSystemStats: () => inv(IpcChannels.systemStats),
@@ -259,6 +275,11 @@ const api: NekkoApi = {
     const listener = (_: unknown, snapshot: import('@agent-nekko/shared').WorkflowsSnapshot) => cb(snapshot);
     ipcRenderer.on(IpcEvents.workflowsUpdated, listener);
     return () => ipcRenderer.removeListener(IpcEvents.workflowsUpdated, listener);
+  },
+  onDownloadsUpdated: (cb) => {
+    const listener = (_: unknown, jobs: import('@agent-nekko/shared').DownloadJob[]) => cb(jobs);
+    ipcRenderer.on(IpcEvents.downloadsUpdated, listener);
+    return () => ipcRenderer.removeListener(IpcEvents.downloadsUpdated, listener);
   },
   onLimitsUpdated: (cb: (e: { tokenKey: string; limits: SubscriptionLimits }) => void) => {
     const listener = (_: unknown, e: { tokenKey: string; limits: SubscriptionLimits }) => cb(e);

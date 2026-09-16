@@ -92,7 +92,10 @@ export class OpenAICompatProvider implements Provider {
     // `chat_template_kwargs.enable_thinking` (Qwen3 and friends). Only sent to
     // local kinds — cloud endpoints reject unknown body fields.
     const localKind =
-      this.config.kind === 'lmstudio' || this.config.kind === 'vllm' || this.config.kind === 'openai-compat';
+      this.config.kind === 'lmstudio' ||
+      this.config.kind === 'vllm' ||
+      this.config.kind === 'llamacpp' ||
+      this.config.kind === 'openai-compat';
     const body = {
       model: req.model,
       stream: true,

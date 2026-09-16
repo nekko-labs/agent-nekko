@@ -7,6 +7,7 @@ import { SubscriptionSignIn } from '../components/SubscriptionSignIn.js';
 import { AddProvider } from '../components/providers/AddProvider.js';
 import { PlusIcon, TrashIcon, CheckIcon, StarIcon } from '../icons.js';
 import { RuntimeCard } from '../components/runtimes/RuntimeCard.js';
+import { EngineSection } from '../components/engine/EngineSection.js';
 
 const isLocal = (k: ProviderKind) => isLocalProvider(k);
 
@@ -61,7 +62,10 @@ export function ModelsView() {
       : 'No new local servers found on localhost. Running on another host/port? Add it manually.');
   };
 
-  const local = providers.filter((p) => isLocal(p.kind));
+  // The built-in engine has its own section: it is the one local server Agent
+  // Nekko installs, holds models for, and configures, so a generic provider card
+  // could not carry it.
+  const local = providers.filter((p) => isLocal(p.kind) && p.kind !== 'llamacpp');
   const cloud = providers.filter((p) => !isLocal(p.kind));
 
   return (
@@ -86,16 +90,12 @@ export function ModelsView() {
 
         {adding && <AddProvider onDone={() => { setAdding(false); refreshProviders(); }} />}
 
-        {providers.length === 0 && !adding && (
-          <div className="card mt-6 p-8 text-center text-[13px] text-ink-faint">
-            No providers yet. Click “Auto-discover local” to find a running Ollama/LM Studio/vLLM, or add one manually.
-          </div>
-        )}
+        <EngineSection onProvidersChanged={refreshProviders} />
 
         <ProviderSection
-          title="Local"
+          title="Connected local servers"
           accent="var(--success)"
-          subtitle="On-device model servers, private, free, fast."
+          subtitle="Servers you already run: Ollama, LM Studio, vLLM."
           providers={local}
           onChanged={refreshProviders}
         />

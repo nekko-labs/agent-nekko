@@ -38,6 +38,21 @@ export async function getGpuStats(): Promise<GpuStats | null> {
 }
 
 /**
+ * A reading taken now, ignoring the cache.
+ *
+ * The cache exists so a polling meter does not spawn `nvidia-smi` every tick,
+ * which is the right trade for a display. It is the wrong trade for a
+ * measurement: taking "before" and "after" readings around a model load through
+ * a 2.5 second cache can return the same numbers twice and report that loading a
+ * model took no memory at all. Anything comparing two moments asks for this.
+ */
+export async function getGpuStatsFresh(): Promise<GpuStats | null> {
+  const stats = await probe();
+  cache = { at: Date.now(), stats };
+  return stats;
+}
+
+/**
  * Ask the platform's probe. macOS never has `nvidia-smi` (Apple dropped NVIDIA
  * support long before Apple Silicon), so it goes straight to the registry rather
  * than paying for a spawn that always fails.

@@ -23,6 +23,9 @@ export function createProvider(config: ProviderConfig): Provider {
     case 'openrouter':
     case 'lmstudio':
     case 'vllm':
+    // The Nekko engine's router is OpenAI-compatible on purpose, so chat needs
+    // no provider of its own: only its control plane is new.
+    case 'llamacpp':
     case 'openai-compat':
       return new OpenAICompatProvider(config);
     case 'chatgpt':

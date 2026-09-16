@@ -12,10 +12,15 @@ import type { ProviderKind } from './models.js';
 import type { KvCacheDtype, ModelFacts } from './capacity.js';
 
 /** The local model servers we manage. Mirrors LOCAL_PROVIDER_KINDS. */
-export type RuntimeKind = 'ollama' | 'lmstudio' | 'vllm';
+export type RuntimeKind = 'ollama' | 'lmstudio' | 'vllm' | 'llamacpp';
 
 export function isRuntimeKind(kind: ProviderKind): kind is RuntimeKind {
-  return kind === 'ollama' || kind === 'lmstudio' || kind === 'vllm';
+  return kind === 'ollama' || kind === 'lmstudio' || kind === 'vllm' || kind === 'llamacpp';
+}
+
+/** The one runtime Agent Nekko runs itself, rather than connects to. */
+export function isManagedRuntime(kind: ProviderKind): boolean {
+  return kind === 'llamacpp';
 }
 
 /**
@@ -38,6 +43,15 @@ export interface RuntimeCapabilities {
   configuredAtLaunch: boolean;
   /** Reports per-model VRAM, so a measurement can reconcile the projection. */
   reportsPerModelVram: boolean;
+  /**
+   * Agent Nekko owns this runtime end to end: it installs the engine, holds the
+   * models, and configures the server. Only the managed engine sets this, and it
+   * is what earns the extra surfaces (catalog, downloads, server settings) rather
+   * than a kind check in the renderer.
+   */
+  managed?: boolean;
+  /** Batch size, threads, flash attention, mmap/mlock, rope: llama.cpp flags. */
+  canSetCompute?: boolean;
 }
 
 export const RUNTIME_CAPABILITIES: Record<RuntimeKind, RuntimeCapabilities> = {
@@ -81,6 +95,24 @@ export const RUNTIME_CAPABILITIES: Record<RuntimeKind, RuntimeCapabilities> = {
     canSetTtl: false,
     configuredAtLaunch: true,
     reportsPerModelVram: false,
+  },
+  // The engine Agent Nekko runs itself. llama.cpp takes context, GPU layers,
+  // parallel slots and KV cache type as per-load flags, which makes it the most
+  // controllable runtime here rather than the least: nothing needs a restart and
+  // nothing has to be set as an environment variable.
+  llamacpp: {
+    canStart: true,
+    canStop: true,
+    canLoad: true,
+    canSetContext: true,
+    canSetGpuLayers: true,
+    canSetParallel: 'per-load',
+    canSetKvCacheType: 'per-load',
+    canSetTtl: true,
+    configuredAtLaunch: false,
+    reportsPerModelVram: true,
+    managed: true,
+    canSetCompute: true,
   },
 };
 
@@ -129,11 +161,39 @@ export interface RuntimeMetrics {
   requestsWaiting?: number;
 }
 
+/**
+ * What a load is asked to do.
+ *
+ * The first four are the cross-runtime set every adapter understands. The rest
+ * are llama.cpp flags, ignored by adapters whose runtime has no equivalent, which
+ * is why they are optional rather than a separate parameter type: one load call
+ * serves every runtime, and `canSetCompute` says whose controls to draw.
+ */
 export interface LoadParams {
   contextTokens?: number;
   gpuLayers?: number;
   kvCacheDtype?: KvCacheDtype;
   ttlSeconds?: number;
+
+  /** Concurrent request slots. Each one gets its own full KV cache. */
+  parallelSlots?: number;
+  /** Logical batch size (`--batch-size`). */
+  batchSize?: number;
+  /** Physical batch size (`--ubatch-size`). */
+  ubatchSize?: number;
+  /** CPU threads for generation. Absent means let the engine choose. */
+  threads?: number;
+  /** Flash attention, which cuts attention memory where the build supports it. */
+  flashAttention?: boolean;
+  /** Memory-map the weights instead of reading them in. Default on. */
+  mmap?: boolean;
+  /** Lock the weights in RAM so the OS cannot page them out. */
+  mlock?: boolean;
+  /** RoPE overrides, for running a model past its trained context. */
+  ropeFreqBase?: number;
+  ropeFreqScale?: number;
+  /** Sampling seed. Absent means random. */
+  seed?: number;
 }
 
 export interface StartOptions {

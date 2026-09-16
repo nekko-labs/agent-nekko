@@ -132,6 +132,19 @@ export interface AppSettings {
    * GPU-probe spawn and no CPU sampling happen for it.
    */
   monitors?: Partial<Record<import('./monitor.js').MonitorKind, boolean>>;
+  /**
+   * The built-in engine's own server settings (port, binding, key, TTL). Absent
+   * on installs that predate it, which reads as DEFAULT_ENGINE_SETTINGS.
+   */
+  engine?: import('./engine.js').EngineSettings;
+  /**
+   * Hugging Face access token, used only to reach repos the user already has
+   * access to. Never required: the catalog and every public model work without
+   * one.
+   */
+  hfToken?: string;
+  /** A `llama-server` binary the user pointed at instead of a managed install. */
+  engineBinPath?: string;
   /** Experimental feature toggles (Settings → Experimental). Off = surface hidden. */
   experimental?: ExperimentalFlags;
   /** First-run setup wizard progress (undefined on installs that predate it). */

@@ -15,12 +15,14 @@ import {
   type SystemStats,
   type GpuStats,
 } from '@agent-nekko/shared';
-import { planFit } from '@agent-nekko/core';
+import { autoFit, planFit, type AutoFitResult } from '@agent-nekko/core';
 import { execFile } from 'child_process';
 import { createOllamaAdapter } from './ollama.js';
 import { createLmStudioAdapter } from './lmstudio.js';
 import { createVllmAdapter } from './vllm.js';
+import { createLlamaCppAdapter } from './llamacpp.js';
 import { createSupervisor } from './supervisor.js';
+import type { Engine } from '../engine/index.js';
 import { overheadFloorFor, recordMeasurement } from './calibration.js';
 import type { RuntimeAdapter, RuntimeContext } from './types.js';
 
@@ -39,6 +41,8 @@ export interface RuntimesDeps {
   findProvider: (id: string) => ProviderConfig | undefined;
   getGpuStats: () => Promise<GpuStats | null>;
   getSystemStats: () => Promise<SystemStats | null>;
+  /** The engine we run ourselves. Its adapter talks to this, not to HTTP. */
+  engine: Engine;
   ctx?: RuntimeContext;
 }
 
@@ -48,6 +52,15 @@ const START_COMMANDS: Partial<Record<RuntimeKind, { cmd: string; args: string[] 
   // lmstudio starts through its own CLI inside the adapter, not the supervisor.
   // vllm is deliberately absent: we never start it.
 };
+
+/**
+ * A runtime that starts and stops itself, rather than through the supervisor.
+ * It is the pair of facts, not the name: it can be started, and we have no
+ * command to start it with, so the adapter must be doing it.
+ */
+function selfManaged(kind: RuntimeKind, adapter: RuntimeAdapter): boolean {
+  return adapter.capabilities.canStart && !START_COMMANDS[kind];
+}
 
 export function createRuntimes(deps: RuntimesDeps) {
   const ctx: RuntimeContext = deps.ctx ?? {
@@ -65,6 +78,7 @@ export function createRuntimes(deps: RuntimesDeps) {
     ollama: createOllamaAdapter(ctx),
     lmstudio: createLmStudioAdapter(ctx),
     vllm: createVllmAdapter(ctx),
+    llamacpp: createLlamaCppAdapter(deps.engine),
   };
 
   const supervisor = createSupervisor({
@@ -136,14 +150,14 @@ export function createRuntimes(deps: RuntimesDeps) {
       return { error: detection.reason ?? 'This runtime cannot be started from here.' };
     }
 
-    // LM Studio has its own lifecycle command and manages its own process.
-    if (adapter.start && found.kind === 'lmstudio') {
+    // A runtime with no supervisor launch command manages its own process: LM
+    // Studio through its `lms` CLI, the Nekko engine because it is in-process.
+    const spec = START_COMMANDS[found.kind];
+    if (!spec) {
+      if (!adapter.start) return { error: 'No launch command is defined for this runtime.' };
       const s = await adapter.start({ baseUrl: provider.baseUrl });
       return s.error ? { error: s.error } : s;
     }
-
-    const spec = START_COMMANDS[found.kind];
-    if (!spec) return { error: 'No launch command is defined for this runtime.' };
 
     const detection = await adapter.detect(provider.baseUrl);
     if (!detection.installed) {
@@ -169,8 +183,11 @@ export function createRuntimes(deps: RuntimesDeps) {
     // A process we started is ours to stop, whatever the runtime is.
     if (supervisor.isOwned(providerId)) return supervisor.stop(providerId, provider.baseUrl, force);
 
-    // LM Studio has a real shutdown command, so it never needs a port kill.
-    if (found.kind === 'lmstudio' && adapter.stop) return adapter.stop(provider.baseUrl);
+    // A self-managed runtime has a real shutdown of its own and never needs a
+    // port kill: LM Studio has `lms server stop`, and the Nekko engine owns its
+    // own children. vLLM is excluded by `canStart`, so its stop still routes to
+    // the supervisor and still asks before killing a process we did not spawn.
+    if (adapter.stop && selfManaged(found.kind, adapter)) return adapter.stop(provider.baseUrl, force);
 
     return supervisor.stop(providerId, provider.baseUrl, force);
   }
@@ -201,6 +218,37 @@ export function createRuntimes(deps: RuntimesDeps) {
     return planFit(model, req, await hardware(), {
       overheadFloorBytes: overheadFloorFor(found.adapter.kind, detection.version),
       siblings: all,
+    });
+  }
+
+  /**
+   * The simple surface's answer: settings solved from one budget slider.
+   *
+   * It shares the planner and the calibration record with `plan`, so the numbers
+   * the simple view shows are the same numbers the advanced view shows, which is
+   * what makes the two surfaces one state rather than two opinions.
+   */
+  async function autoPlan(
+    providerId: string,
+    modelId: string,
+    budgetFraction: number,
+    parallelSlots?: number,
+  ): Promise<AutoFitResult | null> {
+    const found = resolve(providerId);
+    if (!found) return null;
+    const all = await facts(providerId);
+    const model = all.find((m) => m.id === modelId);
+    if (!model) return null;
+    const detection = await found.adapter.detect(found.provider.baseUrl);
+    return autoFit({
+      facts: model,
+      hardware: await hardware(),
+      budgetFraction,
+      parallelSlots,
+      options: {
+        overheadFloorBytes: overheadFloorFor(found.adapter.kind, detection.version),
+        siblings: all,
+      },
     });
   }
 
@@ -252,7 +300,7 @@ export function createRuntimes(deps: RuntimesDeps) {
     return RUNTIME_CAPABILITIES[provider.kind];
   }
 
-  return { status, start, stop, load, unload, facts, plan, capabilities, hardware };
+  return { status, start, stop, load, unload, facts, plan, autoPlan, capabilities, hardware };
 }
 
 export type Runtimes = ReturnType<typeof createRuntimes>;

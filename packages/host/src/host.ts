@@ -67,10 +67,18 @@ import type {
   LmsProbe,
   SubscriptionLimits,
   ReadinessReport,
+  AutoFitSummary,
+  CatalogModel,
+  DownloadJob,
+  EngineLoadPreset,
+  EngineSettings,
+  EngineStatus,
+  LocalModel,
 } from '@agent-nekko/shared';
-import { brandEnv, isLocalProvider } from '@agent-nekko/shared';
+import { brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind } from '@agent-nekko/shared';
 import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
+import { createEngine } from './engine/index.js';
 import {
   createProvider,
   discoverLocalProviders,
@@ -157,7 +165,7 @@ import {
 import { buildSpec, buildSpecDoc, readSpecDocs, setSpecMethodology, toggleSpecTask, specPathForSession } from './spec.js';
 import { createRemoteService } from './remote.js';
 import { detectAgentTools, installSubagent, subagentSnippet } from './integrations.js';
-import { getGpuStats } from './gpu.js';
+import { getGpuStats, getGpuStatsFresh } from './gpu.js';
 import { getSystemStats } from './system.js';
 import { stopLocalServer } from './servers.js';
 import { lmsProbe, lmsLoad, lmsUnload } from './lms.js';
@@ -215,6 +223,28 @@ export interface Host {
   runtimeLoad(providerId: string, modelId: string, params: LoadParams): Promise<LoadResult>;
   runtimeFacts(providerId: string): Promise<ModelFacts[]>;
   runtimePlan(providerId: string, modelId: string, req: FitRequest): Promise<FitPlan | null>;
+  runtimeAutoFit(
+    providerId: string,
+    modelId: string,
+    budgetFraction: number,
+    parallelSlots?: number,
+  ): Promise<AutoFitSummary | null>;
+
+  /** The built-in engine: install, catalog, library, and its own server. */
+  engineStatus(): Promise<EngineStatus>;
+  engineInstall(buildId?: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  engineUninstall(): Promise<{ ok: boolean; message: string }>;
+  engineSettingsSave(patch: Partial<EngineSettings>): Promise<EngineSettings>;
+  engineModels(): Promise<Array<LocalModel & { loaded: boolean }>>;
+  engineImportModel(path: string): Promise<{ ok: boolean; message: string; model?: LocalModel }>;
+  engineDeleteModel(id: string): Promise<{ ok: boolean; message: string }>;
+  engineSaveModelPreset(id: string, preset: EngineLoadPreset): Promise<void>;
+  engineCatalog(query?: string): Promise<CatalogModel[]>;
+  engineCatalogModel(id: string): Promise<CatalogModel | null>;
+  engineDownloadModel(modelId: string, quantLabel: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  engineDownloads(): Promise<DownloadJob[]>;
+  engineCancelDownload(id: string): Promise<void>;
+  engineDismissDownload(id: string): Promise<void>;
   /**
    * The AN9b machine-readiness report: probe this machine and evaluate it
    * against the versioned offline-stack catalog (runtime + intent + STT + TTS).
@@ -436,12 +466,63 @@ export function createHost(opts: { dataDir: string }): Host {
 
   const findProvider = (id: string) => getSettings().providers.find((p) => p.id === id);
 
+  /**
+   * Keep one provider entry pointing at the engine.
+   *
+   * It exists from the first launch rather than from the first successful start,
+   * because the Models tab addresses the engine through it: no entry means no id
+   * to send a start to, and a start that cannot be addressed is a dead button.
+   */
+  function ensureEngineProvider(baseUrl: string): void {
+    const providers = getSettings().providers;
+    const existing = providers.find((p) => p.kind === 'llamacpp');
+    if (existing?.baseUrl === baseUrl) return;
+    const entry: ProviderConfig = {
+      id: existing?.id ?? 'nekko-engine',
+      kind: 'llamacpp',
+      label: existing?.label ?? 'Agent Nekko engine',
+      baseUrl,
+      enabled: true,
+    };
+    saveSettings({ providers: [...providers.filter((p) => p.id !== entry.id), entry] });
+  }
+
+  // The engine we run ourselves: llama.cpp behind a router of our own, plus the
+  // catalog and library that feed it. Its settings live in the same settings
+  // file as everything else, so a missing block reads as the defaults.
+  const engine = createEngine({
+    dataDir,
+    getGpuStats,
+    getGpuStatsFresh,
+    settings: () => ({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }),
+    saveSettings: async (patch) => {
+      const next = { ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine, ...patch };
+      saveSettings({ engine: next });
+      return next;
+    },
+    onDownloadsChanged: (jobs) => events.emit('downloadsUpdated', jobs),
+    // A running engine nobody can select is a running engine for nothing, so its
+    // provider entry is kept in step with the address it is actually serving on.
+    onServing: (baseUrl) => ensureEngineProvider(baseUrl),
+    hfToken: () => getSettings().hfToken || undefined,
+    externalBinPath: () => getSettings().engineBinPath || undefined,
+  });
+
+  ensureEngineProvider(engineBaseUrl({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }));
+  // Opt-in only, and never fatal: a port taken by something else should leave a
+  // line in the engine's log for the Models tab to show, not stop the app from
+  // starting.
+  if (getSettings().engine?.autoStart) {
+    void engine.start().catch(() => {});
+  }
+
   // The runtime control plane. Providers come from settings, hardware from the
   // existing GPU and system probes, so it stays a thin join over what exists.
   const runtimes = createRuntimes({
     findProvider,
     getGpuStats,
     getSystemStats,
+    engine,
   });
 
   const host: Host = {
@@ -515,6 +596,9 @@ export function createHost(opts: { dataDir: string }): Host {
       if (p?.kind === 'ollama') return new OllamaProvider(p).setLoaded(model, true);
       // LM Studio has no HTTP load; drive its `lms` CLI for a local instance.
       if (p?.kind === 'lmstudio') return lmsLoad(p.baseUrl, model);
+      // Anything else that is a managed runtime loads through the control plane,
+      // which is what owns the process the model ends up in.
+      if (p && isRuntimeKind(p.kind)) return runtimes.load(providerId, model, {});
       return { ok: true };
     },
     unloadModel: async (providerId, model) => {
@@ -522,6 +606,7 @@ export function createHost(opts: { dataDir: string }): Host {
       if (p?.kind === 'ollama') return new OllamaProvider(p).setLoaded(model, false);
       // LM Studio has no HTTP per-model unload; drive its `lms` CLI instead.
       if (p?.kind === 'lmstudio') return lmsUnload(p.baseUrl, model);
+      if (p && isRuntimeKind(p.kind)) return runtimes.unload(providerId, model);
       return { ok: true };
     },
     lmsAvailable: async (providerId) => {
@@ -541,6 +626,23 @@ export function createHost(opts: { dataDir: string }): Host {
     runtimeLoad: (providerId, modelId, params) => runtimes.load(providerId, modelId, params),
     runtimeFacts: (providerId) => runtimes.facts(providerId),
     runtimePlan: (providerId, modelId, req) => runtimes.plan(providerId, modelId, req),
+    runtimeAutoFit: (providerId, modelId, budgetFraction, parallelSlots) =>
+      runtimes.autoPlan(providerId, modelId, budgetFraction, parallelSlots),
+
+    engineStatus: () => engine.status(),
+    engineInstall: (buildId) => engine.installEngine(buildId),
+    engineUninstall: () => engine.uninstallEngine(),
+    engineSettingsSave: (patch) => engine.saveSettings(patch),
+    engineModels: () => engine.models(),
+    engineImportModel: (path) => engine.importModel(path),
+    engineDeleteModel: (id) => engine.deleteModel(id),
+    engineSaveModelPreset: (id, preset) => engine.saveModelPreset(id, preset),
+    engineCatalog: (query) => (query ? engine.catalogSearch(query) : engine.catalogCurated()),
+    engineCatalogModel: (id) => engine.catalogModel(id),
+    engineDownloadModel: (modelId, quantLabel) => engine.downloadModel(modelId, quantLabel),
+    engineDownloads: async () => engine.downloads(),
+    engineCancelDownload: async (id) => engine.cancelDownload(id),
+    engineDismissDownload: async (id) => engine.dismissDownload(id),
     machineReadiness: async (language) =>
       evaluateReadiness(await gatherMachineFacts(), OFFLINE_STACK_CATALOG, { language }),
 

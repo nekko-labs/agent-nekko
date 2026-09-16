@@ -44,6 +44,23 @@ export const IpcChannels = {
   runtimeLoad: 'runtime:load',
   runtimeFacts: 'runtime:facts',
   runtimePlan: 'runtime:plan',
+  runtimeAutoFit: 'runtime:autoFit',
+
+  engineStatus: 'engine:status',
+  engineInstall: 'engine:install',
+  engineUninstall: 'engine:uninstall',
+  engineSettingsSave: 'engine:settings',
+  engineModels: 'engine:models',
+  engineImportModel: 'engine:importModel',
+  engineDeleteModel: 'engine:deleteModel',
+  engineSaveModelPreset: 'engine:saveModelPreset',
+  engineCatalog: 'engine:catalog',
+  engineCatalogModel: 'engine:catalogModel',
+  engineDownloadModel: 'engine:downloadModel',
+  engineDownloads: 'engine:downloads',
+  engineCancelDownload: 'engine:cancelDownload',
+  engineDismissDownload: 'engine:dismissDownload',
+
   machineReadiness: 'machine:readiness',
   gpuStats: 'gpu:stats',
   systemStats: 'system:stats',
@@ -223,6 +240,7 @@ export const IpcEvents = {
   trainingUpdated: 'training:updated',
   workflowsUpdated: 'workflows:updated',
   limitsUpdated: 'limits:updated',
+  downloadsUpdated: 'downloads:updated',
   deepLink: 'app:deepLink',
 } as const;
 
@@ -280,6 +298,52 @@ export interface NekkoApi {
     modelId: string,
     req: import('./capacity.js').FitRequest,
   ): Promise<import('./capacity.js').FitPlan | null>;
+  /**
+   * The simple surface's answer: solve context, GPU layers and KV cache type
+   * from one "how much of this machine may it use" fraction, and say in plain
+   * words what was chosen and what it costs.
+   */
+  runtimeAutoFit(
+    providerId: string,
+    modelId: string,
+    budgetFraction: number,
+    parallelSlots?: number,
+  ): Promise<import('./capacity.js').AutoFitSummary | null>;
+
+  /** The built-in engine: install state, server state, resident models. */
+  engineStatus(): Promise<import('./engine.js').EngineStatus>;
+  /** Download and unpack a llama.cpp build. Always user-initiated. */
+  engineInstall(buildId?: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  /** Remove a managed engine install. An external binary is never touched. */
+  engineUninstall(): Promise<{ ok: boolean; message: string }>;
+  /** Change the engine's server settings; a port or binding change restarts it. */
+  engineSettingsSave(
+    patch: Partial<import('./engine.js').EngineSettings>,
+  ): Promise<import('./engine.js').EngineSettings>;
+  /** The local model library, with load state folded in. */
+  engineModels(): Promise<Array<import('./engine.js').LocalModel & { loaded: boolean }>>;
+  /** Adopt a GGUF that lives elsewhere on disk, without copying it. */
+  engineImportModel(
+    path: string,
+  ): Promise<{ ok: boolean; message: string; model?: import('./engine.js').LocalModel }>;
+  /** Delete a model file and its library row. */
+  engineDeleteModel(id: string): Promise<{ ok: boolean; message: string }>;
+  /** Save per-model load settings, applied every time it loads. */
+  engineSaveModelPreset(id: string, preset: import('./engine.js').EngineLoadPreset): Promise<void>;
+  /** The starter list, or search results when a query is given. */
+  engineCatalog(query?: string): Promise<import('./engine.js').CatalogModel[]>;
+  /** One catalog repo's detail, including every quantization it publishes. */
+  engineCatalogModel(id: string): Promise<import('./engine.js').CatalogModel | null>;
+  /** Start downloading one quantization. Returns immediately; follow the job. */
+  engineDownloadModel(
+    modelId: string,
+    quantLabel: string,
+  ): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  /** Everything downloading or recently downloaded. */
+  engineDownloads(): Promise<import('./engine.js').DownloadJob[]>;
+  engineCancelDownload(id: string): Promise<void>;
+  engineDismissDownload(id: string): Promise<void>;
+
   /**
    * The AN9 machine-readiness report: probe this machine, evaluate it against
    * the versioned offline-stack catalog, and return per-role picks plus a
@@ -531,6 +595,8 @@ export interface NekkoApi {
   onWorkflowsUpdated(cb: (snapshot: WorkflowsSnapshot) => void): () => void;
   /** Fires when subscription limits are captured or polled for any token key. */
   onLimitsUpdated(cb: (e: { tokenKey: string; limits: SubscriptionLimits }) => void): () => void;
+  /** Fires as engine and model downloads progress, finish, or fail. */
+  onDownloadsUpdated(cb: (jobs: import('./engine.js').DownloadJob[]) => void): () => void;
   /**
    * Fires when another app asks Agent Nekko to do something through an `agent-nekko://`
    * URL: today, Hypergate's "Connect Agent Nekko" button. Desktop only, since the
