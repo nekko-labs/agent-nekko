@@ -1,6 +1,7 @@
-import { join } from 'path';
+import { join, resolve } from 'path';
 import type {
   CatalogModel,
+  CatalogModelDetail,
   DownloadJob,
   EngineInstall,
   EngineLoadPreset,
@@ -9,13 +10,17 @@ import type {
   LoadParams,
   LoadResult,
   LocalModel,
+  ModelFolder,
+  ModelFolderReport,
+  ModelFolderSuggestion,
   StopResult,
 } from '@agent-nekko/shared';
 import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl } from '@agent-nekko/shared';
 import { createCatalog, hfFileUrl } from './catalog.js';
 import { createDownloads } from './download.js';
+import { knownFolder, knownFolderCandidates } from './folders.js';
 import { createEngineInstaller } from './install.js';
-import { createLibrary } from './library.js';
+import { createLibrary, PRIMARY_FOLDER_ID } from './library.js';
 import { createEngineServer } from './server.js';
 
 /**
@@ -57,7 +62,7 @@ export function createEngine(deps: EngineDeps) {
   const engineDir = () => join(deps.dataDir(), 'engine');
 
   const downloads = createDownloads({ onChange: deps.onDownloadsChanged });
-  const library = createLibrary({ modelsDir });
+  const library = createLibrary({ modelsDir, folders: () => deps.settings().modelFolders ?? [] });
   const catalog = createCatalog({ token: deps.hfToken });
   const installer = createEngineInstaller({
     engineDir,
@@ -124,6 +129,65 @@ export function createEngine(deps: EngineDeps) {
     return { ok: true, message: `Downloading ${model.name} (${quant.label}).`, jobId: job.id };
   }
 
+  /* --------------------------------------------------------- model folders */
+
+  /**
+   * The folder list, plus the known layouts on this machine nobody has added.
+   *
+   * Suggestions are probed rather than merely tested for existence, because an
+   * empty Ollama folder is not worth a row and "LM Studio (0 models)" is an
+   * invitation to wonder what went wrong.
+   */
+  async function folders(): Promise<ModelFolderReport> {
+    const configured = await library.folderReport();
+    const taken = new Set(configured.map((f) => resolve(f.path).toLowerCase()));
+
+    const suggestions: ModelFolderSuggestion[] = [];
+    for (const candidate of knownFolderCandidates()) {
+      for (const path of candidate.paths) {
+        if (taken.has(resolve(path).toLowerCase())) continue;
+        const found = await library.probe(path, candidate.provider);
+        if (found.modelCount === 0) continue;
+        taken.add(resolve(path).toLowerCase());
+        suggestions.push({ provider: candidate.provider, path, ...found });
+        break; // One row per app: the first of its candidate paths that has models.
+      }
+    }
+    return { folders: configured, suggestions };
+  }
+
+  /** Replace the folder list. The primary folder is not in it and never moves here. */
+  async function saveFolders(next: ModelFolder[]): Promise<ModelFolderReport> {
+    await deps.saveSettings({ modelFolders: next.filter((f) => f.id !== PRIMARY_FOLDER_ID) });
+    return folders();
+  }
+
+  /**
+   * Adopt every known folder on this machine that has models in it.
+   *
+   * Run once, the first time the engine starts with no folder list at all, so a
+   * machine that already has models through Ollama or LM Studio shows them
+   * without anybody having to know this screen exists. Everything it adds stays
+   * editable and switchable off, and it never runs again: a folder removed on
+   * purpose should stay removed.
+   */
+  async function seedFolders(): Promise<void> {
+    if (deps.settings().modelFolders !== undefined) return;
+    const found: ModelFolder[] = [];
+    const taken = new Set([resolve(modelsDir()).toLowerCase()]);
+    for (const candidate of knownFolderCandidates()) {
+      for (const path of candidate.paths) {
+        const key = resolve(path).toLowerCase();
+        if (taken.has(key)) continue;
+        if ((await library.probe(path, candidate.provider)).modelCount === 0) continue;
+        taken.add(key);
+        found.push(knownFolder(candidate.provider, path));
+        break;
+      }
+    }
+    await deps.saveSettings({ modelFolders: found });
+  }
+
   /* --------------------------------------------------------------- serving */
 
   async function load(modelId: string, params: LoadParams): Promise<LoadResult> {
@@ -171,6 +235,7 @@ export function createEngine(deps: EngineDeps) {
     catalogCurated: () => catalog.curated(),
     catalogSearch: (q: string) => catalog.search(q),
     catalogModel: (id: string) => catalog.model(id),
+    catalogDetail: (id: string): Promise<CatalogModelDetail | null> => catalog.detail(id),
     downloadModel,
     downloads: () => downloads.list(),
     cancelDownload: (id: string) => downloads.cancel(id),
@@ -182,6 +247,10 @@ export function createEngine(deps: EngineDeps) {
     deleteModel: (id: string) => library.remove(id),
     saveModelPreset: (id: string, preset: EngineLoadPreset) => library.savePreset(id, preset),
     diskUsage: () => library.diskUsage(),
+    // model folders
+    folders,
+    saveFolders,
+    seedFolders,
     // server
     start,
     stop: (): Promise<StopResult> => server.stop(),

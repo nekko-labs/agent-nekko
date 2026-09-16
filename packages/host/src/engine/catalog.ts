@@ -1,4 +1,4 @@
-import type { CatalogModel, CatalogQuant } from '@agent-nekko/shared';
+import type { CatalogModel, CatalogModelDetail, CatalogQuant } from '@agent-nekko/shared';
 
 /**
  * Where models come from.
@@ -143,10 +143,8 @@ export function createCatalog(deps: CatalogDeps = {}) {
   async function search(query: string, limit = 20): Promise<CatalogModel[]> {
     const q = query.trim();
     if (!q) return curated();
-    const url = `${HF_API}/models?filter=gguf&search=${encodeURIComponent(q)}&sort=downloads&direction=-1&limit=${limit}`;
-    const rows = await getJson<
-      Array<{ id?: string; modelId?: string; downloads?: number; gated?: boolean | string; tags?: string[] }>
-    >(url);
+    const url = `${HF_API}/models?filter=gguf&search=${encodeURIComponent(q)}&sort=downloads&direction=-1&limit=${limit}&full=true`;
+    const rows = await getJson<Array<HfModelRow>>(url);
     if (!rows) return [];
 
     // Sizes need one tree request per repo, so they are fetched for the page of
@@ -167,6 +165,12 @@ export function createCatalog(deps: CatalogDeps = {}) {
             tags: capabilityTags(row.tags ?? [], repo ?? ''),
             quants,
             downloads: row.downloads,
+            likes: row.likes,
+            updatedAt: asTime(row.lastModified),
+            createdAt: asTime(row.createdAt),
+            pipelineTag: row.pipeline_tag,
+            baseModel: baseModelOf(row.tags ?? []),
+            hfTags: row.tags,
             gated: Boolean(row.gated),
           } satisfies CatalogModel;
         }),
@@ -179,9 +183,7 @@ export function createCatalog(deps: CatalogDeps = {}) {
     const hit = cache.get(id);
     if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
 
-    const info = await getJson<{ id?: string; downloads?: number; gated?: boolean | string; cardData?: { license?: string }; tags?: string[] }>(
-      `${HF_API}/models/${id}`,
-    );
+    const info = await getJson<HfModelRow>(`${HF_API}/models/${id}`);
     const quants = await quantsFor(id);
     const [owner, repo] = id.split('/');
     const value: CatalogModel | null =
@@ -191,15 +193,49 @@ export function createCatalog(deps: CatalogDeps = {}) {
             name: prettyName(repo ?? id),
             owner: owner ?? 'unknown',
             parameterSize: paramHint(repo ?? ''),
+            summary: info?.cardData?.summary,
             tags: capabilityTags(info?.tags ?? [], repo ?? ''),
             quants,
             downloads: info?.downloads,
-            license: info?.cardData?.license,
+            likes: info?.likes,
+            updatedAt: asTime(info?.lastModified),
+            createdAt: asTime(info?.createdAt),
+            pipelineTag: info?.pipeline_tag,
+            baseModel: info?.cardData?.base_model ?? baseModelOf(info?.tags ?? []),
+            hfTags: info?.tags,
+            license: info?.cardData?.license ?? licenseOf(info?.tags ?? []),
             gated: Boolean(info?.gated),
           }
         : null;
     cache.set(id, { at: Date.now(), value });
     return value;
+  }
+
+  /**
+   * One model's own page: everything `model` returns plus its card.
+   *
+   * The card is a README that can run to thousands of words, so it is fetched
+   * only when a model is opened. A card that will not load is reported rather
+   * than swallowed, because "this publisher wrote nothing" and "we could not
+   * reach Hugging Face" are different things and the page should not claim the
+   * first when it means the second.
+   */
+  async function detail(id: string): Promise<CatalogModelDetail | null> {
+    const [base, card] = await Promise.all([model(id), readme(id)]);
+    if (!base) return null;
+    return { ...base, readme: card.text, readmeError: card.error };
+  }
+
+  /** The model card, front matter stripped: the page renders the prose. */
+  async function readme(id: string): Promise<{ text?: string; error?: string }> {
+    try {
+      const res = await doFetch(`https://huggingface.co/${id}/raw/main/README.md`, { headers: headers() });
+      if (res.status === 404) return {};
+      if (!res.ok) return { error: `Hugging Face answered ${res.status}.` };
+      return { text: stripFrontMatter(await res.text()) };
+    } catch {
+      return { error: "Couldn't reach Hugging Face for the model card." };
+    }
   }
 
   /**
@@ -253,7 +289,49 @@ export function createCatalog(deps: CatalogDeps = {}) {
     }
   }
 
-  return { curated, search, model, quantsFor };
+  return { curated, search, model, detail, quantsFor };
+}
+
+/** The shape of a Hugging Face model row, as much of it as we read. */
+interface HfModelRow {
+  id?: string;
+  modelId?: string;
+  downloads?: number;
+  likes?: number;
+  lastModified?: string;
+  createdAt?: string;
+  pipeline_tag?: string;
+  gated?: boolean | string;
+  tags?: string[];
+  cardData?: { license?: string; base_model?: string; summary?: string };
+}
+
+function asTime(iso?: string): number | undefined {
+  if (!iso) return undefined;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : undefined;
+}
+
+/** Hugging Face files both of these as tags, e.g. `base_model:Qwen/Qwen3-4B`. */
+function baseModelOf(tags: string[]): string | undefined {
+  return tags.find((t) => t.startsWith('base_model:'))?.split(':').slice(1).join(':') || undefined;
+}
+function licenseOf(tags: string[]): string | undefined {
+  return tags.find((t) => t.startsWith('license:'))?.slice('license:'.length) || undefined;
+}
+
+/**
+ * Drop the YAML block a model card opens with.
+ *
+ * It is metadata for the Hub, not prose for a reader, and rendering it puts
+ * thirty lines of `tags:` above the first sentence anybody wants.
+ */
+export function stripFrontMatter(markdown: string): string {
+  if (!markdown.startsWith('---')) return markdown.trim();
+  const close = markdown.indexOf('\n---', 3);
+  if (close === -1) return markdown.trim();
+  const after = markdown.indexOf('\n', close + 1);
+  return (after === -1 ? '' : markdown.slice(after + 1)).trim();
 }
 
 export type Catalog = ReturnType<typeof createCatalog>;

@@ -131,7 +131,7 @@ export function EngineServerSettings({
       </div>
 
       <div>
-        <label className="text-[12px]">Where models are kept</label>
+        <label className="text-[12px]">Where downloads are kept</label>
         <input
           className="input mt-1 w-full font-mono text-[12px]"
           value={draft.modelsDir ?? ''}
@@ -140,7 +140,8 @@ export function EngineServerSettings({
           onChange={(e) => setDraft({ ...draft, modelsDir: e.target.value })}
         />
         <p className="mt-0.5 text-[11px] text-ink-faint">
-          Point this at an existing model folder and everything in it shows up in the library. Files are never moved.
+          The one folder Agent Nekko writes to. To read models out of folders another app fills — Ollama, LM Studio,
+          a Hugging Face cache — use <strong>Folders</strong>. Files are never moved.
         </p>
       </div>
 

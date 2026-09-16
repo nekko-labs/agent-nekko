@@ -9,25 +9,36 @@ import { ModelLibrary } from './ModelLibrary.js';
 import { CatalogBrowser } from './CatalogBrowser.js';
 import { DownloadsPanel } from './DownloadsPanel.js';
 import { EngineServerSettings } from './EngineServerSettings.js';
+import { ModelFolders } from './ModelFolders.js';
 
 /**
- * The engine Agent Nekko runs itself, as one block at the top of the Models tab.
+ * The engine Agent Nekko runs itself, and the models it serves.
  *
- * It sits above the connected servers rather than among them because it is a
- * different kind of thing: those cards describe software the user installed, and
- * this one describes software the app is responsible for. It also carries three
- * surfaces the others have no equivalent of, a model catalog, a download queue,
- * and a server configuration, which is exactly why it gets its own section
- * instead of a taller card.
+ * These are one block rather than two because they are one thing: the server and
+ * the models it can load are useless apart, and the questions people actually
+ * arrive with ("is it running", "what have I got", "where did that come from",
+ * "get me another one") interleave. Splitting them into a server card and a
+ * model card made you cross the page to answer any of them.
+ *
+ * Five surfaces, which is exactly why this is a section and not a taller card:
+ * the library, the catalog, the download queue, the folders that feed the
+ * library, and the server's own configuration.
  */
 
 /** Matches the runtime cards' poll, so the whole page moves at one rhythm. */
 const POLL_MS = 6000;
 const PROVIDER_ID = 'nekko-engine';
 
-type Tab = 'models' | 'discover' | 'downloads' | 'server';
+type Tab = 'models' | 'discover' | 'downloads' | 'folders' | 'server';
 
-export function EngineSection({ onProvidersChanged }: { onProvidersChanged: () => void }) {
+export function EngineSection({
+  onProvidersChanged,
+  onOpenModel,
+}: {
+  onProvidersChanged: () => void;
+  /** Open one catalog model's own page, which the whole view takes over for. */
+  onOpenModel: (id: string) => void;
+}) {
   const pushToast = useStore((s) => s.pushToast);
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [models, setModels] = useState<Array<LocalModel & { loaded: boolean }>>([]);
@@ -68,6 +79,7 @@ export function EngineSection({ onProvidersChanged }: { onProvidersChanged: () =
   const installed = Boolean(install.binPath);
   const active = jobs.filter((j) => j.state === 'downloading' || j.state === 'queued' || j.state === 'verifying');
   const residentBytes = status.resident.reduce((n, r) => n + (r.vramBytes ?? 0), 0);
+  const borrowed = models.filter((m) => m.managed === false).length;
 
   const toggle = async () => {
     setBusy(running ? 'stopping' : 'starting');
@@ -90,7 +102,7 @@ export function EngineSection({ onProvidersChanged }: { onProvidersChanged: () =
   const address = `http://127.0.0.1:${status.settings.port}/v1`;
 
   return (
-    <section className="mt-7">
+    <section>
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--accent)' }} />
         <h2 className="text-[15px] font-semibold">Agent Nekko engine</h2>
@@ -106,10 +118,14 @@ export function EngineSection({ onProvidersChanged }: { onProvidersChanged: () =
       </div>
       <p className="mt-0.5 text-[12px] text-ink-faint">
         Run models with nothing else installed. Built on llama.cpp, managed here, served on one address any tool can
-        use.
+        use — including models Ollama, LM Studio or anything else on this machine already downloaded.
       </p>
 
       <div className="card mt-3 p-5">
+        {/* The install card used to be the *whole* card until an engine existed,
+            which hid the library behind it — so a machine with twenty models
+            already on it showed "not installed" and nothing else. What we have is
+            true whether or not the runtime is downloaded; only running it isn't. */}
         {!installed ? (
           <EngineInstallCard install={install} onChanged={refresh} />
         ) : (
@@ -138,50 +154,54 @@ export function EngineSection({ onProvidersChanged }: { onProvidersChanged: () =
                 {status.settings.apiKey ? ', and a key is required.' : '. No key is set, so anything on it can use your models.'}
               </p>
             )}
-
-            <div className="mt-3 flex flex-wrap gap-1.5 border-b pb-2" style={{ borderColor: 'var(--line)' }}>
-              <TabButton active={tab === 'models'} onClick={() => setTab('models')}>
-                My models{models.length > 0 ? ` (${models.length})` : ''}
-              </TabButton>
-              <TabButton active={tab === 'discover'} onClick={() => setTab('discover')}>
-                Find models
-              </TabButton>
-              <TabButton active={tab === 'downloads'} onClick={() => setTab('downloads')}>
-                Downloads{active.length > 0 ? ` (${active.length})` : ''}
-              </TabButton>
-              <TabButton active={tab === 'server'} onClick={() => setTab('server')}>
-                Server
-              </TabButton>
-            </div>
-
-            <div className="mt-3">
-              {tab === 'models' && (
-                <ModelLibrary providerId={PROVIDER_ID} models={models} onChanged={refresh} />
-              )}
-              {tab === 'discover' && <CatalogBrowser onQueued={() => setTab('downloads')} />}
-              {tab === 'downloads' && <DownloadsPanel jobs={jobs} onChanged={refresh} />}
-              {tab === 'server' && (
-                <EngineServerSettings
-                  settings={status.settings}
-                  install={install}
-                  running={running}
-                  onChanged={() => {
-                    refresh();
-                    onProvidersChanged();
-                  }}
-                />
-              )}
-            </div>
-
-            {status.log.length > 0 && (
-              <details className="mt-3" open={showLog}>
-                <summary className="cursor-pointer text-[11px] text-ink-faint">Engine output</summary>
-                <pre className="mt-1 max-h-40 overflow-auto rounded bg-[color-mix(in_srgb,var(--ink-faint)_8%,transparent)] p-2 font-mono text-[10px]">
-                  {status.log.join('\n')}
-                </pre>
-              </details>
-            )}
           </>
+        )}
+
+        <div className="mt-3 flex flex-wrap gap-1.5 border-b pb-2" style={{ borderColor: 'var(--line)' }}>
+          <TabButton active={tab === 'models'} onClick={() => setTab('models')}>
+            My models{models.length > 0 ? ` (${models.length})` : ''}
+          </TabButton>
+          <TabButton active={tab === 'discover'} onClick={() => setTab('discover')}>
+            Find models
+          </TabButton>
+          <TabButton active={tab === 'downloads'} onClick={() => setTab('downloads')}>
+            Downloads{active.length > 0 ? ` (${active.length})` : ''}
+          </TabButton>
+          <TabButton active={tab === 'folders'} onClick={() => setTab('folders')}>
+            Folders{borrowed > 0 ? ` (${borrowed} borrowed)` : ''}
+          </TabButton>
+          <TabButton active={tab === 'server'} onClick={() => setTab('server')}>
+            Server
+          </TabButton>
+        </div>
+
+        <div className="mt-3">
+          {tab === 'models' && (
+            <ModelLibrary providerId={PROVIDER_ID} models={models} canLoad={installed} onChanged={refresh} />
+          )}
+          {tab === 'discover' && <CatalogBrowser onOpen={onOpenModel} />}
+          {tab === 'downloads' && <DownloadsPanel jobs={jobs} onChanged={refresh} />}
+          {tab === 'folders' && <ModelFolders onChanged={refresh} />}
+          {tab === 'server' && (
+            <EngineServerSettings
+              settings={status.settings}
+              install={install}
+              running={running}
+              onChanged={() => {
+                refresh();
+                onProvidersChanged();
+              }}
+            />
+          )}
+        </div>
+
+        {status.log.length > 0 && (
+          <details className="mt-3" open={showLog}>
+            <summary className="cursor-pointer text-[11px] text-ink-faint">Engine output</summary>
+            <pre className="mt-1 max-h-40 overflow-auto rounded bg-[color-mix(in_srgb,var(--ink-faint)_8%,transparent)] p-2 font-mono text-[10px]">
+              {status.log.join('\n')}
+            </pre>
+          </details>
         )}
       </div>
     </section>

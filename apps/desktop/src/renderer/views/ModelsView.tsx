@@ -7,8 +7,6 @@ import { SubscriptionSignIn } from '../components/SubscriptionSignIn.js';
 import { AddProvider } from '../components/providers/AddProvider.js';
 import { PlusIcon, TrashIcon, CheckIcon, StarIcon } from '../icons.js';
 import { RuntimeCard } from '../components/runtimes/RuntimeCard.js';
-import { EngineSection } from '../components/engine/EngineSection.js';
-import { LocalServerSection } from '../components/server/LocalServerSection.js';
 
 const isLocal = (k: ProviderKind) => isLocalProvider(k);
 
@@ -43,7 +41,7 @@ function formatExpiry(expiresAt?: number): string | null {
 }
 
 export function ModelsView() {
-  const { providers, refreshProviders, pushToast } = useStore();
+  const { providers, refreshProviders, pushToast, setView } = useStore();
   const [adding, setAdding] = useState(false);
   const [discovering, setDiscovering] = useState(false);
 
@@ -63,9 +61,9 @@ export function ModelsView() {
       : 'No new local servers found on localhost. Running on another host/port? Add it manually.');
   };
 
-  // The built-in engine has its own section: it is the one local server Agent
-  // Nekko installs, holds models for, and configures, so a generic provider card
-  // could not carry it.
+  // The built-in engine lives on the Model Server tab: it is the one local
+  // server Agent Nekko installs, holds models for, and configures, so a generic
+  // provider card could never have carried it.
   const local = providers.filter((p) => isLocal(p.kind) && p.kind !== 'llamacpp');
   const cloud = providers.filter((p) => !isLocal(p.kind));
 
@@ -74,9 +72,10 @@ export function ModelsView() {
       <div className="mx-auto max-w-4xl px-8 py-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Models</h1>
+            <h1 className="text-2xl font-semibold">Model Providers</h1>
             <p className="mt-1 text-[13px] text-ink-faint">
-              Connect local servers or cloud providers. Local models are first-class here.
+              Where models come from: cloud APIs, subscriptions, and model servers already running on this
+              machine or another one.
             </p>
           </div>
           <div className="flex gap-2">
@@ -90,8 +89,6 @@ export function ModelsView() {
         </div>
 
         {adding && <AddProvider onDone={() => { setAdding(false); refreshProviders(); }} />}
-
-        <EngineSection onProvidersChanged={refreshProviders} />
 
         <ProviderSection
           title="Connected local servers"
@@ -108,7 +105,20 @@ export function ModelsView() {
           onChanged={refreshProviders}
         />
 
-        <LocalServerSection />
+        <section className="mt-7">
+          <div className="card flex flex-wrap items-center gap-3 p-5">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[15px] font-semibold">Agent Nekko's own engine</h2>
+              <p className="mt-0.5 text-[12px] text-ink-faint">
+                The models this machine runs itself, the folders they come from, and the address it serves them on
+                now have their own tab.
+              </p>
+            </div>
+            <button className="btn btn-outline shrink-0 py-1.5 text-[12px]" onClick={() => setView('modelserver')}>
+              Open Model Server
+            </button>
+          </div>
+        </section>
 
         <p className="mt-8 text-center text-[12px] text-ink-faint">
           Token usage and live worker status now live in the Command Center.

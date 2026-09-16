@@ -868,7 +868,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     const toast = (message: string) => useStore.getState().pushToast('error', message);
     if (!providerId) {
       toast(providers.length === 0
-        ? 'Add a model provider in Models first.'
+        ? 'Add a model provider in Model Providers first.'
         : 'This chat is still loading its model, try again in a moment.');
       return null;
     }
@@ -1336,14 +1336,14 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                     </h2>
                     <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
                       {!hasProvider
-                        ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Models.'
+                        ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Model Providers.'
                         : needsModel
                           ? 'This chat has no model yet. Choose one below the composer, or let ✨ Auto pick per message.'
                           : 'Ask a question or hand over a task. Use / for skills and prompts, @ to attach files, + for photos and folders.'}
                     </p>
                   </div>
                   {!hasProvider ? (
-                    <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Models</button>
+                    <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
                   ) : needsModel ? (
                     <button className="btn btn-primary" onClick={() => openModelMenu(true)}>Choose a model</button>
                   ) : null}
@@ -1736,7 +1736,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                   ref={composerRef}
                   className="max-h-60 min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint"
                   rows={2}
-                  placeholder={hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Models first'}
+                  placeholder={hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first'}
                   value={draft}
                   role="combobox"
                   aria-expanded={slashMenuOpen || atMenuOpen}

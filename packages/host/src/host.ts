@@ -71,11 +71,14 @@ import type {
   ReadinessReport,
   AutoFitSummary,
   CatalogModel,
+  CatalogModelDetail,
   DownloadJob,
   EngineLoadPreset,
   EngineSettings,
   EngineStatus,
   LocalModel,
+  ModelFolder,
+  ModelFolderReport,
 } from '@agent-nekko/shared';
 import { brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind } from '@agent-nekko/shared';
 import { gatherMachineFacts } from './readiness.js';
@@ -243,6 +246,10 @@ export interface Host {
   engineSaveModelPreset(id: string, preset: EngineLoadPreset): Promise<void>;
   engineCatalog(query?: string): Promise<CatalogModel[]>;
   engineCatalogModel(id: string): Promise<CatalogModel | null>;
+  engineCatalogDetail(id: string): Promise<CatalogModelDetail | null>;
+  /** Where the library looks for models, plus known folders nobody has added. */
+  engineFolders(): Promise<ModelFolderReport>;
+  engineFoldersSave(folders: ModelFolder[]): Promise<ModelFolderReport>;
   engineDownloadModel(modelId: string, quantLabel: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
   engineDownloads(): Promise<DownloadJob[]>;
   engineCancelDownload(id: string): Promise<void>;
@@ -515,6 +522,10 @@ export function createHost(opts: { dataDir: string }): Host {
   });
 
   ensureEngineProvider(engineBaseUrl({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }));
+  // A machine that already runs models through Ollama or LM Studio should show
+  // them without anyone finding the folder screen first. Once only, and never
+  // fatal: a folder we cannot read is a folder we skip, not a failed startup.
+  void engine.seedFolders().catch(() => {});
   // Opt-in only, and never fatal: a port taken by something else should leave a
   // line in the engine's log for the Models tab to show, not stop the app from
   // starting.
@@ -645,6 +656,9 @@ export function createHost(opts: { dataDir: string }): Host {
     engineSaveModelPreset: (id, preset) => engine.saveModelPreset(id, preset),
     engineCatalog: (query) => (query ? engine.catalogSearch(query) : engine.catalogCurated()),
     engineCatalogModel: (id) => engine.catalogModel(id),
+    engineCatalogDetail: (id) => engine.catalogDetail(id),
+    engineFolders: () => engine.folders(),
+    engineFoldersSave: (folders) => engine.saveFolders(folders),
     engineDownloadModel: (modelId, quantLabel) => engine.downloadModel(modelId, quantLabel),
     engineDownloads: async () => engine.downloads(),
     engineCancelDownload: async (id) => engine.cancelDownload(id),

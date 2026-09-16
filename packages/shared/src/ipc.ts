@@ -56,7 +56,10 @@ export const IpcChannels = {
   engineSaveModelPreset: 'engine:saveModelPreset',
   engineCatalog: 'engine:catalog',
   engineCatalogModel: 'engine:catalogModel',
+  engineCatalogDetail: 'engine:catalogDetail',
   engineDownloadModel: 'engine:downloadModel',
+  engineFolders: 'engine:folders',
+  engineFoldersSave: 'engine:foldersSave',
   apiServerStatus: 'apiServer:status',
   apiServerSave: 'apiServer:save',
   apiServerNewToken: 'apiServer:newToken',
@@ -340,6 +343,14 @@ export interface NekkoApi {
   engineCatalog(query?: string): Promise<import('./engine.js').CatalogModel[]>;
   /** One catalog repo's detail, including every quantization it publishes. */
   engineCatalogModel(id: string): Promise<import('./engine.js').CatalogModel | null>;
+  /** The same, plus the model card, for a model's own page. */
+  engineCatalogDetail(id: string): Promise<import('./engine.js').CatalogModelDetail | null>;
+  /** Where the library looks for models, and what a scan found in each folder. */
+  engineFolders(): Promise<import('./engine.js').ModelFolderReport>;
+  /** Replace the folder list. The folder downloads land in is not part of it. */
+  engineFoldersSave(
+    folders: import('./engine.js').ModelFolder[],
+  ): Promise<import('./engine.js').ModelFolderReport>;
   /** Start downloading one quantization. Returns immediately; follow the job. */
   engineDownloadModel(
     modelId: string,

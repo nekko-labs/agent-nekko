@@ -334,7 +334,7 @@ export function WorkspacesView() {
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[workspaces.length - 1] ?? null;
 
   const Sidebar = (
-    <div className="flex h-full w-64 flex-col border-r border-line" style={{ background: 'var(--paper)' }}>
+    <div className="panel panel-ring flex h-full w-64 flex-col">
       <div className="flex items-center justify-between px-3 py-2.5">
         <span className="text-sm font-semibold">Workspaces</span>
         <div className="relative" ref={newMenuRef}>
@@ -498,9 +498,16 @@ export function WorkspacesView() {
   );
 
   return (
-    <div className="flex h-full min-w-0 overflow-hidden">
+    // One field, with every surface on it a panel of the same shape: the
+    // sidebar, the windows, the inspector. They used to be three different
+    // things — two full-bleed columns on paper with a tray of rounded windows
+    // between them — which is why the middle read as the only real panel.
+    <div
+      className="flex h-full min-w-0 overflow-hidden"
+      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
+    >
       {mobileNav && <div className="absolute inset-0 z-20 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} />}
-      <aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex' : 'hidden'} md:relative md:z-auto md:flex`}>{Sidebar}</aside>
+      <aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
 
       <main className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-line px-2 py-1.5 md:hidden">
@@ -529,7 +536,7 @@ export function WorkspacesView() {
           the explorer doesn't take the explorer away with it. It follows the
           active chat, and says so when there isn't one. */}
       {contextPanelOpen && (
-        <aside className="hidden shrink-0 lg:block" style={{ background: 'var(--paper)' }}>
+        <aside className="panel panel-ring hidden shrink-0 lg:block">
           <ContextInspector sessionId={activeSessionId} />
         </aside>
       )}
@@ -680,10 +687,9 @@ function WorkspaceCanvas({
   };
 
   return (
-    <div
-      className="flex min-h-0 flex-1"
-      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
-    >
+    // The field and its padding belong to the workbench now, so the windows sit
+    // on the same surface, at the same gap, as the sidebar and the inspector.
+    <div className="flex min-h-0 flex-1" style={{ gap: 'var(--pane-gap)' }}>
       {renderNode(workspace.root!)}
     </div>
   );
@@ -751,7 +757,9 @@ function Divider({
 
 function EmptyState({ onNewChat, onNewTerminal }: { onNewChat: () => void; onNewTerminal: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
+    // A panel of its own, so an empty workbench is still a surface rather than a
+    // hole in the field the windows would otherwise sit on.
+    <div className="panel panel-ring flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
       <div className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={34} /></div>
       <div>
         <h2 className="text-lg font-semibold">No workspace open</h2>

@@ -80,6 +80,23 @@ export const ModelsColorIcon = (p: P) => (
   </Svg>
 );
 
+/**
+ * Model Server — a stack of racked units with a live indicator.
+ *
+ * Deliberately a machine rather than another chip: Model Providers is where the
+ * models come *from*, and this is the box on this desk that runs them.
+ */
+export const ModelServerColorIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="3.4" y="4" width="17.2" height="5.4" rx="1.8" fill="#8b5cf6" />
+    <rect x="3.4" y="11.4" width="17.2" height="5.4" rx="1.8" fill="#7c3aed" opacity="0.85" />
+    <circle cx="6.6" cy="6.7" r="1.05" fill="#4ade80" />
+    <circle cx="6.6" cy="14.1" r="1.05" fill="#ddd6fe" />
+    <path d="M10 6.7h7M10 14.1h7" stroke="#ddd6fe" strokeWidth="1.3" strokeLinecap="round" opacity="0.8" />
+    <path d="M8 19.6h8" stroke="#a78bfa" strokeWidth="1.7" strokeLinecap="round" />
+  </Svg>
+);
+
 /** Connectors — a green plug. */
 export const ConnectorsColorIcon = (p: P) => (
   <Svg {...p}>
