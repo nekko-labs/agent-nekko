@@ -30,8 +30,19 @@ export interface DownloadRequest {
   /** Final path. The transfer writes `<dest>.part` until it succeeds. */
   dest: string;
   headers?: Record<string, string>;
-  /** Called after the bytes land, before the job reports `done`. */
+  /**
+   * Check the bytes before they are accepted, given the `.part` path. Return a
+   * problem to reject the download; return null to accept it. This must not move
+   * or delete the file: the transfer still has to rename it into place.
+   */
   verify?: (path: string) => Promise<string | null>;
+  /**
+   * Do whatever the download was *for*, given the final path, after the rename.
+   * Unpacking an archive belongs here rather than in `verify`, because it
+   * consumes the file. Returning a problem fails the job and removes the file, so
+   * a retry starts clean.
+   */
+  after?: (path: string) => Promise<string | null>;
 }
 
 export interface DownloadsDeps {
@@ -177,6 +188,14 @@ export function createDownloads(deps: DownloadsDeps = {}) {
 
     await rm(req.dest, { force: true });
     await rename(partial, req.dest);
+
+    if (req.after) {
+      const problem = await req.after(req.dest);
+      if (problem) {
+        await rm(req.dest, { force: true });
+        throw new Error(problem);
+      }
+    }
     settle(job, 'done');
   }
 

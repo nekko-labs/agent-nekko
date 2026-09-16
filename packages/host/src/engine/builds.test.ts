@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { GpuStats } from '@agent-nekko/shared';
-import { buildsFor, matchAsset, matchCompanion, recommendedBuild } from './builds.js';
+import { buildsFor, hasBinaries, matchAsset, matchCompanion, recommendedBuild } from './builds.js';
 
 /**
  * Picking the wrong build is the most expensive mistake this feature can make:
@@ -62,41 +62,83 @@ describe('build selection', () => {
 });
 
 describe('asset matching', () => {
-  // Names as llama.cpp actually publishes them, build tag and all.
+  // Names copied from a real llama.cpp release, including the traps: the same
+  // accelerator published for two architectures, CUDA runtime archives per
+  // toolkit version, and a marker release that carries no binaries at all.
   const assets = [
-    'llama-b7021-bin-win-cpu-x64.zip',
-    'llama-b7021-bin-win-cuda-12.4-x64.zip',
-    'llama-b7021-bin-win-cuda-13.0-x64.zip',
-    'llama-b7021-bin-win-vulkan-x64.zip',
-    'llama-b7021-bin-macos-arm64.zip',
     'cudart-llama-bin-win-cuda-12.4-x64.zip',
-    'llama-b7021.tar.gz',
-    'llama-b7021-bin-win-cuda-12.4-x64.zip.sha256',
+    'cudart-llama-bin-win-cuda-13.4-arm64.zip',
+    'cudart-llama-bin-win-cuda-13.4-x64.zip',
+    'llama-b10996-bin-macos-arm64.tar.gz',
+    'llama-b10996-bin-macos-x64.tar.gz',
+    'llama-b10996-bin-ubuntu-cuda-13.3-x64.tar.gz',
+    'llama-b10996-bin-ubuntu-vulkan-x64.tar.gz',
+    'llama-b10996-bin-ubuntu-x64.tar.gz',
+    'llama-b10996-bin-win-cpu-arm64.zip',
+    'llama-b10996-bin-win-cpu-x64.zip',
+    'llama-b10996-bin-win-cuda-12.4-x64.zip',
+    'llama-b10996-bin-win-cuda-13.4-arm64.zip',
+    'llama-b10996-bin-win-cuda-13.4-x64.zip',
+    'llama-b10996-bin-win-vulkan-x64.zip',
+    'llama-b10996-xcframework.zip',
   ];
 
+  const buildFor = (platform: 'win32' | 'darwin' | 'linux', arch: string, backend: string) =>
+    buildsFor(platform, arch, nvidia).find((b) => b.backend === backend)!;
+
   it('matches the build regardless of the release tag', () => {
-    const cuda = buildsFor('win32', 'x64', nvidia)[0];
-    expect(matchAsset(cuda, assets)).toBe('llama-b7021-bin-win-cuda-13.0-x64.zip');
+    expect(matchAsset(buildFor('win32', 'x64', 'cuda'), assets)).toBe('llama-b10996-bin-win-cuda-13.4-x64.zip');
   });
 
-  it('prefers the newest toolkit when several are published', () => {
-    const cuda = buildsFor('win32', 'x64', nvidia)[0];
-    expect(matchAsset(cuda, assets)).toContain('13.0');
+  it('never picks an archive for the wrong architecture', () => {
+    // `bin-win-cuda` matches the arm64 archive too; downloading it on an x64 box
+    // is 143 MB of something that cannot run.
+    expect(matchAsset(buildFor('win32', 'x64', 'cuda'), assets)).toContain('-x64');
+    expect(matchAsset(buildFor('win32', 'arm64', 'cuda'), assets)).toBe('llama-b10996-bin-win-cuda-13.4-arm64.zip');
+    expect(matchAsset(buildFor('win32', 'arm64', 'cpu'), assets)).toBe('llama-b10996-bin-win-cpu-arm64.zip');
   });
 
-  it('ignores checksum files that carry the same name', () => {
-    const cuda = buildsFor('win32', 'x64', nvidia)[0];
-    expect(matchAsset(cuda, assets)).not.toMatch(/sha256$/);
+  it('compares CUDA toolkit versions numerically, not as strings', () => {
+    // A string sort puts cuda-9 above cuda-13.
+    const twoDigit = ['llama-b1-bin-win-cuda-9.0-x64.zip', 'llama-b1-bin-win-cuda-13.4-x64.zip'];
+    expect(matchAsset(buildFor('win32', 'x64', 'cuda'), twoDigit)).toContain('13.4');
   });
 
-  it('finds the CUDA runtime companion, and only for CUDA', () => {
-    const [cuda, vulkan] = buildsFor('win32', 'x64', nvidia);
-    expect(matchCompanion(cuda, assets)).toBe('cudart-llama-bin-win-cuda-12.4-x64.zip');
-    expect(matchCompanion(vulkan, assets)).toBeUndefined();
+  it('does not mistake the CUDA runtime archive for the build', () => {
+    expect(matchAsset(buildFor('win32', 'x64', 'cuda'), assets)).not.toMatch(/^cudart-/);
+  });
+
+  it('pairs the runtime archive with the toolkit the build was compiled against', () => {
+    // A CUDA 13 runtime beside a CUDA 12 build does not start, so the companion
+    // is derived from the chosen asset rather than picked on its own.
+    const build = buildFor('win32', 'x64', 'cuda');
+    expect(matchCompanion(build, 'llama-b10996-bin-win-cuda-12.4-x64.zip', assets)).toBe(
+      'cudart-llama-bin-win-cuda-12.4-x64.zip',
+    );
+    expect(matchCompanion(build, 'llama-b10996-bin-win-cuda-13.4-x64.zip', assets)).toBe(
+      'cudart-llama-bin-win-cuda-13.4-x64.zip',
+    );
+  });
+
+  it('asks for no companion where the build needs none', () => {
+    const vulkan = buildFor('win32', 'x64', 'vulkan');
+    expect(matchCompanion(vulkan, 'llama-b10996-bin-win-vulkan-x64.zip', assets)).toBeUndefined();
+  });
+
+  it('matches the macOS and Linux tarballs, not just zips', () => {
+    expect(matchAsset(buildFor('darwin', 'arm64', 'metal'), assets)).toBe('llama-b10996-bin-macos-arm64.tar.gz');
+    expect(matchAsset(buildFor('linux', 'x64', 'cpu'), assets)).toBe('llama-b10996-bin-ubuntu-x64.tar.gz');
+    expect(matchAsset(buildFor('linux', 'x64', 'cuda'), assets)).toBe('llama-b10996-bin-ubuntu-cuda-13.3-x64.tar.gz');
   });
 
   it('returns nothing when the release has no build for us', () => {
-    const metal = buildsFor('darwin', 'arm64', apple)[0];
-    expect(matchAsset(metal, ['llama-b7021-bin-win-cpu-x64.zip'])).toBeUndefined();
+    const metal = buildFor('darwin', 'arm64', 'metal');
+    expect(matchAsset(metal, ['llama-b10996-bin-win-cpu-x64.zip'])).toBeUndefined();
+  });
+
+  it('recognises a marker release as carrying no binaries', () => {
+    // `releases/latest` is exactly this, which is why we scan past it.
+    expect(hasBinaries(['nightly-tag.txt'])).toBe(false);
+    expect(hasBinaries(assets)).toBe(true);
   });
 });

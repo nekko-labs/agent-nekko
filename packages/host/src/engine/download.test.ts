@@ -187,3 +187,54 @@ describe('downloads', () => {
     expect(seen.at(-1)?.[0].state).toBe('done');
   });
 });
+
+describe('post-download work', () => {
+  it('runs `after` on the final path, and only once the file is in place', async () => {
+    const dest = join(dir, 'engine.zip');
+    let sawPath = '';
+    const downloads = createDownloads({ fetch: serve('archive bytes') });
+    await downloads.start({
+      ...request(dest),
+      after: async (path) => {
+        sawPath = path;
+        return null;
+      },
+    });
+
+    const job = await settled(downloads.list, 'job-1');
+    expect(job.state).toBe('done');
+    // `verify` gets the .part; `after` gets the real thing, because unpacking an
+    // archive that is about to be renamed is how the rename fails.
+    expect(sawPath).toBe(dest);
+  });
+
+  it('lets `after` consume the file it was given', async () => {
+    const dest = join(dir, 'engine.zip');
+    const downloads = createDownloads({ fetch: serve('archive bytes') });
+    await downloads.start({
+      ...request(dest),
+      // An extraction deletes the archive when it is done with it, which must not
+      // be mistaken for a failed download.
+      after: async (path) => {
+        await rm(path, { force: true });
+        return null;
+      },
+    });
+
+    expect((await settled(downloads.list, 'job-1')).state).toBe('done');
+  });
+
+  it('fails the job and clears the file when `after` reports a problem', async () => {
+    const dest = join(dir, 'engine.zip');
+    const downloads = createDownloads({ fetch: serve('archive bytes') });
+    await downloads.start({
+      ...request(dest),
+      after: async () => 'The archive did not contain llama-server.',
+    });
+
+    const job = await settled(downloads.list, 'job-1');
+    expect(job.state).toBe('failed');
+    expect(job.message).toContain('llama-server');
+    await expect(stat(dest)).rejects.toThrow();
+  });
+});

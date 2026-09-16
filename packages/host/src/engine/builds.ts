@@ -1,14 +1,21 @@
 import type { EngineBackend, EngineBuild, EnginePlatform, GpuStats } from '@agent-nekko/shared';
 
 /**
- * Which llama.cpp build this machine should run.
+ * Which llama.cpp build this machine should run, and which file that is.
  *
- * llama.cpp publishes one archive per platform and accelerator on every release,
- * named with the build tag (`llama-b7021-bin-win-cuda-12.4-x64.zip`). We match on
- * a pattern rather than a filename so a new release needs no change here, and we
+ * llama.cpp publishes one archive per platform and accelerator on every build,
+ * named with the build tag (`llama-b10996-bin-win-cuda-13.4-x64.zip`). We match
+ * on a pattern rather than a filename so a new build needs no change here, and we
  * order candidates best-first from what the GPU probe actually found rather than
  * from the platform alone: a Windows machine with no NVIDIA card must not be
  * offered the CUDA build as its first choice.
+ *
+ * Two details in the naming do real damage if ignored, and both are handled here
+ * rather than by sorting and hoping. The same accelerator ships for more than one
+ * architecture (`-cuda-13.4-arm64` beside `-cuda-13.4-x64`), so the architecture
+ * is matched explicitly. And CUDA's runtime libraries ship as a separate archive
+ * per toolkit version, so the companion is derived from the archive we chose, not
+ * picked independently: a CUDA 13 runtime beside a CUDA 12 build does not start.
  *
  * Nothing is downloaded from this module. It only decides what would be right,
  * which keeps the decision testable without a network.
@@ -25,7 +32,7 @@ const BUILDS: EngineBuild[] = [
     requires: 'An NVIDIA GPU with a current driver.',
     // The CUDA archive ships without the runtime libraries; they are a separate
     // asset on the same release, and the build will not start without them.
-    companionPattern: 'cudart-llama-bin-win',
+    companionPattern: 'cudart-llama',
   },
   {
     id: 'win-x64-vulkan',
@@ -36,6 +43,14 @@ const BUILDS: EngineBuild[] = [
     requires: 'Any GPU with Vulkan drivers (AMD, Intel, or NVIDIA).',
   },
   {
+    id: 'win-x64-rocm',
+    platform: 'win32',
+    arch: 'x64',
+    backend: 'hip',
+    assetPattern: 'bin-win-rocm',
+    requires: 'A recent AMD GPU with ROCm support.',
+  },
+  {
     id: 'win-x64-cpu',
     platform: 'win32',
     arch: 'x64',
@@ -44,11 +59,20 @@ const BUILDS: EngineBuild[] = [
     requires: 'Any x64 processor. Slower, but always works.',
   },
   {
+    id: 'win-arm64-cuda',
+    platform: 'win32',
+    arch: 'arm64',
+    backend: 'cuda',
+    assetPattern: 'bin-win-cuda',
+    requires: 'A Windows on Arm machine with an NVIDIA GPU.',
+    companionPattern: 'cudart-llama',
+  },
+  {
     id: 'win-arm64-cpu',
     platform: 'win32',
     arch: 'arm64',
     backend: 'cpu',
-    assetPattern: 'bin-win-arm64',
+    assetPattern: 'bin-win-cpu',
     requires: 'A Windows on Arm machine.',
   },
   // macOS
@@ -57,7 +81,7 @@ const BUILDS: EngineBuild[] = [
     platform: 'darwin',
     arch: 'arm64',
     backend: 'metal',
-    assetPattern: 'bin-macos-arm64',
+    assetPattern: 'bin-macos',
     requires: 'Apple Silicon. Uses the GPU through Metal.',
   },
   {
@@ -65,10 +89,35 @@ const BUILDS: EngineBuild[] = [
     platform: 'darwin',
     arch: 'x64',
     backend: 'cpu',
-    assetPattern: 'bin-macos-x64',
+    assetPattern: 'bin-macos',
     requires: 'An Intel Mac.',
   },
   // Linux
+  {
+    id: 'linux-x64-cuda',
+    platform: 'linux',
+    arch: 'x64',
+    backend: 'cuda',
+    assetPattern: 'bin-ubuntu-cuda',
+    requires: 'An NVIDIA GPU with a current driver.',
+    companionPattern: 'cudart-llama',
+  },
+  {
+    id: 'linux-x64-rocm',
+    platform: 'linux',
+    arch: 'x64',
+    backend: 'hip',
+    assetPattern: 'bin-ubuntu-rocm',
+    requires: 'A recent AMD GPU with ROCm support.',
+  },
+  {
+    id: 'linux-x64-vulkan',
+    platform: 'linux',
+    arch: 'x64',
+    backend: 'vulkan',
+    assetPattern: 'bin-ubuntu-vulkan',
+    requires: 'A GPU with Vulkan drivers.',
+  },
   {
     id: 'linux-x64-cpu',
     platform: 'linux',
@@ -78,12 +127,21 @@ const BUILDS: EngineBuild[] = [
     requires: 'Any x64 Linux. Slower, but always works.',
   },
   {
-    id: 'linux-x64-vulkan',
+    id: 'linux-arm64-cuda',
     platform: 'linux',
-    arch: 'x64',
+    arch: 'arm64',
+    backend: 'cuda',
+    assetPattern: 'bin-ubuntu-cuda',
+    requires: 'An arm64 Linux machine with an NVIDIA GPU.',
+    companionPattern: 'cudart-llama',
+  },
+  {
+    id: 'linux-arm64-vulkan',
+    platform: 'linux',
+    arch: 'arm64',
     backend: 'vulkan',
-    assetPattern: 'bin-ubuntu-vulkan-x64',
-    requires: 'A GPU with Vulkan drivers.',
+    assetPattern: 'bin-ubuntu-vulkan',
+    requires: 'An arm64 Linux machine with Vulkan drivers.',
   },
   {
     id: 'linux-arm64-cpu',
@@ -95,6 +153,8 @@ const BUILDS: EngineBuild[] = [
   },
 ];
 
+const ARCHIVE_RE = /\.(zip|tar\.gz|tgz)$/i;
+
 /**
  * The builds that could run here, best first.
  *
@@ -104,11 +164,7 @@ const BUILDS: EngineBuild[] = [
  * all we lead with CPU, because a slow engine that runs beats a fast one that
  * fails to start.
  */
-export function buildsFor(
-  platform: EnginePlatform,
-  arch: string,
-  gpu: GpuStats | null,
-): EngineBuild[] {
+export function buildsFor(platform: EnginePlatform, arch: string, gpu: GpuStats | null): EngineBuild[] {
   const candidates = BUILDS.filter((b) => b.platform === platform && b.arch === arch);
   const rank = preferenceOrder(platform, gpu);
   return [...candidates].sort((a, b) => rank.indexOf(a.backend) - rank.indexOf(b.backend));
@@ -135,25 +191,72 @@ export function recommendedBuild(
 /**
  * Pick a release asset for a build.
  *
- * Matching is a substring test against the asset name, plus an extension check,
- * because llama.cpp's names are stable in their middle and volatile at both ends
- * (`llama-b7021-bin-win-cuda-12.4-x64.zip`). Where several CUDA builds exist for
- * different toolkit versions the newest wins, which is what a current driver
- * wants.
+ * The architecture is required rather than assumed, because the same accelerator
+ * ships for both and an arm64 archive on an x64 machine downloads several hundred
+ * megabytes of something that cannot run. Where a build exists for several CUDA
+ * toolkits the highest version wins, compared numerically: sorting these as
+ * strings puts `cuda-9` above `cuda-13`.
  */
 export function matchAsset(build: EngineBuild, assetNames: string[]): string | undefined {
-  const archive = /\.(zip|tar\.gz|tgz)$/i;
-  const hits = assetNames.filter((n) => n.includes(build.assetPattern) && archive.test(n));
-  return hits.sort().at(-1);
+  const hits = assetNames.filter(
+    (n) => n.includes(build.assetPattern) && ARCHIVE_RE.test(n) && archMatches(n, build.arch) && !isCompanion(n),
+  );
+  return hits.sort((a, b) => toolkitVersion(a) - toolkitVersion(b) || a.localeCompare(b)).at(-1);
 }
 
-export function matchCompanion(build: EngineBuild, assetNames: string[]): string | undefined {
+/**
+ * The runtime-library archive that belongs with a chosen asset.
+ *
+ * Derived from that asset rather than matched independently, so the toolkit
+ * version and architecture cannot drift apart from the build they are meant to
+ * support. Returns undefined when the build needs no companion.
+ */
+export function matchCompanion(
+  build: EngineBuild,
+  assetName: string,
+  assetNames: string[],
+): string | undefined {
   if (!build.companionPattern) return undefined;
-  const hits = assetNames.filter((n) => n.includes(build.companionPattern as string) && /\.zip$/i.test(n));
-  return hits.sort().at(-1);
+  // `llama-b10996-bin-win-cuda-13.4-x64.zip` -> `cuda-13.4-x64`
+  const variant = assetName.replace(ARCHIVE_RE, '').match(/(cuda-[\d.]+-\w+)$/)?.[1];
+  if (!variant) return undefined;
+  return assetNames.find(
+    (n) => n.includes(build.companionPattern as string) && n.includes(variant) && ARCHIVE_RE.test(n),
+  );
 }
 
 /** Every build we know about, for the "choose it yourself" list. */
 export function allBuilds(): EngineBuild[] {
   return BUILDS;
+}
+
+/**
+ * Whether a release carries the binaries at all.
+ *
+ * llama.cpp's `releases/latest` is a marker release holding one text file that
+ * names the current nightly; the archives live on the `bNNNN` tags. So the newest
+ * release is not the newest *build*, and asking for "latest" gets an empty
+ * answer. The caller scans recent releases and keeps the first that passes this.
+ */
+export function hasBinaries(assetNames: string[]): boolean {
+  return assetNames.some((n) => /^llama-b\d+-bin-/.test(n) && ARCHIVE_RE.test(n));
+}
+
+/** `-x64.zip` / `-arm64.tar.gz`, as a suffix rather than as a substring. */
+function archMatches(name: string, arch: string): boolean {
+  const base = name.replace(ARCHIVE_RE, '');
+  // macOS and Linux CPU archives end in the arch with nothing after it; Windows
+  // and the accelerated builds put the arch last too, which is what makes a
+  // suffix test enough.
+  return base.endsWith(`-${arch}`);
+}
+
+function isCompanion(name: string): boolean {
+  return name.startsWith('cudart-');
+}
+
+/** The CUDA toolkit version embedded in an asset name, as a sortable number. */
+function toolkitVersion(name: string): number {
+  const m = name.match(/cuda-(\d+)(?:\.(\d+))?/);
+  return m ? Number(m[1]) * 1000 + Number(m[2] ?? 0) : 0;
 }

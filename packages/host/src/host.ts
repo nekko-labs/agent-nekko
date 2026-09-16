@@ -165,7 +165,7 @@ import {
 import { buildSpec, buildSpecDoc, readSpecDocs, setSpecMethodology, toggleSpecTask, specPathForSession } from './spec.js';
 import { createRemoteService } from './remote.js';
 import { detectAgentTools, installSubagent, subagentSnippet } from './integrations.js';
-import { getGpuStats } from './gpu.js';
+import { getGpuStats, getGpuStatsFresh } from './gpu.js';
 import { getSystemStats } from './system.js';
 import { stopLocalServer } from './servers.js';
 import { lmsProbe, lmsLoad, lmsUnload } from './lms.js';
@@ -493,6 +493,7 @@ export function createHost(opts: { dataDir: string }): Host {
   const engine = createEngine({
     dataDir,
     getGpuStats,
+    getGpuStatsFresh,
     settings: () => ({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }),
     saveSettings: async (patch) => {
       const next = { ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine, ...patch };

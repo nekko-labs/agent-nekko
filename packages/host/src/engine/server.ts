@@ -38,6 +38,16 @@ const LOAD_BUDGET_MS = 600_000;
 const HEALTH_INTERVAL_MS = 400;
 /** How often idle models are checked against their TTL. */
 const SWEEP_INTERVAL_MS = 30_000;
+/**
+ * How long to let the GPU reading catch up before measuring a load.
+ *
+ * `llama-server` answers /health the moment it can serve, but the driver's free
+ * figure lags the allocation by a beat, so a reading taken on that instant
+ * reports that a 7 GB model took nothing. Waiting is worth it: this measurement
+ * is what reconciles the projection and feeds the calibration record, and a
+ * wrong one is worse than none.
+ */
+const MEASURE_SETTLE_MS = 1500;
 const LOG_LINES = 200;
 
 interface Child {
@@ -232,7 +242,12 @@ export function createEngineServer(deps: EngineServerDeps) {
         return { ok: false, message: childLog.slice(-2).join(' ') || exited };
       }
       if (await healthy(port)) {
+        if (before !== null) await sleep(MEASURE_SETTLE_MS);
         const after = await freeVramBytes();
+        // Measured, not projected: what the GPU reported before minus after.
+        // Absent when there is no GPU probe, which is honest rather than zero.
+        const measured =
+          before !== null && after !== null && before - after > 0 ? before - after : undefined;
         const entry: Child = {
           modelId,
           child,
@@ -241,10 +256,11 @@ export function createEngineServer(deps: EngineServerDeps) {
           startedAt: Date.now(),
           lastUsedAt: Date.now(),
           log: childLog,
-          // Measured, not projected: what the GPU reported before minus after.
-          // Absent when there is no GPU probe, which is honest rather than zero.
-          vramBytes: before !== null && after !== null ? Math.max(0, before - after) : undefined,
-          sizeBytes: model.sizeBytes,
+          vramBytes: measured,
+          // What this load actually occupies, which is what every other adapter
+          // reports here. The file size is only the floor, and only stands in
+          // when nothing could be measured.
+          sizeBytes: measured ?? model.sizeBytes,
           contextTokens: params.contextTokens,
         };
         children.set(modelId, entry);

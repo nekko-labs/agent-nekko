@@ -2,7 +2,7 @@ import { execFile } from 'child_process';
 import { chmod, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import { join } from 'path';
 import type { EngineBuild, EngineInstall, EnginePlatform, GpuStats } from '@agent-nekko/shared';
-import { buildsFor, matchAsset, matchCompanion, recommendedBuild } from './builds.js';
+import { buildsFor, hasBinaries, matchAsset, matchCompanion, recommendedBuild } from './builds.js';
 import type { Downloads } from './download.js';
 
 /**
@@ -15,7 +15,15 @@ import type { Downloads } from './download.js';
  * separate step rather than something the first Start button does quietly.
  */
 
-const RELEASES_API = 'https://api.github.com/repos/ggml-org/llama.cpp/releases/latest';
+/**
+ * Recent releases, not `releases/latest`.
+ *
+ * llama.cpp's "latest" is a marker release carrying a single text file that
+ * names the current nightly; the archives live on the `bNNNN` build tags behind
+ * it. Asking for latest gets a release with no binaries in it, so we take the
+ * first recent release that actually has some.
+ */
+const RELEASES_API = 'https://api.github.com/repos/ggml-org/llama.cpp/releases?per_page=10';
 const SERVER_NAMES = ['llama-server', 'llama-server.exe'];
 /** Recorded beside the binary so a reinstall can tell what it is replacing. */
 const RECORD_FILE = 'engine.json';
@@ -124,7 +132,7 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
       return { ok: false, message: `The ${release.tag} release has no ${build.backend} build for this machine.` };
     }
     const asset = release.assets.find((a) => a.name === assetName)!;
-    const companionName = matchCompanion(build, names);
+    const companionName = matchCompanion(build, assetName, names);
     const companion = companionName ? release.assets.find((a) => a.name === companionName) : undefined;
 
     const dir = join(deps.engineDir(), build.id);
@@ -137,10 +145,12 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
       target: build.id,
       url: asset.url,
       dest: archivePath,
-      verify: async (path) => {
+      after: async (path) => {
         // The archive is the download; unpacking it is what makes it an engine,
         // so it happens here, inside the job, and a failure fails the job rather
-        // than leaving a downloaded file nobody can use.
+        // than leaving a downloaded file nobody can use. It runs as `after`
+        // rather than `verify` because extracting consumes the archive, and a
+        // file consumed before the transfer has renamed it fails the rename.
         try {
           await extract(path, dir, run);
           if (companion) {
@@ -199,14 +209,21 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
         headers: { accept: 'application/vnd.github+json', 'user-agent': 'agent-nekko' },
       });
       if (!res.ok) return null;
-      const json = (await res.json()) as {
+      const rows = (await res.json()) as Array<{
         tag_name?: string;
         assets?: Array<{ name?: string; browser_download_url?: string }>;
-      };
-      const assets = (json.assets ?? [])
-        .filter((a) => a.name && a.browser_download_url)
-        .map((a) => ({ name: a.name as string, url: a.browser_download_url as string }));
-      return json.tag_name ? { tag: json.tag_name, assets } : null;
+      }>;
+      if (!Array.isArray(rows)) return null;
+
+      for (const row of rows) {
+        const assets = (row.assets ?? [])
+          .filter((a) => a.name && a.browser_download_url)
+          .map((a) => ({ name: a.name as string, url: a.browser_download_url as string }));
+        if (row.tag_name && hasBinaries(assets.map((a) => a.name))) {
+          return { tag: row.tag_name, assets };
+        }
+      }
+      return null;
     } catch {
       return null;
     }

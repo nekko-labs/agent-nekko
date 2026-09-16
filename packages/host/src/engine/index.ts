@@ -30,6 +30,12 @@ import { createEngineServer } from './server.js';
 export interface EngineDeps {
   dataDir: () => string;
   getGpuStats: () => Promise<GpuStats | null>;
+  /**
+   * A reading taken now rather than from the poll cache. The before/after pair
+   * around a load is a measurement, and a cached "after" can report that loading
+   * a model took nothing.
+   */
+  getGpuStatsFresh?: () => Promise<GpuStats | null>;
   settings: () => EngineSettings;
   /** Persist a settings change (port, TTL, key). */
   saveSettings: (patch: Partial<EngineSettings>) => Promise<EngineSettings>;
@@ -65,7 +71,7 @@ export function createEngine(deps: EngineDeps) {
     binPath: async () => (await installer.detect()).binPath,
     findModel: (id) => library.find(id),
     listModels: () => library.list(),
-    getGpuStats: deps.getGpuStats,
+    getGpuStats: deps.getGpuStatsFresh ?? deps.getGpuStats,
   });
 
   /* ------------------------------------------------------------ acquisition */
