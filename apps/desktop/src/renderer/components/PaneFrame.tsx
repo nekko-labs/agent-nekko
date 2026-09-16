@@ -139,12 +139,11 @@ export function PaneFrame({
 
   return (
     <div
-      className="squircle relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-      style={{
-        background: 'var(--paper)',
-        borderRadius: 'var(--pane-radius)',
-        boxShadow: isActive ? 'inset 0 0 0 1px var(--accent)' : 'inset 0 0 0 1px var(--line)',
-      }}
+      className="panel panel-ring flex flex-1 flex-col"
+      // The ring is a pseudo-element over the contents rather than an inset
+      // shadow under them, so the title strip's own background can't paint over
+      // the stretch of outline that traces the window's top corners.
+      style={{ '--panel-ring-color': isActive ? 'var(--accent)' : 'var(--line)' } as React.CSSProperties}
       onMouseDown={onFocus}
     >
       <div

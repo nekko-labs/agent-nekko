@@ -148,8 +148,8 @@ describe('onboarding step content', () => {
     expect(html).toContain('OpenAI-compatible');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('Agent Nekko');
-    expect(html).toContain('Open Models');
-    expect(html).toContain('Models tab');
+    expect(html).toContain('Open Model Server');
+    expect(html).toContain('Model Providers');
     // The local probe runs on mount; SSR shows the in-flight state.
     expect(html).toContain('Checking for Ollama, LM Studio, and vLLM');
   });

@@ -98,6 +98,14 @@ export interface EngineSettings {
   maxLoaded: number;
   /** Where GGUF files live. Defaults to `<dataDir>/models`. */
   modelsDir?: string;
+  /**
+   * Extra folders to look in, beyond the one downloads land in.
+   *
+   * A list rather than a second path because the models on a machine are
+   * usually spread over several apps' folders at once, and because a folder
+   * someone stops using should be switchable off without being retyped later.
+   */
+  modelFolders?: ModelFolder[];
 }
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
@@ -179,6 +187,34 @@ export interface CatalogModel {
   license?: string;
   /** The repo needs accepted terms or a token; we surface it rather than failing mid-download. */
   gated?: boolean;
+  /** Hearts on Hugging Face, next to the download count. */
+  likes?: number;
+  /** Last commit to the repo, for the "is this maintained" question. */
+  updatedAt?: number;
+  createdAt?: number;
+  /** The task the publisher declared, e.g. `text-generation`. */
+  pipelineTag?: string;
+  /** The weights this GGUF was converted from, when the repo says so. */
+  baseModel?: string;
+  /** Every tag the repo carries, not just the capability chips. */
+  hfTags?: string[];
+}
+
+/**
+ * A catalog model with the things only its own page has room for.
+ *
+ * The extra call this needs is the model card itself, which is a README on
+ * Hugging Face and can run to thousands of words. It is fetched when a model is
+ * opened rather than with the list, so browsing stays one request per search
+ * instead of one per result.
+ */
+export interface CatalogModelDetail extends CatalogModel {
+  /** The model card, as markdown, with its YAML front matter stripped. */
+  readme?: string;
+  /** Set when the card could not be read, so the page can say why. */
+  readmeError?: string;
+  /** Other repos publishing GGUF builds of the same weights. */
+  related?: CatalogModel[];
 }
 
 export type DownloadState = 'queued' | 'downloading' | 'verifying' | 'done' | 'failed' | 'cancelled';
@@ -217,6 +253,12 @@ export interface LocalModel {
   maxContext?: number;
   /** Set when the file came from the catalog rather than an import. */
   sourceRepo?: string;
+  /** The folder this file was found in, or `primary` for our own models dir. */
+  folderId?: string;
+  /** The app whose layout that folder belongs to, when we recognised one. */
+  folderProvider?: ModelFolderProviderId;
+  /** False for a folder we only read: deleting there would break another app. */
+  managed?: boolean;
   addedAt: number;
   /** Per-model saved load settings, applied when it is loaded. */
   preset?: EngineLoadPreset;
@@ -245,4 +287,93 @@ export interface EngineLoadPreset {
   ttlSeconds?: number;
   /** The simple slider's position, kept so the two surfaces stay one state. */
   budgetFraction?: number;
+}
+
+/* ------------------------------------------------------- model folders */
+
+/**
+ * The apps whose model folders we know how to find.
+ *
+ * A GGUF on this machine is a GGUF whoever downloaded it, so a model already
+ * pulled through Ollama or LM Studio should not have to be downloaded a second
+ * time to be run here. Each id is a layout we know the default path of and, for
+ * Ollama, a naming scheme we know how to read.
+ */
+export type ModelFolderProviderId =
+  | 'nekko'
+  | 'ollama'
+  | 'lmstudio'
+  | 'jan'
+  | 'gpt4all'
+  | 'llamacpp'
+  | 'huggingface'
+  | 'koboldcpp'
+  | 'textgenwebui'
+  | 'localai'
+  | 'bionic'
+  | 'vllm';
+
+export interface ModelFolderProvider {
+  label: string;
+  /** One line for the folder list: what put models here. */
+  hint: string;
+}
+
+export const MODEL_FOLDER_PROVIDERS: Record<ModelFolderProviderId, ModelFolderProvider> = {
+  nekko: { label: 'Agent Nekko', hint: 'Models downloaded here.' },
+  ollama: { label: 'Ollama', hint: 'Ollama stores models as hashed blobs; names come from its manifests.' },
+  lmstudio: { label: 'LM Studio', hint: 'LM Studio keeps GGUF files under publisher/repo.' },
+  jan: { label: 'Jan', hint: 'Jan keeps one folder per model.' },
+  gpt4all: { label: 'GPT4All', hint: 'GPT4All keeps every GGUF in one folder.' },
+  llamacpp: { label: 'llama.cpp', hint: "llama.cpp's own models folder." },
+  huggingface: { label: 'Hugging Face cache', hint: 'Anything pulled with huggingface-cli or the Python libraries.' },
+  koboldcpp: { label: 'KoboldCpp', hint: 'KoboldCpp model folder.' },
+  textgenwebui: { label: 'Text generation web UI', hint: "oobabooga's models folder." },
+  localai: { label: 'LocalAI', hint: 'LocalAI model folder.' },
+  bionic: { label: 'Bionic', hint: 'Bionic GPT model folder.' },
+  vllm: { label: 'vLLM', hint: 'vLLM serves from the Hugging Face cache by default.' },
+};
+
+/** Where the library looks for models, beyond the folder we download into. */
+export interface ModelFolder {
+  /** Stable id, also the prefix of every model id found here. */
+  id: string;
+  path: string;
+  /** Set when this folder matches a layout we know. */
+  provider?: ModelFolderProviderId;
+  /** Off without being forgotten: kept in the list, skipped on a scan. */
+  enabled: boolean;
+  /** The user typed this one in rather than us finding it. */
+  custom?: boolean;
+}
+
+/**
+ * A folder as the settings page shows it: what we have configured, plus what the
+ * last scan actually found there.
+ *
+ * `primary` is the one folder downloads land in. It is always present, always
+ * enabled, and cannot be removed, which is why it is a flag rather than another
+ * row the user could delete out from under a download.
+ */
+export interface ModelFolderStatus extends ModelFolder {
+  primary?: boolean;
+  exists: boolean;
+  modelCount: number;
+  sizeBytes: number;
+  /** Why nothing was read, when something went wrong rather than nothing being there. */
+  error?: string;
+}
+
+/** A known folder we found on this machine that is not in the list yet. */
+export interface ModelFolderSuggestion {
+  provider: ModelFolderProviderId;
+  path: string;
+  modelCount: number;
+  sizeBytes: number;
+}
+
+export interface ModelFolderReport {
+  folders: ModelFolderStatus[];
+  /** Known layouts present on disk that nobody has added yet. */
+  suggestions: ModelFolderSuggestion[];
 }

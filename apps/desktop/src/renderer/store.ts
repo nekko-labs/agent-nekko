@@ -23,7 +23,7 @@ import {
 
 export type { Direction, PaneKind, WbNode, WbPane } from './layout.js';
 
-export type View = 'command' | 'chat' | 'models' | 'connectors' | 'memory' | 'settings' | 'design' | 'skills' | 'training' | 'workflows';
+export type View = 'command' | 'chat' | 'models' | 'modelserver' | 'connectors' | 'memory' | 'settings' | 'design' | 'skills' | 'training' | 'workflows';
 
 /**
  * Nav destinations that live behind a Settings → Experimental toggle. The flag

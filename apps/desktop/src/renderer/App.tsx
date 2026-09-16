@@ -18,6 +18,7 @@ import { TrainingView } from './views/TrainingView.js';
 import { WorkflowsView } from './views/WorkflowsView.js';
 import { CommandCenterView } from './views/CommandCenterView.js';
 import { ModelsView } from './views/ModelsView.js';
+import { ModelServerView } from './views/ModelServerView.js';
 import { ConnectorsView } from './views/ConnectorsView.js';
 import { MemoryView } from './views/MemoryView.js';
 import { SettingsView } from './views/SettingsView.js';
@@ -29,6 +30,7 @@ import {
   WorkflowsColorIcon,
   DesignColorIcon,
   ModelsColorIcon,
+  ModelServerColorIcon,
   ConnectorsColorIcon,
   MemoryColorIcon,
   SettingsColorIcon,
@@ -45,6 +47,7 @@ const NAV: Array<{ view: View; labelKey: string; Icon: (p: { className?: string 
   { view: 'workflows', labelKey: 'nav.workflows', Icon: WorkflowsColorIcon },
   { view: 'design', labelKey: 'nav.design', Icon: DesignColorIcon },
   { view: 'models', labelKey: 'nav.models', Icon: ModelsColorIcon },
+  { view: 'modelserver', labelKey: 'nav.modelserver', Icon: ModelServerColorIcon },
   { view: 'connectors', labelKey: 'nav.connectors', Icon: ConnectorsColorIcon },
   { view: 'memory', labelKey: 'nav.memory', Icon: MemoryColorIcon },
   { view: 'settings', labelKey: 'nav.settings', Icon: SettingsColorIcon },
@@ -196,13 +199,13 @@ export function App() {
 
         {/* Main (bottom padding on phones so the tab bar never covers content) */}
         <main className="relative flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
-          {providers.length === 0 && view !== 'models' && view !== 'settings' && (
+          {providers.length === 0 && view !== 'models' && view !== 'modelserver' && view !== 'settings' && (
             <button
               className="flex items-center justify-center gap-2 border-b border-line py-2.5 text-[13px]"
               style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
               onClick={() => setView('models')}
             >
-              <span className="font-medium">Get started:</span> connect your first model in Models →
+              <span className="font-medium">Get started:</span> connect your first model in Model Providers →
             </button>
           )}
           {view === 'command' && <CommandCenterView />}
@@ -212,6 +215,7 @@ export function App() {
           {view === 'workflows' && <WorkflowsView />}
           {view === 'design' && <DesignBoardView />}
           {view === 'models' && <ModelsView />}
+          {view === 'modelserver' && <ModelServerView />}
           {view === 'connectors' && <ConnectorsView />}
           {view === 'memory' && <MemoryView />}
           {view === 'settings' && <SettingsView />}

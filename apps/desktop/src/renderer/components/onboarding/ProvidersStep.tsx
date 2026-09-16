@@ -105,11 +105,11 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
     setTests((m) => ({ ...m, [id]: { state: 'done', ...r } }));
   };
 
-  // "Agent Nekko (this app)" is a deep link, not managed inference: close the
-  // wizard and land on the Models tab's local section, where the real
-  // setup guide lives. Managed local models are the AN9 track.
+  // "Agent Nekko (this app)" is a deep link: close the wizard and land on Model
+  // Server, which is where the engine, the model library and the folders other
+  // apps already keep models in all live.
   const openModels = () => {
-    const go = () => setView('models');
+    const go = () => setView('modelserver');
     if (onExit) onExit(go);
     else {
       setOnboardingOpen(false);
@@ -200,7 +200,7 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
           )}
           {scan === 'failed' && (
             <p className="rounded-xl border border-dashed p-4 text-[12px] text-ink-faint" style={{ borderColor: 'var(--line)' }}>
-              Couldn't scan automatically. The Models tab can discover local servers too.
+              Couldn't scan automatically. Model Providers can discover local servers too.
             </p>
           )}
           {scan === 'done' && found.length === 0 && extraLocal.length === 0 && (
@@ -240,12 +240,12 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
                   Agent Nekko <span className="font-normal text-ink-faint">(this app)</span>
                 </h3>
                 <p className="mt-0.5 text-[12px] text-ink-faint">
-                  Managed in-app models are on the way. For now, the Models tab walks you through the
-                  recommended path: install Ollama, or point Nekko at a server you run.
+                  Run models here, with nothing else installed. Model Server downloads the engine, and picks up
+                  anything Ollama or LM Studio already pulled onto this machine.
                 </p>
               </div>
               <button className="btn btn-outline shrink-0 py-1.5 text-[12px]" onClick={openModels}>
-                Open Models
+                Open Model Server
               </button>
             </div>
           </div>
@@ -255,7 +255,7 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
       <DefaultOffer providers={providers} />
 
       <p className="mt-6 text-center text-[12px] text-ink-faint">
-        You can add or tune providers any time in the Models tab.
+        You can add or tune providers any time in Model Providers.
       </p>
     </div>
   );

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { LocalModel } from '@agent-nekko/shared';
+import { MODEL_FOLDER_PROVIDERS } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { CheckIcon, TrashIcon } from '../../icons.js';
 import { formatBytes, formatTokens } from '../runtimes/verdict.js';
@@ -12,15 +13,23 @@ import { EngineLoadDrawer } from './EngineLoadDrawer.js';
  * memory, and the one action that changes that. Settings live behind the row
  * rather than on it, because the common case is "load this" and the uncommon one
  * is "load this with 32k context and a quantized KV cache".
+ *
+ * Not all of them are ours. A model found in Ollama's or LM Studio's folder runs
+ * here exactly like one we downloaded, and says where it came from so nobody has
+ * to wonder why deleting it is not on offer: that file belongs to another app,
+ * and removing it from here would break that app without saying so.
  */
 
 export function ModelLibrary({
   providerId,
   models,
+  canLoad,
   onChanged,
 }: {
   providerId: string;
   models: Array<LocalModel & { loaded: boolean }>;
+  /** False until the engine binary exists: the list is real, running it is not. */
+  canLoad: boolean;
   onChanged: () => void;
 }) {
   const pushToast = useStore((s) => s.pushToast);
@@ -60,6 +69,12 @@ export function ModelLibrary({
     onChanged();
   };
 
+  /** How many folders are contributing, for the line above the list. */
+  const folders = useMemo(
+    () => new Set(models.map((m) => m.folderId ?? 'primary')).size,
+    [models],
+  );
+
   const runImport = async () => {
     const path = importPath.trim();
     if (!path) return;
@@ -80,7 +95,7 @@ export function ModelLibrary({
             ? 'No models yet.'
             : `${models.length} model${models.length === 1 ? '' : 's'} · ${formatBytes(
                 models.reduce((n, m) => n + m.sizeBytes, 0),
-              )} on disk`}
+              )} on disk${folders > 1 ? ` · across ${folders} folders` : ''}`}
         </p>
         <button className="text-[11.5px] text-ink-faint hover:text-ink" onClick={() => setImporting((v) => !v)}>
           Add a file I already have
@@ -102,9 +117,16 @@ export function ModelLibrary({
         </div>
       )}
 
+      {!canLoad && models.length > 0 && (
+        <p className="mt-2 rounded-xl border border-dashed px-3 py-2 text-[11.5px]" style={{ borderColor: 'var(--line)', color: 'var(--warning)' }}>
+          These are on disk and ready. Download the engine above to run them here.
+        </p>
+      )}
+
       {models.length === 0 ? (
         <p className="mt-3 rounded-xl border border-dashed px-4 py-3.5 text-[12.5px] text-ink-faint" style={{ borderColor: 'var(--line)' }}>
-          Nothing here yet. Open <strong>Find models</strong> to download one, or point at a GGUF you already have.
+          Nothing here yet. Open <strong>Find models</strong> to download one, <strong>Folders</strong> to point at a
+          folder another app already fills, or add a GGUF you have.
         </p>
       ) : (
         <div className="mt-2 space-y-1.5">
@@ -123,6 +145,11 @@ export function ModelLibrary({
                         style={{ background: 'var(--success)' }}
                       >
                         <CheckIcon className="h-2.5 w-2.5" /> in memory
+                      </span>
+                    )}
+                    {m.managed === false && (
+                      <span className="chip shrink-0" title={`Read from ${m.path}`}>
+                        {m.folderProvider ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label : 'other folder'}
                       </span>
                     )}
                   </div>
@@ -157,17 +184,29 @@ export function ModelLibrary({
                     </button>
                   ) : (
                     <button
-                      className="rounded-full px-2.5 py-1 text-[11px] text-white"
+                      className="rounded-full px-2.5 py-1 text-[11px] text-white disabled:opacity-50"
                       style={{ background: 'var(--accent)' }}
-                      disabled={busy === m.id}
+                      title={canLoad ? `Load ${m.name} into memory` : 'Download the engine first'}
+                      disabled={busy === m.id || !canLoad}
                       onClick={() => void quickLoad(m)}
                     >
                       {busy === m.id ? 'loading…' : 'Load'}
                     </button>
                   )}
-                  <button className="btn btn-ghost px-1.5 py-1" title="Delete this model" onClick={() => void remove(m)}>
-                    <TrashIcon className="h-3.5 w-3.5" />
-                  </button>
+                  {m.managed === false ? (
+                    // The file belongs to whichever app downloaded it. Saying so
+                    // beats a delete button that refuses after the click.
+                    <span
+                      className="px-1.5 text-[10px] text-ink-faint"
+                      title={`Delete this in ${m.folderProvider ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label : 'the app that downloaded it'}`}
+                    >
+                      borrowed
+                    </span>
+                  ) : (
+                    <button className="btn btn-ghost px-1.5 py-1" title="Delete this model" onClick={() => void remove(m)}>
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
 

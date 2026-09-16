@@ -77,6 +77,67 @@
   corner-shape: squircle;
 }
 
+/*
+  One surface of the app: a workbench window, the sidebar beside it, the
+  inspector on the other side, a sheet.
+
+  These used to be told apart by hairlines, which made the whole app read as one
+  grid ruled into cells. Each is its own panel now, floating on the field behind
+  it with the same corner as everything else.
+*/
+@utility panel {
+  @apply relative min-h-0 min-w-0 overflow-hidden;
+  background: var(--paper);
+  border-radius: var(--pane-radius);
+  corner-shape: squircle;
+}
+
+/*
+  A panel's outline, painted over its contents rather than under them.
+
+  An `inset` box-shadow lives on the element's own background layer, so any child
+  with a background of its own — a title strip, a toolbar, a header — paints over
+  the stretch of ring running behind it. The visible outline then stops dead
+  where the header starts, which is what made a window's top corners read as
+  square while its bottom ones were round. A pseudo-element sits above every
+  child instead, so the ring traces the whole panel.
+
+  `--panel-ring-color` is the hook: set it per panel to show focus.
+*/
+@utility panel-ring {
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    border-radius: inherit;
+    corner-shape: squircle;
+    box-shadow: inset 0 0 0 1px var(--panel-ring-color, var(--line));
+    transition: box-shadow var(--dur-fast, 0.12s) ease;
+  }
+}
+
+/*
+  Every rounded surface at panel scale gets the superellipse, not only the ones
+  that remembered to ask for it.
+
+  `rounded-full` is deliberately absent: a superellipse at a 50% radius is not a
+  circle, and the dots, avatars and pills that use it are meant to be round. So
+  are the small radii, where the difference is under a pixel and not worth a
+  rule.
+*/
+@layer base {
+  :where(
+    [class~='rounded-lg'],
+    [class~='rounded-xl'],
+    [class~='rounded-2xl'],
+    [class~='rounded-3xl']
+  ) {
+    corner-shape: squircle;
+  }
+}
+
 @utility btn {
   @apply inline-flex items-center justify-center gap-2 rounded-xl px-3.5 py-2 text-sm font-medium;
   transition:
@@ -124,6 +185,19 @@
   &:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--ring);
+  }
+}
+
+@utility catalog-row {
+  /* A row of the model list. It opens a page, so it has to read as something you
+     can click rather than as a line of a table. */
+  border: 1px solid transparent;
+  transition:
+    border-color var(--dur-fast) ease,
+    background var(--dur-fast) ease;
+  &:hover {
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background: color-mix(in srgb, var(--accent) 8%, var(--surface-2));
   }
 }
 

@@ -16,7 +16,7 @@ export function DoneStep({ onFinish }: { onFinish: (after?: () => void) => void 
     },
     {
       title: 'Connect a model provider',
-      desc: 'Bring a subscription, an API key, or a local server in Models.',
+      desc: 'Bring a subscription, an API key, or a local server in Model Providers.',
       action: () => setView('models'),
     },
     {
