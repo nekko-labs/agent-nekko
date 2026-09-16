@@ -12,6 +12,8 @@ export * from './runtimes.js';
 export * from './engine.js';
 export * from './api-server.js';
 export * from './chat.js';
+export * from './ask.js';
+export * from './session-board.js';
 export * from './pr.js';
 export * from './terminal.js';
 export * from './guardrails.js';

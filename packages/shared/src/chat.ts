@@ -145,6 +145,10 @@ export type AgentEvent =
   | { type: 'tool_call'; sessionId: string; call: ToolCall }
   | { type: 'tool_approval_required'; sessionId: string; call: ToolCall; reason: string; severity: 'low' | 'medium' | 'high' }
   | { type: 'tool_result'; sessionId: string; result: ToolResult }
+  /** The agent stopped to ask before carrying on. See `ask.ts`. */
+  | { type: 'question'; sessionId: string; request: import('./ask.js').AskRequest }
+  /** The question was answered or dropped, so anything showing it can stop. */
+  | { type: 'question_resolved'; sessionId: string; callId: string }
   | {
       type: 'usage';
       sessionId: string;
@@ -161,6 +165,27 @@ export type AgentEvent =
     }
   | { type: 'done'; sessionId: string; messageId: string }
   | { type: 'error'; sessionId: string; message: string };
+
+/**
+ * What a session is waiting on a person for, right now.
+ *
+ * Kept in the host rather than in whichever component happened to see the
+ * event: a question asked while you were on another screen is still a question,
+ * and the board has to be able to ask "who needs me" without having watched
+ * every session's event stream since it started.
+ */
+export interface PendingInput {
+  sessionId: string;
+  /** A tool call waiting on approve/deny. */
+  approval?: {
+    call: ToolCall;
+    reason: string;
+    severity: 'low' | 'medium' | 'high';
+    requestedAt: number;
+  };
+  /** An `ask_user` call waiting on answers. */
+  question?: import('./ask.js').AskRequest;
+}
 
 /**
  * Output tokens per second, measured over the time the model spent generating

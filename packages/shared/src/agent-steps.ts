@@ -85,6 +85,17 @@ export function summarizeToolCall(
   max = 64,
 ): string {
   const input = (call.input ?? {}) as Record<string, unknown>;
+  // `ask_user` carries a nested question array rather than a string argument,
+  // so the generic "first string" fallback would print a fragment of the first
+  // option. The question itself is the only part worth showing.
+  if (call.name === 'ask_user') {
+    const questions = Array.isArray(input.questions) ? input.questions : [];
+    const first = (questions[0] ?? {}) as Record<string, unknown>;
+    const text = typeof first.question === 'string' ? first.question : '';
+    const more = questions.length - 1;
+    if (!text) return '';
+    return truncateWords(more > 0 ? `${text} (+${more} more)` : text, max);
+  }
   const pick = (...keys: string[]): string | undefined => {
     for (const k of keys) {
       const v = input[k];

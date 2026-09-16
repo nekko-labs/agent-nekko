@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AgentEvent, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
 import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
@@ -8,6 +8,7 @@ import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { Markdown } from './Markdown.js';
 import { ContextGauge, EffortMenu } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
+import { QuestionCard } from './QuestionCard.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
@@ -267,6 +268,12 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const [liveReasoning, setLiveReasoning] = useState('');
   const [liveTools, setLiveTools] = useState<ToolCall[]>([]);
   const [approval, setApproval] = useState<PendingApproval | null>(null);
+  /**
+   * The question the agent stopped to ask, when it has. Seeded from the host on
+   * mount as well as from the event, so a question asked while this pane was
+   * closed is still there when it opens.
+   */
+  const [question, setQuestion] = useState<AskRequest | null>(null);
   const [ctx, setCtx] = useState<ContextBundle | null>(null);
   // Tokens this turn has produced that the last context bundle doesn't include
   // yet. Everything the agent writes (its reply, its tool calls, their results)
@@ -529,6 +536,20 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     pendingReasoning.current = '';
   }, [sessionId]);
 
+  // Anything this chat is already blocked on. The events below only reach a
+  // mounted pane, so a question asked while you were on the board — or before
+  // this pane was opened at all — would otherwise be invisible here.
+  useEffect(() => {
+    let live = true;
+    window.nekko.pendingInput().then((pending) => {
+      if (!live) return;
+      const mine = pending[sessionId];
+      if (mine?.question) setQuestion(mine.question);
+      if (mine?.approval) setApproval({ call: mine.approval.call, reason: mine.approval.reason, severity: mine.approval.severity });
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [sessionId]);
+
   // Stream agent events for this session only.
   useEffect(() => {
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
@@ -587,6 +608,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         case 'tool_approval_required':
           setApproval({ call: e.call, reason: e.reason, severity: e.severity });
           setMascotMood('thinking');
+          break;
+        case 'question':
+          setQuestion(e.request);
+          setMascotMood('thinking');
+          break;
+        case 'question_resolved':
+          setQuestion((q) => (q?.callId === e.callId ? null : q));
           break;
         case 'tool_result':
           setApproval(null);
@@ -1045,6 +1073,15 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     setApproval(null);
   };
 
+  /** Unblock the turn. Clearing first keeps the card from lingering over the
+   *  reply that the answer immediately produces. */
+  const answerQuestion = async (answers: AskAnswer[]) => {
+    const pending = question;
+    if (!pending) return;
+    setQuestion(null);
+    await window.nekko.answerQuestion(sessionId, pending.callId, answers);
+  };
+
   const hasProvider = providers.length > 0;
   const slashQuery = draft.startsWith('/') && !draft.includes('\n') ? draft.slice(1).toLowerCase() : null;
   const slashMatches =
@@ -1430,6 +1467,18 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         </div>
 
         {approval && <ApprovalBar approval={approval} onDecide={approve} />}
+
+        {question && (
+          <div className="border-t border-line px-4 pt-3">
+            <div className={contentWidth}>
+              <QuestionCard
+                request={question}
+                onAnswer={(answers) => answerQuestion(answers)}
+                onSkip={() => answerQuestion([])}
+              />
+            </div>
+          </div>
+        )}
 
         <div className="border-t border-line px-4 pb-4 pt-1.5">
           <div className={contentWidth}>

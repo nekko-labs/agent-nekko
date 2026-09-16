@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, ProviderConfig, Session, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
+import type { AgentEvent, PendingInput, ProviderConfig, Session, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
 import type { RemoteStatus } from '@agent-nekko/shared';
 import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider } from '@agent-nekko/shared';
 import type { OptimizationTip, AgentType } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Badge, EmptyHint, PanelList } from '../components/primitives/index.js';
-import { ChatIcon, ServerIcon, PlusIcon, CheckIcon, TerminalIcon, RobotIcon, TrashIcon } from '../icons.js';
+import { ServerIcon, PlusIcon, CheckIcon, TerminalIcon, TrashIcon } from '../icons.js';
+import { SessionBoard } from '../components/SessionBoard.js';
 
 const HOUR = 60 * 60_000;
 
@@ -14,6 +15,9 @@ export function CommandCenterView() {
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [tasks, setTasks] = useState<AutomationTask[]>([]);
+  // What each chat is waiting on a person for, read from the host so a question
+  // asked while this screen was closed is on the board when it opens.
+  const [pending, setPending] = useState<Record<string, PendingInput>>({});
   const [, setTick] = useState(0);
   // First-sighting timestamps for in-flight runs, so Now rows can show elapsed.
   const runStarts = useRef(new Map<string, number>());
@@ -24,9 +28,15 @@ export function CommandCenterView() {
     refreshSessions();
     refreshTerminals();
     window.nekko.listTasks().then(setTasks).catch(() => setTasks([]));
+    window.nekko.pendingInput().then(setPending).catch(() => {});
     const off = window.nekko.onTasksUpdated(setTasks);
     return off;
   }, [refreshSessions, refreshTerminals]);
+
+  // Re-read what is blocked whenever anything might have changed it. The events
+  // say what happened, but the host is the one that knows what is *still*
+  // outstanding, and a card in the wrong lane is worse than a stale timestamp.
+  const refreshPending = () => { window.nekko.pendingInput().then(setPending).catch(() => {}); };
 
   // Map a task-driven session back to its task, so those agents classify by
   // their task (a recurring "monitor …" task → monitor, not a plain chat).
@@ -40,10 +50,14 @@ export function CommandCenterView() {
   useEffect(() => {
     const known = new Set(sessions.map((s) => s.id));
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
+      if (e.type === 'question' || e.type === 'tool_approval_required' || e.type === 'question_resolved' || e.type === 'tool_result') {
+        refreshPending();
+      }
       if (e.type === 'done' || e.type === 'error') {
         runStarts.current.delete(e.sessionId);
         setRunning((r) => { const n = new Set(r); n.delete(e.sessionId); return n; });
         window.nekko.getUsageSummary().then(setUsage);
+        refreshPending();
         refreshSessions(); // pick up the dequeued prompt + final message
       } else {
         if (!runStarts.current.has(e.sessionId)) runStarts.current.set(e.sessionId, Date.now());
@@ -85,20 +99,6 @@ export function CommandCenterView() {
     [running, childrenOf],
   );
 
-  // Now: everything actually working this second — running chats plus live
-  // automation fires (task-driven sessions are excluded from topLevel).
-  const nowChats = useMemo(
-    () => topLevel.filter(isRunningSession).sort((a, b) => b.updatedAt - a.updatedAt),
-    [topLevel, isRunningSession],
-  );
-  const liveTasks = useMemo(() => tasks.filter((t) => !!t.lastSessionId && running.has(t.lastSessionId!)), [tasks, running]);
-
-  // Everything else, one flat most-recent-first list.
-  const restChats = useMemo(
-    () => topLevel.filter((s) => !isRunningSession(s)).sort((a, b) => b.updatedAt - a.updatedAt),
-    [topLevel, isRunningSession],
-  );
-
   // Fleet: who's out there, by derived type — running/recent chats + active tasks.
   const fleet = useMemo(() => {
     type Member = { type: AgentType; running: boolean };
@@ -132,7 +132,7 @@ export function CommandCenterView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl px-8 py-8">
+      <div className="mx-auto max-w-6xl px-8 py-8">
         <div className="flex items-center justify-between">
           <h1 className="text-gradient text-2xl font-semibold">Command Center</h1>
           <div className="flex gap-2">
@@ -152,73 +152,45 @@ export function CommandCenterView() {
           <Stat value={tokensToday.toLocaleString()} label="tokens today" />
           <StatDivider />
           <Stat value={isSubscriptionSpend ? 'Included in plan' : formatUSD(usage?.totalCost ?? 0)} label="est. spend" />
+          {/* The fleet, by derived role. It used to sit in the "Now" heading;
+              the strip is where the other at-a-glance counts already live. */}
+          {fleet.length > 0 && (
+            <span className="ml-auto flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              {fleet.map((g) => (
+                <span
+                  key={g.type.role}
+                  className="flex items-center gap-1"
+                  title={`${g.count} ${g.type.label}${g.count === 1 ? '' : 's'}${g.live > 0 ? `, ${g.live} working` : ''}`}
+                >
+                  <span>{g.type.icon}</span>
+                  <span className="tabular-nums">{g.live > 0 ? `${g.live}/${g.count}` : g.count}</span>
+                </span>
+              ))}
+            </span>
+          )}
         </div>
 
-        {/* NOW — what is being worked on this second. */}
-        <section className="mt-7">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-[15px] font-semibold">Now</h2>
-            <span className="text-[12px] text-ink-faint">what your agents are doing</span>
-            {fleet.length > 0 && (
-              <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-faint">
-                {fleet.map((g) => (
-                  <span key={g.type.role} className="flex items-center gap-1" title={`${g.count} ${g.type.label}${g.count === 1 ? '' : 's'}${g.live > 0 ? `, ${g.live} working` : ''}`}>
-                    <span>{g.type.icon}</span>
-                    <span className="tabular-nums">{g.live > 0 ? `${g.live}/${g.count}` : g.count}</span>
-                  </span>
-                ))}
-              </span>
-            )}
-          </div>
-          {nowChats.length === 0 && liveTasks.length === 0 ? (
-            <EmptyHint className="mt-2.5">
-              Nothing working right now. <button className="text-accent hover:underline" onClick={() => newChat()}>Start a chat</button>, or run an automation below.
-            </EmptyHint>
-          ) : (
-            <PanelList className="mt-2.5">
-              {nowChats.map((s) => (
-                <NowRow
-                  key={s.id}
-                  session={s}
-                  agentType={classifySession(s, taskBySession.get(s.id))}
-                  provider={providers.find((p) => p.id === s.providerId)}
-                  childrenOf={childrenOf}
-                  running={running}
-                  tokens={usage?.bySession[s.id]}
-                  startedAt={runStarts.current.get(s.id)}
-                  now={now}
-                  onOpen={openChat}
-                  onRefresh={refreshSessions}
-                />
-              ))}
-              {liveTasks.map((t) => {
-                const s = sessions.find((x) => x.id === t.lastSessionId);
-                return s ? (
-                  <NowRow
-                    key={t.id}
-                    session={s}
-                    task={t}
-                    agentType={classifyAgent({ taskKind: t.kind, taskCondition: t.condition, prompt: t.prompt })}
-                    provider={providers.find((p) => p.id === s.providerId)}
-                    childrenOf={childrenOf}
-                    running={running}
-                    tokens={usage?.bySession[s.id]}
-                    startedAt={runStarts.current.get(s.id)}
-                    now={now}
-                    onOpen={openChat}
-                    onRefresh={refreshSessions}
-                  />
-                ) : null;
-              })}
-            </PanelList>
-          )}
-        </section>
+        {/* SESSIONS — every chat as a card, in the lane its state puts it in.
+            This is where the work gets handled: answer, approve, reply, stop.
+            It absorbed the old "Now" list, which only ever said which of these
+            were running and could not say which were waiting on the user. */}
+        <SessionBoard
+          sessions={topLevel}
+          tasks={tasks}
+          providers={providers}
+          usage={usage}
+          running={running}
+          pending={pending}
+          childrenOf={childrenOf}
+          runStarts={runStarts.current}
+          now={now}
+          onOpen={openChat}
+          onRefresh={() => { refreshSessions(); refreshPending(); }}
+          onNewChat={newChat}
+        />
 
         {/* AUTOMATIONS — running, planned (next up), paused, finished. */}
         <AutomationsBoard tasks={tasks} running={running} now={now} onOpen={openChat} />
-
-        {/* SESSIONS — every other chat, compact and scannable. */}
-        <SessionsList sessions={restChats} providers={providers} usage={usage} now={now} onOpen={openChat} onNewChat={newChat} />
 
         {/* TERMINALS */}
         {terminals.length > 0 && (
@@ -291,134 +263,6 @@ function elapsed(ms: number): string {
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
   return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
-}
-
-/** Count every descendant sub-agent under a session (the whole subtree). */
-function countDescendants(id: string, childrenOf: Map<string, Session[]>): number {
-  const kids = childrenOf.get(id) ?? [];
-  return kids.reduce((n, k) => n + 1 + countDescendants(k.id, childrenOf), 0);
-}
-
-/** Recursive sub-agent tree, the swarm under one agent, nested by parentage. */
-function SubAgentTree({
-  parentId, childrenOf, running, onOpen, depth = 0,
-}: {
-  parentId: string; childrenOf: Map<string, Session[]>; running: Set<string>;
-  onOpen: (id: string) => void; depth?: number;
-}) {
-  const kids = childrenOf.get(parentId) ?? [];
-  if (kids.length === 0) return null;
-  return (
-    <div className={depth > 0 ? 'ml-3 border-l border-line pl-2' : 'space-y-0.5'}>
-      {kids.map((k) => {
-        const live = running.has(k.id);
-        const grandkids = countDescendants(k.id, childrenOf);
-        return (
-          <div key={k.id}>
-            <button
-              className="flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[12px] hover:bg-surface-2"
-              onClick={() => onOpen(k.id)}
-            >
-              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${live ? 'animate-pulse bg-accent' : 'bg-ink-faint'}`} />
-              <span className="min-w-0 flex-1 truncate text-ink-soft">{k.title}</span>
-              {grandkids > 0 && <span className="shrink-0 text-[10px] text-ink-faint">{grandkids}↳</span>}
-              {live && <span className="shrink-0 text-[10px] text-accent">live</span>}
-            </button>
-            <SubAgentTree parentId={k.id} childrenOf={childrenOf} running={running} onOpen={onOpen} depth={depth + 1} />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/** A small pill for an agent's derived type (code-review bot, monitor, …). */
-function AgentTypeBadge({ type }: { type: AgentType }) {
-  return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium"
-      style={{ background: 'var(--surface-2)', color: type.color }}
-      title={`Agent type: ${type.label}`}
-    >
-      <span>{type.icon}</span>
-      {type.label}
-    </span>
-  );
-}
-
-/* ---------- Now ---------- */
-
-/** One in-flight run: who, on what, for how long, doing what, with the queue
- *  and swarm underneath and Stop/Open in hand. */
-function NowRow({
-  session, task, agentType, provider, childrenOf, running, tokens, startedAt, now, onOpen, onRefresh,
-}: {
-  session: Session; task?: AutomationTask; agentType: AgentType; provider?: ProviderConfig;
-  childrenOf: Map<string, Session[]>; running: Set<string>; tokens?: { input: number; output: number };
-  startedAt?: number; now: number; onOpen: (id: string) => void; onRefresh: () => void;
-}) {
-  const msgs = session.messages.filter((m) => m.role === 'user' || m.role === 'assistant');
-  const lastAssistant = [...session.messages].reverse().find((m) => m.role === 'assistant' && m.content.trim());
-  const tok = tokens ? tokens.input + tokens.output : 0;
-  const swarmSize = countDescendants(session.id, childrenOf);
-  const liveSwarm = (function tally(id): number {
-    return (childrenOf.get(id) ?? []).reduce((n, k) => n + (running.has(k.id) ? 1 : 0) + tally(k.id), 0);
-  })(session.id);
-
-  return (
-    <div className="px-4 py-3">
-      <div className="flex items-center gap-2.5">
-        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full" style={{ background: 'var(--success)' }} />
-        <button className="min-w-0 truncate text-left text-[13.5px] font-semibold hover:text-accent" onClick={() => onOpen(session.id)} title={task ? `${task.title} (automation)` : session.title}>
-          {task ? task.title : session.title}
-        </button>
-        <AgentTypeBadge type={agentType} />
-        <span className="ml-auto shrink-0 tabular-nums text-[11.5px] font-medium" style={{ color: 'var(--success)' }}>
-          {startedAt ? `working ${elapsed(now - startedAt)}` : 'working…'}
-        </span>
-        <button className="btn btn-outline shrink-0 px-2.5 py-1 text-[12px]" onClick={() => window.nekko.abortChat(session.id)}>Stop</button>
-        <button className="btn btn-ghost shrink-0 px-2.5 py-1 text-[12px]" onClick={() => onOpen(session.id)}>Open →</button>
-      </div>
-      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-[18px] text-[11.5px] text-ink-faint">
-        <span>{provider?.label ?? 'no model'}{session.modelId ? ` · ${session.modelId}` : ''}</span>
-        <span>· {msgs.length} msg{msgs.length === 1 ? '' : 's'}</span>
-        {tok > 0 && <span>· {tok.toLocaleString()} tok</span>}
-        {task && <span>· {taskCadence(task)}</span>}
-      </div>
-      {lastAssistant && (
-        <p className="mt-1.5 line-clamp-2 pl-[18px] text-[12px] text-ink-soft">{lastAssistant.content.slice(0, 200)}</p>
-      )}
-      {(session.queue?.length ?? 0) > 0 && (
-        <div className="mt-2 pl-[18px]">
-          <div className="mb-1 text-[10.5px] uppercase tracking-wide text-ink-faint">up next · {session.queue!.length} queued</div>
-          <div className="space-y-0.5">
-            {session.queue!.map((q, i) => (
-              <div key={i} className="flex items-center gap-2 text-[12px]">
-                <span className="shrink-0 tabular-nums text-[10px] text-ink-faint">{i + 1}</span>
-                <span className="min-w-0 flex-1 truncate text-ink-soft" title={q}>{q}</span>
-                <button
-                  className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-red-400"
-                  title="Remove from queue"
-                  onClick={async () => { await window.nekko.dequeuePrompt(session.id, i); onRefresh(); }}
-                >
-                  <TrashIcon className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {swarmSize > 0 && (
-        <div className="mt-2 pl-[18px]">
-          <div className="mb-1 flex items-center gap-1.5 text-[10.5px] uppercase tracking-wide text-ink-faint">
-            <RobotIcon className="h-3.5 w-3.5" /> swarm · {swarmSize} agent{swarmSize === 1 ? '' : 's'}
-            {liveSwarm > 0 && <span className="text-accent">· {liveSwarm} live</span>}
-          </div>
-          <SubAgentTree parentId={session.id} childrenOf={childrenOf} running={running} onOpen={onOpen} />
-        </div>
-      )}
-    </div>
-  );
 }
 
 /* ---------- Automations ---------- */
@@ -510,57 +354,7 @@ function AutomationsBoard({ tasks, running, now, onOpen }: { tasks: AutomationTa
   );
 }
 
-/* ---------- Sessions ---------- */
-
-/** Everything not in flight: one compact, scannable row per chat. */
-function SessionsList({
-  sessions, providers, usage, now, onOpen, onNewChat,
-}: {
-  sessions: Session[]; providers: ProviderConfig[]; usage: UsageSummary | null; now: number;
-  onOpen: (id: string) => void; onNewChat: () => void;
-}) {
-  const [showAll, setShowAll] = useState(false);
-  const CAP = 10;
-  const shown = showAll ? sessions : sessions.slice(0, CAP);
-  return (
-    <section className="mt-7">
-      <div className="flex items-baseline gap-2">
-        <h2 className="text-[15px] font-semibold">Sessions</h2>
-        <span className="text-[12px] text-ink-faint">recent chats, most recent first</span>
-      </div>
-      {sessions.length === 0 ? (
-        <EmptyHint className="mt-2.5">
-          No chats yet. <button className="text-accent hover:underline" onClick={onNewChat}>Start a chat</button> to kick one off.
-        </EmptyHint>
-      ) : (
-        <PanelList className="mt-2.5">
-          {shown.map((s) => {
-            const msgs = s.messages.filter((m) => m.role === 'user' || m.role === 'assistant').length;
-            const t = usage?.bySession[s.id];
-            const tok = t ? t.input + t.output : 0;
-            const provider = providers.find((p) => p.id === s.providerId);
-            return (
-              <button key={s.id} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-surface-2" onClick={() => onOpen(s.id)}>
-                <ChatIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{s.title}</span>
-                {s.incognito && <span className="shrink-0 text-[11px]" title="Incognito">🕶</span>}
-                <span className="hidden shrink-0 text-[11.5px] text-ink-faint sm:inline">{s.modelId ?? provider?.label ?? ''}</span>
-                <span className="hidden w-24 shrink-0 text-right tabular-nums text-[11.5px] text-ink-faint md:inline">{msgs} msg{msgs === 1 ? '' : 's'}{tok > 0 ? '' : ''}</span>
-                <span className="hidden w-20 shrink-0 text-right tabular-nums text-[11.5px] text-ink-faint md:inline">{tok > 0 ? `${tok.toLocaleString()} tok` : ''}</span>
-                <span className="w-16 shrink-0 text-right tabular-nums text-[11.5px] text-ink-faint">{relTime(now - s.updatedAt)}</span>
-              </button>
-            );
-          })}
-        </PanelList>
-      )}
-      {sessions.length > CAP && (
-        <button className="mt-2 text-[12px] text-ink-faint hover:text-ink" onClick={() => setShowAll((v) => !v)}>
-          {showAll ? 'Show fewer' : `Show all ${sessions.length}`}
-        </button>
-      )}
-    </section>
-  );
-}
+/* ---------- Terminals ---------- */
 
 function TerminalRow({ term, workspaceName, onOpen }: { term: TerminalInfo; workspaceName?: string; onOpen: (id: string) => void }) {
   return (
