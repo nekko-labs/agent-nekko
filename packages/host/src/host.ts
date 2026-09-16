@@ -2,6 +2,8 @@ import { EventEmitter } from 'events';
 import { basename } from 'path';
 import type {
   AppSettings,
+  AskAnswer,
+  PendingInput,
   ProviderConfig,
   ModelInfo,
   ModelFacts,
@@ -149,7 +151,7 @@ import {
   startWorkflowScheduler,
   reconcileWorkflowRuns,
 } from './workflows.js';
-import { sendChat, abortChat, resolveApproval, previewContext, setContextPrefs } from './chat.js';
+import { sendChat, abortChat, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { initLimits, getLimits, clearLimits } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
 import {
@@ -269,6 +271,10 @@ export interface Host {
   queuePrompt(sessionId: string, text: string): Session | null;
   dequeuePrompt(sessionId: string, index: number): Session | null;
   approveTool(sessionId: string, toolCallId: string, approved: boolean): void;
+  /** Answer an `ask_user` call; an empty list means "not answering". */
+  answerQuestion(sessionId: string, callId: string, answers: AskAnswer[]): void;
+  /** Every session waiting on a person right now, keyed by session id. */
+  pendingInput(): Record<string, PendingInput>;
 
   listTerminals(): TerminalInfo[];
   listShells(): ShellOption[];
@@ -679,7 +685,9 @@ export function createHost(opts: { dataDir: string }): Host {
     abortChat,
     queuePrompt: sessions.queuePrompt,
     dequeuePrompt: sessions.dequeuePrompt,
-    approveTool: (_sessionId, toolCallId, approved) => resolveApproval(toolCallId, approved),
+    approveTool: (sessionId, toolCallId, approved) => resolveApproval(sessionId, toolCallId, approved),
+    answerQuestion: (sessionId, callId, answers) => resolveQuestion(sessionId, callId, answers),
+    pendingInput: getPendingInput,
 
     listTerminals,
     listShells,

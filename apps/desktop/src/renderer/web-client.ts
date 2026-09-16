@@ -310,6 +310,8 @@ function makeWebClient(): NekkoApi {
     queuePrompt: (sessionId, text) => call(IpcChannels.chatQueue, sessionId, text),
     dequeuePrompt: (sessionId, index) => call(IpcChannels.chatDequeue, sessionId, index),
     approveTool: (sessionId, toolCallId, approved) => call(IpcChannels.toolApprove, sessionId, toolCallId, approved),
+    answerQuestion: (sessionId, callId, answers) => call(IpcChannels.chatAnswer, sessionId, callId, answers),
+    pendingInput: () => call(IpcChannels.chatPending),
 
     listTerminals: () => call(IpcChannels.terminalsList),
     listShells: () => call(IpcChannels.terminalShells),

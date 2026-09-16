@@ -6,7 +6,27 @@ export interface PromptContext {
   platform: string;
   /** Sub-agent orchestration guidance for this turn (empty = no delegation). */
   orchestrationHint?: string;
+  /** Whether `ask_user` is available this turn (a chat with a person in it). */
+  canAsk?: boolean;
 }
+
+/**
+ * When to stop and ask. Only included when `ask_user` is actually offered.
+ *
+ * Both failure modes are named because both are common: an agent that never
+ * asks spends the turn building the wrong thing, and an agent that discovers
+ * the tool asks permission for everything and never starts. The rule that
+ * separates them is whether the answer changes the work.
+ */
+const ASK_GUIDANCE = `Asking first:
+- If the request is genuinely ambiguous and the readings lead to materially different work, call \`ask_user\` \
+BEFORE starting, with the real alternatives as options. One round, at most 4 questions.
+- Ask about decisions that are the user's to make: scope, product behaviour, which of several things they meant, \
+and anything expensive to undo (a schema, a public interface, deleting or overwriting).
+- Do not ask what you can find out yourself by reading the code, and do not ask for permission to run tools, \
+the app already handles that. Do not ask to confirm a plan you are confident in.
+- When a reasonable default exists, take it, say which one you took and why, and carry on. A stated assumption \
+beats a question, and a question beats building the wrong thing.`;
 
 /**
  * Build the system prompt. Unifies chat / cowork / code into one assistant:
@@ -39,7 +59,7 @@ or you could not verify), and the concrete next step. Do not claim a task is com
 when something blocked you, state plainly what is blocking it and what the user needs to do to unblock it.
 
 Platform: ${ctx.platform}
-${ctx.orchestrationHint ? `\nDelegation:\n${ctx.orchestrationHint}\n` : ''}
+${ctx.canAsk ? `\n${ASK_GUIDANCE}\n` : ''}${ctx.orchestrationHint ? `\nDelegation:\n${ctx.orchestrationHint}\n` : ''}
 Workspace folders:
 ${folders}
 ${ctx.contextBlock ? `\nAdditional context provided for this turn:\n\n${ctx.contextBlock}` : ''}`;

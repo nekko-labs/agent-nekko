@@ -79,3 +79,23 @@ describe('truncateWords', () => {
     expect(truncateWords('one two three four five', 12)).toBe('one two…');
   });
 });
+
+describe('summarizeToolCall for ask_user', () => {
+  it('shows the question rather than a fragment of the first option', () => {
+    expect(
+      summarizeToolCall({
+        name: 'ask_user',
+        input: {
+          questions: [
+            { header: 'Scope', question: 'How far should this go?', options: [{ label: 'Parser' }] },
+            { header: 'Tests', question: 'Which tests?', options: [{ label: 'Unit' }] },
+          ],
+        },
+      }),
+    ).toBe('How far should this go? (+1 more)');
+  });
+
+  it('says nothing for a call with no question in it', () => {
+    expect(summarizeToolCall({ name: 'ask_user', input: { questions: [] } })).toBe('');
+  });
+});

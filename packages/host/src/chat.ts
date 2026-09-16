@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentEvent, ChatMessage, ContextBundle, ProviderConfig, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
-import { EFFORT_TEMPERATURE, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
+import { ASK_CANCELLED, EFFORT_TEMPERATURE, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -10,6 +10,7 @@ import {
   renderContextBlock,
   isGuidelineFile,
   getConnector,
+  ASK_USER_TOOL,
   BUILTIN_TOOLS,
   REPORT_EXPERIMENT_TOOL,
   REPORT_ARTIFACT_TOOL,
@@ -64,20 +65,76 @@ type Sender = (event: AgentEvent) => void;
 
 const abortControllers = new Map<string, AbortController>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
+const pendingAnswers = new Map<string, (answers: AskAnswer[]) => void>();
+
+/**
+ * What each session is waiting on a person for.
+ *
+ * The events already say so as they happen, but an event is only seen by
+ * whatever was mounted at the time. The board needs to answer "who needs me"
+ * on mount, after a view switch, and after a reload, so the question lives here
+ * until it is answered.
+ */
+const pendingBySession = new Map<string, PendingInput>();
+
+function setPending(sessionId: string, patch: Partial<Omit<PendingInput, 'sessionId'>>): void {
+  const next: PendingInput = { ...(pendingBySession.get(sessionId) ?? { sessionId }), ...patch };
+  if (!next.approval && !next.question) pendingBySession.delete(sessionId);
+  else pendingBySession.set(sessionId, next);
+}
+
+/** Everything waiting on a person right now, keyed by session. */
+export function getPendingInput(): Record<string, PendingInput> {
+  return Object.fromEntries(pendingBySession);
+}
 
 function isAuthFailure(message: string): boolean {
   return /\b401\b|unauthorized|invalid auth|invalid api key|authentication/i.test(message);
 }
 
 /** Resolve a pending tool approval (called from IPC when the user clicks). */
-export function resolveApproval(toolCallId: string, approved: boolean): void {
+export function resolveApproval(sessionId: string, toolCallId: string, approved: boolean): void {
   pendingApprovals.get(toolCallId)?.(approved);
   pendingApprovals.delete(toolCallId);
+  const current = pendingBySession.get(sessionId);
+  if (current?.approval?.call.id === toolCallId) setPending(sessionId, { approval: undefined });
+}
+
+/**
+ * Answer an `ask_user` call. An empty answer list is a deliberate "I'm not
+ * answering": the agent is told to choose and carry on rather than left parked
+ * on a promise nobody will ever settle.
+ */
+export function resolveQuestion(sessionId: string, callId: string, answers: AskAnswer[]): void {
+  const resolve = pendingAnswers.get(callId);
+  pendingAnswers.delete(callId);
+  const current = pendingBySession.get(sessionId);
+  if (current?.question?.callId === callId) setPending(sessionId, { question: undefined });
+  resolve?.(answers);
+}
+
+/**
+ * Let go of anything this session is blocking on. A stopped run must not leave
+ * the loop awaiting an approval or an answer that can no longer arrive: the
+ * turn would sit there, un-abortable, until the app was restarted.
+ */
+function releasePending(sessionId: string): void {
+  const pending = pendingBySession.get(sessionId);
+  if (pending?.approval) {
+    pendingApprovals.get(pending.approval.call.id)?.(false);
+    pendingApprovals.delete(pending.approval.call.id);
+  }
+  if (pending?.question) {
+    pendingAnswers.get(pending.question.callId)?.([]);
+    pendingAnswers.delete(pending.question.callId);
+  }
+  pendingBySession.delete(sessionId);
 }
 
 export function abortChat(sessionId: string): void {
   abortControllers.get(sessionId)?.abort();
   abortControllers.delete(sessionId);
+  releasePending(sessionId);
 }
 
 /** Read guideline files (AGENTS.md/CLAUDE.md/...) from the workspace roots. */
@@ -345,6 +402,7 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
   // Orchestration: the strategy decides whether sub-agents are even offered.
   const orchestration = settings.orchestration ?? DEFAULT_ORCHESTRATION;
   const allowSpawn = getStrategy(orchestration.strategy).allowsSpawn;
+  const canAsk = !session.parentSessionId && !session.taskId && !session.trainingRunId;
   let tools: typeof BUILTIN_TOOLS = [];
   if (!offline) {
     if (settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
@@ -354,6 +412,10 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
     // Run-driven sessions can register experiments into their run's idea maze
     // and (goal runs) maintain their execution plan.
     if (session.trainingRunId) tools.push(REPORT_EXPERIMENT_TOOL, REPORT_ARTIFACT_TOOL, UPDATE_PLAN_TOOL);
+    // Asking is only offered where somebody is there to answer. A sub-agent, an
+    // automation, or a goal run has no one reading it, so a question would be a
+    // run parked forever rather than a clarification.
+    if (canAsk && !disabled.has(ASK_USER_TOOL.name)) tools.push(ASK_USER_TOOL);
   }
   // Persist only when not incognito. Preserve any prompts queued mid-run (they
   // land on disk via queuePrompt) so a normal save doesn't clobber them.
@@ -385,6 +447,7 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
     workspaces: settings.workspaces,
     contextBlock,
     platform: process.platform,
+    canAsk: tools.some((t) => t.name === ASK_USER_TOOL.name),
     orchestrationHint: tools.some((t) => t.name === 'spawn_agent')
       ? `${orchestrationPromptHint(orchestration)}\n\n${routingPrompt(settings.providers)}`
       : '',
@@ -437,8 +500,27 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
     const requestApproval = (call: ToolCall, reason: string, severity: 'low' | 'medium' | 'high') =>
       new Promise<boolean>((resolveP) => {
         pendingApprovals.set(call.id, resolveP);
+        setPending(opts.sessionId, { approval: { call, reason, severity, requestedAt: Date.now() } });
         send({ type: 'tool_approval_required', sessionId: opts.sessionId, call, reason, severity });
       });
+
+    /**
+     * Park the turn on a question and wait. The board and the chat both answer
+     * it, which is the point: a question asked while you were somewhere else is
+     * answerable from wherever you are when you notice it.
+     */
+    const askUser = async (call: ToolCall): Promise<string> => {
+      const parsed = parseAskRequest(call.id, call.input);
+      if ('error' in parsed) return parsed.error;
+      const request = parsed.request;
+      const answers = await new Promise<AskAnswer[]>((resolveP) => {
+        pendingAnswers.set(call.id, resolveP);
+        setPending(opts.sessionId, { question: request });
+        send({ type: 'question', sessionId: opts.sessionId, request });
+      });
+      send({ type: 'question_resolved', sessionId: opts.sessionId, callId: call.id });
+      return answers.length === 0 ? ASK_CANCELLED : formatAskAnswers(request, answers);
+    };
 
     try {
       for await (const event of runAgent({
@@ -451,6 +533,9 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
         executeTool: async (call) => {
           if (!tools.some((tool) => tool.name === call.name)) {
             return { toolCallId: call.id, output: 'This tool is disabled or unavailable for this chat.', isError: true };
+          }
+          if (call.name === ASK_USER_TOOL.name) {
+            return { toolCallId: call.id, output: await askUser(call) };
           }
           const indirect = call.name === 'spawn_agent' || isMcpTool(call.name);
           if (indirect && (mode === 'ask' || settings.sandboxMode === 'ask-everything')) {
@@ -558,6 +643,10 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
       break;
     } finally {
       abortControllers.delete(opts.sessionId);
+      // The turn is over, so nothing it was waiting on can still be answered.
+      // Leaving the entry behind would park the session in the board's "needs
+      // you" lane over a question that no longer has a run behind it.
+      releasePending(opts.sessionId);
       persist();
     }
   }

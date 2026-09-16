@@ -2,7 +2,7 @@
 
 import type { AppSettings, UsageSummary } from './settings.js';
 import type { ProviderConfig, ModelInfo } from './models.js';
-import type { Session, SendOptions, AgentEvent } from './chat.js';
+import type { Session, SendOptions, AgentEvent, PendingInput } from './chat.js';
 import type { TerminalInfo, TerminalSnapshot, ShellOption } from './terminal.js';
 import type { ContextBundle } from './context.js';
 import type { MemoryEntry, MemoryScope } from './memory.js';
@@ -80,6 +80,8 @@ export const IpcChannels = {
   chatQueue: 'chat:queue',
   chatDequeue: 'chat:dequeue',
   toolApprove: 'tool:approve',
+  chatAnswer: 'chat:answer',
+  chatPending: 'chat:pending',
 
   terminalsList: 'terminals:list',
   terminalShells: 'terminal:shells',
@@ -388,6 +390,21 @@ export interface NekkoApi {
   /** Remove a queued prompt by index. */
   dequeuePrompt(sessionId: string, index: number): Promise<Session | null>;
   approveTool(sessionId: string, toolCallId: string, approved: boolean): Promise<void>;
+  /**
+   * Answer an `ask_user` call, which unblocks the turn that asked. Passing no
+   * answers is a refusal to answer: the agent is told to pick and carry on
+   * rather than left waiting.
+   */
+  answerQuestion(
+    sessionId: string,
+    callId: string,
+    answers: import('./ask.js').AskAnswer[],
+  ): Promise<void>;
+  /**
+   * Every session currently waiting on a person, keyed by session id. The board
+   * reads this on mount so a question asked while it was closed is still there.
+   */
+  pendingInput(): Promise<Record<string, PendingInput>>;
 
   /** Live terminal sessions (in-memory; they don't persist across restarts). */
   listTerminals(): Promise<TerminalInfo[]>;

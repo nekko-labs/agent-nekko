@@ -257,7 +257,7 @@ describe('explicit sub-agent routing', () => {
     const events: AgentEvent[] = [];
     await sendChat({ sessionId: parent.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'delegate this' }, (event) => {
       events.push(event);
-      if (event.type === 'tool_approval_required') resolveApproval(event.call.id, false);
+      if (event.type === 'tool_approval_required') resolveApproval(event.sessionId, event.call.id, false);
     });
     expect(events).toContainEqual(expect.objectContaining({ type: 'tool_approval_required', call: expect.objectContaining({ name: 'spawn_agent' }) }));
     expect(events).toContainEqual(expect.objectContaining({ type: 'tool_result', result: expect.objectContaining({ isError: true, output: expect.stringMatching(/not approved/i) }) }));
@@ -272,7 +272,7 @@ describe('explicit sub-agent routing', () => {
     const events: AgentEvent[] = [];
     await sendChat({ sessionId: session.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'use MCP' }, (event) => {
       events.push(event);
-      if (event.type === 'tool_approval_required') resolveApproval(event.call.id, false);
+      if (event.type === 'tool_approval_required') resolveApproval(event.sessionId, event.call.id, false);
     });
     expect(events).toContainEqual(expect.objectContaining({ type: 'tool_approval_required', call: expect.objectContaining({ name: 'mcp__server__mutate' }) }));
     expect(callMcpTool).not.toHaveBeenCalled();

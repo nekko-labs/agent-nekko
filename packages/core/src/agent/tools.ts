@@ -103,6 +103,62 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
 ];
 
 /**
+ * Ask before building the wrong thing.
+ *
+ * Offered only where there is a person to answer: a chat the user is actually
+ * in. Sub-agents, automations and goal runs never get it, because a question
+ * nobody is there to read is a run that hangs until it is killed.
+ *
+ * The description is written to be hard to over-use. Agents reach for a
+ * clarifying question as a way of not starting, which is worse than a wrong
+ * guess you can correct, so it names the narrow cases where asking beats
+ * reading the code and says plainly to do the work otherwise.
+ */
+export const ASK_USER_TOOL: ToolSpec = {
+  name: 'ask_user',
+  description:
+    'Stop and ask the user a small number of multiple-choice questions, then continue with their answers. ' +
+    'Use this BEFORE doing the work when the request is genuinely ambiguous and the readings lead to materially ' +
+    'different results: which of several things they meant, a product or scope decision that is theirs to make, ' +
+    'or a choice you cannot recover from cheaply (a schema, a public API, deleting or overwriting something). ' +
+    'Do NOT use it for anything you can find out yourself by reading the code, for permission to run a tool ' +
+    '(the app already asks), to confirm a plan you are confident in, or to report progress. ' +
+    'One round, at most 4 questions, each with 2-5 concrete options written as the real alternatives. ' +
+    'If you would be fine picking an option yourself and saying so, do that instead.',
+  parameters: {
+    type: 'object',
+    properties: {
+      questions: {
+        type: 'array',
+        description: 'The questions, at most 4, most important first.',
+        items: {
+          type: 'object',
+          properties: {
+            header: { type: 'string', description: 'Two or three words naming the decision, e.g. "Auth method".' },
+            question: { type: 'string', description: 'The question, in one sentence.' },
+            multiSelect: { type: 'boolean', description: 'True when more than one option can be chosen.' },
+            options: {
+              type: 'array',
+              description: '2-5 concrete, mutually distinct answers. Never "yes"/"no" where a real choice exists.',
+              items: {
+                type: 'object',
+                properties: {
+                  label: { type: 'string', description: 'The choice itself, a few words.' },
+                  description: { type: 'string', description: 'What picking it means, one line.' },
+                },
+                required: ['label'],
+              },
+            },
+          },
+          required: ['header', 'question', 'options'],
+        },
+      },
+    },
+    required: ['questions'],
+  },
+};
+
+/**
  * Extra tool offered only to sessions driven by a training/goal run: the agent
  * registers every attempt so the run's experiment tree (idea maze), stats, and
  * leader stay live in the Training/Goals tabs. Executed in the host.
