@@ -349,7 +349,13 @@ function AdvancedSurface({
       </Row>
 
       <Row label="Parallel slots" hint="Concurrent requests. Each slot gets its own full KV cache, so 4 slots means 4x the cache.">
-        <NumberInput value={params.parallelSlots} min={1} max={32} onChange={(n) => onChange({ parallelSlots: n })} />
+        <NumberInput
+          value={params.parallelSlots}
+          min={1}
+          max={32}
+          placeholder="1"
+          onChange={(n) => onChange({ parallelSlots: n })}
+        />
       </Row>
 
       <Row label="Flash attention" hint="Cuts attention memory and usually speeds generation up, where the build supports it.">
