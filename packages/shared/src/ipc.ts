@@ -57,6 +57,10 @@ export const IpcChannels = {
   engineCatalog: 'engine:catalog',
   engineCatalogModel: 'engine:catalogModel',
   engineDownloadModel: 'engine:downloadModel',
+  apiServerStatus: 'apiServer:status',
+  apiServerSave: 'apiServer:save',
+  apiServerNewToken: 'apiServer:newToken',
+
   engineDownloads: 'engine:downloads',
   engineCancelDownload: 'engine:cancelDownload',
   engineDismissDownload: 'engine:dismissDownload',
@@ -343,6 +347,19 @@ export interface NekkoApi {
   engineDownloads(): Promise<import('./engine.js').DownloadJob[]>;
   engineCancelDownload(id: string): Promise<void>;
   engineDismissDownload(id: string): Promise<void>;
+
+  /**
+   * The local API server: this app, reachable by the CLI, an MCP client, or
+   * anything else that speaks the same `/api/:channel` surface. Desktop only —
+   * the web and self-hosted editions already are that server.
+   */
+  apiServerStatus(): Promise<import('./api-server.js').ApiServerStatus>;
+  /** Save and apply; a change to the port, binding or token restarts it. */
+  apiServerSave(
+    patch: Partial<import('./api-server.js').ApiServerSettings>,
+  ): Promise<import('./api-server.js').ApiServerStatus>;
+  /** Roll the bearer token, invalidating whatever was using the old one. */
+  apiServerNewToken(): Promise<import('./api-server.js').ApiServerStatus>;
 
   /**
    * The AN9 machine-readiness report: probe this machine, evaluate it against

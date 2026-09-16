@@ -119,6 +119,40 @@ export function addPlanStep(plan: PromptPlan, text = ''): PromptPlan {
   return { ...plan, edited: true, steps: [...plan.steps, { id: stepId(), text, status: 'pending' }] };
 }
 
+/**
+ * Insert a step directly after `afterId`, and say which one it is.
+ *
+ * The id comes back because the caller's next move is always to put the cursor
+ * in the new step: this is what Enter does in the rail, and a list editor that
+ * makes you click the row you just created is not one.
+ */
+export function insertPlanStep(
+  plan: PromptPlan,
+  afterId: string,
+  text = '',
+): { plan: PromptPlan; id: string } {
+  const id = stepId();
+  const i = plan.steps.findIndex((s) => s.id === afterId);
+  const steps = [...plan.steps];
+  steps.splice(i < 0 ? steps.length : i + 1, 0, { id, text, status: 'pending' });
+  return { plan: { ...plan, edited: true, steps }, id };
+}
+
+/**
+ * Merge a step into the one above it, as Backspace at the start of a line does
+ * everywhere else. Returns the plan unchanged (and no caret) for the first step,
+ * which has nothing to merge into.
+ */
+export function mergePlanStepUp(plan: PromptPlan, id: string): { plan: PromptPlan; id?: string; caret?: number } {
+  const i = plan.steps.findIndex((s) => s.id === id);
+  if (i <= 0) return { plan };
+  const above = plan.steps[i - 1];
+  const caret = above.text.length;
+  const steps = plan.steps.filter((s) => s.id !== id);
+  steps[i - 1] = { ...above, text: above.text + plan.steps[i].text };
+  return { plan: { ...plan, edited: true, steps }, id: above.id, caret };
+}
+
 /** Replace one step's fields, marking the plan as hand-edited. */
 export function updatePlanStep(plan: PromptPlan, id: string, patch: Partial<PromptPlanStep>): PromptPlan {
   return {

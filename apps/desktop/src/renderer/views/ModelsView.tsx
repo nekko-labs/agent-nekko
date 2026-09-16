@@ -8,6 +8,7 @@ import { AddProvider } from '../components/providers/AddProvider.js';
 import { PlusIcon, TrashIcon, CheckIcon, StarIcon } from '../icons.js';
 import { RuntimeCard } from '../components/runtimes/RuntimeCard.js';
 import { EngineSection } from '../components/engine/EngineSection.js';
+import { LocalServerSection } from '../components/server/LocalServerSection.js';
 
 const isLocal = (k: ProviderKind) => isLocalProvider(k);
 
@@ -106,6 +107,8 @@ export function ModelsView() {
           providers={cloud}
           onChanged={refreshProviders}
         />
+
+        <LocalServerSection />
 
         <p className="mt-8 text-center text-[12px] text-ink-faint">
           Token usage and live worker status now live in the Command Center.

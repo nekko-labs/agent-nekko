@@ -77,6 +77,30 @@ describe('LimitsService header capture', () => {
     });
   });
 
+  it('picks up a per-model header window it was never told about', () => {
+    initLimits(new EventEmitter());
+    const limits = recordFromHeaders(
+      'claude:acct-fable-headers',
+      'anthropic',
+      new Headers({
+        'anthropic-ratelimit-unified-7d-utilization': '0.10',
+        'anthropic-ratelimit-unified-7d-reset': '1900000000',
+        'anthropic-ratelimit-unified-7d_fable-utilization': '0.66',
+        'anthropic-ratelimit-unified-7d_fable-reset': '1850000000',
+        'anthropic-ratelimit-unified-7d_fable-status': 'warning',
+      }),
+    );
+
+    expect(limits!.windows.find((w) => w.id === '7d_fable')).toMatchObject({
+      label: '7-day Fable',
+      scope: 'model',
+      modelFamily: 'fable',
+      usedPercent: 66,
+      status: 'warning',
+      resetAt: 1_850_000_000_000,
+    });
+  });
+
   it('normalizes rate_limited and rejected statuses', () => {
     initLimits(new EventEmitter());
     const headers = new Headers({
@@ -289,6 +313,44 @@ describe('LimitsService Claude /api/oauth/usage poll', () => {
     expect(limits!.windows.find((w) => w.id === '5h')).toMatchObject({ usedPercent: 85, status: 'warning' });
     expect(limits!.windows.find((w) => w.id === '7d')).toMatchObject({ usedPercent: 13, status: 'allowed' });
     expect(limits!.windows.find((w) => w.id === '7d_sonnet')).toMatchObject({ usedPercent: 100, status: 'rate_limited' });
+  });
+
+  it('reports a model window this build has never heard of', async () => {
+    // Why the Fable window was missing: the parser walked a hard-coded list of
+    // window names, so a family Anthropic added after the build simply had
+    // nowhere to land.
+    const tokenKey = 'claude:acct-fable';
+    setToken(tokenKey, {
+      provider: 'claude',
+      accessToken: 'claude-access',
+      expiresAt: Date.now() + 120_000,
+      obtainedAt: Date.now(),
+    });
+
+    const payload = {
+      five_hour: { utilization: 10, status: 'allowed', resets_at: '2026-04-11T07:00:00Z' },
+      seven_day: { utilization: 20, status: 'allowed', resets_at: '2026-04-17T00:59:59Z' },
+      seven_day_fable: { utilization: 42, status: 'allowed', resets_at: '2026-04-16T03:00:00Z' },
+      seven_day_mythos: { utilization: 5, status: 'allowed', resets_at: '2026-04-16T03:00:00Z' },
+      extra_usage: { is_enabled: false, monthly_limit: null, used_credits: null, utilization: null },
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    initLimits(new EventEmitter());
+    const limits = await poll(tokenKey);
+
+    expect(limits!.windows.map((w) => w.id)).toEqual(['5h', '7d', '7d_fable', '7d_mythos']);
+    expect(limits!.windows.find((w) => w.id === '7d_fable')).toMatchObject({
+      label: '7-day Fable',
+      scope: 'model',
+      modelFamily: 'fable',
+      usedPercent: 42,
+    });
+    // `extra_usage` sits alongside the windows and carries a null utilization;
+    // it is a credit block, not a window.
+    expect(limits!.windows.some((w) => w.id.includes('extra'))).toBe(false);
   });
 
   it('reads the usage endpoint as whole percent, not as a fraction', async () => {

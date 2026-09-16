@@ -10,6 +10,7 @@ export * from './capacity.js';
 export * from './readiness.js';
 export * from './runtimes.js';
 export * from './engine.js';
+export * from './api-server.js';
 export * from './chat.js';
 export * from './pr.js';
 export * from './terminal.js';

@@ -1,7 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
+import { IpcChannels, IpcEvents, withApiServerDefaults, type ApiServerSettings } from '@agent-nekko/shared';
 import { createDispatcher, type Host } from '@agent-nekko/host';
 import { initUpdater, checkForUpdates, downloadUpdate, quitAndInstall } from './update.js';
+import { apiServerStatus, newApiToken, syncApiServer } from './api-server.js';
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel, payload);
@@ -61,6 +62,29 @@ export function registerIpc(host: Host): void {
   ipcMain.handle(IpcChannels.updateDownload, () => downloadUpdate());
   ipcMain.removeHandler(IpcChannels.updateInstall);
   ipcMain.handle(IpcChannels.updateInstall, () => quitAndInstall());
+
+  // The local API server. Transport-local by nature: the web and self-hosted
+  // editions already are this server, so there is nothing for them to switch on.
+  ipcMain.removeHandler(IpcChannels.apiServerStatus);
+  ipcMain.handle(IpcChannels.apiServerStatus, () => apiServerStatus(host));
+  ipcMain.removeHandler(IpcChannels.apiServerSave);
+  ipcMain.handle(IpcChannels.apiServerSave, (_e, patch: Partial<ApiServerSettings>) => {
+    const current = withApiServerDefaults(host.getSettings().apiServer);
+    const next = { ...current, ...patch };
+    // Switching it on without a token would be switching on an unauthenticated
+    // agent endpoint, so the first "on" mints one rather than refusing.
+    if (next.enabled && !next.token) next.token = newApiToken();
+    host.updateSettings({ apiServer: next });
+    syncApiServer(host);
+    return apiServerStatus(host);
+  });
+  ipcMain.removeHandler(IpcChannels.apiServerNewToken);
+  ipcMain.handle(IpcChannels.apiServerNewToken, () => {
+    const current = withApiServerDefaults(host.getSettings().apiServer);
+    host.updateSettings({ apiServer: { ...current, token: newApiToken() } });
+    syncApiServer(host);
+    return apiServerStatus(host);
+  });
 
   // Forward host events to all renderers.
   host.events.on('agentEvent', (e) => broadcast(IpcEvents.agentEvent, e));

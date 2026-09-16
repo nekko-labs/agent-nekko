@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, Session } from '@agent-nekko/shared';
 import {
   addPlanStep,
+  insertPlanStep,
+  mergePlanStepUp,
   movePlanStep,
   planFromPrompt,
   planProgressCount,
@@ -22,6 +24,9 @@ import { CheckIcon, ChatIcon, CloseIcon, ListIcon, PlusIcon, RobotIcon, WandIcon
  * - **The plan.** Decoded from the prompt the moment you type it, as an editable
  *   list. The point is the editing: disagreeing with the approach is a click
  *   here rather than an interruption once the agent is three tool calls deep.
+ *   Every step is a live text field, so writing a plan is typing one — Enter
+ *   starts the next step, Backspace on an empty one removes it, and the arrow
+ *   keys walk the list — rather than a click into an edit mode per line.
  * - **Sub-agents.** Delegated work is a nested chat elsewhere in the sidebar,
  *   which is exactly where you aren't looking. Each one gets a row with what it
  *   is doing right now, and opens as a tab.
@@ -62,7 +67,44 @@ export function PlanRail({
   const plan = session?.plan;
   const sessions = useStore((s) => s.sessions);
   const openChatPane = useStore((s) => s.openChatPane);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  /** What the trailing "add a step" row has typed but not yet committed. */
+  const [adding, setAdding] = useState('');
+  /**
+   * The step to put the cursor in, and where in it. A ref rather than state,
+   * and retried after every render rather than once: a step created by Enter
+   * does not exist yet when the key is handled, so a single attempt runs before
+   * the input it is looking for has mounted and the caret is simply lost.
+   */
+  const pendingFocus = useRef<{ id: string; caret?: number } | null>(null);
+  const inputs = useRef(new Map<string, HTMLInputElement>());
+
+  useEffect(() => {
+    const want = pendingFocus.current;
+    if (!want) return;
+    const el = inputs.current.get(want.id);
+    if (!el) return; // Not mounted yet; the next render tries again.
+    pendingFocus.current = null;
+    el.focus();
+    const caret = want.caret ?? el.value.length;
+    el.setSelectionRange(caret, caret);
+  });
+
+  /**
+   * Put the cursor in a step. Immediately when that step is already on screen —
+   * walking the list with the arrow keys changes no state, so waiting for a
+   * render that never comes would simply lose the keypress — and otherwise on
+   * whichever render first mounts it.
+   */
+  const focusStep = (id: string, caret?: number) => {
+    const el = inputs.current.get(id);
+    if (!el) {
+      pendingFocus.current = { id, caret };
+      return;
+    }
+    el.focus();
+    const at = caret ?? el.value.length;
+    el.setSelectionRange(at, at);
+  };
 
   // Re-decode as the prompt is written, but never over a plan the user has
   // touched: their edit is the whole point of the panel.
@@ -89,6 +131,71 @@ export function PlanRail({
   const queued = session?.queue ?? [];
 
   const edit = (next: PromptPlan) => onPlanChange(next);
+
+  /** Turn whatever the add row holds into a step. Blank text adds nothing. */
+  const commitAdding = () => {
+    const text = adding.trim();
+    setAdding('');
+    if (!text) return;
+    edit(addPlanStep(plan ?? { source: decodeSource, steps: [], send: false }, text));
+  };
+
+  /**
+   * The list's keyboard, which is the keyboard every other list has: Enter
+   * splits at the caret and moves you down, Backspace at the start pulls the
+   * step into the one above, the arrows walk between rows, and Alt with them
+   * carries the step along.
+   */
+  const onStepKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, step: { id: string; text: string }, i: number) => {
+    if (!plan) return;
+    const el = e.currentTarget;
+    const caret = el.selectionStart ?? el.value.length;
+    const collapsed = caret === (el.selectionEnd ?? caret);
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      // Splitting at the caret keeps the halves; at the end it is just a new,
+      // empty step, which is the common case.
+      const before = step.text.slice(0, caret);
+      const after = step.text.slice(caret);
+      const withSplit = before === step.text ? plan : updatePlanStep(plan, step.id, { text: before });
+      const { plan: next, id } = insertPlanStep(withSplit, step.id, after);
+      edit(next);
+      focusStep(id, 0);
+      return;
+    }
+
+    if (e.key === 'Backspace' && collapsed && caret === 0) {
+      if (!step.text) {
+        e.preventDefault();
+        edit(removePlanStep(plan, step.id));
+        const previous = plan.steps[i - 1];
+        if (previous) focusStep(previous.id);
+        return;
+      }
+      if (i > 0) {
+        e.preventDefault();
+        const merged = mergePlanStepUp(plan, step.id);
+        edit(merged.plan);
+        if (merged.id) focusStep(merged.id, merged.caret);
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      const delta = e.key === 'ArrowUp' ? -1 : 1;
+      if (e.altKey) {
+        e.preventDefault();
+        edit(movePlanStep(plan, step.id, delta));
+        focusStep(step.id, caret);
+        return;
+      }
+      const neighbour = plan.steps[i + delta];
+      if (!neighbour) return;
+      e.preventDefault();
+      focusStep(neighbour.id, Math.min(caret, neighbour.text.length));
+    }
+  };
 
   return (
     <aside
@@ -126,67 +233,54 @@ export function PlanRail({
             )}
           </div>
 
-          {!plan?.steps.length ? (
-            <p className="px-0.5 text-[11px] leading-snug text-ink-faint">
-              {streaming
-                ? 'No plan was set for this reply.'
-                : 'Start typing and the steps this prompt asks for show up here, ready to edit.'}
-            </p>
+          {streaming && !plan?.steps.length ? (
+            <p className="px-0.5 text-[11px] leading-snug text-ink-faint">No plan was set for this reply.</p>
           ) : (
             <ol className="space-y-0.5">
-              {plan.steps.map((step, i) => (
-                <li key={step.id} className="group flex items-start gap-1.5 rounded-lg px-1 py-1 hover:bg-surface-2">
+              {(plan?.steps ?? []).map((step, i) => (
+                <li key={step.id} className="group flex items-start gap-1.5 rounded-lg px-1 py-0.5 hover:bg-surface-2">
                   <button
-                    className="mt-[3px] shrink-0"
+                    className="mt-[7px] shrink-0"
                     title={`${STATUS_META[step.status].label} — click to change`}
                     aria-label={`Step ${i + 1}: ${STATUS_META[step.status].label}`}
-                    onClick={() => edit(updatePlanStep(plan, step.id, { status: NEXT_STATUS[step.status] }))}
+                    onClick={() => edit(updatePlanStep(plan!, step.id, { status: NEXT_STATUS[step.status] }))}
                   >
                     <StepDot status={step.status} />
                   </button>
-                  {editingId === step.id ? (
-                    <input
-                      className="input min-w-0 flex-1 px-1.5 py-0.5 text-[12px]"
-                      defaultValue={step.text}
-                      autoFocus
-                      onBlur={(e) => { edit(updatePlanStep(plan, step.id, { text: e.target.value })); setEditingId(null); }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') { e.currentTarget.blur(); }
-                        if (e.key === 'Escape') { setEditingId(null); }
-                      }}
-                    />
-                  ) : (
-                    <button
-                      className={`min-w-0 flex-1 text-left text-[12px] leading-snug ${
-                        step.status === 'skipped' ? 'text-ink-faint line-through' : 'text-ink-soft'
-                      }`}
-                      title="Click to reword this step"
-                      onClick={() => setEditingId(step.id)}
-                    >
-                      {step.text || <span className="text-ink-faint">Untitled step</span>}
-                      {step.agent && (
-                        <span className="ml-1 text-[10px] text-ink-faint" title={`Delegated to ${step.agent}`}>
-                          · {step.agent}
-                        </span>
-                      )}
-                    </button>
+                  <input
+                    ref={(el) => {
+                      if (el) inputs.current.set(step.id, el);
+                      else inputs.current.delete(step.id);
+                    }}
+                    className={`plan-step min-w-0 flex-1 ${step.status === 'skipped' ? 'plan-step-skipped' : ''}`}
+                    value={step.text}
+                    placeholder="Untitled step"
+                    aria-label={`Step ${i + 1}`}
+                    spellCheck={false}
+                    onChange={(e) => edit(updatePlanStep(plan!, step.id, { text: e.target.value }))}
+                    onKeyDown={(e) => onStepKeyDown(e, step, i)}
+                  />
+                  {step.agent && (
+                    <span className="mt-[5px] shrink-0 text-[10px] text-ink-faint" title={`Delegated to ${step.agent}`}>
+                      {step.agent}
+                    </span>
                   )}
-                  <span className="flex shrink-0 items-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                  <span className="flex shrink-0 items-center self-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
                       className="rounded-sm px-0.5 text-[10px] text-ink-faint hover:text-ink disabled:opacity-30"
-                      title="Move up"
+                      title="Move up (Alt+↑)"
                       aria-label={`Move step ${i + 1} up`}
                       disabled={i === 0}
-                      onClick={() => edit(movePlanStep(plan, step.id, -1))}
+                      onClick={() => edit(movePlanStep(plan!, step.id, -1))}
                     >
                       ↑
                     </button>
                     <button
                       className="rounded-sm px-0.5 text-[10px] text-ink-faint hover:text-ink disabled:opacity-30"
-                      title="Move down"
+                      title="Move down (Alt+↓)"
                       aria-label={`Move step ${i + 1} down`}
-                      disabled={i === plan.steps.length - 1}
-                      onClick={() => edit(movePlanStep(plan, step.id, 1))}
+                      disabled={i === plan!.steps.length - 1}
+                      onClick={() => edit(movePlanStep(plan!, step.id, 1))}
                     >
                       ↓
                     </button>
@@ -194,28 +288,51 @@ export function PlanRail({
                       className="rounded-sm px-0.5 text-ink-faint hover:text-(--danger)"
                       title="Remove this step"
                       aria-label={`Remove step ${i + 1}`}
-                      onClick={() => edit(removePlanStep(plan, step.id))}
+                      onClick={() => edit(removePlanStep(plan!, step.id))}
                     >
                       <CloseIcon className="h-2.5 w-2.5" />
                     </button>
                   </span>
                 </li>
               ))}
+
+              {/* The row you type into. It is always there, so adding a step is
+                  typing rather than finding the button that lets you type.
+                  What it holds is local state until Enter or a blur commits it:
+                  a row that wrote every keystroke through the session and then
+                  chased the caret into the step it had just created dropped
+                  text whenever the round trip lost the race. */}
+              <li className="flex items-start gap-1.5 rounded-lg px-1 py-0.5">
+                <span className="mt-[7px] shrink-0 opacity-40">
+                  <PlusIcon className="h-2.5 w-2.5 text-ink-faint" />
+                </span>
+                <input
+                  className="plan-step min-w-0 flex-1"
+                  value={adding}
+                  placeholder={plan?.steps.length ? 'Add a step' : 'Type the first step, or just write your prompt'}
+                  aria-label="Add a step"
+                  spellCheck={false}
+                  onChange={(e) => setAdding(e.target.value)}
+                  onBlur={() => commitAdding()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      // Committed, and the cursor stays here for the next one:
+                      // a plan is usually written several steps at a time.
+                      e.preventDefault();
+                      commitAdding();
+                    } else if (e.key === 'Escape') {
+                      setAdding('');
+                    } else if ((e.key === 'Backspace' || e.key === 'ArrowUp') && !adding && plan?.steps.length) {
+                      e.preventDefault();
+                      focusStep(plan.steps[plan.steps.length - 1].id);
+                    }
+                  }}
+                />
+              </li>
             </ol>
           )}
 
           <div className="mt-1.5 flex items-center gap-1.5">
-            <button
-              className="btn btn-ghost px-1.5 py-0.5 text-[11px]"
-              onClick={() => {
-                const base = plan ?? { source: decodeSource, steps: [], send: false };
-                const next = addPlanStep(base);
-                edit(next);
-                setEditingId(next.steps[next.steps.length - 1].id);
-              }}
-            >
-              <PlusIcon className="h-3 w-3" /> Add step
-            </button>
             {plan?.edited && (
               <button
                 className="btn btn-ghost px-1.5 py-0.5 text-[11px]"
