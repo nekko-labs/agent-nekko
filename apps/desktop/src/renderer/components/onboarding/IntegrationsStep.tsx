@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { AgentToolId, AgentToolStatus, SubagentSnippet } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
@@ -7,24 +7,43 @@ import { CheckIcon, CopyIcon, TerminalIcon } from '../../icons.js';
 
 /**
  * The integrations step, two groups. "Use Nekko inside other tools" installs
- * this app as an MCP subagent (`npx -y agent-nekko mcp`) into detected agent CLIs:
- * the host merges an `agent-nekko` entry into the tool's MCP config, backing up
- * the file first, and a manual copy-paste snippet is always offered. "Connect
- * your apps" is the shared connector grid in compact form. Everything is
- * idempotent - an installed tool reads as connected and can't be added twice.
+ * this app as an MCP subagent into detected agent CLIs: the host merges an
+ * `agent-nekko` entry into the tool's MCP config (pointed at this app's server,
+ * with its address and token), backing up the file first, and a manual
+ * copy-paste snippet is always offered. "Connect your apps" is the shared
+ * connector grid in compact form.
+ *
+ * Opt-out rather than opt-in: every detected tool starts checked and is added
+ * when the step is confirmed with Next, because "installed the app" should mean
+ * "the tools I use can already reach it". Unchecking one, or skipping the step,
+ * leaves that tool's config untouched.
  */
-export function IntegrationsStep() {
+export function IntegrationsStep({
+  commitRef,
+}: {
+  /** Set to the step's commit action; the wizard runs it on Next. */
+  commitRef?: React.MutableRefObject<(() => Promise<void>) | null>;
+} = {}) {
   const { pushToast } = useStore();
   const [tools, setTools] = useState<AgentToolStatus[] | null>(null);
   const [installing, setInstalling] = useState<AgentToolId | null>(null);
   const [snippetFor, setSnippetFor] = useState<AgentToolId | null>(null);
+  const [selected, setSelected] = useState<Set<AgentToolId>>(new Set());
+  const seeded = useRef(false);
 
   useEffect(() => {
     let alive = true;
     window.nekko
       .detectAgentTools()
       .then((list) => {
-        if (alive) setTools(list);
+        if (!alive) return;
+        setTools(list);
+        // Pre-check what can be added, once: a later refresh after an install
+        // must not re-check a box the user cleared.
+        if (!seeded.current) {
+          seeded.current = true;
+          setSelected(new Set(list.filter((t) => t.detected && !t.installed).map((t) => t.id)));
+        }
       })
       .catch(() => {
         if (alive) setTools([]);
@@ -53,6 +72,44 @@ export function IntegrationsStep() {
     }
   };
 
+  // What Next does on this step: add every tool still checked.
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  useEffect(() => {
+    if (!commitRef) return;
+    commitRef.current = async () => {
+      const ids = [...selectedRef.current];
+      if (ids.length === 0) return;
+      const added: string[] = [];
+      let latest: AgentToolStatus[] | null = null;
+      for (const id of ids) {
+        try {
+          const res = await window.nekko.installSubagent(id);
+          latest = res.tools;
+          if (res.ok) added.push(res.tools.find((t) => t.id === id)?.label ?? id);
+          else pushToast('error', res.message ?? `Couldn't add ${id}.`);
+        } catch (e) {
+          pushToast('error', (e as Error).message);
+        }
+      }
+      if (latest) setTools(latest);
+      if (added.length) {
+        pushToast('success', `Agent Nekko is now an MCP server in ${added.join(', ')}. Restart ${added.length === 1 ? 'it' : 'them'} to pick it up.`);
+      }
+    };
+    return () => {
+      commitRef.current = null;
+    };
+  }, [commitRef, pushToast]);
+
+  const toggle = (id: AgentToolId) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   return (
     <div className="w-full">
       <h1 className="text-center text-2xl font-semibold tracking-tight">Meet your tools</h1>
@@ -67,7 +124,8 @@ export function IntegrationsStep() {
           <h2 className="text-[15px] font-semibold">Use Nekko inside other tools</h2>
         </div>
         <p className="mt-0.5 text-[12px] text-ink-faint">
-          Adds an MCP server entry to the tool's config; the original file is backed up first.
+          Checked tools get an MCP server entry pointed at this app when you continue; each config is backed up
+          first. Uncheck any you'd rather leave alone.
         </p>
         <div className="mt-3 space-y-2">
           {tools === null && (
@@ -92,6 +150,8 @@ export function IntegrationsStep() {
               key={tool.id}
               tool={tool}
               installing={installing === tool.id}
+              checked={selected.has(tool.id)}
+              onToggle={() => toggle(tool.id)}
               snippetOpen={snippetFor === tool.id}
               onInstall={() => void install(tool.id)}
               onToggleSnippet={() => setSnippetFor((s) => (s === tool.id ? null : tool.id))}
@@ -129,12 +189,16 @@ export function IntegrationsStep() {
 function AgentToolCard({
   tool,
   installing,
+  checked,
+  onToggle,
   snippetOpen,
   onInstall,
   onToggleSnippet,
 }: {
   tool: AgentToolStatus;
   installing: boolean;
+  checked: boolean;
+  onToggle: () => void;
   snippetOpen: boolean;
   onInstall: () => void;
   onToggleSnippet: () => void;
@@ -162,19 +226,28 @@ function AgentToolCard({
               {tool.installed
                 ? 'The agent-nekko MCP server is in this tool\'s config.'
                 : tool.detected
-                  ? 'Detected - add Agent Nekko as an MCP server.'
+                  ? checked
+                    ? 'Detected. Agent Nekko is added as an MCP server when you continue.'
+                    : 'Detected. Left as it is.'
                   : 'Not detected on this machine.'}
             </p>
           </div>
         </div>
         {!tool.installed && tool.detected && (
-          <button
-            className="btn btn-primary shrink-0 py-1.5 text-[12px]"
-            onClick={onInstall}
-            disabled={installing}
-          >
-            {installing ? 'Connecting…' : 'Connect'}
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-ink-soft">
+              <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Add Agent Nekko to ${tool.label}`} />
+              Add
+            </label>
+            <button
+              className="btn btn-outline py-1 text-[11.5px]"
+              onClick={onInstall}
+              disabled={installing}
+              title="Add it now instead of when you continue"
+            >
+              {installing ? 'Adding…' : 'Now'}
+            </button>
+          </div>
         )}
       </div>
       <div className="mt-2 flex items-center gap-3">

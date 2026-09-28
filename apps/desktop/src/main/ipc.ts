@@ -1,8 +1,10 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { IpcChannels, IpcEvents, withApiServerDefaults, type ApiServerSettings } from '@agent-nekko/shared';
+import { IpcChannels, IpcEvents, withApiServerDefaults, type AgentToolId, type ApiServerSettings, type SubagentTarget } from '@agent-nekko/shared';
 import { createDispatcher, type Host } from '@agent-nekko/host';
 import { initUpdater, checkForUpdates, downloadUpdate, quitAndInstall } from './update.js';
 import { apiServerStatus, newApiToken, syncApiServer } from './api-server.js';
+import { cliInstallStatus, installCli } from './cli-install.js';
+import { refreshLocalAccess, subagentTarget } from './local-access.js';
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel, payload);
@@ -76,6 +78,9 @@ export function registerIpc(host: Host): void {
     if (next.enabled && !next.token) next.token = newApiToken();
     host.updateSettings({ apiServer: next });
     syncApiServer(host);
+    // A new port, address or token has to reach the CLI's link file and the
+    // MCP entries this app wrote, or they keep dialling the old one.
+    refreshLocalAccess(app, host);
     return apiServerStatus(host);
   });
   ipcMain.removeHandler(IpcChannels.apiServerNewToken);
@@ -83,8 +88,34 @@ export function registerIpc(host: Host): void {
     const current = withApiServerDefaults(host.getSettings().apiServer);
     host.updateSettings({ apiServer: { ...current, token: newApiToken() } });
     syncApiServer(host);
+    refreshLocalAccess(app, host);
     return apiServerStatus(host);
   });
+
+  // The bundled CLI's launcher and PATH entry. Desktop only: the web and
+  // self-hosted editions have no binary to link, and report so themselves.
+  ipcMain.removeHandler(IpcChannels.cliInstallStatus);
+  ipcMain.handle(IpcChannels.cliInstallStatus, () => cliInstallStatus(app));
+  ipcMain.removeHandler(IpcChannels.cliInstall);
+  ipcMain.handle(IpcChannels.cliInstall, () => {
+    const status = installCli(app);
+    // Entries written before the launcher existed used npx; now they can
+    // name the launcher instead.
+    refreshLocalAccess(app, host);
+    return status;
+  });
+
+  // MCP entries written from this window point at this window's server: the
+  // renderer asks for "install into Claude Code" and the transport fills in
+  // the address, token and launcher, which the renderer never has to hold.
+  ipcMain.removeHandler(IpcChannels.integrationsInstall);
+  ipcMain.handle(IpcChannels.integrationsInstall, (_e, tool: AgentToolId, target?: SubagentTarget) =>
+    host.installSubagent(tool, target ?? subagentTarget(app, host)),
+  );
+  ipcMain.removeHandler(IpcChannels.integrationsSnippet);
+  ipcMain.handle(IpcChannels.integrationsSnippet, (_e, tool: AgentToolId, target?: SubagentTarget) =>
+    host.subagentSnippet(tool, target ?? subagentTarget(app, host)),
+  );
 
   // Forward host events to all renderers.
   host.events.on('agentEvent', (e) => broadcast(IpcEvents.agentEvent, e));

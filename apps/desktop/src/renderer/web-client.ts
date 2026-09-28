@@ -19,6 +19,7 @@ function webApiServerStatus() {
     running: true,
     available: false,
     url: location.origin,
+    clientUrl: location.origin,
     clients: 0,
     requests: 0,
   };
@@ -296,6 +297,9 @@ function makeWebClient(): NekkoApi {
     apiServerStatus: async () => webApiServerStatus(),
     apiServerSave: async () => webApiServerStatus(),
     apiServerNewToken: async () => webApiServerStatus(),
+    // No binary ships with this edition to link; the CLI is an npm install here.
+    cliInstallStatus: async () => ({ available: false, installed: false, onPath: false, command: 'npx agent-nekko' }),
+    cliInstall: async () => ({ available: false, installed: false, onPath: false, command: 'npx agent-nekko' }),
     machineReadiness: (language) => call(IpcChannels.machineReadiness, language),
     getGpuStats: () => call(IpcChannels.gpuStats),
     getSystemStats: () => call(IpcChannels.systemStats),
@@ -435,8 +439,8 @@ function makeWebClient(): NekkoApi {
     fetchConnector: (kind, query) => call(IpcChannels.connectorFetch, kind, query),
 
     detectAgentTools: () => call(IpcChannels.integrationsDetect),
-    installSubagent: (tool) => call(IpcChannels.integrationsInstall, tool),
-    subagentSnippet: (tool) => call(IpcChannels.integrationsSnippet, tool),
+    installSubagent: (tool, target) => call(IpcChannels.integrationsInstall, tool, target),
+    subagentSnippet: (tool, target) => call(IpcChannels.integrationsSnippet, tool, target),
 
     classifyCommand: (command) => call(IpcChannels.guardrailsClassify, command),
     saveGuardrail: async (rule) => {

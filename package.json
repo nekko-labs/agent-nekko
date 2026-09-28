@@ -16,7 +16,7 @@
     "apps/cloud"
   ],
   "scripts": {
-    "build": "npm run build:core && npm run build -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run build -w @agent-nekko/desktop",
+    "build": "npm run build:core && npm run build -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run build:app --workspace=apps/cli && npm run build -w @agent-nekko/desktop",
     "build:core": "npm run build -w @agent-nekko/shared && npm run build -w @agent-nekko/core",
     "build:web": "npm run build:core && npm run build -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run build -w @agent-nekko/desktop && npm run build -w @agent-nekko/server && npm run build -w @agent-nekko/cloud",
     "cloud": "npm run build:core && npm run build -w @agent-nekko/host && npm run build -w @agent-nekko/desktop && npm run build -w @agent-nekko/cloud && npm run start -w @agent-nekko/cloud",

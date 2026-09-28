@@ -1,9 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import type { AgentToolId, AgentToolStatus, ApiServerStatus, SubagentSnippet } from '@agent-nekko/shared';
+import type {
+  AgentToolId,
+  AgentToolStatus,
+  ApiServerBind,
+  ApiServerStatus,
+  CliInstallStatus,
+  SubagentSnippet,
+} from '@agent-nekko/shared';
 import {
   apiServerEnvLines,
+  apiServerEnvLinesPowerShell,
   apiServerMcpConfig,
   apiServerRefusal,
+  apiServerUrl,
 } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
@@ -19,9 +28,11 @@ import { CheckIcon, CopyIcon, TerminalIcon } from '../../icons.js';
  * are three answers and they build on each other — a server on this machine, a
  * CLI that talks to it, and an MCP entry so other agents can.
  *
- * The CLI and MCP tabs read the live token, so what they show is the command
- * that works right now rather than a documentation example with placeholders in
- * it.
+ * Installing the app sets all three up: the server is on (loopback, with a
+ * generated token), the CLI ships inside the app and is linked onto PATH, and
+ * the MCP entries it writes carry the address and token. So the Server tab owns
+ * the address, the token and the environment in one block, and the CLI and MCP
+ * tabs say what is already in place rather than listing steps to do by hand.
  */
 
 const POLL_MS = 4000;
@@ -65,10 +76,10 @@ export function LocalServerSection() {
     }
   };
 
-  // Everything the CLI and MCP tabs quote needs an address, and before the
-  // server has ever run there isn't one. The saved settings still describe
-  // where it *will* be, which is what makes those tabs readable while it's off.
-  const url = status.url ?? `http://127.0.0.1:${settings.port}`;
+  // What clients are told to use: the advertised address when one is set,
+  // otherwise the bound one. Present even while stopped, because it describes
+  // where the server *will* be.
+  const url = status.clientUrl;
 
   return (
     <section className="mt-7">
@@ -143,7 +154,7 @@ export function LocalServerSection() {
                 (<span className="font-mono">NEKKO_TOKEN</span>).
               </p>
             ))}
-          {tab === 'cli' && <CliTab url={url} token={settings.token} running={running} />}
+          {tab === 'cli' && <CliTab running={running} />}
           {tab === 'mcp' && <McpTab url={url} token={settings.token} running={running} />}
         </div>
       </div>
@@ -163,42 +174,85 @@ function ServerTab({
   const pushToast = useStore((s) => s.pushToast);
   const [draft, setDraft] = useState(status.settings);
   const [revealed, setRevealed] = useState(false);
+  const [shell, setShell] = useState<'posix' | 'powershell'>(() =>
+    typeof navigator !== 'undefined' && /Windows/i.test(navigator.userAgent) ? 'powershell' : 'posix',
+  );
 
   useEffect(() => setDraft(status.settings), [status.settings]);
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(status.settings);
   const refusal = apiServerRefusal({ ...draft, token: draft.token || 'pending' });
+  const token = status.settings.token || '<generated when the server starts>';
+  const lines = (t: string) =>
+    shell === 'powershell' ? apiServerEnvLinesPowerShell(status.clientUrl, t) : apiServerEnvLines(status.clientUrl, t);
+  // Shown masked like the token field above it (a screen share should not leak
+  // it), copied in full, since the copy is the point.
+  const env = lines(token);
+  const shownEnv = revealed || !status.settings.token ? env : lines('•'.repeat(18));
 
   return (
     <div className="space-y-4">
+      {/* Where it listens, and where clients are told to go. Two different
+          questions behind a tunnel, a container or a Tailscale name, so two
+          fields; the second is empty (= the first) almost always. */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Port" hint="The address the CLI and MCP clients point at.">
-          <input
-            type="number"
-            className="input w-28 py-1 text-[12px]"
-            min={1024}
-            max={65535}
-            value={draft.port}
-            onChange={(e) => setDraft({ ...draft, port: Number(e.target.value) })}
-          />
-        </Field>
-
         <Field
           label="Reachable from"
           hint={
             draft.bind === 'lan'
               ? 'Anything on your network that has the token can run the agent here.'
-              : 'Only this computer. The safe default.'
+              : draft.bind === 'custom'
+                ? 'Listens on the one interface you name.'
+                : 'Only this computer. The safe default.'
           }
         >
           <select
-            className="input w-40 py-1 text-[12px]"
+            className="input w-44 py-1 text-[12px]"
             value={draft.bind}
-            onChange={(e) => setDraft({ ...draft, bind: e.target.value as 'local' | 'lan' })}
+            aria-label="Reachable from"
+            onChange={(e) => setDraft({ ...draft, bind: e.target.value as ApiServerBind })}
           >
             <option value="local">This computer only</option>
             <option value="lan">This computer and my network</option>
+            <option value="custom">A specific address</option>
           </select>
+        </Field>
+
+        <Field label="Port" hint="Where the server listens.">
+          <input
+            type="number"
+            className="input w-28 py-1 text-[12px]"
+            min={1024}
+            max={65535}
+            aria-label="Port"
+            value={draft.port}
+            onChange={(e) => setDraft({ ...draft, port: Number(e.target.value) })}
+          />
+        </Field>
+
+        {draft.bind === 'custom' && (
+          <Field label="Address to listen on" hint="An interface on this machine, e.g. 192.168.1.20 or ::1.">
+            <input
+              className="input w-44 py-1 font-mono text-[12px]"
+              placeholder="192.168.1.20"
+              aria-label="Address to listen on"
+              value={draft.host ?? ''}
+              onChange={(e) => setDraft({ ...draft, host: e.target.value })}
+            />
+          </Field>
+        )}
+
+        <Field
+          label="Address clients use"
+          hint="Only when it differs from where it listens: a tunnel, a container port, a Tailscale name."
+        >
+          <input
+            className="input w-52 py-1 font-mono text-[12px]"
+            placeholder={apiServerUrl(draft)}
+            aria-label="Address clients use"
+            value={draft.advertisedUrl ?? ''}
+            onChange={(e) => setDraft({ ...draft, advertisedUrl: e.target.value })}
+          />
         </Field>
       </div>
 
@@ -207,7 +261,7 @@ function ServerTab({
           <label className="text-[12px]">Token</label>
           <div className="flex items-center gap-2">
             <code className="max-w-[220px] truncate rounded-md px-2 py-1 font-mono text-[11px]" style={{ background: 'var(--surface-2)' }}>
-              {status.settings.token ? (revealed ? status.settings.token : '•'.repeat(18)) : 'generated when you start it'}
+              {status.settings.token ? (revealed ? status.settings.token : '•'.repeat(18)) : 'generated when it starts'}
             </code>
             {status.settings.token && (
               <>
@@ -221,14 +275,15 @@ function ServerTab({
         </div>
         <p className="mt-0.5 text-[11px] text-ink-faint">
           Sent as <span className="font-mono">Authorization: Bearer …</span> on every request. There is no
-          unauthenticated mode: this endpoint can run shell commands.
+          unauthenticated mode: this endpoint can run shell commands. Rolling it updates the CLI and the MCP entries
+          this app wrote.
         </p>
         <button
           className="mt-1.5 text-[11.5px] text-ink-faint hover:text-ink"
           onClick={async () => {
-            if (!window.confirm('Roll the token? Anything already using the old one stops working.')) return;
+            if (!window.confirm('Roll the token? Anything you configured by hand with the old one stops working.')) return;
             await window.nekko.apiServerNewToken();
-            pushToast('success', 'New token. Update whatever was using the old one.');
+            pushToast('success', 'New token. The CLI and the MCP entries this app wrote already have it.');
           }}
         >
           Roll the token
@@ -252,6 +307,24 @@ function ServerTab({
         )}
       </div>
 
+      {/* The environment, in one block with the address and token it is made
+          of. The CLI and the MCP entries this app wrote find the server on
+          their own; these lines are for pointing anything else at it. */}
+      <div className="border-t pt-3" style={{ borderColor: 'var(--line)' }}>
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className="text-[11.5px] font-medium text-ink-soft">Environment</p>
+          <div className="flex gap-1">
+            <TabButton active={shell === 'posix'} onClick={() => setShell('posix')}>bash / zsh</TabButton>
+            <TabButton active={shell === 'powershell'} onClick={() => setShell('powershell')}>PowerShell</TabButton>
+          </div>
+        </div>
+        <Command value={shownEnv.join('\n')} copyValue={env.join('\n')} />
+        <p className="mt-1 text-[11px] text-ink-faint">
+          Not needed for the <span className="font-mono">agent-nekko</span> command or the MCP entries this app
+          added: they read the address and token from the app. Use these for scripts and anything else.
+        </p>
+      </div>
+
       {status.lastRequestAt && (
         <p className="border-t pt-3 text-[11.5px] text-ink-faint" style={{ borderColor: 'var(--line)' }}>
           Last request {new Date(status.lastRequestAt).toLocaleTimeString()}.
@@ -261,31 +334,100 @@ function ServerTab({
   );
 }
 
-function CliTab({ url, token, running }: { url: string; token: string; running: boolean }) {
-  const env = apiServerEnvLines(url, token || '<start the server to get a token>');
+function CliTab({ running }: { running: boolean }) {
+  const pushToast = useStore((s) => s.pushToast);
+  const [cli, setCli] = useState<CliInstallStatus | null>(null);
+  const [installing, setInstalling] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    window.nekko
+      .cliInstallStatus()
+      .then((s) => alive && setCli(s))
+      .catch(() => alive && setCli(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const install = async () => {
+    setInstalling(true);
+    try {
+      const next = await window.nekko.cliInstall();
+      setCli(next);
+      if (next.installed) {
+        pushToast('success', next.needsRestart ? 'Installed. Open a new terminal to use it.' : 'Installed.');
+      } else if (next.message) {
+        pushToast('error', next.message);
+      }
+    } catch (e) {
+      pushToast('error', (e as Error).message);
+    } finally {
+      setInstalling(false);
+    }
+  };
+
+  const command = cli?.command ?? 'agent-nekko';
+  const bundled = cli?.available !== false;
+
   return (
     <div className="space-y-3">
       <p className="text-[12px] text-ink-soft">
-        The same agent, from a terminal. Installed once, it works against this app while the server is on, and
-        against your local data directory when it is off.
+        The same agent, from a terminal. It drives this app while the server is on, and your local data directory
+        when it is off.
       </p>
-      <Step n={1} label="Install it">
-        <Command value="npm install -g agent-nekko" />
-      </Step>
-      <Step n={2} label="Point it at this app">
-        <Command value={env.join('\n')} />
+
+      {cli === null ? (
+        <p className="text-[12px] text-ink-faint">Checking the command…</p>
+      ) : bundled ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border p-2.5" style={{ borderColor: 'var(--line)' }}>
+          <TerminalIcon className="h-4 w-4 shrink-0 text-ink-faint" />
+          <span className="font-mono text-[12.5px]">agent-nekko</span>
+          {cli.installed && cli.onPath ? (
+            <Badge tone="success" variant="soft">On your PATH</Badge>
+          ) : cli.installed ? (
+            <span className="chip">{cli.needsRestart ? 'installed, open a new terminal' : 'installed, not on PATH'}</span>
+          ) : (
+            <span className="chip">not installed</span>
+          )}
+          <button className="btn btn-outline ml-auto py-1 text-[11.5px]" disabled={installing} onClick={install}>
+            {installing ? 'Installing…' : cli.installed ? 'Reinstall' : 'Install'}
+          </button>
+          {cli.binDir && (
+            <p className="w-full text-[11px] text-ink-faint">
+              Shipped inside the app and linked from <span className="font-mono">{cli.binDir}</span>. No Node or npm
+              needed.
+            </p>
+          )}
+          {cli.message && (
+            <p className="w-full text-[11px]" style={{ color: 'var(--warning)' }}>
+              {cli.message}
+            </p>
+          )}
+        </div>
+      ) : (
+        <Step n={1} label="Install it">
+          <Command value="npm install -g agent-nekko" />
+        </Step>
+      )}
+
+      <Step n={bundled ? 1 : 2} label="Use it">
+        <Command
+          value={[
+            `${command} status`,
+            `${command} chat "summarize the changes on this branch"`,
+            `${command} sessions --json`,
+          ].join('\n')}
+        />
         {!running && (
           <p className="mt-1 text-[11px]" style={{ color: 'var(--warning)' }}>
-            The server is off, so nothing is listening on this address yet.
+            The server is off, so these run against your local data directory instead of this window.
           </p>
         )}
       </Step>
-      <Step n={3} label="Use it">
-        <Command value={'agent-nekko status\nagent-nekko chat "summarize the changes on this branch"\nagent-nekko sessions --json'} />
-      </Step>
       <p className="text-[11px] text-ink-faint">
-        <span className="font-mono">agent-nekko --help</span> lists every command: sessions, workspaces, tasks,
-        skills, workflows and training runs.
+        <span className="font-mono">{command} --help</span> lists every command: sessions, workspaces, tasks, skills,
+        workflows and training runs.
       </p>
     </div>
   );
@@ -296,6 +438,7 @@ function McpTab({ url, token, running }: { url: string; token: string; running: 
   const [tools, setTools] = useState<AgentToolStatus[] | null>(null);
   const [installing, setInstalling] = useState<AgentToolId | null>(null);
   const [snippet, setSnippet] = useState<(SubagentSnippet & { id: AgentToolId }) | null>(null);
+  const [cliCommand, setCliCommand] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     let alive = true;
@@ -303,6 +446,10 @@ function McpTab({ url, token, running }: { url: string; token: string; running: 
       .detectAgentTools()
       .then((list) => alive && setTools(list))
       .catch(() => alive && setTools([]));
+    window.nekko
+      .cliInstallStatus()
+      .then((s) => alive && setCliCommand(s.installed ? s.binPath : undefined))
+      .catch(() => {});
     return () => {
       alive = false;
     };
@@ -326,8 +473,9 @@ function McpTab({ url, token, running }: { url: string; token: string; running: 
   return (
     <div className="space-y-3">
       <p className="text-[12px] text-ink-soft">
-        Agent Nekko is also an MCP server, so Claude Code, Codex, Cursor or Windsurf can use it as a subagent:
-        your workspaces, skills and sessions become tools they can call.
+        Agent Nekko is also an MCP server, so Claude Code, Codex, Cursor or Windsurf can use it as a subagent: your
+        workspaces, skills and sessions become tools they can call. Each entry is written pointing at this app, with
+        its address and token, and kept up to date when they change.
       </p>
 
       <div className="space-y-2">
@@ -360,7 +508,7 @@ function McpTab({ url, token, running }: { url: string; token: string; running: 
               >
                 Show snippet
               </button>
-              {!t.installed && (
+              {!t.installed && t.detected && (
                 <button
                   className="btn btn-outline py-1 text-[11.5px]"
                   disabled={installing !== null}
@@ -383,10 +531,14 @@ function McpTab({ url, token, running }: { url: string; token: string; running: 
 
       <div className="border-t pt-3" style={{ borderColor: 'var(--line)' }}>
         <p className="mb-1 text-[11.5px] text-ink-soft">
-          Anything else that speaks MCP takes this. With the server on it drives this window; without it, a
-          separate copy on your data directory.
+          Anything else that speaks MCP takes this. With the server on it drives this window; without it, a separate
+          copy on your data directory.
         </p>
-        <Command value={apiServerMcpConfig(url, token || '<start the server to get a token>')} />
+        {/* Masked on screen, whole on copy, like the Server tab's env block. */}
+        <Command
+          value={apiServerMcpConfig(url, token ? '•'.repeat(18) : '<generated when the server starts>', cliCommand)}
+          copyValue={apiServerMcpConfig(url, token || '<generated when the server starts>', cliCommand)}
+        />
         {!running && (
           <p className="mt-1 text-[11px]" style={{ color: 'var(--warning)' }}>
             The server is off, so the two env lines have nothing to reach yet.
@@ -415,7 +567,7 @@ function Step({ n, label, children }: { n: number; label: string; children: Reac
 }
 
 /** A block of shell or JSON with a copy button, since that is what it is for. */
-function Command({ value }: { value: string }) {
+function Command({ value, copyValue }: { value: string; copyValue?: string }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -436,7 +588,7 @@ function Command({ value }: { value: string }) {
         aria-label="Copy"
         onClick={async () => {
           try {
-            await navigator.clipboard.writeText(value);
+            await navigator.clipboard.writeText(copyValue ?? value);
             setCopied(true);
           } catch {
             /* clipboard denied, nothing worth surfacing */

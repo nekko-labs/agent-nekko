@@ -12,6 +12,7 @@ export * from './readiness.js';
 export * from './runtimes.js';
 export * from './engine.js';
 export * from './api-server.js';
+export * from './cli-link.js';
 export * from './chat.js';
 export * from './ask.js';
 export * from './session-board.js';

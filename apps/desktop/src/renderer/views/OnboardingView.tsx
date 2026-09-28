@@ -20,6 +20,8 @@ export function OnboardingView() {
   const [index, setIndex] = useState(0);
   const stepsRef = useRef<Record<string, 'done' | 'skipped'>>({});
   const runningRef = useRef(false);
+  // The current step's confirm action, if it registered one.
+  const stepCommitRef = useRef<(() => Promise<void>) | null>(null);
 
   // Seed the in-memory outcome map once on mount; do not read the store during
   // render (it can be stale or missing in SSR/strict mode).
@@ -84,6 +86,9 @@ export function OnboardingView() {
     if (runningRef.current) return;
     runningRef.current = true;
     try {
+      // A step with something to apply on confirm (the integrations step adds
+      // the checked MCP entries) does it before the wizard moves on.
+      await stepCommitRef.current?.();
       const prev: WizardState = { index, steps: stepsRef.current };
       const { state, complete } = wizardTransition(prev, { type: 'next' });
       stepsRef.current = state.steps;
@@ -165,7 +170,7 @@ export function OnboardingView() {
       {step.id === 'welcome' && <WelcomeStep />}
       {step.id === 'theme' && <ThemeStep />}
       {step.id === 'providers' && <ProvidersStep onExit={close} />}
-      {step.id === 'integrations' && <IntegrationsStep />}
+      {step.id === 'integrations' && <IntegrationsStep commitRef={stepCommitRef} />}
       {step.id === 'done' && <DoneStep onFinish={finish} />}
     </WizardShell>
   );

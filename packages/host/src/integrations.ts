@@ -1,16 +1,29 @@
 import { existsSync, mkdirSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
-import type { AgentToolId, AgentToolStatus, SubagentInstallResult, SubagentSnippet } from '@agent-nekko/shared';
+import type {
+  AgentToolId,
+  AgentToolStatus,
+  SubagentInstallResult,
+  SubagentSnippet,
+  SubagentTarget,
+} from '@agent-nekko/shared';
+import { mcpServerEntry } from '@agent-nekko/shared';
 import { backupFile, writeJsonAtomic, writeTextAtomic } from './secure-file.js';
 
 /**
  * Installing Agent Nekko as an MCP subagent inside other agent CLIs. Each tool
  * is detected by its user-level config directory; install merges an
- * `agent-nekko` entry (`npx -y agent-nekko mcp`, the portable invocation) into the
- * tool's MCP config file. The existing file is copied to `<file>.bak` before
- * any write, and writes go through the atomic temp+rename helpers so a crash
- * can't leave a half-written config.
+ * `agent-nekko` entry into the tool's MCP config file. The existing file is
+ * copied to `<file>.bak` before any write, and writes go through the atomic
+ * temp+rename helpers so a crash can't leave a half-written config.
+ *
+ * The entry names the CLI the desktop app installed and carries the local
+ * server's URL and token when a `SubagentTarget` is supplied, which is what
+ * makes the other tool drive *this* app rather than start a second agent on
+ * the same data directory. With no target it falls back to the portable
+ * `npx -y agent-nekko mcp`, which is what the web and self-hosted editions
+ * want.
  *
  * A `home` parameter is accepted by every function so tests (and unusual
  * setups) can point at a scratch HOME instead of the real one.
@@ -18,8 +31,6 @@ import { backupFile, writeJsonAtomic, writeTextAtomic } from './secure-file.js';
 
 /** The server key written into every tool's MCP config. */
 const SERVER_NAME = 'agent-nekko';
-/** The portable command every tool gets: the bundled CLI over stdio. */
-const MCP_ENTRY = { command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] };
 
 interface AgentToolSpec {
   id: AgentToolId;
@@ -68,8 +79,33 @@ const TOOLS: AgentToolSpec[] = [
   },
 ];
 
-/** The TOML block appended to Codex's config.toml. */
-const TOML_SECTION = `[mcp_servers.${SERVER_NAME}]\ncommand = "npx"\nargs = ["-y", "agent-nekko", "mcp"]\n`;
+/** A TOML string literal: basic form, with the two characters that need escaping. */
+function tomlString(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * The TOML block appended to Codex's config.toml, pointed at this app.
+ *
+ * `env` is an inline table rather than its own `[mcp_servers.agent-nekko.env]`
+ * section so the whole entry stays one appendable block: the installer works
+ * by appending, and a sub-table that lands after some later section would
+ * attach itself to the wrong parent.
+ */
+function tomlSection(target: SubagentTarget = {}): string {
+  const entry = mcpServerEntry(target.url ?? '', target.token ?? '', target.command);
+  const args = entry.args.map(tomlString).join(', ');
+  const lines = [
+    `[mcp_servers.${SERVER_NAME}]`,
+    `command = ${tomlString(entry.command)}`,
+    `args = [${args}]`,
+  ];
+  const env = Object.entries(entry.env ?? {});
+  if (env.length) {
+    lines.push(`env = { ${env.map(([k, v]) => `${k} = ${tomlString(v)}`).join(', ')} }`);
+  }
+  return `${lines.join('\n')}\n`;
+}
 
 /** Matches an existing `[mcp_servers.agent-nekko]` table header, bare or quoted. */
 const TOML_ENTRY_RE = new RegExp(
@@ -224,6 +260,30 @@ function isInstalled(spec: AgentToolSpec, home: string): boolean {
   }
 }
 
+/**
+ * Replace an existing `[mcp_servers.agent-nekko]` block, or null if there
+ * isn't one.
+ *
+ * The block runs from its header to the next `[` header at the start of a
+ * line, which the blanked scan makes safe to look for: a bracket inside a
+ * string or comment has already been erased. Needed because the entry now
+ * carries a token, so an install that finds a stale one has to rewrite it
+ * rather than leave the tool authenticating with a rolled token.
+ */
+function replaceTomlSection(text: string, section: string): string | null {
+  const { clean, confident } = scanToml(text);
+  if (!confident) return null;
+  const header = TOML_ENTRY_RE.exec(clean);
+  if (!header) return null;
+  const start = header.index;
+  const afterHeader = start + header[0].length;
+  const next = /^\s*\[/m.exec(clean.slice(afterHeader));
+  const end = next ? afterHeader + next.index : text.length;
+  return `${text.slice(0, start).replace(/\s*$/, '\n\n').replace(/^\s+$/, '')}${section}${
+    next ? `\n${text.slice(end).replace(/^\s+/, '')}` : ''
+  }`;
+}
+
 /** Which agent CLIs have a config dir, and whether Nekko is already wired in. */
 export function detectAgentTools(home: string = homedir()): AgentToolStatus[] {
   return TOOLS.map((spec) => ({
@@ -236,11 +296,80 @@ export function detectAgentTools(home: string = homedir()): AgentToolStatus[] {
 }
 
 /**
- * Merge the agent-nekko MCP entry into a tool's config. Idempotent: an existing
- * entry is reported as already installed rather than duplicated. Returns the
- * refreshed tool list either way so callers can re-render from one response.
+ * Merge the agent-nekko MCP entry into a tool's config.
+ *
+ * Idempotent *by value*: an entry that already says the right thing is left
+ * alone and reported as installed, but one that points somewhere stale (an old
+ * port, a token that has since been rolled, `npx` from before the app shipped
+ * its own CLI) is rewritten in place. Writing a token means "already there" is
+ * no longer good enough, because the entry that is already there may be the
+ * one that stopped working. Returns the refreshed tool list either way so
+ * callers can re-render from one response.
  */
-export function installSubagent(tool: AgentToolId, home: string = homedir()): SubagentInstallResult {
+/**
+ * Whether an existing agent-nekko entry is one this app wrote: the portable
+ * `npx … agent-nekko mcp` form, or the launcher the desktop app installs.
+ *
+ * Anything else was written by hand (a checkout's `node …/dist/index.js mcp`,
+ * a wrapper script) and belongs to the person who wrote it, so an automatic
+ * refresh must leave it alone even when the token it carries has gone stale.
+ */
+export function isOwnEntry(command: string | undefined, args: string[] = []): boolean {
+  if (!command) return false;
+  if (command === 'npx') return args.includes('agent-nekko');
+  const leaf = command.split(/[\\/]/).pop() ?? '';
+  return /^agent-nekko(\.cmd)?$/i.test(leaf);
+}
+
+/** The existing entry's command and args, from either config format. */
+function existingEntry(spec: AgentToolSpec, home: string): { command?: string; args: string[] } | null {
+  const text = readConfig(spec, home);
+  if (text === undefined) return null;
+  if (spec.format === 'json') {
+    try {
+      const cfg = JSON.parse(text) as { mcpServers?: Record<string, { command?: string; args?: string[] }> };
+      const e = cfg.mcpServers?.[SERVER_NAME];
+      return e ? { command: e.command, args: Array.isArray(e.args) ? e.args : [] } : null;
+    } catch {
+      return null;
+    }
+  }
+  const { clean, confident } = scanToml(text);
+  if (!confident) return null;
+  const header = TOML_ENTRY_RE.exec(clean);
+  if (!header) return null;
+  const after = header.index + header[0].length;
+  const next = /^\s*\[/m.exec(clean.slice(after));
+  const body = text.slice(after, next ? after + next.index : text.length);
+  const command = /^\s*command\s*=\s*"((?:[^"\\]|\\.)*)"/m.exec(body)?.[1]?.replace(/\\\\/g, '\\');
+  const argsRaw = /^\s*args\s*=\s*\[([^\]]*)\]/m.exec(body)?.[1] ?? '';
+  const args = [...argsRaw.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((m) => m[1]);
+  return { command, args };
+}
+
+/**
+ * Re-point an entry this app wrote at the current server (address, token,
+ * launcher). Entries written by hand, and tools with no entry, are left as they
+ * are. Returns whether anything was rewritten.
+ */
+export function refreshSubagent(
+  tool: AgentToolId,
+  home: string = homedir(),
+  target: SubagentTarget = {},
+): boolean {
+  const spec = specFor(tool);
+  if (!spec) return false;
+  const existing = existingEntry(spec, home);
+  if (!existing || !isOwnEntry(existing.command, existing.args)) return false;
+  const res = installSubagent(tool, home, target);
+  return res.ok && res.message === undefined;
+}
+
+export function installSubagent(
+  tool: AgentToolId,
+  home: string = homedir(),
+  target: SubagentTarget = {},
+): SubagentInstallResult {
   const spec = specFor(tool);
   if (!spec) return { ok: false, message: 'Unknown tool.', tools: detectAgentTools(home) };
 
@@ -252,11 +381,10 @@ export function installSubagent(tool: AgentToolId, home: string = homedir()): Su
       tools: detectAgentTools(home),
     };
   }
-  if (isInstalled(spec, home)) {
-    return { ok: true, message: `Already installed in ${spec.label}.`, tools: detectAgentTools(home) };
-  }
 
+  const entry = mcpServerEntry(target.url ?? '', target.token ?? '', target.command);
   const path = join(home, spec.configFile);
+
   if (spec.format === 'json') {
     let cfg: Record<string, unknown> = {};
     const text = readConfig(spec, home);
@@ -276,7 +404,10 @@ export function installSubagent(tool: AgentToolId, home: string = homedir()): Su
       }
     }
     const servers = (cfg.mcpServers ?? {}) as Record<string, unknown>;
-    cfg.mcpServers = { ...servers, [SERVER_NAME]: { ...MCP_ENTRY } };
+    if (JSON.stringify(servers[SERVER_NAME]) === JSON.stringify(entry)) {
+      return { ok: true, message: `Already installed in ${spec.label}.`, tools: detectAgentTools(home) };
+    }
+    cfg.mcpServers = { ...servers, [SERVER_NAME]: entry };
     backupFile(path);
     mkdirSync(dirname(path), { recursive: true });
     writeJsonAtomic(path, cfg);
@@ -291,8 +422,18 @@ export function installSubagent(tool: AgentToolId, home: string = homedir()): Su
         tools: detectAgentTools(home),
       };
     }
-    const body = (text ?? '').replace(/\s+$/, '');
-    const next = body ? `${body}\n\n${TOML_SECTION}` : TOML_SECTION;
+    const section = tomlSection(target);
+    const existing = text !== undefined ? replaceTomlSection(text, section) : null;
+    if (existing !== null && existing === text) {
+      return { ok: true, message: `Already installed in ${spec.label}.`, tools: detectAgentTools(home) };
+    }
+    let next: string;
+    if (existing !== null) {
+      next = existing;
+    } else {
+      const body = (text ?? '').replace(/\s+$/, '');
+      next = body ? `${body}\n\n${section}` : section;
+    }
     backupFile(path);
     mkdirSync(dirname(path), { recursive: true });
     writeTextAtomic(path, next);
@@ -300,15 +441,22 @@ export function installSubagent(tool: AgentToolId, home: string = homedir()): Su
   return { ok: true, tools: detectAgentTools(home) };
 }
 
-/** The manual copy-paste fallback: where the snippet goes and what to paste. */
-export function subagentSnippet(tool: AgentToolId): SubagentSnippet {
+/**
+ * The manual copy-paste fallback: where the snippet goes and what to paste.
+ *
+ * Carries the same address, token and command the installer would write, so
+ * pasting it by hand produces a working entry rather than one the user then
+ * has to fill in.
+ */
+export function subagentSnippet(tool: AgentToolId, target: SubagentTarget = {}): SubagentSnippet {
   const spec = specFor(tool);
   if (!spec) return { target: '', snippet: '' };
   if (spec.format === 'toml') {
-    return { target: spec.snippetTarget, snippet: TOML_SECTION.trimEnd() };
+    return { target: spec.snippetTarget, snippet: tomlSection(target).trimEnd() };
   }
-  return {
-    target: spec.snippetTarget,
-    snippet: `"mcpServers": {\n  "${SERVER_NAME}": {\n    "command": "npx",\n    "args": ["-y", "agent-nekko", "mcp"]\n  }\n}`,
-  };
+  const entry = mcpServerEntry(target.url ?? '', target.token ?? '', target.command);
+  // The object's own braces become the "mcpServers" braces, so only its body
+  // (already indented one level) goes between them.
+  const body = JSON.stringify({ [SERVER_NAME]: entry }, null, 2).split('\n').slice(1, -1).join('\n');
+  return { target: spec.snippetTarget, snippet: `"mcpServers": {\n${body}\n}` };
 }

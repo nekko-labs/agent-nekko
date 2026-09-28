@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createHost } from '@agent-nekko/host';
-import { brandEnv, IpcEvents } from '@agent-nekko/shared';
+import { brandEnv, CLI_LINK_FILE, isCliLink, IpcEvents, type CliLink } from '@agent-nekko/shared';
 import type {
   AppSettings,
   Session,
@@ -32,6 +33,57 @@ export function dataDir(): string {
   const fromEnv = brandEnv('DATA_DIR');
   if (fromEnv) return fromEnv;
   return join(homedir(), '.nekko');
+}
+
+/**
+ * The address + token the installed app left for us, if it has.
+ *
+ * This is what makes a freshly installed CLI work with nothing exported: the
+ * app writes the file whenever its server settings change (see the desktop
+ * `cli-link` module). A file that says `enabled: false` is not a target, but
+ * it is not nothing either, so it comes back and the caller can say the app
+ * is not serving rather than quietly opening the data directory behind it.
+ */
+export function readCliLink(dir = dataDir()): CliLink | null {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(join(dir, CLI_LINK_FILE), 'utf8'));
+    return isCliLink(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Where a client should point, and why. Flags beat env, env beats the link
+ * file the app wrote, and with none of those there is no server: the CLI opens
+ * the data directory itself.
+ */
+export function resolveTarget(opts: { url?: string; token?: string } = {}): {
+  url?: string;
+  token?: string;
+  source: 'flag' | 'env' | 'app' | 'local';
+} {
+  if (opts.url) return { url: opts.url, token: opts.token ?? brandEnv('TOKEN'), source: 'flag' };
+  const envUrl = brandEnv('URL');
+  if (envUrl) return { url: envUrl, token: opts.token ?? brandEnv('TOKEN'), source: 'env' };
+  const link = readCliLink();
+  if (link?.enabled && appAlive(link.pid)) return { url: link.url, token: opts.token ?? link.token, source: 'app' };
+  return { source: 'local' };
+}
+
+/**
+ * Whether the app that wrote the link is still running. Signal 0 checks for a
+ * process without touching it; EPERM means it exists but is not ours to signal,
+ * which still counts as alive. A link with no pid (an older app) is trusted.
+ */
+function appAlive(pid: number | undefined): boolean {
+  if (!pid) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM';
+  }
 }
 
 /**
@@ -207,10 +259,13 @@ function httpClient(url: string, token?: string): Client {
   };
 }
 
-/** Build a client from env/flags: `--url`/NEKKO_URL → HTTP, else local. */
+/**
+ * Build a client: `--url`, else NEKKO_URL, else the running app's link file,
+ * else an in-process host on the local data directory.
+ */
 export function getClient(opts: { url?: string; token?: string } = {}): Client {
-  const url = opts.url || brandEnv('URL');
-  return url ? httpClient(url, opts.token || brandEnv('TOKEN')) : localClient();
+  const target = resolveTarget(opts);
+  return target.url ? httpClient(target.url, target.token) : localClient();
 }
 
 /** Resolve provider + model from flags, the session, then saved defaults. */

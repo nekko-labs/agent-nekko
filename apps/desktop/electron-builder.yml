@@ -16,6 +16,12 @@ files:
   - package.json
 # @lydell/node-pty ships a native .node binary that must live outside the asar
 # archive so it can be dlopen'd at runtime (and its prebuilt platform package).
+# The agent-nekko CLI, bundled as one CommonJS file (apps/cli/scripts/bundle-app.mjs)
+# and run by this app's own Electron binary, so installing the app installs the
+# CLI with no Node or npm. main/cli-install.ts links it onto PATH on first run.
+extraResources:
+  - from: ../cli/app-dist/agent-nekko-cli.cjs
+    to: cli/agent-nekko-cli.cjs
 asarUnpack:
   - "**/node_modules/@lydell/node-pty/**"
   - "**/node_modules/@lydell/node-pty-*/**"

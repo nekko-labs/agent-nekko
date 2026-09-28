@@ -71,6 +71,8 @@ const api: NekkoApi = {
   apiServerStatus: () => inv(IpcChannels.apiServerStatus),
   apiServerSave: (patch) => inv(IpcChannels.apiServerSave, patch),
   apiServerNewToken: () => inv(IpcChannels.apiServerNewToken),
+  cliInstallStatus: () => inv(IpcChannels.cliInstallStatus),
+  cliInstall: () => inv(IpcChannels.cliInstall),
   machineReadiness: (language) => inv(IpcChannels.machineReadiness, language),
   getGpuStats: () => inv(IpcChannels.gpuStats),
   getSystemStats: () => inv(IpcChannels.systemStats),
@@ -199,8 +201,8 @@ const api: NekkoApi = {
   fetchConnector: (kind: ConnectorKind, query) => inv(IpcChannels.connectorFetch, kind, query),
 
   detectAgentTools: () => inv(IpcChannels.integrationsDetect),
-  installSubagent: (tool) => inv(IpcChannels.integrationsInstall, tool),
-  subagentSnippet: (tool) => inv(IpcChannels.integrationsSnippet, tool),
+  installSubagent: (tool, target) => inv(IpcChannels.integrationsInstall, tool, target),
+  subagentSnippet: (tool, target) => inv(IpcChannels.integrationsSnippet, tool, target),
 
   classifyCommand: (command) => inv(IpcChannels.guardrailsClassify, command),
   saveGuardrail: async (rule: GuardrailRule) => {

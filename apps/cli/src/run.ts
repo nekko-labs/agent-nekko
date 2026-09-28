@@ -1,10 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { stdin } from 'node:process';
-import { getClient, resolveModel, runChat, approvalPolicy, dataDir, type ChatOutputEvent } from './lib.js';
+import {
+  getClient,
+  resolveModel,
+  runChat,
+  approvalPolicy,
+  dataDir,
+  resolveTarget,
+  type ChatOutputEvent,
+} from './lib.js';
 import { runMcpServer } from './mcp.js';
 import { resolveInstall } from './skills.js';
 import { VERSION } from './version.js';
-import { brandEnv, cliCommand, normalizeInstallTarget, triggerLabel } from '@agent-nekko/shared';
+import { cliCommand, normalizeInstallTarget, triggerLabel } from '@agent-nekko/shared';
 import type { AgentEvent, NewTask } from '@agent-nekko/shared';
 
 export const EXIT_CODES = {
@@ -53,11 +61,13 @@ Usage:
   agent-nekko mcp
   agent-nekko --help | --version
 
-Install: npm install -g agent-nekko
+Install: shipped with the Agent Nekko app, or npm install -g agent-nekko
 
-Target:
-  --url <http://host:port>       Remote server (or NEKKO_URL)
-  --token <token>                Bearer token (or NEKKO_TOKEN)
+Target (first one that applies wins):
+  --url <http://host:port>       Remote server, with --token <token>
+  NEKKO_URL / NEKKO_TOKEN        The same two, from the environment
+  the app on this machine        Read from its cli-link.json while it is serving
+  the local data directory       No server: this CLI runs the agent itself
 
 chat:
   --session <id> --new --workspace <id> --provider <id> --model <id>
@@ -188,7 +198,14 @@ export async function runCli(argv: string[]): Promise<void> {
           remote,
         }, true);
       }
-      console.log(`Agent Nekko, ${value(flags, 'url') || brandEnv('URL') || dataDir()}`);
+      const target = resolveTarget({ url: value(flags, 'url'), token: value(flags, 'token') });
+      const via =
+        target.source === 'app'
+          ? ' (the app on this machine)'
+          : target.source === 'local'
+            ? ' (local data directory, the app is not serving)'
+            : '';
+      console.log(`Agent Nekko, ${target.url ?? dataDir()}${via}`);
       console.log(`Providers: ${s.providers.map((p) => `${p.label} (${p.id})`).join(', ') || 'none'}`);
       console.log(`Default model: ${s.defaultModelId ?? '-'}`);
       console.log(`Workspaces: ${s.workspaces.map((w) => w.name).join(', ') || 'none'}`);

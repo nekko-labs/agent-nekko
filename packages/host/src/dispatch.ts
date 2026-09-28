@@ -177,8 +177,8 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.connectorFetch]: ([kind, query]) => host.fetchConnector(kind, query),
 
     [C.integrationsDetect]: () => host.detectAgentTools(),
-    [C.integrationsInstall]: ([tool]) => host.installSubagent(tool),
-    [C.integrationsSnippet]: ([tool]) => host.subagentSnippet(tool),
+    [C.integrationsInstall]: ([tool, target]) => host.installSubagent(tool, target),
+    [C.integrationsSnippet]: ([tool, target]) => host.subagentSnippet(tool, target),
 
     [C.guardrailsClassify]: ([cmd]) => host.classifyCommand(cmd),
     [C.usageSummary]: () => host.usageSummary(),

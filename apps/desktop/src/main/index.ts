@@ -9,7 +9,11 @@ import { checkForUpdates } from './update.js';
 import { loadWindowBounds, saveWindowBounds } from './windowState.js';
 import { preservePackagedProfile } from './appIdentity.js';
 import { closeWorkflowLoopbackListener, manageWorkflowLoopbackListener } from './workflow-listener.js';
-import { closeApiServer, syncApiServer } from './api-server.js';
+import { closeApiServer } from './api-server.js';
+import { startLocalAccess, stopLocalAccess } from './local-access.js';
+
+/** Set once the host exists; marks the CLI link as not serving on quit. */
+let onQuitLocalAccess: (() => void) | null = null;
 import {
   TITLEBAR_HEIGHT,
   TITLEBAR_OVERLAY_CHANNEL,
@@ -288,10 +292,11 @@ app.whenReady().then(() => {
   const host = createHost({ dataDir });
   registerIpc(host);
   manageWorkflowLoopbackListener(host);
-  // Whatever the local API server was left switched on as, it comes back up
-  // with the app: a CLI or MCP client pointed at it should not need the window
-  // touched first.
-  syncApiServer(host);
+  // The local API server comes back up with the app (on by default), with the
+  // CLI linked and everything pointed at it refreshed: a CLI or MCP client
+  // should not need the window touched first.
+  startLocalAccess(app, host);
+  onQuitLocalAccess = () => stopLocalAccess(host);
   registerTitleBarOverlaySync();
   // A link that launched the app is already on this process's command line
   // (Windows/Linux); park it so the first load replays it.
@@ -320,4 +325,5 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   closeWorkflowLoopbackListener();
   closeApiServer();
+  onQuitLocalAccess?.();
 });
