@@ -1,0 +1,80 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
+import type { AskRequest } from '@agent-nekko/shared';
+import { QuestionCard } from './QuestionCard.js';
+
+const request: AskRequest = {
+  callId: 'call_1',
+  askedAt: 0,
+  questions: [
+    {
+      id: 'q1',
+      header: 'Auth method',
+      question: 'How should people sign in?',
+      options: [
+        { label: 'Magic link', description: 'Email a one-time link.' },
+        { label: 'Password', description: 'Classic email and password.' },
+      ],
+    },
+    {
+      id: 'q2',
+      header: 'Tests',
+      question: 'Which tests should it come with?',
+      options: [{ label: 'Unit' }, { label: 'End to end' }],
+      multiSelect: true,
+    },
+  ],
+};
+
+const html = (r: AskRequest = request) =>
+  renderToStaticMarkup(<QuestionCard request={r} onAnswer={() => {}} onSkip={() => {}} />);
+
+describe('QuestionCard', () => {
+  it('asks one question at a time rather than laying the whole form out', () => {
+    const out = html();
+    expect(out).toContain('>How should people sign in?<');
+    expect(out).toContain('Magic link');
+    // The second question is not laid out at all: its options are nowhere on
+    // the card, and it exists only as a progress dot you could jump back to.
+    expect(out).not.toContain('>Which tests should it come with?<');
+    expect(out).not.toContain('End to end');
+    expect(out).toContain('Question 2: Which tests should it come with?');
+  });
+
+  it('counts the steps so the card never feels open-ended', () => {
+    expect(html()).toContain('1 of 2');
+  });
+
+  it('advances rather than sending while questions are left', () => {
+    const out = html();
+    expect(out).toContain('>Skip<');
+    expect(out).not.toContain('Send answer');
+  });
+
+  it('sends outright when there is only one question, and offers no Back', () => {
+    const out = html({ ...request, questions: [request.questions[0]!] });
+    expect(out).toContain('Send answer');
+    expect(out).not.toContain('>Back<');
+    expect(out).toContain('1 question');
+  });
+
+  it('keeps descriptions on the card instead of hiding them in a tooltip', () => {
+    // A wrapped grid of chips had to drop them to fit; a vertical list has room.
+    expect(html()).toContain('Email a one-time link.');
+  });
+
+  it('says which shape the answer takes, so checkboxes never read as radios', () => {
+    const out = html();
+    expect(out).toContain('pick one');
+    expect(out).toContain('role="radio"');
+
+    const multi = html({ ...request, questions: [request.questions[1]!] });
+    expect(multi).toContain('pick any');
+    expect(multi).toContain('role="checkbox"');
+  });
+
+  it('always offers an answer that is not on the list', () => {
+    expect(html()).toContain('Something else');
+  });
+});

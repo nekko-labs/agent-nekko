@@ -101,6 +101,63 @@ describe('LimitsService header capture', () => {
     });
   });
 
+  it('keeps a per-model window the response headers say nothing about', () => {
+    // Why the Fable limit "did not show up": the usage poll discovers
+    // `7d_fable`, but a response's rate-limit headers only carry the windows
+    // that request was billed against (`5h`, `7d`). Replacing the window list
+    // with the header list therefore deleted the per-model windows on the very
+    // next message, so the limit appeared once and then vanished.
+    initLimits(new EventEmitter());
+    const tokenKey = 'claude:acct-fable-merge';
+
+    const polled = recordFromHeaders(
+      tokenKey,
+      'anthropic',
+      new Headers({
+        'anthropic-ratelimit-unified-7d_fable-utilization': '0.42',
+        'anthropic-ratelimit-unified-7d_fable-reset': '1850000000',
+        'anthropic-ratelimit-unified-7d_fable-status': 'allowed',
+      }),
+    );
+    expect(polled!.windows.map((w) => w.id)).toEqual(['7d_fable']);
+
+    // A later turn reports only the account-wide windows.
+    const after = recordFromHeaders(
+      tokenKey,
+      'anthropic',
+      new Headers({
+        'anthropic-ratelimit-unified-5h-utilization': '0.20',
+        'anthropic-ratelimit-unified-5h-reset': '1800000000',
+        'anthropic-ratelimit-unified-7d-utilization': '0.10',
+        'anthropic-ratelimit-unified-7d-reset': '1900000000',
+      }),
+    );
+
+    expect(after!.windows.map((w) => w.id)).toEqual(['5h', '7d', '7d_fable']);
+    expect(after!.windows.find((w) => w.id === '7d_fable')).toMatchObject({
+      label: '7-day Fable',
+      usedPercent: 42,
+    });
+  });
+
+  it('lets a fresher header window replace its older namesake', () => {
+    initLimits(new EventEmitter());
+    const tokenKey = 'claude:acct-window-refresh';
+
+    recordFromHeaders(tokenKey, 'anthropic', new Headers({
+      'anthropic-ratelimit-unified-5h-utilization': '0.20',
+      'anthropic-ratelimit-unified-5h-reset': '1800000000',
+    }));
+    const after = recordFromHeaders(tokenKey, 'anthropic', new Headers({
+      'anthropic-ratelimit-unified-5h-utilization': '0.80',
+      'anthropic-ratelimit-unified-5h-reset': '1800000000',
+      'anthropic-ratelimit-unified-5h-status': 'warning',
+    }));
+
+    expect(after!.windows).toHaveLength(1);
+    expect(after!.windows[0]).toMatchObject({ id: '5h', usedPercent: 80, status: 'warning' });
+  });
+
   it('normalizes rate_limited and rejected statuses', () => {
     initLimits(new EventEmitter());
     const headers = new Headers({

@@ -131,6 +131,7 @@ export const IpcChannels = {
   workspaceIndexStatus: 'workspace:indexStatus',
   workspaceSearch: 'workspace:search',
   workspaceFiles: 'workspace:files',
+  workspaceGitStatus: 'workspace:gitStatus',
 
   fileRead: 'file:read',
   fileWrite: 'file:write',
@@ -484,6 +485,13 @@ export interface NekkoApi {
   getIndexStatus(id: string): Promise<IndexStatus | null>;
   searchWorkspace(id: string, query: string): Promise<SearchHit[]>;
   listFiles(id: string): Promise<IndexedFile[]>;
+  /**
+   * Which branch a workspace folder is on, how dirty it is, and how far it has
+   * drifted from its upstream. A folder that is not a repository answers
+   * `repo: false` rather than failing. Cached host-side, so polling it per
+   * sidebar card is cheap; pass `force` to bypass that cache.
+   */
+  getGitStatus(id: string, force?: boolean): Promise<import('./workspace.js').GitStatus>;
 
   /** Read a file as text (for the in-app viewer/editor). */
   readFile(path: string): Promise<FileContent>;

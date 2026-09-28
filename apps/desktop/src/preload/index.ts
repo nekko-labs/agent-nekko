@@ -135,6 +135,7 @@ const api: NekkoApi = {
   getIndexStatus: (id) => inv(IpcChannels.workspaceIndexStatus, id),
   searchWorkspace: (id, query) => inv(IpcChannels.workspaceSearch, id, query),
   listFiles: (id) => inv(IpcChannels.workspaceFiles, id),
+  getGitStatus: (id, force) => inv(IpcChannels.workspaceGitStatus, id, force),
 
   readFile: (path) => inv(IpcChannels.fileRead, path),
   writeFile: (path, content) => inv(IpcChannels.fileWrite, path, content),

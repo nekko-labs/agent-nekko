@@ -371,6 +371,7 @@ function makeWebClient(): NekkoApi {
     getIndexStatus: (id) => call(IpcChannels.workspaceIndexStatus, id),
     searchWorkspace: (id, query) => call(IpcChannels.workspaceSearch, id, query),
     listFiles: (id) => call(IpcChannels.workspaceFiles, id),
+    getGitStatus: (id, force) => call(IpcChannels.workspaceGitStatus, id, force),
 
     readFile: (path) => call(IpcChannels.fileRead, path),
     writeFile: (path, content) => call(IpcChannels.fileWrite, path, content),

@@ -185,6 +185,86 @@ function firstLine(output: string): string {
 }
 
 /**
+ * The verb each builtin tool is doing, for the few-word status line.
+ *
+ * A tool's name is what it is called, not what it is doing: "read_file" under a
+ * spinner reads as jargon where "Reading ChatPane.tsx" reads as a sentence. An
+ * unlisted tool (an MCP one) falls back to its own name, which is still better
+ * than a generic word that could mean anything.
+ */
+const TOOL_VERBS: Record<string, string> = {
+  read_file: 'Reading',
+  write_file: 'Writing',
+  edit_file: 'Editing',
+  glob: 'Finding',
+  grep: 'Searching',
+  list_dir: 'Listing',
+  bash: 'Running',
+  spawn_agent: 'Delegating',
+  ask_user: 'Asking',
+  web_search: 'Searching',
+  fetch_url: 'Fetching',
+  update_plan: 'Planning',
+  report_experiment: 'Recording',
+  report_artifact: 'Recording',
+};
+
+/** Words kept in the short status. Five is the brief; the sixth is noise. */
+const SHORT_STATUS_WORDS = 5;
+
+/** The tail of a path, so a status says the file rather than its whole route. */
+function shortTarget(detail: string): string {
+  const first = detail.trim().split(/\s+/)[0] ?? '';
+  // A path becomes its last segment; anything else is left as written, because
+  // trimming a shell command at a slash would change what it says.
+  if (/[\\/]/.test(first) && !first.includes(' ')) {
+    const leaf = first.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+    if (leaf) return leaf;
+  }
+  return first;
+}
+
+/** Cut to at most `words` words, without an ellipsis: this is a label, not prose. */
+function firstWords(text: string, words = SHORT_STATUS_WORDS): string {
+  const parts = text.trim().split(/\s+/).filter(Boolean);
+  return parts.slice(0, words).join(' ');
+}
+
+/**
+ * What the agent is doing right now, in a few words, present tense.
+ *
+ * This is the line under a streaming reply, and it replaced a hardcoded
+ * "Streaming" that was true of every turn and therefore told you nothing. The
+ * order is what the agent is *doing*, not what it last did: a running tool wins,
+ * because that is where the time is going; then a thought in progress; then the
+ * narration it is writing. Deliberately short enough not to reflow the line as
+ * it changes.
+ */
+export function shortLiveStatus(a: LiveActivity | undefined): string {
+  if (!a) return '';
+
+  const last = a.steps[a.steps.length - 1];
+  if (last?.kind === 'tool' && last.status === 'running') {
+    const verb = TOOL_VERBS[last.label] ?? last.label;
+    const target = shortTarget(last.detail ?? '');
+    // The verb is one word, so the target gets the rest of the budget.
+    return target ? firstWords(`${verb} ${target}`, SHORT_STATUS_WORDS) : verb;
+  }
+
+  if (a.thinking.trim()) return 'Thinking';
+  if (a.tail.trim()) return 'Writing reply';
+
+  // Between steps: name what just finished, so the line never goes blank
+  // mid-turn and then reappears.
+  if (last?.kind === 'tool') {
+    const verb = TOOL_VERBS[last.label] ?? last.label;
+    return last.status === 'error' ? `${verb} failed` : `${verb} done`;
+  }
+  if (last) return 'Working';
+  return 'Starting';
+}
+
+/**
  * The one line a card shows when there is no room for the rail: what the agent
  * is doing at this instant, in the present tense.
  */

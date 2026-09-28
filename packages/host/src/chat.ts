@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
-import { ASK_CANCELLED, EFFORT_TEMPERATURE, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest } from '@agent-nekko/shared';
+import { ASK_CANCELLED, EFFORT_TEMPERATURE, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -143,19 +143,47 @@ function collectGuidelines(): Array<{ path: string; content: string }> {
   const out: Array<{ path: string; content: string }> = [];
   const names = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', 'GEMINI.md'];
   for (const w of settings.workspaces) {
+    const found: Array<{ path: string; name: string; content: string }> = [];
     for (const n of names) {
       if (!isGuidelineFile(n)) continue;
       const p = join(w.path, n);
-      if (existsSync(p)) {
-        try {
-          out.push({ path: p, content: readFileSync(p, 'utf8').slice(0, 20000) });
-        } catch {
-          /* skip */
-        }
+      if (!existsSync(p)) continue;
+      try {
+        found.push({ path: p, name: n, content: readFileSync(p, 'utf8').slice(0, 20000) });
+      } catch {
+        /* skip */
       }
+    }
+    for (const f of found) {
+      // A file that only redirects to another guideline in the same folder is
+      // not guidance, it is a signpost for whichever tool reads that name.
+      // `CLAUDE.md` saying "see AGENTS.md" is the common arrangement, and
+      // loading it put the same instructions in the window twice and drew two
+      // Guidelines sections in the inspector.
+      if (found.length > 1 && isPointerTo(f, found)) continue;
+      // A verbatim copy of a guideline already taken is the other way the same
+      // duplication happens: the file is real, but its content is not new.
+      if (out.some((o) => o.content.trim() === f.content.trim())) continue;
+      out.push({ path: f.path, content: f.content });
     }
   }
   return out;
+}
+
+/**
+ * Whether a guideline file is just a pointer at one of its siblings.
+ *
+ * Short, and naming another guideline that is actually present beside it. Both
+ * halves matter: length alone would drop a genuinely terse `.cursorrules`, and
+ * a mention alone would drop a long document that merely cites `AGENTS.md`.
+ */
+export function isPointerTo(
+  file: { name: string; content: string },
+  siblings: Array<{ name: string }>,
+): boolean {
+  const body = file.content.trim();
+  if (body.length > 600) return false;
+  return siblings.some((s) => s.name !== file.name && body.includes(s.name));
 }
 
 function collectAttached(paths: string[]): Array<{ path: string; content: string }> {
@@ -200,20 +228,8 @@ async function collectConnectorSnippets(
   return Array.isArray(settled) ? settled.flat() : [];
 }
 
-/**
- * Best-effort context window for the headroom bar, from the model id (no network
- * call). Falls back to a safe 128k when the family is unknown.
- */
-function modelContextWindow(modelId?: string): number {
-  const id = (modelId ?? '').toLowerCase();
-  if (!id) return 128_000;
-  if (id.includes('claude')) return 200_000;
-  if (id.includes('gemini')) return 1_000_000;
-  if (id.includes('gpt-4.1') || id.includes('o3') || id.includes('o4')) return 200_000;
-  if (id.includes('gpt-4o') || id.includes('gpt-4') || id.includes('gpt-3.5')) return 128_000;
-  if (id.includes('llama') || id.includes('qwen') || id.includes('mistral')) return 128_000;
-  return 128_000;
-}
+/** Context window for the headroom bar, from the model id (see guessContextWindow). */
+const modelContextWindow = guessContextWindow;
 
 /** Build the context bundle for the Context Inspector preview (no model call). */
 export async function previewContext(sessionId: string, attachedPaths: string[]): Promise<ContextBundle> {
@@ -226,7 +242,7 @@ export async function previewContext(sessionId: string, attachedPaths: string[])
     contextBlock: '',
     platform: process.platform,
   });
-  return assembleContext({
+  const { contents: _contents, ...preview } = assembleContext({
     attached: collectAttached([...(session?.attachedPaths ?? []), ...attachedPaths]),
     guidelines: collectGuidelines(),
     memory: [
@@ -235,12 +251,17 @@ export async function previewContext(sessionId: string, attachedPaths: string[])
     ],
     connectorSnippets: !session || session.offline ? [] : await collectConnectorSnippets(),
     indexSnippets: [],
-    history: (session?.messages ?? []).map((m) => ({ role: m.role, content: m.content })),
+    // The whole message, not just its text: reasoning and tool traffic are
+    // replayed to the model too, and on a long run they are most of the window.
+    history: session?.messages ?? [],
     systemText,
     contextWindow: modelContextWindow(session?.modelId),
     excluded: new Set(session?.contextPrefs?.excluded ?? []),
     pinned: new Set(session?.contextPrefs?.pinned ?? []),
   });
+  // The inspector draws previews; the full text of every attached file stays
+  // host-side rather than crossing IPC on every refresh.
+  return preview;
 }
 
 /** Persist the user's include/pin choices for a session. */
@@ -439,9 +460,10 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
     excluded: new Set(session.contextPrefs?.excluded ?? []),
     pinned: new Set(session.contextPrefs?.pinned ?? []),
   });
-  const contents = new Map<string, string>();
-  for (const item of bundle.items) contents.set(item.id, item.preview);
-  const contextBlock = renderContextBlock(bundle, contents);
+  // The real text of each item, not its 160-character preview. Rendering the
+  // block from previews is what made an attached file arrive at the model as a
+  // single truncated line while the inspector reported its full token cost.
+  const contextBlock = renderContextBlock(bundle, bundle.contents ?? new Map());
 
   const system = buildSystemPrompt({
     workspaces: settings.workspaces,
@@ -583,7 +605,7 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
                 sessionId: opts.sessionId,
               });
         },
-        temperature: EFFORT_TEMPERATURE[settings.effort ?? 'normal'],
+        temperature: EFFORT_TEMPERATURE[effectiveEffort(settings.effort, opts.modelId)],
         effort: settings.effort ?? 'normal',
         maxIterations: clampMaxSteps(settings.maxSteps),
         maxOutputTokens: clampMaxOutputTokens(settings.maxOutputTokens),

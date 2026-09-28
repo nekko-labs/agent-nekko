@@ -139,13 +139,23 @@ export function recordFromHeaders(
   if (parsed.windows.length === 0) {
     return get(tokenKey);
   }
-  // Merge rather than replace. The rate-limit headers report windows and nothing
-  // else, so writing them over the snapshot dropped the plan and credit figures
-  // the usage endpoint had supplied: the popover showed them once and then lost
-  // them the moment the user sent a message.
+  // Merge rather than replace, windows included. The rate-limit headers report
+  // windows and nothing else, so writing them over the snapshot dropped the plan
+  // and credit figures the usage endpoint had supplied: the popover showed them
+  // once and then lost them the moment the user sent a message.
+  //
+  // The window list needs the same treatment, and for the same reason. A single
+  // response only carries headers for the windows that response was billed
+  // against, typically `5h` and `7d`; the per-model windows (`7d_fable`,
+  // `7d_opus`) only ever come from the usage endpoint. Taking the header list
+  // wholesale therefore deleted every per-model window the poll had discovered,
+  // which is why the Fable limit appeared after a poll and then vanished on the
+  // next message. Header windows are newer for the windows they mention, so they
+  // win per id, and windows they say nothing about are carried forward.
   const previous = get(tokenKey);
   const limits: SubscriptionLimits = {
     ...parsed,
+    windows: mergeWindows(previous?.windows ?? [], parsed.windows),
     planType: previous?.planType,
     creditsBalance: previous?.creditsBalance,
     creditsState: previous?.creditsState,
@@ -333,6 +343,21 @@ function parseAnthropicHeaders(
   }
 
   return { windows: sortWindows(windows), updatedAt: Date.now(), staleAfterMs: HEADER_STALE_MS };
+}
+
+/**
+ * Combine a previous window list with a fresher one, by window id.
+ *
+ * Neither source is complete on its own: the usage endpoint reports every
+ * window including the per-model ones, while a response's rate-limit headers
+ * only mention the windows that request was billed against. So a fresh window
+ * replaces its older namesake, and a window the fresh source is simply silent
+ * about survives rather than being read as "gone".
+ */
+export function mergeWindows(previous: LimitWindow[], fresh: LimitWindow[]): LimitWindow[] {
+  const byId = new Map(previous.map((w) => [w.id, w]));
+  for (const w of fresh) byId.set(w.id, w);
+  return sortWindows([...byId.values()]);
 }
 
 /**

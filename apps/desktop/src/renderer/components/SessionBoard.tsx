@@ -319,7 +319,13 @@ function SessionCard({
           in this lane, and answering it here is the whole point of the board. */}
       {pending?.question ? (
         <div className="mt-2">
-          <QuestionCard request={pending.question} onAnswer={answer} onSkip={() => answer([])} compact />
+          <QuestionCard
+            key={pending.question.callId}
+            request={pending.question}
+            onAnswer={answer}
+            onSkip={() => answer([])}
+            compact
+          />
         </div>
       ) : pending?.approval ? (
         <ApprovalRow

@@ -25,6 +25,7 @@ import type {
   IndexStatus,
   SearchHit,
   IndexedFile,
+  GitStatus,
   DirEntry,
   FileContent,
   FileChange,
@@ -101,6 +102,7 @@ import * as memory from './memory.js';
 import { usageSummary, clearUsage } from './usage.js';
 import { indexWorkspace, getIndexStatus, searchWorkspace, listIndexedFiles } from './workspace.js';
 import { readFile, writeFile, listDir } from './files.js';
+import { getGitStatus } from './git.js';
 import { listChanges, acceptChange, acceptAllChanges, setChangeNotifier } from './changes.js';
 import { listSessionPrs, getPrDiff, prAction } from './pr.js';
 import { listComments, addComment, resolveComment } from './comments.js';
@@ -325,6 +327,8 @@ export interface Host {
   getIndexStatus(id: string): IndexStatus | null;
   searchWorkspace(id: string, query: string): SearchHit[];
   listFiles(id: string): IndexedFile[];
+  /** Branch, dirt, and upstream drift for a workspace folder (see git.ts). */
+  getGitStatus(id: string, force?: boolean): Promise<GitStatus>;
 
   readFile(path: string): FileContent;
   writeFile(path: string, content: string): void;
@@ -752,6 +756,7 @@ export function createHost(opts: { dataDir: string }): Host {
       return folder ? searchWorkspace(folder, query) : [];
     },
     listFiles: listIndexedFiles,
+    getGitStatus,
     readFile,
     writeFile,
     listDir,

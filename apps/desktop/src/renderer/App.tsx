@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useStore, viewEnabled, type View } from './store.js';
+import { startLiveRuns } from './liveRuns.js';
 import { useT } from './i18n.js';
 import { SHORTCUTS } from './shortcuts.js';
 import { hasAppChrome } from './chrome.js';
@@ -69,6 +70,11 @@ export function App() {
   useEffect(() => {
     if (!viewEnabled(view, settings)) setView('command');
   }, [view, settings, setView]);
+
+  // Fold every running turn for the whole app, not just the visible one. A chat
+  // pane is a view of this; without it, switching workspaces unmounted the only
+  // listener and the run's output went nowhere until the next event arrived.
+  useEffect(() => startLiveRuns(), []);
 
   useEffect(() => {
     refreshSettings();

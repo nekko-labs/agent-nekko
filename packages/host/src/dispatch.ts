@@ -113,6 +113,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.workspaceIndexStatus]: ([id]) => host.getIndexStatus(id),
     [C.workspaceSearch]: ([id, q]) => host.searchWorkspace(id, q),
     [C.workspaceFiles]: ([id]) => host.listFiles(id),
+    [C.workspaceGitStatus]: ([id, force]) => host.getGitStatus(id, force),
 
     [C.fileRead]: ([p]) => host.readFile(p),
     [C.fileWrite]: ([p, content]) => host.writeFile(p, content),

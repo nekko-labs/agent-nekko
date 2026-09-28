@@ -32,9 +32,71 @@ export interface ContextBundle {
   totalTokens: number;
   /** Model context window for the headroom bar. */
   contextWindow?: number;
+  /**
+   * The full text behind each item, keyed by item id.
+   *
+   * Separate from `preview`, which is a 160-character display string: rendering
+   * the prompt from previews truncated every attached file and guideline to 160
+   * characters while reporting the token count of the whole thing. Optional
+   * because this crosses the IPC boundary to the renderer, which only needs the
+   * previews and should not be shipped every attached file to draw a list.
+   */
+  contents?: Map<string, string>;
 }
 
 /** Rough token estimate: ~4 chars per token. */
 export function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4));
+}
+
+/**
+ * One stored message, as far as the window is concerned. Structurally a subset
+ * of `ChatMessage`, so stored messages pass straight in.
+ */
+export interface HistoryMessage {
+  role: string;
+  content: string;
+  reasoning?: string;
+  toolCalls?: Array<{ name?: string; input?: unknown }>;
+  /** A tool's output, under the field name `ToolResult` actually uses. */
+  toolResult?: { output?: string };
+}
+
+/**
+ * Everything one stored message contributes to the next prompt.
+ *
+ * The transcript is replayed to the model in full, so a turn costs its text
+ * plus whatever else it carries: the reasoning the provider streamed, the
+ * arguments of every tool it called, and the output those tools returned. On a
+ * long agentic run those dwarf the prose, which is why counting `content` alone
+ * made a heavily-worked chat report a few thousand tokens.
+ */
+export function historyText(m: HistoryMessage): string {
+  const parts: string[] = [m.content ?? ''];
+  if (m.reasoning) parts.push(m.reasoning);
+  for (const call of m.toolCalls ?? []) {
+    parts.push(call.name ?? '');
+    // Arguments are serialized on the wire, so their JSON is what occupies the
+    // window rather than the object.
+    if (call.input !== undefined) parts.push(safeJson(call.input));
+  }
+  const result = m.toolResult?.output;
+  if (result) parts.push(result);
+  return parts.filter(Boolean).join('\n');
+}
+
+/** Estimated tokens a transcript occupies when replayed to the model. */
+export function estimateTranscriptTokens(messages: HistoryMessage[]): number {
+  if (messages.length === 0) return 0;
+  return estimateTokens(messages.map(historyText).join('\n'));
+}
+
+/** JSON for token counting. A value that cannot be serialized (a cycle) still
+ *  has a size, so it falls back to its loose string form. */
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? '';
+  } catch {
+    return String(value);
+  }
 }
