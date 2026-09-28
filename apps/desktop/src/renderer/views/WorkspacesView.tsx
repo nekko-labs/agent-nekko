@@ -455,6 +455,7 @@ export function WorkspacesView() {
                   )}
                   {items.map((w) => {
                     const s = sessionOf(w);
+                    const kids = s ? childrenOf.get(s.id) ?? [] : [];
                     return (
                       <div
                         key={w.id}
@@ -472,11 +473,12 @@ export function WorkspacesView() {
                           status={s ? statuses.get(s.id) : undefined}
                           isActive={w.id === active?.id}
                           projects={settings?.workspaces ?? []}
+                          subAgentCount={kids.length}
                           onOpen={() => setActiveWorkspace(w.id)}
                           onClose={() => closeWorkspace(w.id)}
                         />
                         {/* Sub-agents this chat spawned, one line each. */}
-                        {(s ? childrenOf.get(s.id) ?? [] : []).map((kid) => (
+                        {kids.map((kid) => (
                           <SubAgentRow
                             key={kid.id}
                             session={kid}

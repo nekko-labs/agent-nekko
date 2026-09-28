@@ -113,6 +113,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.workspaceIndexStatus]: ([id]) => host.getIndexStatus(id),
     [C.workspaceSearch]: ([id, q]) => host.searchWorkspace(id, q),
     [C.workspaceFiles]: ([id]) => host.listFiles(id),
+    [C.workspaceGitStatus]: ([id, force]) => host.getGitStatus(id, force),
 
     [C.fileRead]: ([p]) => host.readFile(p),
     [C.fileWrite]: ([p, content]) => host.writeFile(p, content),
@@ -176,8 +177,8 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.connectorFetch]: ([kind, query]) => host.fetchConnector(kind, query),
 
     [C.integrationsDetect]: () => host.detectAgentTools(),
-    [C.integrationsInstall]: ([tool]) => host.installSubagent(tool),
-    [C.integrationsSnippet]: ([tool]) => host.subagentSnippet(tool),
+    [C.integrationsInstall]: ([tool, target]) => host.installSubagent(tool, target),
+    [C.integrationsSnippet]: ([tool, target]) => host.subagentSnippet(tool, target),
 
     [C.guardrailsClassify]: ([cmd]) => host.classifyCommand(cmd),
     [C.usageSummary]: () => host.usageSummary(),

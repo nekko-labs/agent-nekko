@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { detectAgentTools, installSubagent, subagentSnippet } from './integrations.js';
+import { detectAgentTools, installSubagent, isOwnEntry, refreshSubagent, subagentSnippet } from './integrations.js';
 
 /**
  * Subagent installs always run against a throwaway HOME here - the tests must
@@ -185,5 +185,60 @@ describe('agent-tool detection and subagent install', () => {
     }
     expect(subagentSnippet('codex').snippet).toContain('[mcp_servers.agent-nekko]');
     expect(subagentSnippet('claude').snippet).toContain('"mcpServers"');
+  });
+});
+
+describe('refreshing entries this app wrote', () => {
+  let home: string;
+  const target = { url: 'http://127.0.0.1:1439', token: 'fresh', command: '/opt/nekko/bin/agent-nekko' };
+
+  beforeEach(() => {
+    home = mkdtempSync(join(tmpdir(), 'nekko-refresh-'));
+    mkdirSync(join(home, '.claude'));
+  });
+
+  it('recognises only its own entries', () => {
+    expect(isOwnEntry('npx', ['-y', 'agent-nekko', 'mcp'])).toBe(true);
+    expect(isOwnEntry(String.raw`C:\Users\me\AppData\Roaming\Agent Nekko\bin\agent-nekko.cmd`, ['mcp'])).toBe(true);
+    expect(isOwnEntry('node', ['C:/code/agent-nekko/apps/cli/dist/index.js', 'mcp'])).toBe(false);
+    expect(isOwnEntry(undefined)).toBe(false);
+  });
+
+  it('re-points an npx entry at the running app', () => {
+    writeFileSync(
+      join(home, '.claude.json'),
+      JSON.stringify({ mcpServers: { 'agent-nekko': { command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] } } }),
+    );
+    expect(refreshSubagent('claude', home, target)).toBe(true);
+    const cfg = JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8'));
+    expect(cfg.mcpServers['agent-nekko']).toEqual({
+      command: '/opt/nekko/bin/agent-nekko',
+      args: ['mcp'],
+      env: { NEKKO_URL: 'http://127.0.0.1:1439', NEKKO_TOKEN: 'fresh' },
+    });
+    // Already current: nothing is rewritten a second time.
+    expect(refreshSubagent('claude', home, target)).toBe(false);
+  });
+
+  it('never touches an entry someone wrote by hand', () => {
+    const own = { command: 'node', args: ['C:/code/agent-nekko/apps/cli/dist/index.js', 'mcp'] };
+    writeFileSync(join(home, '.claude.json'), JSON.stringify({ mcpServers: { 'agent-nekko': own } }));
+    expect(refreshSubagent('claude', home, target)).toBe(false);
+    expect(JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8')).mcpServers['agent-nekko']).toEqual(own);
+  });
+
+  it('rewrites a stale Codex section in place, keeping the rest of the file', () => {
+    mkdirSync(join(home, '.codex'));
+    const file = join(home, '.codex', 'config.toml');
+    writeFileSync(
+      file,
+      'model = "o4"\n\n[mcp_servers.agent-nekko]\ncommand = "npx"\nargs = ["-y", "agent-nekko", "mcp"]\n\n[profiles.fast]\nmodel = "mini"\n',
+    );
+    expect(refreshSubagent('codex', home, target)).toBe(true);
+    const text = readFileSync(file, 'utf8');
+    expect(text).toContain('command = "/opt/nekko/bin/agent-nekko"');
+    expect(text).toContain('NEKKO_TOKEN = "fresh"');
+    expect(text).toContain('[profiles.fast]');
+    expect(text.match(/\[mcp_servers\.agent-nekko\]/g)).toHaveLength(1);
   });
 });

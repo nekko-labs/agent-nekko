@@ -25,6 +25,7 @@ import type {
   IndexStatus,
   SearchHit,
   IndexedFile,
+  GitStatus,
   DirEntry,
   FileContent,
   FileChange,
@@ -55,6 +56,7 @@ import type {
   AgentToolStatus,
   SubagentInstallResult,
   SubagentSnippet,
+  SubagentTarget,
   GuardrailDecision,
   UsageSummary,
   RemoteStatus,
@@ -101,6 +103,7 @@ import * as memory from './memory.js';
 import { usageSummary, clearUsage } from './usage.js';
 import { indexWorkspace, getIndexStatus, searchWorkspace, listIndexedFiles } from './workspace.js';
 import { readFile, writeFile, listDir } from './files.js';
+import { getGitStatus } from './git.js';
 import { listChanges, acceptChange, acceptAllChanges, setChangeNotifier } from './changes.js';
 import { listSessionPrs, getPrDiff, prAction } from './pr.js';
 import { listComments, addComment, resolveComment } from './comments.js';
@@ -169,7 +172,7 @@ import {
 } from './oauth.js';
 import { buildSpec, buildSpecDoc, readSpecDocs, setSpecMethodology, toggleSpecTask, specPathForSession } from './spec.js';
 import { createRemoteService } from './remote.js';
-import { detectAgentTools, installSubagent, subagentSnippet } from './integrations.js';
+import { detectAgentTools, installSubagent, refreshSubagent, subagentSnippet } from './integrations.js';
 import { getGpuStats, getGpuStatsFresh } from './gpu.js';
 import { getSystemStats } from './system.js';
 import { stopLocalServer } from './servers.js';
@@ -325,6 +328,8 @@ export interface Host {
   getIndexStatus(id: string): IndexStatus | null;
   searchWorkspace(id: string, query: string): SearchHit[];
   listFiles(id: string): IndexedFile[];
+  /** Branch, dirt, and upstream drift for a workspace folder (see git.ts). */
+  getGitStatus(id: string, force?: boolean): Promise<GitStatus>;
 
   readFile(path: string): FileContent;
   writeFile(path: string, content: string): void;
@@ -406,10 +411,21 @@ export interface Host {
 
   /** Which agent CLIs are present and whether Nekko is installed as a subagent. */
   detectAgentTools(): AgentToolStatus[];
-  /** Merge the agent-nekko MCP entry into a tool's config (backs up first). */
-  installSubagent(tool: AgentToolId): SubagentInstallResult;
-  /** The manual copy-paste config for a tool. */
-  subagentSnippet(tool: AgentToolId): SubagentSnippet;
+  /**
+   * Merge the agent-nekko MCP entry into a tool's config (backs up first).
+   *
+   * `target` points the entry at a running local server (URL, token, and the
+   * CLI the app installed). The desktop transport fills it in; without it the
+   * entry is the portable `npx` form, which starts its own agent.
+   */
+  installSubagent(tool: AgentToolId, target?: SubagentTarget): SubagentInstallResult;
+  /** The manual copy-paste config for a tool, pointed at the same target. */
+  subagentSnippet(tool: AgentToolId, target?: SubagentTarget): SubagentSnippet;
+  /**
+   * Re-point an entry this app wrote at `target`; hand-written entries are left
+   * alone. Transport-local callers only (not an IPC channel). See integrations.ts.
+   */
+  refreshSubagent(tool: AgentToolId, target?: SubagentTarget): boolean;
 
   classifyCommand(command: string): GuardrailDecision;
   usageSummary(): UsageSummary;
@@ -752,6 +768,7 @@ export function createHost(opts: { dataDir: string }): Host {
       return folder ? searchWorkspace(folder, query) : [];
     },
     listFiles: listIndexedFiles,
+    getGitStatus,
     readFile,
     writeFile,
     listDir,
@@ -827,8 +844,9 @@ export function createHost(opts: { dataDir: string }): Host {
     },
 
     detectAgentTools: () => detectAgentTools(),
-    installSubagent: (tool) => installSubagent(tool),
-    subagentSnippet: (tool) => subagentSnippet(tool),
+    installSubagent: (tool, target) => installSubagent(tool, undefined, target),
+    subagentSnippet: (tool, target) => subagentSnippet(tool, target),
+    refreshSubagent: (tool, target) => refreshSubagent(tool, undefined, target),
 
     classifyCommand: (command) => classifyCommand(command, getSettings().guardrails),
     usageSummary,

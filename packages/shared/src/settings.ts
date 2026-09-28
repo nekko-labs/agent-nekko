@@ -37,13 +37,21 @@ export const DEFAULT_PROMPTS: PromptTemplate[] = [
  * How hard the model should work on a turn. Providers translate this to their
  * own knob: a sampling temperature on models that still take one, and
  * `output_config.effort` on the Claude models that dropped sampling.
+ *
+ * `low`/`medium`/`high`/`xhigh`/`max` are Anthropic's own rungs, sent as-is.
+ * `normal` means "the model's default" (`high` on most Claude models, `medium`
+ * on Opus 5.5, the balanced temperature elsewhere). Which rungs a model offers
+ * is `modelEffortLevels` in model-capabilities.ts.
  */
-export type EffortLevel = 'low' | 'normal' | 'high';
+export type EffortLevel = 'low' | 'medium' | 'normal' | 'high' | 'xhigh' | 'max';
 
 export const EFFORT_TEMPERATURE: Record<EffortLevel, number> = {
   low: 0.2,
+  medium: 0.5,
   normal: 0.7,
   high: 1.0,
+  xhigh: 1.0,
+  max: 1.0,
 };
 
 /**
@@ -94,7 +102,7 @@ export interface AppSettings {
   defaultModelId?: string;
   /** Show the mascot. */
   mascotEnabled: boolean;
-  /** Sampling effort (temperature). */
+  /** How hard the model works per turn (an effort rung or a temperature). */
   effort?: EffortLevel;
   /** Check for app updates automatically (desktop). */
   autoUpdate?: boolean;

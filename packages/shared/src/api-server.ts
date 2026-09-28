@@ -9,17 +9,40 @@
  * Claude Code over MCP, talks to *this* app rather than to a second copy of it
  * running on the same files.
  *
- * Off by default, and every default that follows is the safe one: loopback
- * only, a token required, and a token generated rather than left empty.
+ * On by default as of 0.8, because the CLI and the MCP entries are set up by
+ * the installer and both of them are useless pointed at a port nothing is
+ * listening on. Every *other* default is still the safe one: loopback only, a
+ * token required, and a token generated rather than left empty.
  */
+
+import { trimTrailingSlashes } from './trim.js';
+
+/** Where the server listens: a preset, or an interface typed by hand. */
+export type ApiServerBind = 'local' | 'lan' | 'custom';
 
 /** What the local API server is configured to do. */
 export interface ApiServerSettings {
   /** Serve on start-up and keep serving. */
   enabled: boolean;
   port: number;
-  /** `local` = 127.0.0.1 only. `lan` exposes it to the whole network. */
-  bind: 'local' | 'lan';
+  /**
+   * `local` = 127.0.0.1 only. `lan` exposes it to the whole network. `custom`
+   * binds whatever `host` names, for the machine with three interfaces and an
+   * opinion about which one this belongs on.
+   */
+  bind: ApiServerBind;
+  /** The interface to bind when `bind` is `custom`, e.g. `192.168.1.20`. */
+  host?: string;
+  /**
+   * The address clients are told to use, when it isn't the one being bound.
+   *
+   * Binding and advertising are the same thing right up until something sits
+   * in front: a container publishes 1439 under a different host, an SSH tunnel
+   * moves the port, Tailscale gives the machine a name. The server still binds
+   * `bind`/`port`; this is only what the CLI lines, the MCP config and the
+   * copy button hand out. Empty means "whatever is being bound".
+   */
+  advertisedUrl?: string;
   /**
    * Required as `Authorization: Bearer <token>` on every request. Never empty
    * while the server is enabled: an unauthenticated agent endpoint is a remote
@@ -42,6 +65,12 @@ export interface ApiServerStatus {
   url?: string;
   /** Why it is not up, when it was asked to be. */
   error?: string;
+  /**
+   * The address to hand to clients: the advertised one when set, otherwise the
+   * bound one. Present even while stopped, because the CLI and MCP blocks
+   * describe where the server *will* be.
+   */
+  clientUrl: string;
   /** Open event sockets right now, so "is anything connected" has an answer. */
   clients: number;
   /**
@@ -56,9 +85,14 @@ export interface ApiServerStatus {
 export const API_SERVER_PORT_DEFAULT = 1439;
 
 export const DEFAULT_API_SERVER_SETTINGS: ApiServerSettings = {
-  enabled: false,
+  // On by default since 0.8: the CLI and the MCP entries are installed with
+  // the app, and a CLI that only works once you have found a checkbox in
+  // Settings is a CLI that does not work. Loopback and token-only, as before.
+  enabled: true,
   port: API_SERVER_PORT_DEFAULT,
   bind: 'local',
+  host: '',
+  advertisedUrl: '',
   token: '',
 };
 
@@ -67,9 +101,38 @@ export function withApiServerDefaults(settings: Partial<ApiServerSettings> | und
   return { ...DEFAULT_API_SERVER_SETTINGS, ...settings };
 }
 
-/** The base URL a client should use for these settings. */
+/** The interface these settings bind: what `listen()` is handed. */
+export function apiServerBindHost(settings: ApiServerSettings): string {
+  if (settings.bind === 'lan') return '0.0.0.0';
+  if (settings.bind === 'custom') return settings.host?.trim() || '127.0.0.1';
+  return '127.0.0.1';
+}
+
+/**
+ * The base URL for the interface being bound.
+ *
+ * `0.0.0.0` is an interface, not an address anyone can dial, so a LAN bind is
+ * quoted as this machine's address when the caller knows it and as loopback
+ * otherwise, which at least works from here.
+ */
 export function apiServerUrl(settings: ApiServerSettings, host = '127.0.0.1'): string {
-  return `http://${settings.bind === 'lan' ? host : '127.0.0.1'}:${settings.port}`;
+  const bound = apiServerBindHost(settings);
+  const dialable = bound === '0.0.0.0' || bound === '::' ? host : bound;
+  // A bare IPv6 address needs brackets before a port can follow it.
+  const authority = dialable.includes(':') ? `[${dialable}]` : dialable;
+  return `http://${authority}:${settings.port}`;
+}
+
+/**
+ * The address to hand to clients: what the user advertised, else what is bound.
+ *
+ * Kept separate from `apiServerUrl` because the two genuinely differ behind a
+ * tunnel, a container port mapping, or a Tailscale name, and quoting the bound
+ * address there produces a CLI line that cannot reach anything.
+ */
+export function apiServerClientUrl(settings: ApiServerSettings, host = '127.0.0.1'): string {
+  const advertised = settings.advertisedUrl?.trim();
+  return advertised ? trimTrailingSlashes(advertised) : apiServerUrl(settings, host);
 }
 
 /**
@@ -86,6 +149,13 @@ export function apiServerRefusal(settings: ApiServerSettings): string | null {
   if (!settings.token.trim()) {
     return 'A token is required. Anything that can reach this port can otherwise run the agent.';
   }
+  if (settings.bind === 'custom' && !settings.host?.trim()) {
+    return 'Enter the address to bind, or pick one of the presets.';
+  }
+  const advertised = settings.advertisedUrl?.trim();
+  if (advertised && !/^https?:\/\/[^\s/]+/i.test(advertised)) {
+    return 'The address clients use must be a full URL, e.g. http://nekko.tailnet.ts.net:1439.';
+  }
   return null;
 }
 
@@ -94,19 +164,34 @@ export function apiServerEnvLines(url: string, token: string): string[] {
   return [`export NEKKO_URL=${url}`, `export NEKKO_TOKEN=${token}`];
 }
 
-/** The MCP entry other agent tools need, as the JSON they paste. */
-export function apiServerMcpConfig(url: string, token: string): string {
-  return JSON.stringify(
-    {
-      mcpServers: {
-        'agent-nekko': {
-          command: 'npx',
-          args: ['-y', 'agent-nekko', 'mcp'],
-          env: { NEKKO_URL: url, NEKKO_TOKEN: token },
-        },
-      },
-    },
-    null,
-    2,
-  );
+/** The same two, as Windows PowerShell sets them. */
+export function apiServerEnvLinesPowerShell(url: string, token: string): string[] {
+  return [`$env:NEKKO_URL = "${url}"`, `$env:NEKKO_TOKEN = "${token}"`];
+}
+
+/**
+ * The MCP entry other agent tools need, as the JSON they paste.
+ *
+ * `command` is the bundled CLI when the app knows where it put one, and `npx`
+ * otherwise: a machine that has Agent Nekko installed already has the CLI, and
+ * pointing at it means the entry works offline and with no npm registry round
+ * trip on every launch.
+ */
+export function apiServerMcpConfig(url: string, token: string, command?: string): string {
+  return JSON.stringify({ mcpServers: { 'agent-nekko': mcpServerEntry(url, token, command) } }, null, 2);
+}
+
+/** One tool's MCP server entry: the command to run and the env it needs. */
+export function mcpServerEntry(
+  url: string,
+  token: string,
+  command?: string,
+): { command: string; args: string[]; env?: Record<string, string> } {
+  const env: Record<string, string> = {};
+  if (url) env.NEKKO_URL = url;
+  if (token) env.NEKKO_TOKEN = token;
+  const base = command ? { command, args: ['mcp'] } : { command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] };
+  // No env at all rather than an empty one, so an entry with nothing to point
+  // at is byte-identical to the portable form tools already have.
+  return Object.keys(env).length ? { ...base, env } : base;
 }

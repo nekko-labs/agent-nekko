@@ -16,8 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "start": "electron-vite preview",
-    "dist": "electron-vite build && electron-builder",
-    "release": "electron-vite build && electron-builder --publish always"
+    "dist": "npm run build:app --prefix ../cli && electron-vite build && electron-builder",
+    "release": "npm run build:app --prefix ../cli && electron-vite build && electron-builder --publish always"
   },
   "dependencies": {
     "@agent-nekko/core": "*",

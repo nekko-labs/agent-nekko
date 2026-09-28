@@ -1,4 +1,5 @@
-import type { EffortLevel, ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import { claudeContextWindow, effectiveEffort, modelEffortLevels } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { parseSSE } from './sse.js';
 import { DecodeClock } from './decode-clock.js';
@@ -12,13 +13,14 @@ import { DecodeClock } from './decode-clock.js';
  * entry carries `availability` only when the catalog already knows the model
  * can't be served; live plan limits are layered on in the UI.
  */
-const CLAUDE_MODELS: Array<{ id: string; name: string; ctx: number; availability?: ModelAvailability }> = [
-  { id: 'claude-opus-5', name: 'Claude Opus 5', ctx: 200000 },
-  { id: 'claude-opus-4-8', name: 'Claude Opus 4.8', ctx: 200000 },
-  { id: 'claude-sonnet-5', name: 'Claude Sonnet 5', ctx: 200000 },
-  { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6', ctx: 200000 },
-  { id: 'claude-fable-5-1', name: 'Claude Fable 5.1', ctx: 200000 },
-  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5', ctx: 200000 },
+const CLAUDE_MODELS: Array<{ id: string; name: string; availability?: ModelAvailability }> = [
+  { id: 'claude-opus-5-5', name: 'Claude Opus 5.5' },
+  { id: 'claude-opus-5', name: 'Claude Opus 5' },
+  { id: 'claude-opus-4-8', name: 'Claude Opus 4.8' },
+  { id: 'claude-sonnet-5', name: 'Claude Sonnet 5' },
+  { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
+  { id: 'claude-fable-5-1', name: 'Claude Fable 5.1' },
+  { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
 ];
 
 /**
@@ -140,15 +142,18 @@ export function isSamplingParamError(status: number, body: string): 'temperature
 }
 
 /**
- * Our three effort levels in Anthropic's five. `normal` maps to `high` because
- * that is the API's own default: picking `medium` for it would quietly make
- * every Claude chat think less than it did before this mapping existed.
+ * The effort rung to send. The setting already speaks Anthropic's ladder;
+ * `normal` resolves to the model's own default (`medium` on Opus 5.5, `high`
+ * elsewhere), and a rung the model does not have is never sent: a model that
+ * reached the effort shape only by retry (a 4.6 that rejected its temperature)
+ * falls back to `high` rather than to a 400 on `xhigh`.
  */
-const ANTHROPIC_EFFORT: Record<EffortLevel, 'low' | 'high' | 'max'> = {
-  low: 'low',
-  normal: 'high',
-  high: 'max',
-};
+function anthropicEffort(model: string, setting: ChatRequest['effort']): string {
+  const level = effectiveEffort(setting, model);
+  const ladder = modelEffortLevels(model);
+  if (ladder.includes(level) && level !== 'normal') return level;
+  return level === 'low' ? 'low' : 'high';
+}
 
 /** Client for the Anthropic Messages API (native, with SSE streaming). */
 export class AnthropicProvider implements Provider {
@@ -189,7 +194,8 @@ export class AnthropicProvider implements Provider {
       id: m.id,
       providerId: this.config.id,
       name: m.name,
-      contextLength: m.ctx,
+      // 1M on everything current, 200k on Haiku: see model-capabilities.ts.
+      contextLength: claudeContextWindow(m.id) ?? 200_000,
       ...(m.availability ? { availability: m.availability } : {}),
     }));
   }
@@ -205,7 +211,7 @@ export class AnthropicProvider implements Provider {
   }
 
   async *chat(req: ChatRequest): AsyncIterable<ProviderChunk> {
-    const effort = ANTHROPIC_EFFORT[req.effort ?? 'normal'];
+    const effort = anthropicEffort(req.model, req.effort);
     const knob = (shape: SamplingShape) =>
       shape === 'effort'
         ? { output_config: { effort } }

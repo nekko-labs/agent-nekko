@@ -177,6 +177,41 @@ export function movePlanStep(plan: PromptPlan, id: string, delta: -1 | 1): Promp
   return { ...plan, edited: true, steps };
 }
 
+/**
+ * Move a step to sit directly before `beforeId`, or to the end when that is
+ * null. This is what a drag expresses, and it is not the same as the one-place
+ * nudge `movePlanStep` does: dragging step 1 to the bottom is a single
+ * reposition, not five swaps.
+ */
+export function reorderPlanStep(plan: PromptPlan, id: string, beforeId: string | null): PromptPlan {
+  if (id === beforeId) return plan;
+  const from = plan.steps.findIndex((s) => s.id === id);
+  if (from < 0) return plan;
+  const steps = [...plan.steps];
+  const [moved] = steps.splice(from, 1);
+  const to = beforeId ? steps.findIndex((s) => s.id === beforeId) : -1;
+  steps.splice(to < 0 ? steps.length : to, 0, moved);
+  return { ...plan, edited: true, steps };
+}
+
+/**
+ * Hand a step to a named sub-agent, or take it back when `agent` is undefined.
+ *
+ * Delegation is a property of the step rather than a separate list because the
+ * question it answers ("who is doing this one?") is only ever asked while
+ * looking at the plan.
+ */
+export function assignPlanStep(plan: PromptPlan, id: string, agent: string | undefined): PromptPlan {
+  // Trimmed, so a name of pure whitespace clears the owner rather than creating
+  // one called "  " that renders as a blank badge nobody can click off.
+  const owner = agent?.trim() || undefined;
+  return {
+    ...plan,
+    edited: true,
+    steps: plan.steps.map((s) => (s.id === id ? { ...s, agent: owner } : s)),
+  };
+}
+
 /** How far through the plan the run is. */
 export function planProgressCount(plan: PromptPlan | undefined): { done: number; total: number } {
   const steps = plan?.steps ?? [];
@@ -195,7 +230,13 @@ export function planAsPromptBlock(plan: PromptPlan | undefined): string {
   const skipped = steps.filter((s) => s.status === 'skipped');
   const lines = [
     'Work to this plan (the user reviewed and edited it):',
-    ...wanted.map((s, i) => `${i + 1}. ${s.text.trim()}`),
+    // A step the user handed to a sub-agent says so, because the assignment is
+    // an instruction rather than a note: "delegate this one" is exactly the
+    // kind of thing the user opened the plan to be able to say.
+    ...wanted.map((s, i) => {
+      const owner = s.agent?.trim();
+      return `${i + 1}. ${s.text.trim()}${owner ? ` (delegate to a sub-agent: ${owner})` : ''}`;
+    }),
   ];
   if (skipped.length) {
     lines.push('', 'Explicitly out of scope:', ...skipped.map((s) => `- ${s.text.trim()}`));

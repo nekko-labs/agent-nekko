@@ -5,6 +5,7 @@ import { FolderIcon, FileIcon, PlusIcon, TrashIcon, ExternalIcon, ChevronIcon } 
 import { useStore } from '../store.js';
 import { SpecPanel } from './SpecPanel.js';
 import { ResourceDock } from './ResourceMonitor.js';
+import { ProviderLimitsDock } from './ProviderLimitsDock.js';
 import { DirTree } from './FileTree.js';
 import { sourceMeta } from '../contextSources.js';
 
@@ -442,6 +443,11 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
           </div>
         </section>
       </div>
+
+      {/* Capacity across every provider, directly above the machine's own
+          meters: the two answer the same question (what is about to run out)
+          about the two different resources a run actually spends. */}
+      <ProviderLimitsDock />
 
       {/* Resource monitors: pinned at the foot of the panel so they stay visible
           while the sources/breakdown above scroll. The floating chip warps into

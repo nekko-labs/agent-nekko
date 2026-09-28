@@ -1,5 +1,7 @@
-import { estimateTokens } from '@agent-nekko/shared';
-import type { ContextBundle, ContextItem, MemoryEntry } from '@agent-nekko/shared';
+import { estimateTokens, historyText } from '@agent-nekko/shared';
+import type { ContextBundle, ContextItem, HistoryMessage, MemoryEntry } from '@agent-nekko/shared';
+
+export type { HistoryMessage };
 
 /** Inputs the assembler uses to build the context bundle for a turn. */
 export interface AssembleInput {
@@ -14,7 +16,7 @@ export interface AssembleInput {
   /** Index search snippets relevant to the query. */
   indexSnippets: Array<{ relPath: string; path: string; body: string }>;
   /** The running conversation (so its token weight is reflected in the window). */
-  history?: Array<{ role: string; content: string }>;
+  history?: HistoryMessage[];
   /** The base system prompt (framework instructions, tools, safety). */
   systemText?: string;
   contextWindow?: number;
@@ -44,6 +46,19 @@ export function assembleContext(input: AssembleInput): ContextBundle {
   const excluded = input.excluded ?? new Set<string>();
   const pinned = input.pinned ?? new Set<string>();
   const items: ContextItem[] = [];
+  /**
+   * The full text behind each item, keyed by item id.
+   *
+   * `preview` is a 160-character display string and nothing more. It was also
+   * being handed to `renderContextBlock` as if it were the content, which meant
+   * every guideline, attached file and memory entered the prompt truncated to
+   * 160 characters while the token count beside it described the whole file. So
+   * the model never actually received the files the user attached, and the
+   * inspector's total disagreed with the prompt that was really sent. Carrying
+   * the content here keeps the two in step by construction: whoever renders the
+   * block gets exactly what was counted.
+   */
+  const contents = new Map<string, string>();
 
   const push = (
     source: ContextItem['source'],
@@ -53,6 +68,7 @@ export function assembleContext(input: AssembleInput): ContextBundle {
     content: string,
   ) => {
     const included = !excluded.has(id);
+    contents.set(id, content);
     items.push({
       id,
       source,
@@ -81,7 +97,12 @@ export function assembleContext(input: AssembleInput): ContextBundle {
     });
   }
   if (input.history?.length) {
-    const convo = input.history.map((m) => m.content ?? '').join('\n');
+    // A message is not only its text. Reasoning, the tool calls the model made,
+    // and the results that came back all ride in the window on the next turn,
+    // and on a long agentic run they dwarf the prose: counting `content` alone
+    // is what made a heavily-worked chat report a few thousand tokens when the
+    // real prompt was far larger.
+    const convo = input.history.map(historyText).join('\n');
     items.push({
       id: 'conversation',
       source: 'conversation',
@@ -101,7 +122,7 @@ export function assembleContext(input: AssembleInput): ContextBundle {
   for (const s of input.indexSnippets) push('index-snippet', `idx:${s.path}`, s.relPath, s.path, s.body);
 
   const totalTokens = items.filter((i) => i.included).reduce((sum, i) => sum + i.tokens, 0);
-  return { items, totalTokens, contextWindow: input.contextWindow };
+  return { items, totalTokens, contextWindow: input.contextWindow, contents };
 }
 
 /** Render the included items into a system-prompt context block. */

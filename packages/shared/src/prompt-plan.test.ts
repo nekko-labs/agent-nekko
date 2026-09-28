@@ -9,6 +9,8 @@ import {
   planFromPrompt,
   planProgressCount,
   removePlanStep,
+  reorderPlanStep,
+  assignPlanStep,
   updatePlanStep,
 } from './prompt-plan.js';
 
@@ -138,7 +140,68 @@ describe('typing a plan', () => {
   });
 });
 
+describe('reorderPlanStep', () => {
+  // Step text has to clear the decomposer's minimum length to survive decoding.
+  const plan = () =>
+    planFromPrompt('- Fix the parser\n- Add a regression test\n- Update the docs\n- Open a pull request');
+  const texts = ['Fix the parser', 'Add a regression test', 'Update the docs', 'Open a pull request'];
+
+  it('moves a step to sit before another in one hop', () => {
+    const p = plan();
+    const moved = reorderPlanStep(p, p.steps[0].id, p.steps[3].id);
+    expect(moved.steps.map((s) => s.text)).toEqual([texts[1], texts[2], texts[0], texts[3]]);
+  });
+
+  it('moves a step to the end when dropped past the last one', () => {
+    const p = plan();
+    const moved = reorderPlanStep(p, p.steps[0].id, null);
+    expect(moved.steps.map((s) => s.text)).toEqual([texts[1], texts[2], texts[3], texts[0]]);
+  });
+
+  it('drags a later step upward', () => {
+    const p = plan();
+    const moved = reorderPlanStep(p, p.steps[3].id, p.steps[1].id);
+    expect(moved.steps.map((s) => s.text)).toEqual([texts[0], texts[3], texts[1], texts[2]]);
+  });
+
+  it('is a no-op when a step is dropped onto itself', () => {
+    const p = plan();
+    expect(reorderPlanStep(p, p.steps[1].id, p.steps[1].id)).toBe(p);
+  });
+
+  it('marks the plan as hand-edited so it stops being re-decoded', () => {
+    const p = plan();
+    expect(reorderPlanStep(p, p.steps[0].id, null).edited).toBe(true);
+  });
+});
+
+describe('assignPlanStep', () => {
+  it('hands a step to a sub-agent and takes it back again', () => {
+    const p = planFromPrompt('- Fix the parser\n- Add a test');
+    const given = assignPlanStep(p, p.steps[1].id, 'test-writer');
+    expect(given.steps[1].agent).toBe('test-writer');
+
+    const taken = assignPlanStep(given, p.steps[1].id, undefined);
+    expect(taken.steps[1].agent).toBeUndefined();
+  });
+
+  it('treats an empty name as no owner rather than an owner called ""', () => {
+    const p = planFromPrompt('- Fix the parser\n- Add a test');
+    expect(assignPlanStep(p, p.steps[0].id, '  ').steps[0].agent).toBeUndefined();
+  });
+});
+
 describe('planAsPromptBlock', () => {
+  it('tells the agent which steps were handed to a sub-agent', () => {
+    let plan = planFromPrompt('- Fix the parser\n- Add a test');
+    plan = assignPlanStep(plan, plan.steps[1].id, 'test-writer');
+    const block = planAsPromptBlock(plan);
+    expect(block).toContain('2. Add a test (delegate to a sub-agent: test-writer)');
+    // An unassigned step stays a plain instruction.
+    expect(block).toContain('1. Fix the parser');
+    expect(block).not.toContain('1. Fix the parser (delegate');
+  });
+
   it('sends the wanted steps in order and names what was cut', () => {
     let plan = planFromPrompt('- Fix the parser\n- Add a test\n- Open a PR');
     plan = updatePlanStep(plan, plan.steps[2].id, { status: 'skipped' });

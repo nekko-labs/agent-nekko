@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { ContextBundle, ContextItem, EffortLevel } from '@agent-nekko/shared';
+import { effectiveEffort, modelDefaultEffort, modelEffortLevels, usesNativeEffort } from '@agent-nekko/shared';
 import { formatUSD } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { sourceMeta } from '../contextSources.js';
@@ -149,18 +150,39 @@ export function ContextGauge({
 
 const EFFORT_DESC: Record<EffortLevel, string> = {
   low: 'Quick answers, lighter reasoning.',
+  medium: 'Lighter than the usual default, still careful.',
   normal: 'The balanced default.',
-  high: 'Slower, more thorough replies.',
+  high: 'Thorough. The default on most Claude models.',
+  xhigh: 'Deeper still. Best for most coding and agent work.',
+  max: 'Everything it has. Slowest and most tokens.',
+};
+
+const EFFORT_LABEL: Record<EffortLevel, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  normal: 'Normal',
+  high: 'High',
+  xhigh: 'Extra high',
+  max: 'Max',
 };
 
 /**
- * Effort as an explicit menu (not a blind cycle): the three levels with what
- * they mean, and an honest note that this is a global setting shared by every
- * chat.
+ * Effort as an explicit menu (not a blind cycle), offering the rungs the chat's
+ * model actually has: Anthropic's five on Claude models that take an effort
+ * level, the three temperature steps everywhere else. "Default" sends the
+ * model's own default and names the rung it resolves to, because that rung is
+ * not the same on every model (Opus 5.5 defaults to medium, Opus 5 to high).
+ * The setting itself is still global, which the menu says.
  */
-export function EffortMenu() {
+export function EffortMenu({ modelId }: { modelId?: string }) {
   const settings = useStore((s) => s.settings);
-  const effort = settings?.effort ?? 'normal';
+  const saved = settings?.effort ?? 'normal';
+  const levels = modelEffortLevels(modelId);
+  const native = usesNativeEffort(modelId);
+  const fallback = modelDefaultEffort(modelId);
+  // What this model will actually be sent, which is what the button shows: a
+  // saved `xhigh` on a temperature model runs as `high`, and says so.
+  const effective = effectiveEffort(saved, modelId);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -181,6 +203,17 @@ export function EffortMenu() {
     setOpen(false);
   };
 
+  // On Claude, "Default" is its own row that follows the model; on the
+  // temperature scale `normal` already is the default and sits in the middle.
+  const rows: Array<{ level: EffortLevel; label: string; desc: string }> = [
+    ...(native
+      ? [{ level: 'normal' as const, label: `Default (${EFFORT_LABEL[fallback].toLowerCase()})`, desc: "Whatever this model runs at when you don't choose." }]
+      : []),
+    ...levels.map((level) => ({ level, label: EFFORT_LABEL[level], desc: EFFORT_DESC[level] })),
+  ];
+  const checked = (level: EffortLevel) => (native && saved === 'normal' ? level === 'normal' : level === effective);
+  const shown = native && saved === 'normal' ? `Default · ${EFFORT_LABEL[fallback]}` : EFFORT_LABEL[effective];
+
   return (
     <div ref={ref} className="relative shrink-0">
       <button
@@ -188,27 +221,33 @@ export function EffortMenu() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        title="How much reasoning effort the model spends per reply (applies to all chats)"
+        title={
+          effective !== saved && !(native && saved === 'normal')
+            ? `Saved as ${EFFORT_LABEL[saved]}, which this model runs as ${EFFORT_LABEL[effective]} (applies to all chats)`
+            : 'How much reasoning effort the model spends per reply (applies to all chats)'
+        }
       >
         <span className="ctl-menu-label">Effort</span>
-        <span className="capitalize">{effort}</span>
+        <span>{shown}</span>
         <span className="ctl-caret">▾</span>
       </button>
       {open && (
-        <div className="card absolute bottom-8 right-0 z-40 w-56 p-1.5 shadow-lg" role="menu">
-          {(['low', 'normal', 'high'] as EffortLevel[]).map((level) => (
+        <div className="card absolute bottom-8 right-0 z-40 w-60 p-1.5 shadow-lg" role="menu">
+          {rows.map((row) => (
             <button
-              key={level}
+              key={row.level}
               role="menuitemradio"
-              aria-checked={effort === level}
-              className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2 ${effort === level ? 'text-accent' : ''}`}
-              onClick={() => pick(level)}
+              aria-checked={checked(row.level)}
+              className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2 ${checked(row.level) ? 'text-accent' : ''}`}
+              onClick={() => pick(row.level)}
             >
-              <span className="text-[13px] font-medium capitalize">{level}</span>
-              <span className="text-[11px] text-ink-faint">{EFFORT_DESC[level]}</span>
+              <span className="text-[13px] font-medium">{row.label}</span>
+              <span className="text-[11px] text-ink-faint">{row.desc}</span>
             </button>
           ))}
-          <p className="border-t border-line px-2.5 pb-0.5 pt-1.5 text-[10px] text-ink-faint">Applies to all chats.</p>
+          <p className="border-t border-line px-2.5 pb-0.5 pt-1.5 text-[10px] text-ink-faint">
+            {native ? 'Levels this model offers. ' : 'This model is steered by temperature. '}Applies to all chats.
+          </p>
         </div>
       )}
     </div>

@@ -1,8 +1,11 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { Socket } from 'node:net';
+import { networkInterfaces } from 'node:os';
 import { URL } from 'node:url';
 import {
+  apiServerBindHost,
+  apiServerClientUrl,
   apiServerRefusal,
   apiServerUrl,
   IpcEvents,
@@ -269,7 +272,7 @@ function start(settings: ApiServerSettings, host: Host): void {
     server = null;
     applied = null;
   });
-  next.listen(settings.port, settings.bind === 'lan' ? '0.0.0.0' : '127.0.0.1', () => {
+  next.listen(settings.port, apiServerBindHost(settings), () => {
     lastError = undefined;
   });
   server = next;
@@ -290,6 +293,7 @@ export function syncApiServer(host: Host): void {
     applied &&
     applied.port === settings.port &&
     applied.bind === settings.bind &&
+    (applied.host ?? '') === (settings.host ?? '') &&
     applied.token === settings.token;
   if (settings.enabled && server && same) return;
 
@@ -298,15 +302,47 @@ export function syncApiServer(host: Host): void {
   else lastError = undefined;
 }
 
+/**
+ * This machine's first non-internal IPv4 address, for quoting a LAN bind as
+ * something another device can dial. Undefined when there is none (offline,
+ * or only loopback), in which case loopback is quoted, which at least works
+ * from here.
+ */
+export function lanAddress(): string | undefined {
+  for (const list of Object.values(networkInterfaces())) {
+    for (const nic of list ?? []) {
+      if (nic.family === 'IPv4' && !nic.internal) return nic.address;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Mint a token when the server is on and has none.
+ *
+ * The server is on by default, and a fresh install has no token yet; without
+ * one `start` refuses (an unauthenticated agent endpoint is a remote shell), so
+ * the default would be a server that is "on" and never listening. Minting it
+ * here, before the first sync, is what makes on-by-default actually serve.
+ */
+export function ensureApiServerToken(host: Host): void {
+  const settings = withApiServerDefaults(host.getSettings().apiServer);
+  if (settings.enabled && !settings.token.trim()) {
+    host.updateSettings({ apiServer: { ...settings, token: newApiToken() } });
+  }
+}
+
 /** Everything the Models tab needs to draw the server card. */
 export function apiServerStatus(host: Host): ApiServerStatus {
   const settings = withApiServerDefaults(host.getSettings().apiServer);
   const running = Boolean(server?.listening);
+  const lan = lanAddress();
   return {
     settings,
     running,
     available: true,
-    url: running ? apiServerUrl(settings) : undefined,
+    url: running ? apiServerUrl(settings, lan) : undefined,
+    clientUrl: apiServerClientUrl(settings, lan),
     error: settings.enabled && !running ? lastError ?? 'Not listening.' : undefined,
     clients: sockets.size,
     requests,

@@ -38,7 +38,22 @@ export function useAllProviderLimits(
   providers: ProviderConfig[],
   enabled = true,
 ): Record<string, SubscriptionLimits> {
+  return useProviderLimitsPortfolio(providers, enabled).byToken;
+}
+
+/**
+ * The same read, plus which token keys have answered at all.
+ *
+ * A provider that answers "no limits" and one whose answer has not arrived yet
+ * both leave `byToken` without an entry, and a panel that lists every provider
+ * has to tell them apart or it says "reading…" forever about the first kind.
+ */
+export function useProviderLimitsPortfolio(
+  providers: ProviderConfig[],
+  enabled = true,
+): { byToken: Record<string, SubscriptionLimits>; answered: ReadonlySet<string> } {
   const [byToken, setByToken] = useState<Record<string, SubscriptionLimits>>({});
+  const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
   // Token keys, as a stable string, so re-rendering with a new array identity
   // doesn't re-fetch every provider's usage.
   const keys = providers.filter((p) => p.auth === 'subscription' && p.tokenKey).map((p) => p.tokenKey!);
@@ -54,6 +69,7 @@ export function useAllProviderLimits(
       const next: Record<string, SubscriptionLimits> = {};
       for (const [k, l] of entries) if (l) next[k] = l;
       setByToken(next);
+      setAnswered(new Set(entries.map(([k]) => k)));
     });
     const off = window.nekko.onLimitsUpdated((e) => {
       if (keys.includes(e.tokenKey)) setByToken((prev) => ({ ...prev, [e.tokenKey]: e.limits }));
@@ -62,5 +78,5 @@ export function useAllProviderLimits(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, keysId]);
 
-  return byToken;
+  return { byToken, answered };
 }

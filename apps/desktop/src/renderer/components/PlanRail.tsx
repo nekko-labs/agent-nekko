@@ -8,12 +8,17 @@ import {
   planFromPrompt,
   planProgressCount,
   removePlanStep,
+  reorderPlanStep,
+  assignPlanStep,
   updatePlanStep,
+  summarizeToolCall,
+  getStrategy,
+  DEFAULT_ORCHESTRATION,
   type PromptStepStatus,
   type PromptPlan,
 } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
-import { CheckIcon, ChatIcon, CloseIcon, ListIcon, PlusIcon, RobotIcon, WandIcon } from '../icons.js';
+import { CheckIcon, ChatIcon, CloseIcon, GripIcon, ListIcon, PlusIcon, RobotIcon, WandIcon } from '../icons.js';
 
 /**
  * The work rail: what this prompt is going to do, who is doing it, and how far
@@ -67,8 +72,22 @@ export function PlanRail({
   const plan = session?.plan;
   const sessions = useStore((s) => s.sessions);
   const openChatPane = useStore((s) => s.openChatPane);
+  // Whether this agent is even allowed to delegate, which decides what an empty
+  // sub-agent list means. `solo` withholds the tool, so "none yet" would be a
+  // promise the settings have already ruled out.
+  const orchestration = useStore((s) => s.settings?.orchestration);
+  const spawnAllowed = getStrategy((orchestration ?? DEFAULT_ORCHESTRATION).strategy).allowsSpawn;
   /** What the trailing "add a step" row has typed but not yet committed. */
   const [adding, setAdding] = useState('');
+  /**
+   * The step being dragged, and the one it would land before (null = the end).
+   * Held here rather than on each row so every row can draw the same single
+   * insertion line, and so a drop that never lands can be cleaned up in one go.
+   */
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropBefore, setDropBefore] = useState<string | null | undefined>(undefined);
+  /** The step whose "hand this to a sub-agent" field is open. */
+  const [assigning, setAssigning] = useState<string | null>(null);
   /**
    * The step to put the cursor in, and where in it. A ref rather than state,
    * and retried after every render rather than once: a step created by Enter
@@ -121,11 +140,21 @@ export function PlanRail({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [decodeSource, plan?.edited, plan?.source, streaming]);
 
+  /**
+   * Sub-agents of this chat, including ones that are still being born.
+   *
+   * A child is created on disk and starts streaming immediately, but the store's
+   * session list only reloads when a turn *ends*, so a sub-agent could run to
+   * completion without ever appearing here. `useSubAgentActivity` therefore asks
+   * the store to re-read the moment it sees an event from a session it does not
+   * recognise, which is what makes delegation visible while it is happening
+   * rather than in hindsight.
+   */
   const children = useMemo(
     () => sessions.filter((s) => s.parentSessionId === sessionId),
     [sessions, sessionId],
   );
-  const activity = useSubAgentActivity(children.map((c) => c.id));
+  const activity = useSubAgentActivity(sessionId, children.map((c) => c.id));
 
   const progress = planProgressCount(plan);
   const queued = session?.queue ?? [];
@@ -138,6 +167,38 @@ export function PlanRail({
     setAdding('');
     if (!text) return;
     edit(addPlanStep(plan ?? { source: decodeSource, steps: [], send: false }, text));
+  };
+
+  /** Finish a drag, wherever it ended up, and clear the rail's drag state. */
+  const endDrag = () => {
+    setDragId(null);
+    setDropBefore(undefined);
+  };
+
+  /**
+   * Drop the dragged step at the marked position. A drag that ends on itself,
+   * or with nothing marked, is a no-op rather than a reshuffle.
+   */
+  const commitDrag = () => {
+    if (plan && dragId && dropBefore !== undefined) {
+      edit(reorderPlanStep(plan, dragId, dropBefore));
+    }
+    endDrag();
+  };
+
+  /**
+   * Which side of a row the pointer is on, so a drag marks the gap it is
+   * nearest rather than always the one above. Without this, dropping onto the
+   * bottom half of the last step could never mean "put it at the end".
+   */
+  const markDropTarget = (e: React.DragEvent, step: { id: string }, i: number) => {
+    if (!dragId || !plan) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const r = e.currentTarget.getBoundingClientRect();
+    const below = e.clientY > r.top + r.height / 2;
+    const next = below ? plan.steps[i + 1]?.id ?? null : step.id;
+    if (next !== dropBefore) setDropBefore(next);
   };
 
   /**
@@ -238,7 +299,39 @@ export function PlanRail({
           ) : (
             <ol className="space-y-0.5">
               {(plan?.steps ?? []).map((step, i) => (
-                <li key={step.id} className="group flex items-start gap-1.5 rounded-lg px-1 py-0.5 hover:bg-surface-2">
+                <li
+                  key={step.id}
+                  className={`group relative flex items-start gap-1.5 rounded-lg px-1 py-0.5 hover:bg-surface-2 ${
+                    dragId === step.id ? 'opacity-40' : ''
+                  }`}
+                  onDragOver={(e) => markDropTarget(e, step, i)}
+                  onDrop={(e) => { e.preventDefault(); commitDrag(); }}
+                >
+                  {/* The line the drop would insert at, drawn in that gap. */}
+                  {dropBefore === step.id && (
+                    <span
+                      aria-hidden
+                      className="pointer-events-none absolute inset-x-1 -top-px h-0.5 rounded-full"
+                      style={{ background: 'var(--accent)' }}
+                    />
+                  )}
+                  {/* The grip. Only the handle is draggable, so selecting text
+                      inside a step stays a selection rather than a row drag. */}
+                  <span
+                    draggable
+                    onDragStart={(e) => {
+                      setDragId(step.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      // Firefox refuses to start a drag with no payload set.
+                      e.dataTransfer.setData('text/plain', step.id);
+                    }}
+                    onDragEnd={endDrag}
+                    className="mt-[6px] shrink-0 cursor-grab text-ink-faint opacity-0 transition-opacity active:cursor-grabbing group-hover:opacity-100"
+                    title="Drag to reorder this step"
+                    aria-label={`Reorder step ${i + 1}`}
+                  >
+                    <GripIcon className="h-3 w-3" />
+                  </span>
                   <button
                     className="mt-[7px] shrink-0"
                     title={`${STATUS_META[step.status].label} — click to change`}
@@ -260,10 +353,41 @@ export function PlanRail({
                     onChange={(e) => edit(updatePlanStep(plan!, step.id, { text: e.target.value }))}
                     onKeyDown={(e) => onStepKeyDown(e, step, i)}
                   />
-                  {step.agent && (
-                    <span className="mt-[5px] shrink-0 text-[10px] text-ink-faint" title={`Delegated to ${step.agent}`}>
+                  {step.agent && assigning !== step.id && (
+                    <button
+                      className="mt-[4px] shrink-0 rounded-sm px-1 text-[10px]"
+                      style={{ background: 'color-mix(in srgb, var(--accent-2) 16%, transparent)', color: 'var(--accent-2)' }}
+                      title={`Delegated to ${step.agent} - click to change, or clear the field to take it back`}
+                      aria-label={`Step ${i + 1} is delegated to ${step.agent}. Change who owns it.`}
+                      onClick={() => setAssigning(step.id)}
+                    >
                       {step.agent}
-                    </span>
+                    </button>
+                  )}
+                  {assigning === step.id && (
+                    <input
+                      autoFocus
+                      className="plan-step mt-px w-24 shrink-0 text-[10px]"
+                      defaultValue={step.agent ?? ''}
+                      placeholder="sub-agent"
+                      aria-label={`Who should do step ${i + 1}`}
+                      spellCheck={false}
+                      // Committed on blur as well as Enter, so clicking away
+                      // keeps what was typed instead of quietly dropping it.
+                      onBlur={(e) => {
+                        edit(assignPlanStep(plan!, step.id, e.target.value));
+                        setAssigning(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          setAssigning(null);
+                        }
+                      }}
+                    />
                   )}
                   <span className="flex shrink-0 items-center self-center opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
                     <button
@@ -284,6 +408,16 @@ export function PlanRail({
                     >
                       ↓
                     </button>
+                    {!step.agent && (
+                      <button
+                        className="rounded-sm px-0.5 text-ink-faint hover:text-(--accent-2)"
+                        title="Hand this step to a sub-agent"
+                        aria-label={`Delegate step ${i + 1} to a sub-agent`}
+                        onClick={() => setAssigning(step.id)}
+                      >
+                        <RobotIcon className="h-2.5 w-2.5" />
+                      </button>
+                    )}
                     <button
                       className="rounded-sm px-0.5 text-ink-faint hover:text-(--danger)"
                       title="Remove this step"
@@ -302,7 +436,25 @@ export function PlanRail({
                   a row that wrote every keystroke through the session and then
                   chased the caret into the step it had just created dropped
                   text whenever the round trip lost the race. */}
-              <li className="flex items-start gap-1.5 rounded-lg px-1 py-0.5">
+              <li
+                className="relative flex items-start gap-1.5 rounded-lg px-1 py-0.5"
+                // Dropping below the last step means "put it at the end", so the
+                // add row is the target for that gap rather than a dead strip.
+                onDragOver={(e) => {
+                  if (!dragId) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dropBefore !== null) setDropBefore(null);
+                }}
+                onDrop={(e) => { e.preventDefault(); commitDrag(); }}
+              >
+                {dragId && dropBefore === null && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-1 -top-px h-0.5 rounded-full"
+                    style={{ background: 'var(--accent)' }}
+                  />
+                )}
                 <span className="mt-[7px] shrink-0 opacity-40">
                   <PlusIcon className="h-2.5 w-2.5 text-ink-faint" />
                 </span>
@@ -373,9 +525,20 @@ export function PlanRail({
             {children.length > 0 && <span className="text-[10px] tabular-nums text-ink-faint">{children.length}</span>}
           </div>
           {children.length === 0 ? (
-            <p className="px-0.5 text-[11px] leading-snug text-ink-faint">
-              None yet. Work this agent delegates shows up here with what each one is doing.
-            </p>
+            // An empty list has two very different causes, and "none yet" was
+            // wrong for one of them: under the `solo` strategy `spawn_agent` is
+            // withheld from the model entirely, so no amount of waiting will
+            // ever put a row here. Say which it is, and where to change it.
+            spawnAllowed ? (
+              <p className="px-0.5 text-[11px] leading-snug text-ink-faint">
+                None yet. Work this agent delegates shows up here with what each one is doing.
+              </p>
+            ) : (
+              <p className="px-0.5 text-[11px] leading-snug text-ink-faint">
+                Delegation is off for this agent, so it works everything itself. Settings →
+                Orchestration turns sub-agents on.
+              </p>
+            )
           ) : (
             <div className="space-y-0.5">
               {children.map((c) => {
@@ -449,7 +612,7 @@ function StepDot({ status }: { status: PromptStepStatus }) {
 
 /** What a sub-agent row says under its title. */
 function subAgentSubtitle(child: Session, a: SubAgentActivity | undefined): string {
-  if (a?.tool) return `Running ${a.tool}`;
+  if (a?.tool) return a.detail ? `${a.tool} · ${a.detail}` : `Running ${a.tool}`;
   if (a?.running) return 'Working…';
   if (a?.failed) return 'Stopped on an error';
   const last = [...child.messages].reverse().find((m) => m.role === 'assistant' && m.content.trim());
@@ -462,28 +625,50 @@ interface SubAgentActivity {
   failed: boolean;
   /** The tool the sub-agent is running right now, when it is running one. */
   tool?: string;
+  /** What that tool was pointed at, so the row says more than the tool's name. */
+  detail?: string;
 }
 
 /**
- * Live per-sub-agent state from the agent event stream. The sessions in the
- * store only refresh when a turn ends, which is precisely when the answer stops
- * being interesting; these events are what "what is it doing" actually means.
+ * Live per-sub-agent state from the agent event stream.
+ *
+ * Two jobs, and the second is the one that made delegation invisible. The
+ * obvious one is tracking what each known child is doing, because the stored
+ * sessions only refresh when a turn ends, which is precisely when the answer
+ * stops being interesting.
+ *
+ * The other is **discovering** children. `spawn_agent` creates the child and
+ * starts it streaming in the same breath, and nothing reloads the session list
+ * until a turn finishes, so a short sub-agent could start, work and finish
+ * without this rail ever learning it existed. Any event from a session we have
+ * not seen before is therefore treated as "something was spawned": if the host
+ * confirms it is a child of this chat, the store re-reads and the row appears
+ * while the work is still happening.
  */
-function useSubAgentActivity(ids: string[]): Record<string, SubAgentActivity> {
+function useSubAgentActivity(parentId: string, ids: string[]): Record<string, SubAgentActivity> {
   const [state, setState] = useState<Record<string, SubAgentActivity>>({});
   const idsKey = ids.join('|');
   const idsRef = useRef(ids);
   idsRef.current = ids;
+  /** Ids we have already asked the store about, so one spawn is one re-read. */
+  const probed = useRef(new Set<string>());
 
   useEffect(() => {
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
-      if (!idsRef.current.includes(e.sessionId)) return;
+      if (!idsRef.current.includes(e.sessionId)) {
+        // Unknown session: it may be a sub-agent this chat just spawned. Ask the
+        // store to re-read once, and let the next render pick it up.
+        if (e.sessionId === parentId || probed.current.has(e.sessionId)) return;
+        probed.current.add(e.sessionId);
+        void useStore.getState().refreshSessions();
+        return;
+      }
       setState((prev) => {
         const cur = prev[e.sessionId] ?? { running: false, failed: false };
         let next: SubAgentActivity = cur;
-        if (e.type === 'tool_call') next = { running: true, failed: false, tool: e.call.name };
-        else if (e.type === 'tool_result') next = { ...cur, running: true, tool: undefined };
-        else if (e.type === 'text' || e.type === 'reasoning') next = { running: true, failed: false, tool: cur.tool };
+        if (e.type === 'tool_call') next = { running: true, failed: false, tool: e.call.name, detail: summarizeToolCall(e.call, 40) };
+        else if (e.type === 'tool_result') next = { ...cur, running: true, tool: undefined, detail: undefined };
+        else if (e.type === 'text' || e.type === 'reasoning') next = { running: true, failed: false, tool: cur.tool, detail: cur.detail };
         else if (e.type === 'error') next = { running: false, failed: true };
         else if (e.type === 'done') next = { running: false, failed: false };
         else return prev;
@@ -492,7 +677,7 @@ function useSubAgentActivity(ids: string[]): Record<string, SubAgentActivity> {
     });
     return off;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [idsKey]);
+  }, [idsKey, parentId]);
 
   return state;
 }

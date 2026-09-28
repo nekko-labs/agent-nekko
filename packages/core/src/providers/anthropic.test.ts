@@ -97,11 +97,16 @@ describe('AnthropicProvider subscription auth', () => {
     expect(body.output_config).toEqual({ effort: 'high' });
   });
 
-  it('maps the low and high effort settings to the ends of the range', async () => {
-    const low = await runChat(apiKeyCfg, undefined, { model: 'claude-opus-5', effort: 'low' });
-    expect(low.body.output_config).toEqual({ effort: 'low' });
-    const high = await runChat(apiKeyCfg, undefined, { model: 'claude-opus-5', effort: 'high' });
-    expect(high.body.output_config).toEqual({ effort: 'max' });
+  it('sends the chosen rung as-is, and the model default for normal', async () => {
+    for (const level of ['low', 'medium', 'high', 'xhigh', 'max'] as const) {
+      const { body } = await runChat(apiKeyCfg, undefined, { model: 'claude-opus-5', effort: level });
+      expect(body.output_config).toEqual({ effort: level });
+    }
+    const opus5 = await runChat(apiKeyCfg, undefined, { model: 'claude-opus-5', effort: 'normal' });
+    expect(opus5.body.output_config).toEqual({ effort: 'high' });
+    // Opus 5.5 defaults one rung lower, and "normal" follows the model.
+    const opus55 = await runChat(apiKeyCfg, undefined, { model: 'claude-opus-5-5', effort: 'normal' });
+    expect(opus55.body.output_config).toEqual({ effort: 'medium' });
   });
 
   it('still sends a temperature to models that accept one', async () => {
@@ -121,9 +126,28 @@ describe('AnthropicProvider subscription auth', () => {
   });
 });
 
+describe('the shipped Claude catalog', () => {
+  it('lists Opus 5.5, newest Opus first', async () => {
+    const models = await new AnthropicProvider(apiKeyCfg).listModels();
+    const ids = models.map((m) => m.id);
+    expect(ids).toContain('claude-opus-5-5');
+    // Newest first within a family, so the default pick is the current model
+    // rather than whichever one happened to be added to the array first.
+    expect(ids.indexOf('claude-opus-5-5')).toBeLessThan(ids.indexOf('claude-opus-5'));
+  });
+
+  it('gives Opus 5.5 a name and a context window', async () => {
+    const models = await new AnthropicProvider(apiKeyCfg).listModels();
+    expect(models.find((m) => m.id === 'claude-opus-5-5')).toMatchObject({
+      name: 'Claude Opus 5.5',
+      contextLength: 1_000_000,
+    });
+  });
+});
+
 describe('rejectsSampling', () => {
   it('rejects sampling from the 4.7 generation onwards', () => {
-    for (const m of ['claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-5', 'claude-opus-6']) {
+    for (const m of ['claude-opus-5-5', 'claude-opus-5', 'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-5', 'claude-opus-6']) {
       expect(rejectsSampling(m), m).toBe(true);
     }
   });

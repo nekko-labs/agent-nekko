@@ -13,7 +13,13 @@ import type { AutomationTask, NewTask } from './tasks.js';
 import type { TrainingRun, NewTrainingRun } from './training.js';
 import type { NewWorkflow, Workflow, WorkflowEvent, WorkflowRun, WorkflowsSnapshot } from './workflows.js';
 import type { ConnectorConfig, ConnectorKind, ConnectorResource } from './connectors.js';
-import type { AgentToolId, AgentToolStatus, SubagentInstallResult, SubagentSnippet } from './integrations.js';
+import type {
+  AgentToolId,
+  AgentToolStatus,
+  SubagentInstallResult,
+  SubagentSnippet,
+  SubagentTarget,
+} from './integrations.js';
 import type { GuardrailRule } from './guardrails.js';
 import type { OAuthProvider, OAuthSessionInfo, OAuthStatus } from './oauth.js';
 import type { SubscriptionLimits } from './limits.js';
@@ -63,6 +69,8 @@ export const IpcChannels = {
   apiServerStatus: 'apiServer:status',
   apiServerSave: 'apiServer:save',
   apiServerNewToken: 'apiServer:newToken',
+  cliInstallStatus: 'cli:installStatus',
+  cliInstall: 'cli:install',
 
   engineDownloads: 'engine:downloads',
   engineCancelDownload: 'engine:cancelDownload',
@@ -131,6 +139,7 @@ export const IpcChannels = {
   workspaceIndexStatus: 'workspace:indexStatus',
   workspaceSearch: 'workspace:search',
   workspaceFiles: 'workspace:files',
+  workspaceGitStatus: 'workspace:gitStatus',
 
   fileRead: 'file:read',
   fileWrite: 'file:write',
@@ -375,6 +384,15 @@ export interface NekkoApi {
   apiServerNewToken(): Promise<import('./api-server.js').ApiServerStatus>;
 
   /**
+   * Whether the `agent-nekko` command is installed and reachable. The desktop
+   * app links its bundled CLI at first run; this is how the Server tab says
+   * whether that worked. Web/self-hosted report `available: false`.
+   */
+  cliInstallStatus(): Promise<import('./cli-link.js').CliInstallStatus>;
+  /** (Re)write the CLI launcher and put its folder on PATH. */
+  cliInstall(): Promise<import('./cli-link.js').CliInstallStatus>;
+
+  /**
    * The AN9 machine-readiness report: probe this machine, evaluate it against
    * the versioned offline-stack catalog, and return per-role picks plus a
    * combined verdict. `unverified` means a needed probe did not answer.
@@ -484,6 +502,13 @@ export interface NekkoApi {
   getIndexStatus(id: string): Promise<IndexStatus | null>;
   searchWorkspace(id: string, query: string): Promise<SearchHit[]>;
   listFiles(id: string): Promise<IndexedFile[]>;
+  /**
+   * Which branch a workspace folder is on, how dirty it is, and how far it has
+   * drifted from its upstream. A folder that is not a repository answers
+   * `repo: false` rather than failing. Cached host-side, so polling it per
+   * sidebar card is cheap; pass `force` to bypass that cache.
+   */
+  getGitStatus(id: string, force?: boolean): Promise<import('./workspace.js').GitStatus>;
 
   /** Read a file as text (for the in-app viewer/editor). */
   readFile(path: string): Promise<FileContent>;
@@ -577,10 +602,14 @@ export interface NekkoApi {
 
   /** Which agent CLIs are present and whether Nekko is installed as an MCP subagent. */
   detectAgentTools(): Promise<AgentToolStatus[]>;
-  /** Merge the agent-nekko MCP entry into a tool's config (backs up to <file>.bak first). */
-  installSubagent(tool: AgentToolId): Promise<SubagentInstallResult>;
+  /**
+   * Merge the agent-nekko MCP entry into a tool's config (backs up to
+   * <file>.bak first). The desktop transport points the entry at this app's
+   * running server; pass a target to override what it writes.
+   */
+  installSubagent(tool: AgentToolId, target?: SubagentTarget): Promise<SubagentInstallResult>;
   /** The manual copy-paste config for a tool (target path + snippet). */
-  subagentSnippet(tool: AgentToolId): Promise<SubagentSnippet>;
+  subagentSnippet(tool: AgentToolId, target?: SubagentTarget): Promise<SubagentSnippet>;
 
   classifyCommand(command: string): Promise<import('./guardrails.js').GuardrailDecision>;
   saveGuardrail(rule: GuardrailRule): Promise<GuardrailRule[]>;

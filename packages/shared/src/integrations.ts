@@ -1,9 +1,10 @@
 /**
- * Agent-CLI tools Agent Nekko can be installed into as an MCP subagent
- * (`npx -y agent-nekko mcp`). The host detects each tool by its config directory
- * and merges an `agent-nekko` server entry into its MCP config file, backing
- * the file up to `<file>.bak` first. No secrets cross this surface: only
- * detection booleans, config paths, and copy-paste snippets.
+ * Agent-CLI tools Agent Nekko can be installed into as an MCP subagent. The
+ * host detects each tool by its config directory and merges an `agent-nekko`
+ * server entry into its MCP config file, backing the file up to `<file>.bak`
+ * first. On the desktop the entry carries the local server's address and
+ * bearer token (see `SubagentTarget`), so a snippet can hold that token: it is
+ * the same one the Server tab already shows, on the same machine.
  */
 
 export type AgentToolId = 'claude' | 'codex' | 'cursor' | 'windsurf';
@@ -30,4 +31,22 @@ export interface SubagentInstallResult {
   ok: boolean;
   message?: string;
   tools: AgentToolStatus[];
+}
+
+/**
+ * How a written MCP entry should reach this Agent Nekko.
+ *
+ * Without it the entry is `npx -y agent-nekko mcp` with no environment, which
+ * starts a *second* copy of the agent on the same data directory rather than
+ * driving the app the user is looking at. With it, the entry names the CLI the
+ * app installed and carries the address and token of the running server, so
+ * the other tool gets this window's workspaces, sessions and providers.
+ */
+export interface SubagentTarget {
+  /** Base URL of the local API server, e.g. `http://127.0.0.1:1439`. */
+  url?: string;
+  /** Bearer token for that server. */
+  token?: string;
+  /** Absolute path of the CLI launcher the app installed, if it has one. */
+  command?: string;
 }

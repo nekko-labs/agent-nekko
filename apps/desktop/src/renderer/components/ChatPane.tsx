@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
-import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD } from '@agent-nekko/shared';
+import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD, shortLiveStatus } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
+import { useGitStatus } from '../useGitStatus.js';
+import { clearLiveRun, getLiveRun, useLiveRun } from '../liveRuns.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { Markdown } from './Markdown.js';
@@ -18,7 +20,7 @@ import { ScheduleTaskModal } from './ScheduleTaskModal.js';
 import { PrCard, PrBadge } from './PrCard.js';
 import { MiniNekko, NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
-import { PanelIcon, ShieldIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, ToolStepIcon, RobotIcon, StarIcon, ChatIcon } from '../icons.js';
+import { PanelIcon, ShieldIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, ToolStepIcon, RobotIcon, StarIcon, ChatIcon, BranchIcon, WorktreeIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -47,6 +49,24 @@ const CTX_REFRESH_MS = 1_500;
  */
 const PLAN_RAIL_MIN_PANE = 900;
 const NARROW_PANE = 620;
+
+/**
+ * The composer's height when the user has dragged it, remembered across chats.
+ * Unset means "grow with what's typed", which is where every composer starts.
+ */
+const COMPOSER_H_KEY = 'nekko.composer.height';
+const COMPOSER_MIN_H = 52;
+/** The conversation keeps at least this much of the pane, however tall the composer. */
+const TRANSCRIPT_MIN_H = 160;
+
+function readComposerHeight(): number | null {
+  try {
+    const n = Number(window.localStorage.getItem(COMPOSER_H_KEY));
+    return Number.isFinite(n) && n >= COMPOSER_MIN_H ? n : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Cap on a live buffer's length. The engine cuts a looping model off (see
@@ -312,6 +332,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const setActiveSkill = (skill: SkillDef | null) => useStore.getState().setActiveSkill(sessionId, skill);
   // PRs referenced in this chat (for the header badge + inline cards).
   const prs = useStore((s) => s.prsBySession[sessionId] ?? NO_PRS);
+  // Where this chat is working in git: the worktree, the branch, and the PR
+  // that branch is going into. The same read the sidebar card makes (the host
+  // caches it), so the header and the card never disagree.
+  const git = useGitStatus(session ? getSessionWorkspaceIds(session)[0] : undefined);
+  const headerPrs = git?.pr && !prs.some((p) => p.url === git.pr!.url) ? [git.pr, ...prs] : prs;
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
@@ -354,6 +379,9 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const [showJump, setShowJump] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  // A dragged composer height, or null to size to the draft. See COMPOSER_H_KEY.
+  const [composerH, setComposerH] = useState<number | null>(readComposerHeight);
+  const composerSectionRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const attachMenuRef = useRef<HTMLDivElement>(null);
   const attachButtonRef = useRef<HTMLButtonElement>(null);
@@ -536,6 +564,36 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     pendingReasoning.current = '';
   }, [sessionId]);
 
+  /**
+   * Adopt a turn that was already running when this pane mounted.
+   *
+   * Workspaces render only the active one, so switching tabs unmounts the
+   * pane, and a chat that is mid-reply comes back to a fresh, empty one. The
+   * run itself never stopped (liveRuns folds it for the whole app), so the
+   * text, the tool calls and the clock are read back here rather than waiting
+   * for the next token to repaint a pane that looked idle until it arrived.
+   */
+  useEffect(() => {
+    const run = getLiveRun(sessionId);
+    if (!run) return;
+    liveTextRef.current = run.text;
+    setLiveText(clampLive(run.text));
+    setLiveReasoning(clampLive(run.reasoning));
+    liveToolsRef.current = run.tools;
+    setLiveTools(run.tools);
+    liveCtxRef.current = 0;
+    turnStart.current = run.startedAt;
+    turnOutRef.current = run.outputTokens;
+    turnDecodeMsRef.current = run.decodeMs;
+    setTurnOut(run.outputTokens);
+    setTps(decodeRate(run.outputTokens, run.decodeMs));
+    if (run.reasoningMs) setReasoningDuration(Math.round(run.reasoningMs / 1000));
+    if (run.reasoningStartedAt) { reasoningStart.current = run.reasoningStartedAt; setThinking(true); }
+    setStreaming(true);
+    setMascotMood('thinking');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId]);
+
   // Anything this chat is already blocked on. The events below only reach a
   // mounted pane, so a question asked while you were on the board — or before
   // this pane was opened at all — would otherwise be invisible here.
@@ -643,6 +701,10 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
   const endTurn = () => {
     setStreaming(false);
+    // The turn is over, so the app-wide live copy goes too: from here the
+    // persisted transcript is the record, and leaving the run in place would
+    // show the same reply twice to any pane that mounted afterwards.
+    clearLiveRun(sessionId);
     // Drop anything still buffered: the persisted message replaces it below, and
     // a flush landing after the clear would resurrect the reply as a duplicate.
     if (flushTimer.current != null) clearTimeout(flushTimer.current);
@@ -730,12 +792,56 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
   // Grow the composer with its content: reset to the 3-line minimum, then match
   // the scroll height (CSS max-height caps it and lets it scroll past that).
+  // A composer the user has sized keeps that size and scrolls instead.
   useEffect(() => {
     const el = composerRef.current;
     if (!el) return;
+    if (composerH != null) {
+      el.style.height = `${composerH}px`;
+      return;
+    }
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
-  }, [draft]);
+  }, [draft, composerH]);
+
+  /**
+   * Drag the line between the conversation and the composer to trade one for
+   * the other: up gives the message box more room for a long prompt, down gives
+   * it back to the transcript. Everything else in the composer (the controls,
+   * the attach row) keeps its size, so only the text box grows, and the
+   * transcript is never squeezed below TRANSCRIPT_MIN_H. Double-click the line
+   * to go back to growing with the draft.
+   */
+  const startComposerResize = (e: React.PointerEvent) => {
+    const ta = composerRef.current;
+    const pane = paneRef.current;
+    const section = composerSectionRef.current;
+    if (!ta || !pane || !section) return;
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = ta.getBoundingClientRect().height;
+    // Whatever in the composer is not the text box, which the drag cannot shrink.
+    const chrome = section.getBoundingClientRect().height - startH;
+    const maxH = Math.max(COMPOSER_MIN_H, pane.getBoundingClientRect().height - chrome - TRANSCRIPT_MIN_H);
+    let latest = startH;
+    const onMove = (ev: PointerEvent) => {
+      latest = Math.round(Math.min(maxH, Math.max(COMPOSER_MIN_H, startH + (startY - ev.clientY))));
+      setComposerH(latest);
+    };
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      document.body.style.cursor = '';
+      try { window.localStorage.setItem(COMPOSER_H_KEY, String(latest)); } catch { /* private mode */ }
+    };
+    document.body.style.cursor = 'row-resize';
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  };
+  const resetComposerHeight = () => {
+    setComposerH(null);
+    try { window.localStorage.removeItem(COMPOSER_H_KEY); } catch { /* private mode */ }
+  };
 
   // --- Draft persistence ---
   // The workbench only mounts the pane you're looking at, so a tab switch (or
@@ -1258,6 +1364,18 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     if (open) setModelHintDone(true);
   };
 
+  /**
+   * What this reply is doing right now, in a few words.
+   *
+   * Read off the app-wide fold rather than recomputed here, so the phrase under
+   * the transcript and the one on the chat's Command Center card are the same
+   * sentence. Subscribing to the run is what makes it move: it changes on every
+   * tool call and thought, where the old label said "Streaming" for the whole
+   * turn regardless of what the agent was actually doing.
+   */
+  const liveRun = useLiveRun(sessionId);
+  const liveStatus = streaming ? shortLiveStatus(liveRun?.activity) || 'Working' : '';
+
   // The in-flight turn's reasoning + tool calls, folded into one activity block.
   const liveActivity: Activity[] = [
     ...(liveReasoning ? [{ kind: 'reasoning' as const, text: liveReasoning, duration: reasoningDuration }] : []),
@@ -1283,13 +1401,35 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
             title strip, which already shows the chat's name; standalone, the
             chat still needs a header of its own. */}
         <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)}>
-            {prs.length > 0 && (
+            {git && (
+              <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
+                {git.worktree && (
+                  <span
+                    className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
+                    style={{ background: 'color-mix(in srgb, var(--accent-2) 13%, transparent)', color: 'var(--accent-2)' }}
+                    title={`Linked git worktree: ${git.worktree.path}`}
+                  >
+                    <WorktreeIcon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{git.worktree.name}</span>
+                  </span>
+                )}
+                <span
+                  className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
+                  style={{ background: 'color-mix(in srgb, var(--accent) 13%, transparent)', color: 'var(--accent)' }}
+                  title={git.branch ? `On branch ${git.branch}${git.dirtyCount ? ` · ${git.dirtyCount} uncommitted` : ''}` : `Detached at ${git.head}`}
+                >
+                  <BranchIcon className="h-3 w-3 shrink-0" />
+                  <span className="max-w-[16ch] truncate">{git.branch ?? git.head ?? 'detached'}</span>
+                </span>
+              </span>
+            )}
+            {headerPrs.length > 0 && (
               <button
                 className="btn btn-ghost px-2 py-1"
-                onClick={() => useStore.getState().openPrPane(prs[0].url)}
-                title="Review pull request"
+                onClick={() => useStore.getState().openPrPane(headerPrs[0].url)}
+                title={git?.pr ? `Review #${git.pr.number}: ${git.pr.title}` : 'Review pull request'}
               >
-                <PrBadge prs={prs} />
+                <PrBadge prs={headerPrs} />
               </button>
             )}
             {changeCount > 0 && (
@@ -1446,7 +1586,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
               />
               <ReplyStatus
                 streaming={streaming}
-                waiting={streaming && !liveText && liveActivity.length === 0}
+                status={liveStatus}
                 elapsed={elapsed}
                 tps={tps}
                 out={turnOut}
@@ -1471,7 +1611,10 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         {question && (
           <div className="border-t border-line px-4 pt-3">
             <div className={contentWidth}>
+              {/* Keyed so a second ask starts at its own first step rather
+                  than inheriting where the last one was left. */}
               <QuestionCard
+                key={question.callId}
                 request={question}
                 onAnswer={(answers) => answerQuestion(answers)}
                 onSkip={() => answerQuestion([])}
@@ -1480,7 +1623,21 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           </div>
         )}
 
-        <div className="border-t border-line px-4 pb-4 pt-1.5">
+        <div ref={composerSectionRef} className="relative border-t border-line px-4 pb-4 pt-1.5">
+          {/* The resize grip rides the composer's top border: a wide invisible
+              hit area over a hairline that lights up on hover. */}
+          <div
+            className="group absolute inset-x-0 -top-1.5 z-10 h-3 cursor-row-resize"
+            onPointerDown={startComposerResize}
+            onDoubleClick={resetComposerHeight}
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize the message box"
+            title="Drag to resize the message box · double-click to reset"
+          >
+            <span className="absolute inset-x-0 top-[5px] h-0.5 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
+            <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
+          </div>
           <div className={contentWidth}>
             {/* The instrument strip, two rows so a long model name has room and
                 nothing wraps: how this agent RUNS on top (mode + tools, with the
@@ -1557,7 +1714,9 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                   <ThoughtIcon className="h-3 w-3" /> Thinking
                 </span>
               ) : null}
-              <EffortMenu />
+              {/* Tied to the model this message will run on, so the rungs offered
+                  are the ones that model actually has. */}
+              <EffortMenu modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
               <button
                 className="ctl-toggle ml-auto shrink-0 whitespace-nowrap"
                 onClick={() => setScheduleOpen(true)}
@@ -1734,7 +1893,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                 )}
                 <textarea
                   ref={composerRef}
-                  className="max-h-60 min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint"
+                  className={`${composerH != null ? '' : 'max-h-60 '}min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint`}
                   rows={2}
                   placeholder={hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first'}
                   value={draft}
@@ -2301,6 +2460,21 @@ function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
   const flush = () => {
     if (run.length) { blocks.push({ type: 'activity', key: `act_${runKey}`, items: run }); run = []; }
   };
+  /**
+   * Narration the model wrote mid-run is speech, not a step.
+   *
+   * It used to fold into the collapsed activity group as a "Said" row, which
+   * meant the model could explain what it was about to do and have that
+   * explanation hidden behind a disclosure triangle: the one part of a run
+   * written *to the reader* was the part the reader could not see. So it
+   * leaves the group as its own bubble, and because a bubble cannot sit inside
+   * the group, it also closes the run: the steps before it and the steps after
+   * it become separate groups, which is the grouping the sequence already had.
+   */
+  const say = (m: ChatMessage, i: number) => {
+    flush();
+    blocks.push({ type: 'msg', message: { ...m, id: `${m.id}_said_${i}`, toolCalls: undefined } });
+  };
   // The turn's answer is the last assistant message's own text, even when that
   // message also made tool calls, a run cut short by the step budget, an abort,
   // or a model that concludes in the same message as its final tool call.
@@ -2318,9 +2492,9 @@ function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
       const isFinalAnswer = i === lastAssistant && m.content.trim().length > 0;
       if (!run.length) runKey = `${m.id}_${i}`;
       if (m.reasoning) run.push({ kind: 'reasoning', text: m.reasoning, duration: m.reasoningSeconds ?? null });
-      // Mid-run narration folds into the group; the final message's text is the
-      // turn's answer and is surfaced as its own bubble instead.
-      if (m.content.trim() && !isFinalAnswer) run.push({ kind: 'note', text: m.content });
+      // Narration is written out in full as part of the conversation, and it
+      // splits the run in two: what led up to it, and what it went on to do.
+      if (m.content.trim() && !isFinalAnswer) say(m, i);
       m.toolCalls.forEach((c) => run.push({ kind: 'tool', call: c }));
       if (isFinalAnswer) { flush(); blocks.push({ type: 'msg', message: m }); }
     } else {
@@ -2470,19 +2644,20 @@ function StepRow({ index, item, live }: { index: number; item: Activity; live: b
  * changes height.
  */
 function ReplyStatus({
-  streaming, waiting, elapsed, tps, out, last, done,
+  streaming, status, elapsed, tps, out, last, done,
 }: {
   // `elapsed` is how long the reply has been running; `tps` is the model's decode
   // rate over the time it spent generating, so the two deliberately don't divide
   // into each other (a turn spends much of its wall clock running tools).
-  streaming: boolean; waiting: boolean; elapsed: number; tps: number; out: number;
+  // `status` is the few-word present-tense line: what it is doing, not that it is.
+  streaming: boolean; status: string; elapsed: number; tps: number; out: number;
   last: { out: number; tps: number; secs: number } | null;
   done?: string | null;
 }) {
   if (streaming) {
     return (
       <div className="fade-in flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-1 text-[12px] text-ink-faint">
-        <span className="flex items-center gap-2 text-ink-soft"><MiniNekko size={16} /> {waiting ? 'Nekko is working' : 'Streaming'}<span className="dots" /></span>
+        <span className="flex items-center gap-2 text-ink-soft"><MiniNekko size={16} /> {status || 'Working'}<span className="dots" /></span>
         {elapsed > 0 && <span>· {elapsed}s</span>}
         {tps > 0 && <span title="Output tokens per second while the model was generating">· {formatRate(tps)} tok/s</span>}
         {out > 0 && <span>· {fmtTok(out)} tokens</span>}

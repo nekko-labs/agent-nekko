@@ -18,9 +18,10 @@ function run(
   bin: string,
   args: string[],
   timeoutMs = 15_000,
+  cwd?: string,
 ): Promise<{ ok: boolean; code: number | null; stdout: string; stderr: string; missing: boolean }> {
   return new Promise((resolve) => {
-    execFile(bin, args, { timeout: timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (err, stdout, stderr) => {
+    execFile(bin, args, { cwd, timeout: timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024 }, (err, stdout, stderr) => {
       const e = err as (NodeJS.ErrnoException & { code?: number | string }) | null;
       const missing = !!e && (e.code === 'ENOENT' || (e as NodeJS.ErrnoException).errno === -4058);
       resolve({
@@ -173,6 +174,69 @@ async function cachedInfo(url: string, force = false): Promise<PrInfo | null> {
   const info = await fetchPrInfo(url);
   cache.set(url, { info, ts: Date.now() });
   return info;
+}
+
+// A branch's PR changes rarely (opened once, merged once) and asking costs a gh
+// round trip, so it is cached for a minute per folder + branch, and a branch
+// with no PR is remembered as such rather than asked about on every poll.
+const BRANCH_PR_TTL = 60_000;
+const branchCache = new Map<string, { info: PrInfo | null; ts: number }>();
+const branchInFlight = new Map<string, Promise<PrInfo | null>>();
+
+/**
+ * The pull request for the branch checked out in `cwd`, via `gh pr view`.
+ *
+ * gh resolves a branch's PR itself (including one opened from a fork), which is
+ * why this asks gh rather than the REST API: there is no URL to start from. No
+ * gh, no auth, and no PR all come back as null.
+ */
+export async function branchPr(cwd: string, branch: string): Promise<PrInfo | null> {
+  if (ghMissing) return null;
+  const key = `${cwd}|${branch}`;
+  const hit = branchCache.get(key);
+  if (hit && Date.now() - hit.ts < BRANCH_PR_TTL) return hit.info;
+  const pending = branchInFlight.get(key);
+  if (pending) return pending;
+
+  const promise = (async () => {
+    const res = await run('gh', ['pr', 'view', branch, '--json', GH_FIELDS], 10_000, cwd);
+    if (res.missing) ghMissing = true;
+    let info: PrInfo | null = null;
+    if (res.ok) {
+      try {
+        const j = JSON.parse(res.stdout) as Record<string, unknown>;
+        const url = String(j.url ?? '');
+        const parsed = parsePrUrl(url);
+        if (parsed) {
+          info = {
+            url,
+            owner: parsed.owner,
+            repo: parsed.repo,
+            number: parsed.number,
+            title: String(j.title ?? `#${parsed.number}`),
+            state: ghState(String(j.state ?? 'OPEN'), j.mergedAt as string | null),
+            isDraft: !!j.isDraft,
+            additions: Number(j.additions ?? 0),
+            deletions: Number(j.deletions ?? 0),
+            changedFiles: Number(j.changedFiles ?? 0),
+            headRefName: (j.headRefName as string) || undefined,
+            baseRefName: (j.baseRefName as string) || undefined,
+            reviewDecision: (j.reviewDecision as string) || null,
+            checks: rollupChecks(j.statusCheckRollup),
+            mergedAt: (j.mergedAt as string) || null,
+            updatedAt: (j.updatedAt as string) || null,
+            source: 'gh',
+          };
+        }
+      } catch {
+        /* unparseable output: treat as no PR */
+      }
+    }
+    branchCache.set(key, { info, ts: Date.now() });
+    return info;
+  })().finally(() => branchInFlight.delete(key));
+  branchInFlight.set(key, promise);
+  return promise;
 }
 
 /** Live PR state for every PR URL referenced in a session's transcript. */
