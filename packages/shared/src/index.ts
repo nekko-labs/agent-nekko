@@ -7,6 +7,7 @@ export * from './brand-env.js';
 export * from './models.js';
 export * from './model-availability.js';
 export * from './model-capabilities.js';
+export * from './trim.js';
 export * from './capacity.js';
 export * from './readiness.js';
 export * from './runtimes.js';

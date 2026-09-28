@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { delimiter, join, resolve } from 'node:path';
 import type { App } from 'electron';
-import { CLI_LINK_FILE, type CliInstallStatus, type CliLink } from '@agent-nekko/shared';
+import { CLI_LINK_FILE, trimTrailingSlashes, type CliInstallStatus, type CliLink } from '@agent-nekko/shared';
 
 /**
  * Making `agent-nekko` work in a terminal as a consequence of installing the app.
@@ -83,10 +83,10 @@ export function launcherScript(electron: string, cli: string): string {
 
 /** Whether a directory is already on this process's PATH. */
 export function dirOnPath(dir: string, pathValue = process.env.PATH ?? ''): boolean {
-  const wanted = dir.replace(/[\\/]+$/, '').toLowerCase();
+  const wanted = trimTrailingSlashes(dir, true).toLowerCase();
   return pathValue
     .split(delimiter)
-    .some((entry) => entry.replace(/[\\/]+$/, '').toLowerCase() === wanted);
+    .some((entry) => trimTrailingSlashes(entry, true).toLowerCase() === wanted);
 }
 
 /**

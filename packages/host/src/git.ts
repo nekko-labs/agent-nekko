@@ -21,6 +21,7 @@
 
 import { execFile } from 'child_process';
 import type { GitStatus } from '@agent-nekko/shared';
+import { trimTrailingSlashes } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 import { branchPr } from './pr.js';
 
@@ -124,8 +125,8 @@ export function parseWorktree(stdout: string, cwd: string): { name: string; path
   // git prints these relative to cwd in a main checkout (".git") and absolute
   // in a worktree, so compare them resolved, slash-normalized, and caseless.
   const norm = (p: string) => {
-    const abs = /^([a-zA-Z]:)?[\\/]/.test(p) ? p : `${cwd.replace(/[\\/]+$/, '')}/${p}`;
-    return abs.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+    const abs = /^([a-zA-Z]:)?[\\/]/.test(p) ? p : `${trimTrailingSlashes(cwd, true)}/${p}`;
+    return trimTrailingSlashes(abs.replace(/\\/g, '/')).toLowerCase();
   };
   if (norm(gitDir) === norm(commonDir)) return undefined;
   const path = top.replace(/\\/g, '/');

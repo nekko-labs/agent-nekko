@@ -15,6 +15,7 @@
 
 import type { AgentEvent } from './chat.js';
 import { summarizeThought, summarizeToolCall, truncateWords } from './agent-steps.js';
+import { trimTrailingSlashes } from './trim.js';
 
 /** A thought, a tool call, or a line the model said between tools. */
 export type LiveStepKind = 'thinking' | 'tool' | 'note';
@@ -218,7 +219,7 @@ function shortTarget(detail: string): string {
   // A path becomes its last segment; anything else is left as written, because
   // trimming a shell command at a slash would change what it says.
   if (/[\\/]/.test(first) && !first.includes(' ')) {
-    const leaf = first.replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+    const leaf = trimTrailingSlashes(first, true).split(/[\\/]/).pop();
     if (leaf) return leaf;
   }
   return first;

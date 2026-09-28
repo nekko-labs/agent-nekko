@@ -15,6 +15,8 @@
  * token required, and a token generated rather than left empty.
  */
 
+import { trimTrailingSlashes } from './trim.js';
+
 /** Where the server listens: a preset, or an interface typed by hand. */
 export type ApiServerBind = 'local' | 'lan' | 'custom';
 
@@ -130,7 +132,7 @@ export function apiServerUrl(settings: ApiServerSettings, host = '127.0.0.1'): s
  */
 export function apiServerClientUrl(settings: ApiServerSettings, host = '127.0.0.1'): string {
   const advertised = settings.advertisedUrl?.trim();
-  return advertised ? advertised.replace(/\/+$/, '') : apiServerUrl(settings, host);
+  return advertised ? trimTrailingSlashes(advertised) : apiServerUrl(settings, host);
 }
 
 /**

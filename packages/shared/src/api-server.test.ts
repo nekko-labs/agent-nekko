@@ -8,6 +8,7 @@ import {
   mcpServerEntry,
   withApiServerDefaults,
 } from './api-server.js';
+import { trimTrailingSlashes } from './trim.js';
 
 const base = withApiServerDefaults({ token: 't0k' });
 
@@ -61,5 +62,21 @@ describe('mcp entries', () => {
       NEKKO_URL: 'http://x:1',
       NEKKO_TOKEN: 'k',
     });
+  });
+});
+
+describe('trimTrailingSlashes', () => {
+  it('drops trailing slashes only, and backslashes when asked', () => {
+    expect(trimTrailingSlashes('http://x:1///')).toBe('http://x:1');
+    expect(trimTrailingSlashes(String.raw`C:\bin\\`, true)).toBe(String.raw`C:\bin`);
+    expect(trimTrailingSlashes(String.raw`C:\bin\ `.trimEnd())).toBe(String.raw`C:\bin\ `.trimEnd());
+    expect(trimTrailingSlashes('////')).toBe('');
+  });
+
+  it('stays fast on the input that makes the regex form quadratic', () => {
+    const evil = '/'.repeat(200_000) + 'x';
+    const t = Date.now();
+    expect(trimTrailingSlashes(evil)).toBe(evil);
+    expect(Date.now() - t).toBeLessThan(200);
   });
 });
