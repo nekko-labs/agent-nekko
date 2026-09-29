@@ -30,15 +30,26 @@ export function SubscriptionSignIn({
   const [finishing, setFinishing] = useState(false);
   const [importing, setImporting] = useState(false);
   const sessionRef = useRef<OAuthSessionInfo | null>(null);
-  const signInLabel = label ?? (oauthProvider === 'claude' ? 'Sign in with Claude' : 'Sign in with ChatGPT');
+  const signInLabel =
+    label ??
+    (oauthProvider === 'claude'
+      ? 'Sign in with Claude'
+      : oauthProvider === 'chatgpt'
+        ? 'Sign in with ChatGPT'
+        : 'Sign in with OpenRouter');
   // The official first-party CLI whose credential file the host can import as
-  // a zero-browser sign-in path.
-  const cliName = oauthProvider === 'claude' ? 'Claude Code' : 'the Codex CLI';
+  // a zero-browser sign-in path. OpenRouter has none.
+  const cliName =
+    oauthProvider === 'claude' ? 'Claude Code' : oauthProvider === 'chatgpt' ? 'the Codex CLI' : undefined;
   // Anthropic and OpenAI only issue subscription tokens to their own registered
   // OAuth clients, so we sign in through the first-party CLI's client id. Their
   // consent screen therefore names that CLI, not us - say so up front, because
   // an unexplained "Claude Code wants access" reads like the wrong app opened.
-  const consentNote = `The authorization page will say ${oauthProvider === 'claude' ? 'Claude Code' : 'Codex CLI'}, not Agent Nekko: a plan can only be used through its provider's own sign-in client, and Agent Nekko connects through that.`;
+  // OpenRouter is the opposite: its PKCE flow creates an API key for this app.
+  const consentNote =
+    oauthProvider === 'openrouter'
+      ? 'Approving in the browser creates an API key on your OpenRouter account and hands it to this app. Usage bills to your OpenRouter balance, and you can revoke the key from openrouter.ai at any time.'
+      : `The authorization page will say ${oauthProvider === 'claude' ? 'Claude Code' : 'Codex CLI'}, not Agent Nekko: a plan can only be used through its provider's own sign-in client, and Agent Nekko connects through that.`;
   const onConnectedRef = useRef(onConnected);
   useEffect(() => {
     onConnectedRef.current = onConnected;
@@ -160,7 +171,9 @@ export function SubscriptionSignIn({
       <div className="space-y-2">
         <p className="text-[12px] text-ink-faint">
           {session.mode === 'loopback'
-            ? 'Finish signing in in the browser tab that opened; this window updates automatically.'
+            ? oauthProvider === 'openrouter'
+              ? 'Approve the key request in the browser tab that opened; the key lands here automatically.'
+              : 'Finish signing in in the browser tab that opened; this window updates automatically.'
             : 'Your browser could not reach back to the app, so sign-in finishes manually: after you authorize, copy the code the page shows and paste it below.'}
         </p>
         <p className="text-[11.5px] text-ink-faint">{consentNote}</p>
@@ -209,12 +222,14 @@ export function SubscriptionSignIn({
         </p>
       )}
       <p className="text-[11.5px] text-ink-faint">{consentNote}</p>
-      <p className="text-[11.5px] text-ink-faint">
-        Already signed in to {cliName}?{' '}
-        <button className="text-accent hover:underline" onClick={() => void importCli()} disabled={importing}>
-          {importing ? 'Importing…' : 'Import that sign-in'}
-        </button>
-      </p>
+      {cliName && (
+        <p className="text-[11.5px] text-ink-faint">
+          Already signed in to {cliName}?{' '}
+          <button className="text-accent hover:underline" onClick={() => void importCli()} disabled={importing}>
+            {importing ? 'Importing…' : 'Import that sign-in'}
+          </button>
+        </p>
+      )}
     </div>
   );
 }

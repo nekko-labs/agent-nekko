@@ -47,16 +47,35 @@ export class OpenAICompatProvider implements Provider {
       if (lm) return lm;
     }
     const res = await fetch(`${this.base()}/models`, { headers: this.headers() });
-    if (!res.ok) throw new Error(`listModels ${res.status}`);
-    const json = (await res.json()) as { data?: Array<{ id: string; context_length?: number }> };
-    return (json.data ?? []).map((m) => ({
-      id: m.id,
-      providerId: this.config.id,
-      name: m.id,
-      contextLength: m.context_length,
-      // vLLM serves exactly the model(s) it was launched with — always resident.
-      ...(this.config.kind === 'vllm' ? { loaded: true } : {}),
-    }));
+    if (!res.ok) throw new Error(`listModels ${res.status}: ${extractApiError(await res.text().catch(() => ''))}`);
+    const json = (await res.json()) as {
+      data?: Array<{
+        id: string;
+        name?: string;
+        context_length?: number;
+        top_provider?: { context_length?: number };
+        pricing?: { prompt?: string; completion?: string };
+        supported_parameters?: string[];
+      }>;
+    };
+    const openrouter = this.config.kind === 'openrouter';
+    return (json.data ?? []).map((m) => {
+      const input = Number(m.pricing?.prompt);
+      const output = Number(m.pricing?.completion);
+      const priced = openrouter && Number.isFinite(input) && Number.isFinite(output);
+      return {
+        id: m.id,
+        providerId: this.config.id,
+        // OpenRouter supplies a display name ("OpenAI: GPT-5"); everyone else
+        // only has the id.
+        name: openrouter && m.name ? m.name : m.id,
+        contextLength: m.context_length ?? m.top_provider?.context_length,
+        ...(priced ? { inputPricePerM: input * 1e6, outputPricePerM: output * 1e6 } : {}),
+        ...(openrouter && m.supported_parameters?.includes('tools') ? { details: { tools: 'yes' } } : {}),
+        // vLLM serves exactly the model(s) it was launched with — always resident.
+        ...(this.config.kind === 'vllm' ? { loaded: true } : {}),
+      };
+    });
   }
 
   /** LM Studio native model list with load state (`/api/v0/models`). */
@@ -78,10 +97,32 @@ export class OpenAICompatProvider implements Provider {
 
   async test(): Promise<{ ok: boolean; message: string }> {
     try {
+      // OpenRouter's /key endpoint answers with the key's label and remaining
+      // credits — a real auth check, unlike /models which is public there.
+      if (this.config.kind === 'openrouter') {
+        if (!this.config.apiKey) return { ok: false, message: 'Paste an API key or sign in with OpenRouter first.' };
+        const res = await fetch(`${this.base()}/key`, { headers: this.headers() });
+        if (res.status === 401 || res.status === 403) {
+          return { ok: false, message: 'OpenRouter rejected this key — check it or regenerate it.' };
+        }
+        if (!res.ok) return { ok: false, message: `OpenRouter answered HTTP ${res.status}.` };
+        const json = (await res.json().catch(() => null)) as {
+          data?: { limit_remaining?: number | null; limit?: number | null; usage?: number };
+        } | null;
+        const d = json?.data;
+        const remaining = d?.limit_remaining ?? (d?.limit != null && d?.usage != null ? d.limit - d.usage : null);
+        return {
+          ok: true,
+          message: `Connected${remaining != null ? ` — $${Math.max(0, remaining).toFixed(2)} left` : ' — unlimited'}`,
+        };
+      }
       const res = await fetch(`${this.base()}/models`, { headers: this.headers() });
-      return res.ok
-        ? { ok: true, message: 'Connected' }
-        : { ok: false, message: `HTTP ${res.status}${res.status === 401 ? ', check your API key' : ''}` };
+      if (res.ok) return { ok: true, message: 'Connected' };
+      const detail = extractApiError(await res.text().catch(() => ''));
+      return {
+        ok: false,
+        message: `HTTP ${res.status}${res.status === 401 ? ', check your API key' : ''}${detail ? `: ${detail}` : ''}`,
+      };
     } catch (e) {
       return { ok: false, message: friendlyError(e, this.base()) };
     }
@@ -123,7 +164,9 @@ export class OpenAICompatProvider implements Provider {
     }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`Model request failed (HTTP ${res.status})${text ? `: ${text.slice(0, 200)}` : ''}`);
+      // OpenAI-style bodies carry { error: { message } } — surface that message
+      // instead of raw JSON so 401/402/429 replies read like sentences.
+      throw new Error(`Model request failed (HTTP ${res.status})${text ? `: ${extractApiError(text)}` : ''}`);
     }
 
     // Accumulate streamed tool-call fragments by index.
@@ -232,6 +275,13 @@ function safeParse(s: string): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+/** Pull a readable message out of an API error body, or truncate raw text. */
+function extractApiError(text: string): string {
+  const parsed = safeParse(text);
+  const msg = (parsed.error as { message?: unknown } | undefined)?.message;
+  return typeof msg === 'string' ? msg : text.slice(0, 200);
 }
 
 /** Turn low-level fetch failures into actionable guidance. */

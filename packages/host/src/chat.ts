@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
-import { ASK_CANCELLED, EFFORT_TEMPERATURE, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest } from '@agent-nekko/shared';
+import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -17,7 +17,7 @@ import {
   UPDATE_PLAN_TOOL,
   repairInterruptedHistory,
 } from '@agent-nekko/core';
-import { reportExperiment, reportArtifact, updateRunPlan } from './training.js';
+import { reportExperiment, reportArtifact, updateRunPlan, runPlanForSession } from './training.js';
 import { getSettings } from './store.js';
 import { getSession, saveSession, createSession } from './sessions.js';
 import { executeTool } from './tools.js';
@@ -90,6 +90,81 @@ export function getPendingInput(): Record<string, PendingInput> {
 
 function isAuthFailure(message: string): boolean {
   return /\b401\b|unauthorized|invalid auth|invalid api key|authentication/i.test(message);
+}
+
+/**
+ * Apply an `update_plan` call to an ordinary chat's live plan (run sessions go
+ * through updateRunPlan instead). Persisting and notifying are the caller's
+ * job — the function returns the echo text either way.
+ */
+function updateSessionPlan(session: Session, input: Record<string, unknown>): string {
+  const result = applyPlanUpdate(session.agentPlan, input);
+  if ('error' in result) return result.error;
+  session.agentPlan = result.plan;
+  session.updatedAt = Date.now();
+  return planEcho(result.plan);
+}
+
+/**
+ * Write a real title once a chat's first turn has content. Uses the chat's own
+ * provider and model; a failure just leaves the prompt-prefix placeholder.
+ * `titleAuto` is the guard: it flips false the moment the user names the chat.
+ */
+async function titleSession(
+  sessionId: string,
+  provider: ProviderConfig,
+  modelId: string,
+  send: Sender,
+): Promise<void> {
+  const session = getSession(sessionId);
+  if (!session || session.titleAuto !== true) return;
+  const userText = session.messages.find((m) => m.role === 'user')?.content ?? '';
+  if (!userText.trim()) return;
+  const assistantText =
+    [...session.messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
+  try {
+    let out = '';
+    for await (const chunk of createProvider(provider).chat({
+      model: modelId,
+      messages: [
+        {
+          id: 'title',
+          role: 'user',
+          createdAt: Date.now(),
+          content:
+            `Give this task a short title, 3 to 6 words, for a workspace card. ` +
+            `Answer with only the title: no quotes, no trailing punctuation.\n\n` +
+            `Request: ${userText.slice(0, 600)}` +
+            (assistantText ? `\nWhat was done: ${assistantText.slice(0, 240)}` : ''),
+        },
+      ],
+      temperature: 0.2,
+      maxOutputTokens: 24,
+      think: false,
+      purpose: 'title',
+    })) {
+      if (chunk.type === 'text') out += chunk.delta;
+    }
+    const title = out
+      .replace(/["'`]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/[.!?:;\-–—]+$/, '')
+      .trim()
+      .slice(0, 64);
+    if (!title) return;
+    const fresh = getSession(sessionId);
+    // Re-check the flag: a rename while the call was in flight is the user's.
+    if (!fresh || fresh.titleAuto !== true) return;
+    fresh.title = title;
+    // Written once: the flag stays the "may generate" gate, so landing a title
+    // also ends generation; a rename to it later is just a rename.
+    fresh.titleAuto = false;
+    fresh.updatedAt = Date.now();
+    saveSession(fresh);
+    send({ type: 'session_meta', sessionId });
+  } catch {
+    /* a nicer title is nice-to-have; the prompt prefix stays */
+  }
 }
 
 /** Resolve a pending tool approval (called from IPC when the user clicks). */
@@ -435,9 +510,13 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     if (!allowSpawn) disabled.add('spawn_agent');
     if (!allowBrowserControl || !canAsk) disabled.add('browser');
     tools = [...BUILTIN_TOOLS, ...mcpToolSpecs()].filter((t) => !disabled.has(t.name));
+    // update_plan goes to every session: goal runs treat it as the execution
+    // contract; ordinary chats publish it to the plan rail so the user sees the
+    // plan the agent derived, not a re-listing of their own prompt.
+    tools.push(UPDATE_PLAN_TOOL);
     // Run-driven sessions can register experiments into their run's idea maze
-    // and (goal runs) maintain their execution plan.
-    if (session.trainingRunId) tools.push(REPORT_EXPERIMENT_TOOL, REPORT_ARTIFACT_TOOL, UPDATE_PLAN_TOOL);
+    // and report the artifacts they produce.
+    if (session.trainingRunId) tools.push(REPORT_EXPERIMENT_TOOL, REPORT_ARTIFACT_TOOL);
     // Asking is only offered where somebody is there to answer. A sub-agent, an
     // automation, or a goal run has no one reading it, so a question would be a
     // run parked forever rather than a clarification.
@@ -475,6 +554,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     contextBlock,
     platform: process.platform,
     canAsk: tools.some((t) => t.name === ASK_USER_TOOL.name),
+    canPlan: tools.some((t) => t.name === UPDATE_PLAN_TOOL.name),
     orchestrationHint: tools.some((t) => t.name === 'spawn_agent')
       ? `${orchestrationPromptHint(orchestration)}\n\n${routingPrompt(settings.providers)}`
       : '',
@@ -501,7 +581,12 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       ...(opts.skill ? { skill: opts.skill } : {}),
     };
     session.messages.push(userMsg);
-    if (session.title === 'New chat') session.title = opts.text.slice(0, 48) || 'New chat';
+    if (session.title === 'New chat') {
+      // Placeholder until the post-turn summarizer writes the real one; the
+      // flag says the app named it, so a better name may replace it.
+      session.title = opts.text.slice(0, 48) || 'New chat';
+      session.titleAuto = true;
+    }
   }
   session.providerId = opts.providerId;
   session.modelId = opts.modelId;
@@ -585,9 +670,19 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
               return Promise.resolve({ toolCallId: call.id, output: `Failed to record the artifact: ${(e as Error).message}`, isError: true });
             }
           }
-          if (call.name === 'update_plan' && session.trainingRunId) {
+          if (call.name === 'update_plan') {
             try {
-              const output = updateRunPlan(opts.sessionId, call.input as Record<string, unknown>);
+              const input = call.input as Record<string, unknown>;
+              // Run sessions write the run's plan (and mirror it onto the
+              // session so the plan rail can render it too); ordinary chats
+              // write session.agentPlan directly. Either way the rail needs a
+              // session_meta poke to re-read.
+              const output = session.trainingRunId
+                ? updateRunPlan(opts.sessionId, input)
+                : updateSessionPlan(session, input);
+              if (session.trainingRunId) session.agentPlan = runPlanForSession(opts.sessionId);
+              persist();
+              send({ type: 'session_meta', sessionId: opts.sessionId });
               return Promise.resolve({ toolCallId: call.id, output });
             } catch (e) {
               return Promise.resolve({ toolCallId: call.id, output: `Failed to update the plan: ${(e as Error).message}`, isError: true });
@@ -686,6 +781,12 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   // Keep the linked spec.md in sync with the conversation (best-effort).
   if (session.specLinked && !incognito && !offline) {
     buildSpec(opts.sessionId).catch(() => {});
+  }
+
+  // With the first turn done, ask the model for a real title. titleAuto guards
+  // a name the user typed; incognito/offline chats skip the extra call.
+  if (!incognito && !offline && session.titleAuto === true) {
+    void titleSession(opts.sessionId, resolvedProvider, opts.modelId, send);
   }
 
   // Run the next queued prompt, if any (and we weren't aborted). Each turn

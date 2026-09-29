@@ -14,6 +14,7 @@ import {
   summarizeToolCall,
   getStrategy,
   DEFAULT_ORCHESTRATION,
+  planProgress,
   type PromptStepStatus,
   type PromptPlan,
 } from '@agent-nekko/shared';
@@ -157,6 +158,13 @@ export function PlanRail({
   const activity = useSubAgentActivity(sessionId, children.map((c) => c.id));
 
   const progress = planProgressCount(plan);
+  /**
+   * The plan the agent published itself via update_plan — what it decided to
+   * do after reading the request, kept live as it works. When present it leads
+   * the rail; the editable list below stays what the prompt decodes to.
+   */
+  const agentPlan = session?.agentPlan;
+  const agentProgress = planProgress(agentPlan);
   const queued = session?.queue ?? [];
 
   const edit = (next: PromptPlan) => onPlanChange(next);
@@ -280,10 +288,60 @@ export function PlanRail({
       </header>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
+        {/* ---- Agent's plan ----
+            Read-only: the agent owns it and keeps it current via update_plan.
+            It answers "what is it doing" the way the editable list cannot — the
+            editable list is your prompt's plan, this one is the agent's. */}
+        {!!agentPlan?.length && (
+          <section>
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Agent plan</span>
+              <span className="text-[10px] tabular-nums text-ink-faint">
+                {agentProgress.done + agentProgress.skipped}/{agentProgress.total}
+              </span>
+              {streaming && (
+                <span
+                  className="h-1.5 w-1.5 animate-pulse rounded-full"
+                  style={{ background: 'var(--accent)' }}
+                  title="The agent is working"
+                />
+              )}
+            </div>
+            <ol className="space-y-0.5">
+              {agentPlan.map((step) => (
+                <li key={step.id} className="flex items-start gap-1.5 rounded-lg px-1 py-0.5">
+                  <span className="mt-[5px] shrink-0">
+                    <StepDot status={step.status === 'active' ? 'running' : step.status} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={`block text-[12px] leading-snug ${
+                        step.status === 'skipped' ? 'text-ink-faint line-through' : 'text-ink-soft'
+                      }`}
+                    >
+                      {step.title}
+                    </span>
+                    {step.note && (
+                      <span className="block truncate text-[10px] text-ink-faint" title={step.note}>
+                        {step.note}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-1 px-0.5 text-[10px] leading-snug text-ink-faint">
+              What the agent decided after reading the request; it keeps this current as it works.
+            </p>
+          </section>
+        )}
+
         {/* ---- Plan ---- */}
         <section>
           <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Plan</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+              {agentPlan?.length ? 'Your steps' : 'Plan'}
+            </span>
             {progress.total > 0 && (
               <span className="text-[10px] tabular-nums text-ink-faint">{progress.done}/{progress.total}</span>
             )}

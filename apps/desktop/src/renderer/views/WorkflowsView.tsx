@@ -55,6 +55,16 @@ const STATUS_TONE: Record<WorkflowRunStatus, { color: string; label: string }> =
 const ROWS_PER_GROUP = 12;
 
 /**
+ * Trigger kinds grouped by who or what sets a run off, so the filter reads in
+ * plain terms instead of a flat list of kinds.
+ */
+const TRIGGER_FAMILIES: Array<{ label: string; kinds: WorkflowTriggerKind[] }> = [
+  { label: 'You start it', kinds: ['manual', 'cli'] },
+  { label: 'On a schedule', kinds: ['schedule'] },
+  { label: 'On an event', kinds: ['git', 'slack', 'connector', 'webhook'] },
+];
+
+/**
  * Runs fired by an external event - a git trigger, a connector poll, or an
  * inbound webhook - rather than by hand, a schedule, or the CLI. These are the
  * CI-style runs, and they get a "runner" badge so they stand apart in the
@@ -150,11 +160,16 @@ export function WorkflowsView() {
             {(['category', 'listener'] as WorkflowGrouping[]).map((g) => (
               <button
                 key={g}
+                title={
+                  g === 'category'
+                    ? 'Group by what each workflow is for (Code review, Maintenance…)'
+                    : 'Group by what starts it — "what runs when a PR opens"'
+                }
                 className={`flex-1 rounded-lg border px-2 py-1 text-[11.5px] transition ${grouping === g ? 'border-transparent' : 'border-line text-ink-faint'}`}
                 style={grouping === g ? { background: 'var(--accent-soft)', color: 'var(--accent)' } : undefined}
                 onClick={() => setGrouping(g)}
               >
-                {g === 'category' ? 'Category' : 'Listener'}
+                {g === 'category' ? 'Category' : 'Trigger'}
               </button>
             ))}
           </div>
@@ -175,22 +190,29 @@ export function WorkflowsView() {
           </div>
         </FilterGroup>
 
-        <FilterGroup label="Trigger">
-          <div className="flex flex-wrap gap-1">
-            {WORKFLOW_TRIGGER_KINDS.map((k) => {
-              const on = filter.triggerKind === k.kind;
-              return (
-                <button
-                  key={k.kind}
-                  className={`rounded-full border px-2 py-0.5 text-[11px] transition ${on ? 'border-transparent' : 'border-line text-ink-faint'}`}
-                  style={on ? { background: 'var(--accent-soft)', color: 'var(--accent)' } : undefined}
-                  onClick={() => setFilter((f) => ({ ...f, triggerKind: on ? undefined : (k.kind as WorkflowTriggerKind) }))}
-                >
-                  {k.label}
-                </button>
-              );
-            })}
-          </div>
+        <FilterGroup label="Starts when">
+          {TRIGGER_FAMILIES.map((fam) => (
+            <div key={fam.label} className="mb-2">
+              <p className="mb-1 text-[10.5px] text-ink-faint">{fam.label}</p>
+              <div className="flex flex-wrap gap-1">
+                {fam.kinds.map((kind) => {
+                  const k = WORKFLOW_TRIGGER_KINDS.find((x) => x.kind === kind)!;
+                  const on = filter.triggerKind === k.kind;
+                  return (
+                    <button
+                      key={k.kind}
+                      title={k.hint}
+                      className={`rounded-full border px-2 py-0.5 text-[11px] transition ${on ? 'border-transparent' : 'border-line text-ink-faint'}`}
+                      style={on ? { background: 'var(--accent-soft)', color: 'var(--accent)' } : undefined}
+                      onClick={() => setFilter((f) => ({ ...f, triggerKind: on ? undefined : (k.kind as WorkflowTriggerKind) }))}
+                    >
+                      {k.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </FilterGroup>
 
         <FilterGroup label={`Categories (${categories.length})`}>
@@ -224,22 +246,73 @@ export function WorkflowsView() {
             </button>
           </div>
           <p className="mt-1 text-[12.5px] text-ink-soft">
-            Steps run in order, and route where you point them: a verify step that finds problems can send the run
-            back to build and try again. Fire them by hand, on a schedule, from the CLI, from Slack, or off a pull
-            request.
+            A workflow is a small automation: named steps run in order and can loop back. A trigger is what starts it —
+            by hand, on a schedule, or when something happens.
           </p>
+
+          <details className="mt-2 rounded-xl border px-3 py-2 text-[12px] text-ink-soft" style={{ borderColor: 'var(--line)' }} open={workflows.length === 0}>
+            <summary className="cursor-pointer font-medium text-ink-faint">How workflows work</summary>
+            <dl className="mt-2 space-y-1.5">
+              <div className="flex gap-2">
+                <dt className="w-32 shrink-0 font-medium">Automation</dt>
+                <dd className="text-ink-faint">
+                  The whole thing: steps (an agent prompt, a shell command, a skill, another workflow) plus the triggers
+                  that set them off. A verify step that finds problems can send the run back to build and try again.
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-32 shrink-0 font-medium">Manual trigger</dt>
+                <dd className="text-ink-faint">
+                  Started by you: the <strong>Run</strong> button, or <code className="font-mono text-[11px]">agent-nekko workflow run</code> in a
+                  terminal. Every workflow can run by hand, even one whose other triggers are off.
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-32 shrink-0 font-medium">Scheduled job</dt>
+                <dd className="text-ink-faint">
+                  A schedule trigger: a cron expression or a plain interval ("every night", "every 15 minutes"). This
+                  machine must be awake when it fires.
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-32 shrink-0 font-medium">Event triggers</dt>
+                <dd className="text-ink-faint">
+                  Something else starts it: a pull request or push (git), a Slack message, a poll of a connector like
+                  Linear, or a webhook another service calls.
+                </dd>
+              </div>
+              <div className="flex gap-2">
+                <dt className="w-32 shrink-0 font-medium">Groupings</dt>
+                <dd className="text-ink-faint">
+                  The sidebar sorts the list two ways: <strong>Category</strong> is what a workflow is for
+                  ("Code review"); <strong>Trigger</strong> is what starts it ("GitHub · pull request"), so one heading
+                  answers "what runs when a PR opens".
+                </dd>
+              </div>
+            </dl>
+          </details>
 
           {workflows.length === 0 && (
             <div className="mt-4">
               <EmptyHint>
-                Nothing here yet. Start from a template: a build-and-verify loop, a reviewer that reacts to new pull
-                requests, a local CI runner for your repo, or a nightly maintenance sweep.
+                Nothing here yet. Start from scratch with a blank automation, or pick an example below — each one is a
+                working starting point you edit, not something you run as-is.
               </EmptyHint>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <button
+                  className="card border-dashed px-3 py-2.5 text-left transition hover:bg-(--surface-2)"
+                  onClick={() => setCreating({ seed: seedFromTemplate('blank') })}
+                >
+                  <div className="text-[12.5px] font-semibold">Blank workflow</div>
+                  <p className="mt-1 text-[11px] leading-snug text-ink-faint">
+                    One empty step, run by hand. Add your own steps and triggers.
+                  </p>
+                </button>
                 {WORKFLOW_TEMPLATES.filter((t) => t.id !== 'blank').map((t) => (
                   <button
                     key={t.id}
                     className="card px-3 py-2.5 text-left transition hover:bg-(--surface-2)"
+                    title={`Example · ${t.category}`}
                     onClick={() => setCreating({ seed: seedFromTemplate(t.id) })}
                   >
                     <div className="text-[12.5px] font-semibold">{t.name}</div>
@@ -460,7 +533,12 @@ function WorkflowRow({
               Stop
             </button>
           ) : (
-            <button className="btn btn-outline py-1! text-[12px]" disabled={busy || wf.steps.length === 0} onClick={onRun}>
+            <button
+              className="btn btn-outline py-1! text-[12px]"
+              disabled={busy || wf.steps.length === 0}
+              title="Run it now — a manual trigger; works even when the workflow's other triggers are off"
+              onClick={onRun}
+            >
               {busy ? 'Running…' : 'Run'}
             </button>
           )}
@@ -490,7 +568,15 @@ function WorkflowDetail({ wf, runs, live }: { wf: Workflow; runs: WorkflowRun[];
 
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         {wf.triggers.map((t) => (
-          <Badge key={t.id} tone={t.enabled === false ? 'neutral' : 'info'} title={t.enabled === false ? 'Not armed' : undefined}>
+          <Badge
+            key={t.id}
+            tone={t.enabled === false ? 'neutral' : 'info'}
+            title={
+              t.enabled === false
+                ? 'Not armed — this trigger never starts the workflow. The Run button still does.'
+                : (WORKFLOW_TRIGGER_KINDS.find((k) => k.kind === t.kind)?.hint ?? undefined)
+            }
+          >
             {triggerLabel(t, wf)}
           </Badge>
         ))}
@@ -574,13 +660,30 @@ function WorkflowDetail({ wf, runs, live }: { wf: Workflow; runs: WorkflowRun[];
 }
 
 function TemplatePicker({ onPick, onClose }: { onPick: (id: string) => void; onClose: () => void }) {
+  const blank = WORKFLOW_TEMPLATES.find((t) => t.id === 'blank');
+  const examples = WORKFLOW_TEMPLATES.filter((t) => t.id !== 'blank');
   return (
-    <Modal title="Start a workflow from a template" onClose={onClose} align="top" className="w-full max-w-xl px-4">
+    <Modal title="New workflow" onClose={onClose} align="top" className="w-full max-w-xl px-4">
       <div className="card p-5">
-        <h2 className="text-[15px] font-semibold">Start from…</h2>
-        <p className="mt-0.5 text-[12px] text-ink-faint">Every template is fully editable once created.</p>
+        <h2 className="text-[15px] font-semibold">Start from scratch</h2>
+        <p className="mt-0.5 text-[12px] text-ink-faint">One empty step you build up yourself.</p>
+        {blank && (
+          <button
+            className="card mt-2 w-full border-dashed px-3.5 py-3 text-left transition hover:bg-(--surface-2)"
+            onClick={() => onPick(blank.id)}
+          >
+            <span className="text-[13px] font-semibold">Blank workflow</span>
+            <p className="mt-1 text-[11.5px] leading-snug text-ink-faint">{blank.description}</p>
+          </button>
+        )}
+
+        <h2 className="mt-5 text-[15px] font-semibold">Start from an example</h2>
+        <p className="mt-0.5 text-[12px] text-ink-faint">
+          A pre-filled workflow showing a real pattern. Everything is editable once created — treat it as a starting
+          point, not a finished job.
+        </p>
         <div className="mt-3 space-y-2">
-          {WORKFLOW_TEMPLATES.map((t) => (
+          {examples.map((t) => (
             <button
               key={t.id}
               className="card w-full px-3.5 py-3 text-left transition hover:bg-(--surface-2)"

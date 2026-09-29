@@ -33,6 +33,35 @@ const QUANT_NOTES: Record<string, string> = {
 };
 
 /**
+ * Small files a GGUF needs beside it to actually run.
+ *
+ * The weights are not the whole model: a repo's chat template is what turns
+ * messages into a prompt, its tokenizer config is what other runtimes (vLLM's
+ * GGUF path, HF tooling) demand next to the file, and its projector is what a
+ * vision model uses to see. Individually kilobytes; together they are the
+ * difference between a download that runs and one that errors on first use.
+ * Matched by basename at any depth, size-capped so a stray artifact (a nested
+ * safetensors) cannot sneak onto the list.
+ */
+const SIDECAR_FILES = new Set([
+  'chat_template.jinja',
+  'chat_template.json',
+  'chat-template.jinja',
+  'tokenizer_config.json',
+  'tokenizer.json',
+  'tokenizer.model',
+  'config.json',
+  'generation_config.json',
+  'special_tokens_map.json',
+  'added_tokens.json',
+  'merges.txt',
+  'vocab.json',
+  'preprocessor_config.json',
+  'processor_config.json',
+]);
+const SIDECAR_MAX_BYTES = 64 * 1024 * 1024;
+
+/**
  * The starter list.
  *
  * Kept short on purpose: this is the "what do I run" answer, not a directory.
@@ -46,7 +75,7 @@ const CURATED: Array<Omit<CatalogModel, 'quants'>> = [
     name: 'Qwen2.5 7B Instruct',
     owner: 'Qwen',
     parameterSize: '7B',
-    summary: 'A strong all-rounder that fits comfortably on most machines.',
+    summary: 'A strong all-rounder for chat and tools that fits comfortably on most machines.',
     tags: ['chat', 'tools'],
     curated: true,
   },
@@ -55,7 +84,7 @@ const CURATED: Array<Omit<CatalogModel, 'quants'>> = [
     name: 'Qwen2.5 Coder 7B',
     owner: 'Qwen',
     parameterSize: '7B',
-    summary: 'Tuned for code: reading, writing, and editing it.',
+    summary: 'The pick for code: reading, writing, and editing it, same footprint as the all-rounder.',
     tags: ['code', 'tools'],
     curated: true,
   },
@@ -82,9 +111,10 @@ const CURATED: Array<Omit<CatalogModel, 'quants'>> = [
     name: 'Qwen3 4B',
     owner: 'Qwen',
     parameterSize: '4B',
-    summary: 'Small and fast, with optional step-by-step reasoning.',
+    summary: 'Small and fast, with optional step-by-step reasoning. The easiest one to start with.',
     tags: ['chat', 'reasoning'],
     curated: true,
+    recommended: true,
   },
   {
     id: 'ggml-org/gpt-oss-20b-GGUF',
@@ -264,6 +294,15 @@ export function createCatalog(deps: CatalogDeps = {}) {
     }
 
     const projector = ggufs.find((f) => /mmproj/i.test(f.path ?? ''))?.path;
+    const sidecars = tree
+      .filter(
+        (f) =>
+          f.type !== 'directory' &&
+          f.path &&
+          SIDECAR_FILES.has((f.path.split('/').pop() ?? '').toLowerCase()) &&
+          (f.size ?? 0) <= SIDECAR_MAX_BYTES,
+      )
+      .map((f) => f.path as string);
 
     const quants: CatalogQuant[] = [];
     for (const [group, parts] of byGroup) {
@@ -273,7 +312,7 @@ export function createCatalog(deps: CatalogDeps = {}) {
         label,
         file: parts[0].path,
         sizeBytes: parts.reduce((n, p) => n + p.size, 0),
-        extraFiles: [...parts.slice(1).map((p) => p.path), ...(projector ? [projector] : [])],
+        extraFiles: [...parts.slice(1).map((p) => p.path), ...(projector ? [projector] : []), ...sidecars],
         note: QUANT_NOTES[label],
       });
     }

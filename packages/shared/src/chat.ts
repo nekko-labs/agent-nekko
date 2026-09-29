@@ -119,6 +119,18 @@ export interface Session {
    * was told to do.
    */
   plan?: import('./prompt-plan.js').PromptPlan;
+  /**
+   * The plan the agent itself wrote for this chat, via the `update_plan` tool:
+   * what it decided to do after reading the request, kept live as it works.
+   * Distinct from `plan`, which is the user's editable draft decoded from the
+   * prompt.
+   */
+  agentPlan?: import('./training.js').PlanStep[];
+  /**
+   * The title was written by the app (the prompt prefix or a summarization),
+   * so a better summary may replace it. Any title the user typed flips this off.
+   */
+  titleAuto?: boolean;
   /** Manual sidebar position within its project (set by drag-to-reorder). */
   order?: number;
   createdAt: number;
@@ -164,7 +176,13 @@ export type AgentEvent =
       outputMs?: number;
     }
   | { type: 'done'; sessionId: string; messageId: string }
-  | { type: 'error'; sessionId: string; message: string };
+  | { type: 'error'; sessionId: string; message: string }
+  /**
+   * The session record changed outside the event stream (its plan, its title),
+   * so anything showing it should re-read it. Emitted mid-turn, which is why it
+   * is an event rather than something a listener polls for.
+   */
+  | { type: 'session_meta'; sessionId: string };
 
 /**
  * What a session is waiting on a person for, right now.

@@ -137,6 +137,16 @@ export function estimateCostUSD(modelId: string | undefined, input: number, outp
   return estimateCost(modelId, { inputTokens: input, outputTokens: output }) ?? 0;
 }
 
+/**
+ * Pull provider-published prices off a model record, for `formatModelPriceLabel`.
+ * Returns undefined unless both directions are priced.
+ */
+export function modelPricing(m: { inputPricePerM?: number; outputPricePerM?: number }): { input: number; output: number } | undefined {
+  return m.inputPricePerM != null && m.outputPricePerM != null
+    ? { input: m.inputPricePerM, output: m.outputPricePerM }
+    : undefined;
+}
+
 /** Inputs for `formatModelPriceLabel`. */
 export interface ModelPriceLabelInputs {
   modelId: string;
@@ -144,6 +154,11 @@ export interface ModelPriceLabelInputs {
   auth?: 'apikey' | 'subscription';
   /** Whether the provider is a local on-device server (free). */
   isLocal?: boolean;
+  /**
+   * Provider-reported prices (USD per million tokens), which beat the static
+   * table because they are the meter the bill actually runs on.
+   */
+  pricing?: { input: number; output: number };
 }
 
 /**
@@ -153,14 +168,15 @@ export interface ModelPriceLabelInputs {
  * - metered API key: "$in/$out per MTok"
  * - unknown / unpriced: undefined, so the UI shows nothing rather than a wrong number.
  */
-export function formatModelPriceLabel({ modelId, auth, isLocal }: ModelPriceLabelInputs): string | undefined {
+export function formatModelPriceLabel({ modelId, auth, isLocal, pricing }: ModelPriceLabelInputs): string | undefined {
   if (isLocal) return 'Free';
   if (auth === 'subscription') {
-    const p = getModelPrice(modelId);
+    const p = pricing ?? getModelPrice(modelId);
     if (!p) return 'Included in plan';
     return `Included in plan · ~$${p.input.toFixed(2)}/$${p.output.toFixed(2)} per MTok`;
   }
-  const p = getModelPrice(modelId);
+  const p = pricing ?? getModelPrice(modelId);
   if (!p) return undefined;
+  if (p.input === 0 && p.output === 0) return 'Free';
   return `$${p.input.toFixed(2)}/$${p.output.toFixed(2)} per MTok`;
 }

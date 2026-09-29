@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { EngineInstall, EngineSettings } from '@agent-nekko/shared';
-import { ENGINE_BACKEND_LABELS } from '@agent-nekko/shared';
+import { ENGINE_BACKEND_LABELS, ENGINE_PORT_DEFAULT, engineBaseUrl } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 
 /**
@@ -49,8 +49,22 @@ export function EngineServerSettings({
 
   return (
     <div className="space-y-4">
+      {/* The endpoint, always legible: running or not, this is what apps point
+          at — the server simply is not listening until a model loads. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-3 py-2" style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}>
+        <span
+          className="h-2 w-2 rounded-full"
+          style={{ background: running ? 'var(--success)' : 'var(--ink-faint)' }}
+          title={running ? 'Listening' : 'Not listening'}
+        />
+        <code className="font-mono text-[12px]">{engineBaseUrl(draft)}</code>
+        <span className="text-[11px] text-ink-faint">
+          {running ? 'listening now' : 'not listening — starts when a model loads'}
+        </span>
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <Field label="Port" hint="The address other apps point at.">
+        <Field label="Port" hint={`Default ${ENGINE_PORT_DEFAULT}. The address other apps point at.`}>
           <input
             type="number"
             className="input w-28 py-1 text-[12px]"

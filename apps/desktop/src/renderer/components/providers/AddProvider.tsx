@@ -17,11 +17,13 @@ export const ADD_PROVIDER_KINDS: ProviderKind[] = [
   'openai-compat',
 ];
 
-/** Provider kinds whose primary path is a subscription sign-in, mapped to the
- *  OAuth provider they sign in through. */
+/** Provider kinds whose primary path is a sign-in flow, mapped to the OAuth
+ *  provider they sign in through. OpenRouter's "sign-in" mints an API key —
+ *  it stays metered, unlike the two real subscriptions. */
 export const SUBSCRIPTION_KINDS: Partial<Record<ProviderKind, OAuthProvider>> = {
   anthropic: 'claude',
   chatgpt: 'chatgpt',
+  openrouter: 'openrouter',
 };
 
 /**
@@ -41,6 +43,20 @@ export function subscriptionProviderConfig(
   status: OAuthStatus,
   opts: { kind?: ProviderKind; label?: string; baseUrl?: string; customModelId?: string } = {},
 ): ProviderConfig {
+  // OpenRouter sign-in yields a metered API key: auth 'apikey' keeps the price
+  // labels and billing copy honest; the key itself lives under tokenKey.
+  if (status.provider === 'openrouter' || opts.kind === 'openrouter') {
+    return {
+      id: `openrouter-${Date.now().toString(36)}`,
+      kind: 'openrouter',
+      label: opts.label || 'OpenRouter',
+      baseUrl: opts.baseUrl || PROVIDER_DEFAULTS.openrouter.baseUrl,
+      auth: 'apikey',
+      tokenKey: status.tokenKey,
+      accountId: status.accountId,
+      enabled: true,
+    };
+  }
   const chatgpt = status.provider === 'chatgpt' || opts.kind === 'chatgpt';
   const kind: ProviderKind = chatgpt ? 'chatgpt' : 'anthropic';
   return {
@@ -113,7 +129,12 @@ export function AddProvider({
     await window.nekko.saveProvider(
       subscriptionProviderConfig(status, { kind, label, baseUrl, customModelId }),
     );
-    pushToast('success', `Signed in with your ${chatgpt ? 'ChatGPT' : 'Claude'} subscription.`);
+    pushToast(
+      'success',
+      status.provider === 'openrouter'
+        ? 'OpenRouter key connected.'
+        : `Signed in with your ${chatgpt ? 'ChatGPT' : 'Claude'} subscription.`,
+    );
     onDone();
   };
 
@@ -170,12 +191,16 @@ export function AddProvider({
         {oauthProvider && (
           <div className="col-span-2 rounded-xl border p-4" style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}>
             <p className="text-[13px] font-medium">
-              Use your {oauthProvider === 'claude' ? 'Claude' : 'ChatGPT'} subscription
+              {oauthProvider === 'openrouter'
+                ? 'Connect with OpenRouter sign-in'
+                : `Use your ${oauthProvider === 'claude' ? 'Claude' : 'ChatGPT'} subscription`}
             </p>
             <p className="mt-0.5 text-[12px] text-ink-faint">
               {oauthProvider === 'claude'
                 ? 'Sign in with your Claude Pro or Max account to run on your existing plan, with no API usage fees.'
-                : 'Sign in with your ChatGPT Plus, Pro, or Business account to run on your existing plan, with no API usage fees.'}
+                : oauthProvider === 'chatgpt'
+                  ? 'Sign in with your ChatGPT Plus, Pro, or Business account to run on your existing plan, with no API usage fees.'
+                  : 'Approving in the browser creates a key on your OpenRouter account and saves it here — no copy-pasting. Or paste a key below instead.'}
             </p>
             <div className="mt-2.5">
               <SubscriptionSignIn oauthProvider={oauthProvider} onConnected={connectSubscription} />
@@ -221,8 +246,9 @@ export function AddProvider({
           <button className="btn btn-ghost" onClick={onDone}>Cancel</button>
           {/* For Anthropic the subscription sign-in completes the add itself;
               test/save only make sense once the API-key path is revealed.
-              ChatGPT has no API-key path, so its sign-in always completes. */}
-          {(oauthProvider === undefined || (kind === 'anthropic' && useApiKey)) && (
+              ChatGPT has no API-key path, so its sign-in always completes.
+              OpenRouter keeps both paths: sign in, or paste a key and save. */}
+          {(oauthProvider === undefined || kind === 'openrouter' || (kind === 'anthropic' && useApiKey)) && (
             <>
               <button className="btn btn-outline" onClick={test} disabled={testing}>
                 {testing ? 'Testing…' : 'Test connection'}

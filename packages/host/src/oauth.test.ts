@@ -166,6 +166,73 @@ describe('OAuth core', () => {
       expect(right).toBe(200);
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    it('builds an OpenRouter URL with callback_url and no client_id or state', async () => {
+      const session = await beginOAuth('openrouter');
+      const url = new URL(session.authUrl);
+      expect(url.hostname).toBe('openrouter.ai');
+      expect(url.pathname).toBe('/auth');
+      expect(url.searchParams.get('callback_url')).toMatch(/^http:\/\/localhost:\d+\/callback$/);
+      expect(url.searchParams.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+      expect(url.searchParams.has('client_id')).toBe(false);
+      expect(url.searchParams.has('state')).toBe(false);
+      expect(url.searchParams.has('scope')).toBe(false);
+      expect(session.mode).toBe('loopback');
+      cancelOAuth(session.id);
+    });
+
+    it('exchanges an OpenRouter code for a permanent API key', async () => {
+      const session = await beginOAuth('openrouter');
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ key: 'sk-or-v1-test', user_id: 'user_1' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      // OpenRouter has no state echo, so a bare code is the whole paste.
+      const status = await finishOAuth(session.id, 'auth_code_abc');
+      expect(status.connected).toBe(true);
+      expect(status.provider).toBe('openrouter');
+      expect(status.tokenKey).toMatch(/^openrouter:/);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(String(url)).toBe('https://openrouter.ai/api/v1/auth/keys');
+      const body = JSON.parse((init as { body: string }).body);
+      expect(body).toMatchObject({ code: 'auth_code_abc', code_challenge_method: 'S256' });
+      expect(body.code_verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(new URL(session.authUrl).searchParams.get('code_challenge')).toBe(
+        createHash('sha256').update(body.code_verifier).digest('base64url'),
+      );
+
+      const stored = getToken(status.tokenKey);
+      expect(stored?.provider).toBe('openrouter');
+      expect(stored?.accessToken).toBe('sk-or-v1-test');
+      expect(stored?.expiresAt).toBeUndefined();
+      expect(stored?.refreshToken).toBeUndefined();
+    });
+
+    it('accepts an OpenRouter loopback callback without a state param', async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response(JSON.stringify({ key: 'sk-or-v1-loop', user_id: 'user_2' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+      const session = await beginOAuth('openrouter');
+      const port = Number(new URL(new URL(session.authUrl).searchParams.get('callback_url')!).port);
+      const status = await new Promise<number>((resolve, reject) => {
+        http
+          .get({ hostname: 'localhost', port, path: '/callback?code=or-code', agent: false }, (res) => {
+            res.resume();
+            res.on('end', () => resolve(res.statusCode ?? 0));
+          })
+          .on('error', reject);
+      });
+      expect(status).toBe(200);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('token store', () => {
@@ -234,6 +301,16 @@ describe('OAuth core', () => {
       });
       const access = await ensureFreshToken(tokenKey);
       expect(access).toBe('live-access');
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('ensureFreshToken returns an OpenRouter key as-is, even when forced', async () => {
+      const tokenKey = 'openrouter:user_1';
+      setToken(tokenKey, { provider: 'openrouter', accessToken: 'sk-or-v1-test', obtainedAt: Date.now() });
+      // A permanent key has no expiry and no refresh token: force or not,
+      // there is nothing to renew.
+      expect(await ensureFreshToken(tokenKey)).toBe('sk-or-v1-test');
+      expect(await ensureFreshToken(tokenKey, true)).toBe('sk-or-v1-test');
       expect(fetchMock).not.toHaveBeenCalled();
     });
   });

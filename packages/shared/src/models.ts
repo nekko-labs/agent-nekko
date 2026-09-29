@@ -53,6 +53,13 @@ export interface ModelInfo {
   /** Family / quantization hints. */
   details?: Record<string, string>;
   /**
+   * Real USD prices per million tokens, when the provider publishes them
+   * (OpenRouter does). Preferred over the static MODEL_PRICING table because
+   * they are the meter the bill actually runs on.
+   */
+  inputPricePerM?: number;
+  outputPricePerM?: number;
+  /**
    * What the provider already knows about whether this model can be run, for a
    * catalog that ships entries it can't always serve (a model gated behind a
    * bigger plan, one the vendor retired). Live usage limits are layered on top
@@ -140,6 +147,15 @@ export function modelSupportsThinking(model: { id: string; name?: string }): boo
   return THINKING_MODEL_RE.test(`${model.id} ${model.name ?? ''}`);
 }
 
+/**
+ * The engine's canonical port.
+ *
+ * One constant rather than a convention, because three places must agree: the
+ * engine's own settings default, the provider entry the host keeps pointing at
+ * it, and the URL a user types into another tool.
+ */
+export const ENGINE_PORT_DEFAULT = 11500;
+
 /** Default base URLs per provider kind. */
 export const PROVIDER_DEFAULTS: Record<ProviderKind, { baseUrl: string; needsKey: boolean; label: string }> = {
   anthropic: { baseUrl: 'https://api.anthropic.com', needsKey: true, label: 'Anthropic (Claude)' },
@@ -149,7 +165,7 @@ export const PROVIDER_DEFAULTS: Record<ProviderKind, { baseUrl: string; needsKey
   ollama: { baseUrl: 'http://localhost:11434', needsKey: false, label: 'Ollama' },
   lmstudio: { baseUrl: 'http://localhost:1234/v1', needsKey: false, label: 'LM Studio' },
   vllm: { baseUrl: 'http://localhost:8000/v1', needsKey: false, label: 'vLLM' },
-  llamacpp: { baseUrl: 'http://127.0.0.1:11500/v1', needsKey: false, label: 'Agent Nekko engine' },
+  llamacpp: { baseUrl: `http://127.0.0.1:${ENGINE_PORT_DEFAULT}/v1`, needsKey: false, label: 'Agent Nekko engine' },
   'openai-compat': { baseUrl: 'http://localhost:8080/v1', needsKey: false, label: 'OpenAI-compatible' },
 };
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
-import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD, shortLiveStatus } from '@agent-nekko/shared';
+import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, modelPricing, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD, shortLiveStatus } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { useGitStatus } from '../useGitStatus.js';
 import { clearLiveRun, getLiveRun, useLiveRun } from '../liveRuns.js';
@@ -715,6 +715,12 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           }
           endTurn();
           refreshCtx();
+          break;
+        case 'session_meta':
+          // The session record changed mid-turn — a new agent plan, or a fresh
+          // title — so re-read it and refresh the sidebar/boards alongside.
+          window.nekko.getSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
+          void refreshSessions();
           break;
       }
     });
@@ -2270,7 +2276,7 @@ function ModelPicker({
     const key = `${p.id}::${m.id}`;
     const fav = favSet.has(key);
     const selected = p.id === providerId && modelId === m.id;
-    const price = formatModelPriceLabel({ modelId: m.id, auth: p.auth, isLocal: isLocalProvider(p.kind) });
+    const price = formatModelPriceLabel({ modelId: m.id, auth: p.auth, isLocal: isLocalProvider(p.kind), pricing: modelPricing(m) });
     // A blocked model stays in the list and says why. Hiding it makes a model
     // that exists look like one the app never heard of.
     const availability = availabilityOf(p, m);

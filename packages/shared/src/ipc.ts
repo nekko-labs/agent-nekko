@@ -627,7 +627,7 @@ export interface NekkoApi {
   oauthStatus(providerConfigId: string): Promise<OAuthStatus>;
   oauthSignOut(providerConfigId: string): Promise<void>;
   /** Import tokens from the official CLI credential files without returning the secrets. */
-  importCliAuth(): Promise<{ claude: boolean; chatgpt: boolean }>;
+  importCliAuth(): Promise<Record<OAuthProvider, boolean>>;
 
   enableRemote(relayUrl: string): Promise<import('./remote.js').RemoteStatus>;
   disableRemote(): Promise<import('./remote.js').RemoteStatus>;

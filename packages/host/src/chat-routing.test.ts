@@ -6,6 +6,7 @@ import type { AgentEvent, ModelInfo, ProviderConfig, Session } from '@agent-nekk
 import type { ChatRequest, Provider, ProviderChunk } from '@agent-nekko/core';
 
 let requests: Array<{ providerId: string; request: ChatRequest }> = [];
+let titleRequests: Array<{ providerId: string; request: ChatRequest }> = [];
 let listings: string[] = [];
 let rounds: Array<ProviderChunk[] | Error> = [];
 let models: ModelInfo[] = [];
@@ -33,7 +34,13 @@ vi.mock('@agent-nekko/core', async () => {
       },
       test: async () => ({ ok: true, message: '' }),
       async *chat(request) {
-        requests.push({ providerId: config.id, request });
+        // Sideband calls (title generation) are recorded separately so the
+        // turn-traffic assertions below stay about routing.
+        if (request.purpose === 'title') {
+          titleRequests.push({ providerId: config.id, request });
+        } else {
+          requests.push({ providerId: config.id, request });
+        }
         const step = rounds.shift() ?? [{ type: 'text', delta: 'answer' }, { type: 'done' }];
         if (step instanceof Error) throw step;
         for (const chunk of step) yield chunk;
@@ -62,6 +69,7 @@ beforeEach(() => {
   ];
   saveSettings({ providers, workspaces: [], defaultChatMode: 'yolo' });
   requests = [];
+  titleRequests = [];
   listings = [];
   rounds = [];
   models = [{ id: 'local-exact', providerId: 'local', name: 'Local exact' }];
@@ -389,5 +397,39 @@ describe('offline routing', () => {
     const { events } = await run(createSession(), 'disabled', 'model');
     expect(events).toContainEqual(expect.objectContaining({ type: 'error' }));
     expect(requests).toEqual([]);
+  });
+});
+
+describe('session titles', () => {
+  /** titleSession runs fire-and-forget after the turn; drain microtasks. */
+  async function settle() {
+    for (let i = 0; i < 10; i += 1) await new Promise((r) => setImmediate(r));
+  }
+
+  it('writes a real title from the first turn, marked as sideband traffic', async () => {
+    const session = createSession();
+    await run(session);
+    await settle();
+    expect(titleRequests).toHaveLength(1);
+    expect(titleRequests[0].request.messages[0].content).toContain('delegate this');
+    expect(getSession(session.id)?.title).toBe('answer');
+    expect(getSession(session.id)?.titleAuto).toBe(false);
+
+    // A second turn does not regenerate: generation is a first-turn thing.
+    await sendChat({ sessionId: session.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'more work' }, () => {});
+    await settle();
+    expect(titleRequests).toHaveLength(1);
+    expect(getSession(session.id)?.title).toBe('answer');
+  });
+
+  it('leaves a title the user set alone', async () => {
+    const session = createSession();
+    session.title = 'My chat';
+    session.titleAuto = false;
+    saveSession(session);
+    await run(session);
+    await settle();
+    expect(titleRequests).toEqual([]);
+    expect(getSession(session.id)?.title).toBe('My chat');
   });
 });

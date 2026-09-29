@@ -452,7 +452,7 @@ export interface Host {
   cancelOAuth(sessionId: string): Promise<void>;
   oauthStatus(providerConfigId: string): Promise<OAuthStatus>;
   oauthSignOut(providerConfigId: string): Promise<void>;
-  importCliAuth(): Promise<{ claude: boolean; chatgpt: boolean }>;
+  importCliAuth(): Promise<Record<OAuthProvider, boolean>>;
 
   appInfo(): AppInfo;
   /** Connect (or reconnect) configured MCP servers and return their status. */

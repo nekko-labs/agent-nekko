@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from 'child_process';
+import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises';
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'http';
 import { createServer as createProbe } from 'net';
+import { basename, dirname, join } from 'path';
 import type {
   EngineSettings,
   GpuStats,
@@ -83,6 +85,12 @@ export interface EngineServerDeps {
   findModel: (id: string) => Promise<LocalModel | undefined>;
   listModels: () => Promise<LocalModel[]>;
   getGpuStats: () => Promise<GpuStats | null>;
+  /**
+   * A writable directory for files we generate (a chat template extracted from
+   * a repo's JSON config), needed because a borrowed model folder may be
+   * read-only.
+   */
+  workDir?: () => string;
   spawnFn?: typeof spawn;
 }
 
@@ -203,8 +211,11 @@ export function createEngineServer(deps: EngineServerDeps) {
       await unload(oldest.modelId);
     }
 
+    const companions = await resolveCompanions(model, deps.workDir?.());
+    if ('error' in companions) return { ok: false, message: companions.error };
+
     const port = await freePort();
-    const args = buildArgs(model, port, params);
+    const args = buildArgs(model, port, params, companions);
     const before = await freeVramBytes();
 
     const childLog: string[] = [];
@@ -237,9 +248,11 @@ export function createEngineServer(deps: EngineServerDeps) {
     while (Date.now() < deadline) {
       if (exited) {
         // The captured output is the answer: "failed to allocate" and "unknown
-        // argument" are different problems with different fixes.
+        // argument" are different problems with different fixes. llama.cpp's
+        // own wording is translated where a pattern is known, because "error
+        // loading model" leaves a person nowhere to start.
         push(...childLog.slice(-4));
-        return { ok: false, message: childLog.slice(-2).join(' ') || exited };
+        return { ok: false, message: explainLoadError(childLog) || exited };
       }
       if (await healthy(port)) {
         if (before !== null) await sleep(MEASURE_SETTLE_MS);
@@ -482,13 +495,35 @@ export type EngineServer = ReturnType<typeof createEngineServer>;
  * threads and batch sizes in particular, where the engine's default is tuned to
  * the machine and ours would not be.
  */
-export function buildArgs(model: LocalModel, port: number, params: LoadParams): string[] {
+/**
+ * Files a model needs beside its weights, found by convention rather than by
+ * index so a file dropped into the folder by hand counts too.
+ */
+export interface ModelCompanions {
+  /** A vision model's projector (`mmproj-*.gguf`), passed as `--mmproj`. */
+  mmproj?: string;
+  /** A chat template file, passed as `--chat-template-file` with `--jinja`. */
+  chatTemplateFile?: string;
+}
+
+export function buildArgs(
+  model: LocalModel,
+  port: number,
+  params: LoadParams,
+  companions?: ModelCompanions,
+): string[] {
   const args = [
     '--model', model.path,
     '--alias', model.id,
     '--host', '127.0.0.1',
     '--port', String(port),
   ];
+  if (companions?.mmproj) args.push('--mmproj', companions.mmproj);
+  if (companions?.chatTemplateFile) {
+    // `--jinja` is what makes the template (and tool-call parsing) apply; a
+    // file without it is read and ignored by the chat path.
+    args.push('--chat-template-file', companions.chatTemplateFile, '--jinja');
+  }
   if (params.contextTokens) args.push('--ctx-size', String(params.contextTokens));
   if (params.gpuLayers !== undefined) args.push('--n-gpu-layers', String(params.gpuLayers));
   if (params.parallelSlots && params.parallelSlots > 1) args.push('--parallel', String(params.parallelSlots));
@@ -630,4 +665,146 @@ function freePort(): Promise<number> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/* --------------------------------------------------------- model companions */
+
+/**
+ * The files a model needs beside its weights, resolved at load time.
+ *
+ * Looked up by convention in the model's own directory rather than carried on
+ * the library row, because the files are the truth there too: a sidecar a user
+ * drops in by hand should count, and one deleted outside the app should stop
+ * counting without an index update.
+ *
+ * Returns `{error}` for the one companion problem worth failing a load over:
+ * a split model missing a shard. Everything else absent is simply not passed.
+ */
+export async function resolveCompanions(
+  model: LocalModel,
+  workDir?: string,
+): Promise<ModelCompanions | { error: string }> {
+  const dir = dirname(model.path);
+  const file = basename(model.path);
+
+  // `name-00001-of-00005.gguf` is only the first fifth; llama.cpp opens the
+  // rest by name and dies on the first absent one, so check here and name it.
+  const shard = file.match(/-00001-of-(\d{5})\.gguf$/i);
+  if (shard) {
+    const total = Number(shard[1]);
+    for (let n = 2; n <= total; n += 1) {
+      const part = file.replace(/-00001-of-(\d{5})\.gguf$/i, `-${String(n).padStart(5, '0')}-of-$1.gguf`);
+      if (!(await exists(join(dir, part)))) {
+        return {
+          error: `${model.name} is split into ${total} files and ${part} is missing. Re-download it so every piece lands.`,
+        };
+      }
+    }
+  }
+
+  let entries: string[] = [];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return {}; // An unreadable directory fails on --model itself, which says so.
+  }
+
+  const companions: ModelCompanions = {};
+
+  // A vision model's projector. Without --mmproj the weights load fine and
+  // every image request fails, which is the failure mode worth wiring up.
+  const projector = entries.find((e) => /mmproj/i.test(e) && e.toLowerCase().endsWith('.gguf'));
+  if (projector) companions.mmproj = join(dir, projector);
+
+  // A chat template turns messages into a prompt; a GGUF converted without one
+  // answers chat requests with a template error. Repos ship it as a `.jinja`
+  // file or inside a JSON config, and either works for us.
+  const jinja =
+    entries.find((e) => /chat[-_]?template.*\.jinja$/i.test(e)) ??
+    entries.find((e) => e.toLowerCase().endsWith('.jinja'));
+  if (jinja) {
+    companions.chatTemplateFile = join(dir, jinja);
+  } else if (workDir) {
+    companions.chatTemplateFile = await extractTemplate(dir, entries, file, workDir);
+  }
+  return companions;
+}
+
+/**
+ * Pull `chat_template` out of a repo's JSON config into a `.jinja` file
+ * llama.cpp can take on the command line.
+ *
+ * Written under the engine's own work dir, not beside the model: a borrowed
+ * folder (LM Studio's, the HF cache) is read-only territory and a file we
+ * leave there is litter nobody asked for.
+ */
+async function extractTemplate(
+  dir: string,
+  entries: string[],
+  modelFile: string,
+  workDir: string,
+): Promise<string | undefined> {
+  const sources = ['chat_template.json', 'chat-template.json', 'tokenizer_config.json'];
+  for (const name of sources) {
+    if (!entries.some((e) => e.toLowerCase() === name)) continue;
+    try {
+      const parsed = JSON.parse(await readFile(join(dir, name), 'utf8')) as {
+        chat_template?: unknown;
+      };
+      const raw = parsed?.chat_template;
+      const template =
+        typeof raw === 'string'
+          ? raw
+          : Array.isArray(raw)
+            ? raw.find((t) => typeof t?.template === 'string')?.template
+            : undefined;
+      if (!template) continue;
+      const dest = join(workDir, `${modelFile.replace(/\.gguf$/i, '')}.chat_template.jinja`);
+      await mkdir(dirname(dest), { recursive: true });
+      await writeFile(dest, template, 'utf8');
+      return dest;
+    } catch {
+      // A config that will not parse is skipped, not fatal: the GGUF's own
+      // template (or llama.cpp's default) still applies.
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Turn a dead `llama-server`'s last output into a sentence that names the fix.
+ *
+ * The patterns are the failures a downloaded model actually dies with; each
+ * translation exists because the raw log line ("error loading model", a bare
+ * open() errno) was reported as a dead end. Unmatched output falls through to
+ * the tail of the log, which is still the best honest answer.
+ */
+export function explainLoadError(log: string[]): string {
+  const tail = log.slice(-8).join('\n');
+  if (/unknown (model )?arch|not supported|unsupported (model|arch)/i.test(tail)) {
+    return "This engine build doesn't know this model's architecture. Update the engine under Models → Server, then try again.";
+  }
+  if (/mmproj|projector|clip model|clip_model/i.test(tail)) {
+    return 'This is a vision model and its projector file (mmproj-*.gguf) is missing next to the model. Re-download it so the companion files come with it.';
+  }
+  if (/chat.?template|template.*not.*(supported|found)/i.test(tail)) {
+    return 'The model needs a chat template file and none was found. Re-download it (the template downloads with the model now) or pick a different build.';
+  }
+  if (/out of memory|failed to allocate|insufficient|bad_alloc|CUDA_ERROR_OUT_OF_MEMORY/i.test(tail)) {
+    return 'Not enough memory to load it. Lower the context size or GPU layers in the model\'s settings, or unload something else first.';
+  }
+  const missing =
+    tail.match(/(?:failed|unable|cannot|could not|error)[^\n]*(?:open|read|load|missing)[^\n'"`]*['"`]([^'"`\n]+\.(?:gguf|jinja|json|model|txt))['"`]/i)?.[1] ??
+    tail.match(/(?:llama_model_load|error)[^\n]*(?:open|file)[^\n'"`]*['"`]([^'"`\n]+)['"`]/i)?.[1];
+  const name = missing ? basename(missing.trim()) : '';
+  if (name && name !== '.') {
+    return `A file the model needs is missing or unreadable: ${name}. Re-download the model so its companion files come with it.`;
+  }
+  return log.slice(-2).join(' ');
+}
+
+async function exists(path: string): Promise<boolean> {
+  return stat(path)
+    .then(() => true)
+    .catch(() => false);
 }

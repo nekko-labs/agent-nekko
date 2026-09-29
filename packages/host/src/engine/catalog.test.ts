@@ -30,6 +30,15 @@ const TREE = [
   { type: 'file', path: 'model-Q8_0.gguf', size: 8_000_000_000 },
 ];
 
+const TREE_WITH_SIDECARS = [
+  { type: 'file', path: 'vision-00001-of-00002.gguf', size: 4_000_000_000 },
+  { type: 'file', path: 'vision-00002-of-00002.gguf', size: 3_000_000_000 },
+  { type: 'file', path: 'mmproj-vision-f16.gguf', size: 900_000_000 },
+  { type: 'file', path: 'chat_template.jinja', size: 4_000 },
+  { type: 'file', path: 'tokenizer_config.json', size: 30_000 },
+  { type: 'file', path: 'weights.safetensors', size: 90_000_000_000 },
+];
+
 describe('catalog detail', () => {
   it('carries the numbers a model page is judged on', async () => {
     const catalog = createCatalog({
@@ -77,6 +86,29 @@ describe('catalog detail', () => {
     const detail = await catalog.detail('owner/repo');
     expect(detail?.readme).toBeUndefined();
     expect(detail?.readmeError).toMatch(/Hugging Face/);
+  });
+
+  it('carries every file the model needs to run: shards, projector, and configs', async () => {
+    const catalog = createCatalog({
+      fetch: stubFetch([
+        [/api\/models\/owner\/vision$/, { id: 'owner/vision' }],
+        [/tree\/main/, TREE_WITH_SIDECARS],
+      ]),
+    });
+    const model = await catalog.model('owner/vision');
+    const quant = model?.quants[0];
+    // The first shard is the download; the second shard, the projector, and the
+    // config files ride along as extras. The 90 GB safetensors is not a sidecar.
+    expect(quant?.file).toBe('vision-00001-of-00002.gguf');
+    expect(quant?.extraFiles).toEqual(
+      expect.arrayContaining([
+        'vision-00002-of-00002.gguf',
+        'mmproj-vision-f16.gguf',
+        'chat_template.jinja',
+        'tokenizer_config.json',
+      ]),
+    );
+    expect(quant?.extraFiles).not.toContain('weights.safetensors');
   });
 
   it('has no page for a repo that publishes no GGUF', async () => {

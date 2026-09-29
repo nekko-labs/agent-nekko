@@ -118,6 +118,8 @@ export function setSessionOptions(
   const s = getSession(id);
   if (!s) return null;
   Object.assign(s, patch);
+  // A title the user typed is theirs; the auto-title pass may not overwrite it.
+  if (patch.title !== undefined) s.titleAuto = false;
   saveSession(s);
   return s;
 }

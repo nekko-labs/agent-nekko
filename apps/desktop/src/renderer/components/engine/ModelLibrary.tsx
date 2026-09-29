@@ -25,12 +25,15 @@ export function ModelLibrary({
   models,
   canLoad,
   onChanged,
+  query = '',
 }: {
   providerId: string;
   models: Array<LocalModel & { loaded: boolean }>;
   /** False until the engine binary exists: the list is real, running it is not. */
   canLoad: boolean;
   onChanged: () => void;
+  /** Live filter from the shared search box (matches name, id, quant, folder). */
+  query?: string;
 }) {
   const pushToast = useStore((s) => s.pushToast);
   const [open, setOpen] = useState<string | null>(null);
@@ -75,6 +78,18 @@ export function ModelLibrary({
     [models],
   );
 
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return models;
+    return models.filter((m) =>
+      [m.name, m.id, m.quantization, m.parameterSize, m.sourceRepo, m.folderProvider]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [models, query]);
+
   const runImport = async () => {
     const path = importPath.trim();
     if (!path) return;
@@ -93,9 +108,11 @@ export function ModelLibrary({
         <p className="text-[11.5px] text-ink-faint">
           {models.length === 0
             ? 'No models yet.'
-            : `${models.length} model${models.length === 1 ? '' : 's'} · ${formatBytes(
-                models.reduce((n, m) => n + m.sizeBytes, 0),
-              )} on disk${folders > 1 ? ` · across ${folders} folders` : ''}`}
+            : query.trim()
+              ? `${visible.length} of ${models.length} on this machine`
+              : `${models.length} model${models.length === 1 ? '' : 's'} · ${formatBytes(
+                  models.reduce((n, m) => n + m.sizeBytes, 0),
+                )} on disk${folders > 1 ? ` · across ${folders} folders` : ''}`}
         </p>
         <button className="text-[11.5px] text-ink-faint hover:text-ink" onClick={() => setImporting((v) => !v)}>
           Add a file I already have
@@ -125,12 +142,14 @@ export function ModelLibrary({
 
       {models.length === 0 ? (
         <p className="mt-3 rounded-xl border border-dashed px-4 py-3.5 text-[12.5px] text-ink-faint" style={{ borderColor: 'var(--line)' }}>
-          Nothing here yet. Open <strong>Find models</strong> to download one, <strong>Folders</strong> to point at a
+          Nothing here yet. Pick a recommendation below to download one, open <strong>Folders</strong> to point at a
           folder another app already fills, or add a GGUF you have.
         </p>
+      ) : visible.length === 0 ? (
+        <p className="mt-3 text-[12px] text-ink-faint">Nothing on this machine matches "{query.trim()}".</p>
       ) : (
         <div className="mt-2 space-y-1.5">
-          {models.map((m) => (
+          {visible.map((m) => (
             <div key={m.id}>
               <div
                 className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px]"

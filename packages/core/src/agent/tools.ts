@@ -200,16 +200,16 @@ export const REPORT_EXPERIMENT_TOOL: ToolSpec = {
 };
 
 /**
- * Extra tool offered only to sessions driven by a training/goal run: goal runs
- * are plan-first, so the agent maintains its execution plan here (build it
- * before working, keep step statuses current, revise it when reality
- * disagrees). Drives the plan checklist on the Goals dashboard. Executed in
- * the host.
+ * The plan the agent is actually working to, kept live for the user. Offered
+ * to every session: goal runs treat it as the execution contract (the Goals
+ * dashboard renders it), ordinary chats show it in the plan rail so the user
+ * can watch what the agent decided to do after reading the request. Executed
+ * in the host.
  */
 export const UPDATE_PLAN_TOOL: ToolSpec = {
   name: 'update_plan',
   description:
-    'Create or update this run\'s execution plan. Call it with replace=true and the full ordered step list to write the initial plan (do this BEFORE any execution work) or to re-plan. Without replace, steps are upserted by id: mark the step you are working "active", mark it "done" the moment it is verifiably complete (add a one-line note), or "skipped" with the reason. Keep the plan current every turn; the tool result echoes the plan so you know each step\'s id.',
+    'Publish the plan you are working to. Call it with replace=true and the full ordered step list to write the initial plan (AFTER you have read the request and looked at what it touches, BEFORE execution work) or to re-plan. Without replace, steps are upserted by id: mark the step you are working "active", mark it "done" the moment it is verifiably complete (add a one-line note), or "skipped" with the reason. Keep the plan current; the tool result echoes the plan so you know each step\'s id.',
   parameters: {
     type: 'object',
     properties: {

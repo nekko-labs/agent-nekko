@@ -38,6 +38,12 @@ export interface ChatRequest {
   signal?: AbortSignal;
   /** Hook for the host to read the raw HTTP response headers (rate limits, etc.). */
   onHeaders?: (headers: Headers) => void;
+  /**
+   * Marks a sideband call that is not the user's turn (today: session title
+   * generation). Providers ignore it; the host and tests use it to keep
+   * bookkeeping traffic out of turn accounting.
+   */
+  purpose?: 'title';
 }
 
 /** Streamed chunk from a provider, normalized. */

@@ -1,4 +1,6 @@
+import { totalmem } from 'os';
 import { join, resolve } from 'path';
+import { stat } from 'fs/promises';
 import type {
   CatalogModel,
   CatalogModelDetail,
@@ -77,6 +79,7 @@ export function createEngine(deps: EngineDeps) {
     findModel: (id) => library.find(id),
     listModels: () => library.list(),
     getGpuStats: deps.getGpuStatsFresh ?? deps.getGpuStats,
+    workDir: () => join(engineDir(), 'templates'),
   });
 
   /* ------------------------------------------------------------ acquisition */
@@ -116,13 +119,18 @@ export function createEngine(deps: EngineDeps) {
     });
 
     for (const extra of quant.extraFiles ?? []) {
+      const dest = destFor(extra);
+      // Sidecars are shared across quants; one already on disk is not fetched
+      // again when a second build of the same repo is downloaded.
+      const landed = await stat(dest).then((s) => s.size > 0).catch(() => false);
+      if (landed) continue;
       void downloads.start({
         id: `${jobId}:${extra}`,
         kind: 'model',
         label: `${model.name} · ${extra.split('/').pop()}`,
         target: modelId,
         url: hfFileUrl(modelId, extra),
-        dest: destFor(extra),
+        dest,
       });
     }
 
@@ -203,6 +211,13 @@ export function createEngine(deps: EngineDeps) {
   async function status() {
     const install = await installer.detect();
     const state = server.status();
+    const gpu = await deps.getGpuStats().catch(() => null);
+    // What the "will it fit" chips compare against: VRAM when there is a GPU to
+    // name, system RAM otherwise. Total, not free: the question is whether the
+    // model can ever be served here, not whether it fits beside open apps.
+    const memory = gpu && gpu.devices.length > 0
+      ? { budgetBytes: gpu.totalMB * 1024 * 1024, kind: gpu.unified ? ('unified' as const) : ('vram' as const) }
+      : { budgetBytes: totalmem(), kind: 'ram' as const };
     return {
       install,
       running: state.running,
@@ -211,6 +226,7 @@ export function createEngine(deps: EngineDeps) {
       log: state.log,
       port: state.port,
       settings: deps.settings(),
+      memory,
     };
   }
 
@@ -277,7 +293,8 @@ export function createEngine(deps: EngineDeps) {
 export type Engine = ReturnType<typeof createEngine>;
 
 export { readGgufMetadata } from './gguf.js';
-export { buildArgs } from './server.js';
+export { buildArgs, explainLoadError } from './server.js';
+export type { ModelCompanions } from './server.js';
 export { buildsFor, recommendedBuild, matchAsset, matchCompanion, allBuilds } from './builds.js';
 export { hfFileUrl } from './catalog.js';
 export type { EngineInstall, CatalogModel };
