@@ -18,6 +18,7 @@ export interface TerminalInfo {
   cwd: string;
   /** Shell binary the PTY is running (e.g. powershell.exe, /bin/zsh). */
   shell: string;
+  agentSessionId?: string;
   createdAt: number;
   /** Manual sidebar position within its project (set by drag-to-reorder). */
   order?: number;

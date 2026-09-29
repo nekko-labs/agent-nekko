@@ -43,7 +43,9 @@ vi.mock('@agent-nekko/core', async () => {
 });
 
 const { setDataDir } = await import('./paths.js');
-const { saveSettings } = await import('./store.js');
+const { saveSettings, getSettings } = await import('./store.js');
+const { executeTool } = await import('./tools.js');
+const { terminalSnapshot, writeTerminal, closeTerminal } = await import('./terminal.js');
 const { createSession, getSession, saveSession, listSessions } = await import('./sessions.js');
 const { sendChat, previewContext, resolveApproval } = await import('./chat.js');
 const { BUILTIN_TOOLS } = await import('@agent-nekko/core');
@@ -83,6 +85,42 @@ async function run(session = createSession(), providerId = 'frontier', modelId =
 function children(parent: Session) {
   return listSessions().filter((session) => session.parentSessionId === parent.id);
 }
+
+describe('agent command terminal', () => {
+  it('shows a guarded command once in a read-only terminal', async () => {
+    const sessionId = 'test-command';
+    const call = { id: 'cmd', name: 'bash', input: { command: 'node -p 42' } };
+    const result = await executeTool(call, { settings: getSettings(), sessionId, mode: 'yolo', requestApproval: async () => false });
+    const snapshot = terminalSnapshot(`agent_${sessionId}`);
+    expect(result.output.trim()).toBe('42');
+    expect(snapshot?.info.agentSessionId).toBe(sessionId);
+    expect(snapshot?.buffer).toContain('$ node -p 42');
+    expect(snapshot?.buffer).toContain('42');
+    writeTerminal(`agent_${sessionId}`, 'ignored');
+    expect(terminalSnapshot(`agent_${sessionId}`)?.buffer).toBe(snapshot?.buffer);
+    closeTerminal(`agent_${sessionId}`);
+  });
+});
+
+describe('browser permission boundary', () => {
+  it('hides browser control on non-desktop hosts and requests approval even in yolo mode', async () => {
+    const session = createSession();
+    rounds = [[{ type: 'tool_call', call: { id: 'browse', name: 'browser', input: { mode: 'existing', action: 'inspect' } } }, { type: 'done' }]];
+    await run(session);
+    expect(requests[0].request.tools?.some((tool) => tool.name === 'browser')).toBe(false);
+
+    rounds = [[{ type: 'tool_call', call: { id: 'browse2', name: 'browser', input: { mode: 'existing', action: 'inspect' } } }, { type: 'done' }]];
+    const events: AgentEvent[] = [];
+    const requestCount = requests.length;
+    await sendChat({ sessionId: session.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'inspect' }, (event) => {
+      events.push(event);
+      if (event.type === 'tool_approval_required') resolveApproval(session.id, event.call.id, false);
+    }, true);
+    expect(requests.slice(requestCount).some(({ request }) => request.tools?.some((tool) => tool.name === 'browser'))).toBe(true);
+    expect(events.some((event) => event.type === 'tool_approval_required')).toBe(true);
+    expect(events.find((event) => event.type === 'tool_result')).toMatchObject({ result: { output: 'Browser action not approved.', isError: true } });
+  });
+});
 
 describe('offline context preview', () => {
   it('does not fetch connectors for an offline session or missing session', async () => {

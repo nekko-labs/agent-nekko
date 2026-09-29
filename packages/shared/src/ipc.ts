@@ -88,6 +88,8 @@ export const IpcChannels = {
   sessionSetSupportingWorkspaces: 'session:setSupportingWorkspaces',
   chatSend: 'chat:send',
   chatAbort: 'chat:abort',
+  chatCompact: 'chat:compact',
+  chatCancelCompaction: 'chat:cancelCompaction',
   chatQueue: 'chat:queue',
   chatDequeue: 'chat:dequeue',
   toolApprove: 'tool:approve',
@@ -414,6 +416,8 @@ export interface NekkoApi {
   setSessionAttachments(sessionId: string, paths: string[]): Promise<Session | null>;
   sendChat(opts: SendOptions): Promise<void>;
   abortChat(sessionId: string): Promise<void>;
+  compactSession(sessionId: string): Promise<Session>;
+  cancelSessionCompaction(sessionId: string): Promise<void>;
   /** Append a prompt to a chat's run-queue (runs when the current turn ends). */
   queuePrompt(sessionId: string, text: string): Promise<Session | null>;
   /** Remove a queued prompt by index. */

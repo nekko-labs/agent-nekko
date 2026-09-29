@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
-import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD, shortLiveStatus } from '@agent-nekko/shared';
+import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD, shortLiveStatus } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { useGitStatus } from '../useGitStatus.js';
 import { clearLiveRun, getLiveRun, useLiveRun } from '../liveRuns.js';
@@ -542,10 +542,10 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     // The same batch that paints the transcript moves the context gauge, so the
     // estimate costs one extra number per frame rather than one per token.
     if (text || reasoning) {
-      const produced = estimateTokens(text) + estimateTokens(reasoning);
+      const produced = text ? estimateTokens(text) : 0;
       liveCtxRef.current += produced;
       setLiveCtxTokens(liveCtxRef.current);
-      pendingOutRef.current += produced;
+      pendingOutRef.current += estimateTokens(text) + estimateTokens(reasoning);
       publishTurnCost();
     }
   };
@@ -563,6 +563,29 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     pendingText.current = '';
     pendingReasoning.current = '';
   }, [sessionId]);
+
+  // Keep the sidebar's per-workspace context readout fresh while a turn runs.
+  // The pane already re-reads its context bundle per step (throttled to
+  // CTX_REFRESH_MS); this adds a slow heartbeat so the number also creeps up
+  // between steps, and so it settles once at the end of the turn.
+  const liveCtxTokensRef = useRef(0);
+  liveCtxTokensRef.current = liveCtxTokens;
+  const latestCtxRef = useRef(ctx);
+  latestCtxRef.current = ctx;
+  const latestSessionRef = useRef(session);
+  latestSessionRef.current = session;
+  useEffect(() => {
+    if (!streaming) return;
+    const t = setInterval(() => {
+      const conversationTokens = latestCtxRef.current?.items.find((i) => i.included && i.source === 'conversation')?.tokens
+        ?? estimateTranscriptTokens(latestSessionRef.current?.messages ?? []);
+      useStore.getState().setSessionCtxEstimate(sessionId, conversationTokens + liveCtxTokensRef.current);
+    }, 4_000);
+    return () => {
+      clearInterval(t);
+      useStore.getState().setSessionCtxEstimate(sessionId, null);
+    };
+  }, [streaming, sessionId]);
 
   /**
    * Adopt a turn that was already running when this pane mounted.
@@ -1441,6 +1464,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                 {changeCount} change{changeCount === 1 ? '' : 's'}
               </button>
             )}
+            <button
+              className="btn btn-ghost px-2 py-1 text-[11px]"
+              onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
+              title="Open the agent's command log in a terminal window"
+            >
+              Commands
+            </button>
             {!!session?.messages.length && (
               <button className="btn btn-ghost px-2 py-1" onClick={exportChat} title="Export chat as Markdown"><DownloadIcon /></button>
             )}
@@ -1583,6 +1613,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                 used={(ctx ? ctx.items.filter((i) => i.included).reduce((s, i) => s + i.tokens, 0) : 0) + liveCtxTokens}
                 windowTokens={selectedModelInfo?.contextLength ?? ctx?.contextWindow ?? 0}
                 session={session}
+                streaming={streaming}
+                onCompacted={() => {
+                  refreshCtx();
+                  window.nekko.getSession(sessionId).then(setSession).catch(() => {});
+                }}
               />
               <ReplyStatus
                 streaming={streaming}
@@ -2474,6 +2509,7 @@ function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
   const say = (m: ChatMessage, i: number) => {
     flush();
     blocks.push({ type: 'msg', message: { ...m, id: `${m.id}_said_${i}`, toolCalls: undefined } });
+    runKey = `${m.id}_${i}_after`;
   };
   // The turn's answer is the last assistant message's own text, even when that
   // message also made tool calls, a run cut short by the step budget, an abort,

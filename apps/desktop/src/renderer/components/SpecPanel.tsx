@@ -325,7 +325,7 @@ function GuidelineDocs({ workspacePath, onOpen }: { workspacePath?: string; onOp
   if (!workspacePath) return null;
 
   const join = (name: string) => `${workspacePath.replace(/[\\/]+$/, '')}/${name}`;
-  const rows = GUIDELINE_DOCS.filter((g) => g.always || present?.has(g.filename));
+  const rows = GUIDELINE_DOCS.filter((g) => g.always && present && !present.has(g.filename));
 
   const create = async (g: (typeof GUIDELINE_DOCS)[number]) => {
     const path = join(g.filename);
@@ -341,9 +341,11 @@ function GuidelineDocs({ workspacePath, onOpen }: { workspacePath?: string; onOp
     }
   };
 
+  if (!rows.length) return null;
+
   return (
     <div className="mt-3">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Guidelines</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Create missing instructions</p>
       <div className="space-y-1.5">
         {rows.map((g) => {
           const exists = present?.has(g.filename) ?? false;

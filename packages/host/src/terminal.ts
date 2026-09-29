@@ -92,6 +92,22 @@ function resolveCwd(workspaceId?: string, cwd?: string): string {
   return first && existsSync(first) ? first : process.cwd();
 }
 
+export function appendAgentTerminal(sessionId: string, workspaceId: string | undefined, data: string): string {
+  const id = `agent_${sessionId}`;
+  let state = terms.get(id);
+  if (!state) {
+    const info: TerminalInfo = {
+      id, title: 'Agent commands', workspaceId, cwd: resolveCwd(workspaceId),
+      shell: 'agent', agentSessionId: sessionId, createdAt: Date.now(), running: true,
+    };
+    state = { info, proc: null as unknown as nodePty.IPty, buffer: '', cols: 80, rows: 24 };
+    terms.set(id, state);
+  }
+  state.buffer = (state.buffer + data).slice(-MAX_BUFFER);
+  emit({ type: 'data', terminalId: id, data });
+  return id;
+}
+
 export function listTerminals(): TerminalInfo[] {
   return [...terms.values()].map((t) => t.info).sort((a, b) => {
     // Manually-ordered terminals first (in order), then the rest by age.
@@ -171,13 +187,13 @@ export function createTerminal(opts?: { workspaceId?: string; cwd?: string; titl
 /** Write raw input (keystrokes) to the PTY. */
 export function writeTerminal(id: string, data: string): void {
   const t = terms.get(id);
-  if (t && t.info.running) t.proc.write(data);
+  if (t && t.info.running && !t.info.agentSessionId) t.proc.write(data);
 }
 
 /** Resize the PTY so the shell reflows to the renderer's viewport. */
 export function resizeTerminal(id: string, cols: number, rows: number): void {
   const t = terms.get(id);
-  if (!t || !t.info.running) return;
+  if (!t || !t.info.running || t.info.agentSessionId) return;
   t.cols = cols;
   t.rows = rows;
   try {

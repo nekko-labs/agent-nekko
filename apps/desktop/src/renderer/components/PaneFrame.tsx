@@ -143,7 +143,16 @@ export function PaneFrame({
       // The ring is a pseudo-element over the contents rather than an inset
       // shadow under them, so the title strip's own background can't paint over
       // the stretch of outline that traces the window's top corners.
-      style={{ '--panel-ring-color': isActive ? 'var(--accent)' : 'var(--line)' } as React.CSSProperties}
+      //
+      // The active window's ring is the accent mixed down toward the line
+      // rather than the accent itself: a full-strength accent traced around the
+      // whole pane read as a bright border framing the history. The mix still
+      // says "this one" and still follows the user's accent, just quieter.
+      style={{
+        '--panel-ring-color': isActive
+          ? 'color-mix(in srgb, var(--accent) 40%, var(--line))'
+          : 'var(--line)',
+      } as React.CSSProperties}
       onMouseDown={onFocus}
     >
       <div

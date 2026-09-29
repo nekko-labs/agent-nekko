@@ -4,6 +4,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
+import { PaneActions, useInPaneFrame } from './PaneFrame.js';
 
 /**
  * A real terminal: xterm.js wired to a host-side PTY. Keystrokes stream to the
@@ -42,7 +43,8 @@ export function TerminalPane({ terminalId }: { terminalId: string }) {
       fontFamily: MONO,
       fontSize: 13,
       lineHeight: 1.2,
-      cursorBlink: true,
+      cursorBlink: !terminalId.startsWith('agent_'),
+      disableStdin: terminalId.startsWith('agent_'),
       allowProposedApi: true,
       scrollback: 5000,
       theme: readTheme(),
@@ -58,6 +60,10 @@ export function TerminalPane({ terminalId }: { terminalId: string }) {
     window.nekko.terminalSnapshot(terminalId).then((snap) => {
       if (!snap) return;
       setInfo(snap.info);
+      if (snap.info.agentSessionId) {
+        term.options.disableStdin = true;
+        term.options.cursorBlink = false;
+      }
       if (snap.buffer) term.write(snap.buffer);
       window.nekko.resizeTerminal(terminalId, term.cols, term.rows);
     }).catch(() => {});
@@ -95,14 +101,27 @@ export function TerminalPane({ terminalId }: { terminalId: string }) {
     };
   }, [terminalId]);
 
+  // Inside a workspace the frame already draws the window's title strip, so the
+  // cwd line rides in that one bar instead of stacking a second bar (and a
+  // second border) under it: a terminal used to read as two headers while every
+  // other window read as one.
+  const framed = useInPaneFrame();
+  const status = (
+    <span className="flex items-center gap-2 text-[11px] text-ink-faint">
+      <span className="max-w-[26ch] truncate font-mono">{info?.cwd ?? ''}</span>
+      {info && !info.running && (
+        <span className="shrink-0 text-red-400">shell exited{info.exitCode != null ? ` (${info.exitCode})` : ''}</span>
+      )}
+    </span>
+  );
+
   return (
     <div className="flex h-full flex-col overflow-hidden" style={{ background: 'var(--surface-2)' }}>
-      <div className="flex items-center justify-between border-b border-line px-3 py-1.5 text-[11px] text-ink-faint">
-        <span className="truncate font-mono">{info?.cwd ?? ''}</span>
-        {info && !info.running && (
-          <span className="text-red-400">shell exited{info.exitCode != null ? ` (${info.exitCode})` : ''}</span>
-        )}
-      </div>
+      {framed ? (
+        <PaneActions>{status}</PaneActions>
+      ) : (
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-3 py-1.5">{status}</div>
+      )}
       <div ref={hostRef} className="min-h-0 flex-1 px-2 py-1" />
     </div>
   );

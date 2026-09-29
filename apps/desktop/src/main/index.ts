@@ -289,7 +289,7 @@ app.whenReady().then(() => {
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
 
   const dataDir = join(app.getPath('userData'), 'agent-nekko');
-  const host = createHost({ dataDir });
+  const host = createHost({ dataDir, allowBrowserControl: true });
   registerIpc(host);
   manageWorkflowLoopbackListener(host);
   // The local API server comes back up with the app (on by default), with the

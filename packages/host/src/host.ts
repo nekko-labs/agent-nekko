@@ -158,6 +158,7 @@ import {
   reconcileWorkflowRuns,
 } from './workflows.js';
 import { sendChat, abortChat, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { compactSession, cancelSessionCompaction, isSessionCompacting } from './compaction.js';
 import { initLimits, getLimits, clearLimits } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
 import {
@@ -278,6 +279,8 @@ export interface Host {
   setSessionAttachments(id: string, paths: string[]): Session | null;
   sendChat(opts: SendOptions): Promise<void>;
   abortChat(sessionId: string): void;
+  compactSession(sessionId: string): Promise<Session>;
+  cancelSessionCompaction(sessionId: string): void;
   queuePrompt(sessionId: string, text: string): Session | null;
   dequeuePrompt(sessionId: string, index: number): Session | null;
   approveTool(sessionId: string, toolCallId: string, approved: boolean): void;
@@ -464,7 +467,7 @@ export interface Host {
   connectHypergate(port?: number): Promise<import('@agent-nekko/shared').HypergateInfo | null>;
 }
 
-export function createHost(opts: { dataDir: string }): Host {
+export function createHost(opts: { dataDir: string; allowBrowserControl?: boolean }): Host {
   setDataDir(opts.dataDir);
   const events = new EventEmitter();
   initOAuth(events);
@@ -711,8 +714,16 @@ export function createHost(opts: { dataDir: string }): Host {
       return resetSettings();
     },
     listTools: () => [...BUILTIN_TOOLS.map((t) => ({ name: t.name, description: t.description })), ...mcpToolList()],
-    sendChat: (o) => sendChat(o, (e) => events.emit('agentEvent', e)),
+    sendChat: (o) => {
+      if (isSessionCompacting(o.sessionId)) {
+        events.emit('agentEvent', { type: 'error', sessionId: o.sessionId, message: 'This chat is being compacted. Wait or move to a new chat.' });
+        return Promise.resolve();
+      }
+      return sendChat(o, (e) => events.emit('agentEvent', e), !!opts.allowBrowserControl);
+    },
     abortChat,
+    compactSession,
+    cancelSessionCompaction,
     queuePrompt: sessions.queuePrompt,
     dequeuePrompt: sessions.dequeuePrompt,
     approveTool: (sessionId, toolCallId, approved) => resolveApproval(sessionId, toolCallId, approved),
