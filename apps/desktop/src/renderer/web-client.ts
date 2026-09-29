@@ -314,6 +314,8 @@ function makeWebClient(): NekkoApi {
     setSessionAttachments: (sessionId, paths) => call(IpcChannels.sessionSetAttachments, sessionId, paths),
     sendChat: (opts) => call(IpcChannels.chatSend, opts),
     abortChat: (sessionId) => call(IpcChannels.chatAbort, sessionId),
+    compactSession: (sessionId) => call(IpcChannels.chatCompact, sessionId),
+    cancelSessionCompaction: (sessionId) => call(IpcChannels.chatCancelCompaction, sessionId),
     queuePrompt: (sessionId, text) => call(IpcChannels.chatQueue, sessionId, text),
     dequeuePrompt: (sessionId, index) => call(IpcChannels.chatDequeue, sessionId, index),
     approveTool: (sessionId, toolCallId, approved) => call(IpcChannels.toolApprove, sessionId, toolCallId, approved),

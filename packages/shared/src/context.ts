@@ -65,15 +65,13 @@ export interface HistoryMessage {
 /**
  * Everything one stored message contributes to the next prompt.
  *
- * The transcript is replayed to the model in full, so a turn costs its text
- * plus whatever else it carries: the reasoning the provider streamed, the
- * arguments of every tool it called, and the output those tools returned. On a
- * long agentic run those dwarf the prose, which is why counting `content` alone
- * made a heavily-worked chat report a few thousand tokens.
+ * The transcript is replayed to the model without the stored reasoning, so a
+ * turn costs its text, tool arguments, and tool output. On a long agentic run
+ * tool traffic dwarfs the prose, while counting private reasoning that is not
+ * sent back to the provider makes the window look full when it is not.
  */
 export function historyText(m: HistoryMessage): string {
   const parts: string[] = [m.content ?? ''];
-  if (m.reasoning) parts.push(m.reasoning);
   for (const call of m.toolCalls ?? []) {
     parts.push(call.name ?? '');
     // Arguments are serialized on the wire, so their JSON is what occupies the

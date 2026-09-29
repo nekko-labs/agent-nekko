@@ -86,6 +86,22 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: 'browser',
+    description: 'Control a visible local Chromium browser using Stagehand. Every action requires user approval. Dedicated mode opens a separate browser; existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
+    parameters: {
+      type: 'object',
+      properties: {
+        mode: { type: 'string', enum: ['dedicated', 'existing'] },
+        action: { type: 'string', enum: ['navigate', 'inspect', 'click', 'fill', 'close'] },
+        url: { type: 'string', description: 'HTTP(S) destination for navigate.' },
+        port: { type: 'number', description: 'Existing Chromium localhost CDP port, commonly 9222.' },
+        selector: { type: 'string', description: 'CSS selector for click or fill.' },
+        value: { type: 'string', description: 'Text to enter for fill.' },
+      },
+      required: ['mode', 'action'],
+    },
+  },
+  {
     name: 'spawn_agent',
     description:
       'Delegate a self-contained sub-task to a fresh sub-agent that works in the same project with its own context, then returns its final answer. Use for parallelizable or well-scoped work (e.g. "investigate X", "implement Y in file Z"). The sub-agent appears as a nested tab in the workbench.',

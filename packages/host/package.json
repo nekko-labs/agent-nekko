@@ -19,6 +19,7 @@
   "dependencies": {
     "@agent-nekko/core": "*",
     "@agent-nekko/shared": "*",
+    "@browserbasehq/stagehand": "4.0.3",
     "@lydell/node-pty": "^1.2.0-beta.14"
   }
 }

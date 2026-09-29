@@ -21,7 +21,7 @@ import { NekkoAvatar } from '../components/Mascot.js';
 /** Short label for a window's title strip. */
 function paneTitle(pane: WbPane, sessions: Session[], terminals: TerminalInfo[]): string {
   if (pane.kind === 'chat') return sessions.find((s) => s.id === pane.refId)?.title ?? 'Chat';
-  if (pane.kind === 'terminal') return terminals.find((x) => x.id === pane.refId)?.title || 'Terminal';
+  if (pane.kind === 'terminal') return terminals.find((x) => x.id === pane.refId)?.title || (pane.refId.startsWith('agent_') ? 'Agent commands' : 'Terminal');
   if (pane.kind === 'browser') {
     try { return new URL(pane.refId).host || 'Browser'; } catch { return 'Browser'; }
   }
@@ -152,6 +152,11 @@ export function WorkspacesView() {
   } = useStore();
 
   const [statuses, setStatuses] = useState<Map<string, AgentStatus>>(new Map());
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [mobileNav, setMobileNav] = useState(false);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
@@ -472,6 +477,7 @@ export function WorkspacesView() {
                           terminal={terminalOf(w)}
                           status={s ? statuses.get(s.id) : undefined}
                           isActive={w.id === active?.id}
+                          now={now}
                           projects={settings?.workspaces ?? []}
                           subAgentCount={kids.length}
                           onOpen={() => setActiveWorkspace(w.id)}

@@ -137,6 +137,10 @@ export function abortChat(sessionId: string): void {
   releasePending(sessionId);
 }
 
+export function isChatRunning(sessionId: string): boolean {
+  return abortControllers.has(sessionId);
+}
+
 /** Read guideline files (AGENTS.md/CLAUDE.md/...) from the workspace roots. */
 function collectGuidelines(): Array<{ path: string; content: string }> {
   const settings = getSettings();
@@ -293,7 +297,7 @@ function providerEndpoint(provider: ProviderConfig): URL | null {
   }
 }
 
-function offlineProviderAllowed(provider: ProviderConfig): boolean {
+export function offlineProviderAllowed(provider: ProviderConfig): boolean {
   const url = providerEndpoint(provider);
   // openai-compat is dual-use rather than a local kind, so it is allowed by
   // name; the loopback check still decides whether this endpoint is local.
@@ -393,7 +397,7 @@ async function runSubAgent(
 }
 
 /** Run a chat turn end to end. */
-export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
+export async function sendChat(opts: SendOptions, send: Sender, allowBrowserControl = false): Promise<void> {
   const settings = getSettings();
   const provider = settings.providers.find((p) => p.id === opts.providerId);
   if (!provider?.enabled) {
@@ -429,6 +433,7 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
     if (settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
     const disabled = new Set(session.disabledTools ?? []);
     if (!allowSpawn) disabled.add('spawn_agent');
+    if (!allowBrowserControl || !canAsk) disabled.add('browser');
     tools = [...BUILTIN_TOOLS, ...mcpToolSpecs()].filter((t) => !disabled.has(t.name));
     // Run-driven sessions can register experiments into their run's idea maze
     // and (goal runs) maintain their execution plan.
@@ -602,6 +607,7 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
                   : settings.workspaces[0]?.path,
                 requestApproval,
                 mode,
+                allowBrowserControl,
                 sessionId: opts.sessionId,
               });
         },

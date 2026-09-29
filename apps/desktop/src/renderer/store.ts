@@ -116,6 +116,8 @@ interface UiState {
   settings: AppSettings | null;
   view: View;
   sessions: Session[];
+  sessionCtxEstimate: Record<string, number>;
+  setSessionCtxEstimate: (sessionId: string, tokens: number | null) => void;
   activeSessionId: string | null;
   providers: ProviderConfig[];
   models: ModelInfo[];
@@ -367,6 +369,18 @@ export const useStore = create<UiState>((set, get) => ({
   settings: null,
   view: 'command',
   sessions: [],
+  sessionCtxEstimate: {},
+  setSessionCtxEstimate: (sessionId, tokens) => set((state) => {
+    if (tokens == null) {
+      if (!(sessionId in state.sessionCtxEstimate)) return state;
+      const next = { ...state.sessionCtxEstimate };
+      delete next[sessionId];
+      return { sessionCtxEstimate: next };
+    }
+    return state.sessionCtxEstimate[sessionId] === tokens
+      ? state
+      : { sessionCtxEstimate: { ...state.sessionCtxEstimate, [sessionId]: tokens } };
+  }),
   activeSessionId: null,
   providers: [],
   models: [],
@@ -406,8 +420,7 @@ export const useStore = create<UiState>((set, get) => ({
     }),
   newChat: async () => {
     const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
-    await get().refreshSessions();
-    set({ activeSessionId: s.id, view: 'chat' });
+    set((state) => ({ sessions: [s, ...state.sessions], activeSessionId: s.id, view: 'chat' }));
     get().openChatPane(s.id);
   },
   setMascotMood: (m) => set({ mascotMood: m }),
@@ -467,7 +480,6 @@ export const useStore = create<UiState>((set, get) => ({
     set((s) => (s.draftBySession[sessionId] === text
       ? s
       : { draftBySession: { ...s.draftBySession, [sessionId]: text } })),
-
   setActiveSession: (id) => set({ activeSessionId: id }),
 
   refreshProviders: async () => {
