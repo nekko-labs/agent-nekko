@@ -271,7 +271,18 @@ export function ModelPicker({
  * and only while Auto is selected, so the strip doesn't carry a control that
  * does nothing.
  */
-export function AutoQualityMenu({ quality, onPick }: { quality: AutoQuality; onPick: (q: AutoQuality) => void }) {
+export function AutoQualityMenu({
+  quality,
+  onPick,
+  followCapacity,
+  onFollowCapacity,
+}: {
+  quality: AutoQuality;
+  onPick: (q: AutoQuality) => void;
+  /** Whether Auto may move a turn to an equivalent model elsewhere. */
+  followCapacity?: boolean;
+  onFollowCapacity?: (v: boolean) => void;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -313,6 +324,27 @@ export function AutoQualityMenu({ quality, onPick }: { quality: AutoQuality; onP
               <span className="text-[11px] text-ink-faint">{AUTO_QUALITY_META[q].description}</span>
             </button>
           ))}
+          {onFollowCapacity && (
+            <button
+              role="menuitemcheckbox"
+              aria-checked={!!followCapacity}
+              className="flex w-full items-start gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2"
+              onClick={() => onFollowCapacity(!followCapacity)}
+            >
+              <span
+                className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border text-[9px] ${followCapacity ? 'border-accent bg-accent text-white' : 'border-line'}`}
+                aria-hidden
+              >
+                {followCapacity ? '✓' : ''}
+              </span>
+              <span>
+                <span className="block text-[13px] font-medium">Follow capacity &amp; cost</span>
+                <span className="block text-[11px] leading-snug text-ink-faint">
+                  When this provider is spent or an equivalent model elsewhere is much cheaper, run the turn there and say why. Never a downgrade.
+                </span>
+              </span>
+            </button>
+          )}
           <p className="border-t border-line px-2.5 pb-0.5 pt-1.5 text-[10px] text-ink-faint">Applies to this chat only.</p>
         </div>
       )}

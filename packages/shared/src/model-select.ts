@@ -13,6 +13,9 @@
  */
 
 import type { ModelInfo } from './models.js';
+import type { LimitWindow, SubscriptionLimits } from './limits.js';
+import { getModelPrice, modelPricing } from './limits.js';
+import { resolveModelAvailability, windowCoversModel } from './model-availability.js';
 
 /** Sentinel model id meaning "let Nekko pick per turn". */
 export const AUTO_MODEL_ID = '__auto__';
@@ -149,4 +152,217 @@ export function recommendModel(
   quality: AutoQuality = 'normal',
 ): string | null {
   return pickAutoModel(models, prompt, { quality, preferred })?.modelId ?? null;
+}
+
+/**
+ * A usage window is "spent" for switching purposes once it is rate-limited or
+ * within the last sliver of its allowance: at 95% a turn queued behind it would
+ * still land, but the turn after that very likely would not, so the honest
+ * move is to look for headroom now rather than mid-failure.
+ */
+export const PROVIDER_SPENT_THRESHOLD = 95;
+
+/**
+ * A same-tier candidate counts as "materially cheaper" once its blended
+ * per-million-token price is at most this fraction of the home pick's. A
+ * smaller gap is noise (context mix swings the real bill more than that).
+ */
+export const PROVIDER_CHEAPER_RATIO = 0.6;
+
+/** One provider's models plus what is known about its remaining capacity. */
+export interface ProviderPool {
+  providerId: string;
+  providerLabel: string;
+  models: ModelInfo[];
+  /** Live usage windows, when this provider can be measured at all. */
+  limits?: SubscriptionLimits | null;
+  /** Passed through to the availability resolver (signed-out check). */
+  auth?: 'apikey' | 'subscription';
+  tokenKey?: string;
+  /** Local on-device providers run free; their models cost nothing to serve. */
+  local?: boolean;
+}
+
+/** An Auto pick, tagged with the provider it landed on. */
+export interface AutoProviderPick extends AutoPick {
+  providerId: string;
+  providerLabel: string;
+  /** True when the pick moved the turn off the chat's own provider. */
+  switched: boolean;
+}
+
+/** The chat-capable models a provider can still serve right now. */
+function runnableModels(pool: ProviderPool): ModelInfo[] {
+  return pool.models
+    .filter(isChatModel)
+    .filter(
+      (m) =>
+        resolveModelAvailability({ model: m, provider: pool, limits: pool.limits }).status === 'ready',
+    );
+}
+
+/**
+ * The window that will stop this provider next: the most-used window covering
+ * at least one chat model the provider offers. Account-wide windows cover
+ * everything; model windows count only for the family they name.
+ */
+function bindingWindowFor(pool: ProviderPool): LimitWindow | undefined {
+  const chat = pool.models.filter(isChatModel);
+  return [...(pool.limits?.windows ?? [])]
+    .filter((w) => chat.some((m) => windowCoversModel(w, m.id)))
+    .sort((a, b) => b.usedPercent - a.usedPercent)[0];
+}
+
+/**
+ * Why this provider is about to stop serving turns, or null when it is fine.
+ * Exported so the composer can fetch standby provider lists only when the
+ * trigger is real rather than on every render.
+ */
+export function providerSwitchTrigger(pool: ProviderPool): string | null {
+  const win = bindingWindowFor(pool);
+  if (win && (win.status === 'rate_limited' || win.usedPercent >= PROVIDER_SPENT_THRESHOLD)) {
+    return win.usedPercent >= 100 || win.status === 'rate_limited'
+      ? `the ${win.label} limit is used up`
+      : `the ${win.label} limit is ${Math.round(win.usedPercent)}% used`;
+  }
+  if (pool.models.some(isChatModel) && runnableModels(pool).length === 0) {
+    return 'it has no usable models right now';
+  }
+  return null;
+}
+
+/**
+ * Blended per-million-token price of serving one turn with this model on this
+ * pool: provider-published prices first (the meter the bill runs on), then the
+ * static pricing table. Local providers and subscription plans cost the user
+ * nothing per turn. `undefined` when neither side publishes a price, so a
+ * candidate can never be called "cheaper" on a guess.
+ */
+function turnPrice(pool: ProviderPool, m: ModelInfo): number | undefined {
+  if (pool.local || pool.auth === 'subscription') return 0;
+  const pub = modelPricing(m);
+  if (pub) return (pub.input + pub.output) / 2;
+  const p = getModelPrice(m.id);
+  return p ? (p.input + p.output) / 2 : undefined;
+}
+
+/**
+ * Auto mode across providers. The home provider keeps the pick whenever it can
+ * serve; when it is spent and `switchOnCapacity` is on, the turn moves to an
+ * equivalent model on the provider with the most headroom, and when home is
+ * healthy but a same-tier model elsewhere is materially cheaper, the turn
+ * moves there instead. "Equivalent" is load-bearing: candidates must be at
+ * least the tier the home pick would have been, so a switch is never a silent
+ * downgrade, and a step up says so in the reason. A provider with no measured
+ * limits reads as full headroom (a metered-key provider has no capacity
+ * ceiling), but a measured one wins ties.
+ */
+export function pickAcrossProviders(
+  pools: ProviderPool[],
+  prompt: string,
+  {
+    quality = 'normal',
+    preferred = new Set<string>(),
+    homeProviderId,
+    switchOnCapacity = false,
+  }: {
+    quality?: AutoQuality;
+    /** Favorites as `${providerId}::${modelId}` so a star survives the move. */
+    preferred?: Set<string>;
+    homeProviderId?: string;
+    switchOnCapacity?: boolean;
+  } = {},
+): AutoProviderPick | null {
+  const home = pools.find((p) => p.providerId === homeProviderId) ?? pools[0];
+  if (!home) return null;
+
+  const favsFor = (p: ProviderPool) =>
+    new Set(p.models.filter((m) => preferred.has(`${p.providerId}::${m.id}`)).map((m) => m.id));
+  const homeRunnable = runnableModels(home);
+  // The pick also runs over the unfiltered list when everything is blocked:
+  // its tier is still the standard a switch candidate has to meet.
+  const homePick = pickAutoModel(homeRunnable.length ? homeRunnable : home.models, prompt, {
+    quality,
+    preferred: favsFor(home),
+  });
+  const toPick = (p: ProviderPool, pick: AutoPick, switched: boolean): AutoProviderPick => ({
+    ...pick,
+    providerId: p.providerId,
+    providerLabel: p.providerLabel,
+    switched,
+  });
+  if (!homePick) return null;
+  if (!switchOnCapacity) return toPick(home, homePick, false);
+
+  const wantedTier = homePick.tier;
+  const candidates = pools
+    .filter((p) => p !== home)
+    .flatMap((p) => {
+      const win = bindingWindowFor(p);
+      const headroom = win ? 100 - win.usedPercent : 100;
+      return runnableModels(p).map((m) => ({
+        pool: p,
+        m,
+        tier: modelTier(m),
+        headroom,
+        price: turnPrice(p, m),
+        measured: !!p.limits,
+        fav: preferred.has(`${p.providerId}::${m.id}`),
+      }));
+    })
+    .filter((c) => c.tier >= wantedTier);
+
+  const capacityTrigger = providerSwitchTrigger(home);
+  let best: (typeof candidates)[number] | undefined;
+  let reason: string | undefined;
+  if (capacityTrigger) {
+    // Capacity switch: most headroom first, measured before assumed, then the
+    // closest tier, then the cheaper of two equal options, then favorites.
+    best = [...candidates].sort(
+      (a, b) =>
+        b.headroom - a.headroom ||
+        Number(b.measured) - Number(a.measured) ||
+        Math.abs(a.tier - wantedTier) - Math.abs(b.tier - wantedTier) ||
+        (a.price ?? Infinity) - (b.price ?? Infinity) ||
+        Number(b.fav) - Number(a.fav),
+    )[0];
+    if (best) {
+      reason = `${home.providerLabel}: ${capacityTrigger}, so this turn runs on ${best.m.name || best.m.id} on ${best.pool.providerLabel}`;
+    }
+  } else {
+    // Cost switch: home is healthy, so only a materially cheaper same-tier
+    // model elsewhere justifies moving the turn. Cheapest wins outright.
+    const homeModel = home.models.find((m) => m.id === homePick.modelId);
+    const homePrice = homeModel ? turnPrice(home, homeModel) : undefined;
+    best = candidates
+      .filter(
+        (c) =>
+          homePrice != null &&
+          homePrice > 0 &&
+          c.price != null &&
+          c.price <= homePrice * PROVIDER_CHEAPER_RATIO,
+      )
+      .sort(
+        (a, b) =>
+          (a.price ?? Infinity) - (b.price ?? Infinity) ||
+          Math.abs(a.tier - wantedTier) - Math.abs(b.tier - wantedTier) ||
+          Number(b.fav) - Number(a.fav),
+      )[0];
+    if (best) {
+      const name = best.m.name || best.m.id;
+      reason = best.price === 0
+        ? `${home.providerLabel}: ${name} on ${best.pool.providerLabel} does the same tier of work for free`
+        : `${home.providerLabel}: ${name} on ${best.pool.providerLabel} does the same tier of work at about ${Math.round(((best.price ?? 0) / (homePrice ?? 1)) * 100)}% of the price`;
+    }
+  }
+
+  if (!best || !reason) return toPick(home, homePick, false);
+
+  return toPick(best.pool, {
+    modelId: best.m.id,
+    name: best.m.name || best.m.id,
+    tier: best.tier,
+    complex: homePick.complex,
+    reason: `${reason}${best.tier > wantedTier ? ', a step up' : ''}.`,
+  }, true);
 }
