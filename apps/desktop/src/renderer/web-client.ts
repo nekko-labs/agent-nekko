@@ -471,6 +471,7 @@ function makeWebClient(): NekkoApi {
     enableRemote: (relayUrl) => call(IpcChannels.remoteEnable, relayUrl),
     disableRemote: () => call(IpcChannels.remoteDisable),
     getRemoteStatus: () => call(IpcChannels.remoteStatus),
+    getMessagingStatus: () => call(IpcChannels.messagingStatus),
     getRemotePairing: () => call(IpcChannels.remotePairing),
     startRemotePairing: () => call(IpcChannels.remotePair),
     listRemoteDevices: () => call(IpcChannels.remoteDevices),

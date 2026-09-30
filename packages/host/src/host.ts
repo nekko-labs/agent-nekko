@@ -173,6 +173,7 @@ import {
 } from './oauth.js';
 import { buildSpec, buildSpecDoc, readSpecDocs, setSpecMethodology, toggleSpecTask, specPathForSession } from './spec.js';
 import { createRemoteService } from './remote.js';
+import { createMessagingService } from './messaging/service.js';
 import { detectAgentTools, installSubagent, refreshSubagent, subagentSnippet } from './integrations.js';
 import { getGpuStats, getGpuStatsFresh } from './gpu.js';
 import { getSystemStats } from './system.js';
@@ -464,6 +465,9 @@ export interface Host {
   /** The remote-access service itself (headless relay-agent mode attaches here). */
   remote: import('./remote.js').RemoteService;
 
+  /** Inbound messaging channels (Telegram bot, …): live per-channel state. */
+  messagingStatus(): import('@agent-nekko/shared').MessagingStatus;
+
   beginOAuth(provider: OAuthProvider): Promise<OAuthSessionInfo>;
   finishOAuth(sessionId: string, pasted: string): Promise<OAuthStatus>;
   cancelOAuth(sessionId: string): Promise<void>;
@@ -584,7 +588,11 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     remote: null as unknown as import('./remote.js').RemoteService, // set right after construction (needs `host`)
 
     getSettings,
-    updateSettings: (patch) => saveSettings(patch),
+    updateSettings: (patch) => {
+      const next = saveSettings(patch);
+      if (patch.messaging !== undefined) messaging.update(next.messaging);
+      return next;
+    },
 
     listProviders: () => getSettings().providers,
     saveProvider: (p) => {
@@ -895,6 +903,8 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     renameRemoteDevice: (deviceId, name) => host.remote.rename(deviceId, name),
     rotateRemoteSecret: () => host.remote.rotate(),
 
+    messagingStatus: () => messaging.status(),
+
     beginOAuth,
     finishOAuth,
     cancelOAuth: async (sessionId) => { cancelOAuth(sessionId); },
@@ -941,5 +951,9 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
   // remote access was left enabled when the host last shut down.
   host.remote = createRemoteService(host);
   host.remote.startIfEnabled();
+  // Messaging channels likewise drive the host; configured adapters come up
+  // with the process and reconfigure through updateSettings above.
+  const messaging = createMessagingService(host);
+  messaging.update(getSettings().messaging);
   return host;
 }

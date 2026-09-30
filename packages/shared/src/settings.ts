@@ -162,6 +162,11 @@ export interface AppSettings {
   experimental?: ExperimentalFlags;
   /** First-run setup wizard progress (undefined on installs that predate it). */
   onboarding?: OnboardingState;
+  /**
+   * Inbound messaging channels (Telegram bot, …). Each adapter stays off until
+   * enabled with an explicit allowlist of chat ids. See messaging.ts.
+   */
+  messaging?: import('./messaging.js').MessagingSettings;
 }
 
 /**
