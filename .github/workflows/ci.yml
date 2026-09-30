@@ -43,3 +43,31 @@ jobs:
         run: cargo fmt --all -- --check
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
+
+  # The speed contract (SPEC.md, "Speed & responsiveness"): headless Chrome over
+  # the DevTools protocol against the web edition and a scripted model. Fails
+  # when a p95 exceeds its budget; the report is uploaded either way so a
+  # regression shows its numbers, not only a red cross.
+  perf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm run build:web
+      - name: Speed contract
+        run: node scripts/perf/run.mjs --out perf-results
+      - name: Report
+        if: always()
+        run: cat perf-results/perf-report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-report
+          path: perf-results/
+          if-no-files-found: ignore
