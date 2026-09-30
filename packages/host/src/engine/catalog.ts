@@ -478,8 +478,11 @@ export function mlxQuant(id: string, tree: Array<{ type?: string; path?: string;
   const weights = files.filter((f) => f.path!.toLowerCase().endsWith('.safetensors')).sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
   if (!files.some((f) => f.path === 'config.json') || weights.length === 0 || !(taggedMlx || /mlx/i.test(id))) return null;
   const main = weights[0].path as string;
-  const bits = id.match(/(\d+)[-_]?bit/i)?.[1];
-  const label = bits ? `${bits}bit` : /bf16/i.test(id) ? 'BF16' : /fp16|f16/i.test(id) ? 'FP16' : 'MLX';
+  // Bounded on both sides: repo ids come from Hugging Face, and an unbounded
+  // `\d+` before an optional separator backtracks on long runs of digits.
+  const name = id.slice(0, 200);
+  const bits = name.match(/(?:^|\D)(\d{1,3})[-_]?bit/i)?.[1];
+  const label = bits ? `${bits}bit` : /bf16/i.test(name) ? 'BF16' : /fp16|f16/i.test(name) ? 'FP16' : 'MLX';
   return {
     label,
     file: main,
