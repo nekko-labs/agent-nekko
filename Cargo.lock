@@ -1023,6 +1023,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "nekko-loop"
+version = "0.1.0"
+dependencies = [
+ "nekko-js",
+ "serde_json",
+]
+
+[[package]]
 name = "nekko-store"
 version = "0.1.0"
 dependencies = [
