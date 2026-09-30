@@ -342,11 +342,11 @@ export interface NekkoApi {
   /** The built-in engine: install state, server state, resident models. */
   engineStatus(): Promise<import('./engine.js').EngineStatus>;
   /** Download and unpack a llama.cpp build. Always user-initiated. */
-  engineInstall(buildId?: string, runtime?: 'llama' | 'diffusion'): Promise<{ ok: boolean; message: string; jobId?: string }>;
-  engineInstallPreview(runtime: 'llama' | 'diffusion', buildId?: string): Promise<import('./engine.js').EngineInstallPreview | null>;
+  engineInstall(buildId?: string, runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  engineInstallPreview(runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string): Promise<import('./engine.js').EngineInstallPreview | null>;
   engineGenerateImage(request: import('./engine.js').ImageGenerationRequest): Promise<import('./engine.js').ImageGenerationResult>;
   /** Remove a managed engine install. An external binary is never touched. */
-  engineUninstall(runtime?: 'llama' | 'diffusion'): Promise<{ ok: boolean; message: string }>;
+  engineUninstall(runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string }>;
   /** Change the engine's server settings; a port or binding change restarts it. */
   engineSettingsSave(
     patch: Partial<import('./engine.js').EngineSettings>,

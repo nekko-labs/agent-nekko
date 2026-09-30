@@ -77,7 +77,7 @@ export interface EngineInstall {
 }
 
 export interface EngineInstallPreview {
-  runtime: 'llama' | 'diffusion';
+  runtime: 'llama' | 'diffusion' | 'mlx';
   version: string;
   build: EngineBuild;
   sizeBytes: number;
@@ -158,6 +158,8 @@ export function engineBaseUrl(settings: Pick<EngineSettings, 'port'>): string {
 export interface EngineStatus {
   install: EngineInstall;
   diffusionInstall?: EngineInstall;
+  /** MLX (Apple Silicon only); `available` is empty on any other machine. */
+  mlxInstall?: EngineInstall;
   running: boolean;
   startedAt?: number;
   resident: ResidentModel[];
@@ -372,7 +374,9 @@ export function modelModality(model: {
     if (VISION_ARCHS.test(arch)) return 'vision';
   }
   if (!arch && model.readable !== false) {
-    const name = model.name ?? '';
+    // A name is a file name; capping it keeps these patterns linear however
+    // long a string arrives.
+    const name = (model.name ?? '').slice(0, 256);
     if (/(?:^|[ /_-])(?:sd[123](?:[. _-]|$)|sdxl|flux[. _-]|stable[-_ ]diffusion|qwen[-_ ]image|z[-_ ]image|hidream|chroma|text-to-image|image-to-image)/i.test(name)) return 'image';
     if (/embedding|feature-extraction|(?:^|[ /_-])bge[-_]/i.test(name)) return 'embedding';
     if (/whisper|parakeet|automatic-speech-recognition/i.test(name)) return 'audio';
@@ -401,8 +405,13 @@ export function unsupportedLoadReason(model: {
   modality?: ModelModality;
   name?: string;
   readable?: boolean;
+  format?: 'gguf' | 'mlx';
+  mlxRunnable?: boolean;
 }): string | undefined {
   const name = model.name ?? 'This model';
+  if (model.format === 'mlx') {
+    return model.mlxRunnable ? undefined : `${name} is an MLX model, which runs on Apple Silicon Macs only.`;
+  }
   switch (model.modality ?? modelModality(model)) {
     case 'image':
       return `${name} is an image-generation model. The llama.cpp engine cannot serve it; it runs in stable-diffusion.cpp (the runtime LM Studio uses for image models).`;
@@ -417,12 +426,17 @@ export function unsupportedLoadReason(model: {
   }
 }
 
-/** A GGUF on disk, with whatever the header told us. */
+/** A model on disk (a GGUF file, or an MLX model folder), with whatever it told us. */
 export interface LocalModel {
   /** `<owner>/<repo>/<file>` for a downloaded model; the file name for an imported one. */
   id: string;
   name: string;
+  /** The GGUF file, or for an MLX model its folder. */
   path: string;
+  /** Absent means GGUF, which every row was before MLX. */
+  format?: 'gguf' | 'mlx';
+  /** For an MLX model: whether this machine can run it (Apple Silicon). */
+  mlxRunnable?: boolean;
   sizeBytes: number;
   quantization?: string;
   parameterSize?: string;

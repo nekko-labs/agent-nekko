@@ -6,6 +6,7 @@
 
 mod backend;
 mod config;
+mod engine;
 mod hub;
 mod procgroup;
 mod routes;
@@ -59,7 +60,8 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
         Some(cmd) => Backend::spawn(cmd, url.clone(), cfg.token.clone(), hub.clone()),
         None => Backend::disabled(),
     };
-    let ctx = Ctx { terminals: terminals.clone(), backend: backend.clone(), hub };
+    let engine = Arc::new(engine::Engine::new(backend.clone()));
+    let ctx = Ctx { terminals: terminals.clone(), backend: backend.clone(), hub, engine: engine.clone() };
     routes::forward_terminal_events(&ctx);
 
     let app = wire::App { ctx, token: cfg.token.clone().into(), origins: Arc::new(cfg.allowed_origins.clone()) };
@@ -73,6 +75,7 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
 
     axum::serve(listener, router).with_graceful_shutdown(shutdown_signal(cfg.exit_on_stdin_close)).await?;
 
+    engine.shutdown();
     backend.shutdown().await;
     terminals.close_all();
     Ok(())

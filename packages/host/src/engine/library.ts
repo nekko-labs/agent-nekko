@@ -1,3 +1,4 @@
+import { mlxSupported, readMlxModel, type MlxModelInfo } from './mlx.js';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import { basename, dirname, join, relative, resolve, sep } from 'path';
 import type {
@@ -211,10 +212,55 @@ export function createLibrary(deps: LibraryDeps) {
       }
     }
 
+    // MLX model folders: rows of their own, served by mlx_lm.server on an
+    // Apple Silicon Mac and explained as not runnable anywhere else.
+    const mlxRunnable = mlxSupported();
+    for (const root of roots()) {
+      if (root.provider === 'ollama') continue;
+      for (const { dir, info } of await scanMlxFolder(root)) {
+        if (seenPaths.has(dir.toLowerCase())) continue;
+        seenPaths.add(dir.toLowerCase());
+        let stored = byFile.get(dir);
+        if (!stored || stored.folderId !== root.id) {
+          stored = {
+            id: idFor(root, dir),
+            name: basename(dir),
+            file: dir,
+            format: 'mlx',
+            folderId: root.id,
+            folderProvider: root.provider,
+            architecture: info.architecture,
+            quantization: info.quantization,
+            maxContext: info.maxContext,
+            readable: true,
+            addedAt: Date.now(),
+          };
+          dirty = true;
+        }
+        let id = stored.id;
+        for (let n = 2; seenIds.has(id); n += 1) id = `${stored.id}-${n}`;
+        if (id !== stored.id) stored = { ...stored, id };
+        seenIds.add(id);
+        index.models[id] = stored;
+        out.push({
+          ...stored,
+          path: dir,
+          sizeBytes: info.sizeBytes,
+          managed: root.managed,
+          folderId: root.id,
+          folderProvider: root.provider,
+          modality: info.vision ? 'vision' : 'chat',
+          hasProjector: info.vision,
+          mlxRunnable,
+        });
+      }
+    }
+
     // Fold live modality facts onto the rows: what kind of model this is and
     // whether a vision model's projector is actually there.
     const compKey = (id: string) => basename(companionsDir(deps.modelsDir(), id));
     for (const model of out) {
+      if (model.format === 'mlx') continue;
       model.hasProjector =
         projectorDirs.has(dirname(model.path).toLowerCase()) || companionIds.has(compKey(model.id));
       model.modality = modelModality({
@@ -239,6 +285,38 @@ export function createLibrary(deps: LibraryDeps) {
     }
     if (dirty) await writeIndex(index);
     return out.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * MLX model folders under one root (a `config.json` beside `.safetensors`
+   * weights, see `readMlxModel`). A folder that is a model is not descended
+   * into; its weights are its own.
+   */
+  async function scanMlxFolder(root: Root): Promise<Array<{ dir: string; info: MlxModelInfo }>> {
+    const maxDepth = root.managed ? 3 : 5;
+    const out: Array<{ dir: string; info: MlxModelInfo }> = [];
+    const walk = async (dir: string, depth: number): Promise<void> => {
+      let entries;
+      try {
+        entries = await readdir(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      if (entries.some((e) => e.isFile() && e.name === 'config.json')) {
+        const info = await readMlxModel(dir);
+        if (info) {
+          out.push({ dir, info });
+          return;
+        }
+      }
+      if (depth >= maxDepth) return;
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name === 'blobs' || entry.name === '.companions') continue;
+        await walk(join(dir, entry.name), depth + 1);
+      }
+    };
+    await walk(root.path, 0);
+    return out;
   }
 
   /** Read one file's header into a library row. */

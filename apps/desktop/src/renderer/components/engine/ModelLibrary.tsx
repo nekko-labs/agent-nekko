@@ -273,6 +273,11 @@ export function ModelLibrary({
                           {MODALITY_LABELS[m.modality]}
                         </span>
                       )}
+                      {m.format === 'mlx' && (
+                        <span className="chip shrink-0" title="An MLX model folder, run by the MLX runtime on Apple Silicon">
+                          MLX
+                        </span>
+                      )}
                       {m.modality === 'vision' && !m.hasProjector && (
                         <span className="chip shrink-0" style={{ color: 'var(--warning, #d1a054)' }} title="Its projector file (mmproj-*.gguf) is missing, so it answers text only">
                           no projector

@@ -16,6 +16,7 @@ pub struct Ctx {
     pub terminals: Arc<Registry>,
     pub backend: Arc<Backend>,
     pub hub: Hub,
+    pub engine: Arc<crate::engine::Engine>,
 }
 
 /// Terminals whose ids start with this are the TS host's read-only agent
@@ -75,7 +76,12 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
             }
             terminal_op(ctx, channel, &id, &args)
         }
-        _ => ctx.backend.call(channel, Value::Array(args)).await,
+        _ => {
+            if let Some(r) = crate::engine::route(&ctx.engine, channel, &args).await {
+                return r;
+            }
+            ctx.backend.call(channel, Value::Array(args)).await
+        }
     }
 }
 
@@ -93,6 +99,13 @@ pub const OWNED: &[&str] = &[
     "terminal:run",
     "terminal:signal",
     "terminal:close",
+    "infer:serve",
+    "infer:stopServing",
+    "infer:serving",
+    "infer:spawn",
+    "infer:kill",
+    "infer:list",
+    "infer:log",
 ];
 
 fn terminal_op(ctx: &Ctx, channel: &str, id: &str, args: &[Value]) -> Result<Value, String> {

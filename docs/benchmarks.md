@@ -31,7 +31,7 @@ Six chats visited in turn, three rounds each, more chats than the server has slo
 - **Where Agent Nekko is clearly ahead:** edits that repeat their input (about 4.5x the other servers, from n-gram speculative decoding), plain decode (about a third faster), coming back to a chat that lost its slot (about 40% faster than Ollama), and parallel requests (Ollama serves one at a time by default).
 - **Where it is not:** the first turn of a brand-new long conversation is slower than Ollama's (1.7 s against 1.3 s), and prefill is level with everyone. The first-turn gap was 2.3 s before this work; the remaining difference is under investigation.
 - **Noise:** run-to-run variation was about 10% on prefill and larger on the four-request number (the same configuration measured 256, 283 and 343 tokens/s across runs). Differences smaller than that are not claims.
-- "Agent Nekko engine" here is `llama-server` from the pinned llama.cpp build started with exactly the flags the engine now passes, measured without the engine's router in front of it (the router adds under a millisecond per request).
+- "Agent Nekko engine" here is `llama-server` from the pinned llama.cpp build started with exactly the flags the engine now passes, measured without the engine's router in front of it. The router (Rust, in the engine daemon) adds about 0.1 ms per request: 27.39 ms against 27.29 ms straight to the model server, median of 30 one-token requests.
 
 ### What changed to get there
 

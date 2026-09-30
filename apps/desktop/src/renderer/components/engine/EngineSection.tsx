@@ -10,6 +10,7 @@ import { DownloadsPanel } from './DownloadsPanel.js';
 import { EngineServerSettings } from './EngineServerSettings.js';
 import { ModelFolders } from './ModelFolders.js';
 import { DiffusionInstallCard } from './DiffusionInstallCard.js';
+import { MlxInstallCard } from './MlxInstallCard.js';
 import { LocalServerSection } from '../server/LocalServerSection.js';
 
 /**
@@ -160,6 +161,7 @@ export function EngineSection({
           <div className="mt-3"><EngineServerSettings settings={status.settings} install={install} running={running} onChanged={() => { void refresh(); onProvidersChanged(); }} /></div>
         </details>
         <DiffusionInstallCard install={status.diffusionInstall} onChanged={refresh} />
+        <MlxInstallCard install={status.mlxInstall} onChanged={refresh} />
       </div>
       <LocalServerSection />
       </div>

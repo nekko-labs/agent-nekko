@@ -38,6 +38,11 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.runtimePlan]: ([id, model, req]) => host.runtimePlan(id, model, req),
     [C.runtimeAutoFit]: ([id, model, budget, slots]) => host.runtimeAutoFit(id, model, budget, slots),
     [C.engineStatus]: () => host.engineStatus(),
+    // Internal: the engine daemon's router (crates/nekko-infer) asking the
+    // engine's policy about a model it does not have running.
+    'engine:routerLoad': ([id, image]) => host.engineRouterLoad(String(id), Boolean(image)),
+    'engine:routerModels': () => host.engineRouterModels(),
+    'engine:routerModel': ([id]) => host.engineRouterModel(String(id)),
     [C.engineInstall]: ([buildId, runtime]) => host.engineInstall(buildId, runtime),
     [C.engineUninstall]: ([runtime]) => host.engineUninstall(runtime),
     [C.engineInstallPreview]: ([runtime, buildId]) => host.engineInstallPreview(runtime, buildId),
