@@ -13,6 +13,8 @@ import type {
   StopResult,
 } from '@agent-nekko/shared';
 import { unsupportedLoadReason } from '@agent-nekko/shared';
+import { DAEMON_PORT, type EngineDaemon } from './daemon.js';
+import { mlxArgs } from './mlx.js';
 import { diffusionArgs } from './diffusion.js';
 
 /**
@@ -56,7 +58,10 @@ const LOG_LINES = 200;
 
 interface Child {
   modelId: string;
-  child: ChildProcess;
+  /** The process, when this module spawned it (no daemon). */
+  child?: ChildProcess;
+  /** Its pid, when the engine daemon spawned it. */
+  pid?: number;
   port: number;
   params: LoadParams;
   startedAt: number;
@@ -86,6 +91,8 @@ export interface EngineServerDeps {
   /** Absolute path to `llama-server`, or undefined when none is installed. */
   binPath: () => Promise<string | undefined>;
   diffusionBinPath?: () => Promise<string | undefined>;
+  /** `mlx_lm.server`, on an Apple Silicon Mac with MLX installed. */
+  mlxBinPath?: () => Promise<string | undefined>;
   findModel: (id: string) => Promise<LocalModel | undefined>;
   listModels: () => Promise<LocalModel[]>;
   getGpuStats: () => Promise<GpuStats | null>;
@@ -104,7 +111,16 @@ export interface EngineServerDeps {
   spawnFn?: typeof spawn;
   /** Which flags the binary accepts; defaults to asking it (`probeFlags`). */
   flagSupport?: (bin: string) => Promise<FlagSupport>;
+  /**
+   * The engine daemon, when this host runs under one. It then owns the model
+   * server processes and the OpenAI-compatible port; this module keeps the
+   * policy (what to load, with which arguments, when to evict) and asks it.
+   */
+  daemon?: EngineDaemon;
 }
+
+/** How often residency (last use, requests in flight) is read back from the daemon. */
+const DAEMON_SYNC_MS = 3000;
 
 export function createEngineServer(deps: EngineServerDeps) {
   const spawnFn = deps.spawnFn ?? spawn;
@@ -117,6 +133,9 @@ export function createEngineServer(deps: EngineServerDeps) {
   const lastLoadErrors = new Map<string, string>();
   const log: string[] = [];
   let server: Server | null = null;
+  /** Under the daemon: its router is listening on our behalf. */
+  let serving = false;
+  let syncTimer: ReturnType<typeof setInterval> | null = null;
   let sweeper: ReturnType<typeof setInterval> | null = null;
   let startedAt: number | undefined;
   /** Loads are serialized: two at once make the VRAM measurement meaningless. */
@@ -125,7 +144,7 @@ export function createEngineServer(deps: EngineServerDeps) {
   const killAll = () => {
     for (const c of children.values()) {
       try {
-        c.child.kill('SIGTERM');
+        c.child?.kill('SIGTERM');
       } catch {
         /* already gone */
       }
@@ -136,13 +155,27 @@ export function createEngineServer(deps: EngineServerDeps) {
   /* ------------------------------------------------------------- lifecycle */
 
   async function start(): Promise<{ ok: boolean; message: string }> {
-    if (server) return { ok: true, message: 'The engine is already running.' };
+    if (server || serving) return { ok: true, message: 'The engine is already running.' };
     const bin = await deps.binPath() || await deps.diffusionBinPath?.();
     if (!bin) {
       return { ok: false, message: 'No engine is installed yet. Install one from the Models tab first.' };
     }
     const settings = deps.settings();
     const host = settings.bind === 'lan' ? '0.0.0.0' : '127.0.0.1';
+
+    if (deps.daemon) {
+      const res = await deps.daemon.serve({
+        port: settings.port,
+        host,
+        apiKey: settings.apiKey || undefined,
+        corsOrigins: (settings.corsOrigins ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+      });
+      if (!res.ok) return res;
+      beginServing();
+      push(`Engine listening on http://${host}:${settings.port}/v1 (served by the engine daemon)`);
+      void adopt().then(() => autoload());
+      return { ok: true, message: `The engine is serving on port ${settings.port}.` };
+    }
 
     const next = createServer((req, res) => {
       void handle(req, res).catch((e: Error) => fail(res, 502, e.message));
@@ -197,12 +230,103 @@ export function createEngineServer(deps: EngineServerDeps) {
     }
   }
 
+  /** Under the daemon: mark the endpoint up and start following residency. */
+  function beginServing(): void {
+    serving = true;
+    startedAt ??= Date.now();
+    if (!sweeper) {
+      sweeper = setInterval(() => void sweepIdle(), SWEEP_INTERVAL_MS);
+      sweeper.unref?.();
+    }
+    if (!syncTimer) {
+      syncTimer = setInterval(() => void sync(), DAEMON_SYNC_MS);
+      syncTimer.unref?.();
+    }
+  }
+
+  /**
+   * Read residency back from the daemon: when each model was last used, what
+   * is in flight, and which ones are gone (a model server that crashed).
+   */
+  async function sync(): Promise<void> {
+    if (!deps.daemon || !serving) return;
+    const live = await deps.daemon.list().catch(() => null);
+    if (!live) return;
+    const byId = new Map(live.map((c) => [c.modelId, c]));
+    for (const [id, entry] of children) {
+      const c = byId.get(id);
+      if (!c) {
+        children.delete(id);
+        push(`${id} stopped.`);
+        continue;
+      }
+      entry.lastUsedAt = Math.max(entry.lastUsedAt, c.lastUsedAt);
+      entry.activeRequests = c.activeRequests;
+    }
+  }
+
+  /**
+   * Take over model servers the daemon is already running: this backend was
+   * restarted, and the models it had loaded kept serving through the daemon
+   * in the meantime.
+   */
+  async function adopt(): Promise<void> {
+    if (!deps.daemon) return;
+    const live = await deps.daemon.list().catch(() => [] as Awaited<ReturnType<EngineDaemon['list']>>);
+    for (const c of live) {
+      if (children.has(c.modelId)) continue;
+      const model = await deps.findModel(c.modelId).catch(() => undefined);
+      children.set(c.modelId, {
+        modelId: c.modelId,
+        pid: c.pid,
+        port: c.port,
+        params: model?.preset ?? {},
+        startedAt: c.startedAt,
+        lastUsedAt: c.lastUsedAt,
+        log: [],
+        sizeBytes: model?.sizeBytes ?? 0,
+        activeRequests: c.activeRequests,
+      });
+      push(`${c.modelId} was still loaded; carrying on with it.`);
+    }
+  }
+
+  /** On creation under a daemon that is already serving (this backend restarted). */
+  async function reattach(): Promise<void> {
+    if (!deps.daemon) return;
+    const listening = await deps.daemon.serving().catch(() => null);
+    if (!listening) return;
+    beginServing();
+    await adopt();
+  }
+
+  /**
+   * Under the daemon, apply new endpoint settings (port, binding, key, CORS)
+   * by re-serving: the listener restarts, the loaded models stay loaded.
+   */
+  async function reconfigure(): Promise<{ ok: boolean; message: string }> {
+    if (!deps.daemon || !serving) return { ok: true, message: 'Nothing to reconfigure.' };
+    const settings = deps.settings();
+    return deps.daemon.serve({
+      port: settings.port,
+      host: settings.bind === 'lan' ? '0.0.0.0' : '127.0.0.1',
+      apiKey: settings.apiKey || undefined,
+      corsOrigins: (settings.corsOrigins ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    });
+  }
+
   async function stop(): Promise<StopResult> {
-    if (!server) return { ok: true, message: 'The engine was not running.' };
+    if (!server && !serving) return { ok: true, message: 'The engine was not running.' };
     if (sweeper) clearInterval(sweeper);
     sweeper = null;
+    if (syncTimer) clearInterval(syncTimer);
+    syncTimer = null;
     for (const id of [...children.keys()]) await unload(id);
-    await new Promise<void>((resolve) => server?.close(() => resolve()));
+    if (serving) {
+      await deps.daemon?.stopServing().catch(() => {});
+      serving = false;
+    }
+    await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));
     server = null;
     startedAt = undefined;
     liveKillers.delete(killAll);
@@ -243,9 +367,14 @@ export function createEngineServer(deps: EngineServerDeps) {
     const model = await deps.findModel(modelId);
     if (!model) return { ok: false, message: `${modelId} is not in the library.` };
     const image = model.modality === 'image';
-    const bin = image ? await deps.diffusionBinPath?.() : await deps.binPath();
+    const mlx = model.format === 'mlx';
+    const bin = image ? await deps.diffusionBinPath?.() : mlx ? await deps.mlxBinPath?.() : await deps.binPath();
     if (!bin) {
-      const message = image ? 'Install stable-diffusion.cpp from Nekko Server to run this image-generation model.' : 'No engine is installed.';
+      const message = image
+        ? 'Install stable-diffusion.cpp from Nekko Server to run this image-generation model.'
+        : mlx
+          ? (model.mlxRunnable ? 'Install MLX from Nekko Server to run this model.' : `${model.name} is an MLX model, which runs on Apple Silicon Macs only.`)
+          : 'No engine is installed.';
       lastLoadErrors.set(modelId, message);
       return { ok: false, message };
     }
@@ -261,6 +390,7 @@ export function createEngineServer(deps: EngineServerDeps) {
     }
 
     const settings = deps.settings();
+    await sync();
     // Make room before spending minutes on a load that would immediately push
     // something else out anyway.
     while (children.size >= Math.max(1, settings.maxLoaded)) {
@@ -270,7 +400,7 @@ export function createEngineServer(deps: EngineServerDeps) {
       await unload(oldest.modelId);
     }
 
-    const companions = image ? {} : await resolveCompanions(model, deps.workDir?.(), deps.companionsDir?.(model.id));
+    const companions = image || mlx ? {} : await resolveCompanions(model, deps.workDir?.(), deps.companionsDir?.(model.id));
     if ('error' in companions) return { ok: false, message: companions.error };
 
     // A draft model is resolved like the model itself; one that is gone or is
@@ -278,22 +408,68 @@ export function createEngineServer(deps: EngineServerDeps) {
     let draftModel: string | undefined;
     if (params.draftModelId) {
       const draft = await deps.findModel(params.draftModelId).catch(() => undefined);
-      if (draft) draftModel = draft.path;
-      else push(`Draft model ${params.draftModelId} is not in the library; loading without it.`);
+      // A draft has to be the same kind of file as its target: llama.cpp
+      // drafts with a GGUF, mlx-lm with an MLX folder.
+      if (draft && (draft.format === 'mlx') === (model.format === 'mlx')) draftModel = draft.path;
+      else push(`Draft model ${params.draftModelId} is not usable with ${modelId}; loading without it.`);
     }
 
-    const port = await freePort();
+    // Under the daemon it picks the port and fills it in at spawn time.
+    const port: number | string = deps.daemon ? DAEMON_PORT : await freePort();
     let args: string[];
     try {
       args = image
         ? await diffusionArgs({ ...model, preset: { ...model.preset, ...params } }, port, deps.companionsDir?.(model.id))
-        : buildArgs(model, port, params, { ...companions, draftModel }, await (deps.flagSupport ?? probeFlags)(bin));
+        : mlx
+          ? mlxArgs(model, port, params, draftModel)
+          : buildArgs(model, port, params, { ...companions, draftModel }, await (deps.flagSupport ?? probeFlags)(bin));
     } catch (e) {
       const message = (e as Error).message;
       lastLoadErrors.set(modelId, message);
       return { ok: false, message };
     }
     const before = await freeVramBytes();
+
+    if (deps.daemon) {
+      const outcome = await deps.daemon
+        .spawn({
+          modelId,
+          bin,
+          args,
+          kind: image ? 'image' : 'chat',
+          // llama.cpp answers /health with "loading model" until it is ready;
+          // stable-diffusion.cpp has no /health, and /v1/models means up.
+          healthPath: image ? '/v1/models' : '/health',
+          healthExpect: image ? undefined : '"ok"',
+          budgetSecs: Math.round(LOAD_BUDGET_MS / 1000),
+        })
+        .catch((e: Error) => ({ status: 'failed' as const, message: e.message, log: [] as string[] }));
+      if (outcome.status === 'failed') {
+        push(...outcome.log.slice(-4));
+        const message = explainLoadError(outcome.log) || outcome.message;
+        lastLoadErrors.set(modelId, message);
+        return { ok: false, message };
+      }
+      if (before !== null) await sleep(MEASURE_SETTLE_MS);
+      const after = await freeVramBytes();
+      const measured = before !== null && after !== null && before - after > 0 ? before - after : undefined;
+      children.set(modelId, {
+        modelId,
+        pid: outcome.pid,
+        port: outcome.port,
+        params,
+        startedAt: Date.now(),
+        lastUsedAt: Date.now(),
+        log: [],
+        vramBytes: measured,
+        sizeBytes: measured ?? model.sizeBytes,
+        contextTokens: params.contextTokens,
+        activeRequests: 0,
+      });
+      lastLoadErrors.delete(modelId);
+      push(`Loaded ${modelId} on port ${outcome.port}.`);
+      return { ok: true, message: `Loaded ${modelId}.` };
+    }
 
     const childLog: string[] = [];
     let child: ChildProcess;
@@ -333,7 +509,7 @@ export function createEngineServer(deps: EngineServerDeps) {
         lastLoadErrors.set(modelId, message);
         return { ok: false, message };
       }
-      if (await healthy(port, image)) {
+      if (await healthy(Number(port), image)) {
         if (before !== null) await sleep(MEASURE_SETTLE_MS);
         const after = await freeVramBytes();
         // Measured, not projected: what the GPU reported before minus after.
@@ -343,7 +519,7 @@ export function createEngineServer(deps: EngineServerDeps) {
         const entry: Child = {
           modelId,
           child,
-          port,
+          port: Number(port),
           params,
           startedAt: Date.now(),
           lastUsedAt: Date.now(),
@@ -377,11 +553,17 @@ export function createEngineServer(deps: EngineServerDeps) {
     const entry = children.get(modelId);
     if (!entry) return { ok: false, message: `${modelId} is not loaded.` };
     children.delete(modelId);
+    if (!entry.child) {
+      await deps.daemon?.kill(modelId).catch(() => false);
+      push(`Unloaded ${modelId}.`);
+      return { ok: true, message: `Unloaded ${modelId}.` };
+    }
+    const proc = entry.child;
     try {
-      entry.child.kill('SIGTERM');
+      proc.kill('SIGTERM');
       const timer = setTimeout(() => {
         try {
-          entry.child.kill('SIGKILL');
+          proc.kill('SIGKILL');
         } catch {
           /* already gone */
         }
@@ -396,6 +578,7 @@ export function createEngineServer(deps: EngineServerDeps) {
 
   /** Evict anything past its TTL. 0 means "stay resident until told otherwise". */
   async function sweepIdle(): Promise<void> {
+    await sync();
     const settings = deps.settings();
     const now = Date.now();
     for (const entry of [...children.values()]) {
@@ -570,9 +753,43 @@ export function createEngineServer(deps: EngineServerDeps) {
 
   /* ----------------------------------------------------------------- state */
 
+  /**
+   * The engine daemon's router asking for a model that is not running: the
+   * same answer `resolveTarget` gives for our own listener, without the proxy.
+   */
+  async function routerLoad(requested: string, image: boolean): Promise<{ ok: boolean; status?: number; message?: string }> {
+    await sync();
+    const model = await deps.findModel(requested);
+    if (!model) return { ok: false, status: 404, message: `No model named ${requested}. Check /v1/models.` };
+    if ((model.modality === 'image') !== image) {
+      return {
+        ok: false,
+        status: 400,
+        message: image ? 'This endpoint needs an image-generation model.' : 'Image models use /v1/images/generations, not text inference.',
+      };
+    }
+    if (children.has(requested)) return { ok: true };
+    if (!deps.settings().jitLoad) {
+      return { ok: false, status: 409, message: `${requested} is not loaded, and load-on-demand is off.` };
+    }
+    const result = await load(requested, model.preset ?? {});
+    return result.ok ? { ok: true } : { ok: false, status: 503, message: result.message ?? `Couldn't load ${requested}.` };
+  }
+
+  async function routerModels() {
+    await sync();
+    const models = await deps.listModels();
+    return { object: 'list', data: models.map((m) => modelRow(m, children.has(m.id))) };
+  }
+
+  async function routerModel(id: string) {
+    const model = await deps.findModel(id);
+    return model ? modelRow(model, children.has(id)) : null;
+  }
+
   function status() {
     return {
-      running: server !== null,
+      running: server !== null || serving,
       startedAt,
       resident: resident(),
       log: log.slice(-40),
@@ -599,8 +816,15 @@ export function createEngineServer(deps: EngineServerDeps) {
     status,
     resident,
     loadErrorFor: (id: string) => lastLoadErrors.get(id),
-    isRunning: () => server !== null,
+    isRunning: () => server !== null || serving,
     loadedIds: () => [...children.keys()],
+    routerLoad,
+    routerModels,
+    routerModel,
+    sync,
+    reattach,
+    reconfigure,
+    servedByDaemon: () => serving,
   };
 }
 
@@ -669,7 +893,7 @@ function helpText(bin: string): Promise<string> {
 
 export function buildArgs(
   model: LocalModel,
-  port: number,
+  port: number | string,
   params: LoadParams,
   companions?: ModelCompanions,
   supports: FlagSupport = () => false,

@@ -244,10 +244,15 @@ export interface Host {
 
   /** The built-in engine: install, catalog, library, and its own server. */
   engineStatus(): Promise<EngineStatus>;
-  engineInstall(buildId?: string, runtime?: 'llama' | 'diffusion'): Promise<{ ok: boolean; message: string; jobId?: string }>;
-  engineInstallPreview(runtime: 'llama' | 'diffusion', buildId?: string): Promise<import('@agent-nekko/shared').EngineInstallPreview | null>;
+  /** For the engine daemon's router: load a model it was asked for, or say why not. */
+  engineRouterLoad(modelId: string, image: boolean): Promise<{ ok: boolean; status?: number; message?: string }>;
+  /** For the engine daemon's router: `GET /v1/models`. */
+  engineRouterModels(): Promise<unknown>;
+  engineRouterModel(modelId: string): Promise<unknown>;
+  engineInstall(buildId?: string, runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  engineInstallPreview(runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string): Promise<import('@agent-nekko/shared').EngineInstallPreview | null>;
   engineGenerateImage(request: import('@agent-nekko/shared').ImageGenerationRequest): Promise<import('@agent-nekko/shared').ImageGenerationResult>;
-  engineUninstall(runtime?: 'llama' | 'diffusion'): Promise<{ ok: boolean; message: string }>;
+  engineUninstall(runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string }>;
   engineSettingsSave(patch: Partial<EngineSettings>): Promise<EngineSettings>;
   engineModels(): Promise<Array<LocalModel & { loaded: boolean }>>;
   engineImportModel(path: string): Promise<{ ok: boolean; message: string; model?: LocalModel }>;
@@ -698,6 +703,9 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       runtimes.autoPlan(providerId, modelId, budgetFraction, parallelSlots),
 
     engineStatus: () => engine.status(),
+    engineRouterLoad: (modelId, image) => engine.routerLoad(modelId, image),
+    engineRouterModels: () => engine.routerModels(),
+    engineRouterModel: (modelId) => engine.routerModel(modelId),
     engineInstall: (buildId, runtime) => engine.installEngine(buildId, runtime),
     engineUninstall: (runtime) => engine.uninstallEngine(runtime),
     engineInstallPreview: (runtime, buildId) => engine.installPreview(runtime, buildId),

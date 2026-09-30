@@ -22,7 +22,7 @@ export function matchDiffusionCompanion(build: EngineBuild, _asset: string, name
   return build.backend === 'cuda' ? names.find(n => n === 'cudart-sd-bin-win-cu12-x64.zip') : undefined;
 }
 
-export async function diffusionArgs(model: LocalModel, port: number, ownedCompanions?: string): Promise<string[]> {
+export async function diffusionArgs(model: LocalModel, port: number | string, ownedCompanions?: string): Promise<string[]> {
   const preset = model.preset?.diffusion ?? {};
   const dirs = [dirname(model.path), ownedCompanions].filter((d): d is string => !!d);
   const found: Record<string, string> = {};

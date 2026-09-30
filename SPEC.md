@@ -109,7 +109,8 @@ Because the file is ours, its GGUF header is read directly, so the layer count, 
 
 **The fastest local tokens/s** `[in progress]`. With one user, every engine runs into the same wall (memory bandwidth), so Agent Nekko competes with Ollama, LM Studio and vLLM on what an agent actually does rather than on kernels it did not write. Measured results, method and the places it is not ahead are in [docs/benchmarks.md](docs/benchmarks.md).
 
-- **The fastest backend for this machine, picked for you.** llama.cpp with CUDA on NVIDIA, and Vulkan on AMD and Intel GPUs, found from the operating system's own adapter list so those machines are no longer offered the CPU build. `[shipped 2026-09-30]` MLX on Apple Silicon `[planned]`, built on the same per-runtime seam as the image runtime.
+- **The fastest backend for this machine, picked for you.** llama.cpp with CUDA on NVIDIA, and Vulkan on AMD and Intel GPUs, found from the operating system's own adapter list so those machines are no longer offered the CPU build. `[shipped 2026-09-30]` On an Apple Silicon Mac, **MLX** is offered as an optional runtime beside llama.cpp: one press installs it with its own Python (the system's is never touched), MLX model folders already on the Mac (LM Studio's MLX downloads included) appear in the library tagged MLX, and they run through the same engine address as every other model. `[shipped 2026-09-30, not yet verified on a Mac]` Downloading MLX models from the in-app catalog is `[planned]`.
+- **Loaded models survive the engine's own restarts.** `[shipped 2026-09-30, desktop]` The model servers and the address in front of them run in the engine daemon, so if the rest of the engine restarts, loaded models keep answering and are picked up again; the daemon's router adds about 0.1 ms per request.
 - **The prompt cache survives between turns.** `[shipped 2026-09-30]` An agent resends a large system prompt, the project context and every tool result on each turn. The engine keeps each chat's cache in place on the GPU and reuses cached chunks around an edit, with a RAM prompt cache behind it for chats that lose their slot. Coming back to one of six rotating chats takes 0.8 s to the first token, against 1.3 s in Ollama and 1.6 s in LM Studio.
 - **Speculative decoding by default.** `[shipped 2026-09-30]` Prompt lookup guesses upcoming tokens from text already in the conversation and the model checks them in one pass, with no second model needed. Code edits repeat much of their input, and there it runs about 4.5x the speed of Ollama or LM Studio on the same file; ordinary replies are about a third faster too. It is on by default (vision models included) and switches off per model. A small same-family draft model can be attached per model as well; it is opt-in because a draft that is too large slows ordinary replies down.
 - **Sub-agents run side by side.** `[shipped]` The engine serves several requests at once from one loaded model with a shared cache pool (llama.cpp's automatic slots), instead of queueing them one after another as Ollama does by default.
@@ -245,16 +246,16 @@ Agent tools feel slow when the UI waits on something or redraws too much. Agent 
 
 **Switching is instant, history may follow.** Switching chats, windows, workspaces or tabs changes the screen in the next frame. The chats used most recently stay warm: their transcripts are kept in a bounded in-memory cache and the last few chat windows stay mounted but hidden, so returning to one is a visibility flip rather than a rebuild. A chat that is not warm shows its frame (title, composer, controls) in the next frame and its history a moment later, newest messages first. The warm set has a fixed ceiling in both chats and memory, so the app does not grow without bound the longer it runs.
 
-**Budgets** (p95, headless, against the web edition with a scripted model). The target is the product budget, measured on a desktop reference machine at 120 Hz, and `npm run perf:strict` holds a run to it. CI runs the same measurements on a 4-vCPU GitHub runner with no GPU and a 60 Hz display, where the same work takes about twice as long, so the `perf` job is a regression gate at twice the target (one 60 Hz frame for the frame-sized budgets). The report prints the raw p95 next to both numbers.
+**Budgets** (p95, headless, against the web edition with a scripted model). The target is the product budget, measured on a desktop reference machine at 120 Hz, and `npm run perf:strict` holds a run to it. CI runs the same measurements on a 4-vCPU GitHub runner with no GPU and a 60 Hz display, where the same work takes about twice as long and varies about 30% run to run, so the `perf` job is a regression gate at two and a half times the target. The report prints the raw p95 next to both numbers.
 
-| Interaction | Target (reference desktop, 120 Hz) | CI regression gate (2x) |
+| Interaction | Target (reference desktop, 120 Hz) | CI regression gate (2.5x) |
 | --- | --- | --- |
-| Keypress to paint, chat composer, 1,000-message chat, reply streaming | 8.3 ms | 16.7 ms |
-| Keypress to paint, terminal | 8.3 ms | 16.7 ms |
-| Main-thread work per frame while a reply streams at 300 tokens/s | 4 ms | 8 ms |
-| Switch to a warm chat, to paint | 8.3 ms | 16.7 ms |
-| Switch to a cold chat, frame painted | 8.3 ms | 16.7 ms |
-| Switch to a cold chat, newest screenful of history painted | 100 ms | 200 ms |
+| Keypress to paint, chat composer, 1,000-message chat, reply streaming | 8.3 ms | 20.8 ms |
+| Keypress to paint, terminal | 8.3 ms | 20.8 ms |
+| Main-thread work per frame while a reply streams at 300 tokens/s | 4 ms | 10 ms |
+| Switch to a warm chat, to paint | 8.3 ms | 20.8 ms |
+| Switch to a cold chat, frame painted | 8.3 ms | 20.8 ms |
+| Switch to a cold chat, newest screenful of history painted | 100 ms | 250 ms |
 
 **The engine can fail without taking the window with it.** `[shipped 2026-09-30, desktop]` The desktop window no longer runs the engine: a separate engine daemon (`nekkod`, in Rust) owns the terminals and supervises the rest of the engine as its own process. If either crashes it is restarted and the UI reconnects; the window, drafts and scroll positions survive. If the daemon binary is missing, the app still starts, running the rest of the engine directly with its older terminals.
 

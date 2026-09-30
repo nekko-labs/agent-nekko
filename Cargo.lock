@@ -562,6 +562,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "nekko-infer"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "bytes",
+ "futures-util",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "nekko-term"
 version = "0.1.0"
 dependencies = [
@@ -583,6 +600,7 @@ dependencies = [
  "futures-util",
  "getrandom",
  "libc",
+ "nekko-infer",
  "nekko-term",
  "reqwest",
  "serde",

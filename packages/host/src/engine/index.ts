@@ -1,3 +1,5 @@
+import { createMlxRuntime } from './mlx.js';
+import { engineDaemon } from './daemon.js';
 import type { GpuAdapter } from '../gpu-adapters.js';
 import { totalmem } from 'os';
 import { dirname, join, resolve } from 'path';
@@ -79,17 +81,22 @@ export function createEngine(deps: EngineDeps) {
   });
 
   const diffusionInstaller = createEngineInstaller({ runtime: 'diffusion', engineDir: () => join(engineDir(), 'diffusion'), downloads, getGpuStats: deps.getGpuStats });
+  const mlxRuntime = createMlxRuntime({ dir: () => join(engineDir(), 'mlx'), downloads });
 
   const server = createEngineServer({
     settings: deps.settings,
     binPath: async () => (await installer.detect()).binPath,
     diffusionBinPath: async () => (await diffusionInstaller.detect()).binPath,
+    mlxBinPath: () => mlxRuntime.binPath(),
     findModel: (id) => library.find(id),
     listModels: () => library.list(),
     getGpuStats: deps.getGpuStatsFresh ?? deps.getGpuStats,
     workDir: () => join(engineDir(), 'templates'),
     companionsDir: (modelId) => companionsDir(modelsDir(), modelId),
+    daemon: engineDaemon(),
   });
+  // A backend restarted under a daemon that kept serving picks its models up.
+  void server.reattach();
 
   /* ------------------------------------------------------------ acquisition */
 
@@ -309,6 +316,7 @@ export function createEngine(deps: EngineDeps) {
     return {
       install,
       diffusionInstall: await diffusionInstaller.detect(),
+      mlxInstall: await mlxRuntime.detect(),
       running: state.running,
       startedAt: state.startedAt,
       resident: state.resident,
@@ -338,13 +346,16 @@ export function createEngine(deps: EngineDeps) {
   return {
     // engine binary
     detectEngine: () => installer.detect(),
-    installEngine: (buildId?: string, runtime: 'llama' | 'diffusion' = 'llama') => (runtime === 'diffusion' ? diffusionInstaller : installer).install(buildId),
-    uninstallEngine: async (runtime: 'llama' | 'diffusion' = 'llama') => {
+    installEngine: (buildId?: string, runtime: 'llama' | 'diffusion' | 'mlx' = 'llama') =>
+      runtime === 'mlx' ? mlxRuntime.install() : (runtime === 'diffusion' ? diffusionInstaller : installer).install(buildId),
+    uninstallEngine: async (runtime: 'llama' | 'diffusion' | 'mlx' = 'llama') => {
       if (server.isRunning()) return { ok: false, message: 'Stop the model server before uninstalling a runtime.' };
       if (downloads.list().some(j => j.id.startsWith(`engine:${runtime}:`) && downloads.isActive(j.id))) return { ok: false, message: 'Wait for the runtime installation to finish or cancel it before uninstalling.' };
+      if (runtime === 'mlx') return mlxRuntime.uninstall();
       return (runtime === 'diffusion' ? diffusionInstaller : installer).uninstall();
     },
-    installPreview: (runtime: 'llama' | 'diffusion', buildId?: string) => (runtime === 'diffusion' ? diffusionInstaller : installer).preview(buildId),
+    installPreview: (runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string) =>
+      runtime === 'mlx' ? mlxRuntime.preview() : (runtime === 'diffusion' ? diffusionInstaller : installer).preview(buildId),
     generateImage: async (request: import('@agent-nekko/shared').ImageGenerationRequest): Promise<import('@agent-nekko/shared').ImageGenerationResult> => {
       const { modelId, prompt, width, height, steps = 28, cfgScale = 4.5, seed = -1 } = request;
       if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000 || ![width, height].every(n => Number.isInteger(n) && n >= 256 && n <= 2048 && n % 64 === 0) || !Number.isInteger(steps) || steps < 1 || steps > 100 || !Number.isFinite(cfgScale) || cfgScale < 0 || cfgScale > 30 || !Number.isSafeInteger(seed) || seed < -1) throw new Error('Use a prompt, dimensions from 256 to 2048 in multiples of 64, 1 to 100 steps and CFG from 0 to 30.');
@@ -406,12 +417,21 @@ export function createEngine(deps: EngineDeps) {
       // The port and the binding are read when the socket is opened, so a change
       // to either only takes effect on the next start. Restarting here rather
       // than leaving the UI to explain that is the honest behaviour.
-      if (server.isRunning() && (patch.port !== undefined || patch.bind !== undefined)) {
+      const endpoint = patch.port !== undefined || patch.bind !== undefined;
+      if (server.isRunning() && server.servedByDaemon()) {
+        // The daemon's listener holds the key and CORS list as well, so any
+        // endpoint setting re-serves; loaded models stay loaded.
+        if (endpoint || patch.apiKey !== undefined || patch.corsOrigins !== undefined) await server.reconfigure();
+      } else if (server.isRunning() && endpoint) {
         await server.stop();
         await start();
       }
       return next;
     },
+    // The engine daemon's router, asking about models it does not have running.
+    routerLoad: (id: string, image: boolean) => server.routerLoad(id, image),
+    routerModels: () => server.routerModels(),
+    routerModel: (id: string) => server.routerModel(id),
     defaults: DEFAULT_ENGINE_SETTINGS,
   };
 }
@@ -420,6 +440,7 @@ export type Engine = ReturnType<typeof createEngine>;
 
 export { readGgufMetadata } from './gguf.js';
 export { buildArgs, explainLoadError } from './server.js';
+export { useEngineDaemon } from './daemon.js';
 export type { ModelCompanions } from './server.js';
 export { buildsFor, recommendedBuild, matchAsset, matchCompanion, allBuilds } from './builds.js';
 export { hfFileUrl } from './catalog.js';

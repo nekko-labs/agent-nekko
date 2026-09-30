@@ -19,7 +19,7 @@
  * - `NEKKOD_URL` / `NEKKOD_TOKEN`: set when the daemon started us; the ptys are
  *   then the daemon's, and this host forwards terminal calls to it.
  */
-import { createHost, useTerminalDaemon } from '@agent-nekko/host';
+import { createHost, useEngineDaemon, useTerminalDaemon } from '@agent-nekko/host';
 import { closeApiServer } from '../main/api-server.js';
 import { startLocalAccess, stopLocalAccess, type AppLike } from '../main/local-access.js';
 import { closeWorkflowLoopbackListener, manageWorkflowLoopbackListener } from '../main/workflow-listener.js';
@@ -58,7 +58,12 @@ async function main(): Promise<void> {
   const daemonUrl = process.env.NEKKOD_URL;
   const daemonToken = process.env.NEKKOD_TOKEN;
   delete process.env.NEKKOD_TOKEN;
-  if (daemonUrl && daemonToken) useTerminalDaemon({ url: daemonUrl, token: daemonToken });
+  if (daemonUrl && daemonToken) {
+    // The daemon owns the ptys and the model-server processes; this host keeps
+    // the policy for both and reaches them through it.
+    useTerminalDaemon({ url: daemonUrl, token: daemonToken });
+    useEngineDaemon({ url: daemonUrl, token: daemonToken });
+  }
 
   const host = createHost({ dataDir, allowBrowserControl: true });
   const userData = facts.userData ?? dataDir;
