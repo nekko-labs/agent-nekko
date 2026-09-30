@@ -12,6 +12,7 @@ mod hub;
 mod loops;
 mod procgroup;
 mod routes;
+mod sideband;
 mod wire;
 
 use backend::Backend;

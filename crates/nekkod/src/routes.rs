@@ -82,6 +82,7 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
         }
         "loop:run" => ctx.loops.start(ctx.backend.clone(), ctx.hub.clone(), arg(&args, 0).clone()),
         "loop:abort" => Ok(json!(ctx.loops.abort(str_arg(&args, 0).unwrap_or_default()))),
+        "provider:complete" => crate::sideband::complete(arg(&args, 0)).await,
         c if SESSION_CHANNELS.contains(&c) && ctx.sessions.is_some() => {
             session_op(ctx.sessions.clone().expect("checked"), channel, args).await
         }
@@ -99,6 +100,7 @@ pub const OWNED: &[&str] = &[
     "daemon:info",
     "loop:run",
     "loop:abort",
+    "provider:complete",
     "sessions:summaries",
     "sessions:list",
     "session:get",

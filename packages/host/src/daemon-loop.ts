@@ -30,6 +30,18 @@ interface Run {
 
 const runs = new Map<string, Run>();
 
+let owned: Promise<string[]> | undefined;
+/** Whether the engine daemon serves `channel` itself (`daemon:info`, asked once). */
+export async function daemonOwns(call: Call, channel: string): Promise<boolean> {
+  owned ??= call<{ owned?: string[] }>('daemon:info')
+    .then((info) => info?.owned ?? [])
+    .catch(() => {
+      owned = undefined;
+      return [];
+    });
+  return (await owned).includes(channel);
+}
+
 /** `loop:tool`: run one tool call of a daemon-driven run. */
 export async function loopTool(runId: string, call: ToolCall): Promise<ToolResult> {
   const run = runs.get(runId);
