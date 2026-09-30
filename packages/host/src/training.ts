@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
 import type { AgentEvent, ArtifactKind, ExperimentNode, NewTrainingRun, PlanStep, RunArtifact, TrainingRun } from '@agent-nekko/shared';
-import { RUN_DONE_TOKEN, RUN_MAX_TURNS_DEFAULT, bestExperiment, isBetterScore, planProgress, runStats, runOutputDir } from '@agent-nekko/shared';
+import { RUN_DONE_TOKEN, RUN_MAX_TURNS_DEFAULT, applyPlanUpdate, bestExperiment, isBetterScore, planEcho, planProgress, runStats, runOutputDir } from '@agent-nekko/shared';
 import { dataDir, getSettings } from './store.js';
 import { getSession, saveSession, createSession, deleteSession } from './sessions.js';
 import { sendChat } from './chat.js';
@@ -307,50 +307,30 @@ export function updateRunPlan(sessionId: string, input: Record<string, unknown>)
   const run = runs.find((r) => r.sessionId === sessionId);
   if (!run) return 'No active run is linked to this session; the plan was not recorded.';
 
-  const raw = Array.isArray(input.steps) ? (input.steps as Array<Record<string, unknown>>) : [];
-  if (!raw.length) return 'Pass at least one step.';
-  const valid: PlanStep['status'][] = ['pending', 'active', 'done', 'skipped'];
-  const now = Date.now();
   const hadPlan = (run.plan ?? []).length > 0;
-  const replace = input.replace === true || !hadPlan;
-  const next: PlanStep[] = replace ? [] : [...(run.plan ?? [])];
+  const result = applyPlanUpdate(run.plan, input);
+  if ('error' in result) return result.error;
 
-  const freshId = () => {
-    let n = next.length + 1;
-    while (next.some((s) => s.id === `step_${n}`)) n++;
-    return `step_${n}`;
-  };
-  for (const r of raw) {
-    const title = String(r.title ?? '').trim().slice(0, 160);
-    const id = typeof r.id === 'string' && r.id.trim() ? r.id.trim() : '';
-    const status = typeof r.status === 'string' && valid.includes(r.status as PlanStep['status'])
-      ? (r.status as PlanStep['status'])
-      : undefined;
-    const note = typeof r.note === 'string' && r.note.trim() ? r.note.trim().slice(0, 240) : undefined;
-    let step = id ? next.find((s) => s.id === id) : undefined;
-    if (!step && !replace && title) step = next.find((s) => s.title.toLowerCase() === title.toLowerCase());
-    if (step) {
-      const was = step.status;
-      if (title) step.title = title;
-      if (status) step.status = status;
-      if (note) step.note = note;
-      step.updatedAt = now;
-      if (status === 'done' && was !== 'done') log(run, 'milestone', `Plan step done: ${step.title}${note ? ` (${note})` : ''}`);
-      else if (status === 'skipped' && was !== 'skipped') log(run, 'info', `Plan step skipped: ${step.title}${note ? ` (${note})` : ''}`);
-    } else if (title) {
-      next.push({ id: id || freshId(), title, status: status ?? 'pending', note, createdAt: now, updatedAt: now });
-    }
+  for (const step of result.finished) {
+    log(run, 'milestone', `Plan step done: ${step.title}${step.note ? ` (${step.note})` : ''}`);
   }
-  if (!next.length) return 'The plan cannot be empty; pass the full step list.';
+  for (const step of result.skippedNow) {
+    log(run, 'info', `Plan step skipped: ${step.title}${step.note ? ` (${step.note})` : ''}`);
+  }
 
-  run.plan = next;
-  if (replace) log(run, hadPlan ? 'info' : 'milestone', hadPlan ? `Plan revised: ${next.length} steps.` : `Plan created: ${next.length} steps.`);
-  run.updatedAt = now;
+  run.plan = result.plan;
+  if (result.replaced) {
+    log(run, hadPlan ? 'info' : 'milestone', hadPlan ? `Plan revised: ${result.plan.length} steps.` : `Plan created: ${result.plan.length} steps.`);
+  }
+  run.updatedAt = Date.now();
   save(runs);
 
-  const p = planProgress(next);
-  const lines = next.map((s, i) => `${i + 1}. [${s.status}] ${s.id}: ${s.title}`);
-  return `Plan saved (${p.done}/${p.total} done${p.skipped ? `, ${p.skipped} skipped` : ''}):\n${lines.join('\n')}`;
+  return planEcho(result.plan);
+}
+
+/** The plan a session's run currently holds, when one is linked. */
+export function runPlanForSession(sessionId: string): PlanStep[] | undefined {
+  return load().find((r) => r.sessionId === sessionId)?.plan;
 }
 
 /**

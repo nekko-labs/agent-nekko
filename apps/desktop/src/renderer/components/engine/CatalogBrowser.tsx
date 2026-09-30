@@ -1,56 +1,87 @@
 import { useEffect, useState } from 'react';
-import type { CatalogModel } from '@agent-nekko/shared';
-import { ChevronIcon } from '../../icons.js';
+import type { CatalogModel, EngineMemory } from '@agent-nekko/shared';
+import { downloadFitVerdict } from '@agent-nekko/shared';
+import { CheckIcon, ChevronIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
 
 /**
  * Finding a model to run.
  *
  * Opens on a short curated list rather than an empty search box, because the
- * question a new user has is "what should I run", not "what exists". Search is
- * right there for everyone else, straight against Hugging Face.
+ * question a new user has is "what should I run", not "what exists". The search
+ * field lives one level up, shared with the installed list, so "do I have it"
+ * and "can I get it" are answered by the same box.
  *
  * A row is a decision about which model, so it carries what separates one model
- * from another (size, what it is for, how many people pull it) and nothing else.
- * Choosing a build, reading the card, checking when it was last touched: that is
- * a different question, and it gets the model's own page rather than a drawer
- * unfolding inside a list.
+ * from another — the parameter count in plain terms, the smallest download,
+ * whether this machine can hold it — and nothing else. Choosing a build,
+ * reading the card, checking when it was last touched: that is a different
+ * question, and it gets the model's own page rather than a drawer unfolding
+ * inside a list.
  */
 
-export function CatalogBrowser({ onOpen }: { onOpen: (id: string) => void }) {
-  const [query, setQuery] = useState('');
+const FIT_CHIP: Record<string, { label: string; color: string } | undefined> = {
+  fits: { label: 'fits here', color: 'var(--success)' },
+  tight: { label: 'tight fit', color: 'var(--warning, #d1a054)' },
+  'wont-load': { label: 'needs more memory', color: 'var(--danger)' },
+};
+
+export function CatalogBrowser({
+  onOpen,
+  query,
+  onQuery,
+  hideSearch = false,
+  memory,
+}: {
+  onOpen: (id: string) => void;
+  /** Controlled search text; the Models surface shares one box for both lists. */
+  query?: string;
+  onQuery?: (q: string) => void;
+  /** Hide the input when the parent already draws it. */
+  hideSearch?: boolean;
+  /** This machine's memory pool, for the "will it run here" chips. */
+  memory?: EngineMemory;
+}) {
+  const [inner, setInner] = useState('');
   const [models, setModels] = useState<CatalogModel[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const value = query ?? inner;
+  const setValue = (q: string) => {
+    setInner(q);
+    onQuery?.(q);
+  };
 
   useEffect(() => {
     let live = true;
     setLoading(true);
     // Debounced so typing a model name does not fire a request per keystroke.
     const t = setTimeout(async () => {
-      const res = await window.nekko.engineCatalog(query.trim() || undefined).catch(() => []);
+      const res = await window.nekko.engineCatalog(value.trim() || undefined).catch(() => []);
       if (!live) return;
       setModels(res);
       setLoading(false);
-    }, query ? 350 : 0);
+    }, value ? 350 : 0);
     return () => {
       live = false;
       clearTimeout(t);
     };
-  }, [query]);
+  }, [value]);
 
   return (
     <div>
-      <input
-        className="input w-full text-[12.5px]"
-        placeholder="Search Hugging Face for a model, e.g. qwen coder"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        spellCheck={false}
-      />
+      {!hideSearch && (
+        <input
+          className="input w-full text-[12.5px]"
+          placeholder="Search Hugging Face for a model, e.g. qwen coder"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          spellCheck={false}
+        />
+      )}
       <p className="mt-1.5 text-[11px] text-ink-faint">
-        {query
+        {value
           ? 'Searching GGUF repositories on Hugging Face.'
-          : 'A short starter list. Search above for anything else. Open any model for its card, its builds and its sizes.'}
+          : 'A short starter list — the search above finds anything else. Open a model for its card, its builds and its sizes.'}
       </p>
 
       {loading && <p className="mt-3 text-[12px] text-ink-faint">Looking…</p>}
@@ -62,47 +93,82 @@ export function CatalogBrowser({ onOpen }: { onOpen: (id: string) => void }) {
       )}
 
       <div className="mt-2 space-y-1.5">
-        {(models ?? []).map((m) => (
-          <button
-            key={m.id}
-            className="catalog-row flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left"
-            style={{ background: 'var(--surface-2)' }}
-            onClick={() => onOpen(m.id)}
-            title={`Open ${m.name}`}
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="truncate text-[12.5px] font-medium">{m.name}</span>
-                {m.parameterSize && <span className="chip">{m.parameterSize}</span>}
-                {m.tags.slice(0, 3).map((t) => (
-                  <span key={t} className="text-[10px] text-ink-faint">
-                    {t}
-                  </span>
-                ))}
-                {m.gated && (
-                  <span className="text-[10px]" style={{ color: 'var(--warning, #d1a054)' }} title="This repository needs accepted terms or a token">
-                    gated
-                  </span>
-                )}
+        {(models ?? []).map((m) => {
+          const fit = fitFor(m, memory);
+          const chip = fit ? FIT_CHIP[fit] : undefined;
+          return (
+            <button
+              key={m.id}
+              className="catalog-row flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left"
+              style={{ background: 'var(--surface-2)' }}
+              onClick={() => onOpen(m.id)}
+              title={`Open ${m.name}`}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="truncate text-[12.5px] font-medium">{m.name}</span>
+                  {m.parameterSize && (
+                    <span className="chip" title={`${m.parameterSize} parameters — bigger knows more, but needs more memory`}>
+                      {m.parameterSize}
+                    </span>
+                  )}
+                  {m.recommended && (
+                    <span
+                      className="inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px]"
+                      style={{ background: 'color-mix(in srgb, var(--accent) 16%, transparent)', color: 'var(--accent)' }}
+                      title="Our pick for most people"
+                    >
+                      <CheckIcon className="h-2.5 w-2.5" /> recommended
+                    </span>
+                  )}
+                  {chip && (
+                    <span
+                      className="rounded-full px-1.5 py-0.5 text-[10px]"
+                      style={{ background: `color-mix(in srgb, ${chip.color} 16%, transparent)`, color: chip.color }}
+                      title="Whether the smallest build fits in this machine's memory"
+                    >
+                      {chip.label}
+                    </span>
+                  )}
+                  {m.tags.slice(0, 3).map((t) => (
+                    <span key={t} className="text-[10px] text-ink-faint">
+                      {t}
+                    </span>
+                  ))}
+                  {m.gated && (
+                    <span className="text-[10px]" style={{ color: 'var(--warning, #d1a054)' }} title="This repository needs accepted terms or a token">
+                      gated
+                    </span>
+                  )}
+                </div>
+                <p className="truncate text-[11px] text-ink-faint">
+                  {m.summary ??
+                    [
+                      m.owner,
+                      m.downloads ? `${compact(m.downloads)} downloads` : null,
+                      `${m.quants.length} build${m.quants.length === 1 ? '' : 's'}`,
+                      smallest(m),
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                </p>
               </div>
-              <p className="truncate text-[11px] text-ink-faint">
-                {m.summary ??
-                  [
-                    m.owner,
-                    m.downloads ? `${compact(m.downloads)} downloads` : null,
-                    `${m.quants.length} build${m.quants.length === 1 ? '' : 's'}`,
-                    smallest(m),
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-              </p>
-            </div>
-            <ChevronIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-          </button>
-        ))}
+              <ChevronIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
+}
+
+/** Whether the lightest build of this model can run on this machine. */
+function fitFor(m: CatalogModel, memory: EngineMemory | undefined): string | undefined {
+  if (!memory) return undefined;
+  const sizes = m.quants.map((q) => q.sizeBytes ?? 0).filter((n) => n > 0);
+  if (!sizes.length) return undefined;
+  const v = downloadFitVerdict(Math.min(...sizes), memory.budgetBytes);
+  return v === 'unknown' ? undefined : v;
 }
 
 /** "from 4.4 GB": the smallest build, which is what decides whether it fits. */

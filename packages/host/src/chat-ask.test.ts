@@ -36,8 +36,12 @@ vi.mock('@agent-nekko/core', async () => {
       listModels: async () => [],
       test: async () => ({ ok: true, message: '' }),
       async *chat(request) {
-        toolsOffered = (request.tools ?? []).map((t) => t.name);
-        systemPrompts.push(request.system ?? '');
+        // Sideband calls (title generation) carry no tools and no system
+        // prompt; capturing them would overwrite the turn's real records.
+        if (request.purpose !== 'title') {
+          toolsOffered = (request.tools ?? []).map((t) => t.name);
+          systemPrompts.push(request.system ?? '');
+        }
         const step = rounds.shift() ?? [{ type: 'text', delta: 'ok' }, { type: 'done' }];
         for (const chunk of step) yield chunk;
       },

@@ -220,6 +220,7 @@ export function createLibrary(deps: LibraryDeps) {
       kvHeads: meta?.kvHeads,
       headDim: meta?.headDim,
       maxContext: meta?.maxContext,
+      hasChatTemplate: Boolean(meta?.chatTemplate),
       addedAt: Date.now(),
     };
   }
@@ -351,9 +352,15 @@ async function exists(path: string): Promise<boolean> {
     .catch(() => false);
 }
 
-/** A later shard or the projector belonging to the same model. */
+/**
+ * A later shard, the projector, or a template we extracted, belonging to the
+ * same model.
+ */
 function isCompanionOf(candidate: string, primary: string): boolean {
   if (candidate === primary) return false;
   const stem = primary.replace(/-00001-of-\d{5}\.gguf$/i, '').replace(/\.gguf$/i, '');
-  return candidate.startsWith(stem) && /(-\d{5}-of-\d{5}\.gguf|mmproj.*\.gguf)$/i.test(candidate);
+  return (
+    (candidate.startsWith(stem) && /(-\d{5}-of-\d{5}\.gguf|mmproj.*\.gguf)$/i.test(candidate)) ||
+    candidate === `${stem}.chat_template.jinja`
+  );
 }

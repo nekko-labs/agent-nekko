@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ArtifactKind, ExperimentNode, MazeNode, ModelInfo, ProviderConfig, TrainingRun } from '@agent-nekko/shared';
-import { formatRuntime, layoutMaze, runOutputDir, runStats, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
+import { formatRuntime, layoutMaze, runOutputDir, runStats, isLocalProvider, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { LogSurface, StatTile } from './primitives/index.js';
 import { STATUS } from '../tokens.js';
@@ -484,7 +484,7 @@ export function RunModelPicker({
           <option value="">Pick a model…</option>
           {models.map((m) => {
             const price = provider
-              ? formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: isLocalProvider(provider.kind) })
+              ? formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: isLocalProvider(provider.kind), pricing: modelPricing(m) })
               : undefined;
             return (
               <option key={m.id} value={m.id}>

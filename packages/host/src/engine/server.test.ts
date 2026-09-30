@@ -1,12 +1,12 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { spawn } from 'child_process';
-import { mkdtemp, rm, writeFile } from 'fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { createServer } from 'net';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { EngineSettings, LocalModel } from '@agent-nekko/shared';
 import { DEFAULT_ENGINE_SETTINGS } from '@agent-nekko/shared';
-import { buildArgs, createEngineServer, type EngineServer } from './server.js';
+import { buildArgs, createEngineServer, explainLoadError, resolveCompanions, type EngineServer } from './server.js';
 
 /**
  * The router, driven against a stand-in for `llama-server`.
@@ -281,6 +281,107 @@ describe('buildArgs', () => {
 
   it('carries a seed of zero, which is a real seed and not an absent one', () => {
     expect(buildArgs(m, 9000, { seed: 0 })).toContain('--seed');
+  });
+
+  it('passes a projector to llama-server as --mmproj', () => {
+    const args = buildArgs(m, 9000, {}, { mmproj: '/models/mmproj-Q4_K_M.gguf' });
+    expect(args[args.indexOf('--mmproj') + 1]).toBe('/models/mmproj-Q4_K_M.gguf');
+  });
+
+  it('enables jinja when a chat template file is supplied', () => {
+    const args = buildArgs(m, 9000, {}, { chatTemplateFile: '/models/chat_template.jinja' });
+    expect(args[args.indexOf('--chat-template-file') + 1]).toBe('/models/chat_template.jinja');
+    expect(args).toContain('--jinja');
+    expect(buildArgs(m, 9000, {})).not.toContain('--jinja');
+  });
+});
+
+describe('resolveCompanions', () => {
+  it('finds the projector and a jinja template beside the model', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-model-'));
+    try {
+      const modelPath = join(dir, 'vision-7b-Q4_K_M.gguf');
+      await writeFile(modelPath, 'x');
+      await writeFile(join(dir, 'mmproj-vision-7b-f16.gguf'), 'x');
+      await writeFile(join(dir, 'chat_template.jinja'), '{{ messages }}');
+      const found = await resolveCompanions({ ...model('vision-7b'), path: modelPath });
+      expect(found).not.toHaveProperty('error');
+      if (!('error' in found)) {
+        expect(found.mmproj).toBe(join(dir, 'mmproj-vision-7b-f16.gguf'));
+        expect(found.chatTemplateFile).toBe(join(dir, 'chat_template.jinja'));
+      }
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('extracts a chat template from tokenizer_config.json into the work dir', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-model-'));
+    const work = await mkdtemp(join(tmpdir(), 'nekko-work-'));
+    try {
+      const modelPath = join(dir, 'model-Q4_K_M.gguf');
+      await writeFile(modelPath, 'x');
+      await writeFile(join(dir, 'tokenizer_config.json'), JSON.stringify({ chat_template: '{% for m in messages %}' }));
+      const found = await resolveCompanions({ ...model('model'), path: modelPath }, work);
+      if ('error' in found) throw new Error(found.error);
+      expect(found.chatTemplateFile).toBe(join(work, 'model-Q4_K_M.chat_template.jinja'));
+      expect((await readFile(found.chatTemplateFile!, 'utf8'))).toContain('{%');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+      await rm(work, { recursive: true, force: true });
+    }
+  });
+
+  it('fails a split model naming the missing shard before any process runs', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-model-'));
+    try {
+      const modelPath = join(dir, 'big-00001-of-00003.gguf');
+      await writeFile(modelPath, 'x');
+      await writeFile(join(dir, 'big-00002-of-00003.gguf'), 'x');
+      const found = await resolveCompanions({ ...model('big'), path: modelPath });
+      expect('error' in found && found.error).toMatch(/big-00003-of-00003\.gguf is missing/);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns no companions for a lone model in an empty directory', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-model-'));
+    try {
+      const modelPath = join(dir, 'plain.gguf');
+      await writeFile(modelPath, 'x');
+      expect(await resolveCompanions({ ...model('plain'), path: modelPath })).toEqual({});
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('explainLoadError', () => {
+  it('translates an unknown architecture into an engine-update hint', () => {
+    expect(explainLoadError(["llama_model_load: error loading model: unknown model architecture: 'mamba2'"])).toMatch(
+      /Update the engine/i,
+    );
+  });
+
+  it('names a missing projector when a vision model dies', () => {
+    expect(explainLoadError(['srv load_model: failed to load mmproj'])).toMatch(/projector file/i);
+  });
+
+  it('names the missing file when one is quoted in the log', () => {
+    const msg = explainLoadError(["llama_model_load: error loading model: unable to open file 'qwen-00002-of-00003.gguf'"]);
+    expect(msg).toContain('qwen-00002-of-00003.gguf');
+    expect(msg).toMatch(/Re-download/);
+  });
+
+  it('reads memory pressure out of an allocation failure', () => {
+    expect(explainLoadError(['ggml_backend_cuda_buffer_type_alloc_buffer: failed to allocate 3.5 GiB'])).toMatch(
+      /Not enough memory/i,
+    );
+  });
+
+  it('falls back to the log tail for a failure nobody wrote a translation for', () => {
+    expect(explainLoadError(['some line', 'the actual failure'])).toBe('some line the actual failure');
   });
 });
 

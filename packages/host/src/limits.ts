@@ -202,6 +202,8 @@ export async function poll(tokenKey: string): Promise<SubscriptionLimits | undef
         next = await pollClaude(tokenKey, accessToken);
       } else if (fresh.provider === 'chatgpt') {
         next = await pollChatGpt(tokenKey, accessToken, fresh.accountId);
+      } else if (fresh.provider === 'openrouter') {
+        next = await pollOpenRouter(tokenKey, accessToken);
       } else {
         next = get(tokenKey);
       }
@@ -270,6 +272,59 @@ async function pollChatGpt(
   if (!json || typeof json !== 'object') return undefined;
 
   return parseChatGptUsage(json as Record<string, unknown>);
+}
+
+/**
+ * OpenRouter has no plan windows to poll; what a key can tell us is its credit
+ * position and, for free-tier keys, the daily free-model request allowance.
+ * `GET /key` returns those directly.
+ */
+async function pollOpenRouter(tokenKey: string, accessToken: string): Promise<SubscriptionLimits | undefined> {
+  const configuredBase = getSettings().providers.find((p) => p.tokenKey === tokenKey)?.baseUrl;
+  const baseUrl = (configuredBase ?? 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
+  const res = await fetch(`${baseUrl}/key`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) return undefined;
+
+  const json = safeJson(await res.text()) as Record<string, unknown> | undefined;
+  const data = json?.data as Record<string, unknown> | undefined;
+  if (!data) return undefined;
+
+  const windows: LimitWindow[] = [];
+  const free = data.free_model_daily_requests as { limit?: number; remaining?: number; used?: number } | undefined;
+  if (free && typeof free.limit === 'number' && free.limit > 0) {
+    const used = typeof free.used === 'number' ? free.used : free.limit - (free.remaining ?? free.limit);
+    const usedPercent = clampPercent((used / free.limit) * 100);
+    const resets = new Date();
+    resets.setUTCHours(24, 0, 0, 0); // free-model allowance resets at UTC midnight
+    windows.push({
+      id: 'free_daily',
+      label: 'Free-model requests',
+      scope: 'session',
+      usedPercent,
+      resetAt: resets.getTime(),
+      status: usedPercent >= 100 ? 'rate_limited' : usedPercent >= 80 ? 'warning' : 'allowed',
+    });
+  }
+
+  const limit = typeof data.limit === 'number' ? data.limit : null;
+  const remaining =
+    typeof data.limit_remaining === 'number'
+      ? data.limit_remaining
+      : limit != null && typeof data.usage === 'number'
+        ? Math.max(0, limit - data.usage)
+        : undefined;
+
+  return {
+    windows,
+    planType: data.is_free_tier === true ? 'free tier' : undefined,
+    creditsBalance: remaining,
+    creditsState: limit == null ? 'unlimited' : 'balance',
+    updatedAt: Date.now(),
+    staleAfterMs: POLL_STALE_MS,
+  };
 }
 
 function safeJson(text: string): unknown {

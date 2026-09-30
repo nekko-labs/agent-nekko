@@ -30,6 +30,12 @@ export interface GgufMetadata {
   quantization?: string;
   parameterSize?: string;
   name?: string;
+  /**
+   * The embedded `tokenizer.chat_template`, when the converter wrote one. Its
+   * presence is what matters; the launcher checks it before hunting for a
+   * template file beside the model.
+   */
+  chatTemplate?: string;
 }
 
 /** GGUF value type tags, in the order the format defines them. */
@@ -167,6 +173,8 @@ function toMetadata(kv: Map<string, number | string>): GgufMetadata {
     maxContext: num(kv, 'context_length'),
     quantization: fileType !== undefined ? (FILE_TYPES[fileType] ?? `type ${fileType}`) : undefined,
     parameterSize: str(kv, 'general.size_label'),
+    // Not architecture-prefixed: the key is `tokenizer.chat_template` verbatim.
+    chatTemplate: str(kv, 'tokenizer.chat_template'),
   };
 }
 

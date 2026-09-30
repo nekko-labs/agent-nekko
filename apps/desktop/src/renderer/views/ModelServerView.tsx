@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { LocalModel } from '@agent-nekko/shared';
+import type { EngineMemory, LocalModel } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { EngineSection } from '../components/engine/EngineSection.js';
 import { ModelDetail } from '../components/engine/ModelDetail.js';
@@ -30,9 +30,11 @@ export function ModelServerView() {
   // section so the page it opens can use the whole view.
   const [openModelId, setOpenModelId] = useState<string | null>(null);
   const [models, setModels] = useState<LocalModel[]>([]);
+  const [memory, setMemory] = useState<EngineMemory | undefined>(undefined);
 
   const refreshModels = useCallback(async () => {
     setModels(await window.nekko.engineModels().catch(() => []));
+    setMemory((await window.nekko.engineStatus().catch(() => null))?.memory);
   }, []);
 
   useEffect(() => {
@@ -44,6 +46,7 @@ export function ModelServerView() {
       <div className="h-full overflow-y-auto">
         <ModelDetail
           modelId={openModelId}
+          memory={memory}
           // A repo's files land under a folder named after it, so this is how the
           // page knows which of its builds you already hold.
           installed={models.filter((m) => m.id.includes(openModelId.replace('/', '_')) || m.sourceRepo === openModelId)}

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@agent-nekko/shared';
-import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
+import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { SubscriptionSignIn } from '../SubscriptionSignIn.js';
@@ -535,7 +535,7 @@ function DefaultOffer({ providers }: { providers: ProviderConfig[] }) {
                 <option value="">Ask per chat</option>
                 {models.map((m) => {
                   const price = provider
-                    ? formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: isLocalProvider(provider.kind) })
+                    ? formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: isLocalProvider(provider.kind), pricing: modelPricing(m) })
                     : undefined;
                   return (
                     <option key={m.id} value={m.id}>

@@ -119,6 +119,18 @@ export interface Session {
    * was told to do.
    */
   plan?: import('./prompt-plan.js').PromptPlan;
+  /**
+   * The plan the agent itself wrote for this chat, via the `update_plan` tool:
+   * what it decided to do after reading the request, kept live as it works.
+   * Distinct from `plan`, which is the user's editable draft decoded from the
+   * prompt.
+   */
+  agentPlan?: import('./training.js').PlanStep[];
+  /**
+   * The title was written by the app (the prompt prefix or a summarization),
+   * so a better summary may replace it. Any title the user typed flips this off.
+   */
+  titleAuto?: boolean;
   /** Manual sidebar position within its project (set by drag-to-reorder). */
   order?: number;
   createdAt: number;
@@ -164,7 +176,13 @@ export type AgentEvent =
       outputMs?: number;
     }
   | { type: 'done'; sessionId: string; messageId: string }
-  | { type: 'error'; sessionId: string; message: string };
+  | { type: 'error'; sessionId: string; message: string }
+  /**
+   * The session record changed outside the event stream (its plan, its title),
+   * so anything showing it should re-read it. Emitted mid-turn, which is why it
+   * is an event rather than something a listener polls for.
+   */
+  | { type: 'session_meta'; sessionId: string };
 
 /**
  * What a session is waiting on a person for, right now.
@@ -255,4 +273,88 @@ export interface SendOptions {
    * history to the model each turn. Omitted for normal chats (full history).
    */
   maxHistoryTurns?: number;
+}
+
+/**
+ * What the model thinks the user might say next, generated after a reply.
+ * `options` are the one-click follow-ups under the transcript; `next` is the
+ * fuller message shown as ghost text in the composer.
+ */
+export interface ReplySuggestions {
+  options: string[];
+  next: string | null;
+}
+
+/** A suggestion chip stays a chip: past this it's a paragraph, not an option. */
+const SUGGESTION_OPTION_MAX = 120;
+const SUGGESTION_NEXT_MAX = 240;
+
+function cleanSuggestion(text: string, max: number): string {
+  return text
+    .replace(/^[-*•\d]+[.)]?\s+/, '') // bullet or numbered-list marker
+    .replace(/^["'`,]+|["'`,]+$/g, '') // quote wrappers, and a trailing comma off a JSON fragment
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+/**
+ * Read the suggestion call's answer. The prompt asks for one JSON object
+ * (`{"options": [...], "next": "..."}`) and most models comply; small local
+ * models drift, so a bare-lines read stands in for it: each non-empty line is
+ * an option and the first is the ghost text. Returns null when nothing usable
+ * came back.
+ */
+export function parseReplySuggestions(raw: string): ReplySuggestions | null {
+  const braces = raw.indexOf('{');
+  const lastBrace = raw.lastIndexOf('}');
+  if (braces >= 0 && lastBrace > braces) {
+    try {
+      const parsed = JSON.parse(raw.slice(braces, lastBrace + 1)) as {
+        options?: unknown;
+        next?: unknown;
+        suggestion?: unknown;
+        draft?: unknown;
+      };
+      const options = (Array.isArray(parsed.options) ? parsed.options : [])
+        .map((o) => (typeof o === 'string' ? cleanSuggestion(o, SUGGESTION_OPTION_MAX) : ''))
+        .filter(Boolean);
+      const nextRaw = [parsed.next, parsed.suggestion, parsed.draft].find((v) => typeof v === 'string');
+      const next = typeof nextRaw === 'string' ? cleanSuggestion(nextRaw, SUGGESTION_NEXT_MAX) : null;
+      // Valid JSON that came back empty is a real "no suggestions" answer; the
+      // line read below would only re-serve the object's own fragments.
+      if (options.length || next) return { options: dedupeSuggestions(options).slice(0, 4), next };
+      return null;
+    } catch {
+      /* fall through to the line read */
+    }
+  }
+  const options = dedupeSuggestions(
+    raw
+      .split(/\r?\n/)
+      // JSON-ishness is judged on the raw line, before cleaning strips the
+      // quotes that mark a fragment like `"options": [`.
+      .map((line) => line.trim())
+      .filter(
+        (line) =>
+          line &&
+          !/^[{}[\],]/.test(line) &&
+          !/^["'][A-Za-z_]+["']\s*:/.test(line) &&
+          !/^(options|next|suggestion|draft)\s*:/i.test(line),
+      )
+      .map((line) => cleanSuggestion(line, SUGGESTION_OPTION_MAX))
+      .filter(Boolean),
+  ).slice(0, 4);
+  if (!options.length) return null;
+  return { options, next: options[0] };
+}
+
+function dedupeSuggestions(options: string[]): string[] {
+  const seen = new Set<string>();
+  return options.filter((o) => {
+    const key = o.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }

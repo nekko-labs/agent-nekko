@@ -70,6 +70,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.chatCancelCompaction]: ([id]) => host.cancelSessionCompaction(id),
     [C.chatQueue]: ([id, text]) => host.queuePrompt(id, text),
     [C.chatDequeue]: ([id, idx]) => host.dequeuePrompt(id, idx),
+    [C.chatSuggest]: ([sid]) => host.suggestReplies(sid),
     [C.toolApprove]: ([sid, tid, ok]) => host.approveTool(sid, tid, ok),
     [C.chatAnswer]: ([sid, callId, answers]) => host.answerQuestion(sid, callId, answers),
     [C.chatPending]: () => host.pendingInput(),

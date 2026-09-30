@@ -13,7 +13,8 @@
  * between a wrapper and a model server.
  */
 
-import type { KvCacheDtype } from './capacity.js';
+import type { FitVerdict, KvCacheDtype } from './capacity.js';
+import { ENGINE_PORT_DEFAULT } from './models.js';
 import type { ResidentModel } from './runtimes.js';
 
 /** Where an engine binary came from. */
@@ -109,7 +110,7 @@ export interface EngineSettings {
 }
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
-  port: 11500,
+  port: ENGINE_PORT_DEFAULT,
   bind: 'local',
   autoStart: false,
   jitLoad: true,
@@ -132,6 +133,40 @@ export interface EngineStatus {
   log: string[];
   port: number;
   settings: EngineSettings;
+  /** What this machine has to run models in, for "will it fit" guidance. */
+  memory?: EngineMemory;
+}
+
+/**
+ * The memory a downloaded model would be loaded into.
+ *
+ * `budgetBytes` is the pool's *total*, not the free figure: the question it
+ * answers is "can this file ever be served here", not "can it be served while
+ * everything else stays open", which the fit planner answers per-load.
+ */
+export interface EngineMemory {
+  budgetBytes: number;
+  /** What the number is, so the UI can name it honestly. */
+  kind: 'vram' | 'unified' | 'ram';
+}
+
+/**
+ * Whether a download of `sizeBytes` can run in `budgetBytes` of memory.
+ *
+ * Rough on purpose and marked as such: the file size plus ~20% stands in for
+ * the true working set (weights + KV + runtime), which the GGUF planner only
+ * computes exactly once the file is on disk. Unknown inputs return 'unknown'
+ * rather than a guess wearing a verdict's clothes.
+ */
+export function downloadFitVerdict(
+  sizeBytes: number | undefined,
+  budgetBytes: number | undefined,
+): FitVerdict {
+  if (!sizeBytes || !budgetBytes) return 'unknown';
+  const need = sizeBytes * 1.2;
+  if (need <= budgetBytes * 0.55) return 'fits';
+  if (need <= budgetBytes * 0.85) return 'tight';
+  return 'wont-load';
 }
 
 /**
@@ -183,6 +218,8 @@ export interface CatalogModel {
   downloads?: number;
   /** Set on curated entries so the starter list can be shown before any search. */
   curated?: boolean;
+  /** The curated default pick: the one to suggest when someone asks "which one". */
+  recommended?: boolean;
   /** License id when the repo declares one, so a gated model can say so. */
   license?: string;
   /** The repo needs accepted terms or a token; we surface it rather than failing mid-download. */
@@ -251,6 +288,11 @@ export interface LocalModel {
   kvHeads?: number;
   headDim?: number;
   maxContext?: number;
+  /**
+   * The GGUF embeds `tokenizer.chat_template`, so llama.cpp can prompt it with
+   * no sidecar. Absent templates fall back to a template file beside the model.
+   */
+  hasChatTemplate?: boolean;
   /** Set when the file came from the catalog rather than an import. */
   sourceRepo?: string;
   /** The folder this file was found in, or `primary` for our own models dir. */

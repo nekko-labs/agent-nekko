@@ -8,6 +8,8 @@ export interface PromptContext {
   orchestrationHint?: string;
   /** Whether `ask_user` is available this turn (a chat with a person in it). */
   canAsk?: boolean;
+  /** Whether `update_plan` is offered this turn (the plan is visible to the user). */
+  canPlan?: boolean;
 }
 
 /**
@@ -27,6 +29,22 @@ and anything expensive to undo (a schema, a public interface, deleting or overwr
 the app already handles that. Do not ask to confirm a plan you are confident in.
 - When a reasonable default exists, take it, say which one you took and why, and carry on. A stated assumption \
 beats a question, and a question beats building the wrong thing.`;
+
+/**
+ * When to publish a plan. Only included when `update_plan` is offered.
+ *
+ * The plan exists so the user can see what the agent decided after reading,
+ * which is why the sequence is investigate-then-plan and why "restate the
+ * request" is called out as the failure mode: a bullet list of the user's own
+ * words tells them nothing.
+ */
+const PLAN_GUIDANCE = `Working plan:
+- When a request needs more than one real step, publish yours with \`update_plan\` (replace=true): read the \
+request and look at what it touches first, then write 3-8 concrete, verifiable steps in the order you will do them. \
+The user watches this plan live, so it must be the plan you actually derived, not a restatement of their message.
+- Keep it current as you work: mark the step you are on "active", mark it "done" with a one-line note only once \
+verified, and revise with replace=true when the approach changes.
+- Skip it for one-off questions and trivial asks; a plan that says "answer the question" is noise.`;
 
 /**
  * Build the system prompt. Unifies chat / cowork / code into one assistant:
@@ -59,7 +77,7 @@ or you could not verify), and the concrete next step. Do not claim a task is com
 when something blocked you, state plainly what is blocking it and what the user needs to do to unblock it.
 
 Platform: ${ctx.platform}
-${ctx.canAsk ? `\n${ASK_GUIDANCE}\n` : ''}${ctx.orchestrationHint ? `\nDelegation:\n${ctx.orchestrationHint}\n` : ''}
+${ctx.canAsk ? `\n${ASK_GUIDANCE}\n` : ''}${ctx.canPlan ? `\n${PLAN_GUIDANCE}\n` : ''}${ctx.orchestrationHint ? `\nDelegation:\n${ctx.orchestrationHint}\n` : ''}
 Workspace folders:
 ${folders}
 ${ctx.contextBlock ? `\nAdditional context provided for this turn:\n\n${ctx.contextBlock}` : ''}`;

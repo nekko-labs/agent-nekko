@@ -5,8 +5,7 @@ import { Badge } from '../primitives/index.js';
 import { CheckIcon, CopyIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
 import { EngineInstallCard } from './EngineInstallCard.js';
-import { ModelLibrary } from './ModelLibrary.js';
-import { CatalogBrowser } from './CatalogBrowser.js';
+import { ModelsHome } from './ModelsHome.js';
 import { DownloadsPanel } from './DownloadsPanel.js';
 import { EngineServerSettings } from './EngineServerSettings.js';
 import { ModelFolders } from './ModelFolders.js';
@@ -29,7 +28,7 @@ import { ModelFolders } from './ModelFolders.js';
 const POLL_MS = 6000;
 const PROVIDER_ID = 'nekko-engine';
 
-type Tab = 'models' | 'discover' | 'downloads' | 'folders' | 'server';
+type Tab = 'models' | 'downloads' | 'folders' | 'server';
 
 export function EngineSection({
   onProvidersChanged,
@@ -159,10 +158,7 @@ export function EngineSection({
 
         <div className="mt-3 flex flex-wrap gap-1.5 border-b pb-2" style={{ borderColor: 'var(--line)' }}>
           <TabButton active={tab === 'models'} onClick={() => setTab('models')}>
-            My models{models.length > 0 ? ` (${models.length})` : ''}
-          </TabButton>
-          <TabButton active={tab === 'discover'} onClick={() => setTab('discover')}>
-            Find models
+            Models{models.length > 0 ? ` (${models.length})` : ''}
           </TabButton>
           <TabButton active={tab === 'downloads'} onClick={() => setTab('downloads')}>
             Downloads{active.length > 0 ? ` (${active.length})` : ''}
@@ -177,9 +173,15 @@ export function EngineSection({
 
         <div className="mt-3">
           {tab === 'models' && (
-            <ModelLibrary providerId={PROVIDER_ID} models={models} canLoad={installed} onChanged={refresh} />
+            <ModelsHome
+              providerId={PROVIDER_ID}
+              models={models}
+              canLoad={installed}
+              memory={status.memory}
+              onChanged={refresh}
+              onOpenModel={onOpenModel}
+            />
           )}
-          {tab === 'discover' && <CatalogBrowser onOpen={onOpenModel} />}
           {tab === 'downloads' && <DownloadsPanel jobs={jobs} onChanged={refresh} />}
           {tab === 'folders' && <ModelFolders onChanged={refresh} />}
           {tab === 'server' && (

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { CatalogModelDetail, CatalogQuant, LocalModel } from '@agent-nekko/shared';
+import type { CatalogModelDetail, CatalogQuant, EngineMemory, LocalModel } from '@agent-nekko/shared';
+import { downloadFitVerdict } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { CheckIcon, ChevronIcon, DownloadIcon, ExternalIcon } from '../../icons.js';
@@ -25,12 +26,15 @@ import { formatBytes } from '../runtimes/verdict.js';
 export function ModelDetail({
   modelId,
   installed,
+  memory,
   onBack,
   onQueued,
 }: {
   modelId: string;
   /** Library rows that came from this repo, so the page can say "you have this". */
   installed: LocalModel[];
+  /** This machine's memory pool, for per-build "will it run here" chips. */
+  memory?: EngineMemory;
   onBack: () => void;
   onQueued: () => void;
 }) {
@@ -55,6 +59,23 @@ export function ModelDetail({
       live = false;
     };
   }, [modelId]);
+
+  // The one build to point at when the question is "which of these": Q4_K_M
+  // when the repo publishes it, otherwise the lightest build this machine can
+  // hold, otherwise the lightest build at all.
+  const recommended = useMemo(() => {
+    if (!model) return null;
+    const q4 = model.quants.find((q) => q.label.toUpperCase().startsWith('Q4_K_M'));
+    if (q4) return q4;
+    const fitting = memory
+      ? model.quants.filter((q) => downloadFitVerdict(q.sizeBytes, memory.budgetBytes) === 'fits')
+      : model.quants;
+    return (
+      fitting
+        .filter((q) => q.sizeBytes)
+        .sort((a, b) => (a.sizeBytes ?? 0) - (b.sizeBytes ?? 0))[0] ?? null
+    );
+  }, [model, memory]);
 
   const download = async (quant: CatalogQuant) => {
     setDownloading(quant.label);
@@ -122,11 +143,15 @@ export function ModelDetail({
           <section className="mt-5">
             <h2 className="text-[15px] font-semibold">Builds</h2>
             <p className="mt-0.5 text-[12px] text-ink-faint">
-              One file each, the size it will actually transfer. Q4_K_M is the one most people want.
+              Same model, compressed differently. Lower numbers are smaller files that need less memory and answer a
+              little worse; higher numbers keep more of the model and cost disk and RAM. <strong>Q4_K_M</strong> is the
+              usual choice{recommended ? ', marked below' : ''}.
             </p>
             <div className="card mt-2 divide-y" style={{ borderColor: 'var(--line)' }}>
               {model.quants.map((q) => {
                 const have = installed.find((m) => m.quantization?.toUpperCase() === q.label.toUpperCase());
+                const fit = memory ? downloadFitVerdict(q.sizeBytes, memory.budgetBytes) : 'unknown';
+                const isPick = recommended?.label === q.label;
                 return (
                   <div key={q.label} className="flex flex-wrap items-center gap-2 px-4 py-2.5 text-[12.5px]">
                     <span className="w-24 shrink-0 font-mono font-medium">{q.label}</span>
@@ -134,6 +159,33 @@ export function ModelDetail({
                       {q.sizeBytes ? formatBytes(q.sizeBytes) : 'size unknown'}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-faint">{q.note ?? ''}</span>
+                    {isPick && (
+                      <span
+                        className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px]"
+                        style={{ background: 'color-mix(in srgb, var(--accent) 16%, transparent)', color: 'var(--accent)' }}
+                        title="The build we suggest for most people"
+                      >
+                        our pick
+                      </span>
+                    )}
+                    {fit !== 'unknown' && !have && (
+                      <span
+                        className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px]"
+                        style={{
+                          background: `color-mix(in srgb, ${fit === 'fits' ? 'var(--success)' : fit === 'tight' ? 'var(--warning, #d1a054)' : 'var(--danger)'} 16%, transparent)`,
+                          color: fit === 'fits' ? 'var(--success)' : fit === 'tight' ? 'var(--warning, #d1a054)' : 'var(--danger)',
+                        }}
+                        title={
+                          fit === 'fits'
+                            ? 'Room to spare in this machine\'s memory'
+                            : fit === 'tight'
+                              ? 'Runs, but close to this machine\'s limit'
+                              : 'Bigger than this machine can hold'
+                        }
+                      >
+                        {fit === 'fits' ? 'fits here' : fit === 'tight' ? 'tight fit' : 'needs more memory'}
+                      </span>
+                    )}
                     {have ? (
                       <Badge tone="success" variant="soft" title={have.path}>
                         <CheckIcon className="h-3 w-3" /> in your library
