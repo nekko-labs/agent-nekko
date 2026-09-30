@@ -1,0 +1,22 @@
+{
+  "id": "s_stalled",
+  "title": "Chat s_stalled",
+  "workspaceId": "w1",
+  "messages": [
+    {
+      "id": "u1",
+      "role": "user",
+      "content": "go",
+      "createdAt": 1790000000002
+    },
+    {
+      "id": "a1",
+      "role": "assistant",
+      "content": "partial answer",
+      "createdAt": 1790000000002,
+      "interrupted": true
+    }
+  ],
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000100000
+}

@@ -66,9 +66,24 @@ fn fake_backend() {
                             }
                             let echo = json!({"channel":"terminal:event","payload":{"type":"data","terminalId":"term_x","data":"dup"}});
                             let _ = socket.send(AMessage::Text(echo.to_string().into())).await;
+                            // Repeated, not sent once: a client that subscribes to the
+                            // daemon after this socket opened must still see one.
                             let ev = json!({"channel":"agent:event","payload":{"type":"hello-from-backend"}});
-                            let _ = socket.send(AMessage::Text(ev.to_string().into())).await;
-                            while let Some(Ok(_)) = socket.recv().await {}
+                            let mut tick = tokio::time::interval(std::time::Duration::from_millis(100));
+                            loop {
+                                tokio::select! {
+                                    _ = tick.tick() => {
+                                        if socket.send(AMessage::Text(ev.to_string().into())).await.is_err() {
+                                            break;
+                                        }
+                                    }
+                                    msg = socket.recv() => {
+                                        if !matches!(msg, Some(Ok(_))) {
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         })
                     }
                 }),
@@ -102,6 +117,10 @@ impl Drop for Daemon {
 }
 
 fn start(with_backend: bool) -> Daemon {
+    start_with(with_backend, None)
+}
+
+fn start_with(with_backend: bool, data_dir: Option<&std::path::Path>) -> Daemon {
     let backend = with_backend.then(|| {
         json!({
             "exe": std::env::current_exe().unwrap(),
@@ -109,7 +128,7 @@ fn start(with_backend: bool) -> Daemon {
             "env": { FAKE_ENV: "1" },
         })
     });
-    let config = json!({ "token": TOKEN, "backend": backend, "allowedOrigins": ["null"] });
+    let config = json!({ "token": TOKEN, "backend": backend, "allowedOrigins": ["null"], "dataDir": data_dir });
     let mut child = Command::new(env!("CARGO_BIN_EXE_nekkod"))
         .env("NEKKOD_CONFIG", config.to_string())
         .stdin(Stdio::piped())
@@ -295,4 +314,34 @@ async fn exits_when_stdin_closes_and_takes_the_backend_with_it() {
         assert!(Instant::now() < deadline, "nekkod kept running after its stdin closed");
         std::thread::sleep(Duration::from_millis(50));
     }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn serves_session_reads_from_disk_when_it_knows_the_data_dir() {
+    let data = std::env::temp_dir().join(format!("nekkod-sessions-{}", std::process::id()));
+    let sessions = data.join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    let chat = json!({ "id": "s_one", "title": "One", "updatedAt": 5, "messages": [
+        { "id": "u", "role": "user", "content": "hello", "createdAt": 1 },
+        { "id": "a", "role": "assistant", "content": "", "images": ["data:x"], "generated": { "width": 8, "height": 8, "seed": 3 }, "createdAt": 2 },
+    ] });
+    std::fs::write(sessions.join("s_one.json"), serde_json::to_vec_pretty(&chat).unwrap()).unwrap();
+    let d = start_with(true, Some(&data));
+
+    let (status, list) = post(d.port, "sessions:summaries", json!([]), Some(TOKEN)).await;
+    assert_eq!(status, 200);
+    assert_eq!(list[0]["id"], "s_one");
+    assert_eq!(list[0]["imageCount"], 1);
+    assert!(list[0].get("messages").is_none(), "a summary carries no transcript");
+    let (_, got) = post(d.port, "session:get", json!(["s_one"]), Some(TOKEN)).await;
+    assert_eq!(got, chat);
+    let (_, missing) = post(d.port, "session:get", json!(["../escape"]), Some(TOKEN)).await;
+    assert_eq!(missing, Value::Null);
+    let (_, images) = post(d.port, "session:images", json!(["s_one", 4]), Some(TOKEN)).await;
+    assert_eq!(images, json!([{ "messageId": "a", "src": "data:x" }]));
+    // Not a read: still the backend's.
+    let (_, created) = post(d.port, "session:create", json!([]), Some(TOKEN)).await;
+    assert_eq!(created["echo"], "session:create");
+    drop(d);
+    std::fs::remove_dir_all(data).ok();
 }

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'fs';
 import { readFile, readdir, stat } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { join } from 'path';
@@ -87,10 +87,36 @@ export function getSession(id: string): Session | null {
   }
 }
 
+/**
+ * Write a chat whole or not at all: to a temp file beside it, then renamed
+ * over it. The engine daemon reads these files concurrently (it serves the
+ * session lists and opens), and an in-place write could hand it half a file.
+ */
+function writeAtomic(file: string, text: string): void {
+  const tmp = `${file}.${process.pid}.tmp`;
+  writeFileSync(tmp, text, 'utf8');
+  for (let attempt = 0; ; attempt++) {
+    try {
+      renameSync(tmp, file);
+      return;
+    } catch (e) {
+      // Windows refuses a rename over a file another process has open without
+      // delete sharing (an antivirus scan, an editor); that clears in moments.
+      const code = (e as NodeJS.ErrnoException).code;
+      if ((code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES') || attempt >= 20) {
+        rmSync(tmp, { force: true });
+        throw e;
+      }
+      const until = Date.now() + 5 * (attempt + 1);
+      while (Date.now() < until) { /* a few ms, synchronously: saveSession is sync */ }
+    }
+  }
+}
+
 export function saveSession(s: Session): void {
   s.updatedAt = Date.now();
   const file = pathFor(s.id);
-  writeFileSync(file, JSON.stringify(s, null, 2), 'utf8');
+  writeAtomic(file, JSON.stringify(s, null, 2));
   remember(file, s);
 }
 

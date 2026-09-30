@@ -1,0 +1,414 @@
+{
+  "s_empty": {
+    "id": "s_empty",
+    "title": "Chat s_empty",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 0,
+    "exchangeCount": 0,
+    "transcriptTokens": 0,
+    "stalled": false,
+    "recentTurns": [],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_extra": {
+    "id": "s_extra",
+    "title": "Chat s_extra",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "zeta": 1,
+    "alpha": {
+      "nested": [
+        1,
+        2
+      ]
+    },
+    "pinned": true,
+    "tags": [
+      "a",
+      "b"
+    ],
+    "autoModel": false,
+    "queue": [
+      "next"
+    ],
+    "messageCount": 1,
+    "exchangeCount": 1,
+    "firstUserText": "hi",
+    "transcriptTokens": 1,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "hi",
+        "at": 1790000000002
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_image": {
+    "id": "s_image",
+    "title": "Chat s_image",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "chatType": "image",
+    "imageParams": {
+      "modelId": "m",
+      "width": 768,
+      "height": 1344,
+      "steps": 4,
+      "cfgScale": 1,
+      "seed": -1
+    },
+    "messageCount": 5,
+    "exchangeCount": 5,
+    "firstUserText": "a lighthouse at sunset",
+    "lastReplyText": "The image could not be generated: Missing vae",
+    "lastReplyAt": 1790000000002,
+    "transcriptTokens": 21,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "a lighthouse at sunset",
+        "at": 1790000000002
+      },
+      {
+        "id": "a1",
+        "role": "assistant",
+        "text": "1024×1024 image",
+        "at": 1790000000002,
+        "image": {
+          "width": 1024,
+          "height": 1024,
+          "seed": 1417088981
+        }
+      },
+      {
+        "id": "u2",
+        "role": "user",
+        "text": "same, in snow",
+        "at": 1790000000002
+      },
+      {
+        "id": "a2",
+        "role": "assistant",
+        "text": "768×1344 image",
+        "at": 1790000000002,
+        "image": {
+          "width": 768,
+          "height": 1344,
+          "seed": 836320352
+        }
+      },
+      {
+        "id": "a3",
+        "role": "assistant",
+        "text": "The image could not be generated: Missing vae",
+        "at": 1790000000002
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 3
+  },
+  "s_long": {
+    "id": "s_long",
+    "title": "Chat s_long",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 3,
+    "exchangeCount": 3,
+    "firstUserText": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé…",
+    "lastReplyText": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",
+    "lastReplyAt": 1790000000002,
+    "transcriptTokens": 1877,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+        "at": 1790000000002
+      },
+      {
+        "id": "a1",
+        "role": "assistant",
+        "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…",
+        "at": 1790000000002
+      },
+      {
+        "id": "u2",
+        "role": "user",
+        "text": "short",
+        "at": 1790000000002
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_many": {
+    "id": "s_many",
+    "title": "Chat s_many",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 20,
+    "exchangeCount": 20,
+    "firstUserText": "turn 0 😀",
+    "lastReplyText": "turn 17 😀",
+    "lastReplyAt": 1790000000003,
+    "transcriptTokens": 46,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "m10",
+        "role": "user",
+        "text": "turn 10 😀",
+        "at": 1790000000003
+      },
+      {
+        "id": "m11",
+        "role": "assistant",
+        "text": "turn 11 😀",
+        "at": 1790000000003
+      },
+      {
+        "id": "m12",
+        "role": "user",
+        "text": "turn 12 😀",
+        "at": 1790000000003
+      },
+      {
+        "id": "m13",
+        "role": "assistant",
+        "text": "turn 13 😀",
+        "at": 1790000000003
+      },
+      {
+        "id": "m15",
+        "role": "assistant",
+        "text": "turn 15 😀",
+        "at": 1790000000003
+      },
+      {
+        "id": "m16",
+        "role": "user",
+        "text": "turn 16 😀",
+        "at": 1790000000003
+      },
+      {
+        "id": "m17",
+        "role": "assistant",
+        "text": "turn 17 😀",
+        "at": 1790000000003
+      },
+      {
+        "id": "m18",
+        "role": "user",
+        "text": "turn 18 😀",
+        "at": 1790000000003
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_missing": {
+    "id": "s_missing",
+    "title": "Chat s_missing",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 4,
+    "exchangeCount": 3,
+    "firstUserText": "no timestamp",
+    "lastReplyText": "no id",
+    "lastReplyAt": null,
+    "transcriptTokens": 9,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "x1",
+        "role": "user",
+        "text": "no timestamp"
+      },
+      {
+        "role": "assistant",
+        "text": "no id",
+        "at": null
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_nomsgs": null,
+  "s_not_stalled": {
+    "id": "s_not_stalled",
+    "title": "Chat s_not_stalled",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 3,
+    "exchangeCount": 3,
+    "firstUserText": "go",
+    "lastReplyText": "partial",
+    "lastReplyAt": 1790000000002,
+    "transcriptTokens": 4,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "go",
+        "at": 1790000000002
+      },
+      {
+        "id": "a1",
+        "role": "assistant",
+        "text": "partial",
+        "at": 1790000000002,
+        "interrupted": true
+      },
+      {
+        "id": "u2",
+        "role": "user",
+        "text": "again",
+        "at": 1790000000002
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_plain": {
+    "id": "s_plain",
+    "title": "Chat s_plain",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 2,
+    "exchangeCount": 2,
+    "firstUserText": "Refactor the parser",
+    "lastReplyText": "Done. All green.",
+    "lastReplyAt": 1790000000002,
+    "transcriptTokens": 11,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "Refactor the parser",
+        "at": 1790000000002
+      },
+      {
+        "id": "a1",
+        "role": "assistant",
+        "text": "Done.\n\nAll   green.",
+        "at": 1790000000002
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_space": {
+    "id": "s_space",
+    "title": "Chat s_space",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 2,
+    "exchangeCount": 2,
+    "firstUserText": " 　 leading odd spaces",
+    "lastReplyText": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word …",
+    "lastReplyAt": 1790000000002,
+    "transcriptTokens": 147,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "leading odd spaces",
+        "at": 1790000000002
+      },
+      {
+        "id": "a1",
+        "role": "assistant",
+        "text": "word  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tend",
+        "at": 1790000000002
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_stalled": {
+    "id": "s_stalled",
+    "title": "Chat s_stalled",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 2,
+    "exchangeCount": 2,
+    "firstUserText": "go",
+    "lastReplyText": "partial answer",
+    "lastReplyAt": 1790000000002,
+    "transcriptTokens": 5,
+    "stalled": true,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "go",
+        "at": 1790000000002
+      },
+      {
+        "id": "a1",
+        "role": "assistant",
+        "text": "partial answer",
+        "at": 1790000000002,
+        "interrupted": true
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
+  "s_tools": {
+    "id": "s_tools",
+    "title": "Chat s_tools",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 5,
+    "exchangeCount": 3,
+    "firstUserText": "Open a PR for https://github.com/nekko-labs/agent-nekko/pull/219 follow-up",
+    "lastReplyText": "Opened https://github.com/o/r/pull/8.",
+    "lastReplyAt": 1790000000002,
+    "transcriptTokens": 85,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "Open a PR for https://github.com/nekko-labs/agent-nekko/pull/219 follow-up",
+        "at": 1790000000002
+      },
+      {
+        "id": "a2",
+        "role": "assistant",
+        "text": "Opened https://github.com/o/r/pull/8.",
+        "at": 1790000000002
+      }
+    ],
+    "prUrls": [
+      "https://github.com/nekko-labs/agent-nekko/pull/219",
+      "https://github.com/o/r/pull/7",
+      "https://github.com/o/r/pull/8"
+    ],
+    "imageCount": 0
+  }
+}

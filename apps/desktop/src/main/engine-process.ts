@@ -88,7 +88,7 @@ export class EngineProcess {
     if (daemon) {
       mode = 'daemon';
       marker = DAEMON_READY;
-      const config = { token: this.token, allowedOrigins: this.opts.origins, backend };
+      const config = { token: this.token, allowedOrigins: this.opts.origins, backend, dataDir: this.opts.dataDir };
       child = spawn(daemon, [], {
         env: { ...process.env, NEKKOD_CONFIG: JSON.stringify(config) },
         stdio: ['pipe', 'pipe', 'inherit'],

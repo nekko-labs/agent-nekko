@@ -62,7 +62,8 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
         None => Backend::disabled(),
     };
     let engine = Arc::new(engine::Engine::new(backend.clone()));
-    let ctx = Ctx { terminals: terminals.clone(), backend: backend.clone(), hub, engine: engine.clone() };
+    let sessions = cfg.data_dir.clone().map(|d| Arc::new(nekko_store::SessionStore::new(d)));
+    let ctx = Ctx { terminals: terminals.clone(), backend: backend.clone(), hub, engine: engine.clone(), sessions };
     routes::forward_terminal_events(&ctx);
 
     let app = wire::App { ctx, token: cfg.token.clone().into(), origins: Arc::new(cfg.allowed_origins.clone()) };
