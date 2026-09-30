@@ -135,19 +135,15 @@ async fn post(port: u16, channel: &str, args: Value, token: Option<&str>) -> (u1
     (status, res.json().await.unwrap_or(Value::Null))
 }
 
-async fn ws(
-    port: u16,
-    path: &str,
-    origin: Option<&str>,
-) -> Result<
-    tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
-    tokio_tungstenite::tungstenite::Error,
-> {
+type Socket = tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// Connect, or say why not (as a string: tungstenite's error type is large).
+async fn ws(port: u16, path: &str, origin: Option<&str>) -> Result<Socket, String> {
     let mut req = format!("ws://127.0.0.1:{port}{path}").into_client_request().unwrap();
     if let Some(o) = origin {
         req.headers_mut().insert("origin", o.parse().unwrap());
     }
-    tokio_tungstenite::connect_async(req).await.map(|(s, _)| s)
+    tokio_tungstenite::connect_async(req).await.map(|(s, _)| s).map_err(|e| e.to_string())
 }
 
 async fn next_json<S>(socket: &mut S, limit: Duration) -> Option<Value>

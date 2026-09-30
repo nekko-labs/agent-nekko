@@ -83,8 +83,10 @@ export function useTerminalDaemon(link: DaemonLink | null): void {
         /* not a frame we understand */
       }
     };
+    // An error is always followed by close, which reconnects. Closing from the
+    // error handler instead re-fires the error on a socket still connecting
+    // (Node's WebSocket), recursing until the stack overflows.
     ws.onclose = () => setTimeout(connect, 500);
-    ws.onerror = () => ws.close();
   };
   connect();
 }
