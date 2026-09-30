@@ -95,6 +95,8 @@ export const IpcChannels = {
   sessionSetWorkspace: 'session:setWorkspace',
   sessionSetSupportingWorkspaces: 'session:setSupportingWorkspaces',
   chatSend: 'chat:send',
+  chatGenerateImage: 'chat:generateImage',
+  sessionImages: 'session:images',
   chatAbort: 'chat:abort',
   chatCompact: 'chat:compact',
   chatCancelCompaction: 'chat:cancelCompaction',
@@ -448,6 +450,10 @@ export interface NekkoApi {
   setSessionSupportingWorkspaces(sessionId: string, workspaceIds: string[]): Promise<Session | null>;
   setSessionAttachments(sessionId: string, paths: string[]): Promise<Session | null>;
   sendChat(opts: SendOptions): Promise<void>;
+  /** One image-generation turn: the prompt and the picture are appended to the chat. */
+  generateImageTurn(opts: import('./chat.js').ImageTurnOptions): Promise<void>;
+  /** The newest pictures an image chat made, newest last, keyed by message id. */
+  sessionImages(sessionId: string, limit: number): Promise<Array<{ messageId: string; src: string }>>;
   abortChat(sessionId: string): Promise<void>;
   compactSession(sessionId: string): Promise<Session>;
   cancelSessionCompaction(sessionId: string): Promise<void>;
@@ -527,7 +533,7 @@ export interface NekkoApi {
   specPath(sessionId: string): Promise<string | null>;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams'>>,
   ): Promise<Session | null>;
   truncateSession(id: string, messageId: string): Promise<Session | null>;
   /** Delete chats within a window; returns how many were removed. */

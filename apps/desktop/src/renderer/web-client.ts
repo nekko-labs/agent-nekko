@@ -321,6 +321,8 @@ function makeWebClient(): NekkoApi {
       call(IpcChannels.sessionSetSupportingWorkspaces, sessionId, workspaceIds),
     setSessionAttachments: (sessionId, paths) => call(IpcChannels.sessionSetAttachments, sessionId, paths),
     sendChat: (opts) => call(IpcChannels.chatSend, opts),
+    generateImageTurn: (opts) => call(IpcChannels.chatGenerateImage, opts),
+    sessionImages: (sessionId, limit) => call(IpcChannels.sessionImages, sessionId, limit),
     abortChat: (sessionId) => call(IpcChannels.chatAbort, sessionId),
     compactSession: (sessionId) => call(IpcChannels.chatCompact, sessionId),
     cancelSessionCompaction: (sessionId) => call(IpcChannels.chatCancelCompaction, sessionId),

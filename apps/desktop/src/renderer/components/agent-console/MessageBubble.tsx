@@ -80,6 +80,7 @@ export const MessageBubble = memo(function MessageBubble({
     if (message.toolCalls?.length) {
       message.toolCalls.forEach((c) => parts.push(<ToolCard key={c.id} call={c} />));
     }
+    if (message.images?.length) parts.push(<GeneratedImages key="images" message={message} entering={entering} onImageClick={onImageClick} onImageContextMenu={onImageContextMenu} />);
     return <>{parts}</>;
   }
 
@@ -135,3 +136,39 @@ export const MessageBubble = memo(function MessageBubble({
     </div>
   );
 });
+
+/**
+ * The picture an image chat made, at a readable size, with how it was made
+ * underneath: enough to reproduce it (model, size, steps, CFG and the seed
+ * actually used) and to see what it cost in time.
+ */
+function GeneratedImages({ message, entering, onImageClick, onImageContextMenu }: {
+  message: ChatMessage;
+  entering: boolean;
+  onImageClick?: (src: string) => void;
+  onImageContextMenu?: (e: React.MouseEvent, src: string) => void;
+}) {
+  const g = message.generated;
+  const model = g?.modelId.split('/').pop();
+  return (
+    <div className={`${entering ? 'fade-in ' : ''}flex flex-col items-start gap-1.5`}>
+      {message.images!.map((image, i) => (
+        <img
+          key={`${message.id}-${i}`}
+          src={image}
+          alt={g ? `Generated image, ${g.width}×${g.height}` : 'Generated image'}
+          className="h-auto w-full max-w-[512px] cursor-pointer rounded-xl border border-line"
+          style={g ? { aspectRatio: `${g.width} / ${g.height}` } : undefined}
+          onClick={() => onImageClick?.(image)}
+          onContextMenu={(e) => onImageContextMenu?.(e, image)}
+          title="Click to preview · right-click to copy or save"
+        />
+      ))}
+      {g && (
+        <p className="text-[11px] text-ink-faint">
+          {model} · {g.width}×{g.height} · {g.steps} steps · CFG {g.cfgScale} · seed {g.seed} · {(g.ms / 1000).toFixed(1)}s
+        </p>
+      )}
+    </div>
+  );
+}

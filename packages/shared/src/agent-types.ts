@@ -11,7 +11,7 @@ import type { Session } from './chat.js';
 import type { SessionSummary } from './session-summary.js';
 import type { AutomationTask, TaskKind } from './tasks.js';
 
-export type AgentRole = 'reviewer' | 'monitor' | 'researcher' | 'builder' | 'automation' | 'assistant';
+export type AgentRole = 'reviewer' | 'monitor' | 'researcher' | 'builder' | 'automation' | 'assistant' | 'artist';
 
 export interface AgentType {
   role: AgentRole;
@@ -101,5 +101,8 @@ export function agentSignals(session: Session | SessionSummary, task?: Automatio
 
 /** Classify a chat session directly (convenience). */
 export function classifySession(session: Session | SessionSummary, task?: AutomationTask): AgentType {
+  // An image chat's prompts describe pictures, not work; reading them for
+  // "build" or "review" would misfile a request for a castle as a build agent.
+  if (session.chatType === 'image') return { role: 'artist', label: 'Image generation', icon: '🎨', color: '#e879a6' };
   return classifyAgent(agentSignals(session, task));
 }

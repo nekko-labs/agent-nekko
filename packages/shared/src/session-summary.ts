@@ -46,6 +46,8 @@ export interface SessionSummary extends SessionMeta {
   recentTurns: TurnExcerpt[];
   /** Pull requests referenced anywhere in the chat (text or tool output). */
   prUrls: string[];
+  /** Pictures an image chat has made. */
+  imageCount: number;
 }
 
 const cap = (s: string, n: number) => (s.length > n ? `${s.slice(0, n)}…` : s);
@@ -78,5 +80,6 @@ export function summarizeSession(session: Session): SessionSummary {
     stalled: isStalled(messages),
     recentTurns: recentTurns(messages, SUMMARY_TURNS).map((t) => ({ ...t, text: cap(t.text, SUMMARY_TURN_CHARS) })),
     prUrls: collectSessionPrUrls(messages),
+    imageCount: messages.reduce((n, m) => n + (m.role === 'assistant' && m.generated ? m.images?.length ?? 0 : 0), 0),
   };
 }

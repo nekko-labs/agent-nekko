@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { ChatMode, McpServerStatus, Session } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { WrenchIcon, PlaneIcon, MaskIcon, PlugIcon, PlusIcon } from '../icons.js';
@@ -172,10 +172,13 @@ export function ChatControls({
   session,
   isCloudModel,
   onChange,
+  leading,
 }: {
   session: Session | null;
   isCloudModel: boolean;
   onChange: (s: Session | null) => void;
+  /** Drawn first on the row (the chat-type toggle). */
+  leading?: ReactNode;
 }) {
   const settings = useStore((s) => s.settings);
   const [tools, setTools] = useState<Array<{ name: string; description: string }>>([]);
@@ -222,6 +225,9 @@ export function ChatControls({
 
   return (
     <div ref={ref} className="flex w-full min-w-0 items-center gap-1.5 text-[12px]">
+      {leading}
+      {/* An image chat runs no agent: no tool policy, tools or MCP to set. */}
+      {session.chatType !== 'image' && (<>
       {/* Mode */}
       <div className="relative shrink-0">
         <button
@@ -310,6 +316,7 @@ export function ChatControls({
 
       {/* MCP servers, right of Tools: their tools are what the agent can reach. */}
       <McpMenu />
+      </>)}
 
       {/* The privacy switches sit apart from the execution controls: pushed to
           the right edge of the row, behind a hairline. */}

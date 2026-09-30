@@ -406,13 +406,22 @@ export function createEngine(deps: EngineDeps) {
     },
     installPreview: (runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string) =>
       runtime === 'mlx' ? mlxRuntime.preview() : (runtime === 'diffusion' ? diffusionInstaller : installer).preview(buildId),
-    generateImage: async (request: import('@agent-nekko/shared').ImageGenerationRequest): Promise<import('@agent-nekko/shared').ImageGenerationResult> => {
+    /**
+     * One image from a loaded (or loadable) image model. `onStage` hears
+     * whether it first has to load the model, which is most of a cold request.
+     */
+    generateImage: async (
+      request: import('@agent-nekko/shared').ImageGenerationRequest,
+      onStage?: (stage: 'loading' | 'generating') => void,
+    ): Promise<import('@agent-nekko/shared').ImageGenerationResult> => {
       const { modelId, prompt, width, height, steps = 28, cfgScale = 4.5, seed = -1 } = request;
       if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000 || ![width, height].every(n => Number.isInteger(n) && n >= 256 && n <= 2048 && n % 64 === 0) || !Number.isInteger(steps) || steps < 1 || steps > 100 || !Number.isFinite(cfgScale) || cfgScale < 0 || cfgScale > 30 || !Number.isSafeInteger(seed) || seed < -1) throw new Error('Use a prompt, dimensions from 256 to 2048 in multiples of 64, 1 to 100 steps and CFG from 0 to 30.');
       const model = await library.find(modelId);
       if (model?.modality !== 'image') throw new Error('Choose an image-generation model.');
+      if (!server.loadedIds().includes(modelId)) onStage?.('loading');
       const started = await load(modelId, model.preset ?? {});
       if (!started.ok) throw new Error(started.message);
+      onStage?.('generating');
       const key = deps.settings().apiKey;
       const res = await fetch(`${engineBaseUrl(deps.settings())}/images/generations`, {
         method: 'POST', headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) },

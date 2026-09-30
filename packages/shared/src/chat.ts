@@ -19,8 +19,13 @@ export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
-  /** Image data URLs attached to a user message. */
+  /**
+   * Image data URLs: attached by the user on a user message, or produced by an
+   * image model on an assistant message in an image-generation chat.
+   */
   images?: string[];
+  /** How an assistant message's images were made, so they can be reproduced. */
+  generated?: GeneratedImageMeta;
   /** Model chain-of-thought text, when the provider streams it. */
   reasoning?: string;
   /** Whole seconds spent streaming the reasoning text. */
@@ -54,6 +59,46 @@ export interface ContextPrefs {
  *  - `yolo`, run everything without confirming (deny rules still block).
  */
 export type ChatMode = 'ask' | 'guardrails' | 'yolo';
+
+/**
+ * What a chat is for. `multimodal` (the default, and what an absent value
+ * means) talks to a chat model with text and images in and text out.
+ * `image` sends each prompt to a local image-generation model instead, and
+ * every reply is a picture.
+ */
+export type ChatType = 'multimodal' | 'image';
+
+/** An image-generation chat's settings, kept per chat. */
+export interface ImageChatParams {
+  /** An engine library model with `modality: 'image'`. */
+  modelId?: string;
+  width: number;
+  height: number;
+  steps: number;
+  cfgScale: number;
+  /** -1 picks a fresh random seed per image; the one used is recorded on the reply. */
+  seed: number;
+}
+
+export const DEFAULT_IMAGE_CHAT_PARAMS: ImageChatParams = { width: 1024, height: 1024, steps: 28, cfgScale: 4.5, seed: -1 };
+
+export interface GeneratedImageMeta {
+  modelId: string;
+  width: number;
+  height: number;
+  steps: number;
+  cfgScale: number;
+  /** The seed actually used, never -1. */
+  seed: number;
+  /** Wall time for the request, model load included when it had to load. */
+  ms: number;
+}
+
+export interface ImageTurnOptions {
+  sessionId: string;
+  prompt: string;
+  params: ImageChatParams & { modelId: string };
+}
 
 export interface Session {
   id: string;
@@ -102,6 +147,10 @@ export interface Session {
   autoProviderSwitch?: boolean;
   /** Tool-execution policy for this chat. */
   mode?: ChatMode;
+  /** Chat or image generation; absent means `multimodal`. */
+  chatType?: ChatType;
+  /** Settings for an image-generation chat. */
+  imageParams?: ImageChatParams;
   /**
    * Per-chat reasoning toggle for models that support it: `true` forces thinking
    * on, `false` suppresses it, `undefined` leaves the model's default. Only
@@ -183,6 +232,8 @@ export type AgentEvent =
        */
       outputMs?: number;
     }
+  /** An image-generation turn moved on: loading the model, then generating. */
+  | { type: 'image_status'; sessionId: string; stage: 'loading' | 'generating'; label: string }
   | { type: 'done'; sessionId: string; messageId: string }
   | { type: 'error'; sessionId: string; message: string }
   /**
@@ -247,7 +298,7 @@ export function hasResumableProgress(history: ChatMessage[]): boolean {
     const m = history[i];
     if (m.role === 'user') return false; // reached this turn's prompt, nothing after it
     if (m.role === 'tool') return true;
-    if (m.role === 'assistant' && (m.content.trim() || m.toolCalls?.length || m.reasoning?.trim())) return true;
+    if (m.role === 'assistant' && (m.content.trim() || m.toolCalls?.length || m.reasoning?.trim() || m.images?.length)) return true;
   }
   return false;
 }

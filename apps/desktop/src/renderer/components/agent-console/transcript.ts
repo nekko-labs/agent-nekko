@@ -120,7 +120,7 @@ export function toTranscriptRows(
     const m = b.message;
     // An assistant message with nothing to show renders nothing, so it must not
     // take a row (and a gap) either.
-    if (m.role === 'assistant' && !m.content && !m.reasoning && !m.toolCalls?.length) continue;
+    if (m.role === 'assistant' && !m.content && !m.reasoning && !m.toolCalls?.length && !m.images?.length) continue;
     const urls = m.role === 'user' ? [] : extractUrls(m.content).filter((u) => !shown.has(u));
     urls.forEach((u) => shown.add(u));
     rows.push({ key: unique(`m_${m.id}`), kind: 'msg', message: m, prUrls: urls, ...(urls.length ? { gapAfter: PR_CARD_GAP } : {}) });
@@ -149,7 +149,9 @@ export function estimateRowHeight(row: TranscriptRow, width: number): number {
   let h = lines * (user ? 22 : 23) + fences * 34 + (user ? 20 : 0);
   if (!user && m.reasoning) h += 26;
   if (!user && m.toolCalls?.length) h += m.toolCalls.length * 26;
-  if (m.images?.length) h += 112;
+  // A generated picture renders up to 512 px wide at its own aspect; an attachment is a 104 px thumb.
+  if (m.generated) h += Math.round((Math.min(512, width) * m.generated.height) / m.generated.width) + 28;
+  else if (m.images?.length) h += 112;
   return h + row.prUrls.length * 90 + gap;
 }
 

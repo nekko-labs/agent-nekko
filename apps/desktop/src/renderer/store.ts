@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AppSettings, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
-import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 import {
@@ -214,6 +214,8 @@ interface UiState {
   dismissToast: (id: string) => void;
   setPaletteOpen: (open: boolean) => void;
   newChat: () => Promise<void>;
+  /** A new Image chat on this image model, starting from its family's tuned steps and CFG. */
+  newImageChat: (modelId: string, defaults?: { steps: number; cfgScale: number }) => Promise<void>;
   setMascotMood: (m: MascotMood) => void;
   setView: (v: View) => void;
   setOnboardingOpen: (open: boolean) => void;
@@ -424,6 +426,15 @@ export const useStore = create<UiState>((set, get) => ({
     }),
   newChat: async () => {
     const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    set((state) => ({ sessions: [summarizeSession(s), ...state.sessions], activeSessionId: s.id, view: 'chat' }));
+    get().openChatPane(s.id);
+  },
+  newImageChat: async (modelId, defaults) => {
+    const created = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    const s = (await window.nekko.setSessionOptions(created.id, {
+      chatType: 'image',
+      imageParams: { ...DEFAULT_IMAGE_CHAT_PARAMS, modelId, ...(defaults ?? {}) },
+    })) ?? created;
     set((state) => ({ sessions: [summarizeSession(s), ...state.sessions], activeSessionId: s.id, view: 'chat' }));
     get().openChatPane(s.id);
   },

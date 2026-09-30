@@ -49,6 +49,14 @@ describe('toTranscriptRows', () => {
   it('skips an assistant message that would render nothing', () => {
     expect(rows([msg('u', 'user', 'hi'), msg('a', 'assistant', '')])).toHaveLength(1);
   });
+
+  it('keeps an image-chat reply that is only a picture, and sizes it by its aspect', () => {
+    const generated = { modelId: 'flux', width: 1024, height: 512, steps: 4, cfgScale: 1, seed: 7, ms: 4400 };
+    const r = rows([msg('u', 'user', 'a cat'), msg('a', 'assistant', '', { images: ['data:image/png;base64,eA=='], generated })]);
+    expect(r).toHaveLength(2);
+    const tall = rows([msg('b', 'assistant', '', { images: ['x'], generated: { ...generated, height: 2048 } })])[0];
+    expect(estimateRowHeight(tall, 800)).toBeGreaterThan(estimateRowHeight(r[1], 800));
+  });
 });
 
 describe('estimateRowHeight', () => {
