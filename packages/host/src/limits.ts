@@ -1,7 +1,7 @@
 /** Host-side subscription-limits capture and polling service. */
 
 import { EventEmitter } from 'node:events';
-import type { LimitWindow, OAuthProvider, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
+import type { LimitWindow, OAuthProvider, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
 import { getToken, ensureFreshToken } from './oauth.js';
 import { getSettings } from './store.js';
 
@@ -177,8 +177,10 @@ export function recordFromHeaders(
  * token key. Fetches the authoritative usage endpoint for Claude or ChatGPT.
  */
 export async function poll(tokenKey: string): Promise<SubscriptionLimits | undefined> {
-  const token = getToken(tokenKey);
-  if (!token) return get(tokenKey);
+  // A `provider:<id>` key is an API-key provider read with its inference key;
+  // everything else is an OAuth token key.
+  const apiKeyProvider = providerFromLimitsKey(tokenKey);
+  if (!apiKeyProvider && !getToken(tokenKey)) return get(tokenKey);
 
   const now = Date.now();
   const last = lastPollByToken.get(tokenKey) ?? 0;
@@ -193,19 +195,23 @@ export async function poll(tokenKey: string): Promise<SubscriptionLimits | undef
   let promise!: Promise<SubscriptionLimits | undefined>;
   promise = (async (): Promise<SubscriptionLimits | undefined> => {
     try {
-      const accessToken = await ensureFreshToken(tokenKey);
-      const fresh = getToken(tokenKey);
-      if (!fresh) return get(tokenKey);
-
       let next: SubscriptionLimits | undefined;
-      if (fresh.provider === 'claude') {
-        next = await pollClaude(tokenKey, accessToken);
-      } else if (fresh.provider === 'chatgpt') {
-        next = await pollChatGpt(tokenKey, accessToken, fresh.accountId);
-      } else if (fresh.provider === 'openrouter') {
-        next = await pollOpenRouter(tokenKey, accessToken);
+      if (apiKeyProvider) {
+        next = await pollApiKeyProvider(apiKeyProvider);
       } else {
-        next = get(tokenKey);
+        const accessToken = await ensureFreshToken(tokenKey);
+        const fresh = getToken(tokenKey);
+        if (!fresh) return get(tokenKey);
+
+        if (fresh.provider === 'claude') {
+          next = await pollClaude(tokenKey, accessToken);
+        } else if (fresh.provider === 'chatgpt') {
+          next = await pollChatGpt(tokenKey, accessToken, fresh.accountId);
+        } else if (fresh.provider === 'openrouter') {
+          next = await pollOpenRouter(tokenKey, accessToken);
+        } else {
+          next = get(tokenKey);
+        }
       }
 
       if (inFlight.get(tokenKey) !== promise) {
@@ -274,17 +280,41 @@ async function pollChatGpt(
   return parseChatGptUsage(json as Record<string, unknown>);
 }
 
+/** Resolve a `provider:<id>` limits key back to its configured provider. */
+function providerFromLimitsKey(key: string): ProviderConfig | undefined {
+  if (!key.startsWith('provider:')) return undefined;
+  const id = key.slice('provider:'.length);
+  return getSettings().providers.find((p) => p.id === id && p.enabled);
+}
+
+/**
+ * The documented usage read for an API-key provider's inference key.
+ * Kinds without one are unreachable here because `limitsKeyFor` never assigns
+ * them a key; returning undefined keeps them honest rather than guessed.
+ */
+async function pollApiKeyProvider(provider: ProviderConfig): Promise<SubscriptionLimits | undefined> {
+  if (!provider.apiKey) return undefined;
+  if (provider.kind === 'openrouter') {
+    return readOpenRouterKey(provider.baseUrl || 'https://openrouter.ai/api/v1', provider.apiKey);
+  }
+  return undefined;
+}
+
 /**
  * OpenRouter has no plan windows to poll; what a key can tell us is its credit
  * position and, for free-tier keys, the daily free-model request allowance.
- * `GET /key` returns those directly.
+ * `GET /key` returns those directly, authorized for the inference key itself.
  */
 async function pollOpenRouter(tokenKey: string, accessToken: string): Promise<SubscriptionLimits | undefined> {
   const configuredBase = getSettings().providers.find((p) => p.tokenKey === tokenKey)?.baseUrl;
-  const baseUrl = (configuredBase ?? 'https://openrouter.ai/api/v1').replace(/\/+$/, '');
-  const res = await fetch(`${baseUrl}/key`, {
+  const baseUrl = configuredBase ?? 'https://openrouter.ai/api/v1';
+  return readOpenRouterKey(baseUrl, accessToken);
+}
+
+async function readOpenRouterKey(baseUrl: string, bearer: string): Promise<SubscriptionLimits | undefined> {
+  const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/key`, {
     method: 'GET',
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { Authorization: `Bearer ${bearer}` },
   });
   if (!res.ok) return undefined;
 

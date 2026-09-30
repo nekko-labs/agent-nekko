@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import type { ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
+import { limitsKeyFor } from '@agent-nekko/shared';
 
 /**
  * Live subscription limits for one provider, or null when it doesn't have any
- * (an API key, a local server, or a provider that isn't signed in).
+ * (a provider without a usage read, a local server, or one that isn't signed
+ * in).
  *
  * Read in several places at once — the composer's model picker, the Auto-mode
  * pick, the workbench sidebar — so it loads once and then follows the host's
@@ -11,20 +13,20 @@ import type { ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
  */
 export function useProviderLimits(provider: ProviderConfig | undefined): SubscriptionLimits | null {
   const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
-  const tokenKey = provider?.tokenKey;
+  const key = provider ? limitsKeyFor(provider) : null;
 
   useEffect(() => {
-    if (!tokenKey) {
+    if (!key) {
       setLimits(null);
       return;
     }
     let live = true;
-    window.nekko.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
+    window.nekko.getLimits(key).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
     const off = window.nekko.onLimitsUpdated((e) => {
-      if (e.tokenKey === tokenKey) setLimits(e.limits);
+      if (e.tokenKey === key) setLimits(e.limits);
     });
     return () => { live = false; off(); };
-  }, [tokenKey]);
+  }, [key]);
 
   return limits;
 }
@@ -54,9 +56,10 @@ export function useProviderLimitsPortfolio(
 ): { byToken: Record<string, SubscriptionLimits>; answered: ReadonlySet<string> } {
   const [byToken, setByToken] = useState<Record<string, SubscriptionLimits>>({});
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
-  // Token keys, as a stable string, so re-rendering with a new array identity
-  // doesn't re-fetch every provider's usage.
-  const keys = providers.filter((p) => p.auth === 'subscription' && p.tokenKey).map((p) => p.tokenKey!);
+  // Limits keys, as a stable string, so re-rendering with a new array identity
+  // doesn't re-fetch every provider's usage. Covers signed-in providers by
+  // token key and API-key providers with a documented read by provider id.
+  const keys = providers.map(limitsKeyFor).filter((k): k is string => !!k);
   const keysId = keys.join('|');
 
   useEffect(() => {
