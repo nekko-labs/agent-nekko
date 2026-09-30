@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only: neither job writes to the repo (the perf report goes up as an
+# artifact, which does not use this token).
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest

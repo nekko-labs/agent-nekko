@@ -237,16 +237,16 @@ Agent tools feel slow when the UI waits on something or redraws too much. Agent 
 
 **Switching is instant, history may follow.** Switching chats, windows, workspaces or tabs changes the screen in the next frame. The chats used most recently stay warm: their transcripts are kept in a bounded in-memory cache and the last few chat windows stay mounted but hidden, so returning to one is a visibility flip rather than a rebuild. A chat that is not warm shows its frame (title, composer, controls) in the next frame and its history a moment later, newest messages first. The warm set has a fixed ceiling in both chats and memory, so the app does not grow without bound the longer it runs.
 
-**Budgets CI enforces** (p95 on the CI runner, headless, against the web edition with a scripted model):
+**Budgets** (p95, headless, against the web edition with a scripted model). The target is the product budget, measured on a desktop reference machine at 120 Hz, and `npm run perf:strict` holds a run to it. CI runs the same measurements on a 4-vCPU GitHub runner with no GPU and a 60 Hz display, where the same work takes about twice as long, so the `perf` job is a regression gate at twice the target (one 60 Hz frame for the frame-sized budgets). The report prints the raw p95 next to both numbers.
 
-| Interaction | Budget |
-| --- | --- |
-| Keypress to paint, chat composer, 1,000-message chat, reply streaming | 8.3 ms |
-| Keypress to paint, terminal | 8.3 ms |
-| Main-thread work per frame while a reply streams at 300 tokens/s | 4 ms |
-| Switch to a warm chat, to paint | 8.3 ms |
-| Switch to a cold chat, frame painted | 8.3 ms |
-| Switch to a cold chat, newest screenful of history painted | 100 ms |
+| Interaction | Target (reference desktop, 120 Hz) | CI regression gate (2x) |
+| --- | --- | --- |
+| Keypress to paint, chat composer, 1,000-message chat, reply streaming | 8.3 ms | 16.7 ms |
+| Keypress to paint, terminal | 8.3 ms | 16.7 ms |
+| Main-thread work per frame while a reply streams at 300 tokens/s | 4 ms | 8 ms |
+| Switch to a warm chat, to paint | 8.3 ms | 16.7 ms |
+| Switch to a cold chat, frame painted | 8.3 ms | 16.7 ms |
+| Switch to a cold chat, newest screenful of history painted | 100 ms | 200 ms |
 
 **The engine can fail without taking the window with it.** `[shipped 2026-09-30, desktop]` The desktop window no longer runs the engine: a separate engine daemon (`nekkod`, in Rust) owns the terminals and supervises the rest of the engine as its own process. If either crashes it is restarted and the UI reconnects; the window, drafts and scroll positions survive. If the daemon binary is missing, the app still starts, running the rest of the engine directly with its older terminals.
 

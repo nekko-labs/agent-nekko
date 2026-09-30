@@ -56,5 +56,25 @@ export async function connectCdp(wsUrl) {
     return r.result.value;
   };
 
-  return { send, on, evaluate, close: () => ws.close() };
+  /**
+   * Call a page function with arguments passed as values: data never becomes
+   * part of the source the page evaluates.
+   */
+  const call = async (fn, ...args) => {
+    const g = await send('Runtime.evaluate', { expression: 'globalThis' });
+    const r = await send('Runtime.callFunctionOn', {
+      objectId: g.result.objectId,
+      functionDeclaration: fn.toString(),
+      arguments: args.map((value) => ({ value })),
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    if (r.exceptionDetails) {
+      const d = r.exceptionDetails;
+      throw new Error(`page call failed: ${d.exception?.description ?? d.text}`.slice(0, 800));
+    }
+    return r.result.value;
+  };
+
+  return { send, on, evaluate, call, close: () => ws.close() };
 }

@@ -65,7 +65,7 @@ try {
   };
   const click = async (selector, text) => {
     let at = null;
-    for (let i = 0; i < 50 && !at; i++) { at = await cdp.evaluate(locate(selector, text)); if (!at) await sleep(100); }
+    for (let i = 0; i < 50 && !at; i++) { at = await cdp.call(locate, selector, text ?? null); if (!at) await sleep(100); }
     if (!at) throw new Error(`nothing to click: ${selector} ${text ?? ''}`);
     await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: at.x, y: at.y, button: 'left', buttons: 1, clickCount: 1 });
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: at.x, y: at.y, button: 'left', buttons: 0, clickCount: 1 });
@@ -74,14 +74,16 @@ try {
     await click('nav button[aria-label="Command Center"]');
     await sleep(500);
     await click(`button[title="Open ${chatTitle(i)}"]`);
-    return cdp.evaluate(`window.__perf.waitForChat(${JSON.stringify(chatTitle(i))}, ${JSON.stringify(lastMarker(i))}, 20000)`);
+    return cdp.call((t, m) => window.__perf.waitForChat(t, m, 20000), chatTitle(i), lastMarker(i));
   };
   const shot = async (name) => {
     const s = await cdp.send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(join(OUT, name), Buffer.from(s.data, 'base64'));
   };
-  const composer = (title) => `[...document.querySelectorAll('.panel')].find((p) => p.firstElementChild?.querySelector('span.truncate')?.textContent === ${JSON.stringify(title)})?.querySelector('textarea')`;
-  const scroller = (title) => `[...document.querySelectorAll('.panel')].find((p) => p.firstElementChild?.querySelector('span.truncate')?.textContent === ${JSON.stringify(title)})?.querySelector('.overflow-y-auto')`;
+  // Page functions over the big chat's composer and transcript scroller.
+  const big = chatTitle(0);
+  const onComposer = (fn) => cdp.call(`(t) => (${fn})(window.__perf.panel(t)?.querySelector('textarea'))`, big);
+  const onScroller = (fn) => cdp.call(`(t) => (${fn})(window.__perf.panel(t)?.querySelector('.overflow-y-auto'))`, big);
 
   await load();
   await sleep(1500);
@@ -98,33 +100,33 @@ try {
   await sleep(400);
   await click('div[role="button"]', chatTitle(0));
   await sleep(400);
-  check('draft survives switching away and back', (await cdp.evaluate(`${composer(chatTitle(0))}?.value`)) === 'a draft that should survive');
-  check('switching back puts the caret in the composer', await cdp.evaluate(`document.activeElement === ${composer(chatTitle(0))}`));
+  check('draft survives switching away and back', (await onComposer((t) => t?.value)) === 'a draft that should survive');
+  check('switching back puts the caret in the composer', await onComposer((t) => document.activeElement === t));
   await sleep(600); // past the draft debounce
   await load();
   await open(1);
   await open(0);
-  check('draft survives a reload', (await cdp.evaluate(`${composer(chatTitle(0))}?.value`)) === 'a draft that should survive');
+  check('draft survives a reload', (await onComposer((t) => t?.value)) === 'a draft that should survive');
 
   // Stream a reply and follow it.
-  await cdp.evaluate(`(() => { const t = ${composer(chatTitle(0))}; t.focus(); t.select(); })()`);
+  await onComposer((t) => { t.focus(); t.select(); });
   await cdp.send('Input.insertText', { text: `${STREAM_TRIGGER} go` });
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
   for (let i = 0; i < 200 && mock.state.streamsStarted === 0; i++) await sleep(50);
   await sleep(2000);
-  const gap = await cdp.evaluate(`(() => { const s = ${scroller(chatTitle(0))}; return s.scrollHeight - s.scrollTop - s.clientHeight; })()`);
+  const gap = await onScroller((s) => s.scrollHeight - s.scrollTop - s.clientHeight);
   check('follows the bottom while the reply streams', gap < 80, `${Math.round(gap)} px from the bottom`);
   await shot('streaming.png');
   await sleep(1000);
 
   // Scroll up mid-stream: it must stay put, and offer the jump pill.
-  const box = await cdp.evaluate(`(() => { const r = ${scroller(chatTitle(0))}.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })()`);
+  const box = await onScroller((s) => { const r = s.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
   await cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: box.x, y: box.y, deltaX: 0, deltaY: -1500 });
   await sleep(300);
-  const before = await cdp.evaluate(`${scroller(chatTitle(0))}.scrollTop`);
+  const before = await onScroller((s) => s.scrollTop);
   await sleep(1500);
-  const after = await cdp.evaluate(`${scroller(chatTitle(0))}.scrollTop`);
+  const after = await onScroller((s) => s.scrollTop);
   check('scrolling up mid-stream is not yanked back down', Math.abs(after - before) < 2, `moved ${Math.round(after - before)} px`);
   const pill = await cdp.evaluate(`[...document.querySelectorAll('button')].some((b) => b.textContent.includes('Jump to latest'))`);
   check('offers the jump pill while scrolled up', pill);
@@ -132,12 +134,12 @@ try {
   if (pill) {
     await click('button', '↓ Jump to latest');
     await sleep(1500);
-    const g = await cdp.evaluate(`(() => { const s = ${scroller(chatTitle(0))}; return s.scrollHeight - s.scrollTop - s.clientHeight; })()`);
+    const g = await onScroller((s) => s.scrollHeight - s.scrollTop - s.clientHeight);
     check('jump pill goes back to following', g < 80, `${Math.round(g)} px from the bottom`);
   }
 
   // Away and back mid-reply: the reply keeps going on screen.
-  const liveLen = () => cdp.evaluate(`(() => { const a = [...${scroller(chatTitle(0))}.querySelectorAll('.msg-ai')].pop(); return a ? a.textContent.length : 0; })()`);
+  const liveLen = () => onScroller((s) => { const a = [...s.querySelectorAll('.msg-ai')].pop(); return a ? a.textContent.length : 0; });
   const l0 = await liveLen();
   await click('div[role="button"]', chatTitle(1));
   await sleep(1200);
@@ -151,11 +153,10 @@ try {
   // The end of the reply: it lands once, as a stored message.
   for (let i = 0; i < 80 && mock.state.streamsFinished === 0; i++) await sleep(250);
   await sleep(1500);
-  const tail = await cdp.evaluate(`(() => {
-    const s = ${scroller(chatTitle(0))};
+  const tail = await onScroller((s) => {
     const replies = [...s.querySelectorAll('.msg-ai')].map((a) => a.textContent.slice(0, 40));
     return { replies: replies.slice(-3), dupes: replies.length - new Set(replies).size };
-  })()`);
+  });
   check('the finished reply is shown once', tail.dupes === 0, JSON.stringify(tail.replies));
   await shot('finished.png');
 } catch (e) {

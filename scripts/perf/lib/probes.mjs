@@ -111,16 +111,22 @@ export const INSTALL = String.raw`(() => {
     });
     document.addEventListener('click', (e) => { start = e.timeStamp; loop(); }, { capture: true, once: true });
   };
+  /** The window whose title strip reads "title", visible or not. */
+  P.panel = (title) => [...document.querySelectorAll('.panel')]
+    .find((p) => p.firstElementChild && p.firstElementChild.querySelector('span.truncate')?.textContent === title) ?? null;
   return true;
 })()`;
 
-/** Center of the first element matching a selector-and-text query, scrolled into view. */
-export const locate = (selector, text) => String.raw`(() => {
-  const want = ${JSON.stringify(text ?? null)};
-  const el = [...document.querySelectorAll(${JSON.stringify(selector)})]
-    .find((x) => x.checkVisibility() && (want == null || (x.getAttribute('title') ?? x.textContent ?? '').trim() === want));
+/**
+ * Center of the first visible element matching `selector` whose title (or
+ * text) is `text` (any, when null), scrolled into view. A page function, for
+ * `cdp.call(locate, selector, text)`.
+ */
+export function locate(selector, text) {
+  const el = [...document.querySelectorAll(selector)]
+    .find((x) => x.checkVisibility() && (text == null || (x.getAttribute('title') ?? x.textContent ?? '').trim() === text));
   if (!el) return null;
   el.scrollIntoView({ block: 'nearest' });
   const r = el.getBoundingClientRect();
   return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + Math.min(r.height / 2, 12)) };
-})()`;
+}

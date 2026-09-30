@@ -6,10 +6,13 @@
  * over the DevTools protocol, against a scripted model and a scratch data dir
  * seeded with a 1,000-message chat and a dozen others, and checks the p95 of
  * each interaction against the budgets in SPEC.md ("Speed & responsiveness").
+ * By default a run is judged against the CI regression gate (twice the SPEC
+ * target, see budgets.mjs); --strict judges against the targets themselves.
  *
  *   node scripts/perf/run.mjs [--out perf-results] [--quick] [--report-only]
  *
  * --quick        fewer samples, for iterating locally
+ * --strict       judge against the SPEC targets (real hardware at 120 Hz), not the CI gate
  * --report-only  write the report but exit 0 even when a budget is missed
  * --dump-trace   also write the streaming trace (large) to the output directory
  * --only <part>  run just 'latency' (keypress, switching) or 'frames' (streaming)
@@ -117,7 +120,7 @@ async function openApp({ appUrl, cdpPort, vsync }) {
   const clickEl = async (selector, text, what) => {
     let at = null;
     for (let i = 0; i < 100 && !at; i++) {
-      at = await cdp.evaluate(locate(selector, text));
+      at = await cdp.call(locate, selector, text ?? null);
       if (!at) await sleep(100);
     }
     if (!at) throw new Error(`could not find ${what ?? `${selector} "${text}"`}`);
@@ -134,18 +137,18 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     const title = chatTitle(i);
     const openSel = `button[title="Open ${title}"]`;
     await waitFor(`!!document.querySelector('button[title^="Open Perf chat"]')`, 'session cards');
-    if (!(await cdp.evaluate(`!!document.querySelector(${JSON.stringify(openSel)})`))) {
+    if (!(await cdp.call((sel) => !!document.querySelector(sel), openSel))) {
       await cdp.evaluate(`[...document.querySelectorAll('button')].filter((b) => /^Show all/.test(b.textContent.trim())).forEach((b) => b.click())`);
       await sleep(200);
     }
     await clickEl(openSel, null, `the card for ${title}`);
-    const ok = await cdp.evaluate(`window.__perf.waitForChat(${JSON.stringify(title)}, ${JSON.stringify(marker)}, 30000)`);
+    const ok = await cdp.call((t, m) => window.__perf.waitForChat(t, m, 30000), title, marker);
     if (!ok) throw new Error(`${title} never showed its newest message`);
   };
 
   /** Click a chat's sidebar card and report when its frame and newest reply painted. */
   const switchTo = async (i) => {
-    await cdp.evaluate(`window.__perf.armSwitch(${JSON.stringify(chatTitle(i))}, ${JSON.stringify(lastMarker(i))})`);
+    await cdp.call((t, m) => window.__perf.armSwitch(t, m), chatTitle(i), lastMarker(i));
     await clickEl('div[role="button"]', chatTitle(i), `the sidebar card for ${chatTitle(i)}`);
     let res = null;
     for (let k = 0; k < 800 && !res; k++) {
@@ -153,12 +156,12 @@ async function openApp({ appUrl, cdpPort, vsync }) {
       if (!res) await sleep(25);
     }
     if (!res || res.timeout) {
-      const seen = await cdp.evaluate(`[...document.querySelectorAll('.panel')].map((p) => ({
+      const seen = await cdp.call((marker) => [...document.querySelectorAll('.panel')].map((p) => ({
         title: p.firstElementChild?.querySelector('span.truncate')?.textContent,
         visible: p.checkVisibility(),
         composer: !!p.querySelector('textarea')?.checkVisibility(),
-        newest: p.textContent.includes(${JSON.stringify(lastMarker(i))}),
-      }))`);
+        newest: p.textContent.includes(marker),
+      })), lastMarker(i));
       throw new Error(`switch to ${chatTitle(i)} did not paint (${JSON.stringify(res)}): ${JSON.stringify(seen)}`);
     }
     // Let the arrival settle (fetches, effects) before the next measurement.
@@ -341,11 +344,13 @@ async function main() {
     cold_switch_frame: latency ? { samples: latency.coldFrame } : { skipped: 'not run (--only frames)' },
     cold_switch_history: latency ? { samples: latency.coldHistory } : { skipped: 'not run (--only frames)' },
   };
+  const strict = flag('strict');
   const rows = BUDGETS.map((b) => {
     const r = results[b.id];
-    if (r.skipped) return { ...b, skipped: r.skipped, pass: true };
+    const budget = strict ? b.target : b.ci;
+    if (r.skipped) return { ...b, budget, skipped: r.skipped, pass: true };
     const s = summarize(r.samples);
-    return { ...b, ...s, note: r.note, pass: s.p95 != null && s.p95 <= b.budget };
+    return { ...b, budget, ...s, note: r.note, pass: s.p95 != null && s.p95 <= budget };
   });
   const report = {
     at: new Date().toISOString(),
@@ -353,6 +358,7 @@ async function main() {
     machine: { platform: process.platform, cpus: os.cpus().length, cpu: os.cpus()[0]?.model?.trim(), memGb: Math.round(os.totalmem() / 2 ** 30) },
     browser: browserVersion,
     config: CFG,
+    judgedAgainst: strict ? 'SPEC target (--strict)' : 'CI regression gate (2x the SPEC target)',
     budgets: rows,
     eventTiming: {
       note: 'Event Timing entries at or above 16 ms (the API minimum) recorded while typing',
@@ -376,12 +382,14 @@ function markdown(report) {
     '',
     `${report.machine.cpu ?? 'unknown CPU'} (${report.machine.cpus} threads), ${report.machine.platform}, ${report.browser}`,
     '',
-    '| Interaction | Budget | p50 | p95 | max | n | Result |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    `Judged against: ${report.judgedAgainst}.`,
+    '',
+    '| Interaction | SPEC target | CI gate | Judged against | p50 | p95 | max | n | Result |',
+    '| --- | --- | --- | --- | --- | --- | --- | --- | --- |',
     ...report.budgets.map((b) =>
       b.skipped
-        ? `| ${b.label} | ${b.budget} ms | - | - | - | - | skipped |`
-        : `| ${b.label} | ${b.budget} ms | ${fmt(b.p50)} | ${fmt(b.p95)} | ${fmt(b.max)} | ${b.n} | ${b.pass ? 'pass' : '**FAIL**'} |`,
+        ? `| ${b.label} | ${b.target} ms | ${b.ci} ms | ${b.budget} ms | - | - | - | - | skipped |`
+        : `| ${b.label} | ${b.target} ms | ${b.ci} ms | ${b.budget} ms | ${fmt(b.p50)} | ${fmt(b.p95)} | ${fmt(b.max)} | ${b.n} | ${b.pass ? 'pass' : '**FAIL**'} |`,
     ),
     '',
     ...report.budgets.filter((b) => b.skipped || b.note).map((b) => `- ${b.label}: ${b.skipped ?? b.note}`),
