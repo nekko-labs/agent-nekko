@@ -259,6 +259,11 @@ export interface CatalogQuant {
   extraFiles?: string[];
   /** Short note for the picker, e.g. "best balance of size and quality". */
   note?: string;
+  /**
+   * `mlx`: the whole repo is one model folder (an MLX checkpoint), and
+   * `file` plus `extraFiles` are every file it needs. Absent means GGUF.
+   */
+  format?: 'mlx';
 }
 
 /** A model as offered for download, before it exists on disk. */

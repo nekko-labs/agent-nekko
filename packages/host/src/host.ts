@@ -259,7 +259,7 @@ export interface Host {
   engineImportModel(path: string): Promise<{ ok: boolean; message: string; model?: LocalModel }>;
   engineDeleteModel(id: string): Promise<{ ok: boolean; message: string }>;
   engineSaveModelPreset(id: string, preset: EngineLoadPreset): Promise<void>;
-  engineCatalog(query?: string): Promise<CatalogModel[]>;
+  engineCatalog(query?: string, format?: 'gguf' | 'mlx'): Promise<CatalogModel[]>;
   engineCatalogModel(id: string): Promise<CatalogModel | null>;
   engineCatalogDetail(id: string): Promise<CatalogModelDetail | null>;
   /** Where the library looks for models, plus known folders nobody has added. */
@@ -740,7 +740,8 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     engineImportModel: (path) => engine.importModel(path),
     engineDeleteModel: (id) => engine.deleteModel(id),
     engineSaveModelPreset: (id, preset) => engine.saveModelPreset(id, preset),
-    engineCatalog: (query) => (query ? engine.catalogSearch(query) : engine.catalogCurated()),
+    engineCatalog: (query, format) =>
+      format === 'mlx' ? engine.catalogSearch(query ?? '', 20, 'mlx') : query ? engine.catalogSearch(query) : engine.catalogCurated(),
     engineCatalogModel: (id) => engine.catalogModel(id),
     engineCatalogDetail: (id) => engine.catalogDetail(id),
     engineFolders: () => engine.folders(),
