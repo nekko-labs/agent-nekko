@@ -6,7 +6,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import type { EngineSettings, LocalModel } from '@agent-nekko/shared';
 import { DEFAULT_ENGINE_SETTINGS } from '@agent-nekko/shared';
-import { buildArgs, createEngineServer, explainLoadError, resolveCompanions, type EngineServer } from './server.js';
+import { buildArgs, createEngineServer, explainLoadError, probeFlags, resolveCompanions, type EngineServer } from './server.js';
 
 /**
  * The router, driven against a stand-in for `llama-server`.
@@ -304,6 +304,64 @@ describe('engine router', () => {
 
 describe('buildArgs', () => {
   const m = model('qwen3-8b');
+
+  const all = () => true;
+
+  it('adds the agent-speed defaults where the build supports them', () => {
+    const args = buildArgs(m, 9000, {}, undefined, all);
+    expect(args[args.indexOf('--cache-reuse') + 1]).toBe('256');
+    expect(args).toContain('--no-cache-idle-slots');
+    expect(args).toContain('--spec-default');
+    expect(args).not.toContain('--spec-draft-model');
+  });
+
+  it('leaves out every flag an older build does not know', () => {
+    const args = buildArgs(m, 9000, {}, undefined, (f) => f === '--cache-reuse');
+    expect(args).toContain('--cache-reuse');
+    expect(args).not.toContain('--spec-default');
+    expect(args).not.toContain('--no-cache-idle-slots');
+  });
+
+  it('turns speculative decoding off on request, and keeps it for vision models', () => {
+    expect(buildArgs(m, 9000, { speculative: false }, undefined, all)).not.toContain('--spec-default');
+    expect(buildArgs(m, 9000, {}, { mmproj: '/m/mmproj.gguf' }, all)).toContain('--spec-default');
+  });
+
+  it('adds a draft model beside the n-gram lookup when one is attached', () => {
+    const args = buildArgs(m, 9000, {}, { draftModel: '/m/small.gguf' }, all);
+    expect(args[args.indexOf('--spec-draft-model') + 1]).toBe('/m/small.gguf');
+    expect(args[args.indexOf('--spec-type') + 1]).toBe('draft-simple');
+    expect(args).toContain('--spec-default');
+  });
+
+  it('keeps embedding models on the plain path', () => {
+    const e = { ...model('nomic-embed'), architecture: 'nomic-bert' };
+    const args = buildArgs(e, 9000, {}, undefined, all);
+    expect(args).toContain('--embedding');
+    expect(args).not.toContain('--spec-default');
+    expect(args).not.toContain('--cache-reuse');
+  });
+
+  it('reads supported flags from the build and remembers them per binary', async () => {
+    let asked = 0;
+    const help = async () => {
+      asked++;
+      return '  --cache-reuse N   min chunk size\n  -kvu, --kv-unified\n  --spec-default\n';
+    };
+    const supports = await probeFlags('/fake/llama-server-a', help);
+    expect(supports('--cache-reuse')).toBe(true);
+    expect(supports('--spec-default')).toBe(true);
+    expect(supports('--no-cache-idle-slots')).toBe(false);
+    await probeFlags('/fake/llama-server-a', help);
+    expect(asked).toBe(1);
+  });
+
+  it('treats a build it cannot ask as knowing none of the newer flags', async () => {
+    const supports = await probeFlags('/fake/llama-server-b', async () => {
+      throw new Error('no such file');
+    });
+    expect(supports('--cache-reuse')).toBe(false);
+  });
 
   it('passes only what was asked for, so unset means the engine default', () => {
     expect(buildArgs(m, 9000, {})).toEqual([

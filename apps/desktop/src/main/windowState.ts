@@ -1,6 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { dataDir } from '@agent-nekko/host';
 
 export interface WindowBounds {
   width: number;
@@ -9,7 +8,20 @@ export interface WindowBounds {
   y?: number;
 }
 
-const FILE = () => join(dataDir(), 'window-state.json');
+/**
+ * Set by main once it has decided the data directory. Main does not run the
+ * host, so the host's own `dataDir()` is not initialised here (reading it
+ * threw, the catch below swallowed it, and bounds silently stopped saving).
+ */
+let dir: string | null = null;
+export function setWindowStateDir(path: string): void {
+  dir = path;
+}
+
+const FILE = () => {
+  if (!dir) throw new Error('window state directory not set');
+  return join(dir, 'window-state.json');
+};
 const DEFAULTS: WindowBounds = { width: 1280, height: 840 };
 
 export function loadWindowBounds(): WindowBounds {

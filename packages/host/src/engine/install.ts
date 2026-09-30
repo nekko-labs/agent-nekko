@@ -1,3 +1,4 @@
+import type { GpuAdapter } from '../gpu-adapters.js';
 import { execFile } from 'child_process';
 import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
@@ -47,6 +48,8 @@ export interface EngineInstallerDeps {
   engineDir: () => string;
   downloads: Downloads;
   getGpuStats: () => Promise<GpuStats | null>;
+  /** GPUs the OS reports, for machines with no stats tool (AMD, Intel). */
+  getGpuAdapters?: () => Promise<GpuAdapter[]>;
   fetch?: typeof fetch;
   platform?: EnginePlatform;
   arch?: string;
@@ -67,15 +70,17 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
   const releasePin = RUNTIME_RELEASES[runtime];
   const runtimeName = runtime === 'diffusion' ? 'stable-diffusion.cpp' : 'llama.cpp';
   const serverNames = runtime === 'diffusion' ? ['sd-server', 'sd-server.exe'] : SERVER_NAMES;
-  const candidates = runtime === 'diffusion' ? diffusionBuilds : buildsFor;
+  const candidates = (gpu: GpuStats | null, adapters: GpuAdapter[]) =>
+    runtime === 'diffusion' ? diffusionBuilds(platform, arch, gpu) : buildsFor(platform, arch, gpu, adapters);
   const selectAsset = runtime === 'diffusion' ? matchDiffusionAsset : matchAsset;
   const selectCompanion = runtime === 'diffusion' ? matchDiffusionCompanion : matchCompanion;
 
   /** What is usable right now, and what we would install if asked. */
   async function detect(): Promise<EngineInstall> {
     const gpu = await deps.getGpuStats().catch(() => null);
-    const available = candidates(platform, arch, gpu);
-    const recommended = candidates(platform, arch, gpu)[0];
+    const adapters = (await deps.getGpuAdapters?.().catch(() => [])) ?? [];
+    const available = candidates(gpu, adapters);
+    const recommended = available[0];
 
     const external = deps.externalPath?.();
     if (external && (await isExecutable(external))) {
@@ -127,9 +132,10 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
    */
   async function install(buildId?: string): Promise<{ ok: boolean; message: string; jobId?: string }> {
     const gpu = await deps.getGpuStats().catch(() => null);
+    const adapters = (await deps.getGpuAdapters?.().catch(() => [])) ?? [];
     const build = buildId
-      ? candidates(platform, arch, gpu).find((b) => b.id === buildId)
-      : candidates(platform, arch, gpu)[0];
+      ? candidates(gpu, adapters).find((b) => b.id === buildId)
+      : candidates(gpu, adapters)[0];
     if (!build) return { ok: false, message: 'No engine build matches this machine.' };
 
     const release = await fetchRelease();
@@ -241,7 +247,8 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
   }
 
   async function preview(buildId?: string): Promise<EngineInstallPreview | null> {
-    const available = candidates(platform, arch, await deps.getGpuStats().catch(() => null));
+    const gpu = await deps.getGpuStats().catch(() => null);
+    const available = candidates(gpu, (await deps.getGpuAdapters?.().catch(() => [])) ?? []);
     const build = buildId ? available.find(b => b.id === buildId) : available[0];
     const release = await fetchRelease();
     if (!build || !release) return null;

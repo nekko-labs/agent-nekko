@@ -120,13 +120,13 @@ describe('agent command terminal', () => {
     const sessionId = 'test-command';
     const call = { id: 'cmd', name: 'bash', input: { command: 'node -p 42' } };
     const result = await executeTool(call, { settings: getSettings(), sessionId, mode: 'yolo', requestApproval: async () => false });
-    const snapshot = terminalSnapshot(`agent_${sessionId}`);
+    const snapshot = await terminalSnapshot(`agent_${sessionId}`);
     expect(result.output.trim()).toBe('42');
     expect(snapshot?.info.agentSessionId).toBe(sessionId);
     expect(snapshot?.buffer).toContain('$ node -p 42');
     expect(snapshot?.buffer).toContain('42');
     writeTerminal(`agent_${sessionId}`, 'ignored');
-    expect(terminalSnapshot(`agent_${sessionId}`)?.buffer).toBe(snapshot?.buffer);
+    expect((await terminalSnapshot(`agent_${sessionId}`))?.buffer).toBe(snapshot?.buffer);
     closeTerminal(`agent_${sessionId}`);
   });
 });

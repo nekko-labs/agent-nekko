@@ -1,0 +1,16 @@
+[package]
+name = "nekko-bench"
+description = "Reproducible local-inference benchmarks: the same model file through Agent Nekko's engine, Ollama, LM Studio and vLLM, measured the same way."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+futures-util.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

@@ -1,7 +1,7 @@
 import type { App } from 'electron';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
-import { defaultUserDataDir } from '@agent-nekko/host';
+import { defaultUserDataDir } from '@agent-nekko/host/user-data';
 
 /** The profile folder name. */
 const PROFILE = 'Agent Nekko';

@@ -176,6 +176,7 @@ import { createRemoteService } from './remote.js';
 import { createMessagingService } from './messaging/service.js';
 import { detectAgentTools, installSubagent, refreshSubagent, subagentSnippet } from './integrations.js';
 import { getGpuStats, getGpuStatsFresh } from './gpu.js';
+import { detectGpuAdapters } from './gpu-adapters.js';
 import { getSystemStats } from './system.js';
 import { stopLocalServer } from './servers.js';
 import { lmsProbe, lmsLoad, lmsUnload } from './lms.js';
@@ -309,11 +310,11 @@ export interface Host {
   /** Every session waiting on a person right now, keyed by session id. */
   pendingInput(): Record<string, PendingInput>;
 
-  listTerminals(): TerminalInfo[];
+  listTerminals(): Promise<TerminalInfo[]>;
   listShells(): ShellOption[];
-  createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): TerminalInfo;
-  terminalSnapshot(id: string): TerminalSnapshot | null;
-  updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): void;
+  createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo>;
+  terminalSnapshot(id: string): Promise<TerminalSnapshot | null>;
+  updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): Promise<void>;
   writeTerminal(id: string, data: string): void;
   resizeTerminal(id: string, cols: number, rows: number): void;
   runInTerminal(id: string, command: string): void;
@@ -549,6 +550,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     dataDir,
     getGpuStats,
     getGpuStatsFresh,
+    getGpuAdapters: detectGpuAdapters,
     settings: () => ({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }),
     saveSettings: async (patch) => {
       const next = { ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine, ...patch };

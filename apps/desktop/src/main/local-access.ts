@@ -17,7 +17,7 @@ import { cliInstallStatus, installCli, writeCliLink } from './cli-install.js';
  * the same refresh.
  */
 
-type AppLike = Pick<App, 'isPackaged' | 'getAppPath' | 'getPath'>;
+export type AppLike = Pick<App, 'isPackaged' | 'getAppPath' | 'getPath'>;
 
 /**
  * Where the CLI looks for the link file: its own data directory, which is
