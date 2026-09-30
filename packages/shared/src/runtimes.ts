@@ -198,6 +198,7 @@ export interface LoadParams {
   ropeFreqScale?: number;
   /** Sampling seed. Absent means random. */
   seed?: number;
+  diffusion?: import('./engine.js').EngineLoadPreset['diffusion'];
   /**
    * Speculative decoding. On unless set false: n-gram lookup from the
    * conversation itself (llama.cpp's `--spec-default`), which needs no second

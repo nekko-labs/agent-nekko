@@ -88,6 +88,7 @@ export const ONBOARDING_VERSION = 1;
 
 export interface AppSettings {
   theme: ThemeMode;
+  navOrder?: string[];
   accent: string;
   /** Secondary accent used for the brand gradient and border beam. */
   accent2?: string;

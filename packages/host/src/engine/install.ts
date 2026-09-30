@@ -1,9 +1,14 @@
 import type { GpuAdapter } from '../gpu-adapters.js';
 import { execFile } from 'child_process';
+import { createHash } from 'crypto';
+import { createReadStream } from 'fs';
 import { chmod, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { join, relative, isAbsolute } from 'path';
 import type { EngineBuild, EngineInstall, EnginePlatform, GpuStats } from '@agent-nekko/shared';
 import { buildsFor, hasBinaries, matchAsset, matchCompanion, recommendedBuild } from './builds.js';
+import { diffusionBuilds, matchDiffusionAsset, matchDiffusionCompanion } from './diffusion.js';
+import { RUNTIME_RELEASES } from './runtime-releases.js';
+import type { EngineInstallPreview } from '@agent-nekko/shared';
 import type { Downloads } from './download.js';
 
 /**
@@ -38,6 +43,7 @@ interface EngineRecord {
 }
 
 export interface EngineInstallerDeps {
+  runtime?: 'llama' | 'diffusion';
   /** `<dataDir>/engine`, where managed builds land. */
   engineDir: () => string;
   downloads: Downloads;
@@ -60,13 +66,21 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
   const arch = deps.arch ?? process.arch;
   const doFetch = deps.fetch ?? globalThis.fetch;
   const run = deps.run ?? defaultRun;
+  const runtime = deps.runtime ?? 'llama';
+  const releasePin = RUNTIME_RELEASES[runtime];
+  const runtimeName = runtime === 'diffusion' ? 'stable-diffusion.cpp' : 'llama.cpp';
+  const serverNames = runtime === 'diffusion' ? ['sd-server', 'sd-server.exe'] : SERVER_NAMES;
+  const candidates = (gpu: GpuStats | null, adapters: GpuAdapter[]) =>
+    runtime === 'diffusion' ? diffusionBuilds(platform, arch, gpu) : buildsFor(platform, arch, gpu, adapters);
+  const selectAsset = runtime === 'diffusion' ? matchDiffusionAsset : matchAsset;
+  const selectCompanion = runtime === 'diffusion' ? matchDiffusionCompanion : matchCompanion;
 
   /** What is usable right now, and what we would install if asked. */
   async function detect(): Promise<EngineInstall> {
     const gpu = await deps.getGpuStats().catch(() => null);
     const adapters = (await deps.getGpuAdapters?.().catch(() => [])) ?? [];
-    const available = buildsFor(platform, arch, gpu, adapters);
-    const recommended = recommendedBuild(platform, arch, gpu, adapters);
+    const available = candidates(gpu, adapters);
+    const recommended = available[0];
 
     const external = deps.externalPath?.();
     if (external && (await isExecutable(external))) {
@@ -120,8 +134,8 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
     const gpu = await deps.getGpuStats().catch(() => null);
     const adapters = (await deps.getGpuAdapters?.().catch(() => [])) ?? [];
     const build = buildId
-      ? buildsFor(platform, arch, gpu, adapters).find((b) => b.id === buildId)
-      : recommendedBuild(platform, arch, gpu, adapters);
+      ? candidates(gpu, adapters).find((b) => b.id === buildId)
+      : candidates(gpu, adapters)[0];
     if (!build) return { ok: false, message: 'No engine build matches this machine.' };
 
     const release = await fetchRelease();
@@ -132,43 +146,48 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
       };
     }
     const names = release.assets.map((a) => a.name);
-    const assetName = matchAsset(build, names);
+    const assetName = selectAsset(build, names);
     if (!assetName) {
       return { ok: false, message: `The ${release.tag} release has no ${build.backend} build for this machine.` };
     }
     const asset = release.assets.find((a) => a.name === assetName)!;
-    const companionName = matchCompanion(build, assetName, names);
+    const companionName = selectCompanion(build, assetName, names);
+    if (build.companionPattern && !companionName) return { ok: false, message: 'The release is missing required runtime libraries.' };
     const companion = companionName ? release.assets.find((a) => a.name === companionName) : undefined;
 
     const dir = join(deps.engineDir(), build.id);
     const archivePath = join(dir, assetName);
 
     const job = await deps.downloads.start({
-      id: `engine:${build.id}`,
+      id: `engine:${runtime}:${build.id}`,
       kind: 'engine',
-      label: `llama.cpp ${release.tag} (${build.backend})`,
+      label: `${runtimeName} ${release.tag} (${build.backend})`,
       target: build.id,
       url: asset.url,
       dest: archivePath,
-      after: async (path) => {
+      verify: async path => asset.digest ? await verifyDigest(path, asset.digest) : null,
+      after: async (path, signal) => {
         // The archive is the download; unpacking it is what makes it an engine,
         // so it happens here, inside the job, and a failure fails the job rather
         // than leaving a downloaded file nobody can use. It runs as `after`
         // rather than `verify` because extracting consumes the archive, and a
         // file consumed before the transfer has renamed it fails the rename.
         try {
+          signal.throwIfAborted();
           await extract(path, dir, run);
           if (companion) {
             // CUDA's runtime libraries ship separately and the server will not
             // start without them beside it.
             const companionPath = join(dir, companion.name);
-            await downloadDirect(companion.url, companionPath, doFetch);
+            await downloadDirect(companion.url, companionPath, doFetch, signal);
+            if (companion.digest && await verifyDigest(companionPath, companion.digest)) throw new Error('Runtime-library checksum verification failed.');
             await extract(companionPath, dir, run);
             await rm(companionPath, { force: true });
           }
-          const bin = await findServerBinary(dir);
-          if (!bin) return 'The archive did not contain llama-server.';
+          const bin = await findServerBinary(dir, 0, serverNames);
+          if (!bin) return `The archive did not contain ${serverNames[0]}.`;
           if (platform !== 'win32') await chmod(bin, 0o755).catch(() => {});
+          signal.throwIfAborted();
           await writeRecord({
             binPath: bin,
             backend: build.backend,
@@ -183,13 +202,16 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
       },
     });
 
-    return { ok: true, message: `Downloading llama.cpp ${release.tag}.`, jobId: job.id };
+    return { ok: true, message: `Downloading ${runtimeName} ${release.tag}.`, jobId: job.id };
   }
 
   /** Remove a managed install. An external binary is never touched. */
   async function uninstall(): Promise<{ ok: boolean; message: string }> {
     const record = await readRecord();
     if (!record) return { ok: false, message: 'No managed engine is installed.' };
+    if (!/^[a-z0-9-]+$/.test(record.buildId)) return { ok: false, message: 'Invalid managed-runtime record. No files were removed.' };
+    const owned = relative(join(deps.engineDir(), record.buildId), record.binPath);
+    if (!owned || owned.startsWith('..') || isAbsolute(owned)) return { ok: false, message: 'The binary is outside its managed install. No files were removed.' };
     await rm(join(deps.engineDir(), record.buildId), { recursive: true, force: true });
     await rm(join(deps.engineDir(), RECORD_FILE), { force: true });
     return { ok: true, message: 'Removed the engine.' };
@@ -208,30 +230,35 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
     await writeFile(join(deps.engineDir(), RECORD_FILE), JSON.stringify(record, null, 2), 'utf8');
   }
 
-  async function fetchRelease(): Promise<{ tag: string; assets: Array<{ name: string; url: string }> } | null> {
+  async function fetchRelease(): Promise<{ tag: string; assets: Array<{ name: string; url: string; size: number; digest?: string }> } | null> {
     try {
-      const res = await doFetch(RELEASES_API, {
+      const res = await doFetch(`https://api.github.com/repos/${releasePin.repo}/releases/tags/${releasePin.tag}`, {
         headers: { accept: 'application/vnd.github+json', 'user-agent': 'agent-nekko' },
+        signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) return null;
-      const rows = (await res.json()) as Array<{
-        tag_name?: string;
-        assets?: Array<{ name?: string; browser_download_url?: string }>;
-      }>;
-      if (!Array.isArray(rows)) return null;
-
-      for (const row of rows) {
-        const assets = (row.assets ?? [])
-          .filter((a) => a.name && a.browser_download_url)
-          .map((a) => ({ name: a.name as string, url: a.browser_download_url as string }));
-        if (row.tag_name && hasBinaries(assets.map((a) => a.name))) {
-          return { tag: row.tag_name, assets };
-        }
-      }
-      return null;
+      const row = await res.json() as { tag_name?: string; assets?: Array<{ name?: string; browser_download_url?: string; size?: number; digest?: string }> };
+      const assets = (row.assets ?? []).filter(a => a.name && a.browser_download_url && a.size)
+        .map(a => ({ name: a.name!, url: a.browser_download_url!, size: a.size!, digest: a.digest }));
+      return row.tag_name === releasePin.tag ? { tag: row.tag_name, assets } : null;
     } catch {
       return null;
     }
+  }
+
+  async function preview(buildId?: string): Promise<EngineInstallPreview | null> {
+    const gpu = await deps.getGpuStats().catch(() => null);
+    const available = candidates(gpu, (await deps.getGpuAdapters?.().catch(() => [])) ?? []);
+    const build = buildId ? available.find(b => b.id === buildId) : available[0];
+    const release = await fetchRelease();
+    if (!build || !release) return null;
+    const names = release.assets.map(a => a.name);
+    const asset = selectAsset(build, names);
+    if (!asset) return null;
+    const companion = selectCompanion(build, asset, names);
+    if (build.companionPattern && !companion) return null;
+    const files = release.assets.filter(a => a.name === asset || a.name === companion).map(a => ({ name: a.name, sizeBytes: a.size }));
+    return { runtime, version: release.tag, build, files, sizeBytes: files.reduce((n, f) => n + f.sizeBytes, 0) };
   }
 
   async function probeVersion(bin: string): Promise<string | undefined> {
@@ -241,7 +268,7 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
 
   async function findOnPath(): Promise<string | null> {
     const finder = platform === 'win32' ? 'where' : 'which';
-    for (const name of SERVER_NAMES) {
+    for (const name of serverNames) {
       const out = await run(finder, [name], 4000);
       const first = out?.split('\n').map((l) => l.trim()).find(Boolean);
       if (first && (await isExecutable(first))) return first;
@@ -249,7 +276,7 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
     return null;
   }
 
-  return { detect, install, uninstall };
+  return { detect, install, uninstall, preview };
 }
 
 export type EngineInstaller = ReturnType<typeof createEngineInstaller>;
@@ -263,7 +290,7 @@ async function isExecutable(path: string): Promise<boolean> {
 }
 
 /** Depth-limited walk: the binary is a couple of levels down, never deeper. */
-async function findServerBinary(dir: string, depth = 0): Promise<string | null> {
+async function findServerBinary(dir: string, depth = 0, names = SERVER_NAMES): Promise<string | null> {
   if (depth > 3) return null;
   let entries;
   try {
@@ -272,11 +299,11 @@ async function findServerBinary(dir: string, depth = 0): Promise<string | null> 
     return null;
   }
   for (const entry of entries) {
-    if (entry.isFile() && SERVER_NAMES.includes(entry.name)) return join(dir, entry.name);
+    if (entry.isFile() && names.includes(entry.name)) return join(dir, entry.name);
   }
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      const hit = await findServerBinary(join(dir, entry.name), depth + 1);
+      const hit = await findServerBinary(join(dir, entry.name), depth + 1, names);
       if (hit) return hit;
     }
   }
@@ -320,11 +347,19 @@ async function extract(
 }
 
 /** A plain fetch-to-file, for the companion archive that has no job of its own. */
-async function downloadDirect(url: string, dest: string, doFetch: typeof fetch): Promise<void> {
-  const res = await doFetch(url, { redirect: 'follow' });
+async function downloadDirect(url: string, dest: string, doFetch: typeof fetch, signal: AbortSignal): Promise<void> {
+  const res = await doFetch(url, { redirect: 'follow', signal });
   if (!res.ok) throw new Error(`companion download failed (HTTP ${res.status})`);
   await mkdir(join(dest, '..'), { recursive: true });
   await writeFile(dest, Buffer.from(await res.arrayBuffer()));
+}
+
+async function verifyDigest(path: string, digest: string): Promise<string | null> {
+  const expected = digest.match(/^sha256:([a-f0-9]{64})$/i)?.[1];
+  if (!expected) return 'The release supplied an unsupported checksum.';
+  const hash = createHash('sha256');
+  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  return hash.digest('hex') === expected.toLowerCase() ? null : 'The downloaded runtime checksum does not match its release.';
 }
 
 function defaultRun(cmd: string, args: string[], timeoutMs = 10_000): Promise<string | null> {

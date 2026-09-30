@@ -1,0 +1,63 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mkdtemp, rm, writeFile, mkdir, stat } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { modelModality, type LocalModel } from '@agent-nekko/shared';
+import { diffusionBuilds, matchDiffusionAsset, matchDiffusionCompanion, diffusionArgs } from './diffusion.js';
+import { createEngineInstaller } from './install.js';
+import { createDownloads } from './download.js';
+const dirs: string[] = [];
+afterEach(async () => { for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true }); });
+
+describe('diffusion runtime', () => {
+  it('recognizes diffusion downloads before their GGUF header exists', () => {
+    expect(modelModality({ name: 'city96/stable-diffusion-3.5-large-gguf sd3.5_large-Q8_0.gguf' })).toBe('image');
+    expect(modelModality({ name: 'FLUX.1-dev-Q4_0.gguf' })).toBe('image');
+    expect(modelModality({ name: 'Qwen3-4B.gguf' })).toBe('chat');
+  });
+  it('matches platform, arch, backend and paired CUDA libraries', () => {
+    const names = ['sd-master-abc-bin-win-cuda12-x64.zip', 'cudart-sd-bin-win-cu12-x64.zip', 'sd-master-abc-bin-win-cpu-x64.zip', 'sd-master-abc-bin-Linux-Ubuntu-24.04-x86_64.zip', 'sd-master-abc-bin-Darwin-macOS-26.6.2-arm64.zip'];
+    const win = diffusionBuilds('win32', 'x64', null).find(b => b.backend === 'cuda')!;
+    expect(matchDiffusionAsset(win, names)).toBe(names[0]);
+    expect(matchDiffusionCompanion(win, names[0], names)).toBe(names[1]);
+    expect(diffusionBuilds('win32', 'arm64', null)).toEqual([]);
+    expect(matchDiffusionAsset(diffusionBuilds('darwin', 'arm64', null)[0], names)).toBe(names[4]);
+    expect(matchDiffusionAsset(diffusionBuilds('linux', 'x64', null)[0], names)).toBe(names[3]);
+  });
+  it('previews the pinned release and counts all required archive bytes', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-sd-preview-')); dirs.push(dir);
+    const installer = createEngineInstaller({ runtime: 'diffusion', engineDir: () => dir, downloads: createDownloads({}), getGpuStats: async () => null, platform:'win32', arch:'x64', run: async () => null,
+      fetch: (async () => new Response(JSON.stringify({ tag_name:'master-900-c92d73c', assets: [
+        { name: 'sd-master-c92d73c-bin-win-cuda12-x64.zip', browser_download_url:'https://github.com/example/main.zip', size:300 },
+        { name: 'cudart-sd-bin-win-cu12-x64.zip', browser_download_url:'https://github.com/example/libs.zip', size:600 },
+      ] }))) as typeof fetch });
+    expect((await installer.preview('sd-win-x64-cuda'))?.sizeBytes).toBe(900);
+  });
+  it('rejects a corrupt archive before extraction or installation', async () => {
+    const dir=await mkdtemp(join(tmpdir(),'nekko-sd-checksum-'));dirs.push(dir);
+    const downloads=createDownloads({fetch:(async()=>new Response('corrupt archive')) as typeof fetch});
+    const run=vi.fn(async()=>null);
+    const installer=createEngineInstaller({runtime:'diffusion',engineDir:()=>dir,downloads,getGpuStats:async()=>null,platform:'win32',arch:'x64',run,fetch:(async()=>new Response(JSON.stringify({tag_name:'master-900-c92d73c',assets:[{name:'sd-master-c92d73c-bin-win-cpu-x64.zip',size:15,browser_download_url:'https://github.com/example/runtime.zip',digest:`sha256:${'0'.repeat(64)}`}]}))) as typeof fetch});
+    expect((await installer.install('sd-win-x64-cpu')).ok).toBe(true);
+    await vi.waitFor(()=>expect(downloads.list()[0].state).toBe('failed'));
+    expect(downloads.list()[0].message).toMatch(/checksum/);expect(run).not.toHaveBeenCalled();
+  });
+  it('refuses to uninstall external binaries and never removes models', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-sd-external-')); dirs.push(dir);
+    const bin = join(dir,'external.exe'); await writeFile(bin,'fixture'); const owned=join(dir,'engine'); await mkdir(owned);
+    const installer=createEngineInstaller({runtime:'diffusion',engineDir:()=>owned,downloads:createDownloads(),getGpuStats:async()=>null,externalPath:()=>bin,run:async()=>null});
+    expect((await installer.detect()).source).toBe('external'); expect((await installer.uninstall()).ok).toBe(false); expect((await stat(bin)).isFile()).toBe(true);
+    await writeFile(join(owned,'engine.json'),JSON.stringify({buildId:'../external',binPath:bin})); expect((await installer.uninstall()).ok).toBe(false); expect((await stat(bin)).isFile()).toBe(true);
+  });
+  it('names missing SD3.5 encoders and uses diffusion flags instead of llama flags', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-sd-args-')); dirs.push(dir);
+    const model: LocalModel = { id:'sd3', name:'sd3.5_large', architecture:'sd3', modality:'image', path:join(dir,'sd3.gguf'), sizeBytes:1, addedAt:1 };
+    await expect(diffusionArgs(model,1234)).rejects.toThrow('clip_l');
+    for (const key of ['clip_l','clip_g','t5xxl']) await writeFile(join(dir,`${key}.safetensors`),'fixture');
+    const args = await diffusionArgs(model,1234);
+    expect(args).toContain('--diffusion-model');
+    expect(args).toContain('--clip_l');
+    expect(args).toContain('--listen-port');
+    expect(args).not.toContain('--ctx-size');
+  });
+});

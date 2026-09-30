@@ -6,7 +6,7 @@ import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import { createHost, createDispatcher } from '@agent-nekko/host';
+import { createHost, createDispatcher, defaultUserDataDir, prepareUserDataRoot } from '@agent-nekko/host';
 import { brandEnv, IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import { runRelayAgent } from './relay-agent.js';
 import { runCli } from 'agent-nekko/run';
@@ -26,7 +26,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const env = brandEnv;
 /** Default data dir: ~/.nekko. */
 function defaultDataDir(): string {
-  return join(homedir(), '.nekko');
+  return defaultUserDataDir();
 }
 
 const PORT = Number(env('PORT') ?? 1440);
@@ -58,6 +58,8 @@ async function main() {
     await runCli(process.argv.slice(2));
     return;
   }
+
+  prepareUserDataRoot();
 
   // Relay-agent mode: connect out to a relay instead of serving HTTP locally.
   const relayUrl = env('RELAY_URL');

@@ -1,5 +1,5 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
-import { basename, dirname, join, resolve, sep } from 'path';
+import { basename, dirname, join, relative, resolve, sep } from 'path';
 import type {
   EngineLoadPreset,
   LocalModel,
@@ -252,6 +252,7 @@ export function createLibrary(deps: LibraryDeps) {
       id: name ? `${root.id}/${name}` : idFor(root, path),
       name: name || meta?.name?.trim() || file.replace(/\.gguf$/i, ''),
       file: path,
+      sourceRepo: root.managed && /^(chat|vision|embedding|image|audio|draft|unknown)$/.test(relative(root.path, path).split(sep)[0]) ? repoFromTypedPath(root.path, path) : undefined,
       folderId: root.id,
       folderProvider: root.provider,
       quantization: meta?.quantization,
@@ -403,6 +404,12 @@ async function exists(path: string): Promise<boolean> {
  * A later shard, the projector, or a template we extracted, belonging to the
  * same model.
  */
+function repoFromTypedPath(root: string, path: string): string | undefined {
+  const repo = relative(root, path).split(sep)[1] ?? '';
+  const i = repo.indexOf('_');
+  return i > 0 ? `${repo.slice(0, i)}/${repo.slice(i + 1)}` : undefined;
+}
+
 function isCompanionOf(candidate: string, primary: string): boolean {
   if (candidate === primary) return false;
   const stem = primary.replace(/-00001-of-\d{5}\.gguf$/i, '').replace(/\.gguf$/i, '');

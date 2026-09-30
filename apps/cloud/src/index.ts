@@ -3,6 +3,7 @@ import { dirname, join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { brandEnv } from '@agent-nekko/shared';
+import { defaultUserDataDir } from '@agent-nekko/host';
 import { createCloudServer } from './server.js';
 import { createBilling } from './billing.js';
 
@@ -12,7 +13,7 @@ const PORT = Number(process.env.CLOUD_PORT ?? 4318);
 const HOST = process.env.CLOUD_HOST ?? '127.0.0.1';
 const isLocal = HOST === '127.0.0.1' || HOST === 'localhost' || HOST === '::1';
 const DATA_ROOT =
-  process.env.CLOUD_DATA_DIR ?? join(homedir(), '.nekko-cloud');
+  process.env.CLOUD_DATA_DIR ?? join(defaultUserDataDir(), 'cloud');
 
 // Reuse the desktop-built renderer (same UI as every edition).
 function findRendererDir(): string | undefined {
@@ -25,6 +26,7 @@ function findRendererDir(): string | undefined {
 }
 
 async function main() {
+  if (!process.env.CLOUD_DATA_DIR && existsSync(join(homedir(), '.nekko-cloud', 'cloud.json')) && !existsSync(join(DATA_ROOT, 'cloud.json'))) throw new Error('An existing cloud profile is in ~/.nekko-cloud. Stop the deployment and move it to ~/.agent-nekko/cloud, or set CLOUD_DATA_DIR explicitly. Existing cloud accounts are never replaced with an empty deployment.');
   const billing = createBilling();
   const { app } = createCloudServer({ dataRoot: DATA_ROOT, rendererDir: findRendererDir(), billing });
   await app.listen({ port: PORT, host: HOST });

@@ -22,7 +22,7 @@ const en: Dict = {
   'nav.training': 'Training',
   'nav.workflows': 'Workflows',
   'nav.models': 'Model Providers',
-  'nav.modelserver': 'Model Server',
+  'nav.modelserver': 'Nekko Server',
   'nav.connectors': 'Connectors',
   'nav.memory': 'Memory',
   'nav.settings': 'Settings',

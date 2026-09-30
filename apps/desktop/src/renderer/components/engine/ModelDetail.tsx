@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CatalogModelDetail, CatalogQuant, EngineMemory, LocalModel } from '@agent-nekko/shared';
-import { downloadFitVerdict } from '@agent-nekko/shared';
+import { downloadFitVerdict, modelModality } from '@agent-nekko/shared';
+import { DiffusionInstallCard } from './DiffusionInstallCard.js';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { CheckIcon, ChevronIcon, DownloadIcon, ExternalIcon } from '../../icons.js';
@@ -42,6 +43,9 @@ export function ModelDetail({
   const [model, setModel] = useState<CatalogModelDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'missing'>('loading');
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [imageInstall, setImageInstall] = useState<import('@agent-nekko/shared').EngineInstall>();
+  const [recommendRuntime, setRecommendRuntime] = useState(false);
+  const refreshImageRuntime = () => window.nekko.engineStatus().then(s => { setImageInstall(s.diffusionInstall); return s.diffusionInstall; }).catch(() => undefined);
 
   useEffect(() => {
     let live = true;
@@ -78,8 +82,15 @@ export function ModelDetail({
   }, [model, memory]);
 
   const download = async (quant: CatalogQuant) => {
+    if (!recommendRuntime && modelModality({ name: `${model?.name} ${modelId} ${model?.pipelineTag ?? ''} ${quant.file}` }) === 'image') {
+      const current = await refreshImageRuntime();
+      if (!current?.binPath) {
+        setRecommendRuntime(true);
+        return;
+      }
+    }
     setDownloading(quant.label);
-    const res = await window.nekko.engineDownloadModel(modelId, quant.label);
+    const res = await window.nekko.engineDownloadModel(modelId, quant.label).catch((e: Error) => ({ ok: false, message: e.message }));
     setDownloading(null);
     pushToast(res.ok ? 'info' : 'error', res.message);
     if (res.ok) onQueued();
@@ -103,6 +114,8 @@ export function ModelDetail({
           </p>
         </div>
       )}
+
+      {recommendRuntime && <div className="mt-4 border-b border-line pb-4"><p className="text-[13px]">This is an image model. Install the optional image runtime to generate here, or press Download again to get only the model.</p><DiffusionInstallCard install={imageInstall} onChanged={() => void refreshImageRuntime()} /></div>}
 
       {model && (
         <>

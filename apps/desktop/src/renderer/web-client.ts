@@ -275,8 +275,10 @@ function makeWebClient(): NekkoApi {
     runtimeAutoFit: (providerId, modelId, budgetFraction, parallelSlots) =>
       call(IpcChannels.runtimeAutoFit, providerId, modelId, budgetFraction, parallelSlots),
     engineStatus: () => call(IpcChannels.engineStatus),
-    engineInstall: (buildId) => call(IpcChannels.engineInstall, buildId),
-    engineUninstall: () => call(IpcChannels.engineUninstall),
+    engineInstall: (buildId, runtime) => call(IpcChannels.engineInstall, buildId, runtime),
+    engineUninstall: (runtime) => call(IpcChannels.engineUninstall, runtime),
+    engineInstallPreview: (runtime, buildId) => call(IpcChannels.engineInstallPreview, runtime, buildId),
+    engineGenerateImage: (request) => call(IpcChannels.engineGenerateImage, request),
     engineSettingsSave: (patch) => call(IpcChannels.engineSettingsSave, patch),
     engineModels: () => call(IpcChannels.engineModels),
     engineImportModel: (path) => call(IpcChannels.engineImportModel, path),

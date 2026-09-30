@@ -1,0 +1,56 @@
+name: Runtime release updates
+
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  repository_dispatch:
+    types: [runtime-release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: runtime-release-updates
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        runtime: [llama, diffusion]
+    steps:
+      - name: Check runtime updater App credentials
+        env:
+          APP_CLIENT_ID: ${{ vars.RUNTIME_UPDATE_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.RUNTIME_UPDATE_APP_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APP_CLIENT_ID" ] || [ -z "$APP_PRIVATE_KEY" ]; then
+            echo "::error::Configure RUNTIME_UPDATE_APP_CLIENT_ID and RUNTIME_UPDATE_APP_PRIVATE_KEY for an App installed only on this repository."
+            exit 1
+          fi
+      - name: Create repository-scoped App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1
+        with:
+          client-id: ${{ vars.RUNTIME_UPDATE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RUNTIME_UPDATE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node scripts/update-runtime-releases.mjs "$RUNTIME"
+        env:
+          RUNTIME: ${{ matrix.runtime }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}

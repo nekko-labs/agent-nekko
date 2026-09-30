@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { App } from 'electron';
-import type { Host } from '@agent-nekko/host';
+import { defaultUserDataDir, type Host } from '@agent-nekko/host';
 import { brandEnv, type SubagentTarget } from '@agent-nekko/shared';
 import { apiServerStatus, ensureApiServerToken, syncApiServer } from './api-server.js';
 import { cliInstallStatus, installCli, writeCliLink } from './cli-install.js';
@@ -25,7 +25,7 @@ export type AppLike = Pick<App, 'isPackaged' | 'getAppPath' | 'getPath'>;
  * Not the desktop app's userData: the CLI has no way to know where that is.
  */
 export function cliLinkDir(): string {
-  return brandEnv('DATA_DIR') ?? join(homedir(), '.nekko');
+  return defaultUserDataDir();
 }
 
 /**

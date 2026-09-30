@@ -18,7 +18,7 @@ import type {
   ModelFolderSuggestion,
   StopResult,
 } from '@agent-nekko/shared';
-import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl } from '@agent-nekko/shared';
+import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl, modelModality } from '@agent-nekko/shared';
 import { createCatalog, hfFileUrl } from './catalog.js';
 import { companionsDir } from './companions.js';
 import { createDownloads } from './download.js';
@@ -78,9 +78,12 @@ export function createEngine(deps: EngineDeps) {
     externalPath: deps.externalBinPath,
   });
 
+  const diffusionInstaller = createEngineInstaller({ runtime: 'diffusion', engineDir: () => join(engineDir(), 'diffusion'), downloads, getGpuStats: deps.getGpuStats });
+
   const server = createEngineServer({
     settings: deps.settings,
     binPath: async () => (await installer.detect()).binPath,
+    diffusionBinPath: async () => (await diffusionInstaller.detect()).binPath,
     findModel: (id) => library.find(id),
     listModels: () => library.list(),
     getGpuStats: deps.getGpuStatsFresh ?? deps.getGpuStats,
@@ -106,7 +109,8 @@ export function createEngine(deps: EngineDeps) {
     const quant = model?.quants.find((q) => q.label === quantLabel) ?? model?.quants[0];
     if (!model || !quant) return { ok: false, message: 'That model is no longer published.' };
 
-    const destFor = (file: string) => join(modelsDir(), modelId.replace('/', '_'), file.split('/').pop() as string);
+    const type = modelModality({ name: `${model.name} ${modelId} ${model.tags.join(' ')} ${model.pipelineTag ?? ''} ${quant.file}` });
+    const destFor = (file: string) => join(modelsDir(), type, modelId.replace('/', '_'), file.split('/').pop() as string);
     const jobId = `model:${modelId}:${quant.label}`;
 
     const job = await downloads.start({
@@ -304,6 +308,7 @@ export function createEngine(deps: EngineDeps) {
       : { budgetBytes: totalmem(), kind: 'ram' as const };
     return {
       install,
+      diffusionInstall: await diffusionInstaller.detect(),
       running: state.running,
       startedAt: state.startedAt,
       resident: state.resident,
@@ -333,8 +338,30 @@ export function createEngine(deps: EngineDeps) {
   return {
     // engine binary
     detectEngine: () => installer.detect(),
-    installEngine: (buildId?: string) => installer.install(buildId),
-    uninstallEngine: () => installer.uninstall(),
+    installEngine: (buildId?: string, runtime: 'llama' | 'diffusion' = 'llama') => (runtime === 'diffusion' ? diffusionInstaller : installer).install(buildId),
+    uninstallEngine: async (runtime: 'llama' | 'diffusion' = 'llama') => {
+      if (server.isRunning()) return { ok: false, message: 'Stop the model server before uninstalling a runtime.' };
+      if (downloads.list().some(j => j.id.startsWith(`engine:${runtime}:`) && downloads.isActive(j.id))) return { ok: false, message: 'Wait for the runtime installation to finish or cancel it before uninstalling.' };
+      return (runtime === 'diffusion' ? diffusionInstaller : installer).uninstall();
+    },
+    installPreview: (runtime: 'llama' | 'diffusion', buildId?: string) => (runtime === 'diffusion' ? diffusionInstaller : installer).preview(buildId),
+    generateImage: async (request: import('@agent-nekko/shared').ImageGenerationRequest): Promise<import('@agent-nekko/shared').ImageGenerationResult> => {
+      const { modelId, prompt, width, height, steps = 28, cfgScale = 4.5, seed = -1 } = request;
+      if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000 || ![width, height].every(n => Number.isInteger(n) && n >= 256 && n <= 2048 && n % 64 === 0) || !Number.isInteger(steps) || steps < 1 || steps > 100 || !Number.isFinite(cfgScale) || cfgScale < 0 || cfgScale > 30 || !Number.isSafeInteger(seed) || seed < -1) throw new Error('Use a prompt, dimensions from 256 to 2048 in multiples of 64, 1 to 100 steps and CFG from 0 to 30.');
+      const model = await library.find(modelId);
+      if (model?.modality !== 'image') throw new Error('Choose an image-generation model.');
+      const started = await load(modelId, model.preset ?? {});
+      if (!started.ok) throw new Error(started.message);
+      const key = deps.settings().apiKey;
+      const res = await fetch(`${engineBaseUrl(deps.settings())}/images/generations`, {
+        method: 'POST', headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) },
+        body: JSON.stringify({ model: modelId, prompt: `${prompt}\n<sd_cpp_extra_args>${JSON.stringify({ sample_params: { sample_steps: steps, guidance: { txt_cfg: cfgScale } }, seed })}</sd_cpp_extra_args>`, size: `${width}x${height}`, n: 1, output_format: 'png' }),
+        signal: AbortSignal.timeout(30 * 60_000),
+      });
+      const result = await res.json() as import('@agent-nekko/shared').ImageGenerationResult & { error?: { message?: string } };
+      if (!res.ok || !result.data?.length) throw new Error(result.error?.message ?? `Image generation failed (HTTP ${res.status}).`);
+      return result;
+    },
     // catalog + downloads
     catalogCurated: () => catalog.curated(),
     catalogSearch: (q: string) => catalog.search(q),
