@@ -56,7 +56,7 @@ export function findBrowser() {
   throw new Error('No Chrome, Edge or Chromium found. Set PERF_BROWSER to a Chromium binary.');
 }
 
-export async function launchBrowser({ port, width, height, vsync = false }) {
+export async function launchBrowser({ port, width, height, vsync = false, gpu = true }) {
   const bin = findBrowser();
   const args = [
     '--headless=new',
@@ -76,6 +76,11 @@ export async function launchBrowser({ port, width, height, vsync = false }) {
     'about:blank',
   ];
   if (!vsync) args.unshift('--disable-frame-rate-limit', '--disable-gpu-vsync');
+  // On a machine with no GPU, Chrome otherwise emulates one in software
+  // (SwiftShader) for compositing and WebGL, and the numbers measure the
+  // emulator. Without it, compositing is plain software and WebGL is off, so
+  // the terminal draws with xterm's DOM renderer.
+  if (!gpu) args.unshift('--disable-gpu');
   // CI containers run as root without the user namespaces the sandbox needs.
   if (process.platform === 'linux') args.unshift('--no-sandbox');
   const proc = spawn(bin, args, { stdio: 'ignore' });

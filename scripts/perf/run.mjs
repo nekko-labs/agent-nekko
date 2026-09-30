@@ -13,6 +13,7 @@
  *
  * --quick        fewer samples, for iterating locally
  * --strict       judge against the SPEC targets (real hardware at 120 Hz), not the CI gate
+ * --no-gpu       run the browsers without GPU emulation (for runners with no GPU)
  * --attempts <n> measure again (up to n runs) when a budget is missed, judging each
  *                budget on its best attempt; every attempt's p95 is reported
  * --report-only  write the report but exit 0 even when a budget is missed
@@ -94,7 +95,7 @@ process.on('SIGINT', async () => { await cleanup(); process.exit(130); });
 
 /** One browser on the app, with the handful of gestures the scenarios need. */
 async function openApp({ appUrl, cdpPort, vsync }) {
-  const browser = await launchBrowser({ port: cdpPort, ...CFG.viewport, vsync });
+  const browser = await launchBrowser({ port: cdpPort, ...CFG.viewport, vsync, gpu: !flag('no-gpu') });
   const cdp = await connectCdp(browser.wsUrl);
   const close = async () => { try { cdp.close(); } catch { /* gone */ } browser.proc.kill(); await sleep(300); };
   cleanups.push(close);

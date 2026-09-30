@@ -67,8 +67,9 @@ jobs:
       - run: npm run build:web
       - name: Speed contract
         # Judged against the 2x regression gate in budgets.mjs; a missed budget is
-        # measured once more before it fails the job (noisy shared runners).
-        run: node scripts/perf/run.mjs --out perf-results --attempts 2
+        # measured once more before it fails the job (noisy shared runners). The
+        # runner has no GPU, so Chrome runs without its software GPU emulation.
+        run: node scripts/perf/run.mjs --out perf-results --attempts 2 --no-gpu
       - name: Report
         if: always()
         run: cat perf-results/perf-report.md >> "$GITHUB_STEP_SUMMARY" || true
