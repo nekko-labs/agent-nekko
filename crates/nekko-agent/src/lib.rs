@@ -17,7 +17,8 @@
 
 pub mod claude;
 pub mod http;
-pub mod js;
+/// The JavaScript rules the providers follow, shared with the other ports.
+pub use nekko_js as js;
 pub mod providers;
 mod sse;
 pub mod stream;

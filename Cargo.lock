@@ -989,6 +989,7 @@ name = "nekko-agent"
 version = "0.1.0"
 dependencies = [
  "getrandom",
+ "nekko-js",
  "reqwest",
  "serde",
  "serde_json",
