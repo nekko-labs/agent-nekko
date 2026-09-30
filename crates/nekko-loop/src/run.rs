@@ -14,8 +14,8 @@ use crate::runaway::{RUNAWAY_NOTE, RunawayGuard};
 use nekko_js as js;
 use serde_json::{Map, Value, json};
 use std::future::Future;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 /// One piece of a streamed model response (`ProviderChunk`).
@@ -47,17 +47,42 @@ pub struct ChatRequest {
     pub max_output_tokens: Option<u64>,
 }
 
-/// Stop a run: the loop checks between chunks and before each step, and a
-/// client stops its request when it sees it (dropping the stream also does).
+/// Stop a run. The loop checks between chunks and before each step; a client
+/// registers `on_cancel` to stop its request at once, so a stream waiting on
+/// a long prompt does not have to deliver another chunk before it notices.
 #[derive(Clone, Default)]
-pub struct Cancel(Arc<AtomicBool>);
+pub struct Cancel(Arc<CancelInner>);
+
+#[derive(Default)]
+struct CancelInner {
+    done: AtomicBool,
+    hooks: Mutex<Vec<Box<dyn Fn() + Send + Sync>>>,
+}
 
 impl Cancel {
     pub fn cancel(&self) {
-        self.0.store(true, Ordering::SeqCst);
+        if self.0.done.swap(true, Ordering::SeqCst) {
+            return;
+        }
+        let hooks = std::mem::take(&mut *self.0.hooks.lock().unwrap_or_else(|e| e.into_inner()));
+        for hook in hooks {
+            hook();
+        }
     }
+
     pub fn is_cancelled(&self) -> bool {
-        self.0.load(Ordering::SeqCst)
+        self.0.done.load(Ordering::SeqCst)
+    }
+
+    /// Run `hook` when the run is cancelled (at once, if it already was).
+    pub fn on_cancel(&self, hook: impl Fn() + Send + Sync + 'static) {
+        let mut hooks = self.0.hooks.lock().unwrap_or_else(|e| e.into_inner());
+        if self.is_cancelled() {
+            drop(hooks);
+            hook();
+        } else {
+            hooks.push(Box::new(hook));
+        }
     }
 }
 
@@ -413,4 +438,29 @@ pub async fn run_agent<C: ModelClient, T: ToolRunner, E: FnMut(Value) + Send>(
     emit: &mut E,
 ) {
     Loop { opts: &mut opts, client, tools, emit }.run().await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::AtomicUsize;
+
+    #[test]
+    fn cancel_runs_each_hook_once_even_when_registered_late() {
+        let c = Cancel::default();
+        let n = Arc::new(AtomicUsize::new(0));
+        let n1 = n.clone();
+        c.on_cancel(move || {
+            n1.fetch_add(1, Ordering::SeqCst);
+        });
+        c.cancel();
+        c.cancel();
+        assert_eq!(n.load(Ordering::SeqCst), 1);
+        let n2 = n.clone();
+        c.on_cancel(move || {
+            n2.fetch_add(10, Ordering::SeqCst);
+        });
+        assert_eq!(n.load(Ordering::SeqCst), 11);
+        assert!(c.is_cancelled());
+    }
 }
