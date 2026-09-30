@@ -1,5 +1,5 @@
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
-import { basename, join, resolve, sep } from 'path';
+import { basename, dirname, join, resolve, sep } from 'path';
 import type {
   EngineLoadPreset,
   LocalModel,
@@ -7,8 +7,10 @@ import type {
   ModelFolderProviderId,
   ModelFolderStatus,
 } from '@agent-nekko/shared';
+import { modelModality } from '@agent-nekko/shared';
 import { readGgufMetadata } from './gguf.js';
 import { listOllamaModels } from './ollama.js';
+import { companionsDir } from './companions.js';
 
 /**
  * The models on this machine.
@@ -119,6 +121,9 @@ export function createLibrary(deps: LibraryDeps) {
         // Ollama's blobs are read from its manifests instead, and a Hugging Face
         // cache's blobs are the same bytes as the snapshot entries beside them.
         if (entry.isDirectory() && entry.name === 'blobs') continue;
+        // Our own sidecar store: its files belong to a model row, they are not
+        // rows themselves.
+        if (entry.isDirectory() && entry.name === '.companions') continue;
         if (entry.isDirectory() && depth < maxDepth) await walk(full, depth + 1);
         else if (entry.isFile() && entry.name.toLowerCase().endsWith('.gguf')) out.push(full);
       }
@@ -169,6 +174,28 @@ export function createLibrary(deps: LibraryDeps) {
       out.push({ ...stored, path, sizeBytes: size, managed: root.managed, folderId: root.id, folderProvider: root.provider });
     };
 
+    // Directories holding a multimodal projector. Gathered across the whole
+    // scan rather than checked per model, so the answer is the truth on disk
+    // at this instant rather than a flag that went stale in the index. The
+    // nekko-side companions dir counts too: it is where fetched projectors
+    // land for models in folders we do not write to.
+    const projectorDirs = new Set<string>();
+    const companionIds = new Set<string>();
+    for (const root of roots()) {
+      for (const path of root.provider === 'ollama' ? [] : await scanFolder(root)) {
+        if (/mmproj/i.test(basename(path))) projectorDirs.add(dirname(path).toLowerCase());
+      }
+    }
+    try {
+      const fetched = join(deps.modelsDir(), '.companions');
+      for (const key of await readdir(fetched)) {
+        const files = await readdir(join(fetched, key)).catch(() => [] as string[]);
+        if (files.some((f) => /mmproj/i.test(f) && f.toLowerCase().endsWith('.gguf'))) companionIds.add(key);
+      }
+    } catch {
+      /* no companions dir yet */
+    }
+
     for (const root of roots()) {
       // Ollama names its files by content hash, so its manifests are the only
       // place the model's name exists. Every other layout is a directory walk.
@@ -182,6 +209,20 @@ export function createLibrary(deps: LibraryDeps) {
         if (/mmproj/i.test(basename(path))) continue;
         await add(root, path);
       }
+    }
+
+    // Fold live modality facts onto the rows: what kind of model this is and
+    // whether a vision model's projector is actually there.
+    const compKey = (id: string) => basename(companionsDir(deps.modelsDir(), id));
+    for (const model of out) {
+      model.hasProjector =
+        projectorDirs.has(dirname(model.path).toLowerCase()) || companionIds.has(compKey(model.id));
+      model.modality = modelModality({
+        architecture: model.architecture,
+        name: `${model.id} ${model.name}`,
+        hasProjector: model.hasProjector,
+        readable: model.readable,
+      });
     }
 
     // Drop rows whose file is gone, so a model deleted in Explorer stops showing.
@@ -221,6 +262,10 @@ export function createLibrary(deps: LibraryDeps) {
       headDim: meta?.headDim,
       maxContext: meta?.maxContext,
       hasChatTemplate: Boolean(meta?.chatTemplate),
+      // False only when the header would not read at all: an old GGML file
+      // renamed .gguf, a truncated download. Absent on rows indexed before the
+      // flag existed, where it reads as true.
+      readable: meta !== null,
       addedAt: Date.now(),
     };
   }
@@ -282,6 +327,8 @@ export function createLibrary(deps: LibraryDeps) {
     const primary = roots()[0];
     const companions = (await scanFolder(primary)).filter((p) => isCompanionOf(p, model.path));
     for (const path of [model.path, ...companions]) await rm(path, { force: true });
+    // Sidecars we fetched for it live under our own dir, so they go too.
+    await rm(companionsDir(deps.modelsDir(), id), { recursive: true, force: true });
 
     const index = await readIndex();
     delete index.models[id];

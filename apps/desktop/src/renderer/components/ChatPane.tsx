@@ -727,6 +727,12 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           window.nekko.getSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
           void refreshSessions();
           break;
+        case 'session_meta':
+          // The session record changed mid-turn — a new agent plan, or a fresh
+          // title — so re-read it and refresh the sidebar/boards alongside.
+          window.nekko.getSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
+          void refreshSessions();
+          break;
       }
     });
     return off;

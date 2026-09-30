@@ -213,6 +213,12 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### Model server library rework (added 2026-09-30)
+
+The model list becomes modality-aware: each GGUF is classified and the row explains what it can and cannot do, startup and residency become per-model controls, and the server reports why a load failed instead of swallowing it.
+
+- [x] **T164**, Modality-aware library and fail-fast loads: classify every scanned GGUF by architecture into chat/vision/embedding/image/audio/draft, surface the badge plus filters and a "Can't run here" set, and refuse to spawn `llama-server` for modalities it cannot serve with a sentence naming the engine it needs. Resident state gains started/last-used/expiry timestamps, per-model TTL changes apply without a reload, `autoload` loads marked models in order at engine start, and a per-model `lastLoadError` translated from the child's log stays on the row until a load succeeds. `engineDownloadCompanions` fetches mmproj/template sidecars into a Nekko-owned `.companions` dir so borrowed folders stay read-only, `resolveCompanions` covers split shards and JSON-embedded chat templates, and new IPC (`engineDownloadCompanions`, `engineSetResidentTtl`, `engineSetAutoload`) is wired through dispatch, preload, and the web client. · [spec](SPEC.md#models--providers) · Done: 2026-09-30
+
 ### Reply suggestions (added 2026-09-30)
 
 After each reply, the model writes what the user is most likely to say next, shown as one-click chips and as composer ghost text.

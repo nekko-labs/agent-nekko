@@ -178,6 +178,9 @@ export function EngineSection({
               models={models}
               canLoad={installed}
               memory={status.memory}
+              resident={status.resident}
+              settings={status.settings}
+              running={running}
               onChanged={refresh}
               onOpenModel={onOpenModel}
             />

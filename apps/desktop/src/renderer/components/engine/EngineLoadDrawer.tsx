@@ -34,11 +34,19 @@ type Surface = 'simple' | 'advanced';
 export function EngineLoadDrawer({
   providerId,
   model,
+  autoloaded = false,
+  onToggleAutoload,
+  onFetchCompanions,
   onDone,
   onClose,
 }: {
   providerId: string;
   model: LocalModel & { loaded: boolean };
+  /** In the list loaded when the engine starts. */
+  autoloaded?: boolean;
+  onToggleAutoload?: (on: boolean) => void;
+  /** Fetch the projector and config sidecars this model's repo ships. */
+  onFetchCompanions?: () => void;
   onDone: () => void;
   onClose: () => void;
 }) {
@@ -173,6 +181,46 @@ export function EngineLoadDrawer({
           onChange={patch}
         />
       )}
+
+      {/* Residency and startup are one question — "how does this model behave
+          when I am not looking at it" — so they sit together rather than being
+          a load flag and a server setting. */}
+      <div className="mt-3 space-y-2 rounded-lg border px-3 py-2.5" style={{ borderColor: 'var(--line)' }}>
+        {onToggleAutoload && (
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[12px]">Load when the engine starts</p>
+              <p className="text-[11px] text-ink-faint">Comes up with these saved settings every time the engine does.</p>
+            </div>
+            <Toggle value={autoloaded} onChange={onToggleAutoload} />
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[12px]">Keep it loaded</p>
+            <p className="text-[11px] text-ink-faint">
+              Never evict it for sitting idle. Off means the server's idle limit applies.
+            </p>
+          </div>
+          <Toggle
+            value={params.ttlSeconds === 0}
+            onChange={(v) => patch({ ttlSeconds: v ? 0 : undefined })}
+          />
+        </div>
+        {model.modality === 'vision' && !model.hasProjector && onFetchCompanions && (
+          <div className="flex items-center justify-between gap-3 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
+            <div>
+              <p className="text-[12px]">Projector file missing</p>
+              <p className="text-[11px] text-ink-faint">
+                This model can read images only with its mmproj-*.gguf beside it. Text works either way.
+              </p>
+            </div>
+            <button className="btn btn-outline shrink-0 py-1 text-[11.5px]" onClick={onFetchCompanions}>
+              Fetch it
+            </button>
+          </div>
+        )}
+      </div>
 
       {plan ? (
         <FitBar plan={plan} />

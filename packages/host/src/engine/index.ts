@@ -1,5 +1,5 @@
 import { totalmem } from 'os';
-import { join, resolve } from 'path';
+import { dirname, join, resolve } from 'path';
 import { stat } from 'fs/promises';
 import type {
   CatalogModel,
@@ -19,6 +19,7 @@ import type {
 } from '@agent-nekko/shared';
 import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl } from '@agent-nekko/shared';
 import { createCatalog, hfFileUrl } from './catalog.js';
+import { companionsDir } from './companions.js';
 import { createDownloads } from './download.js';
 import { knownFolder, knownFolderCandidates } from './folders.js';
 import { createEngineInstaller } from './install.js';
@@ -80,6 +81,7 @@ export function createEngine(deps: EngineDeps) {
     listModels: () => library.list(),
     getGpuStats: deps.getGpuStatsFresh ?? deps.getGpuStats,
     workDir: () => join(engineDir(), 'templates'),
+    companionsDir: (modelId) => companionsDir(modelsDir(), modelId),
   });
 
   /* ------------------------------------------------------------ acquisition */
@@ -135,6 +137,84 @@ export function createEngine(deps: EngineDeps) {
     }
 
     return { ok: true, message: `Downloading ${model.name} (${quant.label}).`, jobId: job.id };
+  }
+
+  /**
+   * Fetch the files a model already on disk is missing: a vision projector
+   * first, then the small configs its repo ships.
+   *
+   * This is the fix for the weights arriving without them (a manual download,
+   * a file copied out of another app). Managed models get the files beside the
+   * weights, where any tool can see them; a borrowed folder is read-only, so
+   * the files land in the nekko-owned companions dir the server also reads.
+   */
+  async function downloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }> {
+    const model = await library.find(modelId);
+    if (!model) return { ok: false, message: 'That model is not in the library.' };
+    const repo = sourceRepoFor(model);
+    if (!repo) {
+      return {
+        ok: false,
+        message: `Cannot tell which Hugging Face repo ${model.name} came from, so there is nowhere to fetch its companion files from.`,
+      };
+    }
+    const found = await catalog.companions(repo);
+    if (!found) {
+      return { ok: false, message: `Could not read the ${repo} repo on Hugging Face. It may be private or renamed.` };
+    }
+
+    const wanted = [found.projector, ...found.sidecars].filter((f): f is string => Boolean(f));
+    if (!wanted.length) {
+      return { ok: true, message: `${repo} ships no companion files for ${model.name}.` };
+    }
+    const destDir = model.managed === false ? companionsDir(modelsDir(), model.id) : dirname(model.path);
+    let queued = 0;
+    for (const file of wanted) {
+      const fileName = file.split('/').pop() as string;
+      const dest = join(destDir, fileName);
+      const landed = await stat(dest).then((s) => s.size > 0).catch(() => false);
+      // A file already beside the weights counts even when the destination is
+      // the companions dir: no point fetching what is already there.
+      const beside = join(dirname(model.path), fileName);
+      const already = landed || (dest !== beside && (await stat(beside).then((s) => s.size > 0).catch(() => false)));
+      if (already) continue;
+      void downloads.start({
+        id: `companions:${modelId}:${file}`,
+        kind: 'model',
+        label: `${model.name} · ${fileName}`,
+        target: modelId,
+        url: hfFileUrl(repo, file),
+        dest,
+      });
+      queued += 1;
+    }
+    return queued
+      ? { ok: true, message: `Fetching ${queued} companion file${queued === 1 ? '' : 's'} for ${model.name} from ${repo}.` }
+      : { ok: true, message: `${model.name} already has every companion file ${repo} ships.` };
+  }
+
+  /**
+   * Which Hugging Face repo a library model came from, guessed from its id.
+   *
+   * A borrowed folder nests `publisher/repo/file` under the folder id
+   * (`lmstudio/unsloth/Qwen3-4B/file`), so the repo is the middle two segments.
+   * Our own downloads land in a dir named `owner_repo` (the single `_` the
+   * download path writes), so the first segment splits on its first `_`.
+   * Anything else (a loose import, an id a folder provider invented) returns
+   * undefined, which the caller turns into an honest "cannot tell" answer.
+   */
+  function sourceRepoFor(model: LocalModel): string | undefined {
+    if (model.sourceRepo) return model.sourceRepo;
+    const segs = model.id.split('/');
+    if (model.folderId && model.folderId !== 'primary' && segs.length >= 3) {
+      return `${segs[1]}/${segs[2]}`;
+    }
+    if ((!model.folderId || model.folderId === 'primary') && segs.length >= 2) {
+      const dir = segs[0];
+      const i = dir.indexOf('_');
+      if (i > 0 && i < dir.length - 1) return `${dir.slice(0, i)}/${dir.slice(i + 1)}`;
+    }
+    return undefined;
   }
 
   /* --------------------------------------------------------- model folders */
@@ -230,10 +310,14 @@ export function createEngine(deps: EngineDeps) {
     };
   }
 
-  /** Every model in the library, with load state folded in. */
+  /** Every model in the library, with load state and the last failure folded in. */
   async function models(): Promise<Array<LocalModel & { loaded: boolean }>> {
     const loaded = new Set(server.loadedIds());
-    return (await library.list()).map((m) => ({ ...m, loaded: loaded.has(m.id) }));
+    return (await library.list()).map((m) => ({
+      ...m,
+      loaded: loaded.has(m.id),
+      lastLoadError: server.loadErrorFor(m.id),
+    }));
   }
 
   async function start(): Promise<{ ok: boolean; message: string }> {
@@ -253,6 +337,7 @@ export function createEngine(deps: EngineDeps) {
     catalogModel: (id: string) => catalog.model(id),
     catalogDetail: (id: string): Promise<CatalogModelDetail | null> => catalog.detail(id),
     downloadModel,
+    downloadCompanions,
     downloads: () => downloads.list(),
     cancelDownload: (id: string) => downloads.cancel(id),
     dismissDownload: (id: string) => downloads.dismiss(id),
@@ -272,6 +357,16 @@ export function createEngine(deps: EngineDeps) {
     stop: (): Promise<StopResult> => server.stop(),
     load,
     unload: (id: string) => server.unload(id),
+    setResidentTtl: (id: string, ttlSeconds: number) => {
+      const r = server.setResidentTtl(id, ttlSeconds);
+      return { ok: r.ok, message: r.message ?? '' };
+    },
+    /** Add or remove a model from the list loaded when the engine starts. */
+    setAutoload: (id: string, enabled: boolean) => {
+      const current = deps.settings().autoload ?? [];
+      const next = enabled ? [...new Set([...current, id])] : current.filter((m) => m !== id);
+      return deps.saveSettings({ autoload: next });
+    },
     status,
     isRunning: () => server.isRunning(),
     resident: () => server.resident(),

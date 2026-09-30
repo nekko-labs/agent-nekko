@@ -255,6 +255,12 @@ export interface Host {
   engineFolders(): Promise<ModelFolderReport>;
   engineFoldersSave(folders: ModelFolder[]): Promise<ModelFolderReport>;
   engineDownloadModel(modelId: string, quantLabel: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  /** Fetch a resident-or-not model's missing companions (projector, configs). */
+  engineDownloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  /** Set a resident model's idle TTL in seconds (0 keeps it loaded). */
+  engineSetResidentTtl(modelId: string, ttlSeconds: number): Promise<{ ok: boolean; message: string }>;
+  /** Add or remove a model from the list loaded when the engine starts. */
+  engineSetAutoload(modelId: string, enabled: boolean): Promise<EngineSettings>;
   engineDownloads(): Promise<DownloadJob[]>;
   engineCancelDownload(id: string): Promise<void>;
   engineDismissDownload(id: string): Promise<void>;
@@ -685,6 +691,9 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     engineFolders: () => engine.folders(),
     engineFoldersSave: (folders) => engine.saveFolders(folders),
     engineDownloadModel: (modelId, quantLabel) => engine.downloadModel(modelId, quantLabel),
+    engineDownloadCompanions: (modelId) => engine.downloadCompanions(modelId),
+    engineSetResidentTtl: async (modelId, ttlSeconds) => engine.setResidentTtl(modelId, ttlSeconds),
+    engineSetAutoload: (modelId, enabled) => engine.setAutoload(modelId, enabled),
     engineDownloads: async () => engine.downloads(),
     engineCancelDownload: async (id) => engine.cancelDownload(id),
     engineDismissDownload: async (id) => engine.dismissDownload(id),

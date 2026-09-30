@@ -139,7 +139,14 @@ export function EngineServerSettings({
           <Toggle value={draft.jitLoad} onChange={(v) => setDraft({ ...draft, jitLoad: v })} />
         </Field>
 
-        <Field label="Start with Agent Nekko" hint="Bring the engine up when the app opens, so the endpoint is always there.">
+        <Field
+          label="Start with Agent Nekko"
+          hint={`Bring the engine up when the app opens. ${
+            (settings.autoload?.length ?? 0) > 0
+              ? `${settings.autoload!.length} model${settings.autoload!.length === 1 ? '' : 's'} marked "on start" load with it.`
+              : 'No models are marked "on start"; mark them in the Models tab.'
+          }`}
+        >
           <Toggle value={draft.autoStart} onChange={(v) => setDraft({ ...draft, autoStart: v })} />
         </Field>
       </div>
