@@ -1,8 +1,9 @@
-import React, { memo, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ContextBundle, SessionMeta, WorkspaceFolder } from '@agent-nekko/shared';
 import { getSessionWorkspaceIds, estimateTokens } from '@agent-nekko/shared';
 import { FolderIcon, FileIcon, PlusIcon, TrashIcon, ExternalIcon, ChevronIcon } from '../icons.js';
 import { useStore } from '../store.js';
+import { afterPaint } from '../afterPaint.js';
 import { SpecPanel } from './SpecPanel.js';
 import { ResourceDock } from './ResourceMonitor.js';
 import { ProviderLimitsDock } from './ProviderLimitsDock.js';
@@ -61,10 +62,12 @@ function baseName(p: string): string {
  *     ground as soon as a tree opens.
  */
 export const ContextInspector = memo(function ContextInspector({ sessionId: shown }: { sessionId: string | null }) {
-  // Follows the chat on screen one step behind: switching chats paints the
-  // chat first, and this panel's re-read of the new one comes right after
-  // rather than inside the switch.
-  const sessionId = useDeferredValue(shown);
+  // Follows the chat on screen one frame behind: switching chats paints the
+  // chat first, and this panel's re-read of the new one comes after that frame
+  // rather than inside the switch. (A deferred value is not enough: React can
+  // render it before the browser gets to paint.)
+  const [sessionId, setSessionId] = useState(shown);
+  useEffect(() => (shown === sessionId ? undefined : afterPaint(() => setSessionId(shown))), [shown, sessionId]);
   const settings = useStore((s) => s.settings);
   const sessions = useStore((s) => s.sessions);
   const refreshSettings = useStore((s) => s.refreshSettings);

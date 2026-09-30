@@ -147,7 +147,8 @@ export function locate(selector, text) {
   const el = [...document.querySelectorAll(selector)]
     .find((x) => x.checkVisibility() && (text == null || (x.getAttribute('title') ?? x.textContent ?? '').trim() === text));
   if (!el) return null;
-  el.scrollIntoView({ block: 'nearest' });
+  // Centred, not 'nearest': at the bottom edge a card sits under the floating resource HUD.
+  el.scrollIntoView({ block: 'center' });
   const r = el.getBoundingClientRect();
   return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + Math.min(r.height / 2, 12)) };
 }
