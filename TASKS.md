@@ -30,6 +30,7 @@ owner:
 - **Mobile**: `apps/mobile`, Capacitor wrapping the shared renderer (standalone, not a root workspace).
 - **Website**: `apps/website`, static hand-crafted HTML/CSS/JS (no framework, GitHub Pages), download buttons → GitHub Releases.
 - **Storage**: JSON files under the app data dir; usage analytics as JSONL. **No native modules**, spawn `ripgrep`/git via child_process when available, with JS fallbacks.
+- **Engine daemon** (revised 2026-09-30 by Philip): **Rust**, a Cargo workspace at the repo root with crates under `crates/`. `nekkod` (binary: tokio + axum, the `/api` wire, supervision, strangler proxy), `nekko-term` (portable-pty sessions), `nekko-infer` (inference router and runtime adapters), `nekko-bench` (benchmark harness). Shipped as a standalone per-platform binary in the app's resources, never loaded into Node. The UI stays Electron + React (web technology, for maintainability); GPUI or another native shell is deferred (see Backlog).
 
 ## Architecture Overview
 
@@ -70,6 +71,17 @@ The keystone Phase-2 decision: service logic was extracted out of `apps/desktop/
 > **The five-touch rule (recurring):** adding any renderer↔host capability means touching, in order: `shared/ipc.ts` (channel + `NekkoApi` type) → host impl + `host.ts` interface → `dispatch.ts` → `preload/index.ts` (Electron) → `web-client.ts` (web). Keep all five in sync. (Extending `setSessionOptions` is the same shape: update the `Pick` in **three** places, `sessions.ts`, the `host.ts` interface, and `shared/ipc.ts`.)
 
 See [spec-web-and-hosted.md](spec-web-and-hosted.md) for the full web/Docker/Cloud design, edition matrix, relay protocol, and ZDR boundary.
+
+### The Rust engine daemon (`nekkod`) and the strangler migration
+
+Today `createHost()` runs inside the Electron main process, so the agent loop, every pty, the llama-server router and synchronous session I/O share a process with window management and IPC. The target is a Rust daemon that owns the engine, with the TS host shrinking channel by channel until it is gone. The migration never has a big-bang cutover:
+
+- **One wire.** `nekkod` speaks exactly the web edition's protocol: `POST /api/:channel` with `{ args }`, and a `/api/events` WebSocket of `{ channel, payload }`. The renderer's `web-client.ts` therefore works against it unchanged. Terminal data gets its own binary WebSocket per terminal (`/api/term/:id`) so bulk output never goes through JSON.
+- **Strangler routing.** `nekkod` holds a table of channels it owns. Anything else is forwarded to a **TS host backend** it spawns and supervises (the existing host, run headless on a loopback port with a per-launch token, the same way `apps/server` runs it). Events are merged: `nekkod` subscribes to the backend's `/api/events` and fans them out with its own. Porting a service means moving its channels into the owned table and deleting the TS implementation; nothing else changes.
+- **Desktop topology.** Electron main becomes a thin shell: it spawns `nekkod` (from `resources/bin`), passes the data dir, a random port and a per-launch token, and keeps only what needs Electron (native dialogs, `shell`, the updater, window chrome) on `ipcMain`. The TS backend is started by `nekkod` with the Electron binary under `ELECTRON_RUN_AS_NODE=1`, so no separate Node runtime ships. The renderer receives the daemon URL and token from the preload and builds `window.nekko` from the web client plus the Electron-only overrides.
+- **Supervision.** `nekkod` restarts a crashed TS backend with backoff; Electron main restarts a crashed `nekkod`. The renderer's web client already reconnects its event socket; in-flight requests fail with a readable error rather than hanging.
+- **Security.** Loopback bind only, a bearer token on every HTTP and WebSocket request, and Host/Origin checks, matching `apps/server`'s `createApiSecurityHook`. The token never appears in a URL the renderer logs.
+- **Port order.** Terminals first (the hottest data path), then the inference router, then session storage, then providers and the agent loop, then tools/guardrails/changes, MCP, connectors/messaging/workflows, the relay agent and training. The web, npx and Docker editions move behind `nekkod` once the desktop path is proven, with per-platform binaries shipped as npm optional dependencies.
 
 ### Workspace windows (chat / terminal / file / files / browser / diff / pr / hypergate)
 
@@ -152,6 +164,18 @@ A workspace is a **split tree**, not a tab stack. `renderer/layout.ts` owns the 
 - **Live update + indicator**: when an agent edits files that map to a page, mark that card with an **"updating" badge**; on the agent's `done`/`changesUpdated`, re-capture so the user watches the snapshot change. Clicking the badge calls `openChatPane(sessionId)` to jump to the driving agent.
 - **Scope (v1)**: snapshots only (not an editable vector canvas, see Non-goals in spec). Page→file mapping starts heuristic (route table / manual tag) and can tighten later.
 
+## Performance design (the speed contract)
+
+How the rules in [SPEC's speed contract](SPEC.md#speed--responsiveness-the-speed-contract) are met and enforced.
+
+- **Store subscriptions are narrow.** No component subscribes to the whole zustand store. Components select the fields they render with `useShallow` or single-field selectors. Composer drafts live in component state and persist to `composerDrafts.ts` on a trailing debounce, so a keypress re-renders the composer and nothing else.
+- **Transcript windowing.** `components/agent-console/VirtualTranscript.tsx` (in-repo, no dependency) renders only the rows intersecting the viewport plus an overscan. Row heights are measured with one shared `ResizeObserver` and kept in a height cache keyed by block id; unmeasured rows use an estimate. The list sticks to the bottom while streaming unless the user has scrolled up, and keeps the anchored row in place when heights above it change.
+- **Frozen blocks.** Assistant text is split into top-level markdown blocks. Blocks before the last are memoized by content, so streaming re-parses only the tail block. Transcript rows are `React.memo` with stable props; streaming state reaches only the live row.
+- **One streaming path.** Agent events are folded once (`liveRuns.ts`) and delivered to subscribers at most once per animation frame. A chat pane does not also run its own 50 ms flush over the same events.
+- **Warm set for switching.** A renderer session cache (LRU, at most 8 chats and about 24 MB of message text) holds transcripts of recently opened chats and serves them instantly, revalidating in the background. The last 3 chat windows stay mounted with `display: none` (virtualized, so a hidden pane costs its visible rows only). `listSessions` returns summaries without messages; full transcripts are fetched per chat.
+- **Terminal path.** The daemon coalesces pty output per terminal into one frame per 8 ms (or 64 KB, whichever first) on a binary WebSocket. The client acknowledges consumed bytes; above 1 MB unacknowledged the daemon stops reading the pty, which back-pressures the program instead of the UI. Keystrokes are fire-and-forget WebSocket frames, not request/response calls. Scrollback is a byte ring buffer, never string concatenation. The renderer is `ghostty-web` (Ghostty's VT core in WebAssembly) by default and xterm.js with the WebGL addon as the fallback (`settings.terminal.renderer`), chosen automatically if the WebAssembly module cannot load.
+- **How it is tested.** `scripts/perf/` drives headless Chromium over the DevTools protocol (the `ws` client already in the tree, no Playwright) against the web edition with a scripted OpenAI-compatible mock provider and a seeded 1,000-message chat. Keypresses are real `Input.dispatchKeyEvent` events; latency is measured in the page from the event's timestamp to the first frame after its effect is committed (`requestAnimationFrame` then a message-channel tick), with Event Timing entries recorded alongside. Streaming frame work comes from a `PerformanceObserver` on long animation frames. Each budget runs enough samples for a stable p95 and fails the `perf` CI job when exceeded; the report is uploaded as a CI artifact so regressions show the number, not only the failure.
+
 ## Coding Conventions
 
 Extends `../../knowledgebase/principles/coding.md` (which these override).
@@ -167,7 +191,8 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Constraints
 
-- **No native node modules** (avoids Electron rebuild pain); **no pnpm**; **Windows-first** dev but keep code cross-platform.
+- **No native node modules** (avoids Electron rebuild pain); **no pnpm**; **Windows-first** dev but keep code cross-platform. Rust lives in the separate `nekkod` binary only, never as a Node addon.
+- **Rust daemon hygiene**: `cargo fmt --check`, `cargo clippy -- -D warnings` and `cargo test` pass in CI on Linux, macOS and Windows; the daemon never panics on bad input (errors become a `{ error }` reply), and every child process it spawns is killed when it exits.
 - **Not a full IDE**: lightweight textarea editor (not Monaco/CodeMirror), no LSP/debugger; `<webview>` browser is a preview, not a hardened browser; Design board shows snapshots, not an editable canvas.
 - The web/Docker server grants file + shell access to whoever can reach it → **bind to `127.0.0.1` by default**; exposing beyond localhost requires `--host`/`NEKKO_HOST=0.0.0.0` **and** a token (`NEKKO_TOKEN`), with a prominent banner. Guardrails + sandbox modes live in the host (not the UI), so they apply identically across editions.
 - **Local Windows `dist` is blocked** by Defender quarantining `app-builder.exe` (AV false-positive), release CI runners are unaffected; don't change Defender settings unprompted.
@@ -212,6 +237,39 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 - [ ] Cut the **v1.0 release** once the above land (bump versions + tag). *Status 2026-09-30: PR #203 (`chore/release-v0.8.0`) sits open and mergeable as the next version bump, a pure 5-file version change; merging it fires the public release workflow, so it waits on the same credentials below (npm publish cred, remaining Windows signing, macOS notary trio) plus an explicit go. The GUI pass above is the only functional gate left on the list.*
 
 ## Now / In Progress
+
+### PF: Speed contract and the Rust engine daemon (added 2026-09-30)
+
+Philip's call: keep the UI on web technology, move the engine into a Rust daemon, make local inference the fastest option for an agent, and hold the UI to one frame (8 ms at 120 Hz) with CI enforcing it. Design: [speed contract](SPEC.md#speed--responsiveness-the-speed-contract), [tokens/s plan](SPEC.md#running-a-model-with-nothing-else-installed), [daemon architecture](#the-rust-engine-daemon-nekkod-and-the-strangler-migration), [performance design](#performance-design-the-speed-contract). IDs use the `PF` prefix so they cannot collide with concurrent `T` numbering.
+
+- [ ] **PF1**, CI measures the speed contract and fails a change that breaks it.
+  - `scripts/perf/`: headless Chromium over CDP against the web edition, scripted mock provider, seeded 1,000-message chat; keypress-to-paint (composer, terminal), frame work while streaming at 300 tok/s, warm/cold chat switch. p95 against the SPEC budgets; new `perf` CI job with the report as an artifact.
+- [ ] **PF2**, Typing re-renders only the composer.
+  - Selector-based store subscriptions everywhere on the chat path; drafts out of the global store with debounced persistence; memoized transcript rows and stable callbacks; one streaming delivery path per frame (drop ChatPane's duplicate 50 ms flush over `liveRuns`).
+- [ ] **PF3**, Long chats render only what is on screen.
+  - In-repo `VirtualTranscript` with measured variable heights, bottom anchoring while streaming, scroll-position preservation.
+- [ ] **PF4**, Streaming replies re-parse only the block being written.
+  - Block-split markdown with memoized finished blocks; tail block parsed at most once per frame.
+- [ ] **PF5**, Switching chats, windows and tabs is instant.
+  - Summary-only `listSessions`; renderer LRU session cache with stale-while-revalidate; last 3 chat windows kept mounted and hidden; cold chats paint their frame first and the newest history next.
+- [ ] **PF6**, The engine runs in its own Rust daemon, and a crash no longer takes the window with it.
+  - Cargo workspace; `nekkod` with the `/api` wire, token auth, strangler proxy to a supervised TS host backend, merged events; Electron main reduced to a thin shell; renderer on the web-client transport; CI builds and tests on all three OSes; release bundles the binary.
+- [ ] **PF7**, The terminal keeps up with anything and never freezes the app.
+  - Rust pty sessions (`nekko-term`) with ring-buffer scrollback, per-terminal binary WebSocket, frame-coalesced output with acknowledgement flow control, fire-and-forget input; `ghostty-web` renderer by default with xterm.js + WebGL fallback.
+- [ ] **PF8**, The model server's router runs in Rust.
+  - Port `engine/server.ts`'s data plane (children, load on demand, LRU, idle TTL, streaming proxy, key/CORS rules) into `nekko-infer`; the TS control-plane channels forward to it until they are ported too. Sequence after T165 lands, since T165 adds image children to the same router.
+- [ ] **PF9**, A chat's prompt cache survives between turns.
+  - Session-pinned slots (`id_slot`, `cache_prompt`), `--cache-reuse`, slot save/restore to disk on eviction and return; the provider tags requests with the session so the router can pin it.
+- [ ] **PF10**, Speculative decoding is on by default when a matching draft model is present.
+  - Attach a same-family draft GGUF via `--model-draft` with tuned draft bounds; n-gram prompt lookup where the pinned llama.cpp build supports it; per-model off switch; the planner counts the draft's memory.
+- [ ] **PF11**, Sub-agents share one loaded model instead of queueing.
+  - Parallel slots with a unified KV pool, sized by the fit planner from expected concurrency.
+- [ ] **PF12**, Each machine gets its fastest backend, including MLX on Apple Silicon.
+  - GPU probe recognizes AMD and Intel GPUs so they get Vulkan, not CPU; a managed MLX runtime (consent-gated install, MLX model catalog from Hugging Face, adapter behind the same router).
+- [ ] **PF13**, Benchmarks against Ollama, LM Studio and vLLM are reproducible and published.
+  - `nekko-bench`: same file and quantization per engine; TTFT, prefill and decode tok/s, concurrent throughput, multi-turn agent-task time; JSON + a markdown report in `docs/benchmarks.md` naming the machine.
+- [ ] **PF14**, The rest of the engine moves to Rust, service by service, and the TS host is retired.
+  - In order: session storage, providers + agent loop, tools/guardrails/changes, MCP, connectors/messaging/workflows, relay agent, training. Then the web, npx and Docker editions run behind `nekkod` (per-platform binaries as npm optional dependencies).
 
 ### Model server library rework (added 2026-09-30)
 
@@ -292,6 +350,17 @@ Fifth major product pillar, not a variation of chat model routing. See the [plan
 - [x] **T125**, **macOS Developer ID signing + notarization, live as of v0.6.0.** The release workflow now signs, hardens, notarizes, staples, and verifies the macOS build, so a release `.dmg` now installs with no `xattr` workaround. Agent Nekko is packaged by **electron-builder**, which does all of this internally, so this deliberately does *not* copy Hypergate's hand-rolled `codesign`/`productbuild`/`productsign`/`notarytool` pipeline (that exists only because Hypergate ships a Rust + Node-SEA `.pkg`), and no `Developer ID Installer` certificate is needed: `.dmg`/`.zip` are signed with the Application cert. `hardenedRuntime` went `false` → `true` with new `build/entitlements.mac.plist` (`allow-jit` + `allow-unsigned-executable-memory` for V8, `disable-library-validation` because `@lydell/node-pty`'s prebuilt `.node` is dlopen'd from outside the asar, `allow-dyld-environment-variables` for spawning shells/agents/MCP servers); `notarize` stays `false` in the committed config and the workflow passes `-c.mac.notarize=true`, so a local `npm run dist` never demands an Apple API key. `scripts/after-pack.cjs` keeps ad-hoc signing as the unsigned-build fallback but early-returns when `CSC_LINK`/`CSC_NAME` is set so it can't fight the real signature. Enabling the hardened runtime surfaced a **latent crash**: `QrScanner.tsx` calls `getUserMedia` with no `NSCameraUsageDescription`, and a missing usage string kills the process rather than denying a prompt, so that plus `device.camera` were added. CI fails closed on a partially configured secret set (a signed-but-unnotarized app is still Gatekeeper-blocked while looking fine) and verifies every signed build with `codesign --verify --deep --strict`, `stapler validate`, and `spctl --assess` (note the ticket staples to the **`.app`, not the `.dmg`**). Verified locally against the real `Developer ID Application: Nekko Labs LLC (3HM5598S99)` identity. New `docs/signing.md`; README's "Agent Nekko is damaged" section rewritten and kept only as a pre-v0.6.0 note. **Unblocked 2026-08-14**: Philip set the five `nekko-labs` org secrets by hand (they are write-only, so Hypergate's could not be copied, and the `.p12` export needed his keychain password + org-admin). Two things bit on the way in, both worth knowing before the certificate rolls. **(1)** A first attempt had `MACOS_SIGNING_CERTS_P12` set and the other four missing, and the fail-closed validation caught it exactly as designed. **(2)** The second attempt failed at `security import` with `MAC verification failed during PKCS12 import`, because `gh secret set` without `--body` reads its value from **stdin**, so pasting the five commands as a block made `MACOS_CERT_PASSWORD` swallow the *next command's text* as its value. electron-builder echoes its `-P` argument on failure, which is how the command text was visible in the log. Set interactive secrets one command at a time, or with `read -rs "P?prompt: "` piped to `--body` (note `read -p` is bash-only; Philip's shell is zsh). A local `openssl pkcs12 -info` check is misleading here: OpenSSL 3 rejects Keychain's `RC2-40-CBC` payload with an `unsupported` algorithm error unless `-legacy` is passed, which looks like a bad password but is not, and the MAC verifying is the part that actually proves the password. First notarized build verified in CI: `valid on disk`, satisfies its Designated Requirement, `flags=0x10000(runtime)`, `Authority=Developer ID Application: Nekko Labs LLC (3HM5598S99)`, `stapler` validated, and `spctl` **accepted / source=Notarized Developer ID**. · [spec](SPEC.md#distribution--platforms) · Added: 2026-08-07 · Done: 2026-08-14
 
 ## Backlog / Planned
+
+### Later: native shell and the phone as its own product (added 2026-09-30)
+
+Planned by Philip for later; not started. See [SPEC roadmap](SPEC.md#roadmap-beyond-one-machine).
+
+- [ ] **PF20**, A native GPU-rendered desktop shell, if the web UI cannot hold the speed contract.
+  - GPUI (via the standalone `gpui-box` distribution) or similar, as another client of `nekkod`. Revisit only after PF1-PF7 land and the budgets have data behind them; the terminal would move to `alacritty_terminal` or libghostty drawn in the same GPU pipeline.
+- [ ] **PF21**, The phone app becomes a remote and cloud client of its own.
+  - Diverges from the shared renderer: a purpose-built client for the user's own `nekkod` (over the relay) and later for cloud runners, in the spirit of Claude Code on the phone. Start, follow, approve and steer runs; push when a run needs input.
+- [ ] **PF22**, On-device local models on the phone, as a separate product.
+  - llama.cpp (Android/iOS) or MLX (iPhone) running models sized to the device; its own app and positioning, not a mode of the remote client. Needs its own SPEC before any build.
 
 ### Workbench resizable splits (86)
 - [x] **T86**, Resizable workbench columns. **Closed by T153**, which replaced the interchangeable columns with a fixed chat column plus a side column and put a real drag handle between them: pointer-capture drag (so it keeps tracking over a pane's own iframe or terminal), arrow-key resize, clamped to 20-80%, persisted to `localStorage`. The original note, for context: the workbench already splits into up to 3 columns (`MAX_GROUPS = 3`), but each column gets an equal `flex: 1` share. Add a drag handle between adjacent groups so the user can resize column widths freely (like VS Code / Warp / Cursor). The handle lives between rendered `<PaneGroupView>`s, uses pointer events for the drag gesture, clamps each column to a min/max width, and persists the per-group `flexGrow` or pixel widths so splits survive a reload. No new deps; reuse the same pointer-event resize pattern already used by the context panel's Folders/Context divider (`startResize` in `ContextInspector`). *Planned: 2026-07-14.*

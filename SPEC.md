@@ -55,6 +55,8 @@ These are aspirations, not generally available capabilities or launch promises:
 - **Local task runners:** expand today's local shell/agent workflow foundation into a practical alternative for jobs otherwise consuming hosted CI credits. GitHub Actions workflow compatibility and untrusted pull-request execution require their own design and security review; neither is implied by local shell steps.
 - **Team workflows:** shared definitions, run coordination, access controls, and auditable outcomes across a team.
 - **Optional cloud runners:** explore only if users want them. A paid service must remain optional and must not weaken the local-first experience.
+- **Phone app as its own client:** the phone app stops sharing the desktop renderer and diverges into a purpose-built remote client, first for the user's own machine and later for cloud runners, in the spirit of Claude Code on the phone: start, follow, approve, and steer runs, with push when a run needs input. After that, **on-device local models** become their own phone product (llama.cpp or MLX on the phone, sized to what the device can hold), not a mode of the remote client.
+- **Native desktop shell:** a GPU-rendered native UI (GPUI or similar) remains an option once the Rust engine daemon owns the engine. It is deferred: the desktop UI stays web technology (Electron + React) for maintainability, and the speed contract below is met there first.
 
 Existing cloud prototypes and older branding elsewhere in this spec describe implementation history or parallel work, not a requirement to launch a hosted product before the local Agent Nekko experience.
 
@@ -96,6 +98,14 @@ The **Folders** tab is that list, and all of it is editable: retype a path, swit
 **Serving.** The engine presents **one address** (`http://127.0.0.1:11500/v1` by default) that any OpenAI-compatible tool can point at, with a `llama-server` process per loaded model behind it. The address and port are shown whether the server is running or stopped, so another tool can be configured before the engine ever starts; the default port is a shared constant, never re-typed per surface. Several models stay resident at once; a request for one that is not loaded loads it; an idle model is evicted on a timer; and the address stays valid across loads and unloads, so a chat or an external tool configured once keeps working. Models marked **on start** load in order with their saved settings when the engine starts, a failure logged and never blocking the rest; and the library's **In memory** section shows what is resident (when it loaded, when it was last used, how much VRAM and context it holds, when it expires) with an unload action and a per-model idle timeout that can be changed without a reload. A failed load is kept on the model's row as a readable reason, translated from llama.cpp's log where a known cause matches, rather than lost. The **Server** tab carries what every other local model server puts in its own app: port, whether it is reachable from the network or only this computer, an API key, allowed browser origins, how many models may be resident, the idle timeout, load-on-demand, start-with-the-app, and where models are kept. The defaults are the safe ones, and the two settings that can expose the machine say so in the sentence next to them rather than in a tooltip.
 
 Because the file is ours, its GGUF header is read directly, so the layer count, KV head count, head dimension and trained context are **facts rather than gaps**: the memory projection for a model the engine holds is exact where the same projection for another server's model has to report parts of itself as unknown. After a load the real residency is measured against what was projected, and the difference feeds the same calibration record the other runtimes use.
+
+**The fastest local tokens/s** `[planned]`. With one user, every engine runs into the same wall (memory bandwidth), so Agent Nekko competes with Ollama, LM Studio and vLLM on what an agent actually does rather than on kernels it did not write:
+
+- **The fastest backend for this machine, picked for you.** MLX on Apple Silicon, llama.cpp with CUDA on NVIDIA, Vulkan on AMD and Intel GPUs (never CPU just because the GPU vendor is not NVIDIA), each started with settings tuned for that backend.
+- **The prompt cache survives between turns.** An agent resends a large system prompt, the project context and every tool result on each turn. Each chat keeps its own warm cache slot on the engine, so a follow-up turn only processes what is new; a chat that went idle has its cache saved to disk and restored when it comes back. Time to first token, the delay users actually feel, is the headline number.
+- **Speculative decoding by default.** When a small draft model from the same family is present, the engine uses it to guess tokens that the full model then checks, and prompt lookup does the same with text already in the conversation. Code edits repeat much of their input, so this is where the biggest speedups land. It is on by default and switches off per model.
+- **Sub-agents run side by side.** The engine serves several requests at once from one loaded model with a shared cache pool, sized by the fit planner, instead of queueing them one after another.
+- **Published, reproducible benchmarks.** A benchmark harness runs the same model file at the same quantization through Agent Nekko, Ollama, LM Studio and vLLM (where the platform supports it) and reports time to first token, decode tokens/s, prefill tokens/s, concurrent throughput and end-to-end agent-task time. Results are published with the machine they ran on; a claim that the numbers do not support is not made.
 
 ### Setting up a local model
 
@@ -212,6 +222,35 @@ Where remote control is the whole app on a phone, **messaging channels** are the
 ## Feature Set
 
 > Living catalog of capabilities, grouped by area, marked `[shipped]` / `[in progress]` / `[planned]`. Capability-level descriptions; the task-level breakdown (with stable IDs and history) lives in [TASKS.md](TASKS.md) Part 2, and the full technical design for the web/Docker/Cloud editions lives in [spec-web-and-hosted.md](spec-web-and-hosted.md).
+
+### Speed & responsiveness (the speed contract)
+
+Agent tools feel slow when the UI waits on something or redraws too much. Agent Nekko treats responsiveness as a feature with numbers, and CI fails a change that breaks them. The desktop UI stays web technology (Electron + React) for maintainability; the engine behind it moves into a separate Rust daemon so the window never shares a process with the agent loop, the terminals or the model server. `[in progress]`
+
+**The rules.**
+
+- **The UI thread never does disk or network work.** Every read and write goes to the engine asynchronously; nothing on the input path waits on a file, a socket or the engine.
+- **A keypress shows on screen within one frame: 8 ms at 120 Hz.** This holds in the chat composer and in the terminal, in a chat with a thousand messages, while a reply is streaming. It is measured in CI on every change.
+- **Only the part of the transcript that is on screen is rendered.** A chat with thousands of messages scrolls and types as fast as a chat with ten.
+- **Streaming markdown is parsed incrementally.** Finished blocks of a reply are parsed once and left alone; only the block still being written is re-parsed, at most once per frame.
+- **Local state updates first; the engine catches up.** Sending, renaming, pinning, switching and closing take effect on screen immediately. If the engine later refuses, the change is rolled back and the reason is shown.
+
+**Switching is instant, history may follow.** Switching chats, windows, workspaces or tabs changes the screen in the next frame. The chats used most recently stay warm: their transcripts are kept in a bounded in-memory cache and the last few chat windows stay mounted but hidden, so returning to one is a visibility flip rather than a rebuild. A chat that is not warm shows its frame (title, composer, controls) in the next frame and its history a moment later, newest messages first. The warm set has a fixed ceiling in both chats and memory, so the app does not grow without bound the longer it runs.
+
+**Budgets CI enforces** (p95 on the CI runner, headless, against the web edition with a scripted model):
+
+| Interaction | Budget |
+| --- | --- |
+| Keypress to paint, chat composer, 1,000-message chat, reply streaming | 8.3 ms |
+| Keypress to paint, terminal | 8.3 ms |
+| Main-thread work per frame while a reply streams at 300 tokens/s | 4 ms |
+| Switch to a warm chat, to paint | 8.3 ms |
+| Switch to a cold chat, frame painted | 8.3 ms |
+| Switch to a cold chat, newest screenful of history painted | 100 ms |
+
+**The engine can fail without taking the window with it.** If the engine process crashes it is restarted and the UI reconnects; the window, drafts and scroll positions survive.
+
+**The terminal keeps up with any output.** Terminals render on the GPU (Ghostty's terminal core compiled to WebAssembly, with xterm.js on WebGL as the fallback), output is delivered once per frame rather than once per chunk, and a flood of output (a large `cat`, a runaway build log) slows the program producing it instead of freezing the app.
 
 ### Models & providers
 - **Provider support** `[shipped]`, Anthropic (native), OpenAI-compatible streaming SSE (covers OpenAI/OpenRouter/LM Studio/vLLM), Ollama native (list/pull/ps/load/unload), with OpenRouter presets. Base-URL `/v1` normalization for bare `host:port` entries. `[updated 2026-09-30]` OpenRouter is now a first-class provider rather than a preset: one-click **OAuth sign-in** (PKCE, browser authorize, loopback callback, the returned API key stored host-side and never shown to the renderer) alongside the plain API-key path; its `/key` endpoint validates a credential and reports usage, its model list carries real per-token pricing, its requests identify the app (`HTTP-Referer`, `X-Title`), and its errors (rate limits, exhausted credits, bad key) surface as readable text instead of a raw status.
@@ -368,7 +407,7 @@ Where remote control is the whole app on a phone, **messaging channels** are the
 
 ## Scope Boundaries
 
-- **No native node modules**: keeps Electron rebuild pain away; ripgrep/git are spawned via child_process with JS fallbacks. (Technical constraint; see `TASKS.md`.)
+- **No native node modules**: keeps Electron rebuild pain away; ripgrep/git are spawned via child_process with JS fallbacks. Native speed comes from the separate Rust engine daemon (`nekkod`), a standalone binary shipped beside the app, never a module loaded into Node or Electron. (Technical constraint; see `TASKS.md`.)
 - **Not a full IDE**: the file editor is a lightweight mono textarea (+ rendered markdown), not Monaco/CodeMirror; no language servers, debugger, multi-cursor, or refactoring tooling. The browser pane is a preview/utility surface, not a hardened general web browser. The Design board (planned) shows snapshots, not an editable vector canvas.
 - **Cloud never runs your shell/filesystem tools on our servers**: inference and tool calls always execute on *your* paired machine. The cloud is a sync + relay + billing layer, not a remote executor.
 - **The OSS app never checks a license**: paid features are gated server-side in Cloud only; the open-source editions are fully functional and free.
