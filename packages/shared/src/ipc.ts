@@ -234,6 +234,7 @@ export const IpcChannels = {
   remoteEnable: 'remote:enable',
   remoteDisable: 'remote:disable',
   remoteStatus: 'remote:status',
+  messagingStatus: 'messaging:status',
   remotePairing: 'remote:pairing',
   remotePair: 'remote:pair',
   remoteDevices: 'remote:devices',
@@ -663,6 +664,8 @@ export interface NekkoApi {
   enableRemote(relayUrl: string): Promise<import('./remote.js').RemoteStatus>;
   disableRemote(): Promise<import('./remote.js').RemoteStatus>;
   getRemoteStatus(): Promise<import('./remote.js').RemoteStatus>;
+  /** Inbound messaging channels (Telegram bot, …): live per-channel state. */
+  getMessagingStatus(): Promise<import('./messaging.js').MessagingStatus>;
   getRemotePairing(): Promise<import('./remote.js').RemotePairing | null>;
   /** Mint a short-lived single-use pairing code for enrolling a new device. */
   startRemotePairing(): Promise<import('./remote.js').PairingGrant>;

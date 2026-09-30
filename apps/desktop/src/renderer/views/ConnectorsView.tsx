@@ -1,9 +1,11 @@
 import React from 'react';
 import { ConnectorGrid } from '../components/ConnectorGrid.js';
+import { MessagingChannels } from '../components/MessagingChannels.js';
 
 /**
  * The Connectors tab: a header plus the shared connector grid (also reused by
- * the onboarding integrations step in compact form).
+ * the onboarding integrations step in compact form), then the inbound
+ * messaging channels (Telegram) that drive chats rather than fetch context.
  */
 export function ConnectorsView() {
   return (
@@ -16,6 +18,14 @@ export function ConnectorsView() {
         </p>
         <div className="mt-6">
           <ConnectorGrid />
+        </div>
+        <h2 className="mt-10 text-lg font-semibold">Messaging channels</h2>
+        <p className="mt-1 text-[13px] text-ink-faint">
+          Drive a chat from a messaging app: each channel binds a conversation to one Agent Nekko session,
+          and only allowlisted chat ids can reach it.
+        </p>
+        <div className="mt-4">
+          <MessagingChannels />
         </div>
       </div>
     </div>
