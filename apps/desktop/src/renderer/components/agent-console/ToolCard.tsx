@@ -1,0 +1,27 @@
+import { useState } from 'react';
+import type { ToolCall } from '@agent-nekko/shared';
+import { RobotIcon } from '../../icons.js';
+
+/**
+ * One tool invocation, collapsed to a single line. Neutral coloring on
+ * purpose: danger signaling belongs to the approval flow, not to every bash
+ * call, so real warnings keep their weight.
+ */
+export function ToolCard({ call }: { call: ToolCall }) {
+  const isSpawn = call.name === 'spawn_agent';
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-1 font-mono text-[12px]">
+      <button
+        className="flex w-full items-center gap-1.5 py-0.5 text-left text-ink-faint hover:text-ink-soft"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+      >
+        <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
+        {isSpawn && <RobotIcon className="h-3 w-3 shrink-0 text-accent" />}
+        <span className="font-medium">Used <span className="font-mono text-ink-soft">{call.name}</span> tool</span>
+      </button>
+      {open && <pre className="ml-[18px] mt-0.5 overflow-x-auto whitespace-pre-wrap border-l border-line pl-2 text-ink-faint">{JSON.stringify(call.input, null, 2)}</pre>}
+    </div>
+  );
+}
