@@ -38,8 +38,8 @@ impl Hub {
         let _ = self.tx.send(Event { text: text.into(), term_data });
     }
 
-    /// Serialized with `channel` as the first key (serde_json's map is sorted,
-    /// and `channel` sorts before `payload`), which `?only=` filtering relies on.
+    /// Serialized with `channel` as the first key (serde_json keeps insertion
+    /// order, and `channel` is written first), which `?only=` filtering relies on.
     pub fn publish(&self, channel: &str, payload: serde_json::Value, term_data: bool) {
         let frame = serde_json::json!({ "channel": channel, "payload": payload }).to_string();
         self.publish_raw(frame, term_data);

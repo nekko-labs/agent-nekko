@@ -290,6 +290,19 @@ Philip's call: keep the UI on web technology, move the engine into a Rust daemon
 - [ ] **PF14**, The rest of the engine moves to Rust, service by service, and the TS host is retired.
   - In order: session storage, providers + agent loop, tools/guardrails/changes, MCP, connectors/messaging/workflows, relay agent, training. Then the web, npx and Docker editions run behind `nekkod` (per-platform binaries as npm optional dependencies).
 
+#### PF: decision models (added 2026-10-01)
+
+Laya (Convai Innovations, Apache 2.0) runs natively in the daemon: typed questions in, calibrated probabilities out, in TypeSafe Jev's shape. Philip's call: native Rust with ONNX Runtime, no Python at run time. Design and numbers: [docs/decision-models.md](docs/decision-models.md), [spec](SPEC.md#models--providers).
+
+- [x] **PF30**, A native Laya runtime in the engine daemon. · Done: 2026-10-01
+  - `crates/nekko-decide`: `ort` 2.0.0-rc.13 with prebuilt ONNX Runtime 1.28 (DirectML on Windows, CoreML on macOS, CUDA on Linux behind a `cuda` feature, CPU always), `tokenizers` for `tokenizer.json`. Pre- and post-processing ported from `laya` 0.3.22 (prompt, option markers, head budget, truncation, Python `json.dumps` rendering, temperature clamping, confidence); a bad question is its own error entry. Accelerators get a load-time probe and fall back to CPU; DirectML and CoreML run one fixed shape (DirectML was 85 ms on any shape but its first, 8.6 ms pinned). Exports below opset 17 are refused, since the only hosted one (`tozp/laya-onnx`) answers wrongly and crashes the CPU provider. The workspace's serde_json now preserves key order, because criteria order is option order.
+  - Verified against 60 golden requests (86 questions) from the official package: token sequences identical on all 86; fp16 on DirectML 86/86 same answers, max probability error 0.018; fp32 max 0.0001. RTX 5090: 8.6 ms per question on DirectML fp16, 81 ms for ten; CPU fp32 94 ms and 733 ms.
+- [x] **PF31**, Decisions on the daemon wire and the engine port. · Done: 2026-10-01
+  - Channels `decide:load`, `decide:unload`, `decide:status`, `decide:run`; `POST /v1/decisions` and `POST /v1/systemone` on the OpenAI-compatible router with its auth and CORS, 409 when no decision model is loaded. `stage-daemon.mjs` ships `DirectML.dll` (and any ONNX Runtime provider libraries) beside `nekkod`.
+- [ ] **PF32**, A hosted, correct ONNX export, and the other two checkpoints.
+  - The English recipe that passes the golden test is in docs/decision-models.md; nobody hosts its output yet. `laya-multilingual` and `laya-typed-decisions` have no export at all.
+- [ ] **PF33**, Verify CoreML on a Mac and CUDA on Linux, and decide whether release builds ship the Linux CUDA build.
+
 ### Nekko Server, image runtime and unified storage (added 2026-09-30)
 
 - [x] **T165**, Optional stable-diffusion.cpp installer with release/backend/combined bytes, image-aware model routing to supervised sd-server children, companion configuration and image generation UI/API. Preserve read-only external binaries and borrowed model files. · [spec](SPEC.md#running-a-model-with-nothing-else-installed) · Implemented and automatically verified: 2026-09-30. Real GPU inference remains in T169.

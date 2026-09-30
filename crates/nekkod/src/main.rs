@@ -6,6 +6,7 @@
 
 mod backend;
 mod config;
+mod decide;
 mod engine;
 mod hub;
 mod procgroup;

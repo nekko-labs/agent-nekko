@@ -5,7 +5,7 @@
 // exits 0, and the app runs the TS backend directly. Packaging never passes
 // it, so an installer can never ship without its daemon by accident.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,3 +38,15 @@ const dest = join(here, '..', 'resources', 'bin');
 mkdirSync(dest, { recursive: true });
 copyFileSync(built, join(dest, exe));
 console.log(`staged ${exe} -> ${join(dest, exe)}`);
+
+// The decision-model runtime (ONNX Runtime, statically linked into nekkod) loads a few shared
+// libraries from next to the executable: DirectML.dll on Windows (a newer one than the copy in
+// System32), and the CUDA provider libraries on a Linux build with `--features cuda`. The
+// ort-sys build script copies them into target/release; ship whichever are there.
+const sidecar = /^(DirectML\.dll|(lib)?onnxruntime[^/\\]*\.(dll|so(\.\d+)*|dylib))$/;
+for (const name of readdirSync(dirname(built))) {
+  if (sidecar.test(name)) {
+    copyFileSync(join(dirname(built), name), join(dest, name));
+    console.log(`staged ${name}`);
+  }
+}
