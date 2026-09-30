@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'child_process';
+import { execFile, spawn, type ChildProcess } from 'child_process';
 import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises';
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'http';
 import { createServer as createProbe } from 'net';
@@ -99,6 +99,8 @@ export interface EngineServerDeps {
    */
   companionsDir?: (modelId: string) => string;
   spawnFn?: typeof spawn;
+  /** Which flags the binary accepts; defaults to asking it (`probeFlags`). */
+  flagSupport?: (bin: string) => Promise<FlagSupport>;
 }
 
 export function createEngineServer(deps: EngineServerDeps) {
@@ -263,8 +265,18 @@ export function createEngineServer(deps: EngineServerDeps) {
     const companions = await resolveCompanions(model, deps.workDir?.(), deps.companionsDir?.(model.id));
     if ('error' in companions) return { ok: false, message: companions.error };
 
+    // A draft model is resolved like the model itself; one that is gone or is
+    // not a GGUF is dropped with a note rather than failing the load.
+    let draftModel: string | undefined;
+    if (params.draftModelId) {
+      const draft = await deps.findModel(params.draftModelId).catch(() => undefined);
+      if (draft) draftModel = draft.path;
+      else push(`Draft model ${params.draftModelId} is not in the library; loading without it.`);
+    }
+
     const port = await freePort();
-    const args = buildArgs(model, port, params, companions);
+    const supports = await (deps.flagSupport ?? probeFlags)(bin);
+    const args = buildArgs(model, port, params, { ...companions, draftModel }, supports);
     const before = await freeVramBytes();
 
     const childLog: string[] = [];
@@ -590,6 +602,46 @@ export interface ModelCompanions {
   mmproj?: string;
   /** A chat template file, passed as `--chat-template-file` with `--jinja`. */
   chatTemplateFile?: string;
+  /** The draft model's file, when the load asked for one (`draftModelId`). */
+  draftModel?: string;
+}
+
+/**
+ * Which flags a `llama-server` build accepts, read from its own `--help`.
+ *
+ * The engine is installed once and kept, so the binary on a machine can be
+ * older than the flags this file knows about, and an unknown flag makes
+ * llama-server refuse to start at all. Every flag added after the first engine
+ * release goes through this, so an older build simply runs without it.
+ */
+export type FlagSupport = (flag: string) => boolean;
+
+const flagCache = new Map<string, Promise<FlagSupport>>();
+
+export function probeFlags(bin: string, run: (bin: string) => Promise<string> = helpText): Promise<FlagSupport> {
+  let probe = flagCache.get(bin);
+  if (!probe) {
+    probe = run(bin)
+      .then((text) => {
+        const known = new Set(text.match(/--[a-z0-9][a-z0-9-]*/g) ?? []);
+        return (flag: string) => known.has(flag);
+      })
+      // A build we cannot ask is treated as knowing none of the newer flags:
+      // a slower engine beats one that does not start.
+      .catch(() => () => false);
+    flagCache.set(bin, probe);
+  }
+  return probe;
+}
+
+function helpText(bin: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(bin, ['--help'], { windowsHide: true, timeout: 10_000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
+      const text = `${stdout ?? ''}${stderr ?? ''}`;
+      if (text.includes('--')) resolve(text);
+      else reject(err ?? new Error('llama-server printed no help'));
+    });
+  });
 }
 
 export function buildArgs(
@@ -597,6 +649,7 @@ export function buildArgs(
   port: number,
   params: LoadParams,
   companions?: ModelCompanions,
+  supports: FlagSupport = () => false,
 ): string[] {
   const args = [
     '--model', model.path,
@@ -629,7 +682,34 @@ export function buildArgs(
   if (params.seed !== undefined) args.push('--seed', String(params.seed));
   // Embedding models answer /v1/embeddings only in embedding mode, and a chat
   // request to one is a mistake worth failing loudly rather than serving.
-  if (model.architecture && /bert|embed/i.test(model.architecture)) args.push('--embedding');
+  const embedding = Boolean(model.architecture && /bert|embed/i.test(model.architecture));
+  if (embedding) {
+    args.push('--embedding');
+    return args;
+  }
+
+  // The agent-speed defaults, each measured against llama.cpp's own defaults
+  // on the same model (docs/benchmarks.md), and each only where the installed
+  // build knows the flag.
+  //
+  // An edited prompt (a tool result replaced, a message trimmed) reuses the
+  // cached chunks around the edit instead of re-reading from the change on.
+  if (supports('--cache-reuse')) args.push('--cache-reuse', '256');
+  // llama.cpp copies every idle slot out to its RAM prompt cache when a new
+  // request arrives. Keeping them in place instead cut the first turn of a
+  // new chat from 2.3 s to 1.7 s and a revisit of an evicted chat from 1.7 s
+  // to 0.8 s; the RAM cache still catches what a slot really loses.
+  if (supports('--no-cache-idle-slots')) args.push('--no-cache-idle-slots');
+  if (params.speculative !== false && supports('--spec-default')) {
+    // N-gram lookup from the conversation: 117 -> 506 tok/s on an edit that
+    // repeats its input, and faster on ordinary replies too. Works with a
+    // vision projector loaded as well (measured 633 tok/s on the same edit);
+    // llama.cpp only drops --cache-reuse for those, with a warning.
+    args.push('--spec-default');
+    if (companions?.draftModel && supports('--spec-draft-model')) {
+      args.push('--spec-draft-model', companions.draftModel, '--spec-draft-ngl', 'all', '--spec-type', 'draft-simple');
+    }
+  }
   return args;
 }
 
@@ -653,7 +733,7 @@ function sameParams(a: LoadParams, b: LoadParams): boolean {
   const keys: Array<keyof LoadParams> = [
     'contextTokens', 'gpuLayers', 'kvCacheDtype', 'parallelSlots', 'batchSize',
     'ubatchSize', 'threads', 'flashAttention', 'mmap', 'mlock', 'ropeFreqBase',
-    'ropeFreqScale', 'seed',
+    'ropeFreqScale', 'seed', 'speculative', 'draftModelId',
   ];
   return keys.every((k) => a[k] === b[k]);
 }

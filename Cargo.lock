@@ -550,6 +550,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "nekko-bench"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "nekko-term"
 version = "0.1.0"
 dependencies = [

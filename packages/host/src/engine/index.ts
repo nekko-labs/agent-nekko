@@ -1,3 +1,4 @@
+import type { GpuAdapter } from '../gpu-adapters.js';
 import { totalmem } from 'os';
 import { dirname, join, resolve } from 'path';
 import { stat } from 'fs/promises';
@@ -38,6 +39,8 @@ import { createEngineServer } from './server.js';
 export interface EngineDeps {
   dataDir: () => string;
   getGpuStats: () => Promise<GpuStats | null>;
+  /** GPUs the OS reports, for choosing a build on machines with no stats tool. */
+  getGpuAdapters?: () => Promise<GpuAdapter[]>;
   /**
    * A reading taken now rather than from the poll cache. The before/after pair
    * around a load is a measurement, and a cached "after" can report that loading
@@ -71,6 +74,7 @@ export function createEngine(deps: EngineDeps) {
     engineDir,
     downloads,
     getGpuStats: deps.getGpuStats,
+    getGpuAdapters: deps.getGpuAdapters,
     externalPath: deps.externalBinPath,
   });
 

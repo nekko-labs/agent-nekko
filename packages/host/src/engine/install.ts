@@ -1,3 +1,4 @@
+import type { GpuAdapter } from '../gpu-adapters.js';
 import { execFile } from 'child_process';
 import { chmod, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import { join } from 'path';
@@ -41,6 +42,8 @@ export interface EngineInstallerDeps {
   engineDir: () => string;
   downloads: Downloads;
   getGpuStats: () => Promise<GpuStats | null>;
+  /** GPUs the OS reports, for machines with no stats tool (AMD, Intel). */
+  getGpuAdapters?: () => Promise<GpuAdapter[]>;
   fetch?: typeof fetch;
   platform?: EnginePlatform;
   arch?: string;
@@ -61,8 +64,9 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
   /** What is usable right now, and what we would install if asked. */
   async function detect(): Promise<EngineInstall> {
     const gpu = await deps.getGpuStats().catch(() => null);
-    const available = buildsFor(platform, arch, gpu);
-    const recommended = recommendedBuild(platform, arch, gpu);
+    const adapters = (await deps.getGpuAdapters?.().catch(() => [])) ?? [];
+    const available = buildsFor(platform, arch, gpu, adapters);
+    const recommended = recommendedBuild(platform, arch, gpu, adapters);
 
     const external = deps.externalPath?.();
     if (external && (await isExecutable(external))) {
@@ -114,9 +118,10 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
    */
   async function install(buildId?: string): Promise<{ ok: boolean; message: string; jobId?: string }> {
     const gpu = await deps.getGpuStats().catch(() => null);
+    const adapters = (await deps.getGpuAdapters?.().catch(() => [])) ?? [];
     const build = buildId
-      ? buildsFor(platform, arch, gpu).find((b) => b.id === buildId)
-      : recommendedBuild(platform, arch, gpu);
+      ? buildsFor(platform, arch, gpu, adapters).find((b) => b.id === buildId)
+      : recommendedBuild(platform, arch, gpu, adapters);
     if (!build) return { ok: false, message: 'No engine build matches this machine.' };
 
     const release = await fetchRelease();

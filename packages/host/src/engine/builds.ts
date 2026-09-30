@@ -1,3 +1,4 @@
+import type { GpuAdapter } from '../gpu-adapters.js';
 import type { EngineBackend, EngineBuild, EnginePlatform, GpuStats } from '@agent-nekko/shared';
 
 /**
@@ -164,18 +165,26 @@ const ARCHIVE_RE = /\.(zip|tar\.gz|tgz)$/i;
  * all we lead with CPU, because a slow engine that runs beats a fast one that
  * fails to start.
  */
-export function buildsFor(platform: EnginePlatform, arch: string, gpu: GpuStats | null): EngineBuild[] {
+export function buildsFor(
+  platform: EnginePlatform,
+  arch: string,
+  gpu: GpuStats | null,
+  adapters: GpuAdapter[] = [],
+): EngineBuild[] {
   const candidates = BUILDS.filter((b) => b.platform === platform && b.arch === arch);
-  const rank = preferenceOrder(platform, gpu);
+  const rank = preferenceOrder(platform, gpu, adapters);
   return [...candidates].sort((a, b) => rank.indexOf(a.backend) - rank.indexOf(b.backend));
 }
 
-function preferenceOrder(platform: EnginePlatform, gpu: GpuStats | null): EngineBackend[] {
+function preferenceOrder(platform: EnginePlatform, gpu: GpuStats | null, adapters: GpuAdapter[]): EngineBackend[] {
   if (platform === 'darwin') return ['metal', 'cpu', 'vulkan', 'cuda', 'hip'];
   if (gpu?.source === 'nvidia-smi' && gpu.devices.length > 0) return ['cuda', 'vulkan', 'cpu', 'hip', 'metal'];
   // A GPU we know nothing about: Vulkan is the portable accelerated path, and
   // claiming CUDA without an NVIDIA reading would be a guess.
   if (gpu && gpu.devices.length > 0) return ['vulkan', 'cpu', 'cuda', 'hip', 'metal'];
+  // An AMD or Intel GPU has no stats tool we read, so the OS's own adapter list
+  // is the evidence; without it these machines were offered the CPU build.
+  if (adapters.some((a) => a.vendor !== 'other')) return ['vulkan', 'cpu', 'cuda', 'hip', 'metal'];
   return ['cpu', 'vulkan', 'cuda', 'hip', 'metal'];
 }
 
@@ -184,8 +193,9 @@ export function recommendedBuild(
   platform: EnginePlatform,
   arch: string,
   gpu: GpuStats | null,
+  adapters: GpuAdapter[] = [],
 ): EngineBuild | undefined {
-  return buildsFor(platform, arch, gpu)[0];
+  return buildsFor(platform, arch, gpu, adapters)[0];
 }
 
 /**

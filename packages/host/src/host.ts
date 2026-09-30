@@ -176,6 +176,7 @@ import { createRemoteService } from './remote.js';
 import { createMessagingService } from './messaging/service.js';
 import { detectAgentTools, installSubagent, refreshSubagent, subagentSnippet } from './integrations.js';
 import { getGpuStats, getGpuStatsFresh } from './gpu.js';
+import { detectGpuAdapters } from './gpu-adapters.js';
 import { getSystemStats } from './system.js';
 import { stopLocalServer } from './servers.js';
 import { lmsProbe, lmsLoad, lmsUnload } from './lms.js';
@@ -547,6 +548,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     dataDir,
     getGpuStats,
     getGpuStatsFresh,
+    getGpuAdapters: detectGpuAdapters,
     settings: () => ({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }),
     saveSettings: async (patch) => {
       const next = { ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine, ...patch };
