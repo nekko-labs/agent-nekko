@@ -69,6 +69,7 @@ const CFG = {
   replyTokens: 7000,
   keySamples: QUICK ? 40 : 150,
   keyGapMs: 45,
+  termSamples: QUICK ? 30 : 100,
   warmSwitches: QUICK ? 10 : 40,
   coldCycles: QUICK ? 1 : 3,
   traceSeconds: QUICK ? 3 : 6,
@@ -143,7 +144,15 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     }
     await clickEl(openSel, null, `the card for ${title}`);
     const ok = await cdp.call((t, m) => window.__perf.waitForChat(t, m, 30000), title, marker);
-    if (!ok) throw new Error(`${title} never showed its newest message`);
+    if (!ok) {
+      const seen = await cdp.call((t) => {
+        const p = window.__perf.panel(t);
+        const s = p?.querySelector('.overflow-y-auto');
+        const ai = p ? [...p.querySelectorAll('.msg-ai')] : [];
+        return { panel: !!p, visible: p?.checkVisibility(), rows: p?.querySelectorAll('[data-vt-key]').length, last: ai.pop()?.textContent.slice(0, 80), gap: s ? s.scrollHeight - s.scrollTop - s.clientHeight : null };
+      }, title);
+      throw new Error(`${title} never showed its newest message: ${JSON.stringify(seen)}`);
+    }
   };
 
   /** Click a chat's sidebar card and report when its frame and newest reply painted. */
@@ -263,9 +272,47 @@ async function measureLatency({ appUrl, mock, api, bigChat }) {
   const { keys, eventTiming } = await app.cdp.evaluate('({ keys: window.__perf.keys, eventTiming: window.__perf.eventTiming })');
   const typedWhileStreaming = mock.state.streamsFinished === 0;
   await api('chat:abort', bigChat);
+
+  // Terminal: open one beside the chat (Ctrl+J, the app's own shortcut) and
+  // type into it. The web edition's terminal is the TS host's pty, its output
+  // riding the event bus to the pane.
+  log(`typing ${CFG.termSamples} keys into a terminal`);
+  const term = await measureTerminal(app);
   await app.close();
   await sleep(1000);
-  return { browser: app.browser.version, warm, coldFrame, coldHistory, keys, eventTiming, typedWhileStreaming };
+  return { browser: app.browser.version, warm, coldFrame, coldHistory, keys, eventTiming, typedWhileStreaming, term };
+}
+
+/** Keypress to the frame that draws its echo, in a terminal pane. */
+async function measureTerminal(app) {
+  const ctrl = { modifiers: process.platform === 'darwin' ? 4 : 2 };
+  await app.cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'j', code: 'KeyJ', windowsVirtualKeyCode: 74, ...ctrl });
+  await app.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'j', code: 'KeyJ', windowsVirtualKeyCode: 74, ...ctrl });
+  let ready = false;
+  for (let i = 0; i < 100 && !ready; i++) {
+    ready = await app.cdp.evaluate(`!!document.querySelector('.xterm-helper-textarea')`);
+    if (!ready) await sleep(100);
+  }
+  if (!ready) return { skipped: 'no terminal pane opened (does this machine have a shell the host can start?)' };
+  // Let the shell print its prompt and settle before timing anything.
+  await sleep(2500);
+  await app.cdp.evaluate(`document.querySelector('.xterm-helper-textarea').focus(); window.__perf.term.length = 0; 1`);
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  for (let k = 0; k < CFG.termSamples; k++) {
+    const ch = letters[k % letters.length];
+    await app.cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: ch, code: `Key${ch.toUpperCase()}`, text: ch, unmodifiedText: ch, windowsVirtualKeyCode: ch.toUpperCase().charCodeAt(0) });
+    await app.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ch, code: `Key${ch.toUpperCase()}`, windowsVirtualKeyCode: ch.toUpperCase().charCodeAt(0) });
+    await sleep(CFG.keyGapMs + 15);
+    // Keep the line short so the shell never wraps: Ctrl+C drops it in bash,
+    // zsh and PowerShell alike, then the new prompt is left to settle.
+    if (k % 20 === 19) {
+      await app.cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'c', code: 'KeyC', windowsVirtualKeyCode: 67, ...ctrl });
+      await app.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'c', code: 'KeyC', windowsVirtualKeyCode: 67, ...ctrl });
+      await sleep(500);
+    }
+  }
+  await sleep(400);
+  return { samples: await app.cdp.evaluate('window.__perf.term.slice()') };
 }
 
 /** Main-thread work per frame while the big chat streams, in a vsync-paced browser. */
@@ -336,7 +383,11 @@ async function main() {
     composer_keypress: latency
       ? { samples: latency.keys, note: latency.typedWhileStreaming ? 'typed while the reply streamed' : 'WARNING: the reply finished before typing did' }
       : { skipped: 'not run (--only frames)' },
-    terminal_keypress: { skipped: 'the terminal is being rebuilt (PF7); its keypress probe lands with it' },
+    terminal_keypress: !latency
+      ? { skipped: 'not run (--only frames)' }
+      : latency.term.skipped
+        ? { skipped: latency.term.skipped }
+        : { samples: latency.term.samples, note: "the web edition's terminal: the TS host's pty, output over the event bus, drawn by the pane's xterm" },
     stream_frame_work: frames
       ? { samples: frames.work, note: `${frames.frames} frames over ${CFG.traceSeconds}s at ${CFG.tokensPerSecond} tok/s, main thread ${Math.round(frames.busyFraction * 100)}% busy (${frames.source})${frames.tracedWhileStreaming ? '' : '; WARNING: the reply finished mid-trace'}` }
       : { skipped: 'not run (--only latency)' },

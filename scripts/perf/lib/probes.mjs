@@ -46,8 +46,9 @@ export const INSTALL = String.raw`(() => {
 
   // --- Keypress to paint in a textarea ---
   let keyAt = null;
+  const isTerminal = (el) => !!(el && el.classList && el.classList.contains('xterm-helper-textarea'));
   document.addEventListener('keydown', (e) => {
-    if (e.target && e.target.tagName === 'TEXTAREA' && e.key.length === 1) keyAt = e.timeStamp;
+    if (e.target && e.target.tagName === 'TEXTAREA' && !isTerminal(e.target) && e.key.length === 1) keyAt = e.timeStamp;
   }, true);
   // Registered from the input event, which is where the value (and React's
   // controlled state) changes, so the frame that follows includes the commit.
@@ -65,6 +66,26 @@ export const INSTALL = String.raw`(() => {
       }
     }).observe({ type: 'event', durationThreshold: 16 });
   } catch { /* Event Timing unavailable */ }
+
+  // --- Keypress to paint in a terminal ---
+  // Timed to the frame after the echo is drawn: the key goes to the pty, the
+  // shell echoes it back as terminal output, the pane hands that to xterm, and
+  // xterm draws it on its next animation frame. Two task hops let the pane's
+  // own listener (registered after this one) and xterm's write queue run
+  // first, so the frame measured is the one that shows the character.
+  P.term = [];
+  let termKey = null;
+  document.addEventListener('keydown', (e) => {
+    if (isTerminal(e.target) && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) termKey = { at: e.timeStamp, ch: e.key };
+  }, true);
+  if (window.nekko && window.nekko.onTerminalEvent) {
+    window.nekko.onTerminalEvent((ev) => {
+      if (!termKey || ev.type !== 'data' || !ev.data.includes(termKey.ch)) return;
+      const start = termKey.at;
+      termKey = null;
+      setTimeout(() => setTimeout(() => afterFrame((now) => P.term.push(now - start)), 0), 0);
+    });
+  }
 
   /** Resolve once a chat's frame and newest reply are both painted. */
   P.waitForChat = (title, marker, timeoutMs = 20000) => new Promise((resolve) => {
