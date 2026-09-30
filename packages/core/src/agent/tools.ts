@@ -259,3 +259,40 @@ export const REPORT_ARTIFACT_TOOL: ToolSpec = {
     required: ['kind', 'title', 'path'],
   },
 };
+
+/**
+ * Ask a decision model (Laya locally, or TypeSafe Jev) typed questions about a
+ * state. Offered only while one is available. It answers in one pass with
+ * calibrated probabilities, so it is cheaper and steadier than reasoning a
+ * classification out in prose: routing, triage, "is this risky", scoring.
+ */
+export const DECIDE_TOOL: ToolSpec = {
+  name: 'decide',
+  description:
+    'Classify or score a piece of text or JSON with a dedicated decision model, which returns calibrated probabilities ' +
+    'in well under a second. Use it for routing and triage ("which team owns this ticket"), yes/no judgements ' +
+    '("does this message ask for a refund"), and ordinal scores ("how urgent, low/medium/high"), especially over many ' +
+    'items or when you want a probability rather than your own guess. Each question is one of: ' +
+    '`choice` (criteria: an object of option -> description, or a list of options), `score` (criteria: an ordered list ' +
+    'of levels, lowest first), `noul` (a statement; the answer is the probability it is true). Up to 64 questions per call.',
+  parameters: {
+    type: 'object',
+    properties: {
+      state: { type: 'string', description: 'The text (or JSON as a string) the questions are about. Under 50,000 characters.' },
+      questions: {
+        type: 'object',
+        description: 'Named questions, e.g. {"team": {"type": "choice", "instructions": "Which team should handle this?", "criteria": {"billing": "Payments", "technical": "Bugs"}}}.',
+        additionalProperties: {
+          type: 'object',
+          properties: {
+            type: { type: 'string', enum: ['choice', 'score', 'noul'] },
+            instructions: { type: 'string' },
+            criteria: { description: 'Options (choice) or ordered levels (score). Omit for noul.' },
+          },
+          required: ['type', 'instructions'],
+        },
+      },
+    },
+    required: ['state', 'questions'],
+  },
+};
