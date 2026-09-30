@@ -280,6 +280,29 @@ describe('engine router', () => {
     expect(server.setResidentTtl('not-loaded', 0).ok).toBe(false);
   });
 
+  it('always names a context: the trained size capped at 64k, or what was asked for', async () => {
+    const seen: string[][] = [];
+    const spawnFn = ((_bin: string, args: readonly string[]) => {
+      seen.push([...args]);
+      return spawn(process.execPath, [stubPath, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+    }) as unknown as typeof spawn;
+    const big = { ...model('gemma4-12b'), maxContext: 262_144 };
+    const port = await freePort();
+    const { server } = make({ port, maxLoaded: 3 }, [...MODELS, big], spawnFn);
+    open = server;
+    await server.start();
+    const ctx = (i: number) => seen[i][seen[i].indexOf('--ctx-size') + 1];
+    expect((await server.load('gemma4-12b', {})).ok).toBe(true);
+    expect(ctx(0)).toBe('65536');
+    expect((await server.load('qwen3-8b', {})).ok).toBe(true);
+    expect(ctx(1)).toBe('32768');
+    expect((await server.load('gemma3-12b', { contextTokens: 131072 })).ok).toBe(true);
+    expect(ctx(2)).toBe('131072');
+    // The unasked-for default is not a changed setting: the same load is not a reload.
+    expect((await server.load('gemma4-12b', {})).message).toMatch(/already loaded/);
+    expect(seen).toHaveLength(3);
+  });
+
   it('keeps the last failure reason until a load succeeds', async () => {
     let die = true;
     const spawnFn = ((_bin: string, args: readonly string[]) =>

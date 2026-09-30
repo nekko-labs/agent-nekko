@@ -615,3 +615,22 @@ export interface ModelFolderReport {
   /** Known layouts present on disk that nobody has added yet. */
   suggestions: ModelFolderSuggestion[];
 }
+
+/**
+ * The context a model gets when nothing asked for a size: its trained maximum,
+ * capped at 64k tokens.
+ *
+ * Left to itself llama.cpp takes the trained context for every parallel slot
+ * (4 by default), so a 262k-token model asked for a million-token KV cache and
+ * `--fit` filled the GPU to within 1 GiB of full. The first flash-attention
+ * kernel then sometimes could not be loaded ("CUDA error: shared object
+ * initialization failed") and the model server died on its first request; the
+ * oversized cache also made loads take 10 to 25 s. 64k is more than an agent
+ * turn needs, and the drawer can always ask for more.
+ */
+export const ENGINE_DEFAULT_CONTEXT = 65_536;
+
+export function defaultContextTokens(model: Pick<LocalModel, 'maxContext'>): number {
+  const trained = model.maxContext && model.maxContext > 0 ? model.maxContext : ENGINE_DEFAULT_CONTEXT;
+  return Math.min(trained, ENGINE_DEFAULT_CONTEXT);
+}
