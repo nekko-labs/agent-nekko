@@ -25,6 +25,7 @@ import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl, modelModality } from '@agent-ne
 import { createCatalog, hfFileUrl } from './catalog.js';
 import { companionsDir } from './companions.js';
 import { companionsBeside, imageCompanionsDir, imageCompanionSetFor, imageCompanionStatus } from './image-companions.js';
+import { createDecisions } from './decisions.js';
 import { createDownloads } from './download.js';
 import { knownFolder, knownFolderCandidates } from './folders.js';
 import { createEngineInstaller } from './install.js';
@@ -61,6 +62,8 @@ export interface EngineDeps {
    * no chat could pick a model from it, which is the whole point of running it.
    */
   onServing?: (baseUrl: string) => void;
+  /** TypeSafe API key for the hosted Jev decision model. */
+  typesafeKey?: () => string | undefined;
   /** Hugging Face token for gated repos, when the user has configured one. */
   hfToken?: () => string | undefined;
   /** A `llama-server` the user pointed at by hand. */
@@ -98,6 +101,8 @@ export function createEngine(deps: EngineDeps) {
     imageCompanionsDir: () => imageCompanionsDir(modelsDir()),
     daemon: engineDaemon(),
   });
+  const decisions = createDecisions({ modelsDir, downloads, daemon: engineDaemon, typesafeKey: () => deps.typesafeKey?.() });
+
   // A backend restarted under a daemon that kept serving picks its models up.
   void server.reattach();
 
@@ -441,6 +446,7 @@ export function createEngine(deps: EngineDeps) {
     downloadCompanions,
     imageCompanions,
     downloadImageCompanions,
+    decisions,
     downloads: () => downloads.list(),
     cancelDownload: (id: string) => downloads.cancel(id),
     dismissDownload: (id: string) => downloads.dismiss(id),

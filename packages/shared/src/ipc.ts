@@ -69,6 +69,15 @@ export const IpcChannels = {
   engineDownloadCompanions: 'engine:downloadCompanions',
   engineImageCompanions: 'engine:imageCompanions',
   engineDownloadImageCompanions: 'engine:downloadImageCompanions',
+  decisionsCatalog: 'decisions:catalog',
+  decisionsModels: 'decisions:models',
+  decisionsDownload: 'decisions:download',
+  decisionsDelete: 'decisions:delete',
+  decisionsStatus: 'decisions:status',
+  decisionsLoad: 'decisions:load',
+  decisionsUnload: 'decisions:unload',
+  decisionsRun: 'decisions:run',
+  decisionsCheckTypesafe: 'decisions:checkTypesafe',
   engineSetResidentTtl: 'engine:residentTtl',
   engineSetAutoload: 'engine:autoload',
   engineFolders: 'engine:folders',
@@ -392,6 +401,16 @@ export interface NekkoApi {
   engineImageCompanions(modelId: string): Promise<import('./engine.js').ImageCompanionStatus | null>;
   /** Fetch the text encoders and VAE an image model is missing. */
   engineDownloadImageCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  /* Decision models: Laya locally, TypeSafe Jev hosted. */
+  decisionsCatalog(): Promise<import('./decisions.js').DecisionCatalogEntry[]>;
+  decisionsModels(): Promise<import('./decisions.js').InstalledDecisionModel[]>;
+  decisionsDownload(catalogId: string, precision?: import('./decisions.js').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsDelete(id: string): Promise<{ ok: boolean; message: string }>;
+  decisionsStatus(): Promise<import('./decisions.js').DecisionStatus>;
+  decisionsLoad(id: string, precision?: import('./decisions.js').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsUnload(): Promise<{ ok: boolean; message: string }>;
+  decisionsRun(provider: import('./decisions.js').DecisionProvider, request: import('./decisions.js').DecisionRequest): Promise<import('./decisions.js').DecisionResponse>;
+  decisionsCheckTypesafe(): Promise<{ ok: boolean; message: string }>;
   /** Set a resident model's idle TTL in seconds (0 keeps it loaded). */
   engineSetResidentTtl(modelId: string, ttlSeconds: number): Promise<{ ok: boolean; message: string }>;
   /** Add or remove a model from the list loaded when the engine starts. */

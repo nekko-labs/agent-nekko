@@ -159,6 +159,8 @@ export interface AppSettings {
    * one.
    */
   hfToken?: string;
+  /** TypeSafe API key for the hosted Jev decision model. Optional: local Laya needs none. */
+  typesafeApiKey?: string;
   /** A `llama-server` binary the user pointed at instead of a managed install. */
   engineBinPath?: string;
   /** Experimental feature toggles (Settings → Experimental). Off = surface hidden. */
