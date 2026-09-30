@@ -82,6 +82,9 @@ function collectIndexSnippets(
 
 type Sender = (event: AgentEvent) => void;
 
+/** The built-in tools the engine daemon runs itself (crates/nekko-tools `PORTED_TOOLS`). */
+const DAEMON_TOOLS = new Set(['read_file', 'write_file', 'edit_file', 'glob', 'grep', 'list_dir', 'bash']);
+
 const abortControllers = new Map<string, AbortController>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
 const pendingAnswers = new Map<string, (answers: AskAnswer[]) => void>();
@@ -774,6 +777,9 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     };
 
     try {
+      const defaultCwd = session.workspaceId
+        ? settings.workspaces.find((w) => w.id === session.workspaceId)?.path ?? settings.workspaces[0]?.path
+        : settings.workspaces[0]?.path;
       const runOptions = {
         sessionId: opts.sessionId,
         provider: createProvider(resolvedProvider),
@@ -844,9 +850,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             ? callMcpTool(call)
             : executeTool(call, {
                 settings,
-                defaultCwd: session.workspaceId
-                  ? settings.workspaces.find((w) => w.id === session.workspaceId)?.path ?? settings.workspaces[0]?.path
-                  : settings.workspaces[0]?.path,
+                defaultCwd,
                 requestApproval,
                 mode,
                 allowBrowserControl,
@@ -874,7 +878,21 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
       const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonOwns(daemon, 'loop:run'));
       const source = viaDaemon
-        ? runAgentViaDaemon(daemon, { ...runOptions, provider: resolvedProvider })
+        ? runAgentViaDaemon(daemon, {
+            ...runOptions,
+            provider: resolvedProvider,
+            requestApproval,
+            // The built-in file and shell tools run in the daemon too.
+            toolContext: {
+              native: tools.map((t) => t.name).filter((n) => DAEMON_TOOLS.has(n)),
+              sessionId: opts.sessionId,
+              mode,
+              sandboxMode: settings.sandboxMode,
+              guardrails: settings.guardrails,
+              workspaces: settings.workspaces.map((w) => ({ id: w.id, path: w.path })),
+              defaultCwd,
+            },
+          })
         : runAgent(runOptions);
       for await (const event of source) {
         eventsSeen = true;

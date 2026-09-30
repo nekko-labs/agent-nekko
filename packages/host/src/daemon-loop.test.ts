@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AgentEvent, ChatMessage, ToolCall } from '@agent-nekko/shared';
-import { loopEnd, loopEvent, loopTool, runAgentViaDaemon } from './daemon-loop.js';
+import { loopApprove, loopEnd, loopEvent, loopTool, runAgentViaDaemon } from './daemon-loop.js';
 
 /**
  * A scripted daemon: `loop:run` answers at once, then the "run" calls back the
@@ -82,5 +82,34 @@ describe('runAgentViaDaemon', () => {
     expect(runId).toMatch(/^run_/);
     // A late tool call for an ended run is refused, not run.
     expect(await loopTool(runId, { id: 'c9', name: 'x', input: {} })).toMatchObject({ isError: true });
+  });
+
+  it('hands the daemon the tool context and answers its approval requests with the chat prompt', async () => {
+    let spec: { runId: string; toolContext?: unknown } | undefined;
+    const approvals: string[] = [];
+    const call = vi.fn(async (channel: string, ...args: unknown[]) => {
+      if (channel === 'loop:run') {
+        spec = args[0] as typeof spec;
+        setTimeout(async () => {
+          const ok = await loopApprove(spec!.runId, { id: 'c1', name: 'bash', input: { command: 'rm x' } }, 'Run rm x', 'high');
+          await loopEvent(spec!.runId, { events: [{ type: 'text', sessionId: 's', delta: String(ok) } as AgentEvent] });
+          loopEnd(spec!.runId, {});
+        }, 1);
+      }
+      return true as never;
+    });
+    const toolContext = { native: ['bash'], sessionId: 's', mode: 'ask', workspaces: [{ id: 'w', path: '/w' }], defaultCwd: '/w' };
+    const seen: AgentEvent[] = [];
+    for await (const e of runAgentViaDaemon(call as never, {
+      sessionId: 's', provider: {} as never, model: 'm', system: '', history: [], tools: [],
+      executeTool: async () => ({ toolCallId: '', output: '' }),
+      requestApproval: async (c, reason, severity) => { approvals.push(`${c.name}: ${reason} (${severity})`); return true; },
+      toolContext,
+    })) seen.push(e);
+    expect(spec?.toolContext).toEqual(toolContext);
+    expect(approvals).toEqual(['bash: Run rm x (high)']);
+    expect(seen).toMatchObject([{ type: 'text', delta: 'true' }]);
+    // A run that has ended approves nothing.
+    expect(await loopApprove(spec!.runId, { id: 'c2', name: 'bash', input: {} }, 'x', 'low')).toBe(false);
   });
 });

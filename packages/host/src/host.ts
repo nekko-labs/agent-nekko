@@ -105,7 +105,7 @@ import { usageSummary, clearUsage } from './usage.js';
 import { indexWorkspace, getIndexStatus, searchWorkspace, listIndexedFiles } from './workspace.js';
 import { readFile, writeFile, listDir } from './files.js';
 import { getGitStatus } from './git.js';
-import { listChanges, acceptChange, acceptAllChanges, setChangeNotifier } from './changes.js';
+import { listChanges, acceptChange, acceptAllChanges, notifyChanges, setChangeNotifier } from './changes.js';
 import { listSessionPrs, getPrDiff, prAction } from './pr.js';
 import { listComments, addComment, resolveComment } from './comments.js';
 import {
@@ -160,7 +160,7 @@ import {
 } from './workflows.js';
 import { setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
-import { loopEnd, loopEvent, loopTool } from './daemon-loop.js';
+import { loopApprove, loopEnd, loopEvent, loopLog, loopTool } from './daemon-loop.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting } from './compaction.js';
 import { initLimits, getLimits, clearLimits } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
@@ -252,6 +252,9 @@ export interface Host {
   loopTool(runId: string, call: import('@agent-nekko/shared').ToolCall): Promise<import('@agent-nekko/shared').ToolResult>;
   loopEvent(runId: string, payload: { events?: import('@agent-nekko/shared').AgentEvent[]; history?: import('@agent-nekko/shared').ChatMessage[] }): Promise<void>;
   loopEnd(runId: string, payload: { history?: import('@agent-nekko/shared').ChatMessage[] }): void;
+  loopApprove(runId: string, call: import('@agent-nekko/shared').ToolCall, reason: string, severity: 'low' | 'medium' | 'high'): Promise<boolean>;
+  loopLog(sessionId: string, workspaceId: string | undefined, data: string): void;
+  changesNotify(sessionId: string): void;
   /** For the engine daemon's router: `GET /v1/models`. */
   engineRouterModels(): Promise<unknown>;
   engineRouterModel(modelId: string): Promise<unknown>;
@@ -388,11 +391,11 @@ export interface Host {
   listDir(path: string): DirEntry[];
 
   /** Files the agent changed this session (for diff/approve). */
-  listChanges(sessionId: string): FileChange[];
+  listChanges(sessionId: string): Promise<FileChange[]>;
   /** Keep a file's changes, stop tracking it. */
-  acceptChange(sessionId: string, path: string): void;
+  acceptChange(sessionId: string, path: string): Promise<void>;
   /** Keep all of a session's changes. */
-  acceptAllChanges(sessionId: string): void;
+  acceptAllChanges(sessionId: string): Promise<void>;
 
   /** Live PR state for every PR URL referenced in a chat's transcript. */
   listSessionPrs(sessionId: string): Promise<PrInfo[]>;
@@ -737,6 +740,9 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     loopTool,
     loopEvent,
     loopEnd,
+    loopApprove,
+    loopLog,
+    changesNotify: notifyChanges,
     engineRouterModels: () => engine.routerModels(),
     engineRouterModel: (modelId) => engine.routerModel(modelId),
     engineInstall: (buildId, runtime) => engine.installEngine(buildId, runtime),

@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto';
+import { appendAgentTerminal } from './terminal.js';
 import type { AgentEvent, ChatMessage, EffortLevel, ProviderConfig, ToolCall, ToolResult } from '@agent-nekko/shared';
 
 /**
@@ -8,7 +9,9 @@ import type { AgentEvent, ChatMessage, EffortLevel, ProviderConfig, ToolCall, To
  * Everything that decides the turn stays here: the provider (with a fresh
  * token), the tools on offer, the system prompt and context. The tools run
  * here too, through `loop:tool`, so approvals, questions, MCP and sub-agents
- * behave exactly as before. What moves is the streaming loop: the daemon
+ * behave exactly as before, except the built-in file and shell tools named in
+ * `toolContext.native`: the daemon runs those itself (`nekko-tools`) and asks
+ * here only to approve (`loop:approve`) and to log commands (`loop:log`). What moves is the streaming loop: the daemon
  * sends each event to the UI itself, in order, and this side hears about them
  * through `loop:event` to save checkpoints, record usage and wait on people.
  *
@@ -21,9 +24,11 @@ import type { AgentEvent, ChatMessage, EffortLevel, ProviderConfig, ToolCall, To
  */
 
 type Call = <T>(channel: string, ...args: unknown[]) => Promise<T>;
+type Severity = 'low' | 'medium' | 'high';
 
 interface Run {
   execute: (call: ToolCall) => Promise<ToolResult>;
+  approve: (call: ToolCall, reason: string, severity: Severity) => Promise<boolean>;
   deliver: (events: AgentEvent[], history?: ChatMessage[]) => Promise<void>;
   end: (history?: ChatMessage[]) => void;
 }
@@ -49,6 +54,17 @@ export async function loopTool(runId: string, call: ToolCall): Promise<ToolResul
   return run.execute(call);
 }
 
+/** `loop:approve`: ask the user about a tool call the daemon runs itself. */
+export async function loopApprove(runId: string, call: ToolCall, reason: string, severity: Severity): Promise<boolean> {
+  const run = runs.get(runId);
+  return run ? run.approve(call, reason, severity) : false;
+}
+
+/** `loop:log`: a line for a chat's agent command terminal, from a command the daemon ran. */
+export function loopLog(sessionId: string, workspaceId: string | undefined, data: string): void {
+  appendAgentTerminal(sessionId, workspaceId, data);
+}
+
 /** `loop:event`: events (and, at a checkpoint, the transcript) from a daemon-driven run. */
 export async function loopEvent(runId: string, payload: { events?: AgentEvent[]; history?: ChatMessage[] }): Promise<void> {
   await runs.get(runId)?.deliver(payload?.events ?? [], payload?.history);
@@ -57,6 +73,18 @@ export async function loopEvent(runId: string, payload: { events?: AgentEvent[];
 /** `loop:end`: the run is over; this is its final transcript. */
 export function loopEnd(runId: string, payload: { history?: ChatMessage[] }): void {
   runs.get(runId)?.end(payload?.history);
+}
+
+/** The Rust side of `ToolHostOptions` (crates/nekko-tools `ToolContext`). */
+export interface DaemonToolContext {
+  /** Tool names the daemon may run itself. */
+  native: string[];
+  sessionId: string;
+  mode?: string;
+  sandboxMode?: string;
+  guardrails?: unknown;
+  workspaces: Array<{ id: string; path: string }>;
+  defaultCwd?: string;
 }
 
 export interface DaemonRunOptions {
@@ -68,6 +96,10 @@ export interface DaemonRunOptions {
   history: ChatMessage[];
   tools: Array<{ name: string; description: string; parameters: Record<string, unknown> }>;
   executeTool: (call: ToolCall) => Promise<ToolResult>;
+  /** The approval prompt, for the tools the daemon runs itself. */
+  requestApproval?: (call: ToolCall, reason: string, severity: Severity) => Promise<boolean>;
+  /** What the daemon needs to run the built-in tools in `native` itself; left out, every tool runs here. */
+  toolContext?: DaemonToolContext;
   signal?: AbortSignal;
   maxIterations?: number;
   temperature?: number;
@@ -93,6 +125,7 @@ export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): As
   };
   runs.set(runId, {
     execute: opts.executeTool,
+    approve: (call, reason, severity) => (opts.requestApproval ? opts.requestApproval(call, reason, severity) : Promise.resolve(false)),
     deliver: async (events, history) => {
       replace(history);
       const consumed = events.map(
@@ -119,6 +152,7 @@ export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): As
       system: opts.system,
       history: opts.history,
       tools: opts.tools,
+      toolContext: opts.toolContext,
       maxIterations: opts.maxIterations,
       temperature: opts.temperature,
       effort: opts.effort,

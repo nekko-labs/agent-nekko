@@ -1174,6 +1174,7 @@ dependencies = [
  "nekko-loop",
  "nekko-store",
  "nekko-term",
+ "nekko-tools",
  "reqwest",
  "serde",
  "serde_json",
