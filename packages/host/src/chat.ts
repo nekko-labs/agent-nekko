@@ -45,7 +45,8 @@ import { searchWorkspace } from './workspace.js';
 import { buildSpec } from './spec.js';
 import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
 import { daemonCall } from './engine/daemon.js';
-import { runAgentViaDaemon } from './daemon-loop.js';
+import { daemonOwns, runAgentViaDaemon } from './daemon-loop.js';
+import { completeText } from './sideband.js';
 
 /**
  * Retrieve code snippets from the session's workspace index relevant to the
@@ -80,15 +81,6 @@ function collectIndexSnippets(
 }
 
 type Sender = (event: AgentEvent) => void;
-
-let loopsSupported: Promise<boolean> | undefined;
-/** Whether this daemon drives agent runs (`loop:run`); asked once. */
-function daemonRunsLoops(call: NonNullable<ReturnType<typeof daemonCall>>): Promise<boolean> {
-  loopsSupported ??= call<{ owned?: string[] }>('daemon:info')
-    .then((info) => Boolean(info?.owned?.includes('loop:run')))
-    .catch(() => false);
-  return loopsSupported;
-}
 
 const abortControllers = new Map<string, AbortController>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
@@ -150,8 +142,7 @@ async function titleSession(
   const assistantText =
     [...session.messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
   try {
-    let out = '';
-    for await (const chunk of createProvider(provider).chat({
+    const out = await completeText(provider, {
       model: modelId,
       messages: [
         {
@@ -169,9 +160,7 @@ async function titleSession(
       maxOutputTokens: 24,
       think: false,
       purpose: 'title',
-    })) {
-      if (chunk.type === 'text') out += chunk.delta;
-    }
+    });
     const title = out
       .replace(/["'`]/g, '')
       .replace(/\s+/g, ' ')
@@ -233,12 +222,9 @@ export async function suggestReplies(sessionId: string): Promise<ReplySuggestion
     })
     .join('\n\n');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
   try {
     const resolved = await resolveSubscriptionProvider(provider);
-    let out = '';
-    for await (const chunk of createProvider(resolved).chat({
+    const out = await completeText(resolved, {
       model: modelId,
       messages: [
         {
@@ -257,15 +243,10 @@ export async function suggestReplies(sessionId: string): Promise<ReplySuggestion
       maxOutputTokens: 220,
       think: false,
       purpose: 'suggest',
-      signal: controller.signal,
-    })) {
-      if (chunk.type === 'text') out += chunk.delta;
-    }
+    });
     return parseReplySuggestions(out);
   } catch {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -291,12 +272,9 @@ export async function fillPromptPart(sessionId: string, part: string, draft: str
   if (session.offline && !offlineProviderAllowed(provider)) return null;
   if (!providerEndpoint(provider)) return null;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
   try {
     const resolved = await resolveSubscriptionProvider(provider);
-    let out = '';
-    for await (const chunk of createProvider(resolved).chat({
+    const out = await completeText(resolved, {
       model: modelId,
       messages: [
         {
@@ -314,10 +292,7 @@ export async function fillPromptPart(sessionId: string, part: string, draft: str
       maxOutputTokens: 120,
       think: false,
       purpose: 'fill',
-      signal: controller.signal,
-    })) {
-      if (chunk.type === 'text') out += chunk.delta;
-    }
+    });
     const cleaned = out
       .trim()
       .replace(/^["'`]+|["'`]+$/g, '')
@@ -326,8 +301,6 @@ export async function fillPromptPart(sessionId: string, part: string, draft: str
     return cleaned || null;
   } catch {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -899,7 +872,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       // records them.
       // NEKKO_AGENT_LOOP=ts keeps every run in this process (a kill switch).
       const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
-      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonRunsLoops(daemon));
+      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonOwns(daemon, 'loop:run'));
       const source = viaDaemon
         ? runAgentViaDaemon(daemon, { ...runOptions, provider: resolvedProvider })
         : runAgent(runOptions);
