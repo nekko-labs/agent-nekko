@@ -2,7 +2,7 @@
 
 import type { AppSettings, UsageSummary } from './settings.js';
 import type { ProviderConfig, ModelInfo } from './models.js';
-import type { Session, SendOptions, AgentEvent, PendingInput } from './chat.js';
+import type { Session, SendOptions, AgentEvent, PendingInput, ReplySuggestions } from './chat.js';
 import type { TerminalInfo, TerminalSnapshot, ShellOption } from './terminal.js';
 import type { ContextBundle } from './context.js';
 import type { MemoryEntry, MemoryScope } from './memory.js';
@@ -95,6 +95,7 @@ export const IpcChannels = {
   chatCancelCompaction: 'chat:cancelCompaction',
   chatQueue: 'chat:queue',
   chatDequeue: 'chat:dequeue',
+  chatSuggest: 'chat:suggest',
   toolApprove: 'tool:approve',
   chatAnswer: 'chat:answer',
   chatPending: 'chat:pending',
@@ -435,6 +436,14 @@ export interface NekkoApi {
   queuePrompt(sessionId: string, text: string): Promise<Session | null>;
   /** Remove a queued prompt by index. */
   dequeuePrompt(sessionId: string, index: number): Promise<Session | null>;
+  /**
+   * Model-written next-step ideas for a chat that just answered: a few short
+   * follow-ups for one-click chips plus the single most likely next message
+   * (shown as composer ghost text). A sideband call on the chat's own provider
+   * and model; null when there is nothing to suggest from (no reply yet,
+   * unattended run, no usable provider). Never persists anything.
+   */
+  suggestReplies(sessionId: string): Promise<ReplySuggestions | null>;
   approveTool(sessionId: string, toolCallId: string, approved: boolean): Promise<void>;
   /**
    * Answer an `ask_user` call, which unblocks the turn that asked. Passing no

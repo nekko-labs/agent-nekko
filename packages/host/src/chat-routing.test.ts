@@ -7,6 +7,8 @@ import type { ChatRequest, Provider, ProviderChunk } from '@agent-nekko/core';
 
 let requests: Array<{ providerId: string; request: ChatRequest }> = [];
 let titleRequests: Array<{ providerId: string; request: ChatRequest }> = [];
+let suggestRequests: Array<{ providerId: string; request: ChatRequest }> = [];
+let suggestError: Error | null = null;
 let listings: string[] = [];
 let rounds: Array<ProviderChunk[] | Error> = [];
 let models: ModelInfo[] = [];
@@ -34,10 +36,18 @@ vi.mock('@agent-nekko/core', async () => {
       },
       test: async () => ({ ok: true, message: '' }),
       async *chat(request) {
-        // Sideband calls (title generation) are recorded separately so the
-        // turn-traffic assertions below stay about routing.
+        // Sideband calls (title generation, reply suggestions) are recorded
+        // separately so the turn-traffic assertions below stay about routing.
         if (request.purpose === 'title') {
           titleRequests.push({ providerId: config.id, request });
+        } else if (request.purpose === 'suggest') {
+          suggestRequests.push({ providerId: config.id, request });
+          // A fire-and-forget titleSession from a previous test can bleed into
+          // this one and eat a queued round, so suggestion traffic gets a
+          // purpose-keyed default rather than sharing `rounds`.
+          if (suggestError) throw suggestError;
+          for (const chunk of [{ type: 'text', delta: '{"options":["Run the tests","Explain the diff"],"next":"Run the new tests"}' }, { type: 'done' }] as ProviderChunk[]) yield chunk;
+          return;
         } else {
           requests.push({ providerId: config.id, request });
         }
@@ -54,7 +64,7 @@ const { saveSettings, getSettings } = await import('./store.js');
 const { executeTool } = await import('./tools.js');
 const { terminalSnapshot, writeTerminal, closeTerminal } = await import('./terminal.js');
 const { createSession, getSession, saveSession, listSessions } = await import('./sessions.js');
-const { sendChat, previewContext, resolveApproval } = await import('./chat.js');
+const { sendChat, previewContext, resolveApproval, suggestReplies } = await import('./chat.js');
 const { BUILTIN_TOOLS } = await import('@agent-nekko/core');
 let dir: string;
 let providers: ProviderConfig[];
@@ -70,6 +80,8 @@ beforeEach(() => {
   saveSettings({ providers, workspaces: [], defaultChatMode: 'yolo' });
   requests = [];
   titleRequests = [];
+  suggestRequests = [];
+  suggestError = null;
   listings = [];
   rounds = [];
   models = [{ id: 'local-exact', providerId: 'local', name: 'Local exact' }];
@@ -335,6 +347,72 @@ describe('explicit sub-agent routing', () => {
     expect(listSessions()).toEqual([before]);
     expect(listings).toEqual([]);
     expect(requests.map((r) => r.providerId)).toEqual(['frontier', 'frontier']);
+  });
+});
+
+describe('reply suggestions', () => {
+  const replied = () => {
+    const session = createSession();
+    session.providerId = 'frontier';
+    session.modelId = 'frontier-exact';
+    session.messages = [
+      { id: 'u1', role: 'user', content: 'add a test for the parser', createdAt: 1 },
+      { id: 'a1', role: 'assistant', content: 'Added chat.test.ts with the new cases.', createdAt: 2 },
+    ];
+    saveSession(session);
+    return session;
+  };
+
+  it('suggests from the reply on its own provider and model, out of band', async () => {
+    const session = replied();
+    const out = await suggestReplies(session.id);
+    expect(out).toEqual({ options: ['Run the tests', 'Explain the diff'], next: 'Run the new tests' });
+    expect(suggestRequests).toHaveLength(1);
+    expect(suggestRequests[0].providerId).toBe('frontier');
+    expect(suggestRequests[0].request.model).toBe('frontier-exact');
+    expect(suggestRequests[0].request.purpose).toBe('suggest');
+    expect(suggestRequests[0].request.messages.at(-1)?.content).toContain('Added chat.test.ts');
+    // Sideband traffic stays out of the turn buckets.
+    expect(requests).toEqual([]);
+  });
+
+  it('returns null when there is no reply to suggest from', async () => {
+    const session = createSession();
+    session.providerId = 'frontier';
+    session.modelId = 'frontier-exact';
+    session.messages = [{ id: 'u1', role: 'user', content: 'hi', createdAt: 1 }];
+    saveSession(session);
+    expect(await suggestReplies(session.id)).toBeNull();
+    expect(await suggestReplies('missing-session')).toBeNull();
+    expect(suggestRequests).toEqual([]);
+  });
+
+  it('skips sessions with nobody at the composer to click a chip', async () => {
+    for (const flag of ['taskId', 'trainingRunId', 'parentSessionId'] as const) {
+      const session = replied();
+      session[flag] = 'x1';
+      saveSession(session);
+      expect(await suggestReplies(session.id)).toBeNull();
+    }
+    expect(suggestRequests).toEqual([]);
+  });
+
+  it('turns a provider failure into no suggestions rather than an error', async () => {
+    const session = replied();
+    suggestError = new Error('provider down');
+    expect(await suggestReplies(session.id)).toBeNull();
+  });
+
+  it('respects the offline gate for remote providers', async () => {
+    providers[1].baseUrl = 'https://remote.example/v1';
+    saveSettings({ providers });
+    const session = replied();
+    session.providerId = 'local';
+    session.modelId = 'local-exact';
+    session.offline = true;
+    saveSession(session);
+    expect(await suggestReplies(session.id)).toBeNull();
+    expect(suggestRequests).toEqual([]);
   });
 });
 

@@ -343,6 +343,10 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const [reasoningDuration, setReasoningDuration] = useState<number | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<string | null>(null);
+  // What the model thinks the user will say next: one-click follow-up chips and
+  // the composer's ghost text. Pinned to the reply it was written for (forId) so
+  // a newer turn can't inherit stale suggestions.
+  const [suggestions, setSuggestions] = useState<{ forId: string; options: string[]; next: string | null } | null>(null);
   // A failed reply stays in the transcript with a retry, instead of vanishing
   // with the toast.
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
@@ -715,6 +719,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           }
           endTurn();
           refreshCtx();
+          void requestSuggestions();
+          break;
+        case 'session_meta':
+          // The session record changed mid-turn — a new agent plan, or a fresh
+          // title — so re-read it and refresh the sidebar/boards alongside.
+          window.nekko.getSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
+          void refreshSessions();
           break;
         case 'session_meta':
           // The session record changed mid-turn — a new agent plan, or a fresh
@@ -787,6 +798,27 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     refreshSessions();
     // A reply may have created or updated a PR (e.g. `gh pr create`).
     useStore.getState().refreshSessionPrs(sessionId);
+  };
+
+  /**
+   * Ask the model what the user might say next, then pin the answer to the
+   * reply it was written for. Nice-to-have traffic: a provider hiccup, a
+   * session with nothing to suggest from, or a malformed reply all just mean
+   * no chips this turn.
+   */
+  const requestSuggestions = async () => {
+    try {
+      const res = await window.nekko.suggestReplies(sessionId);
+      if (!res || (res.options.length === 0 && !res.next)) return;
+      const fresh = await window.nekko.getSession(sessionId);
+      const last = fresh?.messages[fresh.messages.length - 1];
+      // A turn that started while the call was in flight (a queued prompt, a
+      // send from another pane) makes the suggestions stale; drop them.
+      if (!last || last.role !== 'assistant') return;
+      setSuggestions({ forId: last.id, options: res.options, next: res.next });
+    } catch {
+      /* suggestions are nice-to-have */
+    }
   };
 
   // Follow the stream only while the reader is pinned to the bottom; otherwise
@@ -940,6 +972,8 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     setReasoningDuration(null);
     setDoneSummary(null);
     setErrorNotice(null);
+    // The reply they suggested against is about to be replaced.
+    setSuggestions(null);
     reasoningStart.current = 0;
     turnStart.current = Date.now();
     turnOutRef.current = 0;
@@ -1296,6 +1330,14 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     composerRef.current?.focus();
   };
 
+  // Suggestions only count while the reply they were written for is still the
+  // latest word; anything newer retires them.
+  const lastMsgId = session?.messages[session.messages.length - 1]?.id;
+  const liveSuggestions = suggestions && suggestions.forId === lastMsgId ? suggestions : null;
+  // The model's single most likely next message, shown as the composer's
+  // placeholder while the box is empty; ArrowRight types it in.
+  const ghostSuggestion = !draft && liveSuggestions?.next ? liveSuggestions.next : null;
+
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const menuCount = slashMenuOpen ? skillMatches.length + slashMatches.length : atMenuOpen ? atMatches.length : 0;
     if (slashMenuOpen || atMenuOpen) {
@@ -1316,6 +1358,15 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           return;
         }
       }
+    }
+    // → accepts the ghost suggestion while the box is empty (the box is empty
+    // whenever a ghost is showing, so the caret is already at the end).
+    if (e.key === 'ArrowRight' && ghostSuggestion && !e.currentTarget.value) {
+      e.preventDefault();
+      const el = e.currentTarget;
+      setDraft(ghostSuggestion);
+      requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length));
+      return;
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -1808,6 +1859,23 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
               }}
             />
 
+            {/* Model-written follow-ups to the reply above: one click sends it
+                outright, and starting any turn clears them. */}
+            {liveSuggestions && liveSuggestions.options.length > 0 && !streaming && (
+              <div className="mb-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Suggested replies">
+                {liveSuggestions.options.map((opt) => (
+                  <button
+                    key={opt}
+                    className="max-w-full truncate rounded-full border border-line bg-surface px-3 py-1.5 text-left text-[12px] text-ink-soft transition-colors hover:border-accent/50 hover:bg-surface-2 hover:text-ink"
+                    title={`Send: ${opt}`}
+                    onClick={() => { setSuggestions(null); void send(opt); }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="relative w-full">
               {atMenuOpen && (
                 <div
@@ -1932,21 +2000,33 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                     </span>
                   </div>
                 )}
-                <textarea
-                  ref={composerRef}
-                  className={`${composerH != null ? '' : 'max-h-60 '}min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint`}
-                  rows={2}
-                  placeholder={hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first'}
-                  value={draft}
-                  role="combobox"
-                  aria-expanded={slashMenuOpen || atMenuOpen}
-                  aria-controls={slashMenuOpen ? `slash-menu-${sessionId}` : atMenuOpen ? `at-menu-${sessionId}` : undefined}
-                  aria-autocomplete="list"
-                  onChange={(e) => { setDraft(e.target.value); setMenuClosed(false); }}
-                  onPaste={onPaste}
-                  onKeyDown={onComposerKeyDown}
-                  disabled={!hasProvider}
-                />
+                <div className="relative">
+                  {/* The → badge announces the ghost-accept key, top-right in the
+                      textarea's padding so it never overlaps the text. */}
+                  {ghostSuggestion && (
+                    <span
+                      className="pointer-events-none absolute right-3 top-3 z-10 select-none rounded-md border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] leading-none text-ink-faint"
+                      aria-hidden
+                    >
+                      →
+                    </span>
+                  )}
+                  <textarea
+                    ref={composerRef}
+                    className={`${composerH != null ? '' : 'max-h-60 '}min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint`}
+                    rows={2}
+                    placeholder={ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
+                    value={draft}
+                    role="combobox"
+                    aria-expanded={slashMenuOpen || atMenuOpen}
+                    aria-controls={slashMenuOpen ? `slash-menu-${sessionId}` : atMenuOpen ? `at-menu-${sessionId}` : undefined}
+                    aria-autocomplete="list"
+                    onChange={(e) => { setDraft(e.target.value); setMenuClosed(false); }}
+                    onPaste={onPaste}
+                    onKeyDown={onComposerKeyDown}
+                    disabled={!hasProvider}
+                  />
+                </div>
                 <div className="flex items-center gap-2 px-2 pb-2 pt-1">
                   <div
                     ref={attachMenuRef}

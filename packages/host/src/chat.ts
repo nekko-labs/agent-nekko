@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
-import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, planEcho } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
+import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -164,6 +164,81 @@ async function titleSession(
     send({ type: 'session_meta', sessionId });
   } catch {
     /* a nicer title is nice-to-have; the prompt prefix stays */
+  }
+}
+
+/**
+ * Suggest what the user might send next: a few short follow-ups (the one-click
+ * chips) plus the single most likely next message (the composer's ghost text).
+ *
+ * Same family as `titleSession`: a small sideband call on the provider and
+ * model the reply itself ran on, tagged `purpose: 'suggest'` so it stays out of
+ * turn accounting. It reads the persisted transcript, writes nothing, and a
+ * model or network failure just means no suggestions rather than an error.
+ */
+export async function suggestReplies(sessionId: string): Promise<ReplySuggestions | null> {
+  const session = getSession(sessionId);
+  if (!session) return null;
+  // Automation- and delegation-driven chats have nobody at the composer to
+  // click a suggestion, so they never pay for the call.
+  if (session.taskId || session.trainingRunId || session.parentSessionId) return null;
+  const last = session.messages[session.messages.length - 1];
+  if (!last || last.role !== 'assistant' || !last.content.trim()) return null;
+  const settings = getSettings();
+  const providerId = session.providerId ?? settings.defaultProviderId;
+  const modelId = session.modelId ?? settings.defaultModelId;
+  const provider = providerId ? settings.providers.find((p) => p.id === providerId) : undefined;
+  if (!provider?.enabled || !modelId) return null;
+  if (session.offline && !offlineProviderAllowed(provider)) return null;
+  if (!providerEndpoint(provider)) return null;
+
+  // The tail of the conversation, each message clipped: enough to suggest from,
+  // cheap enough for a small local model to read.
+  const tail = session.messages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .slice(-6)
+    .map((m) => {
+      const tools =
+        m.role === 'assistant' && m.toolCalls?.length
+          ? ` [used tools: ${Array.from(new Set(m.toolCalls.map((c) => c.name))).join(', ')}]`
+          : '';
+      return `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 800).trim()}${tools}`;
+    })
+    .join('\n\n');
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const resolved = await resolveSubscriptionProvider(provider);
+    let out = '';
+    for await (const chunk of createProvider(resolved).chat({
+      model: modelId,
+      messages: [
+        {
+          id: 'suggest',
+          role: 'user',
+          createdAt: Date.now(),
+          content:
+            `You are suggesting the user's next message in a chat with an AI assistant that can answer questions and work on their computer (read files, run commands, edit code).\n` +
+            `From the conversation, propose 2 to 4 short follow-up messages the user is most likely to send next, each under 10 words, written as the user would write them, specific to what the assistant just did or said.\n` +
+            `Then give "next": the single most likely next message in full, under 30 words.\n` +
+            `Reply with one JSON object and nothing else: {"options":["...","..."],"next":"..."}\n\n` +
+            `Conversation:\n${tail}`,
+        },
+      ],
+      temperature: 0.4,
+      maxOutputTokens: 220,
+      think: false,
+      purpose: 'suggest',
+      signal: controller.signal,
+    })) {
+      if (chunk.type === 'text') out += chunk.delta;
+    }
+    return parseReplySuggestions(out);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
