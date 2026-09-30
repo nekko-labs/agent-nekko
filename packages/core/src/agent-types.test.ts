@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { classifyAgent, detectSkill, agentSignals, classifySession } from '@agent-nekko/shared';
+import { classifyAgent, detectSkill, agentSignals, classifySession, summarizeSession } from '@agent-nekko/shared';
 import type { Session, AutomationTask } from '@agent-nekko/shared';
 
 describe('detectSkill', () => {
@@ -57,6 +57,10 @@ describe('agentSignals / classifySession', () => {
     const sig = agentSignals(s);
     expect(sig.skill).toBe('review');
     expect(classifySession(s).role).toBe('reviewer');
+  });
+  it('classifies a list summary the same as the session it came from', () => {
+    const s: Session = { ...base, messages: [{ id: 'm', role: 'user', content: '/review the PR', createdAt: 0 }] };
+    expect(classifySession(summarizeSession(s))).toEqual(classifySession(s));
   });
   it('prefers the driving task prompt/kind when present', () => {
     const task: AutomationTask = {

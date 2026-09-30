@@ -7,7 +7,7 @@ import type {
   LiveStep,
   PendingInput,
   ProviderConfig,
-  Session,
+  SessionSummary,
   TurnExcerpt,
   UsageSummary,
 } from '@agent-nekko/shared';
@@ -15,8 +15,8 @@ import {
   BLOCKED_META,
   LANE_META,
   SESSION_LANES,
+  SUMMARY_TURNS,
   classifySession,
-  recentTurns,
   sessionLane,
   summarizeToolCall,
   taskCadence,
@@ -46,10 +46,11 @@ import { ChatIcon, ChevronIcon, RobotIcon, ThoughtIcon, ToolStepIcon, TrashIcon 
 const LANE_CAP = 6;
 /** Turns of conversation on a resting card, and on an opened one. */
 const TURNS_COLLAPSED = 2;
-const TURNS_EXPANDED = 8;
+// A summary carries this many turns, so an opened card never asks for more.
+const TURNS_EXPANDED = SUMMARY_TURNS;
 
 export interface BoardCard {
-  session: Session;
+  session: SessionSummary;
   task?: AutomationTask;
   lane: SessionLane;
   blocked?: BlockedReason;
@@ -73,13 +74,13 @@ export function SessionBoard({
   onRefresh,
   onNewChat,
 }: {
-  sessions: Session[];
+  sessions: SessionSummary[];
   tasks: AutomationTask[];
   providers: ProviderConfig[];
   usage: UsageSummary | null;
   running: Set<string>;
   pending: Record<string, PendingInput>;
-  childrenOf: Map<string, Session[]>;
+  childrenOf: Map<string, SessionSummary[]>;
   runStarts: Map<string, number>;
   /** Live step rails, keyed by session. A mutable map read at paint time. */
   activity: Map<string, LiveActivity>;
@@ -97,7 +98,7 @@ export function SessionBoard({
   // A chat counts as working when it, or anything it delegated to, is running:
   // a parent parked on `spawn_agent` is not idle, it is waiting on its swarm.
   const isRunning = useMemo(() => {
-    const check = (s: Session): boolean =>
+    const check = (s: SessionSummary): boolean =>
       running.has(s.id) || (childrenOf.get(s.id) ?? []).some(check);
     return check;
   }, [running, childrenOf]);
@@ -107,7 +108,7 @@ export function SessionBoard({
       sessions.map((session) => {
         const p = pending[session.id];
         const live = isRunning(session);
-        const { lane, blocked } = sessionLane({ running: live, pending: p, messages: session.messages });
+        const { lane, blocked } = sessionLane({ running: live, pending: p, stalled: session.stalled });
         return {
           session,
           task: taskBySession.get(session.id),
@@ -179,7 +180,7 @@ function Lane({
   cards: BoardCard[];
   providers: ProviderConfig[];
   usage: UsageSummary | null;
-  childrenOf: Map<string, Session[]>;
+  childrenOf: Map<string, SessionSummary[]>;
   activity: Map<string, LiveActivity>;
   now: number;
   onOpen: (id: string) => void;
@@ -234,7 +235,7 @@ function SessionCard({
   card: BoardCard;
   provider?: ProviderConfig;
   tokens?: { input: number; output: number };
-  childrenOf: Map<string, Session[]>;
+  childrenOf: Map<string, SessionSummary[]>;
   activity?: LiveActivity;
   now: number;
   onOpen: (id: string) => void;
@@ -245,11 +246,11 @@ function SessionCard({
   // more of the same content. Opening the chat is still one click away, but it
   // is no longer the price of reading two more sentences.
   const [expanded, setExpanded] = useState(false);
-  const msgs = session.messages.filter((m) => m.role === 'user' || m.role === 'assistant').length;
+  const msgs = session.exchangeCount;
   const tok = tokens ? tokens.input + tokens.output : 0;
   const turns = useMemo(
-    () => recentTurns(session.messages, expanded ? TURNS_EXPANDED : TURNS_COLLAPSED),
-    [session.messages, expanded],
+    () => session.recentTurns.slice(-(expanded ? TURNS_EXPANDED : TURNS_COLLAPSED)),
+    [session.recentTurns, expanded],
   );
   const swarm = countDescendants(session.id, childrenOf);
   const agentType = classifySession(session, task);
@@ -514,7 +515,7 @@ function ApprovalRow({
 }
 
 /** A reply that stopped part-way: resumed, or re-run, from here. */
-function StalledRow({ session, onOpen }: { session: Session; onOpen: (id: string) => void }) {
+function StalledRow({ session, onOpen }: { session: SessionSummary; onOpen: (id: string) => void }) {
   const pushToast = useStore((s) => s.pushToast);
   const [busy, setBusy] = useState(false);
   const resume = async () => {
@@ -564,7 +565,7 @@ function StalledRow({ session, onOpen }: { session: Session; onOpen: (id: string
 function ReplyBox({
   session, running, question, onRefresh, onOpen,
 }: {
-  session: Session;
+  session: SessionSummary;
   running: boolean;
   /** Set when the agent is parked on a question; typing here answers it. */
   question?: AskRequest;
@@ -669,7 +670,7 @@ function ReplyBox({
 }
 
 /** Count every descendant sub-agent under a session. */
-function countDescendants(id: string, childrenOf: Map<string, Session[]>): number {
+function countDescendants(id: string, childrenOf: Map<string, SessionSummary[]>): number {
   return (childrenOf.get(id) ?? []).reduce((n, k) => n + 1 + countDescendants(k.id, childrenOf), 0);
 }
 

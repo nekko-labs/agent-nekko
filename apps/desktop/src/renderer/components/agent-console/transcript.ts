@@ -79,6 +79,80 @@ export function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
   return blocks;
 }
 
+/** A PR card's own vertical margin, which used to set the gap after it. */
+const PR_CARD_GAP = 8;
+
+/**
+ * One row of the windowed transcript: a message (with the PR cards it is the
+ * first to mention), a run of working steps, or the PR cards that were only
+ * ever mentioned in tool output, at the end.
+ */
+export type TranscriptRow =
+  | { key: string; kind: 'msg'; message: ChatMessage; prUrls: string[]; gapAfter?: number }
+  | { key: string; kind: 'activity'; items: Activity[]; gapAfter?: number }
+  | { key: string; kind: 'prs'; urls: string[]; gapAfter?: number };
+
+/**
+ * Fold a transcript into rows, the way the console always laid it out: the
+ * blocks of `toStreamBlocks`, a PR card right after the message that first
+ * names it, and cards for PRs seen only in tool output appended at the end.
+ * Keys are unique within the chat and stable as messages are appended.
+ */
+export function toTranscriptRows(
+  messages: ChatMessage[],
+  extractUrls: (text: string) => string[],
+  collectUrls: (messages: ChatMessage[]) => string[],
+): TranscriptRow[] {
+  const rows: TranscriptRow[] = [];
+  const shown = new Set<string>();
+  const keys = new Set<string>();
+  const unique = (k: string) => {
+    let key = k;
+    for (let n = 1; keys.has(key); n++) key = `${k}~${n}`;
+    keys.add(key);
+    return key;
+  };
+  for (const b of toStreamBlocks(messages)) {
+    if (b.type !== 'msg') {
+      rows.push({ key: unique(b.key), kind: 'activity', items: b.items });
+      continue;
+    }
+    const m = b.message;
+    // An assistant message with nothing to show renders nothing, so it must not
+    // take a row (and a gap) either.
+    if (m.role === 'assistant' && !m.content && !m.reasoning && !m.toolCalls?.length) continue;
+    const urls = m.role === 'user' ? [] : extractUrls(m.content).filter((u) => !shown.has(u));
+    urls.forEach((u) => shown.add(u));
+    rows.push({ key: unique(`m_${m.id}`), kind: 'msg', message: m, prUrls: urls, ...(urls.length ? { gapAfter: PR_CARD_GAP } : {}) });
+  }
+  const orphans = collectUrls(messages).filter((u) => !shown.has(u));
+  if (orphans.length) rows.push({ key: unique('orphan_prs'), kind: 'prs', urls: orphans, gapAfter: PR_CARD_GAP });
+  return rows;
+}
+
+/**
+ * A first guess at a row's height (gap included) for a column `width` pixels
+ * wide, used until the row has rendered and been measured. It only has to be
+ * in the right neighbourhood: the scroll position is corrected as real sizes
+ * come in.
+ */
+export function estimateRowHeight(row: TranscriptRow, width: number): number {
+  const gap = row.gapAfter ?? 20;
+  if (row.kind === 'activity') return 22 + gap;
+  if (row.kind === 'prs') return row.urls.length * 90 + gap;
+  const m = row.message;
+  const user = m.role === 'user';
+  const perLine = Math.max(20, Math.floor(((user ? 0.85 : 1) * Math.max(240, width)) / 7.6));
+  let lines = 0;
+  for (const line of m.content.split('\n')) lines += Math.max(1, Math.ceil(line.length / perLine));
+  const fences = (m.content.match(/```/g)?.length ?? 0) / 2;
+  let h = lines * (user ? 22 : 23) + fences * 34 + (user ? 20 : 0);
+  if (!user && m.reasoning) h += 26;
+  if (!user && m.toolCalls?.length) h += m.toolCalls.length * 26;
+  if (m.images?.length) h += 112;
+  return h + row.prUrls.length * 90 + gap;
+}
+
 /** A stable-ish key per step (tool calls have ids; thoughts and notes don't). */
 export function stepKey(it: Activity, i: number): string {
   return it.kind === 'tool' ? `${it.call.id}_${i}` : `${it.kind}_${i}`;
@@ -86,9 +160,32 @@ export function stepKey(it: Activity, i: number): string {
 
 export const fmtTok = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
 
+// Formatters are built once: toLocaleTimeString() and toLocaleString() build a
+// new one on every call, which is most of the cost of drawing a user bubble.
+let timeFormat: Intl.DateTimeFormat | null | undefined;
+let dateTimeFormat: Intl.DateTimeFormat | null | undefined;
+
+function formatter(kind: 'time' | 'datetime'): Intl.DateTimeFormat | null {
+  try {
+    if (kind === 'time') return (timeFormat ??= new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }));
+    // The same fields Date#toLocaleString() fills in when given no options.
+    return (dateTimeFormat ??= new Intl.DateTimeFormat(undefined, {
+      year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
+    }));
+  } catch {
+    return null;
+  }
+}
+
 /** Short local time for a message timestamp (e.g. "3:42 PM"). */
 export function fmtTime(ts: number): string {
   if (!ts) return '';
-  try { return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
+  try { return formatter('time')?.format(ts) ?? ''; }
+  catch { return ''; }
+}
+
+/** Full local date and time, as Date#toLocaleString() writes it. */
+export function fmtDateTime(ts: number): string {
+  try { return formatter('datetime')?.format(ts) ?? new Date(ts).toLocaleString(); }
   catch { return ''; }
 }

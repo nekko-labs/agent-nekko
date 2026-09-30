@@ -8,6 +8,7 @@
  */
 
 import type { Session } from './chat.js';
+import type { SessionSummary } from './session-summary.js';
 import type { AutomationTask, TaskKind } from './tasks.js';
 
 export type AgentRole = 'reviewer' | 'monitor' | 'researcher' | 'builder' | 'automation' | 'assistant';
@@ -84,8 +85,10 @@ export function classifyAgent(sig: AgentSignals): AgentType {
 }
 
 /** Extract classification signals from a chat session (+ its driving task, if any). */
-export function agentSignals(session: Session, task?: AutomationTask): AgentSignals {
-  const firstUser = session.messages.find((m) => m.role === 'user')?.content;
+export function agentSignals(session: Session | SessionSummary, task?: AutomationTask): AgentSignals {
+  const firstUser = 'messages' in session
+    ? session.messages.find((m) => m.role === 'user')?.content
+    : session.firstUserText;
   const prompt = task?.prompt ?? firstUser ?? session.title;
   return {
     taskKind: task?.kind,
@@ -97,6 +100,6 @@ export function agentSignals(session: Session, task?: AutomationTask): AgentSign
 }
 
 /** Classify a chat session directly (convenience). */
-export function classifySession(session: Session, task?: AutomationTask): AgentType {
+export function classifySession(session: Session | SessionSummary, task?: AutomationTask): AgentType {
   return classifyAgent(agentSignals(session, task));
 }

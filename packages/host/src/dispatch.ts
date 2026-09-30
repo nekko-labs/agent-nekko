@@ -62,6 +62,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.systemStats]: () => host.getSystemStats(),
 
     [C.sessionsList]: () => host.listSessions(),
+    [C.sessionsSummaries]: () => host.listSessionSummaries(),
     [C.sessionCreate]: ([wid]) => host.createSession(wid),
     [C.sessionGet]: ([id]) => host.getSession(id),
     [C.sessionDelete]: ([id]) => host.deleteSession(id),

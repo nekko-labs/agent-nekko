@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
@@ -25,7 +26,7 @@ const CHAT_MODES: Array<{ value: ChatMode; label: string; desc: string }> = [
 ];
 
 export function SettingsView() {
-  const { applyTheme, onboardingOpen } = useStore();
+  const { applyTheme, onboardingOpen } = useStore(useShallow((s) => ({ applyTheme: s.applyTheme, onboardingOpen: s.onboardingOpen })));
   const tr = useT();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const prevOnboardingOpen = useRef(onboardingOpen);
@@ -377,7 +378,7 @@ function TerminalSection({ settings, update }: { settings: AppSettings; update: 
 }
 
 function BackupSection({ settings, onSettings }: { settings: AppSettings; onSettings: (s: AppSettings) => void }) {
-  const { pushToast, refreshProviders } = useStore();
+  const { pushToast, refreshProviders } = useStore(useShallow((s) => ({ pushToast: s.pushToast, refreshProviders: s.refreshProviders })));
 
   const exportSettings = () => {
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
@@ -424,7 +425,13 @@ function BackupSection({ settings, onSettings }: { settings: AppSettings; onSett
 }
 
 function DataSection({ onSettings }: { onSettings: (s: AppSettings) => void }) {
-  const { refreshSessions, refreshProviders, pushToast } = useStore();
+  const { refreshSessions, refreshProviders, pushToast } = useStore(
+    useShallow((s) => ({
+      refreshSessions: s.refreshSessions,
+      refreshProviders: s.refreshProviders,
+      pushToast: s.pushToast,
+    })),
+  );
   const [busy, setBusy] = useState(false);
 
   const clear = async (scope: 'today' | 'month' | 'all', label: string) => {
@@ -504,7 +511,7 @@ function McpSection({
   update: (patch: Partial<AppSettings>) => void;
   reload: () => Promise<void>;
 }) {
-  const { pushToast } = useStore();
+  const { pushToast } = useStore(useShallow((s) => ({ pushToast: s.pushToast })));
   const servers = settings.mcpServers ?? [];
   const [status, setStatus] = useState<McpServerStatus[]>([]);
   const [busy, setBusy] = useState(false);

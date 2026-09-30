@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
 import { formatUSD, isLocalProvider } from '@agent-nekko/shared';
+import { afterPaint } from '../afterPaint.js';
 
 /** Relative time from now to a future timestamp, in compact words. */
 function timeUntil(ms: number): string {
@@ -70,11 +71,14 @@ export function UsageLimitsChip({
       return;
     }
     let live = true;
-    window.nekko.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
+    // Started after the first frame: a pane that just opened paints before it asks.
+    const cancel = afterPaint(() => {
+      window.nekko.getLimits(tokenKey).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
+    });
     const off = window.nekko.onLimitsUpdated((e) => {
       if (e.tokenKey === tokenKey) setLimits(e.limits);
     });
-    return () => { live = false; off(); };
+    return () => { live = false; cancel(); off(); };
   }, [provider?.tokenKey]);
 
   if (!provider) return null;

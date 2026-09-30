@@ -10,6 +10,7 @@ import type { UsageSummary } from './settings.js';
 import { estimateCostUSD } from './limits.js';
 import type { ProviderConfig, ProviderKind } from './models.js';
 import type { Session } from './chat.js';
+import type { SessionSummary } from './session-summary.js';
 
 export type TipSeverity = 'info' | 'suggest' | 'warn';
 
@@ -26,7 +27,7 @@ const LOCAL_KINDS: ProviderKind[] = ['ollama', 'lmstudio', 'vllm'];
 
 export interface InsightsInput {
   usage: UsageSummary | null;
-  sessions: Session[];
+  sessions: Array<Session | SessionSummary>;
   providers: ProviderConfig[];
 }
 
@@ -72,13 +73,15 @@ export function optimizationTips(input: InsightsInput, limit = 5): OptimizationT
 
   // 2. Expensive model on short chats. Prefer pre-computed session cost
   // (which is $0 for subscription providers) so we don't flag them.
-  const sessionCost = (s: Session) => {
+  const sessionCost = (s: Session | SessionSummary) => {
     const t = usage.bySession[s.id];
     return t ? (t.cost ?? estimateCostUSD(s.modelId, t.input, t.output)) : 0;
   };
   const pricedSessions = sessions.filter((s) => sessionCost(s) > 0);
   const shortExpensive = pricedSessions.filter((s) => {
-    const msgs = s.messages.filter((m) => m.role === 'user' || m.role === 'assistant').length;
+    const msgs = 'messages' in s
+      ? s.messages.filter((m) => m.role === 'user' || m.role === 'assistant').length
+      : s.exchangeCount;
     return msgs <= 4 && sessionCost(s) > 0.02;
   });
   if (shortExpensive.length >= 2) {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { AppSettings, Session, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
-import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, THEME_PRESETS } from '@agent-nekko/shared';
+import type { AppSettings, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
+import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 import {
@@ -115,7 +115,11 @@ const newWorkspaceId = () => `ws_${(++wsSeq).toString(36)}`;
 interface UiState {
   settings: AppSettings | null;
   view: View;
-  sessions: Session[];
+  /**
+   * Every chat, without transcripts (see SessionSummary). A chat pane fetches
+   * its own transcript through the session cache.
+   */
+  sessions: SessionSummary[];
   sessionCtxEstimate: Record<string, number>;
   setSessionCtxEstimate: (sessionId: string, tokens: number | null) => void;
   activeSessionId: string | null;
@@ -420,7 +424,7 @@ export const useStore = create<UiState>((set, get) => ({
     }),
   newChat: async () => {
     const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
-    set((state) => ({ sessions: [s, ...state.sessions], activeSessionId: s.id, view: 'chat' }));
+    set((state) => ({ sessions: [summarizeSession(s), ...state.sessions], activeSessionId: s.id, view: 'chat' }));
     get().openChatPane(s.id);
   },
   setMascotMood: (m) => set({ mascotMood: m }),
@@ -449,7 +453,7 @@ export const useStore = create<UiState>((set, get) => ({
   },
 
   refreshSessions: async () => {
-    const sessions = await window.nekko.listSessions();
+    const sessions = await window.nekko.listSessionSummaries();
     set({ sessions });
     if (!get().activeSessionId && sessions[0]) set({ activeSessionId: sessions[0].id });
   },

@@ -31,3 +31,6 @@ nekko-designs/
 # Rust build output (crates/, see Cargo.toml), and the daemon staged for packaging
 target/
 apps/desktop/resources/bin/
+
+# Speed-contract harness output (scripts/perf)
+perf-results/

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { LimitWindow, ModelInfo, OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
 import { formatUSD, isLocalProvider, isRuntimeKind, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { SubscriptionSignIn } from '../components/SubscriptionSignIn.js';
@@ -41,7 +42,14 @@ function formatExpiry(expiresAt?: number): string | null {
 }
 
 export function ModelsView() {
-  const { providers, refreshProviders, pushToast, setView } = useStore();
+  const { providers, refreshProviders, pushToast, setView } = useStore(
+    useShallow((s) => ({
+      providers: s.providers,
+      refreshProviders: s.refreshProviders,
+      pushToast: s.pushToast,
+      setView: s.setView,
+    })),
+  );
   const [adding, setAdding] = useState(false);
   const [discovering, setDiscovering] = useState(false);
 
