@@ -13,7 +13,6 @@
 //! Both sides write each file to a temp name and rename it into place, so a
 //! reader never sees half a file.
 
-mod js;
 mod summary;
 mod write;
 

@@ -51,13 +51,6 @@ function id(prefix: string): string {
 }
 
 /**
- * Window `history` to the last `turns` user-turn groups for sending to the
- * model. Cuts on a user-message boundary so the window always starts on a user
- * message and never splits a tool_use from its tool_result. Returns `history`
- * unchanged when `turns` is falsy or there are no more than `turns` user
- * messages, so normal chats (no limit) are unaffected.
- */
-/**
  * A chat that was an image chat carries replies that are only a picture. A
  * chat model neither receives assistant images nor accepts an empty turn from
  * every provider, so each becomes a line saying what was made; the stored
@@ -69,6 +62,13 @@ export function asSeenByChatModel(m: ChatMessage): ChatMessage {
   return { ...m, content: `[Generated a ${g.width}×${g.height} image with ${g.modelId.split('/').pop()}, seed ${g.seed}.]` };
 }
 
+/**
+ * Window `history` to the last `turns` user-turn groups for sending to the
+ * model. Cuts on a user-message boundary so the window always starts on a user
+ * message and never splits a tool_use from its tool_result. Returns `history`
+ * unchanged when `turns` is falsy or there are no more than `turns` user
+ * messages, so normal chats (no limit) are unaffected.
+ */
 export function windowHistory(history: ChatMessage[], turns?: number): ChatMessage[] {
   if (!turns || turns < 1) return history;
   const userIdx: number[] = [];

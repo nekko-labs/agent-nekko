@@ -9,7 +9,8 @@
 //! only ever sees a whole chat. Where a TS patch assigns `undefined` the key is
 //! removed here, since that is what `JSON.stringify` leaves behind.
 
-use crate::{SessionStore, js, valid_id};
+use crate::{SessionStore, valid_id};
+use nekko_js as js;
 use serde_json::{Map, Value, json};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
