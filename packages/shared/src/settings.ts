@@ -114,6 +114,8 @@ export interface AppSettings {
   defaultChatMode?: import('./chat.js').ChatMode;
   /** Path to the shell new terminals launch by default (undefined = auto-detect). */
   defaultShellPath?: string;
+  /** How terminals draw. Undefined means the default (`xterm`). */
+  terminal?: { renderer?: TerminalRenderer };
   /** Reusable prompts invokable as `/name` in the composer. */
   prompts?: PromptTemplate[];
   /** Favorited models as `${providerId}::${modelId}`; sorted to the top. */
@@ -238,3 +240,12 @@ export function formatUSD(n: number): string {
   if (n < 0.01) return `$${n.toFixed(4)}`;
   return `$${n.toFixed(2)}`;
 }
+
+/**
+ * The terminal renderer: `xterm` is xterm.js on WebGL (the default); `ghostty`
+ * is Ghostty's terminal core in WebAssembly drawing to a canvas, experimental
+ * because under a heavy flood it holds the UI thread for 20-30 ms a frame
+ * where xterm stays inside one frame. A ghostty terminal falls back to xterm
+ * on its own when the WebAssembly module cannot load.
+ */
+export type TerminalRenderer = 'ghostty' | 'xterm';

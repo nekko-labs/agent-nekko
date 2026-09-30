@@ -697,6 +697,17 @@ export interface NekkoApi {
   onIndexProgress(cb: (s: IndexStatus) => void): () => void;
   onUpdateEvent(cb: (u: UpdateInfo) => void): () => void;
   onTerminalEvent(cb: (e: import('./terminal.js').TerminalEvent) => void): () => void;
+  /**
+   * One terminal's raw byte stream straight from the engine daemon, with
+   * flow control: output arrives at most once per frame, and a flood waits
+   * for `ack` instead of piling up. Resolves null where there is no daemon
+   * (the web edition, or the desktop app running without one); callers then
+   * use `onTerminalEvent` and `writeTerminal`.
+   */
+  openTerminalStream?(
+    id: string,
+    handlers: import('./terminal.js').TerminalStreamHandlers,
+  ): Promise<import('./terminal.js').TerminalStream | null>;
   /** Fires when a session's tracked file changes shift (after an agent edit/accept). */
   onChangesUpdated(cb: (e: { sessionId: string }) => void): () => void;
   /** Fires when the automation-task list changes (created/updated/fired/deleted). */

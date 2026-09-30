@@ -27,3 +27,7 @@ nekko-designs/
 
 # Agent worktrees checked out inside the repo (scratch, never source)
 .worktrees/
+
+# Rust build output (crates/, see Cargo.toml), and the daemon staged for packaging
+target/
+apps/desktop/resources/bin/

@@ -3,9 +3,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!--
+      'wasm-unsafe-eval' and data: in connect-src are for the terminal: ghostty-web
+      compiles Ghostty's terminal core from an inlined data: URL. Neither allows
+      running script text; wasm-unsafe-eval covers WebAssembly compilation only.
+    -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self'; connect-src 'self' ws: wss:; manifest-src 'self'; worker-src 'self'"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' ws: wss: data:; manifest-src 'self'; worker-src 'self'"
     />
     <meta name="theme-color" content="#0f0f11" />
     <meta name="mobile-web-app-capable" content="yes" />

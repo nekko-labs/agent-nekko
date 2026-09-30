@@ -21,7 +21,10 @@ export default defineConfig({
         // (electron-builder packs production deps + auto-unpacks .node from asar)
         // instead of bundling them.
         external: ['electron-updater', '@lydell/node-pty'],
-        input: { index: resolve(__dirname, 'src/main/index.ts') },
+        // `backend` is the engine's TS half, run by nekkod under
+        // ELECTRON_RUN_AS_NODE (see src/backend/index.ts). It must never
+        // import `electron`.
+        input: { index: resolve(__dirname, 'src/main/index.ts'), backend: resolve(__dirname, 'src/backend/index.ts') },
       },
     },
   },

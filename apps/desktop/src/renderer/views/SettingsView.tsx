@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode } from '@agent-nekko/shared';
+import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
@@ -143,6 +143,9 @@ export function SettingsView() {
 
         {/* Agent loop */}
         <AgentLoopSection settings={settings} update={update} />
+
+        {/* Terminal */}
+        <TerminalSection settings={settings} update={update} />
 
         {/* Spec-driven development */}
         <section className="card mt-5 p-5">
@@ -337,6 +340,37 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
           onBlur={commitOut}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         />
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Which renderer terminals use. xterm.js on WebGL is the default because it
+ * holds the one-frame budget under heavy output; Ghostty's core is offered as
+ * an experiment until its canvas renderer does too.
+ */
+function TerminalSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {
+  return (
+    <section className="card mt-5 p-5">
+      <div className="flex items-center gap-2"><h2 className="font-semibold">Terminal</h2></div>
+      <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[13px]">Renderer</span>
+          <p className="text-[11px] text-ink-faint">
+            xterm.js draws on the GPU and stays smooth under heavy output. Ghostty uses the same terminal core as
+            the Ghostty app, but can lag while a command prints a lot. Open terminals redraw when you switch.
+          </p>
+        </div>
+        <select
+          className="input max-w-[180px] py-1.5"
+          aria-label="Terminal renderer"
+          value={settings.terminal?.renderer ?? 'xterm'}
+          onChange={(e) => update({ terminal: { ...settings.terminal, renderer: e.target.value as TerminalRenderer } })}
+        >
+          <option value="xterm">xterm.js</option>
+          <option value="ghostty">Ghostty (experimental)</option>
+        </select>
       </div>
     </section>
   );
