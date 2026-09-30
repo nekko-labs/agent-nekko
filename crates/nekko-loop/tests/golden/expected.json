@@ -1,0 +1,490 @@
+{
+ "streams": [
+  {
+   "name": "same sentence",
+   "trippedAt": 214,
+   "tripped": true
+  },
+  {
+   "name": "no newline cycle",
+   "trippedAt": 115,
+   "tripped": true
+  },
+  {
+   "name": "varied prose",
+   "trippedAt": -1,
+   "tripped": false
+  },
+  {
+   "name": "short repeat under minChars",
+   "trippedAt": -1,
+   "tripped": false
+  },
+  {
+   "name": "emoji cycle",
+   "trippedAt": 262,
+   "tripped": true
+  },
+  {
+   "name": "few distinct lines then varied",
+   "trippedAt": -1,
+   "tripped": false
+  },
+  {
+   "name": "small window option",
+   "trippedAt": 25,
+   "tripped": true
+  },
+  {
+   "name": "empty deltas mixed",
+   "trippedAt": 500,
+   "tripped": true
+  }
+ ],
+ "repairs": [
+  {
+   "name": "one missing call",
+   "filled": 1,
+   "history": [
+    {
+     "id": "u",
+     "role": "user",
+     "content": "go",
+     "createdAt": 1
+    },
+    {
+     "id": "a",
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "bash",
+       "input": {
+        "cmd": "ls"
+       }
+      }
+     ],
+     "createdAt": 2
+    },
+    {
+     "id": "msg_repair_N",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c1",
+      "output": "This tool call did not run: the reply was interrupted first. Call it again if you still need the result.",
+      "isError": true
+     },
+     "createdAt": 2
+    }
+   ]
+  },
+  {
+   "name": "partly answered, two turns",
+   "filled": 4,
+   "history": [
+    {
+     "id": "u",
+     "role": "user",
+     "content": "go",
+     "createdAt": 1
+    },
+    {
+     "id": "a1",
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "read_file",
+       "input": {}
+      },
+      {
+       "id": "c2",
+       "name": "bash",
+       "input": {}
+      }
+     ],
+     "createdAt": 2
+    },
+    {
+     "id": "msg_repair_N",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c2",
+      "output": "This tool call did not run: the reply was interrupted first. Call it again if you still need the result.",
+      "isError": true
+     },
+     "createdAt": 2
+    },
+    {
+     "id": "t1",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c1",
+      "output": "x"
+     },
+     "createdAt": 3
+    },
+    {
+     "id": "a2",
+     "role": "assistant",
+     "content": "more",
+     "toolCalls": [
+      {
+       "id": "c3",
+       "name": "edit",
+       "input": {}
+      }
+     ],
+     "createdAt": 4
+    },
+    {
+     "id": "msg_repair_N",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c3",
+      "output": "This tool call did not run: the reply was interrupted first. Call it again if you still need the result.",
+      "isError": true
+     },
+     "createdAt": 4
+    },
+    {
+     "id": "u2",
+     "role": "user",
+     "content": "and",
+     "createdAt": 5
+    },
+    {
+     "id": "a3",
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "c4",
+       "name": "x",
+       "input": {}
+      },
+      {
+       "id": "c5",
+       "name": "y",
+       "input": {}
+      }
+     ]
+    },
+    {
+     "id": "msg_repair_N",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c4",
+      "output": "This tool call did not run: the reply was interrupted first. Call it again if you still need the result.",
+      "isError": true
+     }
+    },
+    {
+     "id": "msg_repair_N",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c5",
+      "output": "This tool call did not run: the reply was interrupted first. Call it again if you still need the result.",
+      "isError": true
+     }
+    }
+   ]
+  },
+  {
+   "name": "all answered",
+   "filled": 0,
+   "history": [
+    {
+     "id": "a",
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "x",
+       "input": {}
+      }
+     ],
+     "createdAt": 1
+    },
+    {
+     "id": "t",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c1",
+      "output": ""
+     },
+     "createdAt": 2
+    }
+   ]
+  },
+  {
+   "name": "answer before request still counts",
+   "filled": 0,
+   "history": [
+    {
+     "id": "t",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c9",
+      "output": "late"
+     },
+     "createdAt": 1
+    },
+    {
+     "id": "a",
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "c9",
+       "name": "x",
+       "input": {}
+      }
+     ],
+     "createdAt": 2
+    }
+   ]
+  }
+ ],
+ "windows": [
+  {
+   "turns": null,
+   "kept": [
+    "u0",
+    "a0",
+    "t0",
+    "u1",
+    "a1",
+    "t1",
+    "u2",
+    "a2",
+    "t2",
+    "u3",
+    "a3",
+    "t3",
+    "u4",
+    "a4",
+    "t4",
+    "u5",
+    "a5",
+    "t5"
+   ]
+  },
+  {
+   "turns": 0,
+   "kept": [
+    "u0",
+    "a0",
+    "t0",
+    "u1",
+    "a1",
+    "t1",
+    "u2",
+    "a2",
+    "t2",
+    "u3",
+    "a3",
+    "t3",
+    "u4",
+    "a4",
+    "t4",
+    "u5",
+    "a5",
+    "t5"
+   ]
+  },
+  {
+   "turns": -1,
+   "kept": [
+    "u0",
+    "a0",
+    "t0",
+    "u1",
+    "a1",
+    "t1",
+    "u2",
+    "a2",
+    "t2",
+    "u3",
+    "a3",
+    "t3",
+    "u4",
+    "a4",
+    "t4",
+    "u5",
+    "a5",
+    "t5"
+   ]
+  },
+  {
+   "turns": 1,
+   "kept": [
+    "u5",
+    "a5",
+    "t5"
+   ]
+  },
+  {
+   "turns": 2,
+   "kept": [
+    "u4",
+    "a4",
+    "t4",
+    "u5",
+    "a5",
+    "t5"
+   ]
+  },
+  {
+   "turns": 2.5,
+   "kept": [
+    "u0",
+    "a0",
+    "t0",
+    "u1",
+    "a1",
+    "t1",
+    "u2",
+    "a2",
+    "t2",
+    "u3",
+    "a3",
+    "t3",
+    "u4",
+    "a4",
+    "t4",
+    "u5",
+    "a5",
+    "t5"
+   ]
+  },
+  {
+   "turns": 6,
+   "kept": [
+    "u0",
+    "a0",
+    "t0",
+    "u1",
+    "a1",
+    "t1",
+    "u2",
+    "a2",
+    "t2",
+    "u3",
+    "a3",
+    "t3",
+    "u4",
+    "a4",
+    "t4",
+    "u5",
+    "a5",
+    "t5"
+   ]
+  },
+  {
+   "turns": 10,
+   "kept": [
+    "u0",
+    "a0",
+    "t0",
+    "u1",
+    "a1",
+    "t1",
+    "u2",
+    "a2",
+    "t2",
+    "u3",
+    "a3",
+    "t3",
+    "u4",
+    "a4",
+    "t4",
+    "u5",
+    "a5",
+    "t5"
+   ]
+  }
+ ],
+ "seen": [
+  {
+   "role": "assistant",
+   "content": "[Generated a 1024×768 image with flux-2-klein-9b-Q8_0, seed 42.]",
+   "images": [
+    "x"
+   ],
+   "generated": {
+    "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+    "width": 1024,
+    "height": 768,
+    "steps": 4,
+    "cfgScale": 1,
+    "seed": 42,
+    "ms": 4000
+   }
+  },
+  {
+   "role": "assistant",
+   "content": "[Generated a 512.5×768 image with flux-2-klein-9b-Q8_0, seed s.]",
+   "generated": {
+    "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+    "width": 512.5,
+    "height": 768,
+    "steps": 4,
+    "cfgScale": 1,
+    "seed": "s",
+    "ms": 4000
+   }
+  },
+  {
+   "role": "assistant",
+   "content": "has text",
+   "generated": {
+    "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+    "width": 1024,
+    "height": 768,
+    "steps": 4,
+    "cfgScale": 1,
+    "seed": 42,
+    "ms": 4000
+   }
+  },
+  {
+   "role": "user",
+   "content": "",
+   "generated": {
+    "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+    "width": 1024,
+    "height": 768,
+    "steps": 4,
+    "cfgScale": 1,
+    "seed": 42,
+    "ms": 4000
+   }
+  },
+  {
+   "role": "assistant",
+   "content": ""
+  },
+  {
+   "role": "assistant",
+   "content": "[Generated a 8×8 image with plain-id, seed 0.]",
+   "generated": {
+    "modelId": "plain-id",
+    "width": 8,
+    "height": 8,
+    "seed": 0
+   }
+  }
+ ]
+}
