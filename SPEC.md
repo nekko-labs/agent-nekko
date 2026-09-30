@@ -225,7 +225,7 @@ Where remote control is the whole app on a phone, **messaging channels** are the
 
 ### Speed & responsiveness (the speed contract)
 
-Agent tools feel slow when the UI waits on something or redraws too much. Agent Nekko treats responsiveness as a feature with numbers, and CI fails a change that breaks them. The desktop UI stays web technology (Electron + React) for maintainability; the engine behind it moves into a separate Rust daemon so the window never shares a process with the agent loop, the terminals or the model server. `[in progress]`
+Agent tools feel slow when the UI waits on something or redraws too much. Agent Nekko treats responsiveness as a feature with numbers, and CI fails a change that breaks them. The desktop UI stays web technology (Electron + React) for maintainability; the engine behind it moves into a separate Rust daemon so the window never shares a process with the agent loop, the terminals or the model server. `[in progress]` *As of 2026-09-30 (PF1-PF5): the chat composer, streaming, windowed-transcript, incremental-markdown and instant-switching rules hold and are measured in CI; the terminal budget, the engine daemon and its crash recovery (PF6, PF7) are still to come.*
 
 **The rules.**
 
