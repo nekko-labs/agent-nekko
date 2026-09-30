@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { SpecDocStatus, Session } from '@agent-nekko/shared';
+import type { SpecDocStatus, SessionMeta } from '@agent-nekko/shared';
 import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, getMethodology, getSessionWorkspaceIds, parseTasks } from '@agent-nekko/shared';
 import { ExternalIcon } from '../icons.js';
 import { useStore } from '../store.js';
@@ -10,7 +10,7 @@ import { useStore } from '../store.js';
  * Later artifacts are chained from the earlier ones server-side. The tasks doc
  * renders as an interactive checklist whose toggles write back to the file.
  */
-export function SpecPanel({ sessionId, session }: { sessionId: string; session: Session | null }) {
+export function SpecPanel({ sessionId, session }: { sessionId: string; session: SessionMeta | null }) {
   const refreshSessions = useStore((s) => s.refreshSessions);
   const pushToast = useStore((s) => s.pushToast);
   const settings = useStore((s) => s.settings);

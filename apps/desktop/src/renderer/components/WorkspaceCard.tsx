@@ -1,6 +1,6 @@
 import React from 'react';
-import type { PrInfo, Session, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
-import { estimateTranscriptTokens, getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@agent-nekko/shared';
+import type { PrInfo, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
+import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@agent-nekko/shared';
 import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
 import { useGitStatus } from '../useGitStatus.js';
@@ -148,7 +148,7 @@ export function WorkspaceCard({
 }: {
   workspace: Workspace;
   /** The chat the workspace is about, when it is about one. */
-  session: Session | null;
+  session: SessionSummary | null;
   /** The terminal it is about instead, for a workspace opened from a shell. */
   terminal: TerminalInfo | null;
   status: AgentStatus | undefined;
@@ -183,18 +183,12 @@ export function WorkspaceCard({
   const modelInfo = session?.modelId ? knownModels.find((m) => m.id === session.modelId) : undefined;
   const ctxUsed = status === 'working' && liveCtxEstimate != null
     ? liveCtxEstimate
-    : session && session.messages.length ? estimateTranscriptTokens(session.messages) : 0;
+    : session?.transcriptTokens ?? 0;
   const ctxWindow = modelInfo?.contextLength ?? guessContextWindow(session?.modelId);
   const ctxPct = ctxWindow > 0 ? (ctxUsed / ctxWindow) * 100 : 0;
 
   const windows = allPanes(workspace.root).length;
-  let lastReply: number | undefined;
-  for (let i = (session?.messages.length ?? 0) - 1; i >= 0; i--) {
-    if (session?.messages[i].role === 'assistant') {
-      lastReply = session.messages[i].createdAt;
-      break;
-    }
-  }
+  const lastReply = session?.lastReplyAt;
   const title = session?.title ?? terminal?.title ?? 'Workspace';
   const isChat = !!session;
   const model = session

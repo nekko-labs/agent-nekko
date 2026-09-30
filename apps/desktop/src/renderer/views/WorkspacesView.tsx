@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, Session, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
-import { collectSessionPrUrls, parsePrUrl } from '@agent-nekko/shared';
+import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
+import { parsePrUrl } from '@agent-nekko/shared';
 import { useStore, type Workspace } from '../store.js';
 import { allPanes, isSplit, type Direction, type WbNode, type WbPane } from '../layout.js';
 import { ChatPane } from '../components/ChatPane.js';
@@ -19,7 +19,7 @@ import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 
 /** Short label for a window's title strip. */
-function paneTitle(pane: WbPane, sessions: Session[], terminals: TerminalInfo[]): string {
+function paneTitle(pane: WbPane, sessions: SessionSummary[], terminals: TerminalInfo[]): string {
   if (pane.kind === 'chat') return sessions.find((s) => s.id === pane.refId)?.title ?? 'Chat';
   if (pane.kind === 'terminal') return terminals.find((x) => x.id === pane.refId)?.title || (pane.refId.startsWith('agent_') ? 'Agent commands' : 'Terminal');
   if (pane.kind === 'browser') {
@@ -127,7 +127,7 @@ function bySidebarOrder<T extends { order?: number }>(fallback: (x: T) => number
 }
 
 /** The project folder a workspace files under, read off whatever it is about. */
-function projectOfWorkspace(w: Workspace, sessions: Session[], terminals: TerminalInfo[]): string | undefined {
+function projectOfWorkspace(w: Workspace, sessions: SessionSummary[], terminals: TerminalInfo[]): string | undefined {
   if (w.anchor.kind === 'chat') return sessions.find((s) => s.id === w.anchor.refId)?.workspaceId;
   if (w.anchor.kind === 'terminal') return terminals.find((t) => t.id === w.anchor.refId)?.workspaceId;
   return undefined;
@@ -230,13 +230,13 @@ export function WorkspacesView() {
   useEffect(() => {
     const loaded = useStore.getState().prsBySession;
     sessions
-      .filter((s) => !(s.id in loaded) && collectSessionPrUrls(s.messages).length > 0)
+      .filter((s) => !(s.id in loaded) && s.prUrls.length > 0)
       .slice(0, 8)
       .forEach((s) => { void useStore.getState().refreshSessionPrs(s.id); });
   }, [sessions]);
 
   const childrenOf = useMemo(() => {
-    const m = new Map<string, Session[]>();
+    const m = new Map<string, SessionSummary[]>();
     for (const s of sessions) if (s.parentSessionId) {
       const arr = m.get(s.parentSessionId) ?? [];
       arr.push(s);
@@ -301,7 +301,7 @@ export function WorkspacesView() {
    * separate host calls, so one drop writes the sequence of each kind it moved.
    */
   const persistOrder = (b: Bucket, ordered: Workspace[], moved: Workspace | null) => {
-    const chats = ordered.map(sessionOf).filter((s): s is Session => !!s);
+    const chats = ordered.map(sessionOf).filter((s): s is SessionSummary => !!s);
     const terms = ordered.map(terminalOf).filter((t): t is TerminalInfo => !!t);
     const movedChat = moved && sessionOf(moved);
     const movedTerm = moved && terminalOf(moved);
@@ -556,7 +556,7 @@ export function WorkspacesView() {
 function SubAgentRow({
   session, status, isActive, onOpen,
 }: {
-  session: Session; status: AgentStatus | undefined; isActive: boolean; onOpen: () => void;
+  session: SessionSummary; status: AgentStatus | undefined; isActive: boolean; onOpen: () => void;
 }) {
   return (
     <button
@@ -584,7 +584,7 @@ function WorkspaceCanvas({
   workspace, sessions, terminals, statuses, projects,
 }: {
   workspace: Workspace;
-  sessions: Session[];
+  sessions: SessionSummary[];
   terminals: TerminalInfo[];
   statuses: Map<string, AgentStatus>;
   projects: WorkspaceFolder[];

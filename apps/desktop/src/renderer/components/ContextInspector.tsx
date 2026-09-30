@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ContextBundle, Session, WorkspaceFolder } from '@agent-nekko/shared';
+import type { ContextBundle, SessionMeta, WorkspaceFolder } from '@agent-nekko/shared';
 import { getSessionWorkspaceIds, estimateTokens } from '@agent-nekko/shared';
 import { FolderIcon, FileIcon, PlusIcon, TrashIcon, ExternalIcon, ChevronIcon } from '../icons.js';
 import { useStore } from '../store.js';
@@ -104,7 +104,7 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
     }
     refreshBundle();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, attached.length, session?.workspaceId, session?.supportingWorkspaceIds?.length, session?.messages.length]);
+  }, [sessionId, attached.length, session?.workspaceId, session?.supportingWorkspaceIds?.length, session?.messageCount]);
 
   // Follow a running turn. `session.messages` only moves when the store reloads
   // sessions (end of turn), but the agent checkpoints every finished step, so
@@ -466,7 +466,7 @@ function FolderAccordion({
   workspace, session, expanded, onToggleExpanded, onMakePrimary, onInclude, onExclude, onRemove, onOpenFile,
 }: {
   workspace: WorkspaceFolder;
-  session: Session | null;
+  session: SessionMeta | null;
   expanded: boolean;
   onToggleExpanded: () => void;
   onMakePrimary: () => void;

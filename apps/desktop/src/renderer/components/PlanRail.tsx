@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, Session } from '@agent-nekko/shared';
+import type { AgentEvent, Session, SessionSummary } from '@agent-nekko/shared';
 import {
   addPlanStep,
   insertPlanStep,
@@ -669,12 +669,11 @@ function StepDot({ status }: { status: PromptStepStatus }) {
 }
 
 /** What a sub-agent row says under its title. */
-function subAgentSubtitle(child: Session, a: SubAgentActivity | undefined): string {
+function subAgentSubtitle(child: SessionSummary, a: SubAgentActivity | undefined): string {
   if (a?.tool) return a.detail ? `${a.tool} · ${a.detail}` : `Running ${a.tool}`;
   if (a?.running) return 'Working…';
   if (a?.failed) return 'Stopped on an error';
-  const last = [...child.messages].reverse().find((m) => m.role === 'assistant' && m.content.trim());
-  if (last) return last.content.trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (child.lastReplyText) return child.lastReplyText.slice(0, 60);
   return 'Waiting to start';
 }
 
