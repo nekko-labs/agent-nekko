@@ -64,6 +64,9 @@ export const IpcChannels = {
   engineCatalogModel: 'engine:catalogModel',
   engineCatalogDetail: 'engine:catalogDetail',
   engineDownloadModel: 'engine:downloadModel',
+  engineDownloadCompanions: 'engine:downloadCompanions',
+  engineSetResidentTtl: 'engine:residentTtl',
+  engineSetAutoload: 'engine:autoload',
   engineFolders: 'engine:folders',
   engineFoldersSave: 'engine:foldersSave',
   apiServerStatus: 'apiServer:status',
@@ -367,6 +370,16 @@ export interface NekkoApi {
     modelId: string,
     quantLabel: string,
   ): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  /**
+   * Fetch the files a model already on disk is missing: its projector (vision)
+   * and small config sidecars, into a Nekko-owned companions dir. Borrowed
+   * folders stay read-only; the engine finds the sidecars at load time.
+   */
+  engineDownloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  /** Set a resident model's idle TTL in seconds (0 keeps it loaded). */
+  engineSetResidentTtl(modelId: string, ttlSeconds: number): Promise<{ ok: boolean; message: string }>;
+  /** Add or remove a model from the list loaded when the engine starts. */
+  engineSetAutoload(modelId: string, enabled: boolean): Promise<import('./engine.js').EngineSettings>;
   /** Everything downloading or recently downloaded. */
   engineDownloads(): Promise<import('./engine.js').DownloadJob[]>;
   engineCancelDownload(id: string): Promise<void>;

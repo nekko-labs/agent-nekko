@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { EngineMemory, LocalModel } from '@agent-nekko/shared';
+import type { EngineMemory, EngineSettings, LocalModel, ResidentModel } from '@agent-nekko/shared';
 import { ModelLibrary } from './ModelLibrary.js';
 import { CatalogBrowser } from './CatalogBrowser.js';
+import { ResidentModels } from './ResidentModels.js';
 
 /**
  * Models, one surface.
@@ -12,15 +13,19 @@ import { CatalogBrowser } from './CatalogBrowser.js';
  * Hugging Face, so a model you already have and a model you could get sit one
  * after another in the same scroll.
  *
- * Two sections rather than an interleaved list, because the verbs differ —
- * "load" belongs to what is here, "download" to what is not — but they share
- * the query, the empty states, and the size/fit vocabulary.
+ * Three sections rather than an interleaved list, because the verbs differ:
+ * "unload" belongs to what is in memory, "load" to what is on disk, and
+ * "download" to what is not — but they share the query, the empty states, and
+ * the size/fit vocabulary.
  */
 export function ModelsHome({
   providerId,
   models,
   canLoad,
   memory,
+  resident,
+  settings,
+  running,
   onChanged,
   onOpenModel,
 }: {
@@ -28,6 +33,10 @@ export function ModelsHome({
   models: Array<LocalModel & { loaded: boolean }>;
   canLoad: boolean;
   memory?: EngineMemory;
+  /** The models actually in memory right now, for the "In memory" block. */
+  resident: ResidentModel[];
+  settings: EngineSettings;
+  running: boolean;
   onChanged: () => void;
   onOpenModel: (id: string) => void;
 }) {
@@ -47,9 +56,27 @@ export function ModelsHome({
         the download on disk; "fits here" checks it against this machine's memory.
       </p>
 
+      <div className="mt-3">
+        <ResidentModels
+          providerId={providerId}
+          resident={resident}
+          models={models}
+          settings={settings}
+          onChanged={onChanged}
+        />
+      </div>
+
       <h3 className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">On this machine</h3>
       <div className="mt-1.5">
-        <ModelLibrary providerId={providerId} models={models} canLoad={canLoad} onChanged={onChanged} query={query} />
+        <ModelLibrary
+          providerId={providerId}
+          models={models}
+          canLoad={canLoad}
+          onChanged={onChanged}
+          query={query}
+          autoloadIds={new Set(settings.autoload ?? [])}
+          running={running}
+        />
       </div>
 
       <h3 className="mt-4 border-t pt-3 text-[11px] font-semibold uppercase tracking-wide text-ink-faint" style={{ borderColor: 'var(--line)' }}>

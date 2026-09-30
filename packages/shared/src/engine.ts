@@ -91,6 +91,14 @@ export interface EngineSettings {
   corsOrigins?: string;
   /** Start the router when Agent Nekko starts. */
   autoStart: boolean;
+  /**
+   * Model ids to load right after the router binds, in order.
+   *
+   * `autoStart` brings the endpoint up; this is which models are resident when
+   * it does. Each loads with its saved preset (or the planner's default), and a
+   * failure is recorded on the model rather than blocking the rest.
+   */
+  autoload?: string[];
   /** Load a model on first request rather than making the user load it first. */
   jitLoad: boolean;
   /** Evict a model after this many idle seconds. 0 keeps it resident. */
@@ -274,6 +282,110 @@ export interface DownloadJob {
   message?: string;
 }
 
+/** What a local model file is for. This decides whether llama-server can run it at all. */
+export type ModelModality = 'chat' | 'vision' | 'embedding' | 'audio' | 'image' | 'draft' | 'unknown';
+
+/** Short labels for the modality chips in the library. */
+export const MODALITY_LABELS: Record<ModelModality, string> = {
+  chat: 'chat',
+  vision: 'vision',
+  embedding: 'embeddings',
+  audio: 'audio',
+  image: 'image gen',
+  draft: 'draft head',
+  unknown: 'unreadable',
+};
+
+/**
+ * Image-generation weights (stable-diffusion.cpp / sd.cpp territory). These are
+ * GGUF files, but the graph inside is a diffusion model: llama-server cannot
+ * serve them no matter which flags accompany the file.
+ */
+const IMAGE_GEN_ARCHS =
+  /^(sd\d?|sdxl|sd-?turbo|stable-?diffusion.*|flux.*|wuerstchen|pixart.*|ltxv.*|hidream.*|chroma.*|qwen-?image.*|z-?image.*|ovis-?image.*|wan\d.*|hunyuan.*(image|video).*|cogvideo.*)/i;
+
+/** Speech-recognition and audio weights; these need a speech engine, not an LLM server. */
+const AUDIO_ARCHS = /^(whisper.*|parakeet.*|moonshine.*|sense-?voice.*|wav2vec.*|hubert.*|seamless.*|zipformer.*)/i;
+
+/**
+ * Speculative-decoding draft heads. They only run attached to a full model
+ * (`--model-draft`), never as the served model itself.
+ */
+const DRAFT_ARCHS = /draft|eagle|medusa|lookahead|speculative/i;
+
+/** Embedding encoders. Loadable (`--embedding`), but they answer /v1/embeddings, not chat. */
+const EMBEDDING_ARCHS = /bert|embed|bge|gte-?|roberta|xlm-?roberta|nomic|jina-?v\d/i;
+
+/**
+ * Architectures llama.cpp can serve with a multimodal projector attached.
+ * A sibling `mmproj-*.gguf` is the stronger signal and is checked separately;
+ * this set catches vision models whose projector was never downloaded, so they
+ * can be labelled and warned about before anyone tries to run one.
+ */
+const VISION_ARCHS =
+  /llava|qwen\d*vl|gemma[3-9]|gemma3n|mllama|llama-?\d?.*vision|pixtral|moondream|minicpm-?v|internvl|deepseek.*(ocr|vl)|smolvlm|paligemma|idefics|phi-?\d*.*vision|kimi-?vl|glm-?\d*v|ovis|voxtral|ultravox|muse-?glimmer|nemotron.*omni/i;
+
+/**
+ * What a model file is for, from the GGUF architecture, a projector sitting
+ * beside it, and (when the header could not be read) the file's own name.
+ *
+ * `hasProjector` is evidence rather than the question: a Gemma 4 without its
+ * mmproj is still a vision model, it is just one whose eyes were never
+ * downloaded, and classifying it `vision` is what lets the UI say so.
+ */
+export function modelModality(model: {
+  architecture?: string;
+  name?: string;
+  hasProjector?: boolean;
+  readable?: boolean;
+}): ModelModality {
+  const arch = model.architecture ?? '';
+  if (arch) {
+    if (IMAGE_GEN_ARCHS.test(arch)) return 'image';
+    if (AUDIO_ARCHS.test(arch)) return 'audio';
+    if (DRAFT_ARCHS.test(arch)) return 'draft';
+    if (EMBEDDING_ARCHS.test(arch)) return 'embedding';
+    if (VISION_ARCHS.test(arch)) return 'vision';
+  }
+  if (model.hasProjector) return 'vision';
+  if (model.readable === false) {
+    // An unreadable header means we cannot trust the name either, but the
+    // common case is an old GGML whisper file renamed `.gguf`, which is at
+    // least worth labelling honestly rather than as a chat model.
+    if (/whisper|parakeet|moonshine|sense-?voice/i.test(model.name ?? '')) return 'audio';
+    return 'unknown';
+  }
+  return 'chat';
+}
+
+/**
+ * Why a model cannot be loaded here, or undefined when it can.
+ *
+ * The sentence doubles as the row's explanation and the load failure, so it
+ * names what the file actually is and where it does run rather than just
+ * refusing. `chat`, `vision` and `embedding` models are all servable;
+ * everything else llama.cpp cannot run, however the flags are set.
+ */
+export function unsupportedLoadReason(model: {
+  modality?: ModelModality;
+  name?: string;
+  readable?: boolean;
+}): string | undefined {
+  const name = model.name ?? 'This model';
+  switch (model.modality ?? modelModality(model)) {
+    case 'image':
+      return `${name} is an image-generation model. The llama.cpp engine cannot serve it; it runs in stable-diffusion.cpp (the runtime LM Studio uses for image models).`;
+    case 'audio':
+      return `${name} is a speech-recognition model, which llama.cpp cannot serve. It needs a speech engine such as whisper.cpp or parakeet.cpp.`;
+    case 'draft':
+      return `${name} is a speculative-decoding draft model. It can only run attached to its full model, not on its own.`;
+    case 'unknown':
+      return `${name} is not a readable GGUF${model.readable === false ? ' (it may be an older GGML-format file)' : ''}, so the engine cannot serve it.`;
+    default:
+      return undefined;
+  }
+}
+
 /** A GGUF on disk, with whatever the header told us. */
 export interface LocalModel {
   /** `<owner>/<repo>/<file>` for a downloaded model; the file name for an imported one. */
@@ -284,6 +396,17 @@ export interface LocalModel {
   quantization?: string;
   parameterSize?: string;
   architecture?: string;
+  /** What the file is for, classified from the architecture and its companions. */
+  modality?: ModelModality;
+  /** The file parsed as GGUF v2/v3; false means the header would not read at all. */
+  readable?: boolean;
+  /** A vision model's projector was found beside the weights or in the companions dir. */
+  hasProjector?: boolean;
+  /**
+   * The last load attempt's reason for failing, kept until a load succeeds.
+   * Runtime state, filled in by the server rather than stored in the index.
+   */
+  lastLoadError?: string;
   layers?: number;
   kvHeads?: number;
   headDim?: number;

@@ -268,6 +268,44 @@ export function createCatalog(deps: CatalogDeps = {}) {
     }
   }
 
+  /** A repo's file tree, the one request everything else is computed from. */
+  async function treeFor(id: string): Promise<Array<{ type?: string; path?: string; size?: number }> | null> {
+    return getJson<Array<{ type?: string; path?: string; size?: number }>>(
+      `${HF_API}/models/${id}/tree/main?recursive=true`,
+    );
+  }
+
+  /** The projector and the config/tokenizer sidecars a repo ships, if any. */
+  function companionsOf(tree: Array<{ type?: string; path?: string; size?: number }>): {
+    projector?: string;
+    sidecars: string[];
+  } {
+    const projector = tree.find(
+      (f) => f.type !== 'directory' && /mmproj/i.test(f.path ?? '') && f.path?.toLowerCase().endsWith('.gguf'),
+    )?.path;
+    const sidecars = tree
+      .filter(
+        (f) =>
+          f.type !== 'directory' &&
+          f.path &&
+          SIDECAR_FILES.has((f.path.split('/').pop() ?? '').toLowerCase()) &&
+          (f.size ?? 0) <= SIDECAR_MAX_BYTES,
+      )
+      .map((f) => f.path as string);
+    return { projector, sidecars };
+  }
+
+  /**
+   * The files a model already on disk could be missing: its projector and the
+   * small configs. Used when the weights arrived without them (a manual
+   * download, a file copied out of another app). Null when the repo cannot be
+   * read at all, which is a different problem from "nothing to fetch".
+   */
+  async function companions(id: string): Promise<{ projector?: string; sidecars: string[] } | null> {
+    const tree = await treeFor(id);
+    return tree ? companionsOf(tree) : null;
+  }
+
   /**
    * A repo's GGUF files as quantization options.
    *
@@ -276,9 +314,7 @@ export function createCatalog(deps: CatalogDeps = {}) {
    * produces a file that looks fine and cannot load.
    */
   async function quantsFor(id: string): Promise<CatalogQuant[]> {
-    const tree = await getJson<Array<{ type?: string; path?: string; size?: number }>>(
-      `${HF_API}/models/${id}/tree/main?recursive=true`,
-    );
+    const tree = await treeFor(id);
     if (!tree) return [];
 
     const ggufs = tree.filter((f) => f.type !== 'directory' && f.path?.toLowerCase().endsWith('.gguf'));
@@ -293,16 +329,7 @@ export function createCatalog(deps: CatalogDeps = {}) {
       byGroup.set(group, list);
     }
 
-    const projector = ggufs.find((f) => /mmproj/i.test(f.path ?? ''))?.path;
-    const sidecars = tree
-      .filter(
-        (f) =>
-          f.type !== 'directory' &&
-          f.path &&
-          SIDECAR_FILES.has((f.path.split('/').pop() ?? '').toLowerCase()) &&
-          (f.size ?? 0) <= SIDECAR_MAX_BYTES,
-      )
-      .map((f) => f.path as string);
+    const { projector, sidecars } = companionsOf(tree);
 
     const quants: CatalogQuant[] = [];
     for (const [group, parts] of byGroup) {
@@ -328,7 +355,7 @@ export function createCatalog(deps: CatalogDeps = {}) {
     }
   }
 
-  return { curated, search, model, detail, quantsFor };
+  return { curated, search, model, detail, quantsFor, companions };
 }
 
 /** The shape of a Hugging Face model row, as much of it as we read. */

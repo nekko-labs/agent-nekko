@@ -132,6 +132,10 @@ export interface ResidentModel {
   sizeBytes?: number;
   vramBytes?: number;
   contextLength?: number;
+  /** When it last served a request: the field LRU eviction reads. */
+  lastUsedAt?: number;
+  /** When it was loaded. */
+  startedAt?: number;
   expiresAt?: number;
 }
 

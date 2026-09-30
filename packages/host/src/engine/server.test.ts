@@ -69,20 +69,26 @@ const model = (id: string): LocalModel => ({
 
 const MODELS = [model('qwen3-8b'), model('gemma3-12b')];
 
-function make(settings: Partial<EngineSettings> = {}) {
+function make(
+  settings: Partial<EngineSettings> = {},
+  models: LocalModel[] = MODELS,
+  spawnFn?: typeof spawn,
+) {
   const current: EngineSettings = { ...DEFAULT_ENGINE_SETTINGS, ...settings };
   const server = createEngineServer({
     settings: () => current,
     binPath: async () => process.execPath,
-    findModel: async (id) => MODELS.find((m) => m.id === id),
-    listModels: async () => MODELS,
+    findModel: async (id) => models.find((m) => m.id === id),
+    listModels: async () => models,
     getGpuStats: async () => null,
     // The real call is `llama-server <flags>`; here it is `node stub.cjs <flags>`,
     // so the stub reads the same `--port` and `--alias` the router passes.
-    spawnFn: ((_bin: string, args: readonly string[]) =>
-      spawn(process.execPath, [stubPath, ...args], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })) as unknown as typeof spawn,
+    spawnFn:
+      spawnFn ??
+      (((_bin: string, args: readonly string[]) =>
+        spawn(process.execPath, [stubPath, ...args], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })) as unknown as typeof spawn),
   });
   return { server, settings: current };
 }
@@ -232,6 +238,68 @@ describe('engine router', () => {
     expect((await server.unload('qwen3-8b')).ok).toBe(true);
     expect(server.resident()).toHaveLength(0);
   });
+
+  it('refuses a model llama.cpp cannot serve before any process is spawned', async () => {
+    let spawned = 0;
+    const { server } = make(
+      {},
+      [{ ...model('flux-1-dev'), modality: 'image', architecture: 'flux' }],
+      ((_bin: string, _args: readonly string[]) => {
+        spawned += 1;
+        throw new Error('should never be spawned');
+      }) as unknown as typeof spawn,
+    );
+    const res = await server.load('flux-1-dev', {});
+    expect(res.ok).toBe(false);
+    expect(res.message).toMatch(/image-generation/);
+    expect(spawned).toBe(0);
+    // The refusal is the same state the row shows, readable by the models call.
+    expect(server.loadErrorFor('flux-1-dev')).toMatch(/image-generation/);
+  });
+
+  it('loads the autoload list when the engine starts', async () => {
+    const { server } = await start({ autoload: ['qwen3-8b'] });
+    // Autoload is fired rather than awaited, so poll for the process landing.
+    const deadline = Date.now() + 15_000;
+    while (!server.loadedIds().includes('qwen3-8b') && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    expect(server.loadedIds()).toContain('qwen3-8b');
+  });
+
+  it('changes a resident model\'s idle TTL without a reload', async () => {
+    const { server } = await start({ idleTtlSeconds: 900 });
+    await server.load('qwen3-8b', {});
+    expect(server.resident()[0].expiresAt).toBeDefined();
+
+    // 0 is "keep it until I say": the eviction deadline disappears.
+    expect(server.setResidentTtl('qwen3-8b', 0).ok).toBe(true);
+    expect(server.resident()[0].expiresAt).toBeUndefined();
+
+    // And a refused change says so rather than doing nothing quietly.
+    expect(server.setResidentTtl('not-loaded', 0).ok).toBe(false);
+  });
+
+  it('keeps the last failure reason until a load succeeds', async () => {
+    let die = true;
+    const spawnFn = ((_bin: string, args: readonly string[]) =>
+      die
+        ? // A child that exits before /health, the way a load really fails.
+          spawn(process.execPath, ['-e', 'process.exit(1)'], { stdio: ['ignore', 'pipe', 'pipe'] })
+        : spawn(process.execPath, [stubPath, ...args], { stdio: ['ignore', 'pipe', 'pipe'] })) as unknown as typeof spawn;
+    const port = await freePort();
+    const { server } = make({ port }, MODELS, spawnFn);
+    open = server;
+    await server.start();
+
+    const failed = await server.load('qwen3-8b', {});
+    expect(failed.ok).toBe(false);
+    expect(server.loadErrorFor('qwen3-8b')).toBeTruthy();
+
+    die = false;
+    expect((await server.load('qwen3-8b', {})).ok).toBe(true);
+    expect(server.loadErrorFor('qwen3-8b')).toBeUndefined();
+  });
 });
 
 describe('buildArgs', () => {
@@ -355,6 +423,57 @@ describe('resolveCompanions', () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it('uses a projector fetched into the companions dir when none sits beside the weights', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-model-'));
+    const sidecars = await mkdtemp(join(tmpdir(), 'nekko-comp-'));
+    try {
+      const modelPath = join(dir, 'vision-7b-Q4_K_M.gguf');
+      await writeFile(modelPath, 'x');
+      await writeFile(join(sidecars, 'mmproj-fetched-BF16.gguf'), 'x');
+      const found = await resolveCompanions({ ...model('vision-7b'), path: modelPath }, undefined, sidecars);
+      if ('error' in found) throw new Error(found.error);
+      expect(found.mmproj).toBe(join(sidecars, 'mmproj-fetched-BF16.gguf'));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+      await rm(sidecars, { recursive: true, force: true });
+    }
+  });
+
+  it('prefers the projector beside the weights over a fetched one', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-model-'));
+    const sidecars = await mkdtemp(join(tmpdir(), 'nekko-comp-'));
+    try {
+      const modelPath = join(dir, 'vision-7b-Q4_K_M.gguf');
+      await writeFile(modelPath, 'x');
+      await writeFile(join(dir, 'mmproj-local.gguf'), 'x');
+      await writeFile(join(sidecars, 'mmproj-fetched.gguf'), 'x');
+      const found = await resolveCompanions({ ...model('vision-7b'), path: modelPath }, undefined, sidecars);
+      if ('error' in found) throw new Error(found.error);
+      expect(found.mmproj).toBe(join(dir, 'mmproj-local.gguf'));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+      await rm(sidecars, { recursive: true, force: true });
+    }
+  });
+
+  it('extracts a chat template out of a fetched tokenizer_config.json too', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'nekko-model-'));
+    const sidecars = await mkdtemp(join(tmpdir(), 'nekko-comp-'));
+    const work = await mkdtemp(join(tmpdir(), 'nekko-work-'));
+    try {
+      const modelPath = join(dir, 'model.gguf');
+      await writeFile(modelPath, 'x');
+      await writeFile(join(sidecars, 'tokenizer_config.json'), JSON.stringify({ chat_template: '{% loop %}' }));
+      const found = await resolveCompanions({ ...model('model'), path: modelPath }, work, sidecars);
+      if ('error' in found) throw new Error(found.error);
+      expect(found.chatTemplateFile).toBe(join(work, 'model.chat_template.jinja'));
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+      await rm(sidecars, { recursive: true, force: true });
+      await rm(work, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('explainLoadError', () => {
@@ -378,6 +497,25 @@ describe('explainLoadError', () => {
     expect(explainLoadError(['ggml_backend_cuda_buffer_type_alloc_buffer: failed to allocate 3.5 GiB'])).toMatch(
       /Not enough memory/i,
     );
+  });
+
+  it('calls a file that is not a GGUF what it is', () => {
+    expect(explainLoadError(['llama_model_load: error loading model: bad magic'])).toMatch(/isn't a GGUF/i);
+  });
+
+  it('reads a tensor mismatch as a bad download', () => {
+    expect(explainLoadError(['llama_model_load: error loading model: missing required tensor blk.0.ffn'])).toMatch(
+      /tensor/i,
+    );
+  });
+
+  it('ignores the shutdown noise after the cause when nothing else matched', () => {
+    const log = [
+      'srv load_model: something invented went wrong',
+      'srv operator(): cleaning up before exit...',
+      'exiting due to model loading error',
+    ];
+    expect(explainLoadError(log)).toBe('srv load_model: something invented went wrong');
   });
 
   it('falls back to the log tail for a failure nobody wrote a translation for', () => {
