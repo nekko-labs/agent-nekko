@@ -1,6 +1,6 @@
-import { readdir, stat } from 'fs/promises';
-import { dirname, join } from 'path';
-import type { EngineBuild, EnginePlatform, GpuStats, LocalModel } from '@agent-nekko/shared';
+import { stat } from 'fs/promises';
+import type { EngineBuild, EnginePlatform, GpuStats, ImageCompanionRole, LocalModel } from '@agent-nekko/shared';
+import { companionsBeside, imageCompanionSetFor, imageCompanionStatus } from './image-companions.js';
 import { buildsFor } from './builds.js';
 
 export function diffusionBuilds(platform: EnginePlatform, arch: string, gpu: GpuStats | null): EngineBuild[] {
@@ -22,25 +22,39 @@ export function matchDiffusionCompanion(build: EngineBuild, _asset: string, name
   return build.backend === 'cuda' ? names.find(n => n === 'cudart-sd-bin-win-cu12-x64.zip') : undefined;
 }
 
-export async function diffusionArgs(model: LocalModel, port: number | string, ownedCompanions?: string): Promise<string[]> {
+const ROLES = ['clip_l', 'clip_g', 't5xxl', 'vae', 'llm', 'taesd'] as const;
+
+/**
+ * sd-server's arguments for one image model.
+ *
+ * Companion paths come from, highest first: the model's image settings, files
+ * beside the weights (or in its own companions dir) named the way sd.cpp users
+ * lay them out by hand, and the shared set the image panel downloads. A model
+ * whose family needs companions it does not have fails here, naming them,
+ * instead of starting a server that dies on its first request.
+ */
+export async function diffusionArgs(model: LocalModel, port: number | string, ownedCompanions?: string, sharedCompanions?: string): Promise<string[]> {
   const preset = model.preset?.diffusion ?? {};
-  const dirs = [dirname(model.path), ownedCompanions].filter((d): d is string => !!d);
-  const found: Record<string, string> = {};
-  for (const dir of dirs) {
-    const files = await readdir(dir).catch(() => []);
-    for (const key of ['clip_l', 'clip_g', 't5xxl', 'vae', 'llm'] as const) {
-      const file = files.find(f => new RegExp(`^${key.replace('_', '[_-]')}[_.-]`, 'i').test(f) && /\.(gguf|safetensors|sft)$/i.test(f));
-      if (file && !found[key]) found[key] = join(dir, file);
-    }
-  }
-  const paths = { ...found, ...preset };
+  const set: Partial<Record<ImageCompanionRole, string>> = {};
+  const beside = await companionsBeside(model, ownedCompanions ? [ownedCompanions] : []);
+  const status = sharedCompanions ? await imageCompanionStatus(model, sharedCompanions) : null;
+  for (const f of status?.files ?? []) if (f.path) set[f.usingFallback ? 'taesd' : f.role] = f.path;
+  const chosen = Object.fromEntries(ROLES.filter((r) => typeof preset[r] === 'string' && preset[r]).map((r) => [r, preset[r] as string]));
+  const paths: Partial<Record<ImageCompanionRole, string>> = { ...set, ...beside, ...chosen };
+
   const args = [preset.standalone === false ? '--model' : '--diffusion-model', model.path, '--listen-ip', '127.0.0.1', '--listen-port', String(port)];
-  if (/sd3|stable.diffusion.3/i.test(`${model.architecture} ${model.name}`)) {
-    for (const key of ['clip_l', 'clip_g', 't5xxl']) {
-      if (!paths[key as keyof typeof paths]) throw new Error(`Missing ${key} text encoder for ${model.name}. Set its companion path in image settings.`);
+  const family = imageCompanionSetFor(model);
+  if (family) {
+    // A full checkpoint carries its own VAE; its text encoders are still separate files.
+    const missing = family.files
+      .map((f) => f.role)
+      .filter((r) => !(preset.standalone === false && r === 'vae'))
+      .filter((r) => !paths[r] && !(r === 'vae' && paths.taesd));
+    if (missing.length) {
+      throw new Error(`${model.name} (${family.label}) is missing ${missing.join(', ')}. Download them from its image panel, or set their paths in image settings.`);
     }
   }
-  for (const key of ['clip_l', 'clip_g', 't5xxl', 'vae', 'llm'] as const) {
+  for (const key of ROLES) {
     const path = paths[key];
     if (!path) continue;
     if (!(await stat(path).catch(() => null))?.isFile()) throw new Error(`The ${key} companion file does not exist: ${path}`);

@@ -97,6 +97,13 @@ export function startWire(opts: {
     })().catch(() => sendJson(res, 500, { error: 'internal error' }));
   });
 
+  // Node closes an idle keep-alive socket after 5 s by default, and a daemon
+  // request sent as it closes fails outright. Keep sockets open longer than the
+  // daemon's pool holds them (30 s, `BACKEND_POOL_IDLE` in nekkod) so the
+  // daemon always retires a connection first.
+  server.keepAliveTimeout = 120_000;
+  server.headersTimeout = 125_000;
+
   server.on('upgrade', (req: IncomingMessage, socket: Socket) => {
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
     const key = req.headers['sec-websocket-key'];

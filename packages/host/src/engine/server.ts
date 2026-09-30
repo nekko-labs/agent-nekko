@@ -108,6 +108,8 @@ export interface EngineServerDeps {
    * not write to.
    */
   companionsDir?: (modelId: string) => string;
+  /** The shared directory the image panel downloads text encoders and VAEs into. */
+  imageCompanionsDir?: () => string;
   spawnFn?: typeof spawn;
   /** Which flags the binary accepts; defaults to asking it (`probeFlags`). */
   flagSupport?: (bin: string) => Promise<FlagSupport>;
@@ -419,7 +421,7 @@ export function createEngineServer(deps: EngineServerDeps) {
     let args: string[];
     try {
       args = image
-        ? await diffusionArgs({ ...model, preset: { ...model.preset, ...params } }, port, deps.companionsDir?.(model.id))
+        ? await diffusionArgs({ ...model, preset: { ...model.preset, ...params } }, port, deps.companionsDir?.(model.id), deps.imageCompanionsDir?.())
         : mlx
           ? mlxArgs(model, port, params, draftModel)
           : buildArgs(model, port, params, { ...companions, draftModel }, await (deps.flagSupport ?? probeFlags)(bin));

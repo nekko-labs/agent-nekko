@@ -52,6 +52,10 @@ pub struct Backend {
     child: Running,
 }
 
+/// Idle lifetime of a pooled daemon-to-backend connection. Must stay below the
+/// backend server's `keepAliveTimeout` (120 s in `apps/desktop/src/backend/wire.ts`).
+const BACKEND_POOL_IDLE: std::time::Duration = std::time::Duration::from_secs(30);
+
 impl Backend {
     /// A backend that never exists (tests, or the daemon run on its own).
     pub fn disabled() -> Arc<Self> {
@@ -72,7 +76,14 @@ impl Backend {
         let backend = Arc::new(Self {
             state: rx,
             token: token.clone(),
-            client: reqwest::Client::builder().no_proxy().build().unwrap_or_default(),
+            // Drop pooled connections well before the backend's keep-alive
+            // timeout (wire.ts), so a request never goes out on a socket the
+            // backend is closing: that race failed a channel call mid-download.
+            client: reqwest::Client::builder()
+                .no_proxy()
+                .pool_idle_timeout(BACKEND_POOL_IDLE)
+                .build()
+                .unwrap_or_default(),
             stopping: Arc::new(AtomicBool::new(false)),
             child: Arc::new(Mutex::new(None)),
         });

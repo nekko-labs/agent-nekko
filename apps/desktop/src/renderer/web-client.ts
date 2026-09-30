@@ -291,6 +291,8 @@ function makeWebClient(): NekkoApi {
     engineFoldersSave: (folders) => call(IpcChannels.engineFoldersSave, folders),
     engineDownloadModel: (modelId, quantLabel) => call(IpcChannels.engineDownloadModel, modelId, quantLabel),
     engineDownloadCompanions: (modelId) => call(IpcChannels.engineDownloadCompanions, modelId),
+    engineImageCompanions: (modelId) => call(IpcChannels.engineImageCompanions, modelId),
+    engineDownloadImageCompanions: (modelId) => call(IpcChannels.engineDownloadImageCompanions, modelId),
     engineSetResidentTtl: (modelId, ttlSeconds) => call(IpcChannels.engineSetResidentTtl, modelId, ttlSeconds),
     engineSetAutoload: (modelId, enabled) => call(IpcChannels.engineSetAutoload, modelId, enabled),
     engineDownloads: () => call(IpcChannels.engineDownloads),
