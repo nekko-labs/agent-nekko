@@ -8,7 +8,7 @@ import { DEFAULT_ENGINE_SETTINGS, type LocalModel } from '@agent-nekko/shared';
 import { createEngineServer, type EngineServer } from './server.js';
 const dirs: string[] = [], engines: EngineServer[] = [];
 afterEach(async () => { for (const s of engines.splice(0)) await s.stop(); for (const d of dirs.splice(0)) await rm(d,{recursive:true,force:true}); });
-const model: LocalModel = { id:'flux',name:'FLUX.1',architecture:'flux',modality:'image',path:'/models/flux.gguf',sizeBytes:1,addedAt:1 };
+const model: LocalModel = { id:'flux',name:'sdxl-turbo',architecture:'sdxl',modality:'image',path:'/models/sdxl-turbo.gguf',sizeBytes:1,addedAt:1 };
 async function fixture() {
   const dir = await mkdtemp(join(tmpdir(),'nekko-image-server-')); dirs.push(dir);
   const script=join(dir,'server.cjs');

@@ -94,6 +94,31 @@ export interface ImageGenerationRequest {
   seed?: number;
 }
 
+/** The companion files a diffusion model needs: text encoders, a VAE, an LLM encoder. */
+export type ImageCompanionRole = 'clip_l' | 'clip_g' | 't5xxl' | 'vae' | 'llm' | 'taesd';
+
+/** What an image model's companion set has on disk, and what fetching the rest costs. */
+export interface ImageCompanionStatus {
+  setId: string;
+  label: string;
+  files: Array<{
+    role: ImageCompanionRole;
+    /** `repo/path` on Hugging Face. */
+    source: string;
+    bytes: number;
+    /** Needs a Hugging Face token with the license accepted. */
+    gated: boolean;
+    /** Where it is on disk, when it is. */
+    path?: string;
+    /** A gated VAE is standing in (or, without a token, will) with its small ungated approximation. */
+    usingFallback: boolean;
+  }>;
+  ready: boolean;
+  missingBytes: number;
+  /** Steps and CFG scale the family is tuned for. */
+  defaults: { steps: number; cfgScale: number };
+}
+
 export interface ImageGenerationResult {
   created: number;
   data: Array<{ b64_json: string }>;
@@ -499,7 +524,7 @@ export interface EngineLoadPreset {
   ttlSeconds?: number;
   /** The simple slider's position, kept so the two surfaces stay one state. */
   budgetFraction?: number;
-  diffusion?: { clip_l?: string; clip_g?: string; t5xxl?: string; vae?: string; llm?: string; standalone?: boolean; offloadToCpu?: boolean; clipOnCpu?: boolean };
+  diffusion?: { clip_l?: string; clip_g?: string; t5xxl?: string; vae?: string; llm?: string; taesd?: string; standalone?: boolean; offloadToCpu?: boolean; clipOnCpu?: boolean };
 }
 
 /* ------------------------------------------------------- model folders */

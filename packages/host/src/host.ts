@@ -267,6 +267,8 @@ export interface Host {
   engineDownloadModel(modelId: string, quantLabel: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
   /** Fetch a resident-or-not model's missing companions (projector, configs). */
   engineDownloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  engineImageCompanions(modelId: string): Promise<import('@agent-nekko/shared').ImageCompanionStatus | null>;
+  engineDownloadImageCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
   /** Set a resident model's idle TTL in seconds (0 keeps it loaded). */
   engineSetResidentTtl(modelId: string, ttlSeconds: number): Promise<{ ok: boolean; message: string }>;
   /** Add or remove a model from the list loaded when the engine starts. */
@@ -722,6 +724,8 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     engineFoldersSave: (folders) => engine.saveFolders(folders),
     engineDownloadModel: (modelId, quantLabel) => engine.downloadModel(modelId, quantLabel),
     engineDownloadCompanions: (modelId) => engine.downloadCompanions(modelId),
+    engineImageCompanions: (modelId) => engine.imageCompanions(modelId),
+    engineDownloadImageCompanions: (modelId) => engine.downloadImageCompanions(modelId),
     engineSetResidentTtl: async (modelId, ttlSeconds) => engine.setResidentTtl(modelId, ttlSeconds),
     engineSetAutoload: (modelId, enabled) => engine.setAutoload(modelId, enabled),
     engineDownloads: async () => engine.downloads(),

@@ -12,6 +12,7 @@ import type {
   EngineLoadPreset,
   EngineSettings,
   GpuStats,
+  ImageCompanionStatus,
   LoadParams,
   LoadResult,
   LocalModel,
@@ -23,6 +24,7 @@ import type {
 import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl, modelModality } from '@agent-nekko/shared';
 import { createCatalog, hfFileUrl } from './catalog.js';
 import { companionsDir } from './companions.js';
+import { companionsBeside, imageCompanionsDir, imageCompanionSetFor, imageCompanionStatus } from './image-companions.js';
 import { createDownloads } from './download.js';
 import { knownFolder, knownFolderCandidates } from './folders.js';
 import { createEngineInstaller } from './install.js';
@@ -93,6 +95,7 @@ export function createEngine(deps: EngineDeps) {
     getGpuStats: deps.getGpuStatsFresh ?? deps.getGpuStats,
     workDir: () => join(engineDir(), 'templates'),
     companionsDir: (modelId) => companionsDir(modelsDir(), modelId),
+    imageCompanionsDir: () => imageCompanionsDir(modelsDir()),
     daemon: engineDaemon(),
   });
   // A backend restarted under a daemon that kept serving picks its models up.
@@ -206,6 +209,53 @@ export function createEngine(deps: EngineDeps) {
     return queued
       ? { ok: true, message: `Fetching ${queued} companion file${queued === 1 ? '' : 's'} for ${model.name} from ${repo}.` }
       : { ok: true, message: `${model.name} already has every companion file ${repo} ships.` };
+  }
+
+  /** An image model's text encoders and VAE: which are on disk and what the rest weighs. */
+  async function imageCompanions(modelId: string): Promise<ImageCompanionStatus | null> {
+    const model = await library.find(modelId);
+    if (!model || model.modality !== 'image') return null;
+    const beside = await companionsBeside(model, [companionsDir(modelsDir(), model.id)]);
+    return imageCompanionStatus(model, imageCompanionsDir(modelsDir()), beside, Boolean(deps.hfToken?.()));
+  }
+
+  /**
+   * Fetch the text encoders and VAE an image model lacks into the shared image
+   * companions directory. A gated VAE (SD3.5's, FLUX.1's) is fetched with the
+   * user's Hugging Face token when there is one, and otherwise its small
+   * ungated approximation (TAESD) stands in so the model still runs.
+   */
+  async function downloadImageCompanions(modelId: string): Promise<{ ok: boolean; message: string }> {
+    const model = await library.find(modelId);
+    if (!model) return { ok: false, message: 'That model is not in the library.' };
+    const set = imageCompanionSetFor(model);
+    const status = await imageCompanions(modelId);
+    if (!set || !status) {
+      return { ok: false, message: `No known text encoders for ${model.name}. Set their paths in its image settings.` };
+    }
+    const token = deps.hfToken?.();
+    const dir = imageCompanionsDir(modelsDir());
+    let queued = 0;
+    let bytes = 0;
+    let stoodIn = '';
+    set.files.forEach((file, i) => {
+      if (status.files[i].path) return;
+      const pick = file.gated && !token && file.fallback ? file.fallback : file;
+      if (pick !== file) stoodIn = ` Its VAE needs a Hugging Face token with the ${file.repo} license accepted, so the small TAESD decoder stands in (slightly softer detail).`;
+      void downloads.start({
+        id: `image-companions:${pick.saveAs}`,
+        kind: 'model',
+        label: `${set.label} · ${pick.role}`,
+        target: modelId,
+        url: hfFileUrl(pick.repo, pick.file),
+        dest: join(dir, pick.saveAs),
+        headers: pick === file && file.gated && token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      queued += 1;
+      bytes += pick.bytes;
+    });
+    if (!queued) return { ok: true, message: `${model.name} already has its text encoders and VAE.` };
+    return { ok: true, message: `Fetching ${queued} file${queued === 1 ? '' : 's'} (${(bytes / 1e9).toFixed(1)} GB) for ${set.label}.${stoodIn}` };
   }
 
   /**
@@ -380,6 +430,8 @@ export function createEngine(deps: EngineDeps) {
     catalogDetail: (id: string): Promise<CatalogModelDetail | null> => catalog.detail(id),
     downloadModel,
     downloadCompanions,
+    imageCompanions,
+    downloadImageCompanions,
     downloads: () => downloads.list(),
     cancelDownload: (id: string) => downloads.cancel(id),
     dismissDownload: (id: string) => downloads.dismiss(id),
