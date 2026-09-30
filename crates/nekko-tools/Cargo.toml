@@ -1,0 +1,22 @@
+[package]
+name = "nekko-tools"
+description = "The Agent Nekko agent's built-in tools and guardrails for the engine daemon: file tools, the shell tool and pending changes, exactly as the TS host runs them."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+icu_collator.workspace = true
+nekko-js = { path = "../nekko-js" }
+regress.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true

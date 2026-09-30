@@ -126,7 +126,9 @@ pub fn truthy_str(v: Option<&Value>) -> Option<&str> {
 }
 
 /// A number as JavaScript prints it (`String(n)`, and `JSON.stringify` for
-/// finite values).
+/// finite values): ECMAScript's Number::toString, so shortest round-trip
+/// digits, positional from 1e-6 up to 1e21 and an exponent with its sign
+/// outside that (`0.000001`, `1e-7`, `1e+21`).
 pub fn number_to_string(f: f64) -> String {
     if f.is_nan() {
         return "NaN".into();
@@ -137,24 +139,34 @@ pub fn number_to_string(f: f64) -> String {
     if f == 0.0 {
         return "0".into();
     }
-    if f.fract() == 0.0 && f.abs() < 1e21 {
-        return format!("{f:.0}");
+    if f < 0.0 {
+        return format!("-{}", number_to_string(-f));
     }
-    // Shortest round-trip digits, as both runtimes use; JavaScript writes a
-    // positive exponent with its sign and switches to exponents only at 1e21.
-    let s = serde_json::Number::from_f64(f).map(|n| n.to_string()).unwrap_or_default();
-    match s.find('e') {
-        Some(i) if !s[i + 1..].starts_with('-') && !s[i + 1..].starts_with('+') => {
-            format!("{}e+{}", &s[..i], &s[i + 1..])
-        }
-        _ => s,
+    // `{:e}` prints the shortest digits that round-trip, as `d.ddde<exp>`:
+    // the digits are `digits`, and the value is 0.digits x 10^n.
+    let sci = format!("{f:e}");
+    let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
+    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
+    let k = digits.len() as i64;
+    let n = exp.parse::<i64>().unwrap_or(0) + 1;
+    if k <= n && n <= 21 {
+        format!("{digits}{}", "0".repeat((n - k) as usize))
+    } else if 0 < n && n <= 21 {
+        format!("{}.{}", &digits[..n as usize], &digits[n as usize..])
+    } else if -6 < n && n <= 0 {
+        format!("0.{}{digits}", "0".repeat((-n) as usize))
+    } else {
+        let e = n - 1;
+        let sign = if e < 0 { '-' } else { '+' };
+        let (head, rest) = digits.split_at(1);
+        let frac = if rest.is_empty() { String::new() } else { format!(".{rest}") };
+        format!("{head}{frac}e{sign}{}", e.abs())
     }
 }
 
+/// JavaScript holds every number as a double, so an integer past 2^53 prints
+/// rounded (`12345678901234567890` is `12345678901234567000`).
 fn json_number(n: &serde_json::Number) -> String {
-    if n.is_i64() || n.is_u64() {
-        return n.to_string();
-    }
     number_to_string(n.as_f64().unwrap_or(0.0))
 }
 
@@ -334,6 +346,30 @@ mod tests {
         let v: Value = serde_json::from_str(r#"{"b":1.0,"a":[1e21,0.1,-2,1e-7,"x\n\u0001"],"n":null}"#).unwrap();
         assert_eq!(stringify(&v), r#"{"b":1,"a":[1e+21,0.1,-2,1e-7,"x\n\u0001"],"n":null}"#);
         assert_eq!(stringify(&json!(1e16)), "10000000000000000");
+    }
+
+    #[test]
+    fn prints_numbers_like_javascript() {
+        // Each checked against node's String(x).
+        let cases = [
+            (0.0, "0"),
+            (5.0, "5"),
+            (-2.25, "-2.25"),
+            (0.1, "0.1"),
+            (0.000001, "0.000001"),
+            (0.00001, "0.00001"),
+            (1e-7, "1e-7"),
+            (1.23e-18, "1.23e-18"),
+            (123456789.125, "123456789.125"),
+            (1e20, "100000000000000000000"),
+            (1e21, "1e+21"),
+            (2.5e25, "2.5e+25"),
+        ];
+        for (x, want) in cases {
+            assert_eq!(number_to_string(x), want, "{x}");
+        }
+        assert_eq!(display(&json!(12345678901234567890u64)), "12345678901234567000");
+        assert_eq!(stringify(&json!(9007199254740993u64)), "9007199254740992");
     }
 
     #[test]
