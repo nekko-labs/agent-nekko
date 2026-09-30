@@ -151,6 +151,35 @@ pub fn glob_files(root: &str, pattern: Option<&Value>, limit: usize) -> Result<V
     Ok(out)
 }
 
+/// A pattern that is plain ASCII text with no regex syntax, lowercased.
+///
+/// For those, `new RegExp(p, 'i').test(line)` is exactly an ASCII
+/// case-insensitive substring search: without the `u` flag V8 folds case by
+/// uppercasing and never maps a non-ASCII character to an ASCII one (so `ſ`
+/// and the Kelvin sign stay apart from `s` and `k`), and in UTF-8 an ASCII
+/// byte only ever stands for itself. Models mostly grep for words, and this
+/// skips the regex engine for them.
+fn ascii_literal(source: &str) -> Option<Vec<u8>> {
+    let plain = source.is_ascii() && !source.bytes().any(|b| b"\\^$.|?*+()[]{}".contains(&b));
+    plain.then(|| source.to_ascii_lowercase().into_bytes())
+}
+
+/// `statSync(full).size > 1_000_000` skips it, then `readFileSync(full,
+/// 'utf8')`, any failure skipping it too. One open and a stat of the open
+/// file, rather than two path lookups: on Windows each costs as much as
+/// reading a small file, and grep does this for every file it meets.
+fn read_small(full: &str) -> Option<String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(full).ok()?;
+    let meta = file.metadata().ok()?;
+    if meta.is_dir() || meta.len() > 1_000_000 {
+        return None;
+    }
+    let mut bytes = Vec::with_capacity(meta.len() as usize);
+    file.read_to_end(&mut bytes).ok()?;
+    Some(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 /// `grepFiles(root, pattern)`, first `limit` lines.
 pub fn grep_files(root: &str, pattern: Option<&Value>, limit: usize) -> Vec<String> {
     // `new RegExp(undefined)` is the empty pattern; anything else is String(x).
@@ -158,6 +187,8 @@ pub fn grep_files(root: &str, pattern: Option<&Value>, limit: usize) -> Vec<Stri
     let Ok(re) = JsRegex::new(&source, "i") else {
         return vec![format!("Invalid regex: {source}")];
     };
+    let literal = ascii_literal(&source);
+    let finder = literal.as_deref().map(memchr::memmem::Finder::new);
     let mut out: Vec<String> = Vec::new();
     // TS checks `out.length > 100` before each entry and slices to 100 at
     // the end, so nothing past the 101st line is ever visible.
@@ -166,13 +197,24 @@ pub fn grep_files(root: &str, pattern: Option<&Value>, limit: usize) -> Vec<Stri
         if out.len() >= stop {
             return false;
         }
-        if nodefs::size(full).is_none_or(|s| s > 1_000_000) {
+        let Some(content) = read_small(full) else { return true };
+        // A literal that is nowhere in the file is on none of its lines.
+        if let Some(f) = &finder
+            && f.find(&content.to_ascii_lowercase().into_bytes()).is_none()
+        {
             return true;
         }
-        let Ok(content) = nodefs::read_utf8(full) else { return true };
+        // The regex runs over UTF-16; encode the file once, not line by line.
+        // `\n` is one unit either way, so the lines split in step.
+        let units: Vec<u16> = if finder.is_some() { Vec::new() } else { content.encode_utf16().collect() };
+        let mut unit_lines = units.split(|&u| u == u16::from(b'\n'));
         let r = rel(root, full);
         for (idx, line) in content.split('\n').enumerate() {
-            if re.test(line) {
+            let hit = match &finder {
+                Some(f) => f.find(&line.to_ascii_lowercase().into_bytes()).is_some(),
+                None => unit_lines.next().is_some_and(|u| re.find(u).is_some()),
+            };
+            if hit {
                 out.push(format!("{r}:{}: {}", idx + 1, js::slice16(js::trim(line), 200)));
                 if out.len() >= stop {
                     break;
@@ -193,6 +235,43 @@ mod tests {
     fn glob_matches(glob: &str, path: &str) -> bool {
         let re = glob_regex(Some(&json!(glob))).unwrap();
         re.find(&path.encode_utf16().collect::<Vec<_>>()).is_some()
+    }
+
+    #[test]
+    fn the_literal_fast_path_agrees_with_the_regex_engine() {
+        let lines = [
+            "plain",
+            "PLAIN",
+            "pLaIn text",
+            "ſtrict",
+            "strict",
+            "STRICT",
+            "\u{212A}elvin",
+            "kelvin",
+            "Kelvin",
+            "caf\u{e9}",
+            "CAFE",
+            "tab\there",
+            "a/b-c_d",
+            "x\r",
+            "",
+            "\u{fffd}zanzibar\u{fffd}",
+            "i\u{307}",
+            "\u{131}d",
+        ];
+        let patterns = ["plain", "Strict", "kelvin", "cafe", "tab\there", "a/b-c", "x\r", "", "ZANZIBAR", "id", "d"];
+        for p in patterns {
+            let f = ascii_literal(p).expect(p);
+            let finder = memchr::memmem::Finder::new(&f);
+            let re = JsRegex::new(p, "i").unwrap();
+            for line in lines {
+                let fast = finder.find(&line.to_ascii_lowercase().into_bytes()).is_some();
+                assert_eq!(fast, re.test(line), "{p:?} on {line:?}");
+            }
+        }
+        for p in ["a.b", "^x", "a|b", "(a)", "[a]", "a{2}", "a+", "a*", "a?", "a$", "\\d", "caf\u{e9}"] {
+            assert!(ascii_literal(p).is_none(), "{p:?}");
+        }
     }
 
     #[test]
