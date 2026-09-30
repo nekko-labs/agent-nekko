@@ -11,6 +11,7 @@ import { EngineServerSettings } from './EngineServerSettings.js';
 import { ModelFolders } from './ModelFolders.js';
 import { DiffusionInstallCard } from './DiffusionInstallCard.js';
 import { MlxInstallCard } from './MlxInstallCard.js';
+import { DecisionModels } from './DecisionModels.js';
 import { LocalServerSection } from '../server/LocalServerSection.js';
 
 /**
@@ -31,7 +32,7 @@ import { LocalServerSection } from '../server/LocalServerSection.js';
 const POLL_MS = 6000;
 const PROVIDER_ID = 'nekko-engine';
 
-type Tab = 'models' | 'downloads' | 'folders';
+type Tab = 'models' | 'downloads' | 'folders' | 'decisions';
 
 export function EngineSection({
   onProvidersChanged,
@@ -179,6 +180,9 @@ export function EngineSection({
           <TabButton active={tab === 'folders'} onClick={() => setTab('folders')}>
             Folders{borrowed > 0 ? ` (${borrowed} borrowed)` : ''}
           </TabButton>
+          <TabButton active={tab === 'decisions'} onClick={() => setTab('decisions')}>
+            Decisions
+          </TabButton>
         </div>
 
         <div className="mt-3">
@@ -197,6 +201,7 @@ export function EngineSection({
           )}
           {tab === 'downloads' && <DownloadsPanel jobs={jobs} onChanged={refresh} />}
           {tab === 'folders' && <ModelFolders onChanged={refresh} />}
+          {tab === 'decisions' && <DecisionModels />}
         </div>
 
         {status.log.length > 0 && (
