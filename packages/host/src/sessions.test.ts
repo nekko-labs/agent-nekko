@@ -79,3 +79,34 @@ describe('listSessionSummaries', () => {
     expect(await listSessionSummaries()).toHaveLength(1);
   });
 });
+
+describe('saveTurnSession', () => {
+  it('keeps what the user changed mid-turn and what the turn produced', async () => {
+    const { saveTurnSession, setSessionOptions, queuePrompt } = await import('./sessions.js');
+    const s = createSession('w1');
+    // The turn reads the chat at its start and works on its own copy.
+    const turn = getSession(s.id)!;
+    turn.title = 'Placeholder from the prompt';
+    turn.titleAuto = true;
+    turn.messages.push({ id: 'u1', role: 'user', content: 'hi', createdAt: 1 }, { id: 'a1', role: 'assistant', content: 'hello', createdAt: 2 });
+    turn.modelId = 'the-model-it-ran';
+    // Meanwhile the user renames, pins, and queues through another writer.
+    setSessionOptions(s.id, { title: 'Mine', pinned: true, thinking: true });
+    queuePrompt(s.id, 'next');
+    saveTurnSession(turn);
+    const saved = getSession(s.id)!;
+    expect(saved.messages.map((m) => m.id)).toEqual(['u1', 'a1']);
+    expect(saved.modelId).toBe('the-model-it-ran');
+    expect(saved).toMatchObject({ title: 'Mine', titleAuto: false, pinned: true, thinking: true, queue: ['next'], workspaceId: 'w1' });
+  });
+
+  it('lets an automatic title through when the user has not named the chat', async () => {
+    const { saveTurnSession } = await import('./sessions.js');
+    const s = createSession();
+    const turn = getSession(s.id)!;
+    turn.title = 'From the prompt';
+    turn.titleAuto = true;
+    saveTurnSession(turn);
+    expect(getSession(s.id)!.title).toBe('From the prompt');
+  });
+});

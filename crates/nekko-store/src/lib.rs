@@ -1,19 +1,21 @@
-//! Session storage for the engine daemon: the read side, ported from
+//! Session storage for the engine daemon, ported from
 //! `packages/host/src/sessions.ts`.
 //!
-//! Chats live one JSON file each in `<data>/sessions/<id>.json`. The TS host
-//! still writes them (the agent loop holds a session in memory for a whole
-//! turn and saves as it goes, which moves with the agent loop, PF14); the
-//! daemon serves the reads. That takes the heaviest calls off the TS event
-//! loop: listing every chat on each sidebar refresh, and opening a chat, which
-//! for an image chat means parsing megabytes of pictures while an agent in
-//! another tab is streaming through the same thread.
+//! Chats live one JSON file each in `<data>/sessions/<id>.json`. The daemon
+//! serves the reads and the UI's own writes (`write.rs`); the TS agent loop
+//! still writes the chat it is running, since it holds the session in memory
+//! for a whole turn and saves as it goes (it moves with the agent loop, PF14).
+//! Serving these here takes the heaviest calls off the TS event loop: listing
+//! every chat on each sidebar refresh, and opening a chat, which for an image
+//! chat means parsing megabytes of pictures while an agent in another tab is
+//! streaming through the same thread.
 //!
-//! The TS side writes each file to a temp name and renames it into place, so a
-//! reader here never sees half a file.
+//! Both sides write each file to a temp name and rename it into place, so a
+//! reader never sees half a file.
 
 mod js;
 mod summary;
+mod write;
 
 pub use summary::summarize;
 
@@ -28,6 +30,8 @@ pub struct SessionStore {
     /// Summaries by file, valid while the file's mtime and size match, the
     /// same rule `listSessionSummaries` uses.
     cache: Mutex<HashMap<PathBuf, (SystemTime, u64, Value)>>,
+    /// Held across each read-modify-write this store makes.
+    writes: Mutex<()>,
 }
 
 /// Session ids are `s_<time>_<random>` (base36 and base64url). Anything else
@@ -48,7 +52,7 @@ fn newest_first(list: &mut [Value]) {
 
 impl SessionStore {
     pub fn new(data_dir: impl AsRef<Path>) -> Self {
-        Self { dir: data_dir.as_ref().join("sessions"), cache: Mutex::new(HashMap::new()) }
+        Self { dir: data_dir.as_ref().join("sessions"), cache: Mutex::new(HashMap::new()), writes: Mutex::new(()) }
     }
 
     pub fn dir(&self) -> &Path {

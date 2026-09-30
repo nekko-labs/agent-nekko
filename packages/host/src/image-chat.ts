@@ -1,6 +1,6 @@
 import { randomInt } from 'crypto';
 import type { AgentEvent, ChatMessage, ImageGenerationRequest, ImageGenerationResult, ImageTurnOptions } from '@agent-nekko/shared';
-import { getSession, saveSession } from './sessions.js';
+import { getSession, saveSession, saveTurnSession } from './sessions.js';
 
 /**
  * One turn of an image-generation chat.
@@ -49,9 +49,7 @@ export async function generateImageTurn(opts: ImageTurnOptions, generate: Genera
   // queued mid-turn (written straight to disk) survive this save.
   const persist = () => {
     if (session.incognito) return;
-    const disk = getSession(session.id);
-    if (disk?.queue) session.queue = disk.queue;
-    saveSession(session);
+    saveTurnSession(session);
   };
 
   session.messages.push({ id: `msg_${Date.now().toString(36)}`, role: 'user', content: text, createdAt: Date.now() });
@@ -62,7 +60,9 @@ export async function generateImageTurn(opts: ImageTurnOptions, generate: Genera
   session.chatType = 'image';
   session.imageParams = { ...params, seed: params.seed };
   session.modelId = params.modelId;
-  persist();
+  // Read from disk just above, so nothing is stale yet; and the settings this
+  // turn was sent with are the chat's now, which a merging save would undo.
+  if (!session.incognito) saveSession(session);
 
   const size = `${params.width}×${params.height}`;
   emit({ type: 'image_status', sessionId, stage: 'generating', label: `Generating a ${size} image` });

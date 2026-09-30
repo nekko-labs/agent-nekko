@@ -35,7 +35,7 @@ let decisions: DecisionRunner | null = null;
 export function setDecisionRunner(runner: DecisionRunner | null): void {
   decisions = runner;
 }
-import { getSession, saveSession, createSession } from './sessions.js';
+import { getSession, saveSession, saveTurnSession, createSession } from './sessions.js';
 import { executeTool } from './tools.js';
 import { recordUsage } from './usage.js';
 import * as LimitsService from './limits.js';
@@ -682,9 +682,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   // land on disk via queuePrompt) so a normal save doesn't clobber them.
   const persist = () => {
     if (incognito) return;
-    const disk = getSession(session.id);
-    if (disk?.queue) session.queue = disk.queue;
-    saveSession(session);
+    saveTurnSession(session);
   };
 
   // Build context with provenance. Offline mode skips internet connectors.

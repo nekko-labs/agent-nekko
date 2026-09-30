@@ -78,8 +78,8 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
             }
             terminal_op(ctx, channel, &id, &args)
         }
-        "sessions:summaries" | "sessions:list" | "session:get" | "session:images" if ctx.sessions.is_some() => {
-            session_read(ctx.sessions.clone().expect("checked"), channel, args).await
+        c if SESSION_CHANNELS.contains(&c) && ctx.sessions.is_some() => {
+            session_op(ctx.sessions.clone().expect("checked"), channel, args).await
         }
         _ => {
             if let Some(r) = crate::engine::route(&ctx.engine, channel, &args).await {
@@ -97,6 +97,16 @@ pub const OWNED: &[&str] = &[
     "sessions:list",
     "session:get",
     "session:images",
+    "session:create",
+    "session:delete",
+    "session:setOptions",
+    "session:setWorkspace",
+    "session:setSupportingWorkspaces",
+    "session:setAttachments",
+    "session:truncate",
+    "spec:setLinked",
+    "chat:queue",
+    "chat:dequeue",
     "terminals:list",
     "terminals:list:native",
     "terminal:shells",
@@ -243,18 +253,53 @@ pub fn forward_terminal_events(ctx: &Ctx) {
     });
 }
 
-/// The session reads, off the async threads: a listing reads every changed
-/// chat file, and one image chat can be tens of megabytes.
-async fn session_read(store: Arc<nekko_store::SessionStore>, channel: &str, args: Vec<Value>) -> Result<Value, String> {
+/// The channels `nekko-store` serves when the daemon knows the data dir.
+/// Clearing chats by date and everything a running turn writes stay with the
+/// TS host (the agent loop moves later, PF14).
+const SESSION_CHANNELS: &[&str] = &[
+    "sessions:summaries",
+    "sessions:list",
+    "session:get",
+    "session:images",
+    "session:create",
+    "session:delete",
+    "session:setOptions",
+    "session:setWorkspace",
+    "session:setSupportingWorkspaces",
+    "session:setAttachments",
+    "session:truncate",
+    "spec:setLinked",
+    "chat:queue",
+    "chat:dequeue",
+];
+
+/// Session reads and the UI's own writes, off the async threads: a listing
+/// reads every changed chat file, and one image chat can be tens of megabytes.
+async fn session_op(store: Arc<nekko_store::SessionStore>, channel: &str, args: Vec<Value>) -> Result<Value, String> {
     let channel = channel.to_string();
-    tokio::task::spawn_blocking(move || match channel.as_str() {
-        "sessions:summaries" => Value::Array(store.summaries()),
-        "sessions:list" => Value::Array(store.list()),
-        "session:get" => str_arg(&args, 0).and_then(|id| store.get(id)).unwrap_or(Value::Null),
-        _ => Value::Array(store.images(str_arg(&args, 0).unwrap_or_default(), arg(&args, 1).as_f64().unwrap_or(1.0))),
+    tokio::task::spawn_blocking(move || {
+        let id = str_arg(&args, 0).unwrap_or_default();
+        let or_null = |r: Result<Option<Value>, String>| r.map(|v| v.unwrap_or(Value::Null));
+        match channel.as_str() {
+            "sessions:summaries" => Ok(Value::Array(store.summaries())),
+            "sessions:list" => Ok(Value::Array(store.list())),
+            "session:get" => Ok(store.get(id).unwrap_or(Value::Null)),
+            "session:images" => Ok(Value::Array(store.images(id, arg(&args, 1).as_f64().unwrap_or(1.0)))),
+            "session:create" => store.create(str_arg(&args, 0)),
+            "session:delete" => store.delete(id).map(|()| Value::Null),
+            "session:setOptions" => or_null(store.set_options(id, arg(&args, 1))),
+            "session:setWorkspace" => or_null(store.set_workspace(id, str_arg(&args, 1))),
+            "session:setSupportingWorkspaces" => or_null(store.set_supporting(id, arg(&args, 1))),
+            "session:setAttachments" => or_null(store.set_attachments(id, arg(&args, 1))),
+            "session:truncate" => or_null(store.truncate(id, arg(&args, 1))),
+            "spec:setLinked" => or_null(store.set_spec_linked(id, arg(&args, 1))),
+            "chat:queue" => or_null(store.queue(id, str_arg(&args, 1).unwrap_or_default())),
+            "chat:dequeue" => or_null(store.dequeue(id, arg(&args, 1))),
+            other => Err(format!("{other} is not a session channel")),
+        }
     })
     .await
-    .map_err(|e| format!("session read failed: {e}"))
+    .map_err(|e| format!("session call failed: {e}"))?
 }
 
 #[cfg(test)]

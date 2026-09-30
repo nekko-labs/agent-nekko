@@ -41,3 +41,72 @@ fn the_store_lists_the_golden_set_as_the_ts_lister_would() {
     assert_eq!(summaries.len(), std::fs::read_dir(golden().join("sessions")).unwrap().count() - 1);
     assert!(summaries.iter().all(|s| s.get("messages").is_none()));
 }
+
+/// `updatedAt` is the save time, the one field the two sides cannot agree on.
+fn normalize(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(i) = rest.find("\"updatedAt\": ") {
+        let start = i + "\"updatedAt\": ".len();
+        out.push_str(&rest[..start]);
+        let digits = rest[start..].bytes().take_while(u8::is_ascii_digit).count();
+        out.push('0');
+        rest = &rest[start + digits..];
+    }
+    out.push_str(rest);
+    out
+}
+
+#[test]
+fn every_write_leaves_the_file_the_ts_host_would() {
+    let expected: serde_json::Map<String, Value> =
+        serde_json::from_str(&std::fs::read_to_string(golden().join("writes.json")).unwrap()).unwrap();
+    let cases: Vec<Value> = serde_json::from_str(&std::fs::read_to_string(golden().join("ops.json")).unwrap()).unwrap();
+    for case in cases {
+        let fixture = case["fixture"].as_str().unwrap();
+        let data = std::env::temp_dir().join(format!("nekko-writes-{}-{fixture}", std::process::id()));
+        std::fs::create_dir_all(data.join("sessions")).unwrap();
+        std::fs::copy(
+            golden().join("sessions").join(format!("{fixture}.json")),
+            data.join("sessions").join(format!("{fixture}.json")),
+        )
+        .unwrap();
+        let store = SessionStore::new(&data);
+        for op in case["ops"].as_array().unwrap() {
+            let op = op.as_array().unwrap();
+            let arg = op.get(1).cloned().unwrap_or(Value::Null);
+            let r = match op[0].as_str().unwrap() {
+                "setOptions" => store.set_options(fixture, &arg),
+                "setWorkspace" => store.set_workspace(fixture, arg.as_str()),
+                "setSupporting" => store.set_supporting(fixture, &arg),
+                "setAttachments" => store.set_attachments(fixture, &arg),
+                "setSpecLinked" => store.set_spec_linked(fixture, &arg),
+                "truncate" => store.truncate(fixture, &arg),
+                "queue" => store.queue(fixture, arg.as_str().unwrap_or("")),
+                "dequeue" => store.dequeue(fixture, &arg),
+                other => panic!("unknown op {other}"),
+            };
+            assert!(r.unwrap().is_some(), "{fixture}: the chat vanished");
+        }
+        let text = std::fs::read_to_string(data.join("sessions").join(format!("{fixture}.json"))).unwrap();
+        assert_eq!(normalize(&text), expected[fixture].as_str().unwrap(), "{fixture}: file differs");
+        std::fs::remove_dir_all(&data).ok();
+    }
+}
+
+#[test]
+fn creates_and_deletes_chats_the_way_the_ts_host_does() {
+    let data = std::env::temp_dir().join(format!("nekko-create-{}", std::process::id()));
+    let store = SessionStore::new(&data);
+    let s = store.create(Some("w1")).unwrap();
+    let id = s["id"].as_str().unwrap().to_string();
+    assert!(id.starts_with("s_") && id.len() > 12, "{id}");
+    let keys: Vec<&String> = s.as_object().unwrap().keys().collect();
+    assert_eq!(keys, ["id", "title", "workspaceId", "messages", "createdAt", "updatedAt"]);
+    assert_eq!(store.get(&id).unwrap()["title"], "New chat");
+    assert!(store.create(None).unwrap().get("workspaceId").is_none());
+    store.delete(&id).unwrap();
+    assert!(store.get(&id).is_none());
+    store.delete(&id).unwrap(); // deleting twice is fine
+    std::fs::remove_dir_all(&data).ok();
+}
