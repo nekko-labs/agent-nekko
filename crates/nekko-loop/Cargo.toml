@@ -10,3 +10,7 @@ publish.workspace = true
 [dependencies]
 nekko-js = { path = "../nekko-js" }
 serde_json.workspace = true
+
+
+[dev-dependencies]
+tokio.workspace = true

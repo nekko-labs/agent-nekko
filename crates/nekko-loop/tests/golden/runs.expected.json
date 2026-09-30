@@ -1,0 +1,1610 @@
+[
+ {
+  "name": "plain reply",
+  "events": [
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Hello"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": " there"
+   },
+   {
+    "type": "usage",
+    "sessionId": "s1",
+    "inputTokens": 10,
+    "outputTokens": 2,
+    "outputMs": 5
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Hello there",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "tool round trip",
+  "events": [
+   {
+    "type": "reasoning",
+    "sessionId": "s1",
+    "delta": "thinking it over"
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c1",
+     "name": "read_file",
+     "input": {
+      "path": "src/app.ts"
+     }
+    }
+   },
+   {
+    "type": "usage",
+    "sessionId": "s1",
+    "inputTokens": 40,
+    "outputTokens": 8
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c1",
+     "output": "export function start() {}"
+    }
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Read it."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "reasoning": "thinking it over",
+    "reasoningSeconds": 0,
+    "toolCalls": [
+     {
+      "id": "c1",
+      "name": "read_file",
+      "input": {
+       "path": "src/app.ts"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c1",
+     "output": "export function start() {}"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Read it.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "reasoning": "thinking it over",
+      "reasoningSeconds": 0,
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "read_file",
+        "input": {
+         "path": "src/app.ts"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "export function start() {}"
+      },
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "two tool calls in one reply",
+  "events": [
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c1",
+     "name": "read_file",
+     "input": {
+      "path": "src/app.ts"
+     }
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c2",
+     "name": "bash",
+     "input": {
+      "command": "ls"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c1",
+     "output": "a"
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c2",
+     "output": "b",
+     "isError": true
+    }
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Both done."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c1",
+      "name": "read_file",
+      "input": {
+       "path": "src/app.ts"
+      }
+     },
+     {
+      "id": "c2",
+      "name": "bash",
+      "input": {
+       "command": "ls"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c1",
+     "output": "a"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c2",
+     "output": "b",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Both done.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "read_file",
+        "input": {
+         "path": "src/app.ts"
+        }
+       },
+       {
+        "id": "c2",
+        "name": "bash",
+        "input": {
+         "command": "ls"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "a"
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c2",
+       "output": "b",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "tool throws",
+  "events": [
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c1",
+     "name": "bash",
+     "input": {}
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c1",
+     "output": "Error: boom",
+     "isError": true
+    }
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Recovered."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c1",
+      "name": "bash",
+      "input": {}
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c1",
+     "output": "Error: boom",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Recovered.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "bash",
+        "input": {}
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "Error: boom",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "empty then nudge answers",
+  "events": [
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Here is the answer."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Here is the answer.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "Please continue and give your answer.",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "empty twice stalls",
+  "events": [
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "_The model returned an empty response and stopped. It may have run out of steam: try again, or rephrase._",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "Please continue and give your answer.",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "runaway text",
+  "events": [
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Let me start building this feature now.\n"
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Let me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\nLet me start building this feature now.\n\n_Stopped: the model got stuck repeating itself and stopped making progress. Nothing was lost: everything before the loop is above. This is usually the model rather than the prompt: try again, lower Effort, or switch to a different model if it keeps happening._",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "provider error mid-stream",
+  "events": [
+   {
+    "type": "reasoning",
+    "sessionId": "s1",
+    "delta": "plan"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "partial answer"
+   },
+   {
+    "type": "error",
+    "sessionId": "s1",
+    "message": "socket hang up"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "partial answer\n\n_This reply was cut off before it finished. Everything above is kept, resume to carry on from here._",
+    "reasoning": "plan",
+    "reasoningSeconds": 0,
+    "interrupted": true,
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "error before any output",
+  "events": [
+   {
+    "type": "error",
+    "sessionId": "s1",
+    "message": "connect ECONNREFUSED 127.0.0.1:8080"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "user stop mid-stream",
+  "events": [
+   {
+    "type": "reasoning",
+    "sessionId": "s1",
+    "delta": "r1"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "part of it"
+   },
+   {
+    "type": "error",
+    "sessionId": "s1",
+    "message": "Stopped"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "part of it\n\n_This reply was cut off before it finished. Everything above is kept, resume to carry on from here._",
+    "reasoning": "r1",
+    "reasoningSeconds": 0,
+    "interrupted": true,
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "aborted before start",
+  "events": [
+   {
+    "type": "error",
+    "sessionId": "s1",
+    "message": "Aborted"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   }
+  ],
+  "requests": []
+ },
+ {
+  "name": "step limit wrap-up",
+  "events": [
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c1",
+     "name": "read_file",
+     "input": {
+      "path": "src/app.ts"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c1",
+     "output": "one"
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c2",
+     "name": "read_file",
+     "input": {
+      "path": "src/app.ts"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c2",
+     "output": "two"
+    }
+   },
+   {
+    "type": "reasoning",
+    "sessionId": "s1",
+    "delta": "wrapping"
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Here is what I did."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c1",
+      "name": "read_file",
+      "input": {
+       "path": "src/app.ts"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c1",
+     "output": "one"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c2",
+      "name": "read_file",
+      "input": {
+       "path": "src/app.ts"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c2",
+     "output": "two"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Here is what I did.\n\n_Stopped at this reply's 2-step tool limit. Ask me to continue and I'll pick up from here (or raise the limit in Settings → Agent loop)._",
+    "reasoning": "wrapping",
+    "reasoningSeconds": 0,
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "read_file",
+        "input": {
+         "path": "src/app.ts"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "one"
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "read_file",
+        "input": {
+         "path": "src/app.ts"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "one"
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c2",
+        "name": "read_file",
+        "input": {
+         "path": "src/app.ts"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c2",
+       "output": "two"
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "You have reached this reply's tool-step limit, so no further tool calls are possible. Answer now with what you already know: what you did, what you found, and the concrete next steps you would take. Do not ask to run more tools.",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "resume after a cut-off reply",
+  "events": [
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Continuing."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "a1",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c9",
+      "name": "bash",
+      "input": {}
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c9",
+     "output": "This tool call did not run: the reply was interrupted first. Call it again if you still need the result.",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "a2",
+    "role": "assistant",
+    "content": "half an answer",
+    "interrupted": true,
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Continuing.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "a1",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c9",
+        "name": "bash",
+        "input": {}
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c9",
+       "output": "This tool call did not run: the reply was interrupted first. Call it again if you still need the result.",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "a2",
+      "role": "assistant",
+      "content": "half an answer",
+      "interrupted": true,
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "Your previous reply was cut off before it finished. Continue from exactly where it stopped. The work above, including every tool result, is already done: build on it and do not repeat it. If the task was already finished, just give the final answer.",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "resume ending on a tool result",
+  "events": [
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "All set."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "a1",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c1",
+      "name": "bash",
+      "input": {}
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "t1",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c1",
+     "output": "ok"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "All set.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "a1",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "bash",
+        "input": {}
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "t1",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "ok"
+      },
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "windowed history with an image turn",
+  "events": [
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "A cat."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "a0",
+    "role": "assistant",
+    "content": "",
+    "images": [
+     "data:x"
+    ],
+    "generated": {
+     "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+     "width": 1024,
+     "height": 1024,
+     "steps": 4,
+     "cfgScale": 1,
+     "seed": 7,
+     "ms": 4000
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "u1",
+    "role": "user",
+    "content": "again",
+    "createdAt": 0
+   },
+   {
+    "id": "a1",
+    "role": "assistant",
+    "content": "",
+    "images": [
+     "data:y"
+    ],
+    "generated": {
+     "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+     "width": 1024,
+     "height": 1024,
+     "steps": 4,
+     "cfgScale": 1,
+     "seed": 7,
+     "ms": 4000
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "u2",
+    "role": "user",
+    "content": "describe it",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "A cat.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u2",
+      "role": "user",
+      "content": "describe it",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ }
+]

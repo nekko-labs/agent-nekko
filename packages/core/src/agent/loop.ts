@@ -284,7 +284,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     // bubble, so the user knows the turn ended and can try again.
     const stalled = isEmptyTurn(turn);
     const content = stalled
-      ? '_The model returned an empty response and stopped. It may have run out of steam — try again, or rephrase._'
+      ? '_The model returned an empty response and stopped. It may have run out of steam: try again, or rephrase._'
       : text;
 
     // Record the assistant message. A stream we cut off for looping keeps its
