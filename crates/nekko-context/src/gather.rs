@@ -117,7 +117,7 @@ pub fn parse_memory(markdown: &str, fallback_id: &str) -> Value {
     let get = |k: &str| meta.iter().find(|(key, _)| key == k).map(|(_, v)| v.as_str());
     let nonempty = |k: &str| get(k).filter(|v| !v.is_empty());
     let stamp = |k: &str| {
-        let n = get(k).map(js::to_number).unwrap_or(f64::NAN);
+        let n = get(k).map(js::string_to_number).unwrap_or(f64::NAN);
         if js::truthy_number(n) { n } else { now_ms() }
     };
     let mut m = Map::new();
