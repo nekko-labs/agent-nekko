@@ -24,6 +24,9 @@ pub struct Config {
     /// The TS host that serves every channel not ported yet. Absent in tests
     /// and in a daemon run on its own.
     pub backend: Option<BackendCommand>,
+    /// The user data directory, whose `sessions/` the daemon reads. Absent,
+    /// the session channels stay with the backend.
+    pub data_dir: Option<String>,
     /// Exit when stdin closes, so the daemon never outlives the app that
     /// started it (the parent holds our stdin open for its whole life).
     #[serde(default = "yes")]

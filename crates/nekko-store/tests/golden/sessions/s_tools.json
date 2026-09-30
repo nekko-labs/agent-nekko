@@ -1,0 +1,80 @@
+{
+  "id": "s_tools",
+  "title": "Chat s_tools",
+  "workspaceId": "w1",
+  "messages": [
+    {
+      "id": "u1",
+      "role": "user",
+      "content": "Open a PR for https://github.com/nekko-labs/agent-nekko/pull/219 follow-up",
+      "createdAt": 1790000000002
+    },
+    {
+      "id": "a1",
+      "role": "assistant",
+      "content": "",
+      "createdAt": 1790000000002,
+      "toolCalls": [
+        {
+          "id": "c1",
+          "name": "bash",
+          "input": {
+            "command": "gh pr create",
+            "retries": 1,
+            "ratio": 0.25,
+            "big": 1e+21,
+            "tiny": 1e-7,
+            "list": [
+              1,
+              "two",
+              null,
+              true
+            ],
+            "nested": {
+              "b": 2,
+              "a": 1
+            }
+          }
+        },
+        {
+          "id": "c2",
+          "name": "noop",
+          "input": null
+        },
+        {
+          "id": "c3",
+          "name": "noinput"
+        }
+      ]
+    },
+    {
+      "id": "t1",
+      "role": "tool",
+      "content": "",
+      "createdAt": 1790000000002,
+      "toolResult": {
+        "toolCallId": "c1",
+        "output": "Created https://github.com/o/r/pull/7 and (https://github.com/o/r/pull/7)."
+      }
+    },
+    {
+      "id": "t2",
+      "role": "tool",
+      "content": "",
+      "createdAt": 1790000000002,
+      "toolResult": {
+        "toolCallId": "c2",
+        "output": ""
+      }
+    },
+    {
+      "id": "a2",
+      "role": "assistant",
+      "content": "Opened https://github.com/o/r/pull/8.",
+      "createdAt": 1790000000002,
+      "reasoning": "thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it thinking about it "
+    }
+  ],
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000100000
+}

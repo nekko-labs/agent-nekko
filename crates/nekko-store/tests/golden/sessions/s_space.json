@@ -1,0 +1,21 @@
+{
+  "id": "s_space",
+  "title": "Chat s_space",
+  "workspaceId": "w1",
+  "messages": [
+    {
+      "id": "u1",
+      "role": "user",
+      "content": " 　 leading odd spaces",
+      "createdAt": 1790000000002
+    },
+    {
+      "id": "a1",
+      "role": "assistant",
+      "content": "﻿word  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tword  \tend",
+      "createdAt": 1790000000002
+    }
+  ],
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000100000
+}

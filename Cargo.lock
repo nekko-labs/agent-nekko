@@ -1008,6 +1008,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "nekko-store"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "nekko-term"
 version = "0.1.0"
 dependencies = [
@@ -1031,6 +1038,7 @@ dependencies = [
  "libc",
  "nekko-decide",
  "nekko-infer",
+ "nekko-store",
  "nekko-term",
  "reqwest",
  "serde",

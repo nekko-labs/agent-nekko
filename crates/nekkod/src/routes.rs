@@ -17,6 +17,8 @@ pub struct Ctx {
     pub backend: Arc<Backend>,
     pub hub: Hub,
     pub engine: Arc<crate::engine::Engine>,
+    /// Session reads (`nekko-store`), when the data directory is known.
+    pub sessions: Option<Arc<nekko_store::SessionStore>>,
 }
 
 /// Terminals whose ids start with this are the TS host's read-only agent
@@ -76,6 +78,9 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
             }
             terminal_op(ctx, channel, &id, &args)
         }
+        "sessions:summaries" | "sessions:list" | "session:get" | "session:images" if ctx.sessions.is_some() => {
+            session_read(ctx.sessions.clone().expect("checked"), channel, args).await
+        }
         _ => {
             if let Some(r) = crate::engine::route(&ctx.engine, channel, &args).await {
                 return r;
@@ -88,6 +93,10 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
 /// Channels the daemon serves itself (reported by `daemon:info`).
 pub const OWNED: &[&str] = &[
     "daemon:info",
+    "sessions:summaries",
+    "sessions:list",
+    "session:get",
+    "session:images",
     "terminals:list",
     "terminals:list:native",
     "terminal:shells",
@@ -232,6 +241,20 @@ pub fn forward_terminal_events(ctx: &Ctx) {
             }
         }
     });
+}
+
+/// The session reads, off the async threads: a listing reads every changed
+/// chat file, and one image chat can be tens of megabytes.
+async fn session_read(store: Arc<nekko_store::SessionStore>, channel: &str, args: Vec<Value>) -> Result<Value, String> {
+    let channel = channel.to_string();
+    tokio::task::spawn_blocking(move || match channel.as_str() {
+        "sessions:summaries" => Value::Array(store.summaries()),
+        "sessions:list" => Value::Array(store.list()),
+        "session:get" => str_arg(&args, 0).and_then(|id| store.get(id)).unwrap_or(Value::Null),
+        _ => Value::Array(store.images(str_arg(&args, 0).unwrap_or_default(), arg(&args, 1).as_f64().unwrap_or(1.0))),
+    })
+    .await
+    .map_err(|e| format!("session read failed: {e}"))
 }
 
 #[cfg(test)]

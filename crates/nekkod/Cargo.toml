@@ -19,6 +19,7 @@ futures-util.workspace = true
 getrandom.workspace = true
 nekko-decide = { path = "../nekko-decide" }
 nekko-infer = { path = "../nekko-infer" }
+nekko-store = { path = "../nekko-store" }
 nekko-term = { path = "../nekko-term" }
 reqwest.workspace = true
 serde.workspace = true
