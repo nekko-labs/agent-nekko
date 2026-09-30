@@ -1,0 +1,111 @@
+{
+  "openai": {
+    "id": "openai",
+    "kind": "openai",
+    "label": "openai",
+    "baseUrl": "https://api.openai.com/v1",
+    "enabled": true,
+    "apiKey": "sk-test-openai"
+  },
+  "openrouter": {
+    "id": "openrouter",
+    "kind": "openrouter",
+    "label": "openrouter",
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "enabled": true,
+    "apiKey": "sk-or-test"
+  },
+  "lmstudio": {
+    "id": "lmstudio",
+    "kind": "lmstudio",
+    "label": "lmstudio",
+    "baseUrl": "http://localhost:1234/v1",
+    "enabled": true
+  },
+  "vllm": {
+    "id": "vllm",
+    "kind": "vllm",
+    "label": "vllm",
+    "baseUrl": "http://localhost:8000/v1/",
+    "enabled": true
+  },
+  "llamacpp": {
+    "id": "llamacpp",
+    "kind": "llamacpp",
+    "label": "llamacpp",
+    "baseUrl": "http://127.0.0.1:11500",
+    "enabled": true,
+    "apiKey": "engine-token"
+  },
+  "openai-compat": {
+    "id": "openai-compat",
+    "kind": "openai-compat",
+    "label": "openai-compat",
+    "baseUrl": "  http://10.5.0.2:1338/  ",
+    "enabled": true,
+    "apiKey": ""
+  },
+  "ollama": {
+    "id": "ollama",
+    "kind": "ollama",
+    "label": "ollama",
+    "baseUrl": "http://localhost:11434/v1",
+    "enabled": true
+  },
+  "anthropic": {
+    "id": "anthropic",
+    "kind": "anthropic",
+    "label": "anthropic",
+    "baseUrl": "https://api.anthropic.com",
+    "enabled": true,
+    "apiKey": "sk-ant-test"
+  },
+  "anthropic-sub": {
+    "id": "anthropic-sub",
+    "kind": "anthropic",
+    "label": "anthropic-sub",
+    "baseUrl": "https://api.anthropic.com",
+    "enabled": true,
+    "apiKey": "oauth-access-token",
+    "auth": "subscription",
+    "tokenKey": "claude:acct"
+  },
+  "chatgpt": {
+    "id": "chatgpt",
+    "kind": "chatgpt",
+    "label": "chatgpt",
+    "baseUrl": "https://chatgpt.com/backend-api/",
+    "enabled": true,
+    "apiKey": "oauth-chatgpt-token",
+    "auth": "subscription",
+    "accountId": "acct-1"
+  },
+  "chatgpt-no-account": {
+    "id": "chatgpt-no-account",
+    "kind": "chatgpt",
+    "label": "chatgpt-no-account",
+    "baseUrl": "https://chatgpt.com/backend-api",
+    "enabled": true,
+    "apiKey": "oauth-chatgpt-token",
+    "auth": "subscription"
+  },
+  "chatgpt-custom": {
+    "id": "chatgpt-custom",
+    "kind": "chatgpt",
+    "label": "chatgpt-custom",
+    "baseUrl": "https://chatgpt.com/backend-api",
+    "enabled": true,
+    "apiKey": "oauth-chatgpt-token",
+    "accountId": "acct-1",
+    "customModelId": "  my-codex-model "
+  },
+  "chatgpt-custom-dup": {
+    "id": "chatgpt-custom-dup",
+    "kind": "chatgpt",
+    "label": "chatgpt-custom-dup",
+    "baseUrl": "https://chatgpt.com/backend-api",
+    "enabled": true,
+    "accountId": "acct-1",
+    "customModelId": "gpt-5"
+  }
+}
