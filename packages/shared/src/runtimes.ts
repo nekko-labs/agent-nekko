@@ -198,6 +198,20 @@ export interface LoadParams {
   ropeFreqScale?: number;
   /** Sampling seed. Absent means random. */
   seed?: number;
+  /**
+   * Speculative decoding. On unless set false: n-gram lookup from the
+   * conversation itself (llama.cpp's `--spec-default`), which needs no second
+   * model and is what makes edits that repeat their input several times
+   * faster. Never used with a vision projector, which llama.cpp does not
+   * support alongside it.
+   */
+  speculative?: boolean;
+  /**
+   * Library id of a small same-family model to draft with as well. Opt-in:
+   * measured, a draft that is too large relative to its target slows ordinary
+   * replies down even while it speeds edits up.
+   */
+  draftModelId?: string;
 }
 
 export interface StartOptions {

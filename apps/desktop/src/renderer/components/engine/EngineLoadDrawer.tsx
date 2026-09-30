@@ -420,6 +420,15 @@ function AdvancedSurface({
         </select>
       </Row>
 
+      <Row
+        label="Speculative decoding"
+        hint="Guesses upcoming tokens from text already in the conversation and checks them in one pass. Edits that repeat their input come out several times faster. Not used with vision models."
+      >
+        <Toggle value={params.speculative !== false} onChange={(on) => onChange({ speculative: on ? undefined : false })} />
+      </Row>
+
+      {params.speculative !== false && <DraftModelRow model={model} value={params.draftModelId} onChange={(id) => onChange({ draftModelId: id })} />}
+
       <details className="rounded-lg border" style={{ borderColor: 'var(--line)' }}>
         <summary className="cursor-pointer select-none px-3 py-2 text-[12px] text-ink-faint">
           Compute and memory
@@ -512,6 +521,62 @@ function NumberInput({
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
     />
+  );
+}
+
+/**
+ * An optional second guesser: a small model of the same family. Offered only
+ * from the same architecture and well under the target's size, because a
+ * draft that is too large slows ordinary replies down (measured: a 7.5B draft
+ * on a 12B model halved prose speed while it sped edits up).
+ */
+function DraftModelRow({
+  model,
+  value,
+  onChange,
+}: {
+  model: LocalModel;
+  value?: string;
+  onChange: (id: string | undefined) => void;
+}) {
+  const [candidates, setCandidates] = useState<LocalModel[]>([]);
+  useEffect(() => {
+    let live = true;
+    window.nekko
+      .engineModels()
+      .then((all) => {
+        if (!live) return;
+        const family = model.architecture;
+        setCandidates(
+          all.filter(
+            (m) =>
+              m.id !== model.id &&
+              Boolean(family) &&
+              m.architecture === family &&
+              (m.modality === 'draft' || m.modality === 'chat' || !m.modality) &&
+              m.sizeBytes <= model.sizeBytes / 4,
+          ),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [model.id, model.architecture, model.sizeBytes]);
+  if (candidates.length === 0 && !value) return null;
+  return (
+    <Row label="Draft model" hint="A small model from the same family that guesses ahead. Optional; the lookup above needs none.">
+      <select
+        className="input w-40 py-1 text-[12px]"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+      >
+        <option value="">None</option>
+        {candidates.map((m) => (
+          <option key={m.id} value={m.id}>{m.id}</option>
+        ))}
+      </select>
+    </Row>
   );
 }
 

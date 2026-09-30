@@ -449,6 +449,8 @@ export interface EngineLoadPreset {
   ropeFreqBase?: number;
   ropeFreqScale?: number;
   seed?: number;
+  speculative?: boolean;
+  draftModelId?: string;
   ttlSeconds?: number;
   /** The simple slider's position, kept so the two surfaces stay one state. */
   budgetFraction?: number;
