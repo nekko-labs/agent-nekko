@@ -74,6 +74,8 @@ export const INSTALL = String.raw`(() => {
   // own listener (registered after this one) and xterm's write queue run
   // first, so the frame measured is the one that shows the character.
   P.term = [];
+  // When the echo reached the page, before any drawing: the pty round trip.
+  P.termEcho = [];
   let termKey = null;
   document.addEventListener('keydown', (e) => {
     if (isTerminal(e.target) && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) termKey = { at: e.timeStamp, ch: e.key };
@@ -83,6 +85,7 @@ export const INSTALL = String.raw`(() => {
       if (!termKey || ev.type !== 'data' || !ev.data.includes(termKey.ch)) return;
       const start = termKey.at;
       termKey = null;
+      P.termEcho.push(performance.now() - start);
       setTimeout(() => setTimeout(() => afterFrame((now) => P.term.push(now - start)), 0), 0);
     });
   }

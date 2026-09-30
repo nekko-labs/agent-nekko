@@ -66,7 +66,9 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm run build:web
       - name: Speed contract
-        run: node scripts/perf/run.mjs --out perf-results
+        # Judged against the 2x regression gate in budgets.mjs; a missed budget is
+        # measured once more before it fails the job (noisy shared runners).
+        run: node scripts/perf/run.mjs --out perf-results --attempts 2
       - name: Report
         if: always()
         run: cat perf-results/perf-report.md >> "$GITHUB_STEP_SUMMARY" || true
