@@ -10,6 +10,7 @@ mod decide;
 mod engine;
 mod hub;
 mod loops;
+mod mcp;
 mod procgroup;
 mod routes;
 mod sideband;
@@ -65,6 +66,7 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
     };
     let engine = Arc::new(engine::Engine::new(backend.clone()));
     let sessions = cfg.data_dir.clone().map(|d| Arc::new(nekko_store::SessionStore::new(d)));
+    let mcp: Arc<mcp::Mcp> = Arc::default();
     let ctx = Ctx {
         terminals: terminals.clone(),
         backend: backend.clone(),
@@ -72,6 +74,7 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
         engine: engine.clone(),
         sessions,
         loops: Arc::default(),
+        mcp: mcp.clone(),
     };
     routes::forward_terminal_events(&ctx);
 
@@ -89,6 +92,7 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
     engine.shutdown();
     backend.shutdown().await;
     terminals.close_all();
+    mcp.stop_all();
     Ok(())
 }
 

@@ -1170,6 +1170,7 @@ dependencies = [
  "nekko-chat",
  "nekko-decide",
  "nekko-infer",
+ "nekko-js",
  "nekko-loop",
  "nekko-store",
  "nekko-term",

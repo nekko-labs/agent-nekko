@@ -21,6 +21,8 @@ pub struct Ctx {
     pub sessions: Option<Arc<nekko_store::SessionStore>>,
     /// Agent runs the TS host hands the daemon (`loop:run`).
     pub loops: Arc<crate::loops::Loops>,
+    /// MCP servers the TS host syncs and calls (`mcp:sync`, `mcp:call`).
+    pub mcp: Arc<crate::mcp::Mcp>,
 }
 
 /// Terminals whose ids start with this are the TS host's read-only agent
@@ -82,6 +84,8 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
         }
         "loop:run" => ctx.loops.start(ctx.backend.clone(), ctx.hub.clone(), arg(&args, 0).clone()),
         "loop:abort" => Ok(json!(ctx.loops.abort(str_arg(&args, 0).unwrap_or_default()))),
+        "mcp:sync" => Ok(ctx.mcp.sync(arg(&args, 0)).await),
+        "mcp:call" => Ok(ctx.mcp.call(arg(&args, 0)).await),
         "provider:complete" => crate::sideband::complete(arg(&args, 0)).await,
         c if SESSION_CHANNELS.contains(&c) && ctx.sessions.is_some() => {
             session_op(ctx.sessions.clone().expect("checked"), channel, args).await
@@ -101,6 +105,8 @@ pub const OWNED: &[&str] = &[
     "loop:run",
     "loop:abort",
     "provider:complete",
+    "mcp:sync",
+    "mcp:call",
     "sessions:summaries",
     "sessions:list",
     "session:get",
