@@ -12,7 +12,7 @@ import type {
   ResidentModel,
   StopResult,
 } from '@agent-nekko/shared';
-import { unsupportedLoadReason } from '@agent-nekko/shared';
+import { defaultContextTokens, unsupportedLoadReason } from '@agent-nekko/shared';
 import { DAEMON_PORT, type EngineDaemon } from './daemon.js';
 import { mlxArgs } from './mlx.js';
 import { diffusionArgs } from './diffusion.js';
@@ -418,13 +418,17 @@ export function createEngineServer(deps: EngineServerDeps) {
 
     // Under the daemon it picks the port and fills it in at spawn time.
     const port: number | string = deps.daemon ? DAEMON_PORT : await freePort();
+    // A llama.cpp load always names its context; see defaultContextTokens.
+    // The stored params stay as asked, so a reload with the same settings is
+    // still recognised as the same load.
+    const contextTokens = image || mlx ? params.contextTokens : params.contextTokens ?? defaultContextTokens(model);
     let args: string[];
     try {
       args = image
         ? await diffusionArgs({ ...model, preset: { ...model.preset, ...params } }, port, deps.companionsDir?.(model.id), deps.imageCompanionsDir?.())
         : mlx
           ? mlxArgs(model, port, params, draftModel)
-          : buildArgs(model, port, params, { ...companions, draftModel }, await (deps.flagSupport ?? probeFlags)(bin));
+          : buildArgs(model, port, { ...params, contextTokens: contextTokens ?? undefined }, { ...companions, draftModel }, await (deps.flagSupport ?? probeFlags)(bin));
     } catch (e) {
       const message = (e as Error).message;
       lastLoadErrors.set(modelId, message);
@@ -465,7 +469,7 @@ export function createEngineServer(deps: EngineServerDeps) {
         log: [],
         vramBytes: measured,
         sizeBytes: measured ?? model.sizeBytes,
-        contextTokens: params.contextTokens,
+        contextTokens,
         activeRequests: 0,
       });
       lastLoadErrors.delete(modelId);
@@ -531,7 +535,7 @@ export function createEngineServer(deps: EngineServerDeps) {
           // reports here. The file size is only the floor, and only stands in
           // when nothing could be measured.
           sizeBytes: measured ?? model.sizeBytes,
-          contextTokens: params.contextTokens,
+          contextTokens,
           activeRequests: 0,
         };
         children.set(modelId, entry);
