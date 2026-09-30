@@ -37,6 +37,7 @@ export function DecisionModels() {
   const [busy, setBusy] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [key, setKey] = useState('');
+  const [folder, setFolder] = useState('');
 
   const refresh = async () => {
     const [c, m, s] = await Promise.all([
@@ -83,6 +84,7 @@ export function DecisionModels() {
 
       {catalog.map((entry) => {
         const have = installed.find((m) => m.id === entry.id);
+        const folders = installed.filter((m) => m.external);
         const loaded = status?.local.loaded && status.local.model === entry.id;
         const variant = entry.variants.find((v) => v.precision === precision) ?? entry.variants[0];
         const bytes = variant.bytes + entry.shared.reduce((n, f) => n + f.bytes, 0);
@@ -91,7 +93,7 @@ export function DecisionModels() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[13px] font-semibold">{entry.name}</span>
               <span className="chip">{entry.license}</span>
-              <span className="text-ink-faint">{entry.publisher} · {entry.source}</span>
+              <span className="text-ink-faint">{entry.publisher}{entry.source ? ` · ${entry.source}` : ''}</span>
               {loaded && <span className="chip" style={{ color: 'var(--success)' }}>loaded</span>}
             </div>
             <p className="mt-1 text-ink-soft">{entry.description}</p>
@@ -101,13 +103,13 @@ export function DecisionModels() {
                 {loaded && status?.local.ep && ` · running ${status.local.precision} on ${status.local.ep}${status.local.loadMs ? `, loaded in ${(status.local.loadMs / 1000).toFixed(1)} s` : ''}`}
               </p>
             )}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            {(!entry.unavailable || have) && <div className="mt-2 flex flex-wrap items-center gap-2">
               <select className="input w-auto py-1 text-[12px]" aria-label="Precision" value={precision} onChange={(e) => setPrecision(e.target.value as DecisionPrecision)}>
                 {entry.variants.map((v) => (
                   <option key={v.precision} value={v.precision}>{v.precision}{v.recommended ? ' (recommended)' : ''} · {formatBytes(v.bytes)}</option>
                 ))}
               </select>
-              {!have?.precisions.includes(precision) && (
+              {!entry.unavailable && !have?.precisions.includes(precision) && (
                 <button
                   className="btn btn-outline py-1 text-[12px]"
                   disabled={busy !== null || downloading}
@@ -133,6 +135,26 @@ export function DecisionModels() {
                   Delete
                 </button>
               )}
+            </div>}
+            {entry.unavailable && !have && <p className="mt-2 text-ink-faint">{entry.unavailable}</p>}
+            {folders.map((m) => (
+              <FolderModel key={m.id} model={m} status={status} busy={busy} act={act} />
+            ))}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <input
+                className="input min-w-0 flex-1 py-1 text-[12px]"
+                aria-label="Export folder"
+                placeholder="Add an export folder, e.g. C:\models\laya-en-onnx"
+                value={folder}
+                onChange={(e) => setFolder(e.target.value)}
+              />
+              <button
+                className="btn btn-outline py-1 text-[12px]"
+                disabled={!folder.trim() || busy !== null}
+                onClick={() => void act('folder', () => window.nekko.decisionsAddFolder(folder)).then((r) => { if (r.ok) setFolder(''); })}
+              >
+                Add folder
+              </button>
             </div>
             {status && !status.local.available && <p className="mt-2 text-ink-faint">{status.local.reason}</p>}
           </div>
@@ -156,9 +178,10 @@ export function DecisionModels() {
             value={key}
             onChange={(e) => setKey(e.target.value)}
           />
-          <button className="btn btn-outline py-1 text-[12px]" disabled={!key.trim() && !settings?.typesafeApiKey} onClick={() => void saveKey()}>
-            {key.trim() ? 'Save key' : 'Remove key'}
-          </button>
+          <button className="btn btn-outline py-1 text-[12px]" disabled={!key.trim()} onClick={() => void saveKey()}>Save key</button>
+          {settings?.typesafeApiKey && !key.trim() && (
+            <button className="btn btn-ghost py-1 text-[12px] text-ink-faint" onClick={() => void saveKey()}>Remove key</button>
+          )}
           {status?.typesafe.configured && (
             <button className="btn btn-ghost py-1 text-[12px]" disabled={busy !== null} onClick={() => void act('typesafe', () => window.nekko.decisionsCheckTypesafe())}>Check key</button>
           )}
@@ -267,6 +290,43 @@ function AnswerCard({ id, answer }: { id: string; answer: DecisionAnswer }) {
             <span className="w-10 shrink-0 text-right tabular-nums text-ink-faint">{Math.round(p * 100)}%</span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** An export folder the user added: load it, unload it, or forget it (its files stay). */
+function FolderModel({ model, status, busy, act }: {
+  model: InstalledDecisionModel;
+  status: DecisionStatus | null;
+  busy: string | null;
+  act: (id: string, run: () => Promise<{ ok: boolean; message: string }>) => Promise<{ ok: boolean; message: string }>;
+}) {
+  const loaded = !!status?.local.loaded && !!status.local.dir && status.local.dir.replace(/[\/]+$/, '').toLowerCase() === model.dir.replace(/[\/]+$/, '').toLowerCase();
+  const [precision, setPrecision] = useState<DecisionPrecision>(model.precisions[0]);
+  return (
+    <div className="mt-2 rounded-md border border-line px-2.5 py-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium">{model.name}</span>
+        <span className="min-w-0 truncate text-ink-faint" title={model.dir}>{model.dir}</span>
+        {loaded && <span className="chip" style={{ color: 'var(--success)' }}>loaded</span>}
+      </div>
+      {loaded && status?.local.ep && (
+        <p className="mt-0.5 text-ink-faint">
+          Running {status.local.precision} on {status.local.ep}{status.local.loadMs ? `, loaded in ${(status.local.loadMs / 1000).toFixed(1)} s` : ''}
+        </p>
+      )}
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+        <select className="input w-auto py-1 text-[12px]" aria-label="Precision" value={precision} onChange={(e) => setPrecision(e.target.value as DecisionPrecision)} disabled={loaded}>
+          {model.precisions.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        {status?.local.available && !loaded && (
+          <button className="btn btn-primary py-1 text-[12px]" disabled={busy !== null} onClick={() => void act(model.id, () => window.nekko.decisionsLoad(model.id, precision))}>
+            {busy === model.id ? 'Loading…' : 'Load'}
+          </button>
+        )}
+        {loaded && <button className="btn btn-outline py-1 text-[12px]" disabled={busy !== null} onClick={() => void act(model.id, () => window.nekko.decisionsUnload())}>Unload</button>}
+        <button className="btn btn-ghost py-1 text-[12px] text-ink-faint" disabled={busy !== null} onClick={() => void act(model.id, () => window.nekko.decisionsDelete(model.id))}>Remove from list</button>
       </div>
     </div>
   );

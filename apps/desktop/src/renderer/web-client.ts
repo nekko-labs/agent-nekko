@@ -297,6 +297,7 @@ function makeWebClient(): NekkoApi {
     decisionsModels: () => call(IpcChannels.decisionsModels),
     decisionsDownload: (catalogId, precision) => call(IpcChannels.decisionsDownload, catalogId, precision),
     decisionsDelete: (id) => call(IpcChannels.decisionsDelete, id),
+    decisionsAddFolder: (path) => call(IpcChannels.decisionsAddFolder, path),
     decisionsStatus: () => call(IpcChannels.decisionsStatus),
     decisionsLoad: (id, precision) => call(IpcChannels.decisionsLoad, id, precision),
     decisionsUnload: () => call(IpcChannels.decisionsUnload),

@@ -13,6 +13,7 @@ import {
   ASK_USER_TOOL,
   BUILTIN_TOOLS,
   DECIDE_TOOL,
+  decideRequestFromTool,
   REPORT_EXPERIMENT_TOOL,
   REPORT_ARTIFACT_TOOL,
   UPDATE_PLAN_TOOL,
@@ -806,8 +807,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
           }
           if (call.name === DECIDE_TOOL.name && decisions && decideWith) {
             try {
-              const input = call.input as { state?: unknown; questions?: unknown };
-              const res = await decisions.run(decideWith, { state: input.state as string, questions: input.questions as never });
+              const res = await decisions.run(decideWith, decideRequestFromTool(call.input));
               return { toolCallId: call.id, output: JSON.stringify({ model: res.model, provider: res.provider, answers: res.answers }) };
             } catch (e) {
               return { toolCallId: call.id, output: `decide failed: ${(e as Error).message}`, isError: true };

@@ -73,6 +73,7 @@ export const IpcChannels = {
   decisionsModels: 'decisions:models',
   decisionsDownload: 'decisions:download',
   decisionsDelete: 'decisions:delete',
+  decisionsAddFolder: 'decisions:addFolder',
   decisionsStatus: 'decisions:status',
   decisionsLoad: 'decisions:load',
   decisionsUnload: 'decisions:unload',
@@ -406,6 +407,7 @@ export interface NekkoApi {
   decisionsModels(): Promise<import('./decisions.js').InstalledDecisionModel[]>;
   decisionsDownload(catalogId: string, precision?: import('./decisions.js').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
   decisionsDelete(id: string): Promise<{ ok: boolean; message: string }>;
+  decisionsAddFolder(path: string): Promise<{ ok: boolean; message: string }>;
   decisionsStatus(): Promise<import('./decisions.js').DecisionStatus>;
   decisionsLoad(id: string, precision?: import('./decisions.js').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
   decisionsUnload(): Promise<{ ok: boolean; message: string }>;

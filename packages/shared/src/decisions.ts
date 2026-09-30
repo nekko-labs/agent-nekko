@@ -46,8 +46,10 @@ export interface DecisionCatalogEntry {
   name: string;
   publisher: string;
   license: string;
-  /** `repo@revision` the files are pinned to. */
-  source: string;
+  /** `repo@revision` the files are pinned to; absent while no correct export is hosted. */
+  source?: string;
+  /** Why it cannot be downloaded in the app yet, when it cannot. */
+  unavailable?: string;
   description: string;
   variants: Array<{ precision: DecisionPrecision; file: string; bytes: number; recommended?: boolean }>;
   /** Tokenizer and config every variant needs. */
@@ -61,6 +63,8 @@ export interface InstalledDecisionModel {
   precisions: DecisionPrecision[];
   sizeBytes: number;
   catalogId?: string;
+  /** A folder the user pointed at: removing it forgets the folder, never deletes it. */
+  external?: boolean;
 }
 
 export interface DecisionStatus {

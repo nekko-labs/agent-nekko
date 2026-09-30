@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, rm, writeFile } from 'fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { createDecisions, DECISION_CATALOG } from './decisions.js';
@@ -17,23 +17,37 @@ const fakeDownloads = () => {
 const request = { state: 'I was charged twice.', questions: { dept: { type: 'choice' as const, instructions: 'Which team?', criteria: ['billing', 'technical'] } } };
 
 describe('decision models', () => {
-  it('downloads one precision plus the shared files, pinned to a revision, and skips what is already whole', async () => {
+  it('refuses the download while no correct export is hosted, and says what to do instead', async () => {
     const models = await scratch();
     const { started, downloads } = fakeDownloads();
     const d = createDecisions({ modelsDir: () => models, downloads, daemon: () => undefined, typesafeKey: () => undefined });
-    const res = await d.download('laya-en', 'int8');
-    expect(res.ok).toBe(true);
-    expect(started.map((s) => s.dest.split(/[\\/]/).pop())).toEqual(['tokenizer.json', 'tokenizer_config.json', 'rl_agent_config.json', 'config.json', 'model_int8.onnx']);
-    expect(started.every((s) => s.url.includes('/resolve/0d1f7ebf46a3ea04ec4424df602f96ddefb66766/'))).toBe(true);
-
-    // A file already at its published size is not fetched again.
-    const dir = join(models, 'decision', 'laya-en');
-    await mkdir(dir, { recursive: true });
-    await writeFile(join(dir, 'tokenizer_config.json'), 'x'.repeat(DECISION_CATALOG[0].shared[1].bytes));
-    started.length = 0;
-    await d.download('laya-en', 'int8');
-    expect(started.map((s) => s.dest.split(/[\\/]/).pop())).not.toContain('tokenizer_config.json');
+    const res = await d.download('laya-en', 'fp16');
+    expect(res.ok).toBe(false);
+    expect(res.message).toMatch(/No correct ONNX export/);
+    expect(started).toEqual([]);
+    expect(DECISION_CATALOG[0].unavailable).toBeTruthy();
     expect((await d.download('nope')).ok).toBe(false);
+  });
+
+  it('adds an export folder, lists it with its precisions, and forgets it without touching its files', async () => {
+    const models = await scratch();
+    const exportDir = await scratch();
+    let saved: string[] = [];
+    const d = createDecisions({ modelsDir: () => models, downloads: fakeDownloads().downloads, daemon: () => undefined, typesafeKey: () => undefined, folders: () => saved, saveFolders: (x) => { saved = x; } });
+    expect((await d.addFolder(exportDir)).ok).toBe(false); // empty: not an export
+    await writeFile(join(exportDir, 'model_fp16.onnx'), 'graph');
+    await writeFile(join(exportDir, 'model.onnx'), 'graph');
+    await writeFile(join(exportDir, 'model.onnx.data'), 'weights');
+    await writeFile(join(exportDir, 'tokenizer.json'), '{}');
+    await writeFile(join(exportDir, 'rl_agent_config.json'), '{}');
+    expect((await d.addFolder(exportDir)).ok).toBe(true);
+    expect((await d.addFolder(exportDir)).ok).toBe(true);
+    expect(saved).toHaveLength(1); // added once
+    const [m] = await d.models();
+    expect(m).toMatchObject({ external: true, precisions: ['fp16', 'fp32'] });
+    expect((await d.remove(m.id)).ok).toBe(true);
+    expect(saved).toEqual([]);
+    expect(await readFile(join(exportDir, 'model.onnx'), 'utf8')).toBe('graph');
   });
 
   it('lists only complete model dirs and refuses ids that escape the folder', async () => {

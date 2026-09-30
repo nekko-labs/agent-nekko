@@ -274,6 +274,7 @@ export interface Host {
   decisionsModels(): Promise<import('@agent-nekko/shared').InstalledDecisionModel[]>;
   decisionsDownload(catalogId: string, precision?: import('@agent-nekko/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
   decisionsDelete(id: string): Promise<{ ok: boolean; message: string }>;
+  decisionsAddFolder(path: string): Promise<{ ok: boolean; message: string }>;
   decisionsStatus(): Promise<import('@agent-nekko/shared').DecisionStatus>;
   decisionsLoad(id: string, precision?: import('@agent-nekko/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
   decisionsUnload(): Promise<{ ok: boolean; message: string }>;
@@ -592,6 +593,8 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     onServing: (baseUrl) => ensureEngineProvider(baseUrl),
     hfToken: () => getSettings().hfToken || undefined,
     typesafeKey: () => getSettings().typesafeApiKey || process.env.TYPESAFE_API_KEY || undefined,
+    decisionFolders: () => getSettings().decisionModelDirs ?? [],
+    saveDecisionFolders: (dirs) => { saveSettings({ decisionModelDirs: dirs }); },
     externalBinPath: () => getSettings().engineBinPath || undefined,
   });
 
@@ -750,6 +753,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     decisionsModels: () => engine.decisions.models(),
     decisionsDownload: (catalogId, precision) => engine.decisions.download(catalogId, precision),
     decisionsDelete: (id) => engine.decisions.remove(id),
+    decisionsAddFolder: (path) => engine.decisions.addFolder(path),
     decisionsStatus: () => engine.decisions.status(),
     decisionsLoad: (id, precision) => engine.decisions.load(id, precision),
     decisionsUnload: () => engine.decisions.unload(),

@@ -24,8 +24,15 @@ import type { EngineDaemon } from './daemon.js';
  * - **TypeSafe Jev**: the hosted model, reached with the user's API key.
  */
 
-/** Pinned so a re-export upstream never swaps the weights under a user. */
-const LAYA_ONNX = { repo: 'tozp/laya-onnx', revision: '0d1f7ebf46a3ea04ec4424df602f96ddefb66766' };
+/**
+ * Where a hosted export would be fetched from, pinned so a re-export upstream
+ * never swaps the weights under a user. Null today: the only public export
+ * (tozp/laya-onnx) is traced at a fixed length, answers 36 of 86 reference
+ * questions correctly, and its fp16 file crashes ONNX Runtime's CPU provider
+ * (see docs/decision-models.md). Until a correct one is hosted (PF32), Laya
+ * runs from an export folder the user adds.
+ */
+const LAYA_ONNX = null as { repo: string; revision: string } | null;
 
 export const DECISION_CATALOG: DecisionCatalogEntry[] = [
   {
@@ -33,7 +40,9 @@ export const DECISION_CATALOG: DecisionCatalogEntry[] = [
     name: 'Laya (English)',
     publisher: 'Convai Innovations',
     license: 'Apache-2.0',
-    source: `${LAYA_ONNX.repo}@${LAYA_ONNX.revision.slice(0, 7)}`,
+    ...(LAYA_ONNX
+      ? { source: `${LAYA_ONNX.repo}@${LAYA_ONNX.revision.slice(0, 7)}` }
+      : { unavailable: 'No correct ONNX export of Laya is hosted yet, so it cannot be downloaded here. Export it with the recipe in docs/decision-models.md and add the folder below.' }),
     description:
       'A 395M ModernBERT decision model. Routes, scores and answers yes/no questions about a text or JSON state, with calibrated probabilities, in one pass. 512-token context.',
     variants: [
@@ -64,6 +73,9 @@ export interface DecisionsDeps {
   downloads: ReturnType<typeof createDownloads>;
   daemon: () => EngineDaemon | undefined;
   typesafeKey: () => string | undefined;
+  /** Export folders the user added. */
+  folders?: () => string[];
+  saveFolders?: (dirs: string[]) => void;
   fetch?: typeof fetch;
 }
 
@@ -79,9 +91,31 @@ export function createDecisions(deps: DecisionsDeps) {
     return dir;
   };
 
+  /** A model dir's precisions and size, or null when it is not a complete export. */
+  async function inspect(dir: string): Promise<{ precisions: DecisionPrecision[]; sizeBytes: number } | null> {
+    const tokenizer = (await fileSize(join(dir, 'tokenizer.json'))) || (await fileSize(join(dir, 'tokenizer', 'tokenizer.json')));
+    if (!(await fileSize(join(dir, 'rl_agent_config.json'))) || !tokenizer) return null;
+    const precisions: DecisionPrecision[] = [];
+    let sizeBytes = 0;
+    for (const p of ['fp16', 'int8', 'fp32'] as const) {
+      for (const f of MODEL_FILES[p]) {
+        // An external-data export keeps its weights beside the graph.
+        const size = (await fileSize(join(dir, f))) + (await fileSize(join(dir, `${f}.data`)));
+        if (size && (await fileSize(join(dir, f)))) { precisions.push(p); sizeBytes += size; break; }
+      }
+    }
+    return precisions.length ? { precisions, sizeBytes } : null;
+  }
+
+  const folderId = (dir: string) => `folder:${resolve(dir)}`;
+
   async function models(): Promise<InstalledDecisionModel[]> {
-    const names = await readdir(root()).catch(() => [] as string[]);
     const out: InstalledDecisionModel[] = [];
+    for (const dir of deps.folders?.() ?? []) {
+      const found = await inspect(dir);
+      if (found) out.push({ id: folderId(dir), name: `Laya · ${dir.split(/[\\/]/).filter(Boolean).pop()}`, dir: resolve(dir), ...found, external: true });
+    }
+    const names = await readdir(root()).catch(() => [] as string[]);
     for (const id of names) {
       const dir = join(root(), id);
       if (!(await fileSize(join(dir, 'rl_agent_config.json'))) || !(await fileSize(join(dir, 'tokenizer.json')))) continue;
@@ -105,6 +139,7 @@ export function createDecisions(deps: DecisionsDeps) {
     const entry = DECISION_CATALOG.find((c) => c.id === catalogId);
     const variant = entry?.variants.find((v) => v.precision === precision);
     if (!entry || !variant) return { ok: false, message: 'That decision model is not in the catalog.' };
+    if (!LAYA_ONNX) return { ok: false, message: entry.unavailable ?? 'That decision model cannot be downloaded yet.' };
     const dir = dirOf(entry.id);
     let queued = 0;
     let bytes = 0;
@@ -128,7 +163,26 @@ export function createDecisions(deps: DecisionsDeps) {
       : { ok: true, message: `${entry.name} ${precision} is already downloaded.` };
   }
 
+  /** Point at an export folder the user made or copied; it is read in place, never moved. */
+  async function addFolder(path: string): Promise<{ ok: boolean; message: string }> {
+    const dir = resolve(String(path ?? '').trim());
+    if (!path?.trim()) return { ok: false, message: 'Enter the folder that holds the export.' };
+    const found = await inspect(dir);
+    if (!found) return { ok: false, message: `${dir} has no complete export: it needs an ONNX model file, tokenizer.json and rl_agent_config.json.` };
+    const dirs = deps.folders?.() ?? [];
+    if (!dirs.some((d) => resolve(d) === dir)) deps.saveFolders?.([...dirs, dir]);
+    return { ok: true, message: `Added ${dir} (${found.precisions.join(', ')}).` };
+  }
+
   async function remove(id: string): Promise<{ ok: boolean; message: string }> {
+    if (id.startsWith('folder:')) {
+      const dir = id.slice('folder:'.length);
+      const daemon = deps.daemon();
+      const loaded = daemon ? await daemon.decideStatus().catch(() => null) : null;
+      if (loaded?.loaded && loaded.dir && resolve(String(loaded.dir)) === dir) await daemon?.decideUnload();
+      deps.saveFolders?.((deps.folders?.() ?? []).filter((d) => resolve(d) !== dir));
+      return { ok: true, message: 'Removed the folder from the list. Its files were not touched.' };
+    }
     const dir = dirOf(id);
     const daemon = deps.daemon();
     const loaded = daemon ? await daemon.decideStatus().catch(() => null) : null;
@@ -165,7 +219,7 @@ export function createDecisions(deps: DecisionsDeps) {
     const model = (await models()).find((m) => m.id === id);
     if (!model) return { ok: false, message: 'That decision model is not downloaded.' };
     try {
-      const s = await daemon.decideLoad({ dir: model.dir, precision: precision ?? model.precisions[0], name: model.id });
+      const s = await daemon.decideLoad({ dir: model.dir, precision: precision ?? model.precisions[0], name: model.external ? 'laya' : model.id });
       return { ok: true, message: `Loaded ${model.name} (${s.precision ?? precision ?? model.precisions[0]}) on ${s.ep ?? 'the CPU'}${s.loadMs ? ` in ${(Number(s.loadMs) / 1000).toFixed(1)} s` : ''}.` };
     } catch (e) {
       return { ok: false, message: (e as Error).message };
@@ -231,5 +285,5 @@ export function createDecisions(deps: DecisionsDeps) {
     return { ok: true, message: ids.length ? `Key works. Models: ${ids.join(', ')}.` : 'Key works.' };
   }
 
-  return { catalog: async () => DECISION_CATALOG, models, download, remove, status, load, unload, run, checkTypesafe };
+  return { catalog: async () => DECISION_CATALOG, models, download, addFolder, remove, status, load, unload, run, checkTypesafe };
 }

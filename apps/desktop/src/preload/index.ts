@@ -103,6 +103,7 @@ const api: NekkoApi = {
   decisionsModels: () => inv(IpcChannels.decisionsModels),
   decisionsDownload: (catalogId, precision) => inv(IpcChannels.decisionsDownload, catalogId, precision),
   decisionsDelete: (id) => inv(IpcChannels.decisionsDelete, id),
+  decisionsAddFolder: (path) => inv(IpcChannels.decisionsAddFolder, path),
   decisionsStatus: () => inv(IpcChannels.decisionsStatus),
   decisionsLoad: (id, precision) => inv(IpcChannels.decisionsLoad, id, precision),
   decisionsUnload: () => inv(IpcChannels.decisionsUnload),

@@ -65,6 +65,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.decisionsModels]: () => host.decisionsModels(),
     [C.decisionsDownload]: ([catalogId, precision]) => host.decisionsDownload(catalogId, precision),
     [C.decisionsDelete]: ([id]) => host.decisionsDelete(id),
+    [C.decisionsAddFolder]: ([path]) => host.decisionsAddFolder(path),
     [C.decisionsStatus]: () => host.decisionsStatus(),
     [C.decisionsLoad]: ([id, precision]) => host.decisionsLoad(id, precision),
     [C.decisionsUnload]: () => host.decisionsUnload(),

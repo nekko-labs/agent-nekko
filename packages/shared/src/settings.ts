@@ -161,6 +161,8 @@ export interface AppSettings {
   hfToken?: string;
   /** TypeSafe API key for the hosted Jev decision model. Optional: local Laya needs none. */
   typesafeApiKey?: string;
+  /** Decision-model export folders the user added (each holds an ONNX export, tokenizer.json and rl_agent_config.json). */
+  decisionModelDirs?: string[];
   /** A `llama-server` binary the user pointed at instead of a managed install. */
   engineBinPath?: string;
   /** Experimental feature toggles (Settings → Experimental). Off = surface hidden. */
