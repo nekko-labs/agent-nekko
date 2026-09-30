@@ -113,6 +113,36 @@ function writeAtomic(file: string, text: string): void {
   }
 }
 
+/**
+ * What the user owns on a chat, as opposed to what a running turn owns (the
+ * transcript, the model it ran on, the plan it keeps, an automatic title).
+ * The UI changes these while a turn is running, through the engine daemon or
+ * this host; a turn's save must not put back the values it read at its start.
+ */
+const USER_FIELDS = ['pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'chatType', 'imageParams', 'workspaceId', 'supportingWorkspaceIds', 'attachedPaths', 'specLinked', 'queue'] as const;
+
+/**
+ * Save a chat a running turn has held in memory, keeping whatever the user
+ * changed on disk since: the fields above as they are on disk, and the title
+ * when the user has named the chat themselves (`titleAuto === false`).
+ */
+export function saveTurnSession(s: Session): void {
+  const disk = getSession(s.id);
+  if (disk) {
+    const target = s as unknown as Record<string, unknown>;
+    const source = disk as unknown as Record<string, unknown>;
+    for (const key of USER_FIELDS) {
+      if (key in source) target[key] = source[key];
+      else delete target[key];
+    }
+    if (disk.titleAuto === false) {
+      s.title = disk.title;
+      s.titleAuto = false;
+    }
+  }
+  saveSession(s);
+}
+
 export function saveSession(s: Session): void {
   s.updatedAt = Date.now();
   const file = pathFor(s.id);
@@ -192,6 +222,9 @@ export function clearSessions(scope: 'today' | 'month' | 'all'): number {
   return n;
 }
 
+/** The fields `setSessionOptions` may change (crates/nekko-store/src/write.rs keeps the same list). */
+const OPTION_KEYS = ['title', 'pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'providerId', 'modelId', 'plan', 'chatType', 'imageParams'] as const;
+
 /** Patch per-chat options (title, pin, mode, disabled tools, offline, incognito, brain). */
 export function setSessionOptions(
   id: string,
@@ -199,7 +232,11 @@ export function setSessionOptions(
 ): Session | null {
   const s = getSession(id);
   if (!s) return null;
-  Object.assign(s, patch);
+  // Only the options this signature names: the patch arrives over the wire, and
+  // assigning it whole would let a caller replace any field, the transcript included.
+  for (const [key, value] of Object.entries(patch)) {
+    if ((OPTION_KEYS as readonly string[]).includes(key)) (s as unknown as Record<string, unknown>)[key] = value;
+  }
   // A title the user typed is theirs; the auto-title pass may not overwrite it.
   if (patch.title !== undefined) s.titleAuto = false;
   saveSession(s);

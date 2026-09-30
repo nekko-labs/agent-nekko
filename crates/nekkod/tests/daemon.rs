@@ -339,9 +339,23 @@ async fn serves_session_reads_from_disk_when_it_knows_the_data_dir() {
     assert_eq!(missing, Value::Null);
     let (_, images) = post(d.port, "session:images", json!(["s_one", 4]), Some(TOKEN)).await;
     assert_eq!(images, json!([{ "messageId": "a", "src": "data:x" }]));
-    // Not a read: still the backend's.
-    let (_, created) = post(d.port, "session:create", json!([]), Some(TOKEN)).await;
-    assert_eq!(created["echo"], "session:create");
+    // The UI's own writes are the daemon's too.
+    let (_, created) = post(d.port, "session:create", json!(["w1"]), Some(TOKEN)).await;
+    let new_id = created["id"].as_str().unwrap().to_string();
+    assert_eq!(created["workspaceId"], "w1");
+    let (_, patched) =
+        post(d.port, "session:setOptions", json!([new_id, { "title": "Named", "messages": [] }]), Some(TOKEN)).await;
+    assert_eq!((patched["title"].clone(), patched["titleAuto"].clone()), (json!("Named"), json!(false)));
+    let (_, queued) = post(d.port, "chat:queue", json!([new_id, "  later  "]), Some(TOKEN)).await;
+    assert_eq!(queued["queue"], json!(["later"]));
+    let (_, list) = post(d.port, "sessions:summaries", json!([]), Some(TOKEN)).await;
+    assert_eq!(list.as_array().unwrap().len(), 2);
+    post(d.port, "session:delete", json!([new_id]), Some(TOKEN)).await;
+    let (_, gone) = post(d.port, "session:get", json!([new_id]), Some(TOKEN)).await;
+    assert_eq!(gone, Value::Null);
+    // Clearing by date is still the backend's.
+    let (_, cleared) = post(d.port, "sessions:clear", json!(["today"]), Some(TOKEN)).await;
+    assert_eq!(cleared["echo"], "sessions:clear");
     drop(d);
     std::fs::remove_dir_all(data).ok();
 }
