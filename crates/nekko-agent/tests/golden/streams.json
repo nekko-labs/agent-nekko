@@ -1,0 +1,2630 @@
+{
+  "oa-text-usage": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "Hel"
+        },
+        {
+          "type": "text",
+          "delta": "lo"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 5,
+          "outputTokens": 2,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-tool-fragments": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-test-openai"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "c1",
+            "name": "read_file",
+            "input": {
+              "path": "a.ts"
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "c2",
+            "name": "bash",
+            "input": {
+              "command": "ls"
+            }
+          }
+        },
+        {
+          "type": "usage",
+          "inputTokens": 50,
+          "outputTokens": 20,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-tool-no-id-no-index": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:11500/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer engine-token"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "usage",
+          "inputTokens": 9,
+          "outputTokens": 4,
+          "outputMs": 1
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "call_0",
+            "name": "bash",
+            "input": {
+              "command": "pwd"
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "call_3",
+            "name": "noargs",
+            "input": {}
+          }
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-tool-args-odd": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "bad",
+            "name": "a",
+            "input": {}
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "arr",
+            "name": "b",
+            "input": [
+              1,
+              2,
+              "x"
+            ]
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "num",
+            "name": "c",
+            "input": 42
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "again",
+            "name": "d",
+            "input": {}
+          }
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-usage-before-calls-in-one-event": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:8000/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "ok"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 3,
+          "outputTokens": 1,
+          "outputMs": 1
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "x",
+            "name": "n",
+            "input": {
+              "a": 1
+            }
+          }
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-reasoning": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:1234/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "reasoning",
+          "delta": "Let me think"
+        },
+        {
+          "type": "reasoning",
+          "delta": " carefully."
+        },
+        {
+          "type": "reasoning",
+          "delta": " More."
+        },
+        {
+          "type": "reasoning",
+          "delta": " Shown."
+        },
+        {
+          "type": "text",
+          "delta": "42"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-nothing-generated": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-test-openai"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "usage",
+          "inputTokens": 5,
+          "outputTokens": 0
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-usage-zeros-and-missing": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-test-openai"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "x"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-byte-splits": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "café 😀 "
+        },
+        {
+          "type": "reasoning",
+          "delta": "日本"
+        },
+        {
+          "type": "text",
+          "delta": "end"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-framing-noise": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "a"
+        },
+        {
+          "type": "text",
+          "delta": "b"
+        },
+        {
+          "type": "text",
+          "delta": "c"
+        },
+        {
+          "type": "text",
+          "delta": "d"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-done-mid-event": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "kept"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-no-done-trailing-dropped": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "a"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-crlf-framing": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-invalid-utf8": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "a�b"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-http-401-api-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-test-openai"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Model request failed (HTTP 401): Incorrect API key provided."
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-http-500-empty": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Model request failed (HTTP 500)"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-http-429-long-text": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://openrouter.ai/api/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-or-test",
+          "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+          "X-Title": "Agent Nekko"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Model request failed (HTTP 429): Too many requests 😀 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-http-400-message-not-string": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-test-openai"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Model request failed (HTTP 400): {\"error\":{\"message\":{\"nested\":true}}}"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-network-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Can't reach the model server at http://10.5.0.2:1338/v1. Is it running and reachable on the network?"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-network-econnrefused": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://127.0.0.1:11500/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer engine-token"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Can't reach the model server at http://127.0.0.1:11500/v1. Is it running and reachable on the network?"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-network-other": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-test-openai"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "weird thing"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "an-text-tool-usage": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "max_tokens": 2048,
+          "stream": true,
+          "temperature": 0.2,
+          "system": "You are a coding agent.\nBe terse.",
+          "messages": [
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "input_schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            },
+            {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "input_schema": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "Reading "
+        },
+        {
+          "type": "text",
+          "delta": "it."
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "toolu_1",
+            "name": "read_file",
+            "input": {
+              "path": "a.ts"
+            }
+          }
+        },
+        {
+          "type": "usage",
+          "inputTokens": 120,
+          "outputTokens": 42,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {
+        "anthropic-ratelimit-requests-remaining": "49",
+        "request-id": "req_1"
+      }
+    ]
+  },
+  "an-thinking-ignored-but-timed": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-access-token",
+          "anthropic-version": "2023-06-01",
+          "anthropic-beta": "oauth-2025-04-20"
+        },
+        "body": {
+          "model": "claude-opus-5",
+          "max_tokens": 4096,
+          "stream": true,
+          "output_config": {
+            "effort": "high"
+          },
+          "system": [
+            {
+              "type": "text",
+              "text": "You are Claude Code, Anthropic's official CLI for Claude."
+            }
+          ],
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "usage",
+          "inputTokens": 7,
+          "outputTokens": 3,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "an-tool-no-json-and-bad-json": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "m",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "t0",
+            "name": "noargs",
+            "input": {}
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "t1",
+            "name": "broken",
+            "input": {}
+          }
+        },
+        {
+          "type": "usage",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "an-stream-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "m",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "Partial"
+        },
+        {
+          "type": "error",
+          "message": "anthropic stream error: Overloaded"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "an-stream-error-no-message": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "m",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "anthropic stream error: unknown error"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "an-no-message-stop": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "m",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "cut"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "an-retry-without-temperature": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-sonnet-4-6",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 1,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-sonnet-4-6",
+          "max_tokens": 4096,
+          "stream": true,
+          "output_config": {
+            "effort": "high"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-sonnet-4-6",
+          "max_tokens": 4096,
+          "stream": true,
+          "output_config": {
+            "effort": "high"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "done"
+        }
+      ],
+      [
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {
+        "x-attempt": "2"
+      },
+      {}
+    ]
+  },
+  "an-retry-without-effort": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-opus-5",
+          "max_tokens": 4096,
+          "stream": true,
+          "output_config": {
+            "effort": "xhigh"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-opus-5",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 1,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "an-retry-to-neither": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-opus-5",
+          "max_tokens": 4096,
+          "stream": true,
+          "output_config": {
+            "effort": "high"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-opus-5",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-opus-5",
+          "max_tokens": 4096,
+          "stream": true,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-opus-5",
+          "max_tokens": 4096,
+          "stream": true,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "done"
+        }
+      ],
+      [
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {},
+      {}
+    ]
+  },
+  "an-retry-exhausted": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-sonnet-4-6",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 1,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-sonnet-4-6",
+          "max_tokens": 4096,
+          "stream": true,
+          "output_config": {
+            "effort": "high"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-sonnet-4-6",
+          "max_tokens": 4096,
+          "stream": true,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "anthropic 400: `temperature` is deprecated for this model. éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "an-400-not-sampling": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "claude-opus-5",
+          "max_tokens": 4096,
+          "stream": true,
+          "output_config": {
+            "effort": "high"
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "anthropic 400: {\"error\":{\"message\":\"max_tokens: must be greater than 0\"}}"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "an-401": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-access-token",
+          "anthropic-version": "2023-06-01",
+          "anthropic-beta": "oauth-2025-04-20"
+        },
+        "body": {
+          "model": "m",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 0.7,
+          "system": [
+            {
+              "type": "text",
+              "text": "You are Claude Code, Anthropic's official CLI for Claude."
+            }
+          ],
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "anthropic 401: {\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "an-network-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "headers": {
+          "Content-Type": "application/json",
+          "x-api-key": "sk-ant-test",
+          "anthropic-version": "2023-06-01"
+        },
+        "body": {
+          "model": "m",
+          "max_tokens": 4096,
+          "stream": true,
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "fetch failed"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "cg-full": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "qwen3-8b",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "Why is the sky blue?"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false,
+          "reasoning": {
+            "summary": "auto"
+          }
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "reasoning",
+          "delta": "thinking "
+        },
+        {
+          "type": "text",
+          "delta": "Hello"
+        },
+        {
+          "type": "text",
+          "delta": " world"
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "call_9",
+            "name": "read_file",
+            "input": {
+              "path": "b.ts"
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "fc_2",
+            "name": "bash",
+            "input": {}
+          }
+        },
+        {
+          "type": "usage",
+          "inputTokens": 10,
+          "outputTokens": 7,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {
+        "x-codex-primary-used-percent": "12"
+      }
+    ]
+  },
+  "cg-incomplete": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "partial"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 4,
+          "outputTokens": 2,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "cg-completed-no-usage": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "cg-failed": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "a"
+        },
+        {
+          "type": "error",
+          "message": "chatgpt response failed: ran out of room"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "cg-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "chatgpt response failed: model overloaded"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "cg-error-top-level-message": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "chatgpt response failed: rate limited"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "cg-error-unknown": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "chatgpt response failed: unknown error"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "cg-no-completed": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "x"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
+  },
+  "cg-401-headers-first": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "chatgpt 401: nope"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {
+        "x-codex-primary-used-percent": "100"
+      }
+    ]
+  },
+  "cg-no-account-id": {
+    "requests": [],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "This ChatGPT sign-in is missing an account id. Sign out and sign in again so it can be captured (sessions signed in before this version may lack one)."
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "cg-network-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Can't reach ChatGPT at https://chatgpt.com/backend-api. Check the network connection."
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-text-usage": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "options": {
+            "temperature": 0.2,
+            "num_predict": 2048
+          },
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "Hel"
+        },
+        {
+          "type": "text",
+          "delta": "lo"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 26,
+          "outputTokens": 2,
+          "outputMs": 123
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-thinking-and-tools": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "qwen3-8b",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "think": true,
+          "messages": [
+            {
+              "role": "user",
+              "content": "Why is the sky blue?"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "reasoning",
+          "delta": "Considering"
+        },
+        {
+          "type": "reasoning",
+          "delta": " options."
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "call_289200869",
+            "name": "read_file",
+            "input": {
+              "path": "a.ts",
+              "n": 1,
+              "f": 0.5
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "call_957999802",
+            "name": "bash",
+            "input": {
+              "command": "ls 😀"
+            }
+          }
+        },
+        {
+          "type": "tool_call",
+          "call": {
+            "id": "call_985431901",
+            "name": "noargs",
+            "input": {}
+          }
+        },
+        {
+          "type": "usage",
+          "inputTokens": 10,
+          "outputTokens": 30,
+          "outputMs": 3
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-eval-under-a-millisecond": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "x"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 0,
+          "outputTokens": 1,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-eval-duration-string": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "x"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "outputMs": 5
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-no-eval-duration": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "x"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 1,
+          "outputTokens": 1,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-nothing-generated": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "usage",
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-byte-splits-and-noise": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "café 😀"
+        },
+        {
+          "type": "text",
+          "delta": " end"
+        },
+        {
+          "type": "usage",
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "outputMs": 1
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-last-line-without-newline": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "x"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-http-500": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "chat 500"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ol-network-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "fetch failed"
+        }
+      ]
+    ],
+    "onHeaders": []
+  }
+}
