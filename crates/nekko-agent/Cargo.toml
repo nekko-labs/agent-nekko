@@ -9,6 +9,7 @@ publish.workspace = true
 
 [dependencies]
 getrandom.workspace = true
+nekko-js = { path = "../nekko-js" }
 # native-tls: the cloud providers are HTTPS. It is the TLS stack ort's
 # download already builds (schannel, Security.framework, OpenSSL), so this adds
 # only reqwest's glue to it.
