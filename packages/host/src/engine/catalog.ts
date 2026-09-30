@@ -140,6 +140,11 @@ export interface CatalogDeps {
   fetch?: typeof fetch;
   /** Optional HF token, for gated repos the user has access to. */
   token?: () => string | undefined;
+  /**
+   * Whether MLX can run here (an Apple Silicon Mac). Elsewhere MLX folders
+   * are never offered, so a model page cannot download one that cannot run.
+   */
+  mlx?: () => boolean;
 }
 
 export function createCatalog(deps: CatalogDeps = {}) {
@@ -169,11 +174,17 @@ export function createCatalog(deps: CatalogDeps = {}) {
     return filled.filter((m) => m.quants.length > 0);
   }
 
-  /** Free-text search over Hugging Face's GGUF repos. */
-  async function search(query: string, limit = 20): Promise<CatalogModel[]> {
+  /**
+   * Free-text search over Hugging Face: GGUF repos, or MLX checkpoints for an
+   * Apple Silicon Mac (mostly `mlx-community` conversions, one quantization
+   * per repo).
+   */
+  async function search(query: string, limit = 20, format: 'gguf' | 'mlx' = 'gguf'): Promise<CatalogModel[]> {
     const q = query.trim();
-    if (!q) return curated();
-    const url = `${HF_API}/models?filter=gguf&search=${encodeURIComponent(q)}&sort=downloads&direction=-1&limit=${limit}&full=true`;
+    if (!q && format === 'gguf') return curated();
+    // MLX: the `mlx` tag, text models only (mlx_lm.server serves those; mlx-community also carries audio).
+    const filter = format === 'mlx' ? 'filter=mlx&pipeline_tag=text-generation' : 'filter=gguf';
+    const url = `${HF_API}/models?${filter}&search=${encodeURIComponent(q)}&sort=downloads&direction=-1&limit=${limit}&full=true`;
     const rows = await getJson<Array<HfModelRow>>(url);
     if (!rows) return [];
 
@@ -184,7 +195,7 @@ export function createCatalog(deps: CatalogDeps = {}) {
         rows.slice(0, limit).map(async (row): Promise<CatalogModel | null> => {
           const id = row.id ?? row.modelId;
           if (!id) return null;
-          const quants = await quantsFor(id);
+          const quants = await quantsFor(id, row.tags, format);
           if (quants.length === 0) return null;
           const [owner, repo] = id.split('/');
           return {
@@ -214,7 +225,7 @@ export function createCatalog(deps: CatalogDeps = {}) {
     if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
 
     const info = await getJson<HfModelRow>(`${HF_API}/models/${id}`);
-    const quants = await quantsFor(id);
+    const quants = await quantsFor(id, info?.tags);
     const [owner, repo] = id.split('/');
     const value: CatalogModel | null =
       quants.length > 0
@@ -313,11 +324,14 @@ export function createCatalog(deps: CatalogDeps = {}) {
    * and carry the rest as `extraFiles`, because downloading one shard of three
    * produces a file that looks fine and cannot load.
    */
-  async function quantsFor(id: string): Promise<CatalogQuant[]> {
+  async function quantsFor(id: string, tags?: string[], format?: 'gguf' | 'mlx'): Promise<CatalogQuant[]> {
     const tree = await treeFor(id);
     if (!tree) return [];
 
     const ggufs = tree.filter((f) => f.type !== 'directory' && f.path?.toLowerCase().endsWith('.gguf'));
+    const mlx = deps.mlx?.() ? mlxQuant(id, tree, tags?.includes('mlx')) : null;
+    // An MLX search offers the MLX folder even from a repo that also ships GGUFs.
+    if (format === 'mlx' || ggufs.length === 0) return mlx ? [mlx] : [];
     const byGroup = new Map<string, Array<{ path: string; size: number }>>();
     for (const f of ggufs) {
       const path = f.path as string;
@@ -343,7 +357,8 @@ export function createCatalog(deps: CatalogDeps = {}) {
         note: QUANT_NOTES[label],
       });
     }
-    return quants.sort((a, b) => rank(a.label) - rank(b.label));
+    // A repo with both offers both, so a model page can download either.
+    return [...quants.sort((a, b) => rank(a.label) - rank(b.label)), ...(mlx ? [mlx] : [])];
   }
 
   async function getJson<T>(url: string): Promise<T | null> {
@@ -443,4 +458,34 @@ function capabilityTags(hfTags: string[], repo: string): string[] {
   if (/reason|r1|qwq|thinking|gpt-oss/.test(text)) tags.push('reasoning');
   if (/vision|vl|multimodal|llava|gemma-3/.test(text)) tags.push('vision');
   return tags;
+}
+
+/**
+ * Files an MLX checkpoint folder needs: its config, weights and tokenizer.
+ * READMEs, images and other formats in the same repo are left behind.
+ */
+const MLX_FILE = /(^|\/)(config\.json|generation_config\.json|.*\.safetensors|model\.safetensors\.index\.json|tokenizer[^/]*|special_tokens_map\.json|vocab\.(json|txt)|merges\.txt|[^/]*\.tiktoken|chat_template\.(json|jinja)|preprocessor_config\.json|processor_config\.json)$/i;
+
+/**
+ * An MLX repo as one download: the whole folder, sized as the sum of its files.
+ * A repo is MLX when it has a `config.json` beside `.safetensors` weights at
+ * its root and either carries Hugging Face's `mlx` tag or says so in its id
+ * (`mlx-community/...`, `...-MLX-4bit`). It lands in `<models>/mlx/`, which is
+ * what makes the library read the folder as MLX.
+ */
+export function mlxQuant(id: string, tree: Array<{ type?: string; path?: string; size?: number }>, taggedMlx = false): CatalogQuant | null {
+  const files = tree.filter((f) => f.type !== 'directory' && f.path && !f.path.includes('/') && MLX_FILE.test(f.path));
+  const weights = files.filter((f) => f.path!.toLowerCase().endsWith('.safetensors')).sort((a, b) => (b.size ?? 0) - (a.size ?? 0));
+  if (!files.some((f) => f.path === 'config.json') || weights.length === 0 || !(taggedMlx || /mlx/i.test(id))) return null;
+  const main = weights[0].path as string;
+  const bits = id.match(/(\d+)[-_]?bit/i)?.[1];
+  const label = bits ? `${bits}bit` : /bf16/i.test(id) ? 'BF16' : /fp16|f16/i.test(id) ? 'FP16' : 'MLX';
+  return {
+    label,
+    file: main,
+    sizeBytes: files.reduce((n, f) => n + (f.size ?? 0), 0),
+    extraFiles: files.map((f) => f.path as string).filter((p) => p !== main).sort(),
+    note: 'MLX, for Apple Silicon',
+    format: 'mlx',
+  };
 }

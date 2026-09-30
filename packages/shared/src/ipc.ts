@@ -376,7 +376,8 @@ export interface NekkoApi {
   /** Save per-model load settings, applied every time it loads. */
   engineSaveModelPreset(id: string, preset: import('./engine.js').EngineLoadPreset): Promise<void>;
   /** The starter list, or search results when a query is given. */
-  engineCatalog(query?: string): Promise<import('./engine.js').CatalogModel[]>;
+  /** `format` `mlx` searches MLX checkpoints instead of GGUF repos. */
+  engineCatalog(query?: string, format?: 'gguf' | 'mlx'): Promise<import('./engine.js').CatalogModel[]>;
   /** One catalog repo's detail, including every quantization it publishes. */
   engineCatalogModel(id: string): Promise<import('./engine.js').CatalogModel | null>;
   /** The same, plus the model card, for a model's own page. */

@@ -28,6 +28,7 @@ export function ModelsHome({
   running,
   onChanged,
   onOpenModel,
+  mlx = false,
 }: {
   providerId: string;
   models: Array<LocalModel & { loaded: boolean }>;
@@ -39,6 +40,8 @@ export function ModelsHome({
   running: boolean;
   onChanged: () => void;
   onOpenModel: (id: string) => void;
+  /** An Apple Silicon Mac, where the catalog also offers MLX checkpoints. */
+  mlx?: boolean;
 }) {
   const [query, setQuery] = useState('');
 
@@ -83,7 +86,7 @@ export function ModelsHome({
         Get more models
       </h3>
       <div className="mt-1.5">
-        <CatalogBrowser onOpen={onOpenModel} query={query} onQuery={setQuery} hideSearch memory={memory} />
+        <CatalogBrowser onOpen={onOpenModel} query={query} onQuery={setQuery} hideSearch memory={memory} mlx={mlx} />
       </div>
     </div>
   );

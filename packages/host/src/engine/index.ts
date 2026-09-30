@@ -1,4 +1,4 @@
-import { createMlxRuntime } from './mlx.js';
+import { createMlxRuntime, mlxSupported } from './mlx.js';
 import { engineDaemon } from './daemon.js';
 import type { GpuAdapter } from '../gpu-adapters.js';
 import { totalmem } from 'os';
@@ -79,7 +79,7 @@ export function createEngine(deps: EngineDeps) {
 
   const downloads = createDownloads({ onChange: deps.onDownloadsChanged });
   const library = createLibrary({ modelsDir, folders: () => deps.settings().modelFolders ?? [] });
-  const catalog = createCatalog({ token: deps.hfToken });
+  const catalog = createCatalog({ token: deps.hfToken, mlx: () => mlxSupported() });
   const installer = createEngineInstaller({
     engineDir,
     downloads,
@@ -134,7 +134,10 @@ export function createEngine(deps: EngineDeps) {
     const quant = model?.quants.find((q) => q.label === quantLabel) ?? model?.quants[0];
     if (!model || !quant) return { ok: false, message: 'That model is no longer published.' };
 
-    const type = modelModality({ name: `${model.name} ${modelId} ${model.tags.join(' ')} ${model.pipelineTag ?? ''} ${quant.file}` });
+    const mlx = quant.format === 'mlx';
+    const type = mlx ? 'mlx' : modelModality({ name: `${model.name} ${modelId} ${model.tags.join(' ')} ${model.pipelineTag ?? ''} ${quant.file}` });
+    // An MLX checkpoint is a folder, and the library finds it by `mlx` in its
+    // path: `<models>/mlx/<owner>_<repo>/`.
     const destFor = (file: string) => join(modelsDir(), type, modelId.replace('/', '_'), file.split('/').pop() as string);
     const jobId = `model:${modelId}:${quant.label}`;
 
@@ -145,12 +148,14 @@ export function createEngine(deps: EngineDeps) {
       target: modelId,
       url: hfFileUrl(modelId, quant.file),
       dest: destFor(quant.file),
-      verify: async (path) => {
-        // A GGUF that will not parse is a failed download wearing the right
-        // extension, and catching it here means the library never lists one.
-        const { readGgufMetadata } = await import('./gguf.js');
-        return (await readGgufMetadata(path)) ? null : 'The downloaded file is not a readable GGUF.';
-      },
+      verify: mlx
+        ? undefined
+        : async (path) => {
+            // A GGUF that will not parse is a failed download wearing the right
+            // extension, and catching it here means the library never lists one.
+            const { readGgufMetadata } = await import('./gguf.js');
+            return (await readGgufMetadata(path)) ? null : 'The downloaded file is not a readable GGUF.';
+          },
     });
 
     for (const extra of quant.extraFiles ?? []) {
@@ -449,7 +454,7 @@ export function createEngine(deps: EngineDeps) {
     },
     // catalog + downloads
     catalogCurated: () => catalog.curated(),
-    catalogSearch: (q: string) => catalog.search(q),
+    catalogSearch: (q: string, limit?: number, format?: 'gguf' | 'mlx') => catalog.search(q, limit, format),
     catalogModel: (id: string) => catalog.model(id),
     catalogDetail: (id: string): Promise<CatalogModelDetail | null> => catalog.detail(id),
     downloadModel,

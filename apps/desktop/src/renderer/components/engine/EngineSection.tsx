@@ -197,6 +197,7 @@ export function EngineSection({
               running={running}
               onChanged={refresh}
               onOpenModel={onOpenModel}
+              mlx={Boolean(status.mlxInstall?.available.length)}
             />
           )}
           {tab === 'downloads' && <DownloadsPanel jobs={jobs} onChanged={refresh} />}
