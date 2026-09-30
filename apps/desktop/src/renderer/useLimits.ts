@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
 import { limitsKeyFor } from '@agent-nekko/shared';
+import { afterPaint } from './afterPaint.js';
 
 /**
  * Live subscription limits for one provider, or null when it doesn't have any
@@ -21,11 +22,14 @@ export function useProviderLimits(provider: ProviderConfig | undefined): Subscri
       return;
     }
     let live = true;
-    window.nekko.getLimits(key).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
+    // Started after the first frame: a pane that just opened paints before it asks.
+    const cancel = afterPaint(() => {
+      window.nekko.getLimits(key).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
+    });
     const off = window.nekko.onLimitsUpdated((e) => {
       if (e.tokenKey === key) setLimits(e.limits);
     });
-    return () => { live = false; off(); };
+    return () => { live = false; cancel(); off(); };
   }, [key]);
 
   return limits;

@@ -80,7 +80,7 @@ export async function launchBrowser({ port, width, height, vsync = false, gpu = 
   // (SwiftShader) for compositing and WebGL, and the numbers measure the
   // emulator. Without it, compositing is plain software and WebGL is off, so
   // the terminal draws with xterm's DOM renderer.
-  if (!gpu) args.unshift('--disable-gpu');
+  if (!gpu) args.unshift('--disable-gpu', '--disable-webgl', '--disable-3d-apis');
   // CI containers run as root without the user namespaces the sandbox needs.
   if (process.platform === 'linux') args.unshift('--no-sandbox');
   const proc = spawn(bin, args, { stdio: 'ignore' });

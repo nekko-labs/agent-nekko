@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ChatMode, McpServerStatus, Session } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { WrenchIcon, PlaneIcon, MaskIcon, PlugIcon, PlusIcon } from '../icons.js';
+import { afterPaint } from '../afterPaint.js';
 
 /** Where we point people for hardened, local-first MCP server management. */
 const HYPERGATE_URL = 'https://hypergate.app';
@@ -183,7 +184,8 @@ export function ChatControls({
   const [toolQuery, setToolQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { window.nekko.listTools().then(setTools); }, []);
+  // After the first frame: a pane that just opened paints before it asks.
+  useEffect(() => afterPaint(() => { window.nekko.listTools().then(setTools); }), []);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) { setToolsOpen(false); setModeOpen(false); }
