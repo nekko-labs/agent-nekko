@@ -529,3 +529,26 @@ describe('asSeenByChatModel', () => {
     expect(asSeenByChatModel(text)).toBe(text);
   });
 });
+
+describe('decideRequestFromTool', () => {
+  it('reshapes the flat question list into named questions, tolerating the usual slips', async () => {
+    const { decideRequestFromTool } = await import('./tools.js');
+    expect(decideRequestFromTool({
+      state: 'charged twice',
+      questions: [
+        { id: 'team', type: 'choice', instructions: 'Which team?', options: ['billing', 'technical'] },
+        { id: 'refund', type: 'noul', instructions: 'Asks for money back.', options: ['yes'] },
+        { type: 'score', question: 'How urgent?', criteria: ['low', 'high'] },
+      ],
+    })).toEqual({
+      state: 'charged twice',
+      questions: {
+        team: { type: 'choice', instructions: 'Which team?', criteria: ['billing', 'technical'] },
+        refund: { type: 'noul', instructions: 'Asks for money back.' },
+        q3: { type: 'score', instructions: 'How urgent?', criteria: ['low', 'high'] },
+      },
+    });
+    expect(decideRequestFromTool({ state: 's', questions: [{ id: 'team', type: 'choice', instructions: 'Who?', options: [{ label: 'billing', description: 'Payments' }, { label: 'tech' }] }] }).questions.team.criteria)
+      .toEqual({ billing: 'Payments', tech: 'tech' });
+  });
+});

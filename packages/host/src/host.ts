@@ -158,7 +158,7 @@ import {
   startWorkflowScheduler,
   reconcileWorkflowRuns,
 } from './workflows.js';
-import { sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting } from './compaction.js';
 import { initLimits, getLimits, clearLimits } from './limits.js';
@@ -270,6 +270,16 @@ export interface Host {
   engineDownloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
   engineImageCompanions(modelId: string): Promise<import('@agent-nekko/shared').ImageCompanionStatus | null>;
   engineDownloadImageCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  decisionsCatalog(): Promise<import('@agent-nekko/shared').DecisionCatalogEntry[]>;
+  decisionsModels(): Promise<import('@agent-nekko/shared').InstalledDecisionModel[]>;
+  decisionsDownload(catalogId: string, precision?: import('@agent-nekko/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsDelete(id: string): Promise<{ ok: boolean; message: string }>;
+  decisionsAddFolder(path: string): Promise<{ ok: boolean; message: string }>;
+  decisionsStatus(): Promise<import('@agent-nekko/shared').DecisionStatus>;
+  decisionsLoad(id: string, precision?: import('@agent-nekko/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsUnload(): Promise<{ ok: boolean; message: string }>;
+  decisionsRun(provider: import('@agent-nekko/shared').DecisionProvider, request: import('@agent-nekko/shared').DecisionRequest): Promise<import('@agent-nekko/shared').DecisionResponse>;
+  decisionsCheckTypesafe(): Promise<{ ok: boolean; message: string }>;
   /** Set a resident model's idle TTL in seconds (0 keeps it loaded). */
   engineSetResidentTtl(modelId: string, ttlSeconds: number): Promise<{ ok: boolean; message: string }>;
   /** Add or remove a model from the list loaded when the engine starts. */
@@ -517,6 +527,13 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
   // Automation tasks: fired-task agent events ride the same bus as live chats;
   // task-list changes get their own event. Start the periodic scheduler.
   setTaskSender((e) => events.emit('agentEvent', e));
+  setDecisionRunner({
+    available: async () => {
+      const s = await engine.decisions.status();
+      return s.local.loaded ? 'local' : s.typesafe.configured ? 'typesafe' : null;
+    },
+    run: (provider, request) => engine.decisions.run(provider, request),
+  });
   setTasksNotifier((tasks) => events.emit('tasksUpdated', tasks));
   startTaskScheduler();
   // Training/goal runs: agent events ride the shared bus; run changes get their
@@ -575,6 +592,9 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     // provider entry is kept in step with the address it is actually serving on.
     onServing: (baseUrl) => ensureEngineProvider(baseUrl),
     hfToken: () => getSettings().hfToken || undefined,
+    typesafeKey: () => getSettings().typesafeApiKey || process.env.TYPESAFE_API_KEY || undefined,
+    decisionFolders: () => getSettings().decisionModelDirs ?? [],
+    saveDecisionFolders: (dirs) => { saveSettings({ decisionModelDirs: dirs }); },
     externalBinPath: () => getSettings().engineBinPath || undefined,
   });
 
@@ -729,6 +749,16 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     engineDownloadCompanions: (modelId) => engine.downloadCompanions(modelId),
     engineImageCompanions: (modelId) => engine.imageCompanions(modelId),
     engineDownloadImageCompanions: (modelId) => engine.downloadImageCompanions(modelId),
+    decisionsCatalog: () => engine.decisions.catalog(),
+    decisionsModels: () => engine.decisions.models(),
+    decisionsDownload: (catalogId, precision) => engine.decisions.download(catalogId, precision),
+    decisionsDelete: (id) => engine.decisions.remove(id),
+    decisionsAddFolder: (path) => engine.decisions.addFolder(path),
+    decisionsStatus: () => engine.decisions.status(),
+    decisionsLoad: (id, precision) => engine.decisions.load(id, precision),
+    decisionsUnload: () => engine.decisions.unload(),
+    decisionsRun: (provider, request) => engine.decisions.run(provider, request),
+    decisionsCheckTypesafe: () => engine.decisions.checkTypesafe(),
     engineSetResidentTtl: async (modelId, ttlSeconds) => engine.setResidentTtl(modelId, ttlSeconds),
     engineSetAutoload: (modelId, enabled) => engine.setAutoload(modelId, enabled),
     engineDownloads: async () => engine.downloads(),

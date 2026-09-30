@@ -12,6 +12,7 @@ export * from './capacity.js';
 export * from './readiness.js';
 export * from './runtimes.js';
 export * from './engine.js';
+export * from './decisions.js';
 export * from './api-server.js';
 export * from './cli-link.js';
 export * from './chat.js';

@@ -259,3 +259,79 @@ export const REPORT_ARTIFACT_TOOL: ToolSpec = {
     required: ['kind', 'title', 'path'],
   },
 };
+
+/**
+ * Ask a decision model (Laya locally, or TypeSafe Jev) typed questions about a
+ * state. Offered only while one is available. It answers in one pass with
+ * calibrated probabilities, so it is cheaper and steadier than reasoning a
+ * classification out in prose: routing, triage, "is this risky", scoring.
+ */
+export const DECIDE_TOOL: ToolSpec = {
+  name: 'decide',
+  description:
+    'Classify or score a piece of text or JSON with a dedicated decision model, which returns calibrated probabilities ' +
+    'in well under a second. Use it for routing and triage ("which team owns this ticket"), yes/no judgements ' +
+    '("does this message ask for a refund"), and ordinal scores ("how urgent"), especially over many items or when you ' +
+    'want a probability rather than your own guess. Every question needs an id, a type and instructions: ' +
+    '"choice" picks one of options; "score" places the state on options ordered lowest first; "noul" gives the ' +
+    'probability that the instructions (a statement) are true and takes no options. Up to 64 questions per call. ' +
+    'Example: {"state": "...", "questions": [{"id": "team", "type": "choice", "instructions": "Which team should handle this?", ' +
+    '"options": ["billing", "technical", "account"]}, {"id": "refund", "type": "noul", "instructions": "The customer asks for money back."}]}',
+  parameters: {
+    type: 'object',
+    properties: {
+      state: { type: 'string', description: 'The text (or JSON as a string) the questions are about. Under 50,000 characters.' },
+      questions: {
+        type: 'array',
+        description: 'The questions to answer about the state.',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'A short name for the answer, e.g. "team".' },
+            type: { type: 'string', enum: ['choice', 'score', 'noul'] },
+            instructions: { type: 'string', description: 'The question (choice, score) or the statement to judge (noul).' },
+            options: { type: 'array', items: { type: 'string' }, description: 'choice: the labels. score: the levels, lowest first. Omit for noul.' },
+          },
+          required: ['id', 'type', 'instructions'],
+        },
+      },
+    },
+    required: ['state', 'questions'],
+  },
+};
+
+/**
+ * The tool's flat question list as the decision API's named questions. Models
+ * fill a list of uniform objects far more reliably than a map of maps, so the
+ * tool asks for that and this does the reshaping.
+ */
+type DecideCriteria = string[] | Record<string, string>;
+
+export function decideRequestFromTool(input: unknown): { state: string; questions: Record<string, { type: 'choice' | 'score' | 'noul'; instructions: string; criteria?: DecideCriteria }> } {
+  const i = (input ?? {}) as { state?: unknown; questions?: unknown };
+  const state = typeof i.state === 'string' ? i.state : JSON.stringify(i.state ?? '');
+  const list = Array.isArray(i.questions) ? i.questions : [];
+  const questions: Record<string, { type: 'choice' | 'score' | 'noul'; instructions: string; criteria?: DecideCriteria }> = {};
+  list.forEach((q, n) => {
+    const item = (q ?? {}) as { id?: unknown; type?: unknown; instructions?: unknown; question?: unknown; options?: unknown; criteria?: unknown };
+    const id = typeof item.id === 'string' && item.id.trim() ? item.id.trim() : `q${n + 1}`;
+    const type = item.type === 'choice' || item.type === 'score' || item.type === 'noul' ? item.type : 'noul';
+    const instructions = typeof item.instructions === 'string' ? item.instructions : typeof item.question === 'string' ? item.question : '';
+    const raw = Array.isArray(item.options) ? item.options : Array.isArray(item.criteria) ? item.criteria : undefined;
+    // Models also send options as {label, description}; a described choice
+    // keeps its descriptions (the model reads them), a score keeps its order.
+    const labelOf = (o: unknown) => typeof o === 'object' && o !== null
+      ? String((o as Record<string, unknown>).label ?? (o as Record<string, unknown>).name ?? (o as Record<string, unknown>).value ?? '')
+      : String(o ?? '');
+    const descOf = (o: unknown) => typeof o === 'object' && o !== null ? (o as Record<string, unknown>).description : undefined;
+    const labels = raw?.map(labelOf).filter(Boolean);
+    const described = type === 'choice' && raw?.some((o) => typeof descOf(o) === 'string');
+    const criteria: DecideCriteria | undefined = !labels?.length || type === 'noul'
+      ? undefined
+      : described
+        ? Object.fromEntries(raw!.map((o) => [labelOf(o), typeof descOf(o) === 'string' ? (descOf(o) as string) : labelOf(o)]).filter(([k]) => k))
+        : labels;
+    questions[id] = { type, instructions, ...(criteria ? { criteria } : {}) };
+  });
+  return { state, questions };
+}

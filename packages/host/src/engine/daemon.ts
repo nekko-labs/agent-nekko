@@ -45,6 +45,11 @@ export interface EngineDaemon {
   spawn(spec: DaemonSpawnSpec): Promise<DaemonSpawnOutcome>;
   kill(modelId: string): Promise<boolean>;
   list(): Promise<DaemonChild[]>;
+  /** Load a Laya model dir into the daemon's decision runtime (`crates/nekko-decide`). */
+  decideLoad(req: { dir: string; precision?: string; name?: string }): Promise<Record<string, unknown>>;
+  decideUnload(): Promise<void>;
+  decideStatus(): Promise<Record<string, unknown>>;
+  decideRun(request: import('@agent-nekko/shared').DecisionRequest): Promise<Omit<import('@agent-nekko/shared').DecisionResponse, 'provider' | 'latencyMs'>>;
 }
 
 /** Where `{port}` goes in a daemon spawn's arguments. */
@@ -81,5 +86,9 @@ export function daemonClient(link: { url: string; token: string }): EngineDaemon
     spawn: (spec) => call('infer:spawn', spec),
     kill: (modelId) => call('infer:kill', modelId),
     list: () => call('infer:list'),
+    decideLoad: (req) => call('decide:load', req),
+    decideUnload: () => call('decide:unload'),
+    decideStatus: () => call('decide:status'),
+    decideRun: (request) => call('decide:run', request),
   };
 }

@@ -12,6 +12,8 @@ import {
   getConnector,
   ASK_USER_TOOL,
   BUILTIN_TOOLS,
+  DECIDE_TOOL,
+  decideRequestFromTool,
   REPORT_EXPERIMENT_TOOL,
   REPORT_ARTIFACT_TOOL,
   UPDATE_PLAN_TOOL,
@@ -19,6 +21,20 @@ import {
 } from '@agent-nekko/core';
 import { reportExperiment, reportArtifact, updateRunPlan, runPlanForSession } from './training.js';
 import { getSettings } from './store.js';
+
+/**
+ * Where the `decide` tool sends its questions. Set by the host once the
+ * engine exists; `available` names the provider a turn would use (a loaded
+ * Laya first, then TypeSafe when a key is set), or null to leave the tool out.
+ */
+interface DecisionRunner {
+  available(): Promise<import('@agent-nekko/shared').DecisionProvider | null>;
+  run(provider: import('@agent-nekko/shared').DecisionProvider, request: import('@agent-nekko/shared').DecisionRequest): Promise<import('@agent-nekko/shared').DecisionResponse>;
+}
+let decisions: DecisionRunner | null = null;
+export function setDecisionRunner(runner: DecisionRunner | null): void {
+  decisions = runner;
+}
 import { getSession, saveSession, createSession } from './sessions.js';
 import { executeTool } from './tools.js';
 import { recordUsage } from './usage.js';
@@ -641,6 +657,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   const allowSpawn = getStrategy(orchestration.strategy).allowsSpawn;
   const canAsk = !session.parentSessionId && !session.taskId && !session.trainingRunId;
   let tools: typeof BUILTIN_TOOLS = [];
+  let decideWith: import('@agent-nekko/shared').DecisionProvider | null = null;
   if (!offline) {
     if (settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
     const disabled = new Set(session.disabledTools ?? []);
@@ -658,6 +675,8 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     // automation, or a goal run has no one reading it, so a question would be a
     // run parked forever rather than a clarification.
     if (canAsk && !disabled.has(ASK_USER_TOOL.name)) tools.push(ASK_USER_TOOL);
+    decideWith = disabled.has(DECIDE_TOOL.name) ? null : await decisions?.available().catch(() => null) ?? null;
+    if (decideWith) tools.push(DECIDE_TOOL);
   }
   // Persist only when not incognito. Preserve any prompts queued mid-run (they
   // land on disk via queuePrompt) so a normal save doesn't clobber them.
@@ -785,6 +804,14 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
           }
           if (call.name === ASK_USER_TOOL.name) {
             return { toolCallId: call.id, output: await askUser(call) };
+          }
+          if (call.name === DECIDE_TOOL.name && decisions && decideWith) {
+            try {
+              const res = await decisions.run(decideWith, decideRequestFromTool(call.input));
+              return { toolCallId: call.id, output: JSON.stringify({ model: res.model, provider: res.provider, answers: res.answers }) };
+            } catch (e) {
+              return { toolCallId: call.id, output: `decide failed: ${(e as Error).message}`, isError: true };
+            }
           }
           const indirect = call.name === 'spawn_agent' || isMcpTool(call.name);
           if (indirect && (mode === 'ask' || settings.sandboxMode === 'ask-everything')) {
