@@ -370,11 +370,12 @@ export function isChatRunning(sessionId: string): boolean {
 }
 
 /** Read guideline files (AGENTS.md/CLAUDE.md/...) from the workspace roots. */
-function collectGuidelines(): Array<{ path: string; content: string }> {
-  const settings = getSettings();
+export function collectGuidelines(
+  workspaces: Array<{ path: string }> = getSettings().workspaces,
+): Array<{ path: string; content: string }> {
   const out: Array<{ path: string; content: string }> = [];
   const names = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', 'GEMINI.md'];
-  for (const w of settings.workspaces) {
+  for (const w of workspaces) {
     const found: Array<{ path: string; name: string; content: string }> = [];
     for (const n of names) {
       if (!isGuidelineFile(n)) continue;
@@ -418,7 +419,7 @@ export function isPointerTo(
   return siblings.some((s) => s.name !== file.name && body.includes(s.name));
 }
 
-function collectAttached(paths: string[]): Array<{ path: string; content: string }> {
+export function collectAttached(paths: string[]): Array<{ path: string; content: string }> {
   return paths
     .map((p) => {
       try {

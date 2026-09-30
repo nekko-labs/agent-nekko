@@ -1,4 +1,5 @@
-//! JavaScript string and JSON semantics, where the summary depends on them.
+//! JavaScript string, number and JSON semantics, for Rust ports whose output
+//! must equal the TS host's.
 //!
 //! The TS host measures strings in UTF-16 code units (`.length`, `.slice`),
 //! trims with ECMAScript's whitespace set, and sizes tool arguments with
@@ -67,6 +68,51 @@ pub fn cap(s: &str, n: usize) -> String {
     }
     out.push('…');
     out
+}
+
+/// `s.slice(0, n)`, in UTF-16 units (with `cap`'s surrogate-pair caveat).
+pub fn slice16(s: &str, n: usize) -> &str {
+    let mut used = 0;
+    for (i, c) in s.char_indices() {
+        let w = c.len_utf16();
+        if used + w > n {
+            return &s[..i];
+        }
+        used += w;
+    }
+    s
+}
+
+/// `Number(s)` for a string: whitespace-trimmed, empty is 0, `0x`/`0o`/`0b`
+/// integers, `Infinity`, decimals with exponents; anything else is NaN.
+pub fn to_number(s: &str) -> f64 {
+    let t = trim(s);
+    if t.is_empty() {
+        return 0.0;
+    }
+    let radix = |p: &str, r: u32| u64::from_str_radix(p, r).map(|v| v as f64).unwrap_or(f64::NAN);
+    match t.get(..2) {
+        Some("0x" | "0X") => return radix(&t[2..], 16),
+        Some("0o" | "0O") => return radix(&t[2..], 8),
+        Some("0b" | "0B") => return radix(&t[2..], 2),
+        _ => {}
+    }
+    match t {
+        "Infinity" | "+Infinity" => return f64::INFINITY,
+        "-Infinity" => return f64::NEG_INFINITY,
+        _ => {}
+    }
+    // Rust also reads "inf" and "NaN", which JavaScript does not.
+    if t.bytes().all(|b| b.is_ascii_digit() || matches!(b, b'.' | b'e' | b'E' | b'+' | b'-')) {
+        t.parse::<f64>().unwrap_or(f64::NAN)
+    } else {
+        f64::NAN
+    }
+}
+
+/// JavaScript truthiness of a number.
+pub fn truthy_number(n: f64) -> bool {
+    n != 0.0 && !n.is_nan()
 }
 
 /// A number as `JSON.stringify` prints it.
@@ -158,6 +204,17 @@ mod tests {
         // U+0085 is not JavaScript whitespace.
         assert_eq!(trim("\u{85}hi"), "\u{85}hi");
         assert_eq!(fold_space("a \n\t b\u{2028}c"), "a b c");
+    }
+
+    #[test]
+    fn parses_numbers_like_number() {
+        assert_eq!(to_number(" 12 "), 12.0);
+        assert_eq!(to_number(""), 0.0);
+        assert_eq!(to_number("0x1A"), 26.0);
+        assert_eq!(to_number("1e3"), 1000.0);
+        assert!(to_number("12abc").is_nan() && to_number("inf").is_nan() && to_number("NaN").is_nan());
+        assert_eq!(slice16("a😀b", 2), "a");
+        assert_eq!(slice16("abc", 10), "abc");
     }
 
     #[test]
