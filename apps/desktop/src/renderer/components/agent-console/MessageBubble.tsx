@@ -1,0 +1,130 @@
+import React, { useState } from 'react';
+import type { ChatMessage } from '@agent-nekko/shared';
+import { Markdown } from '../Markdown.js';
+import { ReasoningBlock } from './ReasoningBlock.js';
+import { ToolCard } from './ToolCard.js';
+import { fmtTime } from './transcript.js';
+
+export function MessageBubble({
+  message,
+  onResend,
+  onReset,
+  onImageClick,
+  onImageContextMenu,
+  chronological,
+}: {
+  message: ChatMessage;
+  onResend?: (id: string, text: string) => void;
+  /** Rewind the chat to this message and re-run it (replaces the old Regenerate). */
+  onReset?: (id: string, text: string) => void;
+  onImageClick?: (src: string) => void;
+  onImageContextMenu?: (e: React.MouseEvent, src: string) => void;
+  chronological?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const isUser = message.role === 'user';
+  const displayText = isUser && message.skill ? message.skill.input : message.content;
+  const [draft, setDraft] = useState(displayText);
+  if (message.role === 'tool') return null;
+  // Animate only genuinely-new content (the optimistic user bubble and the live
+  // stream). Persisted messages render statically, so the optimistic→saved and
+  // live→saved swaps at the end of a turn don't replay the entrance.
+  const entering = message.id === 'tmp' || message.id === 'live';
+  const copy = () => {
+    navigator.clipboard?.writeText(message.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); });
+  };
+
+  if (editing) {
+    return (
+      <div className="flex justify-end">
+        <div className="w-full max-w-[85%]">
+          <textarea className="input max-h-48 min-h-[60px] resize-none text-[14px]" value={draft} autoFocus onChange={(e) => setDraft(e.target.value)} />
+          <div className="mt-1.5 flex justify-end gap-2">
+            <button className="btn btn-ghost py-1 text-[12px]" onClick={() => { setEditing(false); setDraft(displayText); }}>Cancel</button>
+            <button className="btn btn-primary py-1 text-[12px]" onClick={() => { setEditing(false); onResend?.(message.id, draft); }}>Save &amp; send</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // In chronological mode, render reasoning, tools, and text as separate
+  // interleaved blocks so the layout is consistent with the live streaming view.
+  if (chronological && !isUser) {
+    const parts: React.ReactNode[] = [];
+    if (message.reasoning) {
+      parts.push(<ReasoningBlock key="reasoning" text={message.reasoning} live={false} duration={message.reasoningSeconds ?? null} />);
+    }
+    if (displayText) {
+      parts.push(
+        <div key="text" className={`group ${entering ? 'fade-in ' : ''}flex justify-start`}>
+          <div className="msg-ai">
+            <Markdown text={message.content} />
+            {displayText && message.content && (
+              <div className="mt-1 flex gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+                <button onClick={copy} title="Copy message" className="hover:text-ink">{copied ? '✓ copied' : 'Copy'}</button>
+              </div>
+            )}
+          </div>
+        </div>,
+      );
+    }
+    if (message.toolCalls?.length) {
+      message.toolCalls.forEach((c) => parts.push(<ToolCard key={c.id} call={c} />));
+    }
+    return <>{parts}</>;
+  }
+
+  return (
+    <div className={`group ${entering ? 'fade-in ' : ''}flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+      <div className={isUser ? 'msg-user' : 'msg-ai'}>
+        {isUser && message.skill && (
+          <span className="skill-pill mb-2 inline-flex text-[11px]">
+            <span className="skill-pill-slash">/</span>{message.skill.name}
+          </span>
+        )}
+        {isUser && message.images?.length ? (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {message.images.map((image, i) => (
+              <img
+                key={`${image.slice(0, 24)}-${i}`}
+                src={image}
+                alt={`Attached image ${i + 1}`}
+                className="h-[104px] w-[104px] cursor-pointer rounded-lg object-cover"
+                onClick={() => onImageClick?.(image)}
+                onContextMenu={(e) => onImageContextMenu?.(e, image)}
+                title="Click to preview · right-click to copy or save"
+              />
+            ))}
+          </div>
+        ) : null}
+        {!isUser && message.reasoning && (
+          <ReasoningBlock text={message.reasoning} live={false} duration={message.reasoningSeconds ?? null} />
+        )}
+        {/* Your own messages render as markdown too: people type dashed lists and
+            `code` in the composer and expect them to come out formatted. */}
+        {displayText && <Markdown text={isUser ? displayText : message.content} />}
+        {message.toolCalls?.map((c) => <ToolCard key={c.id} call={c} />)}
+        {displayText && message.content && (
+          <div className={`mt-1.5 flex items-center gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${isUser ? 'justify-end' : ''}`}>
+            {isUser && message.createdAt > 0 && (
+              <span className="text-ink-faint/70" title={new Date(message.createdAt).toLocaleString()}>{fmtTime(message.createdAt)}</span>
+            )}
+            <button onClick={copy} title="Copy prompt" className="hover:text-ink">{copied ? '✓ copied' : 'Copy'}</button>
+            {onResend && <button onClick={() => { setDraft(displayText); setEditing(true); }} title="Edit & resend" className="hover:text-ink">Edit</button>}
+            {onReset && (
+              <button
+                onClick={() => onReset(message.id, displayText)}
+                title="Rewind the chat to this message and re-run it"
+                className="hover:text-ink"
+              >
+                Reset here
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
