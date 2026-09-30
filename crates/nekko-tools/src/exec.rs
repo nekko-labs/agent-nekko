@@ -90,7 +90,7 @@ async fn write_file(call: &ToolCall, ctx: &ToolContext) -> Outcome {
     record_original(ctx, &p);
     nodefs::mkdir_p(&dirname(&p))?;
     // String(a.content ?? '')
-    let content = js::nullish(arg(call, "content")).map(|v| js::to_string(Some(v))).unwrap_or_default();
+    let content = if js::nullish(arg(call, "content")) { String::new() } else { js::to_string(arg(call, "content")) };
     nodefs::write_utf8(&p, &content)?;
     Ok(ToolResult::ok(call, format!("Wrote {p} ({} bytes)", js::len16(&content))))
 }

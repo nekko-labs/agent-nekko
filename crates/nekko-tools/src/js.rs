@@ -1,75 +1,19 @@
-//! JavaScript semantics the tools depend on, beyond what `nekko-js` has.
+//! The JavaScript operations the tools depend on that are theirs alone.
 //!
 //! The TS host coerces tool arguments with `String(x)`, edits with `split`
 //! and `replace` (which read `$&` in the replacement), and reports bad
-//! arguments with Node's `ERR_INVALID_ARG_TYPE` wording. A result that must
-//! equal the host's byte for byte has to do the same. Lengths, cuts, `trim`
-//! and truthiness come from `nekko-js`.
+//! arguments in Node's `ERR_INVALID_ARG_TYPE` wording. A result that must
+//! equal the host's byte for byte has to do the same. Everything general
+//! (UTF-16 lengths and cuts, `trim`, truthiness, number printing) is
+//! `nekko-js`.
 
 use serde_json::Value;
 
-pub use nekko_js::{len16, slice16, trim, truthy};
+pub use nekko_js::{len16, nullish, slice16, trim, truthy};
 
-/// `Number.prototype.toString()` for a finite double: shortest round-trip
-/// digits, positional between 1e-7 and 1e21, exponent (with its sign) outside.
-pub fn number_to_string(x: f64) -> String {
-    if x.is_nan() {
-        return "NaN".into();
-    }
-    if x.is_infinite() {
-        return if x > 0.0 { "Infinity".into() } else { "-Infinity".into() };
-    }
-    if x == 0.0 {
-        return "0".into();
-    }
-    if x < 0.0 {
-        return format!("-{}", number_to_string(-x));
-    }
-    // `{:e}` prints the shortest digits that round-trip, as `d.ddde<exp>`.
-    let sci = format!("{x:e}");
-    let (mantissa, exp) = sci.split_once('e').unwrap_or((&sci, "0"));
-    let digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
-    let k = digits.len() as i64;
-    let n = exp.parse::<i64>().unwrap_or(0) + 1;
-    if k <= n && n <= 21 {
-        format!("{digits}{}", "0".repeat((n - k) as usize))
-    } else if 0 < n && n <= 21 {
-        format!("{}.{}", &digits[..n as usize], &digits[n as usize..])
-    } else if -6 < n && n <= 0 {
-        format!("0.{}{digits}", "0".repeat((-n) as usize))
-    } else {
-        let e = n - 1;
-        let sign = if e < 0 { '-' } else { '+' };
-        let (head, rest) = digits.split_at(1);
-        let frac = if rest.is_empty() { String::new() } else { format!(".{rest}") };
-        format!("{head}{frac}e{sign}{}", e.abs())
-    }
-}
-
-fn number(n: &serde_json::Number) -> f64 {
-    // JavaScript holds every number as a double, big integers included.
-    n.as_f64().unwrap_or(0.0)
-}
-
-/// `String(x)` (ECMAScript `ToString`) for a JSON value; `None` is `undefined`.
+/// `String(x)` for a JSON field; `None` is `undefined`.
 pub fn to_string(v: Option<&Value>) -> String {
-    match v {
-        None => "undefined".into(),
-        Some(Value::Null) => "null".into(),
-        Some(Value::Bool(b)) => b.to_string(),
-        Some(Value::Number(n)) => number_to_string(number(n)),
-        Some(Value::String(s)) => s.clone(),
-        // Array.prototype.toString joins with commas, null and undefined as ''.
-        Some(Value::Array(a)) => {
-            a.iter().map(|x| if x.is_null() { String::new() } else { to_string(Some(x)) }).collect::<Vec<_>>().join(",")
-        }
-        Some(Value::Object(_)) => "[object Object]".into(),
-    }
-}
-
-/// `x ?? fallback` for a JSON field.
-pub fn nullish(v: Option<&Value>) -> Option<&Value> {
-    v.filter(|x| !x.is_null())
+    v.map_or_else(|| "undefined".into(), nekko_js::display)
 }
 
 /// Node's `ERR_INVALID_ARG_TYPE` message for an argument that must be a string.
@@ -80,7 +24,7 @@ pub fn invalid_string_arg(name: &str, v: Option<&Value>) -> String {
         Some(Value::Array(_)) => "Received an instance of Array".to_string(),
         Some(Value::Object(_)) => "Received an instance of Object".to_string(),
         Some(Value::Bool(b)) => format!("Received type boolean ({b})"),
-        Some(Value::Number(n)) => format!("Received type number ({})", number_to_string(number(n))),
+        Some(n @ Value::Number(_)) => format!("Received type number ({})", nekko_js::display(n)),
         // Not reached for a string, which is valid; kept total.
         Some(Value::String(s)) => format!("Received type string ('{s}')"),
     };
@@ -134,34 +78,16 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn numbers_print_like_javascript() {
-        let cases = [
-            (0.0, "0"),
-            (5.0, "5"),
-            (1.5, "1.5"),
-            (-2.25, "-2.25"),
-            (1e21, "1e+21"),
-            (1e20, "100000000000000000000"),
-            (1e-7, "1e-7"),
-            (0.000001, "0.000001"),
-            (123456789.125, "123456789.125"),
-            (1.2345e-10, "1.2345e-10"),
-            (2.5e25, "2.5e+25"),
-            (0.1, "0.1"),
-        ];
-        for (x, want) in cases {
-            assert_eq!(number_to_string(x), want, "{x}");
-        }
-        assert_eq!(to_string(Some(&json!(12345678901234567890u64))), "12345678901234567000");
-    }
-
-    #[test]
     fn coerces_like_string() {
         assert_eq!(to_string(None), "undefined");
         assert_eq!(to_string(Some(&json!(null))), "null");
         assert_eq!(to_string(Some(&json!([1, null, "a", [2, 3]]))), "1,,a,2,3");
         assert_eq!(to_string(Some(&json!({"a": 1}))), "[object Object]");
-        assert_eq!(to_string(Some(&json!(true))), "true");
+        assert_eq!(to_string(Some(&json!(0.000001))), "0.000001");
+        assert_eq!(
+            invalid_string_arg("path", Some(&json!(1.5))),
+            "The \"path\" argument must be of type string. Received type number (1.5)"
+        );
     }
 
     #[test]
