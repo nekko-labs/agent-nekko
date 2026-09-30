@@ -159,6 +159,7 @@ import {
   reconcileWorkflowRuns,
 } from './workflows.js';
 import { sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting } from './compaction.js';
 import { initLimits, getLimits, clearLimits } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
@@ -298,6 +299,8 @@ export interface Host {
   setSessionSupportingWorkspaces(id: string, workspaceIds: string[]): Session | null;
   setSessionAttachments(id: string, paths: string[]): Session | null;
   sendChat(opts: SendOptions): Promise<void>;
+  generateImageTurn(opts: import('@agent-nekko/shared').ImageTurnOptions): Promise<void>;
+  sessionImages(sessionId: string, limit: number): Array<{ messageId: string; src: string }>;
   abortChat(sessionId: string): void;
   compactSession(sessionId: string): Promise<Session>;
   cancelSessionCompaction(sessionId: string): void;
@@ -343,7 +346,7 @@ export interface Host {
   specPath(sessionId: string): string | null;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams'>>,
   ): Session | null;
   truncateSession(id: string, messageId: string): Session | null;
   clearSessions(scope: 'today' | 'month' | 'all'): number;
@@ -771,7 +774,11 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       }
       return sendChat(o, (e) => events.emit('agentEvent', e), !!opts.allowBrowserControl);
     },
-    abortChat,
+    abortChat: (sessionId) => {
+      if (!abortImageTurn(sessionId)) abortChat(sessionId);
+    },
+    sessionImages: (sessionId, limit) => sessionImages(sessionId, limit),
+    generateImageTurn: (o) => generateImageTurn(o, (request, onStage) => engine.generateImage(request, onStage), (e) => events.emit('agentEvent', e)),
     compactSession,
     cancelSessionCompaction,
     queuePrompt: sessions.queuePrompt,

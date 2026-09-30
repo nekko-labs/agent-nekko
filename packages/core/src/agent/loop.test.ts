@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { runAgent, windowHistory } from './loop.js';
+import { asSeenByChatModel, runAgent, windowHistory } from './loop.js';
 import { INTERRUPTED_NOTE, INTERRUPTED_TOOL_OUTPUT, RESUME_PROMPT } from './resume.js';
 import type { ChatRequest, Provider, ProviderChunk } from '../providers/types.js';
 import type { ChatMessage, ToolCall, ToolResult } from '@agent-nekko/shared';
@@ -517,5 +517,15 @@ describe('windowHistory', () => {
     // The window always begins on a user message (never a stranded tool result).
     expect(windowHistory(h, 2)[0].role).toBe('user');
     expect(windowHistory(h, 1).map((m) => m.content)).toEqual(['u3', 'a3']);
+  });
+});
+
+describe('asSeenByChatModel', () => {
+  it('turns a picture-only reply into a line a chat model can read, and leaves the rest alone', () => {
+    const generated = { modelId: 'lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0', width: 1024, height: 768, steps: 4, cfgScale: 1, seed: 42, ms: 4000 };
+    const img = { id: 'a', role: 'assistant' as const, content: '', images: ['data:image/png;base64,eA=='], generated, createdAt: 0 };
+    expect(asSeenByChatModel(img).content).toBe('[Generated a 1024×768 image with flux-2-klein-9b-Q8_0, seed 42.]');
+    const text = { id: 'b', role: 'assistant' as const, content: 'hi', createdAt: 0 };
+    expect(asSeenByChatModel(text)).toBe(text);
   });
 });

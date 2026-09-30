@@ -192,7 +192,9 @@ function WorkspaceCardImpl({
   const title = session?.title ?? terminal?.title ?? 'Workspace';
   const isChat = !!session;
   const model = session
-    ? session.autoModel
+    ? session.chatType === 'image'
+      ? `🎨 ${session.imageParams?.modelId ? (session.imageParams.modelId.split('/').pop() as string) : 'No image model yet'}`
+      : session.autoModel
       ? 'Auto'
       : session.modelId
         ? shortModelName(session.modelId, modelInfo?.name)

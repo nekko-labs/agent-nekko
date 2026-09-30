@@ -57,6 +57,18 @@ function id(prefix: string): string {
  * unchanged when `turns` is falsy or there are no more than `turns` user
  * messages, so normal chats (no limit) are unaffected.
  */
+/**
+ * A chat that was an image chat carries replies that are only a picture. A
+ * chat model neither receives assistant images nor accepts an empty turn from
+ * every provider, so each becomes a line saying what was made; the stored
+ * transcript is left as it is.
+ */
+export function asSeenByChatModel(m: ChatMessage): ChatMessage {
+  if (m.role !== 'assistant' || !m.generated || m.content.trim()) return m;
+  const g = m.generated;
+  return { ...m, content: `[Generated a ${g.width}×${g.height} image with ${g.modelId.split('/').pop()}, seed ${g.seed}.]` };
+}
+
 export function windowHistory(history: ChatMessage[], turns?: number): ChatMessage[] {
   if (!turns || turns < 1) return history;
   const userIdx: number[] = [];
@@ -138,7 +150,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     try {
       for await (const chunk of opts.provider.chat({
         model: opts.model,
-        messages: [...windowHistory(opts.history, opts.maxHistoryTurns), ...extraMessages],
+        messages: [...windowHistory(opts.history, opts.maxHistoryTurns).map(asSeenByChatModel), ...extraMessages],
         system: opts.system,
         tools: sendTools,
         temperature: opts.temperature,

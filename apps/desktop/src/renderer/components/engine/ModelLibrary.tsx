@@ -337,7 +337,7 @@ export function ModelLibrary({
                         style={{ borderColor: open === m.id ? 'var(--accent)' : 'var(--line)' }}
                         onClick={() => setOpen(open === m.id ? null : m.id)}
                       >
-                        {m.modality === 'image' ? 'Generate / Settings' : 'Settings'}
+                        {m.modality === 'image' ? 'Image settings' : 'Settings'}
                       </button>
                     )}
                     {unsupported ? null : m.loaded ? (

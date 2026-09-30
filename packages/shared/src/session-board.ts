@@ -93,6 +93,8 @@ export interface TurnExcerpt {
   at: number;
   /** The reply this came from was cut off part-way. */
   interrupted?: boolean;
+  /** An image-chat reply: the picture itself is fetched on demand (`sessionImages`). */
+  image?: { width: number; height: number; seed: number };
 }
 
 /**
@@ -110,13 +112,15 @@ export function recentTurns(messages: ChatMessage[], limit: number): TurnExcerpt
     const m = messages[i];
     if (m.role !== 'user' && m.role !== 'assistant') continue;
     const text = m.content.trim();
-    if (!text) continue;
+    const g = m.role === 'assistant' && m.images?.length ? m.generated : undefined;
+    if (!text && !g) continue;
     out.push({
       id: m.id,
       role: m.role,
-      text,
+      text: text || (g ? `${g.width}×${g.height} image` : ''),
       at: m.createdAt,
       ...(m.interrupted ? { interrupted: true } : {}),
+      ...(g ? { image: { width: g.width, height: g.height, seed: g.seed } } : {}),
     });
   }
   return out.reverse();

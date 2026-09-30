@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
-import { pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, planAsPromptBlock, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, planAsPromptBlock, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -18,6 +18,8 @@ import {
 } from './agent-console/index.js';
 import type { PendingApproval } from './agent-console/index.js';
 import { LiveTurn, producedTokens, useProducedTokens } from './agent-console/LiveTurn.js';
+import { ChatTypeToggle, ImageModeControls } from './agent-console/ImageModeControls.js';
+import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortMenu } from './ChatMetrics.js';
@@ -785,7 +787,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
       if (e.sessionId !== sessionId) return;
       // A reply may start host-side (a queued follow-up, or a task-driven run):
       // reflect it as streaming even though this pane didn't call send().
-      if (e.type === 'text' || e.type === 'reasoning' || e.type === 'tool_call') {
+      if (e.type === 'text' || e.type === 'reasoning' || e.type === 'tool_call' || e.type === 'image_status') {
         if (!streamingRef.current) {
           streamingRef.current = true;
           setStreaming(true);
@@ -1149,8 +1151,26 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
     return resolved;
   };
 
+  /** One image-chat turn: the prompt goes to the chat's image model, the picture comes back as the reply. */
+  const sendImage = async (prompt: string, fromDraft: boolean) => {
+    if (!session) return;
+    const params = { ...DEFAULT_IMAGE_CHAT_PARAMS, ...session.imageParams };
+    if (!params.modelId) {
+      useStore.getState().pushToast('error', 'Pick an image model below the chat first.');
+      return;
+    }
+    if (fromDraft) { setDraft(''); clearDraft(sessionId); }
+    beginTurn();
+    setSession((prev) => prev ? { ...prev, messages: [...prev.messages, { id: 'tmp', role: 'user', content: prompt, createdAt: Date.now() }] } : prev);
+    await window.nekko.generateImageTurn({ sessionId, prompt, params: { ...params, modelId: params.modelId } });
+  };
+
   const send = async (override?: string) => {
     const input = override ?? draft;
+    if (imageMode) {
+      if (input.trim()) await sendImage(input.trim(), override === undefined);
+      return;
+    }
     const skill = activeSkill;
     // A plan only reaches the agent when the rail's checkbox says so, so the
     // panel stays a scratchpad by default and becomes an instruction on request.
@@ -1353,6 +1373,11 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
   };
 
   const hasProvider = providers.length > 0;
+  // An image chat runs on the engine's image model, not a chat provider, so it
+  // can compose with no provider configured at all.
+  const summaryType = useStore((st) => st.sessions.find((x) => x.id === sessionId)?.chatType);
+  const imageMode = (session ? session.chatType : summaryType) === 'image';
+  const canCompose = imageMode || hasProvider;
   const slashQuery = draft.startsWith('/') && !draft.includes('\n') ? draft.slice(1).toLowerCase() : null;
   const slashMatches =
     slashQuery !== null ? (settings?.prompts ?? []).filter((p) => p.name.toLowerCase().includes(slashQuery)) : [];
@@ -1759,7 +1784,17 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
             className={`${contentWidth} space-y-5`}
             onPinnedChange={onPinnedChange}
             onGrowWhileUnpinned={onGrowWhileUnpinned}
-            header={!session?.messages.length && !hasLive ? (
+            header={!session?.messages.length && !hasLive ? (imageMode ? (
+              <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl text-[24px]" style={{ background: 'var(--accent-soft)' }} aria-hidden>🎨</div>
+                <div>
+                  <h2 className="text-[15px] font-semibold">What should Agent Nekko draw?</h2>
+                  <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
+                    Describe the picture below. It is made on this machine by the image model you pick, and every image stays in this chat with the settings that made it.
+                  </p>
+                </div>
+              </div>
+            ) : (
               <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
                 <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
                 <div>
@@ -1780,11 +1815,13 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                   <button className="btn btn-primary" onClick={() => openModelMenu(true)}>Choose a model</button>
                 ) : null}
               </div>
-            ) : undefined}
+            )) : undefined}
             footer={
               <>
                 {/* The reply being written: repaints once a frame on its own. */}
-                <LiveTurn sessionId={sessionId} held={held} onImageClick={setLightbox} />
+                {imageMode
+                  ? <ImageLiveTurn sessionId={sessionId} streaming={streaming} />
+                  : <LiveTurn sessionId={sessionId} held={held} onImageClick={setLightbox} />}
                 {errorNotice && !streaming && (() => {
                   // A stop the user asked for is not a failure, so it doesn't wear
                   // the failure colour. Either way the run is resumable whenever it
@@ -1905,9 +1942,17 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                 (model, reasoning, effort) plus the Automate action. The model
                 chip is the flexible member of its row and truncates first. */}
             <div className="flex items-center gap-1.5 pb-1">
-              <ChatControls session={session} isCloudModel={isCloudModel} onChange={setSession} />
+              <ChatControls
+                session={session}
+                isCloudModel={isCloudModel}
+                onChange={setSession}
+                leading={<ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
+              />
             </div>
-            <div className="flex items-center gap-1.5 pb-1.5">
+            <div className={`flex items-center gap-1.5 pb-1.5 ${imageMode ? 'flex-wrap' : ''}`}>
+              {imageMode && session ? (
+                <ImageModeControls session={session} onChange={setSession} busy={streaming} />
+              ) : (<>
               <ModelPicker
                 providers={providers}
                 providerId={providerId}
@@ -1992,6 +2037,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
               >
                 <BoltIcon className="h-3 w-3" /> Automate
               </button>
+              </>)}
             </div>
 
             {/* Queued follow-ups (animated in/out so the composer never jumps). */}
@@ -2020,6 +2066,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
               </div>
             </div>
 
+            {!imageMode && (
             <PromptAnalyzer
               text={deferredDraft}
               sessionId={sessionId}
@@ -2034,10 +2081,11 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                 composerRef.current?.focus();
               }}
             />
+            )}
 
             {/* Model-written follow-ups to the reply above: one click sends it
                 outright, and starting any turn clears them. */}
-            {liveSuggestions && liveSuggestions.options.length > 0 && !streaming && (
+            {!imageMode && liveSuggestions && liveSuggestions.options.length > 0 && !streaming && (
               <div className="mb-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Suggested replies">
                 {liveSuggestions.options.map((opt) => (
                   <button
@@ -2191,20 +2239,21 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                     ref={composerRef}
                     className={`${composerH != null ? '' : 'max-h-60 '}min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint`}
                     rows={2}
-                    placeholder={ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
+                    placeholder={imageMode ? 'Describe the image you want…' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
                     value={draft}
                     role="combobox"
                     aria-expanded={slashMenuOpen || atMenuOpen}
                     aria-controls={slashMenuOpen ? `slash-menu-${sessionId}` : atMenuOpen ? `at-menu-${sessionId}` : undefined}
                     aria-autocomplete="list"
                     onChange={(e) => { setDraft(e.target.value); setMenuClosed(false); }}
-                    onPaste={onPaste}
+                    onPaste={imageMode ? undefined : onPaste}
                     onKeyDown={onComposerKeyDown}
-                    disabled={!hasProvider}
+                    disabled={!canCompose}
                   />
                   <ComposerFocus target={composerRef} sessionId={sessionId} ready={providers.length} />
                 </div>
                 <div className="flex items-center gap-2 px-2 pb-2 pt-1">
+                  {!imageMode && (<>
                   <div
                     ref={attachMenuRef}
                     className="relative"
@@ -2347,8 +2396,9 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                     cost={cost}
                     running={streaming}
                   />
+                  </>)}
                   <div className="flex-1" />
-                  {draft.trim() && hasProvider && (
+                  {draft.trim() && hasProvider && !imageMode && (
                     <button
                       className="btn btn-ghost h-8 px-2.5 py-0 text-[12px]"
                       onClick={queueDraft}
@@ -2363,7 +2413,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
                       onClick={() => send()}
-                      disabled={(!draft.trim() && pendingImages.length === 0 && !activeSkill) || !hasProvider}
+                      disabled={imageMode ? !draft.trim() : (!draft.trim() && pendingImages.length === 0 && !activeSkill) || !hasProvider}
                       title="Send"
                       aria-label="Send"
                     >

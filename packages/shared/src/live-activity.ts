@@ -39,6 +39,8 @@ export interface LiveActivity {
   steps: LiveStep[];
   /** The narration streaming right now, tail-trimmed. */
   tail: string;
+  /** An image turn's stage ("Loading the image model"), which is all it reports. */
+  image?: string;
   /** Reasoning streamed since the last step, not yet folded into one. */
   thinking: string;
   startedAt: number;
@@ -98,6 +100,11 @@ export function reduceLiveActivity(
       });
       break;
     }
+
+    case 'image_status':
+      // An image turn has no narration; its stage is the whole story.
+      a.image = event.label;
+      break;
 
     case 'tool_approval_required':
       // The card shows the approval itself; recording it twice would put the
@@ -252,6 +259,7 @@ export function shortLiveStatus(a: LiveActivity | undefined): string {
     return target ? firstWords(`${verb} ${target}`, SHORT_STATUS_WORDS) : verb;
   }
 
+  if (a.image) return a.image;
   if (a.thinking.trim()) return 'Thinking';
   if (a.tail.trim()) return 'Writing reply';
 
