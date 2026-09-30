@@ -242,8 +242,10 @@ export interface Host {
 
   /** The built-in engine: install, catalog, library, and its own server. */
   engineStatus(): Promise<EngineStatus>;
-  engineInstall(buildId?: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
-  engineUninstall(): Promise<{ ok: boolean; message: string }>;
+  engineInstall(buildId?: string, runtime?: 'llama' | 'diffusion'): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  engineInstallPreview(runtime: 'llama' | 'diffusion', buildId?: string): Promise<import('@agent-nekko/shared').EngineInstallPreview | null>;
+  engineGenerateImage(request: import('@agent-nekko/shared').ImageGenerationRequest): Promise<import('@agent-nekko/shared').ImageGenerationResult>;
+  engineUninstall(runtime?: 'llama' | 'diffusion'): Promise<{ ok: boolean; message: string }>;
   engineSettingsSave(patch: Partial<EngineSettings>): Promise<EngineSettings>;
   engineModels(): Promise<Array<LocalModel & { loaded: boolean }>>;
   engineImportModel(path: string): Promise<{ ok: boolean; message: string; model?: LocalModel }>;
@@ -691,8 +693,10 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       runtimes.autoPlan(providerId, modelId, budgetFraction, parallelSlots),
 
     engineStatus: () => engine.status(),
-    engineInstall: (buildId) => engine.installEngine(buildId),
-    engineUninstall: () => engine.uninstallEngine(),
+    engineInstall: (buildId, runtime) => engine.installEngine(buildId, runtime),
+    engineUninstall: (runtime) => engine.uninstallEngine(runtime),
+    engineInstallPreview: (runtime, buildId) => engine.installPreview(runtime, buildId),
+    engineGenerateImage: (request) => engine.generateImage(request),
     engineSettingsSave: (patch) => engine.saveSettings(patch),
     engineModels: () => engine.models(),
     engineImportModel: (path) => engine.importModel(path),

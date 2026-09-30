@@ -189,6 +189,20 @@ describe('downloads', () => {
 });
 
 describe('post-download work', () => {
+  it('cancels runtime post-download work without queuing a duplicate job', async () => {
+    let began!: () => void;
+    const entered = new Promise<void>(resolve => { began = resolve; });
+    let requests = 0;
+    const fetchFn = serve('archive');
+    const downloads = createDownloads({ fetch: (async (...args: Parameters<typeof fetch>) => { requests++; return fetchFn(...args); }) as typeof fetch });
+    const req = { id: 'post-install', kind: 'engine' as const, label: 'runtime', target: 'build', url: 'https://example.com/runtime.zip', dest: join(dir, 'runtime.zip'), after: async (_path: string, signal: AbortSignal) => { began(); return new Promise<null>(resolve => signal.addEventListener('abort', () => resolve(null), { once: true })); } };
+    await downloads.start(req); await entered;
+    await downloads.start(req);
+    expect(requests).toBe(1);
+    downloads.cancel(req.id);
+    expect((await settled(downloads.list, req.id)).state).toBe('cancelled');
+  });
+
   it('runs `after` on the final path, and only once the file is in place', async () => {
     const dest = join(dir, 'engine.zip');
     let sawPath = '';

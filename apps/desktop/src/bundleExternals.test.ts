@@ -42,10 +42,10 @@ describe('staged product identity', () => {
 
   it('creates only the profile directory before setting paths on a fresh install', () => {
     const app = mockApp();
-    const profile = join(appData, 'Agent Nekko');
+    const profile = join(appData, 'desktop');
     expect(existsSync(profile)).toBe(false);
-    expect(() => preservePackagedProfile(app)).not.toThrow();
-    expect(app.getPath).toHaveBeenCalledExactlyOnceWith('appData');
+    expect(() => preservePackagedProfile(app, appData)).not.toThrow();
+    expect(app.getPath).not.toHaveBeenCalled();
     expect(app.setPath.mock.calls).toEqual([
       ['userData', profile],
       ['sessionData', profile],
@@ -58,26 +58,27 @@ describe('staged product identity', () => {
     expect(pin).toBeGreaterThan(0);
     expect(pin).toBeLessThan(main.indexOf('const isPrimary = claimSingleInstance();'));
     expect(pin).toBeLessThan(main.indexOf('app.whenReady()'));
-    expect(main).toContain("join(app.getPath('userData'), 'agent-nekko')");
+    expect(main).toContain('defaultUserDataDir()');
+    expect(main).toContain('prepareUserDataRoot()');
   });
 
   it('starts a fresh profile rather than adopting an earlier-brand one', () => {
     mkdirSync(join(appData, 'Some Other App'), { recursive: true });
     writeFileSync(join(appData, 'Some Other App', 'settings.json'), '{"theme":"dark"}\n');
 
-    preservePackagedProfile(mockApp());
+    preservePackagedProfile(mockApp(), appData);
 
-    const profile = join(appData, 'Agent Nekko');
+    const profile = join(appData, 'desktop');
     expect(readdirSync(profile)).toEqual([]);
     expect(existsSync(join(appData, 'Some Other App', 'settings.json'))).toBe(true);
   });
 
   it('leaves an existing profile alone on repeat runs', () => {
-    const profile = join(appData, 'Agent Nekko');
+    const profile = join(appData, 'desktop');
     mkdirSync(join(profile, 'agent-nekko'), { recursive: true });
     writeFileSync(join(profile, 'agent-nekko', 'settings.json'), '{"theme":"current"}\n');
 
-    preservePackagedProfile(mockApp());
+    preservePackagedProfile(mockApp(), appData);
 
     expect(readdirSync(profile)).toEqual(['agent-nekko']);
     expect(readFileSync(join(profile, 'agent-nekko', 'settings.json'), 'utf8')).toBe('{"theme":"current"}\n');
@@ -85,7 +86,7 @@ describe('staged product identity', () => {
 
   it('preserves existing browser and host data across repeated initialization', () => {
     const app = mockApp();
-    const profile = join(appData, 'Agent Nekko');
+    const profile = join(appData, 'desktop');
     const browserData = join(profile, 'Local Storage');
     const hostData = join(profile, 'agent-nekko');
     mkdirSync(browserData, { recursive: true });
@@ -95,8 +96,8 @@ describe('staged product identity', () => {
     const settings = '{"theme":"dark","mascotEnabled":true}\n';
     writeFileSync(join(hostData, 'settings.json'), settings);
 
-    preservePackagedProfile(app);
-    preservePackagedProfile(app);
+    preservePackagedProfile(app, appData);
+    preservePackagedProfile(app, appData);
 
     expect(readFileSync(join(browserData, 'sentinel'))).toEqual(sentinel);
     expect(readFileSync(join(hostData, 'settings.json'), 'utf8')).toBe(settings);
@@ -109,13 +110,12 @@ describe('staged product identity', () => {
     ]);
   });
 
-  it('leaves development profiles unchanged without creating any directories', () => {
+  it('uses the same data-root profile for development builds', () => {
     const app = mockApp(false);
-    preservePackagedProfile(app);
+    preservePackagedProfile(app, appData);
     expect(app.getPath).not.toHaveBeenCalled();
-    expect(app.setPath).not.toHaveBeenCalled();
-    expect(readdirSync(appData)).toEqual([]);
-    expect(existsSync(join(appData, 'Agent Nekko'))).toBe(false);
+    expect(app.setPath.mock.calls).toEqual([['userData', join(appData, 'desktop')], ['sessionData', join(appData, 'desktop')]]);
+    expect(readdirSync(appData)).toEqual(['desktop']);
   });
 
   it('carries the current brand through every packaged identity and filename', () => {

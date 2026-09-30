@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { navOrder, moveNav } from './nav-order.js';
 import { useStore, viewEnabled, type View } from './store.js';
 import { startLiveRuns } from './liveRuns.js';
 import { useT } from './i18n.js';
@@ -62,7 +63,17 @@ export function App() {
   const t = useT();
 
   // Experimental surfaces only exist in the nav once their Settings flag is on.
-  const visibleNav = NAV.filter((n) => viewEnabled(n.view, settings));
+  const [draggedNav, setDraggedNav] = useState<View | null>(null);
+  const [dropNav, setDropNav] = useState<View | null>(null);
+  const order = navOrder(NAV.map(n => n.view), settings?.navOrder);
+  const visibleNav = order.map(v => NAV.find(n => n.view === v)!).filter(n => viewEnabled(n.view, settings));
+  const reorder = async (from: View, to: View) => {
+    const previous = settings;
+    const nextOrder = moveNav(order, from, to);
+    useStore.setState({ settings: { ...settings!, navOrder: nextOrder } });
+    try { useStore.setState({ settings: await window.nekko.updateSettings({ navOrder: nextOrder }) }); }
+    catch (e) { useStore.setState({ settings: previous }); useStore.getState().pushToast('error', (e as Error).message); }
+  };
   const mobileNav = MOBILE_NAV.filter((v) => viewEnabled(v, settings));
 
   // If the surface you're looking at gets switched off (say from another
@@ -194,6 +205,20 @@ export function App() {
                 key={v}
                 className={`nav-item ${view === v ? 'active' : ''}`}
                 aria-label={t(labelKey)}
+                draggable
+                title={`${t(labelKey)}. Drag to reorder, or use Alt+Up / Alt+Down.`}
+                style={dropNav === v ? { boxShadow: 'inset 0 2px var(--accent)' } : draggedNav === v ? { opacity: 0.5 } : undefined}
+                onDragStart={e => { e.dataTransfer.setData('text/plain', v); e.dataTransfer.effectAllowed = 'move'; setDraggedNav(v); }}
+                onDragOver={e => { if (draggedNav) { e.preventDefault(); setDropNav(v); } }}
+                onDrop={e => { e.preventDefault(); if (draggedNav) void reorder(draggedNav, v); setDraggedNav(null); setDropNav(null); }}
+                onDragEnd={() => { setDraggedNav(null); setDropNav(null); }}
+                onKeyDown={e => {
+                  if (!e.altKey || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+                  e.preventDefault();
+                  const i = visibleNav.findIndex(n => n.view === v);
+                  const target = visibleNav[i + (e.key === 'ArrowUp' ? -1 : 1)];
+                  if (target) void reorder(v, target.view);
+                }}
                 onClick={() => setView(v)}
               >
                 <span className="grid h-11 w-11 shrink-0 place-items-center"><Icon /></span>

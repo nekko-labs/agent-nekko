@@ -34,10 +34,12 @@ export function EngineServerSettings({
 
   const save = async () => {
     setSaving(true);
-    await window.nekko.engineSettingsSave(draft);
-    setSaving(false);
-    pushToast('success', running ? 'Saved. The engine restarted on the new address.' : 'Saved.');
-    onChanged();
+    try {
+      await window.nekko.engineSettingsSave(draft);
+      pushToast('success', running ? 'Saved. Address changes restart the model server.' : 'Saved.');
+      onChanged();
+    } catch (e) { pushToast('error', (e as Error).message); }
+    finally { setSaving(false); }
   };
 
   const removeEngine = async () => {
@@ -63,7 +65,7 @@ export function EngineServerSettings({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3">
         <Field label="Port" hint={`Default ${ENGINE_PORT_DEFAULT}. The address other apps point at.`}>
           <input
             type="number"
@@ -156,7 +158,7 @@ export function EngineServerSettings({
         <input
           className="input mt-1 w-full font-mono text-[12px]"
           value={draft.modelsDir ?? ''}
-          placeholder="Agent Nekko's own data folder"
+          placeholder="~/.agent-nekko/models/{type}"
           spellCheck={false}
           onChange={(e) => setDraft({ ...draft, modelsDir: e.target.value })}
         />

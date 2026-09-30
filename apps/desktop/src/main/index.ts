@@ -1,8 +1,9 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { fileURLToPath } from 'url';
 import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
-import { createHost } from '@agent-nekko/host';
+import { createHost, defaultUserDataDir, legacyUserDataDirs, migrateUserData, prepareUserDataRoot } from '@agent-nekko/host';
+import { brandEnv } from '@agent-nekko/shared';
 import { IpcEvents } from '@agent-nekko/shared';
 import { registerIpc } from './ipc.js';
 import { checkForUpdates } from './update.js';
@@ -29,6 +30,7 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
   process.exit(1);
 }
 
+const previousProfile = app.getPath('userData');
 preservePackagedProfile(app);
 
 /**
@@ -288,7 +290,23 @@ app.whenReady().then(() => {
   // from it.
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
 
-  const dataDir = join(app.getPath('userData'), 'agent-nekko');
+  let dataDir = defaultUserDataDir();
+  const devSource = join(previousProfile, 'agent-nekko');
+  try {
+    if (!brandEnv('DATA_DIR') && !existsSync(join(dataDir, 'settings.json')) && existsSync(join(devSource, 'settings.json'))) throw new Error('An existing desktop profile needs confirmation before moving.');
+    dataDir = prepareUserDataRoot();
+  } catch (e) {
+    if (brandEnv('DATA_DIR')) throw e;
+    const sources = [...new Set([...legacyUserDataDirs(undefined, app.getPath('appData')), ...(existsSync(join(devSource, 'settings.json')) ? [devSource] : [])])];
+    if (!sources.length) { dialog.showErrorBox('Data migration needs attention', (e as Error).message); app.quit(); return; }
+    const choice = dialog.showMessageBoxSync({ type: 'question', title: 'Move Agent Nekko data', message: 'Choose the profile to move into ~/.agent-nekko', detail: `Close all other Agent Nekko desktop, web and CLI instances first. Settings, sessions and managed model files will move to ${dataDir}. Borrowed model folders are unchanged. Other profiles are not merged or deleted.`, buttons: ['Cancel', ...sources.map(p => `Move ${p}`)], defaultId: 0, cancelId: 0, noLink: true });
+    if (choice === 0) { app.quit(); return; }
+    try {
+      const source = sources[choice - 1];
+      migrateUserData(source, dataDir, source.endsWith('agent-nekko') ? join(source, '..') : undefined);
+    }
+    catch (failure) { dialog.showErrorBox('Data migration stopped', (failure as Error).message); app.quit(); return; }
+  }
   const host = createHost({ dataDir, allowBrowserControl: true });
   registerIpc(host);
   manageWorkflowLoopbackListener(host);

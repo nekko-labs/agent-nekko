@@ -52,8 +52,10 @@ const api: NekkoApi = {
   runtimeAutoFit: (providerId, modelId, budgetFraction, parallelSlots) =>
     inv(IpcChannels.runtimeAutoFit, providerId, modelId, budgetFraction, parallelSlots),
   engineStatus: () => inv(IpcChannels.engineStatus),
-  engineInstall: (buildId) => inv(IpcChannels.engineInstall, buildId),
-  engineUninstall: () => inv(IpcChannels.engineUninstall),
+  engineInstall: (buildId, runtime) => inv(IpcChannels.engineInstall, buildId, runtime),
+  engineUninstall: (runtime) => inv(IpcChannels.engineUninstall, runtime),
+  engineInstallPreview: (runtime, buildId) => inv(IpcChannels.engineInstallPreview, runtime, buildId),
+  engineGenerateImage: (request) => inv(IpcChannels.engineGenerateImage, request),
   engineSettingsSave: (patch) => inv(IpcChannels.engineSettingsSave, patch),
   engineModels: () => inv(IpcChannels.engineModels),
   engineImportModel: (path) => inv(IpcChannels.engineImportModel, path),

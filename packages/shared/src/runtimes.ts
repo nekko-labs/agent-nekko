@@ -198,6 +198,7 @@ export interface LoadParams {
   ropeFreqScale?: number;
   /** Sampling seed. Absent means random. */
   seed?: number;
+  diffusion?: import('./engine.js').EngineLoadPreset['diffusion'];
 }
 
 export interface StartOptions {

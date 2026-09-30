@@ -5,6 +5,7 @@ import { useStore } from '../../store.js';
 import { CheckIcon, TrashIcon, WarningIcon } from '../../icons.js';
 import { formatBytes, formatTokens } from '../runtimes/verdict.js';
 import { EngineLoadDrawer } from './EngineLoadDrawer.js';
+import { ImageGeneration } from './ImageGeneration.js';
 
 /**
  * The models on this machine.
@@ -28,20 +29,22 @@ import { EngineLoadDrawer } from './EngineLoadDrawer.js';
  */
 
 /** The filter is "all" or one bucket; unsupported modalities share a bucket. */
-type Filter = 'all' | 'chat' | 'vision' | 'embedding' | 'other';
+type Filter = 'all' | 'chat' | 'vision' | 'embedding' | 'image' | 'other';
 
 const FILTER_LABELS: Record<Filter, string> = {
   all: 'All',
   chat: 'Chat',
   vision: 'Vision',
   embedding: 'Embeddings',
+  image: 'Images',
   other: "Can't run here",
 };
 
 function bucketOf(modality?: ModelModality): Filter {
   if (modality === 'vision') return 'vision';
   if (modality === 'embedding') return 'embedding';
-  if (modality === 'image' || modality === 'audio' || modality === 'draft' || modality === 'unknown') return 'other';
+  if (modality === 'image') return 'image';
+  if (modality === 'audio' || modality === 'draft' || modality === 'unknown') return 'other';
   return 'chat';
 }
 
@@ -106,9 +109,9 @@ export function ModelLibrary({
     // own answer when it has never been configured. Opening the drawer is for
     // changing that, not for performing it.
     const params = model.preset ? { ...model.preset, budgetFraction: undefined } : null;
-    const res = params
-      ? await window.nekko.runtimeLoad(providerId, model.id, params)
-      : await autoLoad(providerId, model.id);
+    const res = await (params || model.modality === 'image'
+      ? window.nekko.runtimeLoad(providerId, model.id, params ?? {})
+      : autoLoad(providerId, model.id)).catch((e: Error) => ({ ok: false, message: e.message }));
     setBusy(null);
     pushToast(res.ok ? 'success' : 'error', res.message ?? (res.ok ? 'Loaded.' : "Couldn't load it."));
     onChanged();
@@ -250,7 +253,7 @@ export function ModelLibrary({
       ) : (
         <div className="mt-2 space-y-1.5">
           {visible.map((m) => {
-            const unsupported = unsupportedLoadReason(m);
+            const unsupported = m.modality === 'image' ? undefined : unsupportedLoadReason(m);
             const missingProjector = m.modality === 'vision' && !m.hasProjector;
             return (
               <div key={m.id}>
@@ -258,9 +261,9 @@ export function ModelLibrary({
                   className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px]"
                   style={{ background: 'var(--surface-2)', opacity: unsupported ? 0.85 : 1 }}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate font-medium">{m.name}</span>
+                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="min-w-0 max-w-full truncate font-medium">{m.name}</span>
                       {m.modality && m.modality !== 'chat' && (
                         <span
                           className="chip shrink-0"
@@ -306,7 +309,7 @@ export function ModelLibrary({
                     </p>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-1.5">
+                  <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
                     {!unsupported && !m.loaded && (
                       <button
                         className="rounded-full border px-2 py-1 text-[11px]"
@@ -329,7 +332,7 @@ export function ModelLibrary({
                         style={{ borderColor: open === m.id ? 'var(--accent)' : 'var(--line)' }}
                         onClick={() => setOpen(open === m.id ? null : m.id)}
                       >
-                        Settings
+                        {m.modality === 'image' ? 'Generate / Settings' : 'Settings'}
                       </button>
                     )}
                     {unsupported ? null : m.loaded ? (
@@ -346,7 +349,7 @@ export function ModelLibrary({
                         className="rounded-full px-2.5 py-1 text-[11px] text-white disabled:opacity-50"
                         style={{ background: 'var(--accent)' }}
                         title={canLoad ? `Load ${m.name} into memory` : 'Download the engine first'}
-                        disabled={busy === m.id || !canLoad}
+                        disabled={busy === m.id || (!canLoad && m.modality !== 'image')}
                         onClick={() => void quickLoad(m)}
                       >
                         {busy === m.id ? 'loading…' : 'Load'}
@@ -404,7 +407,8 @@ export function ModelLibrary({
                   </p>
                 )}
 
-                {open === m.id && (
+                {open === m.id && m.modality === 'image' && <ImageGeneration model={m} onChanged={onChanged} />}
+                {open === m.id && m.modality !== 'image' && (
                   <EngineLoadDrawer
                     providerId={providerId}
                     model={m}
@@ -432,7 +436,7 @@ function modalityTitle(modality: ModelModality): string {
     case 'embedding':
       return 'Turns text into vectors. Answers /v1/embeddings, not chat';
     case 'image':
-      return 'An image-generation model. llama.cpp cannot serve it';
+      return 'An image-generation model. Runs in the optional stable-diffusion.cpp runtime';
     case 'audio':
       return 'A speech-recognition model. llama.cpp cannot serve it';
     case 'draft':

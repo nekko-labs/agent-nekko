@@ -180,6 +180,7 @@ export async function runCli(argv: string[]): Promise<void> {
   if (flags.version || cmd === 'version') return void print(VERSION, !!flags.json);
   if (!cmd || flags.help || cmd === 'help') return void console.log(HELP);
   if (cmd === 'mcp') return runMcpServer({ url: value(flags, 'url'), token: value(flags, 'token') });
+  if (!['status', 'sessions', 'chat', 'watch', 'workspace', 'prompts', 'tasks', 'workflow', 'workflows', 'skills', 'tools', 'models', 'train'].includes(cmd)) throw new CliError(`Unknown command: ${cmd}`, EXIT_CODES.usage);
   const client = getClient({ url: value(flags, 'url'), token: value(flags, 'token') });
   const json = isMachine(flags);
   try {

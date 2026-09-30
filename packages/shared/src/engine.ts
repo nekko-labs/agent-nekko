@@ -76,6 +76,29 @@ export interface EngineInstall {
   recommended?: EngineBuild;
 }
 
+export interface EngineInstallPreview {
+  runtime: 'llama' | 'diffusion';
+  version: string;
+  build: EngineBuild;
+  sizeBytes: number;
+  files: Array<{ name: string; sizeBytes: number }>;
+}
+
+export interface ImageGenerationRequest {
+  modelId: string;
+  prompt: string;
+  width: number;
+  height: number;
+  steps?: number;
+  cfgScale?: number;
+  seed?: number;
+}
+
+export interface ImageGenerationResult {
+  created: number;
+  data: Array<{ b64_json: string }>;
+}
+
 /**
  * The engine's own server configuration, which for every other runtime lives in
  * that runtime's app. Defaults are deliberately the safe ones: loopback only, no
@@ -134,6 +157,7 @@ export function engineBaseUrl(settings: Pick<EngineSettings, 'port'>): string {
 /** Everything the engine card needs in one read. */
 export interface EngineStatus {
   install: EngineInstall;
+  diffusionInstall?: EngineInstall;
   running: boolean;
   startedAt?: number;
   resident: ResidentModel[];
@@ -347,6 +371,13 @@ export function modelModality(model: {
     if (EMBEDDING_ARCHS.test(arch)) return 'embedding';
     if (VISION_ARCHS.test(arch)) return 'vision';
   }
+  if (!arch && model.readable !== false) {
+    const name = model.name ?? '';
+    if (/(?:^|[ /_-])(?:sd[123](?:[. _-]|$)|sdxl|flux[. _-]|stable[-_ ]diffusion|qwen[-_ ]image|z[-_ ]image|hidream|chroma|text-to-image|image-to-image)/i.test(name)) return 'image';
+    if (/embedding|feature-extraction|(?:^|[ /_-])bge[-_]/i.test(name)) return 'embedding';
+    if (/whisper|parakeet|automatic-speech-recognition/i.test(name)) return 'audio';
+    if (VISION_ARCHS.test(name) || /image-text-to-text|\bvision\b/i.test(name)) return 'vision';
+  }
   if (model.hasProjector) return 'vision';
   if (model.readable === false) {
     // An unreadable header means we cannot trust the name either, but the
@@ -452,6 +483,7 @@ export interface EngineLoadPreset {
   ttlSeconds?: number;
   /** The simple slider's position, kept so the two surfaces stay one state. */
   budgetFraction?: number;
+  diffusion?: { clip_l?: string; clip_g?: string; t5xxl?: string; vae?: string; llm?: string; standalone?: boolean; offloadToCpu?: boolean; clipOnCpu?: boolean };
 }
 
 /* ------------------------------------------------------- model folders */

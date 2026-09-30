@@ -13,6 +13,7 @@ import type {
   StopResult,
 } from '@agent-nekko/shared';
 import { unsupportedLoadReason } from '@agent-nekko/shared';
+import { diffusionArgs } from './diffusion.js';
 
 /**
  * The Nekko engine's server: one address, several models.
@@ -65,6 +66,7 @@ interface Child {
   vramBytes?: number;
   sizeBytes: number;
   contextTokens?: number;
+  activeRequests: number;
 }
 
 /**
@@ -83,6 +85,7 @@ export interface EngineServerDeps {
   settings: () => EngineSettings;
   /** Absolute path to `llama-server`, or undefined when none is installed. */
   binPath: () => Promise<string | undefined>;
+  diffusionBinPath?: () => Promise<string | undefined>;
   findModel: (id: string) => Promise<LocalModel | undefined>;
   listModels: () => Promise<LocalModel[]>;
   getGpuStats: () => Promise<GpuStats | null>;
@@ -132,7 +135,7 @@ export function createEngineServer(deps: EngineServerDeps) {
 
   async function start(): Promise<{ ok: boolean; message: string }> {
     if (server) return { ok: true, message: 'The engine is already running.' };
-    const bin = await deps.binPath();
+    const bin = await deps.binPath() || await deps.diffusionBinPath?.();
     if (!bin) {
       return { ok: false, message: 'No engine is installed yet. Install one from the Models tab first.' };
     }
@@ -235,16 +238,21 @@ export function createEngineServer(deps: EngineServerDeps) {
       await unload(modelId);
     }
 
-    const bin = await deps.binPath();
-    if (!bin) return { ok: false, message: 'No engine is installed.' };
     const model = await deps.findModel(modelId);
     if (!model) return { ok: false, message: `${modelId} is not in the library.` };
+    const image = model.modality === 'image';
+    const bin = image ? await deps.diffusionBinPath?.() : await deps.binPath();
+    if (!bin) {
+      const message = image ? 'Install stable-diffusion.cpp from Nekko Server to run this image-generation model.' : 'No engine is installed.';
+      lastLoadErrors.set(modelId, message);
+      return { ok: false, message };
+    }
 
     // Some files are models but not chat models: a diffusion checkpoint, a
     // speech recognizer, a draft head. Spawning llama-server for one only ever
     // ends in its generic "model loading error", so refuse here with the
     // reason, the same one the library row shows instead of a Load button.
-    const unsupported = unsupportedLoadReason(model);
+    const unsupported = image ? undefined : unsupportedLoadReason(model);
     if (unsupported) {
       lastLoadErrors.set(modelId, unsupported);
       return { ok: false, message: unsupported };
@@ -254,17 +262,24 @@ export function createEngineServer(deps: EngineServerDeps) {
     // Make room before spending minutes on a load that would immediately push
     // something else out anyway.
     while (children.size >= Math.max(1, settings.maxLoaded)) {
-      const oldest = [...children.values()].sort((a, b) => a.lastUsedAt - b.lastUsedAt)[0];
-      if (!oldest) break;
+      const oldest = [...children.values()].filter(c => c.activeRequests === 0).sort((a, b) => a.lastUsedAt - b.lastUsedAt)[0];
+      if (!oldest) return { ok: false, message: 'All resident models are processing requests. Wait for one to finish or increase the resident limit.' };
       push(`Unloading ${oldest.modelId} to make room for ${modelId}.`);
       await unload(oldest.modelId);
     }
 
-    const companions = await resolveCompanions(model, deps.workDir?.(), deps.companionsDir?.(model.id));
+    const companions = image ? {} : await resolveCompanions(model, deps.workDir?.(), deps.companionsDir?.(model.id));
     if ('error' in companions) return { ok: false, message: companions.error };
 
     const port = await freePort();
-    const args = buildArgs(model, port, params, companions);
+    let args: string[];
+    try {
+      args = image ? await diffusionArgs({ ...model, preset: { ...model.preset, ...params } }, port, deps.companionsDir?.(model.id)) : buildArgs(model, port, params, companions);
+    } catch (e) {
+      const message = (e as Error).message;
+      lastLoadErrors.set(modelId, message);
+      return { ok: false, message };
+    }
     const before = await freeVramBytes();
 
     const childLog: string[] = [];
@@ -290,7 +305,7 @@ export function createEngineServer(deps: EngineServerDeps) {
     });
     child.on('exit', (code, signal) => {
       exited = exited ?? `The model server exited (code ${code ?? signal}).`;
-      children.delete(modelId);
+      if (children.get(modelId)?.child === child) children.delete(modelId);
     });
 
     const deadline = Date.now() + LOAD_BUDGET_MS;
@@ -305,7 +320,7 @@ export function createEngineServer(deps: EngineServerDeps) {
         lastLoadErrors.set(modelId, message);
         return { ok: false, message };
       }
-      if (await healthy(port)) {
+      if (await healthy(port, image)) {
         if (before !== null) await sleep(MEASURE_SETTLE_MS);
         const after = await freeVramBytes();
         // Measured, not projected: what the GPU reported before minus after.
@@ -326,6 +341,7 @@ export function createEngineServer(deps: EngineServerDeps) {
           // when nothing could be measured.
           sizeBytes: measured ?? model.sizeBytes,
           contextTokens: params.contextTokens,
+          activeRequests: 0,
         };
         children.set(modelId, entry);
         lastLoadErrors.delete(modelId);
@@ -371,7 +387,7 @@ export function createEngineServer(deps: EngineServerDeps) {
     const now = Date.now();
     for (const entry of [...children.values()]) {
       const ttl = (entry.params.ttlSeconds ?? settings.idleTtlSeconds) * 1000;
-      if (ttl > 0 && now - entry.lastUsedAt > ttl) {
+      if (entry.activeRequests === 0 && ttl > 0 && now - entry.lastUsedAt > ttl) {
         push(`${entry.modelId} was idle, unloading.`);
         await unload(entry.modelId);
       }
@@ -445,17 +461,19 @@ export function createEngineServer(deps: EngineServerDeps) {
         : json(res, 404, { error: { message: `No model named ${id}.`, type: 'invalid_request_error' } });
     }
 
-    const inference = /^\/(v1\/)?(chat\/completions|completions|embeddings|rerank|infill)$/.test(path);
+    const inference = /^\/(v1\/)?(chat\/completions|completions|embeddings|rerank|infill|images\/generations)$/.test(path);
     if (!inference) {
       return json(res, 404, { error: { message: `Unknown route ${path}.`, type: 'invalid_request_error' } });
     }
 
     const body = await readBody(req);
     const requested = pickModelId(body);
-    const target = await resolveTarget(requested);
+    const target = await resolveTarget(requested, path.endsWith('/images/generations'));
     if ('error' in target) return json(res, target.status, { error: { message: target.error, type: 'invalid_request_error' } });
 
     target.entry.lastUsedAt = Date.now();
+    target.entry.activeRequests += 1;
+    res.once('close', () => { target.entry.activeRequests -= 1; target.entry.lastUsedAt = Date.now(); });
     proxy(req, res, target.entry.port, path.startsWith('/v1/') ? path : `/v1${path}`, body);
   }
 
@@ -476,8 +494,11 @@ export function createEngineServer(deps: EngineServerDeps) {
    */
   async function resolveTarget(
     requested: string | undefined,
+    image = false,
   ): Promise<{ entry: Child } | { error: string; status: number }> {
     if (requested) {
+      const model = await deps.findModel(requested);
+      if (model && (model.modality === 'image') !== image) return { error: image ? 'This endpoint needs an image-generation model.' : 'Image models use /v1/images/generations, not text inference.', status: 400 };
       const loaded = children.get(requested);
       if (loaded) return { entry: loaded };
       const known = await deps.findModel(requested);
@@ -493,7 +514,8 @@ export function createEngineServer(deps: EngineServerDeps) {
 
     // No model named: the most recently used one is the least surprising answer,
     // and a client that names nothing has no expectation to violate.
-    const recent = [...children.values()].sort((a, b) => b.lastUsedAt - a.lastUsedAt)[0];
+    const eligible = await Promise.all([...children.values()].map(async entry => ({ entry, model: await deps.findModel(entry.modelId) })));
+    const recent = eligible.filter(row => (row.model?.modality === 'image') === image).map(row => row.entry).sort((a, b) => b.lastUsedAt - a.lastUsedAt)[0];
     if (recent) return { entry: recent };
     return { error: 'No model is loaded and the request named none.', status: 409 };
   }
@@ -655,7 +677,7 @@ function sameParams(a: LoadParams, b: LoadParams): boolean {
     'ubatchSize', 'threads', 'flashAttention', 'mmap', 'mlock', 'ropeFreqBase',
     'ropeFreqScale', 'seed',
   ];
-  return keys.every((k) => a[k] === b[k]);
+  return keys.every((k) => a[k] === b[k]) && JSON.stringify(a.diffusion ?? {}) === JSON.stringify(b.diffusion ?? {});
 }
 
 function pickModelId(body: Buffer): string | undefined {
@@ -725,10 +747,11 @@ function fail(res: ServerResponse, status: number, message: string): void {
   json(res, status, { error: { message, type: 'server_error' } });
 }
 
-async function healthy(port: number): Promise<boolean> {
+async function healthy(port: number, image = false): Promise<boolean> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/health`);
+    const res = await fetch(`http://127.0.0.1:${port}/${image ? 'v1/models' : 'health'}`, { signal: AbortSignal.timeout(2000) });
     if (!res.ok) return false;
+    if (image) return true;
     const body = (await res.json()) as { status?: string };
     // llama-server reports `loading model` before it is ready to serve.
     return body.status === 'ok';
