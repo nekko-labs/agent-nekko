@@ -16,6 +16,8 @@ import type {
   SubscriptionLimits,
 } from '@agent-nekko/shared';
 import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
+import { ENGINE_ENDPOINT_CHANNEL, PICK_FOLDER_CHANNEL } from '../engineChannels.js';
+import { createEngineSocket, type Listener } from './engine-socket.js';
 import {
   TITLEBAR_HEIGHT,
   TITLEBAR_OVERLAY_CHANNEL,
@@ -23,7 +25,34 @@ import {
   type WindowChromeBridge,
 } from '../windowChrome.js';
 
-const inv = ipcRenderer.invoke.bind(ipcRenderer);
+/**
+ * Where each call goes. The Electron main process answers only what needs
+ * Electron (native dialogs, the OS shell, the app version, the updater);
+ * everything else goes straight to the engine over its socket, never through
+ * main (see `engine-socket.ts`).
+ */
+const SHELL_CHANNELS = new Set<string>([
+  IpcChannels.dialogOpenFiles,
+  IpcChannels.openPath,
+  IpcChannels.appInfo,
+  IpcChannels.updateCheck,
+  IpcChannels.updateDownload,
+  IpcChannels.updateInstall,
+]);
+const SHELL_EVENTS = new Set<string>([IpcEvents.updateEvent, IpcEvents.deepLink]);
+
+const engine = createEngineSocket(() => ipcRenderer.invoke(ENGINE_ENDPOINT_CHANNEL));
+
+const inv = (channel: string, ...args: unknown[]): Promise<any> =>
+  SHELL_CHANNELS.has(channel) ? ipcRenderer.invoke(channel, ...args) : engine.call(channel, args);
+
+/** `ipcRenderer.on`/`removeListener`, routed the same way as `inv`. */
+const bus = {
+  on: (channel: string, listener: Listener) =>
+    SHELL_EVENTS.has(channel) ? ipcRenderer.on(channel, listener) : engine.on(channel, listener),
+  removeListener: (channel: string, listener: Listener) =>
+    SHELL_EVENTS.has(channel) ? ipcRenderer.removeListener(channel, listener) : engine.off(channel, listener),
+};
 
 const api: NekkoApi = {
   getSettings: () => inv(IpcChannels.settingsGet),
@@ -137,7 +166,11 @@ const api: NekkoApi = {
   deleteMemory: (id) => inv(IpcChannels.memoryDelete, id),
 
   listWorkspaces: () => inv(IpcChannels.workspaceList),
-  addWorkspace: () => inv(IpcChannels.workspaceAdd),
+  // The picker is native (main); adding the folder is the engine's.
+  addWorkspace: async () => {
+    const path: string | null = await ipcRenderer.invoke(PICK_FOLDER_CHANNEL);
+    return path ? inv(IpcChannels.workspaceAddByPath, path) : inv(IpcChannels.workspaceList);
+  },
   addWorkspaceByPath: (path) => inv(IpcChannels.workspaceAddByPath, path),
   removeWorkspace: (id) => inv(IpcChannels.workspaceRemove, id),
   indexWorkspace: (id) => inv(IpcChannels.workspaceIndex, id),
@@ -252,63 +285,64 @@ const api: NekkoApi = {
 
   onAgentEvent: (cb: (e: AgentEvent) => void) => {
     const listener = (_: unknown, e: AgentEvent) => cb(e);
-    ipcRenderer.on(IpcEvents.agentEvent, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.agentEvent, listener);
+    bus.on(IpcEvents.agentEvent, listener);
+    return () => bus.removeListener(IpcEvents.agentEvent, listener);
   },
   onOAuthStatus: (cb: (s: OAuthStatus) => void) => {
     const listener = (_: unknown, s: OAuthStatus) => cb(s);
-    ipcRenderer.on(IpcEvents.oauthStatus, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.oauthStatus, listener);
+    bus.on(IpcEvents.oauthStatus, listener);
+    return () => bus.removeListener(IpcEvents.oauthStatus, listener);
   },
   onIndexProgress: (cb: (s: IndexStatus) => void) => {
     const listener = (_: unknown, s: IndexStatus) => cb(s);
-    ipcRenderer.on(IpcEvents.indexProgress, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.indexProgress, listener);
+    bus.on(IpcEvents.indexProgress, listener);
+    return () => bus.removeListener(IpcEvents.indexProgress, listener);
   },
   onUpdateEvent: (cb: (u: UpdateInfo) => void) => {
     const listener = (_: unknown, u: UpdateInfo) => cb(u);
-    ipcRenderer.on(IpcEvents.updateEvent, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.updateEvent, listener);
+    bus.on(IpcEvents.updateEvent, listener);
+    return () => bus.removeListener(IpcEvents.updateEvent, listener);
   },
   onTerminalEvent: (cb: (e: TerminalEvent) => void) => {
     const listener = (_: unknown, e: TerminalEvent) => cb(e);
-    ipcRenderer.on(IpcEvents.terminalEvent, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.terminalEvent, listener);
+    bus.on(IpcEvents.terminalEvent, listener);
+    return () => bus.removeListener(IpcEvents.terminalEvent, listener);
   },
   onChangesUpdated: (cb: (e: { sessionId: string }) => void) => {
     const listener = (_: unknown, e: { sessionId: string }) => cb(e);
-    ipcRenderer.on(IpcEvents.changesUpdated, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.changesUpdated, listener);
+    bus.on(IpcEvents.changesUpdated, listener);
+    return () => bus.removeListener(IpcEvents.changesUpdated, listener);
   },
   onTasksUpdated: (cb) => {
     const listener = (_: unknown, tasks: import('@agent-nekko/shared').AutomationTask[]) => cb(tasks);
-    ipcRenderer.on(IpcEvents.tasksUpdated, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.tasksUpdated, listener);
+    bus.on(IpcEvents.tasksUpdated, listener);
+    return () => bus.removeListener(IpcEvents.tasksUpdated, listener);
   },
   onTrainingUpdated: (cb) => {
     const listener = (_: unknown, runs: import('@agent-nekko/shared').TrainingRun[]) => cb(runs);
-    ipcRenderer.on(IpcEvents.trainingUpdated, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.trainingUpdated, listener);
+    bus.on(IpcEvents.trainingUpdated, listener);
+    return () => bus.removeListener(IpcEvents.trainingUpdated, listener);
   },
   onWorkflowsUpdated: (cb) => {
     const listener = (_: unknown, snapshot: import('@agent-nekko/shared').WorkflowsSnapshot) => cb(snapshot);
-    ipcRenderer.on(IpcEvents.workflowsUpdated, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.workflowsUpdated, listener);
+    bus.on(IpcEvents.workflowsUpdated, listener);
+    return () => bus.removeListener(IpcEvents.workflowsUpdated, listener);
   },
   onDownloadsUpdated: (cb) => {
     const listener = (_: unknown, jobs: import('@agent-nekko/shared').DownloadJob[]) => cb(jobs);
-    ipcRenderer.on(IpcEvents.downloadsUpdated, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.downloadsUpdated, listener);
+    bus.on(IpcEvents.downloadsUpdated, listener);
+    return () => bus.removeListener(IpcEvents.downloadsUpdated, listener);
   },
   onLimitsUpdated: (cb: (e: { tokenKey: string; limits: SubscriptionLimits }) => void) => {
     const listener = (_: unknown, e: { tokenKey: string; limits: SubscriptionLimits }) => cb(e);
-    ipcRenderer.on(IpcEvents.limitsUpdated, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.limitsUpdated, listener);
+    bus.on(IpcEvents.limitsUpdated, listener);
+    return () => bus.removeListener(IpcEvents.limitsUpdated, listener);
   },
+  openTerminalStream: (id, handlers) => engine.openTerminal(id, handlers),
   onDeepLink: (cb: (url: string) => void) => {
     const listener = (_: unknown, url: string) => cb(url);
-    ipcRenderer.on(IpcEvents.deepLink, listener);
-    return () => ipcRenderer.removeListener(IpcEvents.deepLink, listener);
+    bus.on(IpcEvents.deepLink, listener);
+    return () => bus.removeListener(IpcEvents.deepLink, listener);
   },
 };
 

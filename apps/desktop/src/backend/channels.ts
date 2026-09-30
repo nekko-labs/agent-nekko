@@ -1,0 +1,62 @@
+import { IpcChannels, withApiServerDefaults, type AgentToolId, type ApiServerSettings, type SubagentTarget } from '@agent-nekko/shared';
+import { listAgentTerminals, type Host } from '@agent-nekko/host';
+import { apiServerStatus, newApiToken, syncApiServer } from '../main/api-server.js';
+import { cliInstallStatus, installCli } from '../main/cli-install.js';
+import { refreshLocalAccess, subagentTarget, type AppLike } from '../main/local-access.js';
+import type { ChannelOverrides } from './wire.js';
+
+/**
+ * The channels only the desktop edition answers, and answers differently from
+ * the shared dispatcher. They used to be `ipcMain` handlers in the Electron
+ * main process; none of them needs Electron (the app paths arrive as plain
+ * values, see `index.ts`), so they run here beside the host they drive.
+ */
+export function desktopChannels(app: AppLike, host: Host): ChannelOverrides {
+  const C = IpcChannels;
+  return {
+    // The local API server. Transport-local by nature: the web and self-hosted
+    // editions already are this server, so there is nothing for them to switch on.
+    [C.apiServerStatus]: () => apiServerStatus(host),
+    [C.apiServerSave]: ([patch]) => {
+      const current = withApiServerDefaults(host.getSettings().apiServer);
+      const next = { ...current, ...(patch as Partial<ApiServerSettings>) };
+      // Switching it on without a token would be switching on an unauthenticated
+      // agent endpoint, so the first "on" mints one rather than refusing.
+      if (next.enabled && !next.token) next.token = newApiToken();
+      host.updateSettings({ apiServer: next });
+      syncApiServer(host);
+      // A new port, address or token has to reach the CLI's link file and the
+      // MCP entries this app wrote, or they keep dialling the old one.
+      refreshLocalAccess(app, host);
+      return apiServerStatus(host);
+    },
+    [C.apiServerNewToken]: () => {
+      const current = withApiServerDefaults(host.getSettings().apiServer);
+      host.updateSettings({ apiServer: { ...current, token: newApiToken() } });
+      syncApiServer(host);
+      refreshLocalAccess(app, host);
+      return apiServerStatus(host);
+    },
+
+    // The bundled CLI's launcher and PATH entry.
+    [C.cliInstallStatus]: () => cliInstallStatus(app),
+    [C.cliInstall]: () => {
+      const status = installCli(app);
+      // Entries written before the launcher existed used npx; now they can
+      // name the launcher instead.
+      refreshLocalAccess(app, host);
+      return status;
+    },
+
+    // MCP entries written from this window point at this app's server: the
+    // renderer asks for "install into Claude Code" and the backend fills in
+    // the address, token and launcher, which the renderer never has to hold.
+    [C.integrationsInstall]: ([tool, target]) =>
+      host.installSubagent(tool as AgentToolId, (target as SubagentTarget | undefined) ?? subagentTarget(app, host)),
+    [C.integrationsSnippet]: ([tool, target]) =>
+      host.subagentSnippet(tool as AgentToolId, (target as SubagentTarget | undefined) ?? subagentTarget(app, host)),
+
+    // For nekkod: the terminals it does not own (the agent command logs).
+    'terminals:list:agent': () => listAgentTerminals(),
+  };
+}

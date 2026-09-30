@@ -33,6 +33,62 @@ interface TermState {
 const terms = new Map<string, TermState>();
 let senders: Sender[] = [];
 
+/**
+ * The engine daemon, when this host runs as the desktop app's TS backend.
+ *
+ * Under `nekkod` the daemon owns every real pty (in Rust, see
+ * `crates/nekko-term`), and this module keeps only the agent command logs,
+ * which are virtual. Every other call is forwarded to the daemon, so the relay
+ * and the CLI, which reach terminals through this host, see the same
+ * terminals the UI does. Unset in the web and server editions, where this
+ * module still owns the ptys itself.
+ */
+interface DaemonLink {
+  url: string;
+  token: string;
+}
+let daemon: DaemonLink | null = null;
+
+const isAgentLog = (id: string) => id.startsWith('agent_');
+
+async function daemonCall<T>(channel: string, ...args: unknown[]): Promise<T> {
+  const link = daemon!;
+  const res = await fetch(`${link.url}/api/${channel}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${link.token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ args }),
+  });
+  const text = await res.text();
+  const body = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error(body?.error ?? `${channel}: HTTP ${res.status}`);
+  return body as T;
+}
+
+/**
+ * Hand the ptys to the engine daemon and mirror its terminal events onto this
+ * host's bus (the relay forwards that bus to paired phones). Only terminal
+ * events are requested, so the host does not receive its own events back.
+ */
+export function useTerminalDaemon(link: DaemonLink | null): void {
+  daemon = link;
+  if (!link) return;
+  const connect = () => {
+    if (daemon !== link) return;
+    const ws = new WebSocket(`${link.url.replace(/^http/, 'ws')}/api/events?only=terminal:event&token=${encodeURIComponent(link.token)}`);
+    ws.onmessage = (ev) => {
+      try {
+        const { channel, payload } = JSON.parse(String(ev.data));
+        if (channel === 'terminal:event' && !isAgentLog(payload?.terminalId ?? '')) emit(payload as TerminalEvent);
+      } catch {
+        /* not a frame we understand */
+      }
+    };
+    ws.onclose = () => setTimeout(connect, 500);
+    ws.onerror = () => ws.close();
+  };
+  connect();
+}
+
 /** Register the host event sink that fans terminal output out to renderers. */
 export function setTerminalSender(send: Sender): void {
   if (!senders.includes(send)) senders.push(send);
@@ -108,8 +164,20 @@ export function appendAgentTerminal(sessionId: string, workspaceId: string | und
   return id;
 }
 
-export function listTerminals(): TerminalInfo[] {
-  return [...terms.values()].map((t) => t.info).sort((a, b) => {
+/** Only this host's own terminals (under the daemon, the agent command logs). */
+export function listAgentTerminals(): TerminalInfo[] {
+  return sortTerminals([...terms.values()].map((t) => t.info));
+}
+
+export async function listTerminals(): Promise<TerminalInfo[]> {
+  const local = [...terms.values()].map((t) => t.info);
+  if (!daemon) return sortTerminals(local);
+  const native = await daemonCall<TerminalInfo[]>('terminals:list:native').catch(() => []);
+  return sortTerminals([...local, ...native]);
+}
+
+function sortTerminals(list: TerminalInfo[]): TerminalInfo[] {
+  return list.sort((a, b) => {
     // Manually-ordered terminals first (in order), then the rest by age.
     if (a.order != null && b.order != null) return a.order - b.order;
     if (a.order != null) return -1;
@@ -119,7 +187,8 @@ export function listTerminals(): TerminalInfo[] {
 }
 
 /** Update a terminal's grouping/order (used by sidebar drag-and-drop). */
-export function updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): void {
+export async function updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): Promise<void> {
+  if (daemon && !isAgentLog(id)) return daemonCall('terminal:update', id, patch);
   const t = terms.get(id);
   if (!t) return;
   if ('workspaceId' in patch) t.info.workspaceId = patch.workspaceId ?? undefined;
@@ -127,12 +196,14 @@ export function updateTerminal(id: string, patch: { workspaceId?: string | null;
   if (patch.title) t.info.title = patch.title;
 }
 
-export function terminalSnapshot(id: string): TerminalSnapshot | null {
+export async function terminalSnapshot(id: string): Promise<TerminalSnapshot | null> {
+  if (daemon && !isAgentLog(id)) return daemonCall('terminal:snapshot', id);
   const t = terms.get(id);
   return t ? { info: t.info, buffer: t.buffer, cols: t.cols, rows: t.rows } : null;
 }
 
-export function createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): TerminalInfo {
+export async function createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo> {
+  if (daemon) return daemonCall('terminal:create', opts ?? {});
   const id = `term_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
   const cwd = resolveCwd(opts?.workspaceId, opts?.cwd);
   const shell = resolveShell(opts?.shell);
@@ -186,12 +257,20 @@ export function createTerminal(opts?: { workspaceId?: string; cwd?: string; titl
 
 /** Write raw input (keystrokes) to the PTY. */
 export function writeTerminal(id: string, data: string): void {
+  if (daemon && !isAgentLog(id)) {
+    void daemonCall('terminal:write', id, data).catch(() => {});
+    return;
+  }
   const t = terms.get(id);
   if (t && t.info.running && !t.info.agentSessionId) t.proc.write(data);
 }
 
 /** Resize the PTY so the shell reflows to the renderer's viewport. */
 export function resizeTerminal(id: string, cols: number, rows: number): void {
+  if (daemon && !isAgentLog(id)) {
+    void daemonCall('terminal:resize', id, cols, rows).catch(() => {});
+    return;
+  }
   const t = terms.get(id);
   if (!t || !t.info.running || t.info.agentSessionId) return;
   t.cols = cols;
@@ -214,6 +293,10 @@ export function signalTerminal(id: string, _signal: 'interrupt'): void {
 }
 
 export function closeTerminal(id: string): void {
+  if (daemon && !isAgentLog(id)) {
+    void daemonCall('terminal:close', id).catch(() => {});
+    return;
+  }
   const t = terms.get(id);
   if (!t) return;
   try {

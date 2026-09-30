@@ -307,11 +307,11 @@ export interface Host {
   /** Every session waiting on a person right now, keyed by session id. */
   pendingInput(): Record<string, PendingInput>;
 
-  listTerminals(): TerminalInfo[];
+  listTerminals(): Promise<TerminalInfo[]>;
   listShells(): ShellOption[];
-  createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): TerminalInfo;
-  terminalSnapshot(id: string): TerminalSnapshot | null;
-  updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): void;
+  createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo>;
+  terminalSnapshot(id: string): Promise<TerminalSnapshot | null>;
+  updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): Promise<void>;
   writeTerminal(id: string, data: string): void;
   resizeTerminal(id: string, cols: number, rows: number): void;
   runInTerminal(id: string, command: string): void;
