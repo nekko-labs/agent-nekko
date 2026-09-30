@@ -7,12 +7,17 @@ license.workspace = true
 repository.workspace = true
 publish.workspace = true
 
+[features]
+# Linux: run decision models on CUDA (pulls the several-hundred-MB CUDA build of ONNX Runtime).
+cuda = ["nekko-decide/cuda"]
+
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
 bytes.workspace = true
 futures-util.workspace = true
 getrandom.workspace = true
+nekko-decide = { path = "../nekko-decide" }
 nekko-infer = { path = "../nekko-infer" }
 nekko-term = { path = "../nekko-term" }
 reqwest.workspace = true

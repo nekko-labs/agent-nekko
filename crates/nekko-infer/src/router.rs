@@ -10,6 +10,10 @@
 //! TS engine, which knows the library, the saved settings and whether
 //! load-on-demand is on); once it reports the model loaded, the request goes
 //! through.
+//!
+//! Decisions (`/v1/decisions`, `/v1/systemone`) are the one exception to
+//! proxying: the decision model runs inside the daemon, so those requests are
+//! answered by the [`Decisions`] service behind the same auth and CORS.
 
 use crate::supervisor::{ActiveGuard, Kind, Supervisor};
 use axum::Router;
@@ -40,6 +44,20 @@ pub trait Policy: Send + Sync + 'static {
     fn model(&self, id: String) -> BoxFuture<Result<Option<Value>, String>>;
 }
 
+/// The engine's decision model (Laya, run natively by `nekko-decide` in the daemon), served on
+/// `POST /v1/decisions` (TypeSafe Jev's path) and `POST /v1/systemone` (Laya's `laya-serve`).
+///
+/// A trait rather than a dependency so this crate stays free of ONNX Runtime: the router only
+/// moves JSON, and the daemon decides what answers it.
+pub trait Decisions: Send + Sync + 'static {
+    /// Answer a Jev-shaped body (`{model?, state, questions}`), or say why not as an HTTP
+    /// status and a sentence (409 when no decision model is loaded).
+    fn decide(&self, body: Value) -> BoxFuture<Result<Value, (u16, String)>>;
+}
+
+/// A decision request is JSON text plus a 50,000-character state; 2 MB is `laya-serve`'s cap.
+const DECISION_BODY_LIMIT: usize = 2 * 1024 * 1024;
+
 #[derive(Clone, Debug, Deserialize, serde::Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct ServeConfig {
@@ -67,6 +85,7 @@ struct Running {
 pub struct EngineRouter {
     supervisor: Arc<Supervisor>,
     policy: Arc<dyn Policy>,
+    decisions: Option<Arc<dyn Decisions>>,
     running: Mutex<Option<Running>>,
 }
 
@@ -74,13 +93,20 @@ pub struct EngineRouter {
 struct Shared {
     supervisor: Arc<Supervisor>,
     policy: Arc<dyn Policy>,
+    decisions: Option<Arc<dyn Decisions>>,
     config: Arc<ServeConfig>,
     http: hyper_util::client::legacy::Client<hyper_util::client::legacy::connect::HttpConnector, Body>,
 }
 
 impl EngineRouter {
     pub fn new(supervisor: Arc<Supervisor>, policy: Arc<dyn Policy>) -> Self {
-        Self { supervisor, policy, running: Mutex::new(None) }
+        Self { supervisor, policy, decisions: None, running: Mutex::new(None) }
+    }
+
+    /// Serve decisions from `decisions` as well. Without it the decision routes answer 409.
+    pub fn with_decisions(mut self, decisions: Arc<dyn Decisions>) -> Self {
+        self.decisions = Some(decisions);
+        self
     }
 
     pub fn serving(&self) -> Option<ServeConfig> {
@@ -104,6 +130,7 @@ impl EngineRouter {
         let shared = Shared {
             supervisor: self.supervisor.clone(),
             policy: self.policy.clone(),
+            decisions: self.decisions.clone(),
             config: Arc::new(config.clone()),
             http: hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new()).build_http(),
         };
@@ -198,6 +225,9 @@ async fn route(s: Shared, req: Request) -> Response {
     }
 
     let bare = path.strip_prefix("/v1").unwrap_or(&path).to_string();
+    if bare == "/decisions" || bare == "/systemone" {
+        return decide(&s, req).await;
+    }
     if bare == "/models" {
         return match s.policy.models().await {
             Ok(v) => axum::Json(v).into_response(),
@@ -231,6 +261,30 @@ async fn route(s: Shared, req: Request) -> Response {
     };
     let guard = child.begin();
     proxy(&s, child.port, format!("/v1{bare}"), &parts.method, &parts.headers, body, guard).await
+}
+
+/// A decision request, answered in-process by the loaded decision model rather than proxied.
+async fn decide(s: &Shared, req: Request) -> Response {
+    if req.method() != Method::POST {
+        return error(StatusCode::METHOD_NOT_ALLOWED, "Decisions are POST requests.");
+    }
+    let body = match axum::body::to_bytes(req.into_body(), DECISION_BODY_LIMIT).await {
+        Ok(b) => b,
+        Err(_) => return error(StatusCode::PAYLOAD_TOO_LARGE, "Request body too large."),
+    };
+    let body: Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(_) => return error(StatusCode::BAD_REQUEST, "The request body must be JSON."),
+    };
+    let Some(decisions) = s.decisions.as_ref() else {
+        return error(StatusCode::CONFLICT, "No decision model is loaded.");
+    };
+    match decisions.decide(body).await {
+        Ok(v) => axum::Json(v).into_response(),
+        Err((status, message)) => {
+            error(StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR), message)
+        }
+    }
 }
 
 /// Which running model serves this request, loading it through the policy

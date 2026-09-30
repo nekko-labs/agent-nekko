@@ -7,6 +7,7 @@
 //! (`engine:routerLoad`), which comes back through `infer:spawn`.
 
 use crate::backend::Backend;
+use crate::decide::{DecideService, RouterDecisions};
 use nekko_infer::{BoxFuture, EngineRouter, Policy, ServeConfig, SpawnSpec, Supervisor};
 use serde_json::{Value, json};
 use std::sync::Arc;
@@ -14,13 +15,17 @@ use std::sync::Arc;
 pub struct Engine {
     pub supervisor: Arc<Supervisor>,
     pub router: EngineRouter,
+    /// The resident decision model, shared by the `decide:*` channels and the router.
+    pub decide: Arc<DecideService>,
 }
 
 impl Engine {
     pub fn new(backend: Arc<Backend>) -> Self {
         let supervisor = Arc::new(Supervisor::new());
-        let router = EngineRouter::new(supervisor.clone(), Arc::new(BackendPolicy { backend }));
-        Self { supervisor, router }
+        let decide = DecideService::new();
+        let router = EngineRouter::new(supervisor.clone(), Arc::new(BackendPolicy { backend }))
+            .with_decisions(Arc::new(RouterDecisions(decide.clone())));
+        Self { supervisor, router, decide }
     }
 
     pub fn shutdown(&self) {
@@ -65,8 +70,11 @@ fn arg(args: &[Value], i: usize) -> &Value {
     args.get(i).unwrap_or(&Value::Null)
 }
 
-/// The `infer:*` channels.
+/// The `infer:*` and `decide:*` channels.
 pub async fn route(engine: &Engine, channel: &str, args: &[Value]) -> Option<Result<Value, String>> {
+    if channel.starts_with("decide:") {
+        return crate::decide::route(&engine.decide, channel, args).await;
+    }
     Some(match channel {
         "infer:serve" => match serde_json::from_value::<ServeConfig>(arg(args, 0).clone()) {
             Ok(cfg) => engine.router.serve(cfg).await.map(|m| json!({ "ok": true, "message": m })),

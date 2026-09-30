@@ -1,7 +1,7 @@
 //! The supervisor and router against a real process: this test binary re-run
 //! as a fake model server (see `fake_model_server`).
 
-use nekko_infer::{BoxFuture, EngineRouter, Kind, Policy, ServeConfig, SpawnOutcome, SpawnSpec, Supervisor};
+use nekko_infer::{BoxFuture, Decisions, EngineRouter, Kind, Policy, ServeConfig, SpawnOutcome, SpawnSpec, Supervisor};
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -226,6 +226,85 @@ async fn streams_through_the_router_and_loads_on_demand() {
     assert_eq!(sup.list().len(), 1);
     router.stop();
     sup.kill_all();
+}
+
+/// A decision service that answers when "loaded" and echoes the question ids.
+struct FakeDecisions {
+    loaded: bool,
+}
+
+impl Decisions for FakeDecisions {
+    fn decide(&self, body: Value) -> BoxFuture<Result<Value, (u16, String)>> {
+        let loaded = self.loaded;
+        Box::pin(async move {
+            if !loaded {
+                return Err((409, "No decision model is loaded.".into()));
+            }
+            let ids: Vec<String> =
+                body["questions"].as_object().map(|q| q.keys().cloned().collect()).unwrap_or_default();
+            Ok(
+                json!({ "model": "laya", "answers": ids.iter().map(|id| (id.clone(), json!({ "type": "noul", "noul": 0.5 }))).collect::<serde_json::Map<_, _>>(), "usage": { "input_tokens": 1, "output_tokens": 0 } }),
+            )
+        })
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn decisions_are_answered_in_process_behind_the_same_auth_and_cors() {
+    let sup = Arc::new(Supervisor::new());
+    let loader = Arc::new(Loader { sup: sup.clone(), loads: AtomicUsize::new(0) });
+    let http = reqwest::Client::new();
+    let body = json!({ "state": "hi", "questions": { "b": { "type": "noul", "instructions": "?" }, "a": { "type": "noul", "instructions": "?" } } });
+    let config = |port| ServeConfig {
+        port,
+        host: "127.0.0.1".into(),
+        api_key: Some("k".into()),
+        cors_origins: vec!["http://app.test".into()],
+    };
+
+    // No decision service at all: a clear 409, never a proxy attempt.
+    let bare = EngineRouter::new(sup.clone(), loader.clone());
+    let port = free_port();
+    bare.serve(config(port)).await.unwrap();
+    let res =
+        http.post(format!("http://127.0.0.1:{port}/v1/decisions")).bearer_auth("k").json(&body).send().await.unwrap();
+    assert_eq!(res.status(), 409);
+    let err: Value = res.json().await.unwrap();
+    assert!(err["error"]["message"].as_str().unwrap().contains("No decision model"), "{err}");
+    bare.stop();
+
+    for loaded in [false, true] {
+        let router = EngineRouter::new(sup.clone(), loader.clone()).with_decisions(Arc::new(FakeDecisions { loaded }));
+        let port = free_port();
+        router.serve(config(port)).await.unwrap();
+        let base = format!("http://127.0.0.1:{port}");
+        assert_eq!(http.post(format!("{base}/v1/decisions")).json(&body).send().await.unwrap().status(), 401);
+        for path in ["/v1/decisions", "/v1/systemone"] {
+            let res = http
+                .post(format!("{base}{path}"))
+                .bearer_auth("k")
+                .header("origin", "http://app.test")
+                .json(&body)
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(res.headers().get("access-control-allow-origin").unwrap(), "http://app.test");
+            if !loaded {
+                assert_eq!(res.status(), 409);
+                continue;
+            }
+            assert_eq!(res.status(), 200);
+            let text = res.text().await.unwrap();
+            // Question order survives the round trip (b before a).
+            assert!(text.find("\"b\"").unwrap() < text.find("\"a\"").unwrap(), "{text}");
+        }
+        let get = http.get(format!("{base}/v1/decisions")).bearer_auth("k").send().await.unwrap();
+        assert_eq!(get.status(), 405);
+        let junk = http.post(format!("{base}/v1/decisions")).bearer_auth("k").body("nope").send().await.unwrap();
+        assert_eq!(junk.status(), 400);
+        router.stop();
+    }
+    assert_eq!(loader.loads.load(Ordering::SeqCst), 0);
 }
 
 #[tokio::test(flavor = "multi_thread")]

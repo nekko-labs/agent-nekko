@@ -179,6 +179,16 @@ async fn forwards_unported_channels_and_serves_owned_ones() {
     // Owned list merges the backend's agent logs.
     let (_, list) = post(d.port, "terminals:list", json!([]), Some(TOKEN)).await;
     assert!(list.as_array().unwrap().iter().any(|t| t["id"] == "agent_s1"));
+
+    // Decision models are the daemon's, never forwarded; with none loaded they say so.
+    assert!(info["owned"].as_array().unwrap().iter().any(|c| c == "decide:run"));
+    let (status, st) = post(d.port, "decide:status", json!([]), Some(TOKEN)).await;
+    assert_eq!((status, st["loaded"].clone()), (200, json!(false)));
+    let (status, body) = post(d.port, "decide:run", json!([{ "state": "x", "questions": {} }]), Some(TOKEN)).await;
+    assert_eq!(status, 400);
+    assert!(body["error"].as_str().unwrap().contains("No decision model"), "{body}");
+    let (status, _) = post(d.port, "decide:load", json!(["/no/such/model/dir"]), Some(TOKEN)).await;
+    assert_eq!(status, 400);
 }
 
 #[tokio::test(flavor = "multi_thread")]

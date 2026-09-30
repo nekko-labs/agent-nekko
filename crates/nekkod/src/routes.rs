@@ -106,6 +106,10 @@ pub const OWNED: &[&str] = &[
     "infer:kill",
     "infer:list",
     "infer:log",
+    "decide:load",
+    "decide:unload",
+    "decide:status",
+    "decide:run",
 ];
 
 fn terminal_op(ctx: &Ctx, channel: &str, id: &str, args: &[Value]) -> Result<Value, String> {
