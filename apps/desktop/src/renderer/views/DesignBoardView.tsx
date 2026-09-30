@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, DesignBoard, DesignPage } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { PlusIcon, CloseIcon, ExternalIcon, TrashIcon } from '../icons.js';
 import { Modal } from '../components/primitives/index.js';
@@ -18,7 +19,16 @@ import { Modal } from '../components/primitives/index.js';
  * comments that feed the prompt (Add to prompt / Run now).
  */
 export function DesignBoardView() {
-  const { settings, sessions, activeProjectId, setActiveProject, sendToChat, openChatPane } = useStore();
+  const { settings, sessions, activeProjectId, setActiveProject, sendToChat, openChatPane } = useStore(
+    useShallow((s) => ({
+      settings: s.settings,
+      sessions: s.sessions,
+      activeProjectId: s.activeProjectId,
+      setActiveProject: s.setActiveProject,
+      sendToChat: s.sendToChat,
+      openChatPane: s.openChatPane,
+    })),
+  );
   const workspaces = settings?.workspaces ?? [];
   const wsId = activeProjectId && workspaces.some((w) => w.id === activeProjectId)
     ? activeProjectId

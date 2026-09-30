@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, viewEnabled, type View } from './store.js';
 import { startLiveRuns } from './liveRuns.js';
 import { useT } from './i18n.js';
@@ -58,7 +59,21 @@ const NAV: Array<{ view: View; labelKey: string; Icon: (p: { className?: string 
 const MOBILE_NAV: View[] = ['command', 'chat', 'training', 'workflows', 'settings'];
 
 export function App() {
-  const { view, setView, mascotMood, settings, settingsLoaded, providers, onboardingOpen, refreshSettings, refreshProviders, refreshSessions, refreshTerminals } = useStore();
+  const { view, setView, mascotMood, settings, settingsLoaded, providers, onboardingOpen, refreshSettings, refreshProviders, refreshSessions, refreshTerminals } = useStore(
+    useShallow((s) => ({
+      view: s.view,
+      setView: s.setView,
+      mascotMood: s.mascotMood,
+      settings: s.settings,
+      settingsLoaded: s.settingsLoaded,
+      providers: s.providers,
+      onboardingOpen: s.onboardingOpen,
+      refreshSettings: s.refreshSettings,
+      refreshProviders: s.refreshProviders,
+      refreshSessions: s.refreshSessions,
+      refreshTerminals: s.refreshTerminals,
+    })),
+  );
   const t = useT();
 
   // Experimental surfaces only exist in the nav once their Settings flag is on.

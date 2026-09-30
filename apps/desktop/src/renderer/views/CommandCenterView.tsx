@@ -3,6 +3,7 @@ import type { AgentEvent, PendingInput, ProviderConfig, SessionSummary, Terminal
 import type { RemoteStatus } from '@agent-nekko/shared';
 import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider, reduceLiveActivity } from '@agent-nekko/shared';
 import type { OptimizationTip, AgentType, LiveActivity } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge, EmptyHint, PanelList } from '../components/primitives/index.js';
 import { ServerIcon, PlusIcon, CheckIcon, TerminalIcon, TrashIcon } from '../icons.js';
@@ -11,7 +12,21 @@ import { SessionBoard } from '../components/SessionBoard.js';
 const HOUR = 60 * 60_000;
 
 export function CommandCenterView() {
-  const { sessions, terminals, providers, settings, setView, newChat, openChatPane, openTerminalPane, newTerminal, refreshSessions, refreshTerminals } = useStore();
+  const { sessions, terminals, providers, settings, setView, newChat, openChatPane, openTerminalPane, newTerminal, refreshSessions, refreshTerminals } = useStore(
+    useShallow((s) => ({
+      sessions: s.sessions,
+      terminals: s.terminals,
+      providers: s.providers,
+      settings: s.settings,
+      setView: s.setView,
+      newChat: s.newChat,
+      openChatPane: s.openChatPane,
+      openTerminalPane: s.openTerminalPane,
+      newTerminal: s.newTerminal,
+      refreshSessions: s.refreshSessions,
+      refreshTerminals: s.refreshTerminals,
+    })),
+  );
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [tasks, setTasks] = useState<AutomationTask[]>([]);

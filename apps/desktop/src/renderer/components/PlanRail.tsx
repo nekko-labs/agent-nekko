@@ -725,7 +725,11 @@ function useSubAgentActivity(parentId: string, ids: string[]): Record<string, Su
         let next: SubAgentActivity = cur;
         if (e.type === 'tool_call') next = { running: true, failed: false, tool: e.call.name, detail: summarizeToolCall(e.call, 40) };
         else if (e.type === 'tool_result') next = { ...cur, running: true, tool: undefined, detail: undefined };
-        else if (e.type === 'text' || e.type === 'reasoning') next = { running: true, failed: false, tool: cur.tool, detail: cur.detail };
+        else if (e.type === 'text' || e.type === 'reasoning') {
+          // Every token of a sub-agent's reply lands here; only the first changes anything.
+          if (cur.running && !cur.failed) return prev;
+          next = { running: true, failed: false, tool: cur.tool, detail: cur.detail };
+        }
         else if (e.type === 'error') next = { running: false, failed: true };
         else if (e.type === 'done') next = { running: false, failed: false };
         else return prev;

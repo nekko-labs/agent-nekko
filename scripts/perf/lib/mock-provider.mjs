@@ -71,8 +71,9 @@ export async function startMockProvider({ port, tokensPerSecond, replyTokens }) 
         // the rate holds without relying on sub-millisecond timers.
         const started = performance.now();
         let sent = 0;
+        // The response's close, not the request's: a request emits 'close' as
+        // soon as its body has been read, which is long before the client goes.
         let closed = false;
-        req.on('close', () => { closed = true; });
         res.on('close', () => { closed = true; });
         const timer = setInterval(() => {
           if (closed) { clearInterval(timer); return; }

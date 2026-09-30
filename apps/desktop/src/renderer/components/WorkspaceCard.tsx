@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import type { PrInfo, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
 import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@agent-nekko/shared';
 import { useStore, type Workspace } from '../store.js';
@@ -134,7 +134,7 @@ function timeAgo(ms: number): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export function WorkspaceCard({
+function WorkspaceCardImpl({
   workspace,
   session,
   terminal,
@@ -378,3 +378,19 @@ export function WorkspaceCard({
     </div>
   );
 }
+
+type CardProps = React.ComponentProps<typeof WorkspaceCardImpl>;
+
+/**
+ * Memoized, so switching workspaces repaints the two cards whose state changed
+ * rather than the whole column. The handlers are left out of the comparison:
+ * the sidebar passes fresh closures every render, and each one only closes over
+ * this card's workspace id and store actions, which are compared (or stable).
+ */
+export const WorkspaceCard = memo(WorkspaceCardImpl, (a: CardProps, b: CardProps) => {
+  for (const key of Object.keys(b) as Array<keyof CardProps>) {
+    if (key === 'onOpen' || key === 'onClose') continue;
+    if (a[key] !== b[key]) return false;
+  }
+  return Object.keys(a).length === Object.keys(b).length;
+});

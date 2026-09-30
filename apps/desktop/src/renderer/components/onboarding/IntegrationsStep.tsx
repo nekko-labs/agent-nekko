@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { AgentToolId, AgentToolStatus, SubagentSnippet } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { ConnectorGrid } from '../ConnectorGrid.js';
@@ -24,7 +25,7 @@ export function IntegrationsStep({
   /** Set to the step's commit action; the wizard runs it on Next. */
   commitRef?: React.MutableRefObject<(() => Promise<void>) | null>;
 } = {}) {
-  const { pushToast } = useStore();
+  const { pushToast } = useStore(useShallow((s) => ({ pushToast: s.pushToast })));
   const [tools, setTools] = useState<AgentToolStatus[] | null>(null);
   const [installing, setInstalling] = useState<AgentToolId | null>(null);
   const [snippetFor, setSnippetFor] = useState<AgentToolId | null>(null);

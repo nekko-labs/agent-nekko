@@ -13,6 +13,11 @@
  * --report-only  write the report but exit 0 even when a budget is missed
  * --dump-trace   also write the streaming trace (large) to the output directory
  * --only <part>  run just 'latency' (keypress, switching) or 'frames' (streaming)
+ * --profile      write a CPU profile and a main-thread trace of each switch phase
+ *                and print where the time went
+ * --timeline     only the main-thread traces of --profile (no CPU profiler overhead)
+ * --debug        forward the page's console to this one
+ * --app <dir>    measure the web edition built in another checkout (before/after)
  * PERF_BROWSER   path to a Chromium binary, when auto-detection picks wrong
  *
  * Latency budgets (keypress, switching) run in a browser with the frame-rate
@@ -38,6 +43,7 @@ import { INSTALL, locate } from './lib/probes.mjs';
 import { summarize } from './lib/stats.mjs';
 import { frameWorkFromTrace } from './lib/trace.mjs';
 import { BUDGETS } from './budgets.mjs';
+import { startProfile, startTimeline, stopProfile } from './lib/profile.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const argv = process.argv.slice(2);
@@ -49,6 +55,9 @@ const opt = (name, fallback) => {
 
 const QUICK = flag('quick');
 const OUT = resolve(opt('out', join(ROOT, 'perf-results')));
+// The checkout whose web edition is measured: this one, or another (a base
+// branch built alongside, for before/after numbers).
+const APP_ROOT = resolve(opt('app', ROOT));
 const CFG = {
   // Chat 0 is the 1,000-message chat the composer and streaming budgets use;
   // the rest are switch targets, more of them than the warm set can hold.
@@ -86,6 +95,9 @@ async function openApp({ appUrl, cdpPort, vsync }) {
 
   await cdp.send('Page.enable');
   await cdp.send('Runtime.enable');
+  if (flag('debug')) {
+    cdp.on('Runtime.consoleAPICalled', (p) => console.log('[page]', p.args.map((a) => a.value ?? a.description ?? JSON.stringify(a.preview?.properties?.map((x) => `${x.name}=${x.value}`))).join(' ')));
+  }
   await cdp.send('Emulation.setDeviceMetricsOverride', { ...CFG.viewport, deviceScaleFactor: 1, mobile: false });
   await cdp.send('Page.navigate', { url: appUrl });
 
@@ -116,7 +128,8 @@ async function openApp({ appUrl, cdpPort, vsync }) {
   await cdp.evaluate(INSTALL);
 
   /** Open a seeded chat from the Command Center (setup, not measured). */
-  const openChat = async (i) => {
+  /** `marker` is what the newest reply must contain; '' accepts any (a chat that has grown since seeding). */
+  const openChat = async (i, marker = lastMarker(i)) => {
     await clickEl('nav button[aria-label="Command Center"]', null, 'the Command Center nav');
     const title = chatTitle(i);
     const openSel = `button[title="Open ${title}"]`;
@@ -126,7 +139,7 @@ async function openApp({ appUrl, cdpPort, vsync }) {
       await sleep(200);
     }
     await clickEl(openSel, null, `the card for ${title}`);
-    const ok = await cdp.evaluate(`window.__perf.waitForChat(${JSON.stringify(title)}, ${JSON.stringify(lastMarker(i))}, 30000)`);
+    const ok = await cdp.evaluate(`window.__perf.waitForChat(${JSON.stringify(title)}, ${JSON.stringify(marker)}, 30000)`);
     if (!ok) throw new Error(`${title} never showed its newest message`);
   };
 
@@ -139,7 +152,15 @@ async function openApp({ appUrl, cdpPort, vsync }) {
       res = await cdp.evaluate('window.__perf.switchResult');
       if (!res) await sleep(25);
     }
-    if (!res || res.timeout) throw new Error(`switch to ${chatTitle(i)} did not paint`);
+    if (!res || res.timeout) {
+      const seen = await cdp.evaluate(`[...document.querySelectorAll('.panel')].map((p) => ({
+        title: p.firstElementChild?.querySelector('span.truncate')?.textContent,
+        visible: p.checkVisibility(),
+        composer: !!p.querySelector('textarea')?.checkVisibility(),
+        newest: p.textContent.includes(${JSON.stringify(lastMarker(i))}),
+      }))`);
+      throw new Error(`switch to ${chatTitle(i)} did not paint (${JSON.stringify(res)}): ${JSON.stringify(seen)}`);
+    }
     // Let the arrival settle (fetches, effects) before the next measurement.
     await sleep(350);
     return res;
@@ -158,6 +179,16 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     if (mock.state.streamsStarted === before) throw new Error('the reply never started streaming');
     // Past the first paint of the live bubble, into the steady state.
     await sleep(1500);
+    // The measurement means nothing unless tokens are actually landing on screen.
+    const shown = () => cdp.evaluate(`(() => {
+      const panel = [...document.querySelectorAll('.panel')].find((p) => p.querySelector('textarea')?.checkVisibility());
+      const all = panel ? panel.querySelectorAll('.msg-ai') : [];
+      return all.length ? all[all.length - 1].textContent.length : 0;
+    })()`);
+    const a = await shown();
+    await sleep(400);
+    const b = await shown();
+    if (!(b > a)) throw new Error(`the reply is not streaming onto the screen (${a} -> ${b} chars)`);
   };
 
   return { cdp, browser, close, waitFor, clickEl, openChat, switchTo, startStream };
@@ -181,7 +212,11 @@ async function measureLatency({ appUrl, mock, api, bigChat }) {
   await app.switchTo(1);
   await app.switchTo(0);
   const warm = [];
+  const warmTimeline = flag('profile') || flag('timeline') ? await startTimeline(app.cdp) : null;
+  if (flag('profile')) await startProfile(app.cdp);
   for (let k = 0; k < CFG.warmSwitches; k++) warm.push((await app.switchTo(k % 2 === 0 ? 1 : 0)).history);
+  if (flag('profile')) await stopProfile(app.cdp, OUT, 'warm-switch');
+  if (warmTimeline) await warmTimeline(OUT, 'warm-switch');
 
   // Cold: cycle through more chats than the warm set holds, so every target
   // was last seen longer ago than anything kept warm. One unmeasured cycle
@@ -191,6 +226,8 @@ async function measureLatency({ appUrl, mock, api, bigChat }) {
   for (const i of ring) await app.switchTo(i);
   const coldFrame = [];
   const coldHistory = [];
+  const coldTimeline = flag('profile') || flag('timeline') ? await startTimeline(app.cdp) : null;
+  if (flag('profile')) await startProfile(app.cdp);
   for (let c = 0; c < CFG.coldCycles; c++) {
     for (const i of ring) {
       const r = await app.switchTo(i);
@@ -198,12 +235,16 @@ async function measureLatency({ appUrl, mock, api, bigChat }) {
       coldHistory.push(r.history);
     }
   }
+  if (flag('profile')) await stopProfile(app.cdp, OUT, 'cold-switch');
+  if (coldTimeline) await coldTimeline(OUT, 'cold-switch');
 
   // Composer: type into the 1,000-message chat while its reply streams.
   log(`typing ${CFG.keySamples} keys while a reply streams`);
   await app.switchTo(0);
   await app.startStream(mock);
   await app.cdp.evaluate('window.__perf.keys.length = 0; window.__perf.recordEvents = true;');
+  const typingTimeline = flag('profile') || flag('timeline') ? await startTimeline(app.cdp) : null;
+  if (flag('profile')) await startProfile(app.cdp);
   const text = 'the quick brown fox jumps over the lazy dog ';
   for (let k = 0; k < CFG.keySamples; k++) {
     const ch = text[k % text.length];
@@ -213,6 +254,8 @@ async function measureLatency({ appUrl, mock, api, bigChat }) {
     await app.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: ch, code, windowsVirtualKeyCode: vk });
     await sleep(CFG.keyGapMs);
   }
+  if (flag('profile')) await stopProfile(app.cdp, OUT, 'typing');
+  if (typingTimeline) await typingTimeline(OUT, 'typing');
   await sleep(300);
   const { keys, eventTiming } = await app.cdp.evaluate('({ keys: window.__perf.keys, eventTiming: window.__perf.eventTiming })');
   const typedWhileStreaming = mock.state.streamsFinished === 0;
@@ -226,7 +269,8 @@ async function measureLatency({ appUrl, mock, api, bigChat }) {
 async function measureFrames({ appUrl, mock, api, bigChat }) {
   log(`tracing ${CFG.traceSeconds}s of streaming in a vsync-paced browser`);
   const paced = await openApp({ appUrl, cdpPort: CFG.cdpPort + 1, vsync: true });
-  await paced.openChat(0);
+  // The latency phase left a reply of its own at the end of this chat.
+  await paced.openChat(0, '');
   await paced.startStream(mock);
   const traceEvents = [];
   const offData = paced.cdp.on('Tracing.dataCollected', (p) => { for (const e of p.value) traceEvents.push(e); });
@@ -238,7 +282,9 @@ async function measureFrames({ appUrl, mock, api, bigChat }) {
       includedCategories: ['toplevel', 'devtools.timeline', 'disabled-by-default-devtools.timeline.frame', '__metadata'],
     },
   });
+  if (flag('profile')) await startProfile(paced.cdp);
   await sleep(CFG.traceSeconds * 1000);
+  if (flag('profile')) await stopProfile(paced.cdp, OUT, 'streaming');
   const tracedWhileStreaming = mock.state.streamsFinished === 0;
   await paced.cdp.send('Tracing.end');
   await traced;
@@ -258,8 +304,8 @@ async function main() {
   cleanups.push(() => rmSync(dataDir, { recursive: true, force: true }));
   log(`scratch data dir ${dataDir}`);
 
-  const server = spawn(process.execPath, [join(ROOT, 'apps/server/dist/index.js')], {
-    cwd: ROOT,
+  const server = spawn(process.execPath, [join(APP_ROOT, 'apps/server/dist/index.js')], {
+    cwd: APP_ROOT,
     env: { ...process.env, NEKKO_DATA_DIR: dataDir, NEKKO_PORT: String(CFG.appPort), NEKKO_HOST: '127.0.0.1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });

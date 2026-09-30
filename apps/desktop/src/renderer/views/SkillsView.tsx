@@ -22,6 +22,7 @@ import {
   type InstallTarget,
   normalizeInstallTarget,
 } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { StarIcon, SendIcon } from '../icons.js';
 
@@ -91,7 +92,7 @@ export function SkillsView() {
 
 /** Built-in skills + marketplace skills installed into Agent Nekko. */
 function LibraryTab() {
-  const { sendToChat, installedSkillDefs } = useStore();
+  const { sendToChat, installedSkillDefs } = useStore(useShallow((s) => ({ sendToChat: s.sendToChat, installedSkillDefs: s.installedSkillDefs })));
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>(SKILLS[0]?.id ?? '');
 
@@ -231,7 +232,14 @@ function fmtMetric(n: number): string {
 
 /** Browse + install skills: your installs, Nekko Labs' shelf, and popular online skills. */
 function MarketplaceTab() {
-  const { sendToChat, installedSkills, refreshSkills, pushToast } = useStore();
+  const { sendToChat, installedSkills, refreshSkills, pushToast } = useStore(
+    useShallow((s) => ({
+      sendToChat: s.sendToChat,
+      installedSkills: s.installedSkills,
+      refreshSkills: s.refreshSkills,
+      pushToast: s.pushToast,
+    })),
+  );
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>(NEKKO_SKILLS[0]?.id ?? '');
   const [targets, setTargets] = useState<InstallTargetInfo[]>([]);

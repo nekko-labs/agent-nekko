@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { memo } from 'react';
 import { summarizeThought, summarizeToolCall, truncateWords } from '@agent-nekko/shared';
 import { ChatIcon, RobotIcon, ThoughtIcon, ToolStepIcon } from '../../icons.js';
 import { Markdown } from '../Markdown.js';
 import type { Activity } from './transcript.js';
 import { stepKey } from './transcript.js';
+import { useRowState } from './rowState.js';
 
 /**
  * A turn's working steps, as the sequence they actually were.
@@ -17,10 +18,11 @@ import { stepKey } from './transcript.js';
  * collapses to the old one-liner, so a 40-step turn doesn't take over the
  * transcript.
  */
-export function ActivityGroup({ items, streaming = false }: { items: Activity[]; streaming?: boolean }) {
+export const ActivityGroup = memo(function ActivityGroup({ items, streaming = false }: { items: Activity[]; streaming?: boolean }) {
   // Open while the turn runs (watching it work is the point), folded away
-  // afterwards so a finished transcript reads as answers.
-  const [open, setOpen] = useState(streaming);
+  // afterwards so a finished transcript reads as answers. Remembered per row,
+  // so scrolling a transcript row out of the window and back keeps it as left.
+  const [open, setOpen] = useRowState('group-open', streaming);
   const tools = items.filter((it): it is Extract<Activity, { kind: 'tool' }> => it.kind === 'tool');
   const toolCount = tools.length;
   const summary = streaming
@@ -60,7 +62,7 @@ export function ActivityGroup({ items, streaming = false }: { items: Activity[];
       )}
     </div>
   );
-}
+});
 
 /**
  * One step in the sequence: a numbered, single-line row that opens to the whole
@@ -68,7 +70,7 @@ export function ActivityGroup({ items, streaming = false }: { items: Activity[];
  * anything, which for a thought means its conclusion, not its opening.
  */
 function StepRow({ index, item, live }: { index: number; item: Activity; live: boolean }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useRowState(`step-${index}-open`, false);
 
   const kind =
     item.kind === 'tool' ? (item.call.name === 'spawn_agent' ? 'agent' : 'tool') : item.kind;

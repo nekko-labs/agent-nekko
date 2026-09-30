@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { memo, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ContextBundle, SessionMeta, WorkspaceFolder } from '@agent-nekko/shared';
 import { getSessionWorkspaceIds, estimateTokens } from '@agent-nekko/shared';
 import { FolderIcon, FileIcon, PlusIcon, TrashIcon, ExternalIcon, ChevronIcon } from '../icons.js';
@@ -60,7 +60,11 @@ function baseName(p: string): string {
  *     counts. It takes the whole panel while every folder is collapsed and gives
  *     ground as soon as a tree opens.
  */
-export function ContextInspector({ sessionId }: { sessionId: string | null }) {
+export const ContextInspector = memo(function ContextInspector({ sessionId: shown }: { sessionId: string | null }) {
+  // Follows the chat on screen one step behind: switching chats paints the
+  // chat first, and this panel's re-read of the new one comes right after
+  // rather than inside the switch.
+  const sessionId = useDeferredValue(shown);
   const settings = useStore((s) => s.settings);
   const sessions = useStore((s) => s.sessions);
   const refreshSettings = useStore((s) => s.refreshSettings);
@@ -455,7 +459,7 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
       <ResourceDock />
     </div>
   );
-}
+});
 
 /**
  * One project folder as an accordion: the row carries what the agent may see

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { DatasetRef, BaseModelRef, NewTrainingRun, TrainingConfig, TrainingRun } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { ArtifactsCard, ChampionCard, HintComposer, IdeaMaze, RunLog, RunModelPicker, RunNowStrip, RunStatTiles, RunStatusChip } from '../components/RunBoard.js';
 
@@ -13,7 +14,7 @@ import { ArtifactsCard, ChampionCard, HintComposer, IdeaMaze, RunLog, RunModelPi
  * skill, spec) alongside the model itself.
  */
 export function TrainingView() {
-  const { settings, openChatPane, setView } = useStore();
+  const { settings, openChatPane, setView } = useStore(useShallow((s) => ({ settings: s.settings, openChatPane: s.openChatPane, setView: s.setView })));
   const [runs, setRuns] = useState<TrainingRun[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);

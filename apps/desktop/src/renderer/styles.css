@@ -1347,6 +1347,21 @@
   line-height: 1.6;
 }
 
+/* One windowed transcript row (VirtualTranscript). It contains its children's
+   margins, so its measured height is exactly the space it takes; the gap to
+   the next row is the row's own padding. Before rows were wrapped, the outer
+   margins of a row's first and last parts collapsed into that gap, so they are
+   dropped here and the spacing comes out the same. */
+.vt-row {
+  display: flow-root;
+}
+.vt-row > :first-child {
+  margin-top: 0;
+}
+.vt-row > :last-child {
+  margin-bottom: 0;
+}
+
 /* Skill pill — a highlighted slash-command token (Claude-Code style). Used both
    as the active skill above the composer and as the badge on a sent message. */
 .skill-pill {
