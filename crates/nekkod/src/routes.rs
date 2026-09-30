@@ -19,6 +19,8 @@ pub struct Ctx {
     pub engine: Arc<crate::engine::Engine>,
     /// Session reads (`nekko-store`), when the data directory is known.
     pub sessions: Option<Arc<nekko_store::SessionStore>>,
+    /// Agent runs the TS host hands the daemon (`loop:run`).
+    pub loops: Arc<crate::loops::Loops>,
 }
 
 /// Terminals whose ids start with this are the TS host's read-only agent
@@ -78,6 +80,8 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
             }
             terminal_op(ctx, channel, &id, &args)
         }
+        "loop:run" => ctx.loops.start(ctx.backend.clone(), ctx.hub.clone(), arg(&args, 0).clone()),
+        "loop:abort" => Ok(json!(ctx.loops.abort(str_arg(&args, 0).unwrap_or_default()))),
         c if SESSION_CHANNELS.contains(&c) && ctx.sessions.is_some() => {
             session_op(ctx.sessions.clone().expect("checked"), channel, args).await
         }
@@ -93,6 +97,8 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
 /// Channels the daemon serves itself (reported by `daemon:info`).
 pub const OWNED: &[&str] = &[
     "daemon:info",
+    "loop:run",
+    "loop:abort",
     "sessions:summaries",
     "sessions:list",
     "session:get",

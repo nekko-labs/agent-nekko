@@ -112,7 +112,8 @@ async fn a_tool_round_trip_through_the_openai_compatible_provider() {
     let mut history =
         vec![json!({ "id": "u1", "role": "user", "content": "What does app.ts export?", "createdAt": 1 })];
     let mut events = Vec::new();
-    run_agent(options(&mut history, Cancel::default()), &provider(wire.clone()), &Files, &mut |e| events.push(e)).await;
+    run_agent(options(&mut history, Cancel::default()), &provider(wire.clone()), &Files, &mut |e, _| events.push(e))
+        .await;
 
     let kinds: Vec<&str> = events.iter().map(|e| e["type"].as_str().unwrap()).collect();
     assert_eq!(kinds, ["tool_call", "tool_result", "text", "done"], "{events:?}");
@@ -145,7 +146,7 @@ async fn stop_ends_a_silent_stream_at_once() {
     });
     let started = Instant::now();
     let mut events = Vec::new();
-    run_agent(options(&mut history, cancel), &provider(wire), &Files, &mut |e| events.push(e)).await;
+    run_agent(options(&mut history, cancel), &provider(wire), &Files, &mut |e, _| events.push(e)).await;
     assert!(started.elapsed() < Duration::from_secs(3), "took {:?}", started.elapsed());
     assert_eq!(events.last().unwrap(), &json!({ "type": "error", "sessionId": "s1", "message": "Stopped" }));
 }

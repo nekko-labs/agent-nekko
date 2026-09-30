@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
 import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
@@ -44,6 +44,8 @@ import { ensureFreshToken, resolveSubscriptionProvider } from './oauth.js';
 import { searchWorkspace } from './workspace.js';
 import { buildSpec } from './spec.js';
 import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
+import { daemonCall } from './engine/daemon.js';
+import { runAgentViaDaemon } from './daemon-loop.js';
 
 /**
  * Retrieve code snippets from the session's workspace index relevant to the
@@ -78,6 +80,15 @@ function collectIndexSnippets(
 }
 
 type Sender = (event: AgentEvent) => void;
+
+let loopsSupported: Promise<boolean> | undefined;
+/** Whether this daemon drives agent runs (`loop:run`); asked once. */
+function daemonRunsLoops(call: NonNullable<ReturnType<typeof daemonCall>>): Promise<boolean> {
+  loopsSupported ??= call<{ owned?: string[] }>('daemon:info')
+    .then((info) => Boolean(info?.owned?.includes('loop:run')))
+    .catch(() => false);
+  return loopsSupported;
+}
 
 const abortControllers = new Map<string, AbortController>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
@@ -790,14 +801,14 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     };
 
     try {
-      for await (const event of runAgent({
+      const runOptions = {
         sessionId: opts.sessionId,
         provider: createProvider(resolvedProvider),
         model: opts.modelId,
         system,
         history: session.messages,
         tools,
-        executeTool: async (call) => {
+        executeTool: async (call: ToolCall): Promise<ToolResult> => {
           if (!tools.some((tool) => tool.name === call.name)) {
             return { toolCallId: call.id, output: 'This tool is disabled or unavailable for this chat.', isError: true };
           }
@@ -879,9 +890,20 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         signal: abort.signal,
         onHeaders:
           provider.kind === 'anthropic' && provider.auth === 'subscription' && provider.tokenKey
-            ? (headers) => LimitsService.recordFromHeaders(provider.tokenKey!, provider.kind, headers)
+            ? (headers: Headers) => LimitsService.recordFromHeaders(provider.tokenKey!, provider.kind, headers)
             : undefined,
-      })) {
+      };
+      // Under the engine daemon the run itself is the daemon's (daemon-loop.ts):
+      // its tokens reach the UI without passing through this process. A run
+      // that reports rate-limit headers stays here, since only this side
+      // records them.
+      // NEKKO_AGENT_LOOP=ts keeps every run in this process (a kill switch).
+      const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
+      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonRunsLoops(daemon));
+      const source = viaDaemon
+        ? runAgentViaDaemon(daemon, { ...runOptions, provider: resolvedProvider })
+        : runAgent(runOptions);
+      for await (const event of source) {
         eventsSeen = true;
         if (event.type === 'usage') {
           recordUsage({

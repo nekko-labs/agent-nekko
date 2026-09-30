@@ -49,7 +49,7 @@ async fn main() {
         },
         &client,
         &Clock,
-        &mut |e: Value| {
+        &mut |e: Value, _: &[Value]| {
             if e["type"] == "text" && first_token.is_none() {
                 first_token = Some(started.elapsed());
             }

@@ -205,7 +205,7 @@ struct Loop<'o, 'a, C, T, E> {
     emit: &'o mut E,
 }
 
-impl<C: ModelClient, T: ToolRunner, E: FnMut(Value) + Send> Loop<'_, '_, C, T, E> {
+impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '_, C, T, E> {
     fn event(&mut self, kind: &str, fields: Value) {
         let mut e = Map::new();
         e.insert("type".into(), json!(kind));
@@ -213,7 +213,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value) + Send> Loop<'_, '_, C, T, E
         if let Value::Object(f) = fields {
             e.extend(f);
         }
-        (self.emit)(Value::Object(e));
+        (self.emit)(Value::Object(e), self.opts.history);
     }
 
     /// `stream`: one response into `turn`. `extra` is sent but never kept.
@@ -430,8 +430,9 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value) + Send> Loop<'_, '_, C, T, E
 }
 
 /// Run the agent loop to the end of one reply, calling `emit` with each
-/// `AgentEvent` as it happens.
-pub async fn run_agent<C: ModelClient, T: ToolRunner, E: FnMut(Value) + Send>(
+/// `AgentEvent` as it happens and the transcript as it stands at that moment
+/// (a host checkpoints it on `tool_result`, `done` and `error`).
+pub async fn run_agent<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send>(
     mut opts: RunOptions<'_>,
     client: &C,
     tools: &T,
