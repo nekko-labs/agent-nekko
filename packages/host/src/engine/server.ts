@@ -700,9 +700,11 @@ export function buildArgs(
   // new chat from 2.3 s to 1.7 s and a revisit of an evicted chat from 1.7 s
   // to 0.8 s; the RAM cache still catches what a slot really loses.
   if (supports('--no-cache-idle-slots')) args.push('--no-cache-idle-slots');
-  if (params.speculative !== false && !companions?.mmproj && supports('--spec-default')) {
+  if (params.speculative !== false && supports('--spec-default')) {
     // N-gram lookup from the conversation: 117 -> 506 tok/s on an edit that
-    // repeats its input, and faster on ordinary replies too.
+    // repeats its input, and faster on ordinary replies too. Works with a
+    // vision projector loaded as well (measured 633 tok/s on the same edit);
+    // llama.cpp only drops --cache-reuse for those, with a warning.
     args.push('--spec-default');
     if (companions?.draftModel && supports('--spec-draft-model')) {
       args.push('--spec-draft-model', companions.draftModel, '--spec-draft-ngl', 'all', '--spec-type', 'draft-simple');

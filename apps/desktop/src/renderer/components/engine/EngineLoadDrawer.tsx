@@ -422,7 +422,7 @@ function AdvancedSurface({
 
       <Row
         label="Speculative decoding"
-        hint="Guesses upcoming tokens from text already in the conversation and checks them in one pass. Edits that repeat their input come out several times faster. Not used with vision models."
+        hint="Guesses upcoming tokens from text already in the conversation and checks them in one pass. Edits that repeat their input come out several times faster."
       >
         <Toggle value={params.speculative !== false} onChange={(on) => onChange({ speculative: on ? undefined : false })} />
       </Row>

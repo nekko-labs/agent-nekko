@@ -322,9 +322,9 @@ describe('buildArgs', () => {
     expect(args).not.toContain('--no-cache-idle-slots');
   });
 
-  it('turns speculative decoding off on request, and for vision models', () => {
+  it('turns speculative decoding off on request, and keeps it for vision models', () => {
     expect(buildArgs(m, 9000, { speculative: false }, undefined, all)).not.toContain('--spec-default');
-    expect(buildArgs(m, 9000, {}, { mmproj: '/m/mmproj.gguf' }, all)).not.toContain('--spec-default');
+    expect(buildArgs(m, 9000, {}, { mmproj: '/m/mmproj.gguf' }, all)).toContain('--spec-default');
   });
 
   it('adds a draft model beside the n-gram lookup when one is attached', () => {

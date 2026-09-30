@@ -40,6 +40,7 @@ Measured flag by flag on the same model and build (b11011):
 - **`--spec-default`** (n-gram speculative decoding from the conversation, no draft model): code edit 117 to 506-534 tokens/s, decode 127 to 154-155.
 - **`--no-cache-idle-slots`**: llama.cpp's default copies every idle slot to its RAM prompt cache when a new request arrives. Keeping them in place cut the first turn of a new chat from 2.3 s to 1.7 s and a revisit of an evicted chat from 1.7 s to 0.8 s. The RAM cache still catches what a slot really loses (turning it off entirely was worse on both).
 - **`--cache-reuse 256`**: reuse cached chunks around an edit in the middle of a prompt.
+- **Vision models keep it.** With Gemma's projector loaded as well, the code edit ran at 633 tokens/s and decode at 152; llama.cpp only drops `--cache-reuse` for multimodal models.
 - **A draft model is opt-in, not automatic.** Gemma 4 E4B as the draft for the 12B raised the code edit to 624 tokens/s but halved ordinary decode (155 to 74) because only 55% of its guesses were accepted. A draft helps only when it is much smaller than its target.
 - Parallel slots and a shared KV pool were already llama.cpp's default (`-np` auto with a unified cache), so nothing changed there.
 
