@@ -62,7 +62,9 @@ export function isStalled(messages: ChatMessage[]): boolean {
 export function sessionLane(input: {
   running: boolean;
   pending?: PendingInput;
-  messages: ChatMessage[];
+  /** The transcript, or, from a summary, whether it already ends stalled. */
+  messages?: ChatMessage[];
+  stalled?: boolean;
 }): { lane: SessionLane; blocked?: BlockedReason } {
   if (input.pending?.question) return { lane: 'needs-you', blocked: 'question' };
   if (input.pending?.approval) return { lane: 'needs-you', blocked: 'approval' };
@@ -70,7 +72,7 @@ export function sessionLane(input: {
   // moved past whatever stopped it, and reading it as blocked would park a live
   // agent in a lane that asks the user to do something about it.
   if (input.running) return { lane: 'working' };
-  if (isStalled(input.messages)) return { lane: 'needs-you', blocked: 'interrupted' };
+  if (input.stalled ?? isStalled(input.messages ?? [])) return { lane: 'needs-you', blocked: 'interrupted' };
   return { lane: 'idle' };
 }
 

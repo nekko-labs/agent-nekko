@@ -19,29 +19,102 @@ import React, { useState } from 'react';
  *    spacing, hard-wrapped lines reflowed into paragraphs the way markdown
  *    means them, block-level HTML stripped to its text, and task-list
  *    checkboxes. This is what makes a document read as a document.
+ *
+ * Chat text is rendered block by block (see `markdownSegments`): each finished
+ * top-level block is memoized by its source, so a reply that is still
+ * streaming re-parses only the block being written instead of the whole reply
+ * on every frame. The output is the same as parsing the text in one go.
  */
 export function Markdown({ text, doc = false, basePath }: MarkdownProps) {
-  const blocks: React.ReactNode[] = [];
-  const source = doc ? stripComments(text) : text;
-  const parts = source.split(/```/);
-  const ctx: Ctx = { doc, basePath };
+  if (doc) return <DocMarkdown text={text} basePath={basePath} />;
+  return <ChatMarkdown text={text} basePath={basePath} />;
+}
 
-  parts.forEach((part, i) => {
+/** A document is parsed whole: it is read, not streamed, and its HTML stripping works line by line. */
+function DocMarkdown({ text, basePath }: { text: string; basePath?: string }) {
+  const blocks = React.useMemo(() => renderWhole(text, { doc: true, basePath }), [text, basePath]);
+  return <div className="md-doc text-[14px] leading-7">{blocks}</div>;
+}
+
+function ChatMarkdown({ text, basePath }: { text: string; basePath?: string }) {
+  const ctx = React.useMemo<Ctx>(() => ({ doc: false, basePath }), [basePath]);
+  const segments = markdownSegments(text);
+  return (
+    <div className="space-y-1 text-[14px] leading-relaxed">
+      {segments.map((s) =>
+        s.kind === 'code'
+          ? <MemoCodeBlock key={s.key} lang={s.lang} code={s.code} />
+          : <TextSegment key={s.key} src={s.src} blockKey={s.key} ctx={ctx} />,
+      )}
+    </div>
+  );
+}
+
+/** One run of non-code blocks, re-parsed only when its own source changes. */
+const TextSegment = React.memo(function TextSegment({ src, blockKey, ctx }: { src: string; blockKey: string; ctx: Ctx }) {
+  return <>{renderBlocks(src, blockKey, ctx)}</>;
+});
+
+/**
+ * The reference renderer: the whole text in one pass. Documents use it
+ * directly, and the tests hold the block-split chat renderer to its output.
+ */
+export function renderWhole(text: string, ctx: Ctx): React.ReactNode[] {
+  const blocks: React.ReactNode[] = [];
+  const source = ctx.doc ? stripComments(text) : text;
+  source.split(/```/).forEach((part, i) => {
     if (i % 2 === 1) {
-      const nl = part.indexOf('\n');
-      const lang = nl > 0 ? part.slice(0, nl).trim() : '';
-      const code = nl > 0 ? part.slice(nl + 1) : part;
-      blocks.push(<CodeBlock key={`code-${i}`} lang={lang} code={code.replace(/\n$/, '')} />);
+      const { lang, code } = fence(part);
+      blocks.push(<CodeBlock key={`code-${i}`} lang={lang} code={code} />);
     } else {
       blocks.push(...renderBlocks(part, `b${i}`, ctx));
     }
   });
+  return blocks;
+}
 
-  return (
-    <div className={doc ? 'md-doc text-[14px] leading-7' : 'space-y-1 text-[14px] leading-relaxed'}>
-      {blocks}
-    </div>
-  );
+/** A fenced part's language line and body. */
+function fence(part: string): { lang: string; code: string } {
+  const nl = part.indexOf('\n');
+  const lang = nl > 0 ? part.slice(0, nl).trim() : '';
+  const code = nl > 0 ? part.slice(nl + 1) : part;
+  return { lang, code: code.replace(/\n$/, '') };
+}
+
+export type MarkdownSegment =
+  | { kind: 'code'; key: string; lang: string; code: string }
+  | { kind: 'text'; key: string; src: string };
+
+/**
+ * Split chat markdown into top-level segments that can be rendered, and
+ * memoized, independently.
+ *
+ * Code fences split first, exactly as the whole-text renderer splits them. The
+ * text between fences then splits at blank lines: every block kind the parser
+ * knows ends at a blank line and nothing carries across one, so rendering the
+ * pieces one by one produces the same nodes as rendering the run whole. A
+ * segment's key is where it starts, which stays put as text is appended, so a
+ * streaming reply keeps every finished segment and re-parses only the last.
+ */
+export function markdownSegments(text: string): MarkdownSegment[] {
+  const out: MarkdownSegment[] = [];
+  text.split(/```/).forEach((part, i) => {
+    if (i % 2 === 1) {
+      out.push({ kind: 'code', key: `code-${i}`, ...fence(part) });
+      return;
+    }
+    const lines = part.split('\n');
+    let start = -1;
+    for (let j = 0; j <= lines.length; j++) {
+      const blank = j === lines.length || !lines[j].trim();
+      if (!blank && start < 0) start = j;
+      if (blank && start >= 0) {
+        out.push({ kind: 'text', key: `b${i}-${start}`, src: lines.slice(start, j).join('\n') });
+        start = -1;
+      }
+    }
+  });
+  return out;
 }
 
 export interface MarkdownProps {
@@ -56,7 +129,7 @@ export interface MarkdownProps {
 }
 
 /** Rendering options threaded through the block/inline walk. */
-interface Ctx {
+export interface Ctx {
   doc: boolean;
   basePath?: string;
 }
@@ -89,6 +162,8 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
     </div>
   );
 }
+
+const MemoCodeBlock = React.memo(CodeBlock);
 
 const BULLET_RE = /^(\s*)[-*+]\s+(.*)$/;
 const ORDERED_RE = /^(\s*)\d+[.)]\s+(.*)$/;

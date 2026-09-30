@@ -14,6 +14,7 @@ import type {
   LoadParams,
   LoadResult,
   Session,
+  SessionSummary,
   SendOptions,
   OAuthProvider,
   OAuthSessionInfo,
@@ -281,6 +282,8 @@ export interface Host {
   getSystemStats(): Promise<SystemStats | null>;
 
   listSessions(): Session[];
+  /** Every chat without its transcript, from a cache that re-reads only changed files. */
+  listSessionSummaries(): Promise<SessionSummary[]>;
   createSession(workspaceId?: string): Session;
   getSession(id: string): Session | null;
   deleteSession(id: string): void;
@@ -723,6 +726,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     getSystemStats: () => getSystemStats(),
 
     listSessions: sessions.listSessions,
+    listSessionSummaries: sessions.listSessionSummaries,
     createSession: sessions.createSession,
     getSession: sessions.getSession,
     deleteSession: sessions.deleteSession,

@@ -1,5 +1,6 @@
 import React from 'react';
 import type { AppSettings } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 import { ThemePresetPicker } from '../ThemePresetPicker.js';
 
@@ -9,7 +10,7 @@ import { ThemePresetPicker } from '../ThemePresetPicker.js';
  * stays applied even if the user then skips forward through the rest.
  */
 export function ThemeStep() {
-  const { settings, applyTheme } = useStore();
+  const { settings, applyTheme } = useStore(useShallow((s) => ({ settings: s.settings, applyTheme: s.applyTheme })));
 
   const update = async (patch: Partial<AppSettings>) => {
     const next = await window.nekko.updateSettings(patch);

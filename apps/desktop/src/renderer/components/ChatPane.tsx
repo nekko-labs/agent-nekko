@@ -1,19 +1,25 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
 import { pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, planAsPromptBlock, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { useGitStatus } from '../useGitStatus.js';
-import { clearLiveRun, getLiveRun, useLiveRun } from '../liveRuns.js';
+import { clearLiveRun, getLiveRun, takeFinishedRun, useLiveRun, type LiveRun } from '../liveRuns.js';
+import { getCachedSession, loadSession, putCachedSession } from '../sessionCache.js';
+import { usePaneVisible } from '../paneVisibility.js';
+import { afterPaint } from '../afterPaint.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
-import { Markdown } from './Markdown.js';
 import {
   ActivityGroup, ApprovalBar, AutoQualityMenu, MessageBubble, ModelPicker,
-  ReplyStatus, toStreamBlocks, useElementWidth,
+  ReplyStatus, useElementWidth,
 } from './agent-console/index.js';
-import type { Activity, PendingApproval } from './agent-console/index.js';
+import type { PendingApproval } from './agent-console/index.js';
+import { LiveTurn, producedTokens, useProducedTokens } from './agent-console/LiveTurn.js';
+import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
+import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortMenu } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
 import { QuestionCard } from './QuestionCard.js';
@@ -31,13 +37,12 @@ import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, Li
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
 /**
- * How often streamed deltas are committed to React state. Tokens arrive one
- * event at a time; setting state per token re-renders the whole transcript per
- * token, which stutters on a long reply and locks the window on a very fast or
- * runaway one. Batching to ~20fps is imperceptible while streaming and turns
- * thousands of renders into a few dozen.
+ * How long the store's copy of the draft (read by the Context Inspector) trails
+ * the composer. Mirroring every keystroke re-rendered everything subscribed to
+ * the store while you typed; a short trailing debounce keeps the inspector's
+ * count current without that.
  */
-const STREAM_FLUSH_MS = 50;
+const DRAFT_MIRROR_MS = 150;
 
 /**
  * How often a running turn re-reads its context bundle. Each completed step is
@@ -74,17 +79,6 @@ function readComposerHeight(): number | null {
   }
 }
 
-/**
- * Cap on a live buffer's length. The engine cuts a looping model off (see
- * runaway.ts), so this is the second line of defence: it keeps the renderer
- * from ever holding an unbounded string. The tail is kept because that's the
- * part still being written.
- */
-const LIVE_STREAM_MAX = 40_000;
-
-function clampLive(s: string): string {
-  return s.length <= LIVE_STREAM_MAX ? s : `…\n${s.slice(-LIVE_STREAM_MAX)}`;
-}
 
 function readImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -233,6 +227,15 @@ function ImageMenu({ x, y, src, onClose }: { x: number; y: number; src: string; 
   );
 }
 
+/** The provider and model a chat opens on: its own, or the app's defaults. */
+function initialBrain(s: Session | null | undefined): { providerId: string | null; modelId: string | null } {
+  const st = useStore.getState();
+  return {
+    providerId: s?.providerId ?? st.activeProviderId ?? st.providers[0]?.id ?? null,
+    modelId: s?.autoModel ? AUTO_MODEL_ID : (s?.modelId ?? st.activeModelId ?? null),
+  };
+}
+
 /**
  * One chat conversation, fully self-contained so several can run side by side in
  * the workbench. Provider/model are chosen per-pane (independent agents); the
@@ -276,17 +279,189 @@ function ChatHeader({
   );
 }
 
-export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; onRunningChange?: (running: boolean) => void }) {
-  const { providers, settings, setMascotMood, refreshSessions } = useStore();
+/**
+ * One transcript row: a message and the PR cards it is first to mention, a run
+ * of working steps, or the trailing PR cards. Memoized, so a row re-renders
+ * only when its own data does.
+ */
+const TranscriptRowView = memo(function TranscriptRowView({
+  row, streaming, prByUrl, sessionId, onEditResend, onImageClick, onImageContextMenu,
+}: {
+  row: TranscriptRow;
+  streaming: boolean;
+  prByUrl: Map<string, PrInfo>;
+  sessionId: string;
+  onEditResend: (id: string, text: string) => void;
+  onImageClick: (src: string) => void;
+  onImageContextMenu: (e: React.MouseEvent, src: string) => void;
+}) {
+  if (row.kind === 'activity') return <ActivityGroup items={row.items} />;
+  if (row.kind === 'prs') {
+    // PRs mentioned only in tool output (never in assistant text) still get a
+    // card, appended after the transcript.
+    return <>{row.urls.map((u) => <PrCard key={`orphan_${u}`} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}</>;
+  }
+  const editable = !streaming && row.message.role === 'user' && row.message.id !== 'tmp';
+  return (
+    <>
+      <MessageBubble
+        message={row.message}
+        onResend={editable ? onEditResend : undefined}
+        onReset={editable ? onEditResend : undefined}
+        onImageClick={onImageClick}
+        onImageContextMenu={onImageContextMenu}
+        chronological
+      />
+      {/* A PR card right after the message that first names it. */}
+      {row.prUrls.map((u) => <PrCard key={u} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}
+    </>
+  );
+});
 
-  const [session, setSession] = useState<Session | null>(null);
+/**
+ * Where a turn's live numbers stand against the last context bundle: what it
+ * has produced that the bundle does not include yet, and what it has output
+ * since the provider last reported usage. Read per frame by the small
+ * components below, so the pane around them does not re-render per token.
+ */
+interface LiveMarks {
+  /** Context tokens the current bundle already accounts for. */
+  ctxMark: number;
+  /** Context tokens the turn produced, kept once it ends until the bundle catches up. */
+  ctxTail: number;
+  /** Output tokens already priced by a usage event. */
+  outMark: number;
+}
+
+function useLiveContextTokens(sessionId: string, marks: LiveMarks): number {
+  const produced = useProducedTokens(sessionId);
+  const running = !!getLiveRun(sessionId);
+  return Math.max(0, (running ? produced.context : marks.ctxTail) - marks.ctxMark);
+}
+
+/** The composer's context gauge, moving with the reply as it streams. */
+const LiveContextGauge = memo(function LiveContextGauge({
+  sessionId, marks, ...gauge
+}: Omit<React.ComponentProps<typeof ContextGauge>, 'liveTokens'> & { sessionId: string; marks: LiveMarks }) {
+  return <ContextGauge {...gauge} liveTokens={useLiveContextTokens(sessionId, marks)} />;
+});
+
+/** The "running out of room" warning, counting the reply as it streams. */
+const LiveContextWarning = memo(function LiveContextWarning({
+  sessionId, marks, baseUsed, ...warning
+}: Omit<React.ComponentProps<typeof ContextWarning>, 'used' | 'sessionId'> & {
+  sessionId: string; marks: LiveMarks; baseUsed: number;
+}) {
+  const live = useLiveContextTokens(sessionId, marks);
+  return <ContextWarning sessionId={sessionId} {...warning} used={baseUsed + live} />;
+});
+
+/** The usage chip, pricing what has streamed since the last usage report. */
+const LiveUsageChip = memo(function LiveUsageChip({
+  sessionId, marks, measured, pendingIn, model, ...chip
+}: Omit<React.ComponentProps<typeof UsageLimitsChip>, 'turnCost'> & {
+  sessionId: string; marks: LiveMarks; measured: number; pendingIn: number; model: string | null;
+}) {
+  const produced = useProducedTokens(sessionId);
+  const turnCost = measured + estimateCostUSD(model ?? undefined, pendingIn, Math.max(0, produced.output - marks.outMark));
+  return <UsageLimitsChip {...chip} turnCost={turnCost} />;
+});
+
+/**
+ * The line under the conversation: what the reply is doing, read off the
+ * app-wide fold (so it says the same as the chat's Command Center card), and
+ * how long it has been at it.
+ */
+const LiveReplyStatus = memo(function LiveReplyStatus({
+  sessionId, startedAt, ...status
+}: Omit<React.ComponentProps<typeof ReplyStatus>, 'status' | 'elapsed'> & { sessionId: string; startedAt: number }) {
+  const run = useLiveRun(sessionId, !usePaneVisible());
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!status.streaming) return;
+    const tick = () => { if (startedAt) setElapsed(Math.round((Date.now() - startedAt) / 1000)); };
+    tick();
+    const t = setInterval(tick, 500);
+    return () => clearInterval(t);
+  }, [status.streaming, startedAt]);
+  const label = status.streaming ? shortLiveStatus(run?.activity) || 'Working' : '';
+  return <ReplyStatus {...status} status={label} elapsed={status.streaming ? elapsed : 0} />;
+});
+
+/**
+ * Focus the composer when a chat opens so you can start typing straight away,
+ * caret after any restored draft. Once per chat, and again whenever a pane
+ * kept mounted behind the scenes is shown, so switching back to a chat lands
+ * in its composer as it always did. Never steals focus from something else
+ * you're already typing in. `ready` is a dependency because the textarea is
+ * disabled until providers have loaded.
+ *
+ * Its own component so the pane showing and hiding re-renders this, not the
+ * chat; and done after the frame, because focus forces a layout, and paying for
+ * it inside the switch would hold back the frame that shows the chat.
+ */
+function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<HTMLTextAreaElement | null>; sessionId: string; ready: number }) {
+  const visible = usePaneVisible();
+  const focusedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!visible) {
+      focusedFor.current = null;
+      return;
+    }
+    if (focusedFor.current === sessionId) return;
+    return afterPaint(() => {
+      const el = target.current;
+      if (!el || el.disabled) return;
+      const active = document.activeElement;
+      // A composer in a pane that was just hidden may still hold focus for a
+      // moment; it is not someone typing.
+      const typingElsewhere =
+        active instanceof HTMLElement &&
+        active !== el &&
+        active.checkVisibility?.() !== false &&
+        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      if (typingElsewhere) return;
+      focusedFor.current = sessionId;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }, [visible, sessionId, ready, target]);
+  return null;
+}
+
+function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRunningChange?: (running: boolean) => void }) {
+  const { providers, settings, setMascotMood, refreshSessions } = useStore(
+    useShallow((s) => ({
+      providers: s.providers,
+      settings: s.settings,
+      setMascotMood: s.setMascotMood,
+      refreshSessions: s.refreshSessions,
+    })),
+  );
+
+  // Painted straight from the session cache when this chat was open recently;
+  // the host copy is fetched regardless and replaces it (stale-while-revalidate).
+  const [session, setSession] = useState<Session | null>(() => getCachedSession(sessionId) ?? null);
   // Seed the composer from whatever was parked for this chat, so an unsent
   // message survives a tab switch or a restart.
   const [draft, setDraft] = useState(() => loadDraft(sessionId)?.text ?? '');
+  // What the draft implies (the analyzer, the plan rail, Auto's pick, the
+  // gauge's draft count) renders from this, one step behind the keystroke, so
+  // a keypress paints the textarea before any of that work runs.
+  const deferredDraft = useDeferredValue(draft);
   const [streaming, setStreaming] = useState(false);
-  const [liveText, setLiveText] = useState('');
-  const [liveReasoning, setLiveReasoning] = useState('');
-  const [liveTools, setLiveTools] = useState<ToolCall[]>([]);
+  // Mirrors for the long-lived agent-event listener, so a token does not set
+  // state that is already set.
+  const streamingRef = useRef(false);
+  const thinkingRef = useRef(false);
+  /**
+   * The reply that just finished, kept on screen until its persisted copy is in
+   * `session`, then cleared in the same commit, so the end of a reply never
+   * flashes the answer out and back in. While a turn runs the live reply comes
+   * from liveRuns (see LiveTurn); this pane holds no copy of the stream.
+   */
+  const [held, setHeld] = useState<LiveRun | null>(null);
+  const heldRef = useRef<LiveRun | null>(null);
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   /**
    * The question the agent stopped to ask, when it has. Seeded from the host on
@@ -299,8 +474,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // yet. Everything the agent writes (its reply, its tool calls, their results)
   // is replayed in the next request's prompt, so the window fills as the turn
   // runs; without this the gauge sat still for minutes and jumped at the end.
-  const [liveCtxTokens, setLiveCtxTokens] = useState(0);
-  const liveCtxRef = useRef(0);
+  // The produced count itself is read per frame from the live run (see
+  // LiveMarks); these are the marks it is measured against.
+  const [marks, setMarks] = useState<LiveMarks>({ ctxMark: 0, ctxTail: 0, outMark: 0 });
+  const marksRef = useRef(marks);
+  marksRef.current = marks;
   const lastCtxRefresh = useRef(0);
   const [tps, setTps] = useState(0);
   const [thinking, setThinking] = useState(false);
@@ -323,7 +501,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // else on it.
   const planRailWanted = useStore((s) => s.planRailOpen);
   const paneRef = useRef<HTMLDivElement>(null);
-  const paneWidth = useElementWidth(paneRef);
+  const paneWidth = useElementWidth(paneRef, sessionId);
   const planRailOpen = planRailWanted && paneWidth >= PLAN_RAIL_MIN_PANE;
   const wideEnoughForRail = paneWidth >= PLAN_RAIL_MIN_PANE;
   // The armed skill lives in the store (per session) so the Context Inspector on
@@ -340,7 +518,6 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
-  const [reasoningDuration, setReasoningDuration] = useState<number | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<string | null>(null);
   // What the model thinks the user will say next: one-click follow-up chips and
@@ -350,8 +527,17 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // A failed reply stays in the transcript with a retry, instead of vanishing
   // with the toast.
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
-  const [providerId, setProviderId] = useState<string | null>(null);
-  const [modelId, setModelId] = useState<string | null>(null);
+  // Seeded from the cached transcript when there is one, so a warm chat opens
+  // with its model already chosen instead of settling a render later.
+  // (A chat that is not cached waits for its own record, as it always has.)
+  const [providerId, setProviderId] = useState<string | null>(() => {
+    const cached = getCachedSession(sessionId);
+    return cached ? initialBrain(cached).providerId : null;
+  });
+  const [modelId, setModelId] = useState<string | null>(() => {
+    const cached = getCachedSession(sessionId);
+    return cached ? initialBrain(cached).modelId : null;
+  });
   const [models, setModels] = useState<ModelInfo[]>([]);
   // Whether this pane's model list has come back yet, so the "pick a model"
   // nudge waits for the truth instead of flashing during the fetch.
@@ -369,10 +555,17 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    * What the reply now running has cost so far, at published list prices,
    * accumulated per step as the usage events arrive rather than read back from
    * the usage log after the turn ends. A long agentic turn is exactly when
-   * someone wants to see the number moving.
+   * someone wants to see the number moving. `turnCostMeasured` is what usage
+   * events have reported; the chip adds an estimate for what has streamed since
+   * (see LiveUsageChip).
    */
-  const [turnCost, setTurnCost] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  const [turnCostMeasured, setTurnCostMeasured] = useState(0);
+  /**
+   * Prompt tokens of a step that has not reported usage yet, priced from the
+   * context gauge's own count the instant the turn starts, so the figure is
+   * never a zero that sits there while a large prompt is being processed.
+   */
+  const [pendingIn, setPendingIn] = useState(0);
   const [lastTurn, setLastTurn] = useState<{ out: number; tps: number; secs: number } | null>(null);
   // Keyboard state for the slash/@ menus: the highlighted row, and whether the
   // user dismissed the menu with Escape (typing re-opens it).
@@ -381,7 +574,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // "Jump to latest" pill: shown when new content streams in while the reader
   // has scrolled up.
   const [showJump, setShowJump] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const transcriptRef = useRef<VirtualTranscriptHandle>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   // A dragged composer height, or null to size to the draft. See COMPOSER_H_KEY.
   const [composerH, setComposerH] = useState<number | null>(readComposerHeight);
@@ -395,7 +588,6 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // also covers prompt processing, tool runs, and approval waits, so dividing
   // tokens by it under-reports throughput (badly, on a tool-heavy turn).
   const turnDecodeMsRef = useRef(0);
-  const reasoningStart = useRef(0);
   const turnOutRef = useRef(0);
   /**
    * Cost the provider has actually reported for this turn, summed per step.
@@ -405,37 +597,12 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    */
   const turnCostRef = useRef(0);
   /**
-   * Tokens streamed since the last usage report, and the prompt tokens of a
-   * step that has not reported yet.
-   *
-   * Without these the figure only moved once, at the end: an OpenAI-compatible
-   * server sends its usage chunk after the last content chunk, so there is
-   * nothing measured to show during the reply people actually want to watch.
-   * These price what has arrived so far and are dropped the moment the real
-   * numbers land, so the estimate converges on the truth rather than adding to it.
-   */
-  const pendingOutRef = useRef(0);
-  const pendingInRef = useRef(0);
-  /**
    * The model this turn is actually running on, for pricing its usage events.
    * A ref because the agent-event listener is long-lived, and the model can be
    * resolved per send (Auto mode), so the state variable would price a turn at
    * whatever the picker shows now rather than at what ran.
    */
   const modelForCostRef = useRef<string | null>(null);
-  // Ref mirrors of the live buffers: the agent-event listener closure is
-  // long-lived, so reading the state variables there would see stale values.
-  const liveToolsRef = useRef<ToolCall[]>([]);
-  const liveTextRef = useRef('');
-  // Streamed deltas land here and are committed together on a timer (see
-  // STREAM_FLUSH_MS), so the transcript renders per frame rather than per token.
-  const pendingText = useRef('');
-  const pendingReasoning = useRef('');
-  const flushTimer = useRef<number | null>(null);
-  // Whether the reader is at (or near) the bottom of the transcript. Streaming
-  // only auto-follows while this is true, so scrolling up to read is possible.
-  const pinnedRef = useRef(true);
-  const didFirstScroll = useRef(false);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -449,9 +616,9 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   useEffect(() => {
     let live = true;
     const load = () => window.nekko.listChanges(sessionId).then((c) => { if (live) setChangeCount(c.length); }).catch(() => {});
-    load();
+    const cancel = afterPaint(load);
     const off = window.nekko.onChangesUpdated((e) => { if (e.sessionId === sessionId) load(); });
-    return () => { live = false; off(); };
+    return () => { live = false; cancel(); off(); };
   }, [sessionId]);
 
   useEffect(() => onRunningChange?.(streaming), [streaming, onRunningChange]);
@@ -460,22 +627,26 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    * Pull a fresh context bundle and settle the live estimate against it.
    *
    * The agent loop appends each assistant message and tool result to the
-   * session as it goes, so a mid-turn preview is real, not stale. Whatever has
-   * streamed since the request went out stays in `liveCtxRef` (the bundle can't
-   * know about it yet), which is why the mark is subtracted rather than reset:
-   * tokens that arrived during the round trip would otherwise be dropped.
+   * session as it goes, so a mid-turn preview is real, not stale. Whatever
+   * streams while the request is out stays counted (the bundle can't know about
+   * it yet), which is why the mark is what had been produced when the request
+   * went out rather than a reset: tokens that arrived during the round trip
+   * would otherwise be dropped.
    */
   const refreshCtx = () => {
-    const mark = liveCtxRef.current;
+    const run = getLiveRun(sessionId);
+    const mark = run ? producedTokens(run).context : marksRef.current.ctxTail;
     lastCtxRefresh.current = Date.now();
     window.nekko.previewContext(sessionId, [])
       .then((b) => {
         setCtx(b);
-        liveCtxRef.current = Math.max(0, liveCtxRef.current - mark);
-        setLiveCtxTokens(liveCtxRef.current);
+        setMarks((m) => ({ ...m, ctxMark: mark }));
       })
       .catch(() => setCtx(null));
   };
+
+  const refreshCtxRef = useRef(refreshCtx);
+  refreshCtxRef.current = refreshCtx;
 
   /** Refresh at most every CTX_REFRESH_MS, for the per-step mid-turn updates. */
   const refreshCtxThrottled = () => {
@@ -483,19 +654,38 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     refreshCtx();
   };
 
-  // Load the session; seed provider/model from it (or the global defaults).
+  /** Seed provider/model from the session (or the global defaults). */
+  const seedBrain = (s: Session | null) => {
+    const brain = initialBrain(s);
+    setProviderId(brain.providerId);
+    setModelId(brain.modelId);
+  };
+
+  // Load the session. A cached copy (if any) is already on screen from the
+  // first render; the host's copy replaces it when it arrives.
   useEffect(() => {
-    window.nekko.getSession(sessionId).then((s) => {
-      setSession(s);
-      const st = useStore.getState();
-      setProviderId(s?.providerId ?? st.activeProviderId ?? providers[0]?.id ?? null);
-      setModelId(s?.autoModel ? AUTO_MODEL_ID : (s?.modelId ?? st.activeModelId ?? null));
+    const cached = getCachedSession(sessionId);
+    let live = true;
+    // After the first paint: the frame (and a cached transcript) goes on
+    // screen before any of this is even asked for.
+    const cancel = afterPaint(() => {
+      loadSession(sessionId).then((s) => {
+        if (!live) return;
+        setSession(s);
+        if (!cached) seedBrain(s);
+      }).catch(() => {});
+      refreshCtx();
+      useStore.getState().refreshSessionPrs(sessionId);
     });
-    refreshCtx();
-    useStore.getState().refreshSessionPrs(sessionId);
-    setModelHintDone(false);
+    return () => { live = false; cancel(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // Whatever this pane shows is the freshest copy the renderer has, so the
+  // cache follows it (optimistic messages included; the next load replaces them).
+  useEffect(() => {
+    if (session?.id === sessionId) putCachedSession(session);
+  }, [session, sessionId]);
 
   // Models for this pane's provider (independent of other panes). A chat that
   // has never had a model picked is left unset on purpose: the nudge below the
@@ -503,77 +693,30 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   useEffect(() => {
     if (!providerId) { setModels([]); setModelsLoaded(false); return; }
     setModelsLoaded(false);
-    window.nekko.listModels(providerId).then((m) => {
-      setModels(m);
-      setModelId((cur) => (cur === AUTO_MODEL_ID || (cur && m.some((x) => x.id === cur)) ? cur : null));
-      setModelsLoaded(true);
-    }).catch(() => { setModels([]); setModelsLoaded(true); });
+    let live = true;
+    const cancel = afterPaint(() => {
+      window.nekko.listModels(providerId).then((m) => {
+        if (!live) return;
+        setModels(m);
+        setModelId((cur) => (cur === AUTO_MODEL_ID || (cur && m.some((x) => x.id === cur)) ? cur : null));
+        setModelsLoaded(true);
+      }).catch(() => { if (live) { setModels([]); setModelsLoaded(true); } });
+    });
+    return () => { live = false; cancel(); };
   }, [providerId]);
 
   // Per-chat estimated cost. usageSummary already zeroes subscription providers.
-  useEffect(() => {
+  useEffect(() => afterPaint(() => {
     window.nekko.getUsageSummary().then((u) => {
       const s = u.bySession[sessionId];
       setCost(s ? (s.cost ?? 0) : 0);
     }).catch(() => setCost(0));
-  }, [sessionId, session?.modelId, session?.messages.length]);
-
-  /**
-   * What this turn has cost so far: measured where the provider has told us,
-   * estimated where it has not yet.
-   */
-  const publishTurnCost = () => {
-    const estimate = estimateCostUSD(
-      modelForCostRef.current ?? undefined,
-      pendingInRef.current,
-      pendingOutRef.current,
-    );
-    setTurnCost(turnCostRef.current + estimate);
-  };
-
-  // Commit whatever has streamed in since the last flush.
-  const flushStream = () => {
-    if (flushTimer.current != null) {
-      clearTimeout(flushTimer.current);
-      flushTimer.current = null;
-    }
-    const text = pendingText.current;
-    const reasoning = pendingReasoning.current;
-    pendingText.current = '';
-    pendingReasoning.current = '';
-    if (text) setLiveText((t) => clampLive(t + text));
-    if (reasoning) setLiveReasoning((t) => clampLive(t + reasoning));
-    // The same batch that paints the transcript moves the context gauge, so the
-    // estimate costs one extra number per frame rather than one per token.
-    if (text || reasoning) {
-      const produced = text ? estimateTokens(text) : 0;
-      liveCtxRef.current += produced;
-      setLiveCtxTokens(liveCtxRef.current);
-      pendingOutRef.current += estimateTokens(text) + estimateTokens(reasoning);
-      publishTurnCost();
-    }
-  };
-
-  const scheduleFlush = () => {
-    if (flushTimer.current == null) {
-      flushTimer.current = window.setTimeout(flushStream, STREAM_FLUSH_MS);
-    }
-  };
-
-  // Never leave a pending flush behind on unmount or a session switch.
-  useEffect(() => () => {
-    if (flushTimer.current != null) clearTimeout(flushTimer.current);
-    flushTimer.current = null;
-    pendingText.current = '';
-    pendingReasoning.current = '';
-  }, [sessionId]);
+  }), [sessionId, session?.modelId, session?.messages.length]);
 
   // Keep the sidebar's per-workspace context readout fresh while a turn runs.
   // The pane already re-reads its context bundle per step (throttled to
   // CTX_REFRESH_MS); this adds a slow heartbeat so the number also creeps up
   // between steps, and so it settles once at the end of the turn.
-  const liveCtxTokensRef = useRef(0);
-  liveCtxTokensRef.current = liveCtxTokens;
   const latestCtxRef = useRef(ctx);
   latestCtxRef.current = ctx;
   const latestSessionRef = useRef(session);
@@ -583,7 +726,9 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     const t = setInterval(() => {
       const conversationTokens = latestCtxRef.current?.items.find((i) => i.included && i.source === 'conversation')?.tokens
         ?? estimateTranscriptTokens(latestSessionRef.current?.messages ?? []);
-      useStore.getState().setSessionCtxEstimate(sessionId, conversationTokens + liveCtxTokensRef.current);
+      const produced = producedTokens(getLiveRun(sessionId)).context;
+      const live = Math.max(0, produced - marksRef.current.ctxMark);
+      useStore.getState().setSessionCtxEstimate(sessionId, conversationTokens + live);
     }, 4_000);
     return () => {
       clearInterval(t);
@@ -594,28 +739,22 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   /**
    * Adopt a turn that was already running when this pane mounted.
    *
-   * Workspaces render only the active one, so switching tabs unmounts the
-   * pane, and a chat that is mid-reply comes back to a fresh, empty one. The
-   * run itself never stopped (liveRuns folds it for the whole app), so the
-   * text, the tool calls and the clock are read back here rather than waiting
-   * for the next token to repaint a pane that looked idle until it arrived.
+   * A pane that is not on screen may be unmounted, and a chat that is
+   * mid-reply comes back to a fresh pane. The run itself never stopped
+   * (liveRuns folds it for the whole app, and LiveTurn renders it from there),
+   * so only this pane's own telemetry, the clock and the counts, is read back
+   * here rather than waiting for the next event to say a turn is running.
    */
   useEffect(() => {
     const run = getLiveRun(sessionId);
     if (!run) return;
-    liveTextRef.current = run.text;
-    setLiveText(clampLive(run.text));
-    setLiveReasoning(clampLive(run.reasoning));
-    liveToolsRef.current = run.tools;
-    setLiveTools(run.tools);
-    liveCtxRef.current = 0;
     turnStart.current = run.startedAt;
     turnOutRef.current = run.outputTokens;
     turnDecodeMsRef.current = run.decodeMs;
     setTurnOut(run.outputTokens);
     setTps(decodeRate(run.outputTokens, run.decodeMs));
-    if (run.reasoningMs) setReasoningDuration(Math.round(run.reasoningMs / 1000));
-    if (run.reasoningStartedAt) { reasoningStart.current = run.reasoningStartedAt; setThinking(true); }
+    if (run.reasoningStartedAt) { thinkingRef.current = true; setThinking(true); }
+    streamingRef.current = true;
     setStreaming(true);
     setMascotMood('thinking');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -626,40 +765,38 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // this pane was opened at all — would otherwise be invisible here.
   useEffect(() => {
     let live = true;
-    window.nekko.pendingInput().then((pending) => {
-      if (!live) return;
-      const mine = pending[sessionId];
-      if (mine?.question) setQuestion(mine.question);
-      if (mine?.approval) setApproval({ call: mine.approval.call, reason: mine.approval.reason, severity: mine.approval.severity });
-    }).catch(() => {});
-    return () => { live = false; };
+    const cancel = afterPaint(() => {
+      window.nekko.pendingInput().then((pending) => {
+        if (!live) return;
+        const mine = pending[sessionId];
+        if (mine?.question) setQuestion(mine.question);
+        if (mine?.approval) setApproval({ call: mine.approval.call, reason: mine.approval.reason, severity: mine.approval.severity });
+      }).catch(() => {});
+    });
+    return () => { live = false; cancel(); };
   }, [sessionId]);
 
-  // Stream agent events for this session only.
+  // Agent events for this session only. The streamed text itself is folded by
+  // liveRuns and drawn by LiveTurn, once a frame; this listener only moves the
+  // pane between states (running, blocked, done) and its per-step numbers, so
+  // a token costs it nothing.
   useEffect(() => {
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
       if (e.sessionId !== sessionId) return;
       // A reply may start host-side (a queued follow-up, or a task-driven run):
       // reflect it as streaming even though this pane didn't call send().
       if (e.type === 'text' || e.type === 'reasoning' || e.type === 'tool_call') {
-        setStreaming(true);
+        if (!streamingRef.current) {
+          streamingRef.current = true;
+          setStreaming(true);
+          // A turn this pane did not start: nothing it produces is counted yet.
+          setMarks({ ctxMark: 0, ctxTail: 0, outMark: 0 });
+        }
         if (!turnStart.current) { turnStart.current = Date.now(); setMascotMood('thinking'); }
       }
       switch (e.type) {
-        case 'text':
-          if (reasoningStart.current) {
-            setReasoningDuration(Math.round((Date.now() - reasoningStart.current) / 1000));
-            reasoningStart.current = 0;
-          }
-          liveTextRef.current += e.delta;
-          pendingText.current += e.delta;
-          scheduleFlush();
-          break;
         case 'reasoning':
-          if (!reasoningStart.current) reasoningStart.current = Date.now();
-          pendingReasoning.current += e.delta;
-          scheduleFlush();
-          setThinking(true);
+          if (!thinkingRef.current) { thinkingRef.current = true; setThinking(true); }
           break;
         case 'usage': {
           // Accumulate output tokens and decode time across the reply's steps, so
@@ -675,21 +812,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           // Measured numbers for the step that just finished, so the estimate
           // that stood in for it is dropped rather than added to.
           turnCostRef.current += estimateCostUSD(modelForCostRef.current ?? undefined, e.inputTokens, e.outputTokens);
-          pendingOutRef.current = 0;
-          pendingInRef.current = 0;
-          publishTurnCost();
+          setTurnCostMeasured(turnCostRef.current);
+          setPendingIn(0);
+          setMarks((m) => ({ ...m, outMark: producedTokens(getLiveRun(sessionId)).output }));
           break;
         }
-        case 'tool_call':
-          if (reasoningStart.current) {
-            setReasoningDuration(Math.round((Date.now() - reasoningStart.current) / 1000));
-            reasoningStart.current = 0;
-          }
-          liveToolsRef.current = [...liveToolsRef.current, e.call];
-          setLiveTools((tc) => [...tc, e.call]);
-          liveCtxRef.current += estimateTokens(e.call.name) + estimateTokens(JSON.stringify(e.call.input ?? {}));
-          setLiveCtxTokens(liveCtxRef.current);
-          break;
         case 'tool_approval_required':
           setApproval({ call: e.call, reason: e.reason, severity: e.severity });
           setMascotMood('thinking');
@@ -713,10 +840,6 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           endTurn();
           break;
         case 'done':
-          if (reasoningStart.current) {
-            setReasoningDuration(Math.round((Date.now() - reasoningStart.current) / 1000));
-            reasoningStart.current = 0;
-          }
           endTurn();
           refreshCtx();
           void requestSuggestions();
@@ -724,13 +847,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         case 'session_meta':
           // The session record changed mid-turn — a new agent plan, or a fresh
           // title — so re-read it and refresh the sidebar/boards alongside.
-          window.nekko.getSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
-          void refreshSessions();
-          break;
-        case 'session_meta':
-          // The session record changed mid-turn — a new agent plan, or a fresh
-          // title — so re-read it and refresh the sidebar/boards alongside.
-          window.nekko.getSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
+          loadSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
           void refreshSessions();
           break;
       }
@@ -740,17 +857,19 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   }, [sessionId, setMascotMood]);
 
   const endTurn = () => {
+    streamingRef.current = false;
     setStreaming(false);
-    // The turn is over, so the app-wide live copy goes too: from here the
-    // persisted transcript is the record, and leaving the run in place would
-    // show the same reply twice to any pane that mounted afterwards.
+    // The turn is over. liveRuns has usually retired the run already (it hears
+    // the event first); if this listener got there first it is retired here, so
+    // the app-wide live copy never outlives the turn and a pane mounted later
+    // does not show the same reply twice.
+    const final = takeFinishedRun(sessionId) ?? getLiveRun(sessionId) ?? null;
     clearLiveRun(sessionId);
-    // Drop anything still buffered: the persisted message replaces it below, and
-    // a flush landing after the clear would resurrect the reply as a duplicate.
-    if (flushTimer.current != null) clearTimeout(flushTimer.current);
-    flushTimer.current = null;
-    pendingText.current = '';
-    pendingReasoning.current = '';
+    takeFinishedRun(sessionId);
+    heldRef.current = final;
+    setHeld(final);
+    // Until the bundle has been re-read, what the turn produced still counts.
+    setMarks((m) => ({ ...m, ctxTail: producedTokens(final ?? undefined).context }));
 
     // Snapshot the reply's telemetry for the idle subtext (refs only, so this is
     // safe inside the long-lived agent-event listener closure).
@@ -761,9 +880,8 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     turnOutRef.current = 0;
     turnDecodeMsRef.current = 0;
 
-    // Build a short completion summary from the tools used in this reply (refs, not
-    // state — see the ref mirrors above).
-    const usedTools = liveToolsRef.current;
+    // Build a short completion summary from the tools used in this reply.
+    const usedTools = final?.tools ?? [];
     if (usedTools.length > 0) {
       const unique = Array.from(new Set(usedTools.map((t) => t.name)));
       const hasEdit = unique.some((n) => n === 'edit_file' || n === 'write_file');
@@ -773,7 +891,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
       if (hasEdit) summary = 'Done updating those files.';
       else if (hasRead) summary = 'Done looking into that.';
       else if (hasBash) summary = 'Done running those commands.';
-      else if (liveTextRef.current.trim()) summary = 'Done.';
+      else if (final?.text.trim()) summary = 'Done.';
       if (summary) {
         setDoneSummary(summary);
         setTimeout(() => setDoneSummary(null), 4000);
@@ -782,19 +900,17 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
     setMascotMood('idle');
     turnStart.current = 0;
-    reasoningStart.current = 0;
-    liveToolsRef.current = [];
-    liveTextRef.current = '';
 
     // Hold the streamed reply on screen until its persisted copy is in state,
-    // then clear the live buffers in the same commit, so the end of a reply
-    // never flashes the answer out and back in.
-    window.nekko.getSession(sessionId).then((s) => {
+    // then clear the held copy in the same commit, so the end of a reply never
+    // flashes the answer out and back in.
+    loadSession(sessionId).then((s) => {
       setSession(s);
-      setLiveText('');
-      setLiveReasoning('');
-      setLiveTools([]);
-    });
+      if (heldRef.current === final) {
+        heldRef.current = null;
+        setHeld(null);
+      }
+    }).catch(() => {});
     refreshSessions();
     // A reply may have created or updated a PR (e.g. `gh pr create`).
     useStore.getState().refreshSessionPrs(sessionId);
@@ -821,34 +937,17 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     }
   };
 
-  // Follow the stream only while the reader is pinned to the bottom; otherwise
-  // offer the jump pill instead of yanking them down on every token.
-  const onScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    pinnedRef.current = pinned;
+  // The transcript follows the stream only while the reader is at the bottom
+  // (VirtualTranscript owns that); scrolled up, new content offers the jump
+  // pill instead of yanking them down on every token.
+  const onPinnedChange = useCallback((pinned: boolean) => {
     if (pinned) setShowJump(false);
-  };
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (pinnedRef.current) {
-      // Instant during streaming: a smooth scroll restarted on every token
-      // rubber-bands. Smooth only for discrete additions (a sent message).
-      const behavior: ScrollBehavior = streaming || !didFirstScroll.current ? 'auto' : 'smooth';
-      el.scrollTo({ top: el.scrollHeight, behavior });
-      didFirstScroll.current = true;
-    } else {
-      setShowJump(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.messages.length, liveText, liveTools.length]);
+  }, []);
+  const onGrowWhileUnpinned = useCallback(() => setShowJump(true), []);
 
   const jumpToLatest = () => {
-    pinnedRef.current = true;
     setShowJump(false);
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    transcriptRef.current?.scrollToBottom('smooth');
   };
 
   // Grow the composer with its content: reset to the 3-line minimum, then match
@@ -859,6 +958,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     if (!el) return;
     if (composerH != null) {
       el.style.height = `${composerH}px`;
+      return;
+    }
+    // An empty box is its two-row minimum, which is its natural height: no
+    // need to measure. Measuring reads layout, and doing that as a chat opens
+    // forced the whole pane to lay out inside the click that opened it.
+    if (!draft) {
+      el.style.height = '';
       return;
     }
     el.style.height = 'auto';
@@ -927,10 +1033,18 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     return () => clearTimeout(t);
   }, [sessionId, draft, pendingImages]);
 
-  // Mirror the draft into the store (undebounced) so the Context Inspector on
-  // the right counts what you're typing at the same moment the composer's own
-  // gauge does.
-  useEffect(() => { useStore.getState().setSessionDraft(sessionId, draft); }, [sessionId, draft]);
+  // Mirror the draft into the store so the Context Inspector on the right
+  // counts what you're typing. Trailing by DRAFT_MIRROR_MS, so a keystroke
+  // re-renders the composer and not every store subscriber; a cleared draft
+  // (just sent) goes through at once so it is never counted twice.
+  useEffect(() => {
+    if (!draft) {
+      useStore.getState().setSessionDraft(sessionId, draft);
+      return;
+    }
+    const t = setTimeout(() => useStore.getState().setSessionDraft(sessionId, draft), DRAFT_MIRROR_MS);
+    return () => clearTimeout(t);
+  }, [sessionId, draft]);
 
   // Flush on unmount (tab switch, leaving the Chat view) and on window close, so
   // the last keystrokes can't be lost inside the debounce window.
@@ -944,67 +1058,32 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // caret after any restored draft. Runs once per chat, and never steals focus
   // from something else you're already typing in. The provider count is a
   // dependency because the textarea is disabled until providers have loaded.
-  const focusedFor = useRef<string | null>(null);
-  useEffect(() => {
-    const el = composerRef.current;
-    if (!el || el.disabled || focusedFor.current === sessionId) return;
-    const active = document.activeElement;
-    const typingElsewhere =
-      active instanceof HTMLElement &&
-      active !== el &&
-      (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
-    if (typingElsewhere) return;
-    focusedFor.current = sessionId;
-    el.focus();
-    el.setSelectionRange(el.value.length, el.value.length);
-  }, [sessionId, providers.length]);
 
   const beginTurn = () => {
+    streamingRef.current = true;
     setStreaming(true);
-    if (flushTimer.current != null) clearTimeout(flushTimer.current);
-    flushTimer.current = null;
-    pendingText.current = '';
-    pendingReasoning.current = '';
-    setLiveText('');
-    setLiveReasoning('');
-    setLiveTools([]);
+    // Whatever was held from the last reply is about to be replaced.
+    heldRef.current = null;
+    setHeld(null);
+    thinkingRef.current = false;
     setThinking(false);
-    setReasoningDuration(null);
     setDoneSummary(null);
     setErrorNotice(null);
     // The reply they suggested against is about to be replaced.
     setSuggestions(null);
-    reasoningStart.current = 0;
     turnStart.current = Date.now();
     turnOutRef.current = 0;
     turnDecodeMsRef.current = 0;
     turnCostRef.current = 0;
-    pendingOutRef.current = 0;
-    // The prompt is priced from the context gauge's own count the instant the
-    // turn starts, so the figure is never a zero that sits there while a large
-    // prompt is being processed.
-    pendingInRef.current = (ctx?.items ?? []).filter((i) => i.included).reduce((n, i) => n + i.tokens, 0);
-    setTurnCost(estimateCostUSD(modelForCostRef.current ?? undefined, pendingInRef.current, 0));
-    liveToolsRef.current = [];
-    liveTextRef.current = '';
-    liveCtxRef.current = 0;
-    setLiveCtxTokens(0);
+    setTurnCostMeasured(0);
+    setPendingIn((ctx?.items ?? []).filter((i) => i.included).reduce((n, i) => n + i.tokens, 0));
+    setMarks({ ctxMark: 0, ctxTail: 0, outMark: 0 });
     setTurnOut(0);
-    setElapsed(0);
     setMascotMood('thinking');
     // Sending pins the reader to the bottom for the reply.
-    pinnedRef.current = true;
     setShowJump(false);
+    transcriptRef.current?.scrollToBottom();
   };
-
-  // Tick the elapsed-seconds counter while a turn is streaming (for the subtext).
-  useEffect(() => {
-    if (!streaming) return;
-    const t = setInterval(() => {
-      if (turnStart.current) setElapsed(Math.round((Date.now() - turnStart.current) / 1000));
-    }, 500);
-    return () => clearInterval(t);
-  }, [streaming]);
 
   // This chat's Auto profile: how hard Auto leans on capability (Cheap / Normal
   // / Quality). Per-chat, because a throwaway question and a refactor rarely
@@ -1396,11 +1475,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     }
   };
 
-  const openImageMenu = (e: React.MouseEvent, src: string) => {
+  const openImageMenu = useCallback((e: React.MouseEvent, src: string) => {
     e.preventDefault();
     e.stopPropagation();
     setImageMenu({ x: e.clientX, y: e.clientY, src });
-  };
+  }, []);
 
   const addImages = async (files: File[]) => {
     const images = await Promise.all(files.map((file) => readImage(file).catch(() => null)));
@@ -1519,7 +1598,10 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // Auto mode: the model the next message will actually run on. Shown whether or
   // not anything is typed yet - "Auto" alone tells you nothing, and the pick
   // moves as you type, which is exactly what's worth watching.
-  const autoPick = modelId === AUTO_MODEL_ID ? autoPickFor(draft) : null;
+  // Read from the deferred draft, like the analyzer and the plan rail below:
+  // the characters you type paint first, and what they imply follows a moment
+  // later without holding the keystroke up.
+  const autoPick = modelId === AUTO_MODEL_ID ? autoPickFor(deferredDraft) : null;
 
   // Nothing picked yet, but there is something to pick from: guide the choice
   // instead of failing on send.
@@ -1538,24 +1620,6 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     if (open) setModelHintDone(true);
   };
 
-  /**
-   * What this reply is doing right now, in a few words.
-   *
-   * Read off the app-wide fold rather than recomputed here, so the phrase under
-   * the transcript and the one on the chat's Command Center card are the same
-   * sentence. Subscribing to the run is what makes it move: it changes on every
-   * tool call and thought, where the old label said "Streaming" for the whole
-   * turn regardless of what the agent was actually doing.
-   */
-  const liveRun = useLiveRun(sessionId);
-  const liveStatus = streaming ? shortLiveStatus(liveRun?.activity) || 'Working' : '';
-
-  // The in-flight turn's reasoning + tool calls, folded into one activity block.
-  const liveActivity: Activity[] = [
-    ...(liveReasoning ? [{ kind: 'reasoning' as const, text: liveReasoning, duration: reasoningDuration }] : []),
-    ...liveTools.map((c) => ({ kind: 'tool' as const, call: c })),
-  ];
-
   const queued = session?.queue ?? [];
 
   /**
@@ -1567,6 +1631,46 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    * the column below it goes full width rather than indenting twice.
    */
   const contentWidth = planRailOpen || paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
+
+  // --- The transcript, as windowed rows ---
+  const messages = session?.messages;
+  const rows = useMemo(
+    () => (messages ? toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls) : []),
+    [messages],
+  );
+  const prByUrl = useMemo(() => new Map(prs.map((p) => [p.url, p])), [prs]);
+  // Handlers handed to rows go through refs, so a row never re-renders because
+  // this pane re-rendered.
+  const editResendRef = useRef(editResend);
+  editResendRef.current = editResend;
+  const onEditResend = useCallback((id: string, text: string) => { void editResendRef.current(id, text); }, []);
+  const renderRow = useCallback(
+    (row: TranscriptRow) => (
+      <TranscriptRowView
+        row={row}
+        streaming={streaming}
+        prByUrl={prByUrl}
+        sessionId={sessionId}
+        onEditResend={onEditResend}
+        onImageClick={setLightbox}
+        onImageContextMenu={openImageMenu}
+      />
+    ),
+    [streaming, prByUrl, sessionId, onEditResend, openImageMenu],
+  );
+  // Width of the text column, for the height estimates of rows not yet measured.
+  const columnWidth = Math.max(0, (paneWidth || 800) * (contentWidth.includes('75%') ? 0.75 : 1) - 32);
+  const estimate = useCallback((row: TranscriptRow) => estimateRowHeight(row, columnWidth), [columnWidth]);
+  const hasLive = !!(held || getLiveRun(sessionId));
+  const onCompacted = useCallback(() => {
+    refreshCtxRef.current();
+    loadSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
+  }, [sessionId]);
+  const skillTokens = useMemo(
+    () => (activeSkill ? { name: activeSkill.name, tokens: estimateTokens(activeSkill.template) } : null),
+    [activeSkill],
+  );
+  const ctxUsed = useMemo(() => (ctx ? ctx.items.filter((i) => i.included).reduce((s, i) => s + i.tokens, 0) : 0), [ctx]);
 
   return (
     <div ref={paneRef} className="flex h-full min-w-0 overflow-hidden">
@@ -1646,141 +1750,111 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         </ChatHeader>
 
         <div className="relative flex min-h-0 w-full flex-1">
-          <div ref={scrollRef} onScroll={onScroll} className="w-full flex-1 overflow-y-auto overflow-x-hidden px-4 py-5">
-            <div className={`${contentWidth} space-y-5`}>
-              {!session?.messages.length && !liveText && !liveReasoning && (
-                <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
-                  <div>
-                    <h2 className="text-[15px] font-semibold">
-                      {!hasProvider ? 'Connect a model to get started' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
-                    </h2>
-                    <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
-                      {!hasProvider
-                        ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Model Providers.'
-                        : needsModel
-                          ? 'This chat has no model yet. Choose one below the composer, or let ✨ Auto pick per message.'
-                          : 'Ask a question or hand over a task. Use / for skills and prompts, @ to attach files, + for photos and folders.'}
-                    </p>
-                  </div>
-                  {!hasProvider ? (
-                    <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
-                  ) : needsModel ? (
-                    <button className="btn btn-primary" onClick={() => openModelMenu(true)}>Choose a model</button>
-                  ) : null}
+          <VirtualTranscript
+            ref={transcriptRef}
+            rows={rows}
+            renderRow={renderRow}
+            estimate={estimate}
+            cacheKey={sessionId}
+            className={`${contentWidth} space-y-5`}
+            onPinnedChange={onPinnedChange}
+            onGrowWhileUnpinned={onGrowWhileUnpinned}
+            header={!session?.messages.length && !hasLive ? (
+              <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
+                <div>
+                  <h2 className="text-[15px] font-semibold">
+                    {!hasProvider ? 'Connect a model to get started' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
+                  </h2>
+                  <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
+                    {!hasProvider
+                      ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Model Providers.'
+                      : needsModel
+                        ? 'This chat has no model yet. Choose one below the composer, or let ✨ Auto pick per message.'
+                        : 'Ask a question or hand over a task. Use / for skills and prompts, @ to attach files, + for photos and folders.'}
+                  </p>
                 </div>
-              )}
-              {session && (() => {
-                const shown = new Set<string>();
-                const prByUrl = new Map(prs.map((p) => [p.url, p]));
-                const blocks = toStreamBlocks(session.messages);
-                const rendered = blocks.map((b, i) => {
-                  if (b.type !== 'msg') return <ActivityGroup key={b.key} items={b.items} />;
-                  const isUser = b.message.role === 'user';
-                  const bubble = (
-                    <MessageBubble
-                      message={b.message}
-                      onResend={!streaming && isUser && b.message.id !== 'tmp' ? editResend : undefined}
-                      onReset={!streaming && isUser && b.message.id !== 'tmp' ? editResend : undefined}
-                      onImageClick={setLightbox}
-                      onImageContextMenu={openImageMenu}
-                      chronological
-                    />
-                  );
-                  // Surface a PR card right after the message that first names it.
-                  const urls = isUser ? [] : extractPrUrls(b.message.content).filter((u) => !shown.has(u));
-                  urls.forEach((u) => shown.add(u));
-                  if (!urls.length) return <React.Fragment key={`${b.message.id}_${i}`}>{bubble}</React.Fragment>;
+                {!hasProvider ? (
+                  <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
+                ) : needsModel ? (
+                  <button className="btn btn-primary" onClick={() => openModelMenu(true)}>Choose a model</button>
+                ) : null}
+              </div>
+            ) : undefined}
+            footer={
+              <>
+                {/* The reply being written: repaints once a frame on its own. */}
+                <LiveTurn sessionId={sessionId} held={held} onImageClick={setLightbox} />
+                {errorNotice && !streaming && (() => {
+                  // A stop the user asked for is not a failure, so it doesn't wear
+                  // the failure colour. Either way the run is resumable whenever it
+                  // left something behind: the steps it finished are on disk, so
+                  // Resume carries on rather than starting the work again.
+                  const stopped = errorNotice === 'Stopped';
+                  const canResume = hasResumableProgress(session?.messages ?? []);
+                  const tone = stopped ? 'var(--warning)' : 'var(--danger)';
                   return (
-                    <React.Fragment key={`${b.message.id}_${i}`}>
-                      {bubble}
-                      {urls.map((u) => <PrCard key={u} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}
-                    </React.Fragment>
+                  <div
+                    className="fade-in flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[12px]"
+                    style={{
+                      borderColor: `color-mix(in srgb, ${tone} 35%, transparent)`,
+                      background: `color-mix(in srgb, ${tone} 7%, transparent)`,
+                    }}
+                    role="alert"
+                  >
+                    <span className="shrink-0 font-medium" style={{ color: tone }}>
+                      {stopped ? 'Reply stopped' : 'Reply failed'}
+                    </span>
+                    <span className="min-w-0 flex-1 text-ink-soft">
+                      {stopped
+                        ? canResume ? 'The work so far is saved.' : 'Nothing had started yet.'
+                        : errorNotice}
+                    </span>
+                    {canResume && (
+                      <button
+                        className="btn btn-primary shrink-0 px-2.5 py-0.5 text-[11px]"
+                        title="Carry on from here, keeping every step already done"
+                        onClick={() => void resumeRun()}
+                      >
+                        Resume
+                      </button>
+                    )}
+                    {session?.messages.some((m) => m.role === 'user') && (
+                      <button
+                        className="btn btn-outline shrink-0 px-2.5 py-0.5 text-[11px]"
+                        title="Discard this reply and answer the prompt again from scratch"
+                        onClick={startOver}
+                      >
+                        Start over
+                      </button>
+                    )}
+                    <button className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-ink" title="Dismiss" onClick={() => setErrorNotice(null)}>
+                      <CloseIcon className="h-3 w-3" />
+                    </button>
+                  </div>
                   );
-                });
-                // PRs mentioned only in tool output (never in assistant text) still
-                // get a card, appended after the transcript.
-                const orphans = collectSessionPrUrls(session.messages).filter((u) => !shown.has(u));
-                return (
-                  <>
-                    {rendered}
-                    {orphans.map((u) => <PrCard key={`orphan_${u}`} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}
-                  </>
-                );
-              })()}
-              {liveActivity.length > 0 && <ActivityGroup items={liveActivity} streaming />}
-              {liveText && <MessageBubble message={{ id: 'live', role: 'assistant', content: liveText, createdAt: 0 }} onImageClick={setLightbox} chronological />}
-              {errorNotice && !streaming && (() => {
-                // A stop the user asked for is not a failure, so it doesn't wear
-                // the failure colour. Either way the run is resumable whenever it
-                // left something behind: the steps it finished are on disk, so
-                // Resume carries on rather than starting the work again.
-                const stopped = errorNotice === 'Stopped';
-                const canResume = hasResumableProgress(session?.messages ?? []);
-                const tone = stopped ? 'var(--warning)' : 'var(--danger)';
-                return (
-                <div
-                  className="fade-in flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[12px]"
-                  style={{
-                    borderColor: `color-mix(in srgb, ${tone} 35%, transparent)`,
-                    background: `color-mix(in srgb, ${tone} 7%, transparent)`,
-                  }}
-                  role="alert"
-                >
-                  <span className="shrink-0 font-medium" style={{ color: tone }}>
-                    {stopped ? 'Reply stopped' : 'Reply failed'}
-                  </span>
-                  <span className="min-w-0 flex-1 text-ink-soft">
-                    {stopped
-                      ? canResume ? 'The work so far is saved.' : 'Nothing had started yet.'
-                      : errorNotice}
-                  </span>
-                  {canResume && (
-                    <button
-                      className="btn btn-primary shrink-0 px-2.5 py-0.5 text-[11px]"
-                      title="Carry on from here, keeping every step already done"
-                      onClick={() => void resumeRun()}
-                    >
-                      Resume
-                    </button>
-                  )}
-                  {session?.messages.some((m) => m.role === 'user') && (
-                    <button
-                      className="btn btn-outline shrink-0 px-2.5 py-0.5 text-[11px]"
-                      title="Discard this reply and answer the prompt again from scratch"
-                      onClick={startOver}
-                    >
-                      Start over
-                    </button>
-                  )}
-                  <button className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-ink" title="Dismiss" onClick={() => setErrorNotice(null)}>
-                    <CloseIcon className="h-3 w-3" />
-                  </button>
-                </div>
-                );
-              })()}
-              <ContextWarning
-                sessionId={sessionId}
-                used={(ctx ? ctx.items.filter((i) => i.included).reduce((s, i) => s + i.tokens, 0) : 0) + liveCtxTokens}
-                windowTokens={selectedModelInfo?.contextLength ?? ctx?.contextWindow ?? 0}
-                session={session}
-                streaming={streaming}
-                onCompacted={() => {
-                  refreshCtx();
-                  window.nekko.getSession(sessionId).then(setSession).catch(() => {});
-                }}
-              />
-              <ReplyStatus
-                streaming={streaming}
-                status={liveStatus}
-                elapsed={elapsed}
-                tps={tps}
-                out={turnOut}
-                last={lastTurn}
-                done={doneSummary}
-              />
-            </div>
-          </div>
+                })()}
+                <LiveContextWarning
+                  sessionId={sessionId}
+                  marks={marks}
+                  baseUsed={ctxUsed}
+                  windowTokens={selectedModelInfo?.contextLength ?? ctx?.contextWindow ?? 0}
+                  session={session}
+                  streaming={streaming}
+                  onCompacted={onCompacted}
+                />
+                <LiveReplyStatus
+                  sessionId={sessionId}
+                  startedAt={turnStart.current}
+                  streaming={streaming}
+                  tps={tps}
+                  out={turnOut}
+                  last={lastTurn}
+                  done={doneSummary}
+                />
+              </>
+            }
+          />
           {showJump && (
             <button
               className="fade-in absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-line px-3 py-1 text-[12px] font-medium text-ink-soft shadow-md hover:text-ink"
@@ -1947,7 +2021,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
             </div>
 
             <PromptAnalyzer
-              text={draft}
+              text={deferredDraft}
               sessionId={sessionId}
               canModelFill={hasProvider}
               workspaces={settings?.workspaces ?? []}
@@ -2128,6 +2202,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                     onKeyDown={onComposerKeyDown}
                     disabled={!hasProvider}
                   />
+                  <ComposerFocus target={composerRef} sessionId={sessionId} ready={providers.length} />
                 </div>
                 <div className="flex items-center gap-2 px-2 pb-2 pt-1">
                   <div
@@ -2252,19 +2327,24 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                       }}
                     />
                   </div>
-                  <ContextGauge
+                  <LiveContextGauge
+                    sessionId={sessionId}
+                    marks={marks}
                     bundle={ctx}
                     subscription={isSubscription}
-                    skill={activeSkill ? { name: activeSkill.name, tokens: estimateTokens(activeSkill.template) } : null}
-                    draftTokens={draft.trim() ? estimateTokens(draft) : 0}
-                    liveTokens={liveCtxTokens}
+                    skill={skillTokens}
+                    draftTokens={deferredDraft.trim() ? estimateTokens(deferredDraft) : 0}
                     contextWindow={selectedModelInfo?.contextLength}
                   />
-                  <UsageLimitsChip
+                  <LiveUsageChip
+                    sessionId={sessionId}
+                    marks={marks}
+                    measured={turnCostMeasured}
+                    pendingIn={pendingIn}
+                    model={modelForCostRef.current}
                     provider={activeProvider}
                     session={session ?? undefined}
                     cost={cost}
-                    turnCost={turnCost}
                     running={streaming}
                   />
                   <div className="flex-1" />
@@ -2305,7 +2385,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           <PlanRail
             sessionId={sessionId}
             session={session}
-            draft={draft}
+            draft={deferredDraft}
             streaming={streaming}
             onPlanChange={savePlan}
             onClose={() => useStore.getState().togglePlanRail()}
@@ -2345,3 +2425,5 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   );
 }
 
+/** Memoized: the workspace around a chat re-renders for its own reasons (a status dot, a sidebar card); the chat does not follow. */
+export const ChatPane = memo(ChatPaneImpl);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@agent-nekko/shared';
 import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { SubscriptionSignIn } from '../SubscriptionSignIn.js';
@@ -18,7 +19,15 @@ type TestState = { state: 'testing' } | { state: 'done'; ok: boolean; message: s
  * shows as connected instead of offering a duplicate add.
  */
 export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => void }) {
-  const { providers, refreshProviders, pushToast, setView, setOnboardingOpen } = useStore();
+  const { providers, refreshProviders, pushToast, setView, setOnboardingOpen } = useStore(
+    useShallow((s) => ({
+      providers: s.providers,
+      refreshProviders: s.refreshProviders,
+      pushToast: s.pushToast,
+      setView: s.setView,
+      setOnboardingOpen: s.setOnboardingOpen,
+    })),
+  );
   const [scan, setScan] = useState<'scanning' | 'done' | 'failed'>('scanning');
   const [found, setFound] = useState<ProviderConfig[]>([]);
   const [addingId, setAddingId] = useState<string | null>(null);

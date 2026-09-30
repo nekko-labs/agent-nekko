@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GitStatus } from '@agent-nekko/shared';
+import { afterPaint } from './afterPaint.js';
 
 /** How often a visible card re-reads git. The host caches under this anyway. */
 const POLL_MS = 15_000;
@@ -30,9 +31,11 @@ export function useGitStatus(workspaceId: string | undefined): GitStatus | null 
         .then((s) => { if (live) setStatus(s.repo ? s : null); })
         .catch(() => { if (live) setStatus(null); });
     };
-    read();
+    // The first read waits for the first frame: a card or pane that just
+    // appeared paints before it asks.
+    const cancel = afterPaint(read);
     const t = setInterval(read, POLL_MS);
-    return () => { live = false; clearInterval(t); };
+    return () => { live = false; cancel(); clearInterval(t); };
   }, [workspaceId]);
 
   return status;

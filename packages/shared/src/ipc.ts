@@ -86,6 +86,7 @@ export const IpcChannels = {
   systemStats: 'system:stats',
 
   sessionsList: 'sessions:list',
+  sessionsSummaries: 'sessions:summaries',
   sessionCreate: 'session:create',
   sessionGet: 'session:get',
   sessionDelete: 'session:delete',
@@ -428,6 +429,12 @@ export interface NekkoApi {
   getSystemStats(): Promise<import('./monitor.js').SystemStats | null>;
 
   listSessions(): Promise<Session[]>;
+  /**
+   * Every chat without its transcript: what the sidebar, the board and the
+   * insights read. Cheap enough to call on every refresh; `getSession` fetches
+   * a transcript when a chat is opened.
+   */
+  listSessionSummaries(): Promise<import('./session-summary.js').SessionSummary[]>;
   createSession(workspaceId?: string): Promise<Session>;
   getSession(id: string): Promise<Session | null>;
   deleteSession(id: string): Promise<void>;

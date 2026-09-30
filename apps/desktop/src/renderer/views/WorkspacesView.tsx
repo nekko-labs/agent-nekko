@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, Session, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
-import { collectSessionPrUrls, parsePrUrl } from '@agent-nekko/shared';
+import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
+import { parsePrUrl } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, type Workspace } from '../store.js';
+import { PaneVisibleContext } from '../paneVisibility.js';
+import { afterPaint } from '../afterPaint.js';
 import { allPanes, isSplit, type Direction, type WbNode, type WbPane } from '../layout.js';
 import { ChatPane } from '../components/ChatPane.js';
 import { TerminalPane } from '../components/TerminalPane.js';
@@ -19,7 +22,7 @@ import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 
 /** Short label for a window's title strip. */
-function paneTitle(pane: WbPane, sessions: Session[], terminals: TerminalInfo[]): string {
+function paneTitle(pane: WbPane, sessions: SessionSummary[], terminals: TerminalInfo[]): string {
   if (pane.kind === 'chat') return sessions.find((s) => s.id === pane.refId)?.title ?? 'Chat';
   if (pane.kind === 'terminal') return terminals.find((x) => x.id === pane.refId)?.title || (pane.refId.startsWith('agent_') ? 'Agent commands' : 'Terminal');
   if (pane.kind === 'browser') {
@@ -51,8 +54,15 @@ function PaneIcon({ kind }: { kind: WbPane['kind'] }) {
   return <ChatIcon className={cls} />;
 }
 
-/** Render a window's body by kind. */
-function PaneBody({ pane }: { pane: WbPane }) {
+/**
+ * Render a window's body by kind.
+ *
+ * A workspace kept mounted behind the one on screen (see MOUNTED_WORKSPACES)
+ * keeps only its chats alive: terminals, browsers and the rest mount again when
+ * it is shown, as they always have, rather than running at zero size unseen.
+ */
+function PaneBody({ pane, hidden }: { pane: WbPane; hidden: boolean }) {
+  if (hidden && pane.kind !== 'chat') return null;
   switch (pane.kind) {
     case 'chat': return <ChatPane key={pane.refId} sessionId={pane.refId} />;
     case 'terminal': return <TerminalPane key={pane.refId} terminalId={pane.refId} />;
@@ -75,6 +85,13 @@ function PaneBody({ pane }: { pane: WbPane }) {
  * opened. There is no tab strip anywhere: windows are added on a side of an
  * existing one, dragged between sides, and resized by their dividers.
  */
+
+/**
+ * Workspaces kept mounted: the one on screen and the ones used just before it.
+ * Switching back to one of these is a visibility flip, not a rebuild; the rest
+ * are unmounted, so the warm set has a fixed ceiling.
+ */
+const MOUNTED_WORKSPACES = 3;
 
 /** Something being dragged in the sidebar (a project or a workspace). */
 type DragItem = { kind: 'project' | 'workspace'; id: string; ws: string | undefined };
@@ -127,7 +144,7 @@ function bySidebarOrder<T extends { order?: number }>(fallback: (x: T) => number
 }
 
 /** The project folder a workspace files under, read off whatever it is about. */
-function projectOfWorkspace(w: Workspace, sessions: Session[], terminals: TerminalInfo[]): string | undefined {
+function projectOfWorkspace(w: Workspace, sessions: SessionSummary[], terminals: TerminalInfo[]): string | undefined {
   if (w.anchor.kind === 'chat') return sessions.find((s) => s.id === w.anchor.refId)?.workspaceId;
   if (w.anchor.kind === 'terminal') return terminals.find((t) => t.id === w.anchor.refId)?.workspaceId;
   return undefined;
@@ -149,7 +166,29 @@ export function WorkspacesView() {
     refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal,
     setActiveWorkspace, closeWorkspace, newChat, setActiveProject,
     reorderWorkspaces, layoutChats, layoutTerminals, contextPanelOpen,
-  } = useStore();
+  } = useStore(
+    useShallow((s) => ({
+      sessions: s.sessions,
+      terminals: s.terminals,
+      workspaces: s.workspaces,
+      activeWorkspaceId: s.activeWorkspaceId,
+      settings: s.settings,
+      activeSessionId: s.activeSessionId,
+      refreshSessions: s.refreshSessions,
+      refreshTerminals: s.refreshTerminals,
+      openChatPane: s.openChatPane,
+      openTerminalPane: s.openTerminalPane,
+      newTerminal: s.newTerminal,
+      setActiveWorkspace: s.setActiveWorkspace,
+      closeWorkspace: s.closeWorkspace,
+      newChat: s.newChat,
+      setActiveProject: s.setActiveProject,
+      reorderWorkspaces: s.reorderWorkspaces,
+      layoutChats: s.layoutChats,
+      layoutTerminals: s.layoutTerminals,
+      contextPanelOpen: s.contextPanelOpen,
+    })),
+  );
 
   const [statuses, setStatuses] = useState<Map<string, AgentStatus>>(new Map());
   const [now, setNow] = useState(Date.now());
@@ -214,6 +253,9 @@ export function WorkspacesView() {
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
       const next = statusFromEvent(e.type);
       setStatuses((prev) => {
+        // Most events (every token) leave the status as it was; keeping the
+        // same Map then means the view, and every pane in it, does not re-render.
+        if (next === null ? !prev.has(e.sessionId) : prev.get(e.sessionId) === next) return prev;
         const m = new Map(prev);
         if (next === null) m.delete(e.sessionId);
         else m.set(e.sessionId, next);
@@ -230,13 +272,13 @@ export function WorkspacesView() {
   useEffect(() => {
     const loaded = useStore.getState().prsBySession;
     sessions
-      .filter((s) => !(s.id in loaded) && collectSessionPrUrls(s.messages).length > 0)
+      .filter((s) => !(s.id in loaded) && s.prUrls.length > 0)
       .slice(0, 8)
       .forEach((s) => { void useStore.getState().refreshSessionPrs(s.id); });
   }, [sessions]);
 
   const childrenOf = useMemo(() => {
-    const m = new Map<string, Session[]>();
+    const m = new Map<string, SessionSummary[]>();
     for (const s of sessions) if (s.parentSessionId) {
       const arr = m.get(s.parentSessionId) ?? [];
       arr.push(s);
@@ -301,7 +343,7 @@ export function WorkspacesView() {
    * separate host calls, so one drop writes the sequence of each kind it moved.
    */
   const persistOrder = (b: Bucket, ordered: Workspace[], moved: Workspace | null) => {
-    const chats = ordered.map(sessionOf).filter((s): s is Session => !!s);
+    const chats = ordered.map(sessionOf).filter((s): s is SessionSummary => !!s);
     const terms = ordered.map(terminalOf).filter((t): t is TerminalInfo => !!t);
     const movedChat = moved && sessionOf(moved);
     const movedTerm = moved && terminalOf(moved);
@@ -337,6 +379,28 @@ export function WorkspacesView() {
   };
 
   const active = workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[workspaces.length - 1] ?? null;
+
+  // Most recently shown first. Worked out during render, so the frame that
+  // switches is the frame that shows the new workspace.
+  const recent = useRef<string[]>([]);
+  // A workspace that just dropped out of the warm set is unmounted after the
+  // switch has painted, not during it.
+  const leaving = useRef<string[]>([]);
+  const [, settle] = useState(0);
+  if (active && recent.current[0] !== active.id) {
+    const next = [active.id, ...recent.current.filter((id) => id !== active.id)];
+    leaving.current = [...leaving.current, ...next.slice(MOUNTED_WORKSPACES)].filter((id) => id !== active.id);
+    recent.current = next.slice(0, MOUNTED_WORKSPACES);
+  }
+  useEffect(() => {
+    if (!leaving.current.length) return;
+    return afterPaint(() => {
+      leaving.current = [];
+      settle((n) => n + 1);
+    });
+  });
+  // In the sidebar's own order, so a switch never moves a mounted canvas in the DOM.
+  const mounted = workspaces.filter((w) => w.root && (recent.current.includes(w.id) || leaving.current.includes(w.id)));
 
   const Sidebar = (
     <div className="panel panel-ring flex h-full w-64 flex-col">
@@ -525,17 +589,23 @@ export function WorkspacesView() {
           <span className="text-[13px] font-semibold">Workspaces</span>
         </div>
 
-        {!active?.root ? (
-          <EmptyState onNewChat={newChat} onNewTerminal={() => newTerminal()} />
-        ) : (
-          <WorkspaceCanvas
-            key={active.id}
-            workspace={active}
-            sessions={sessions}
-            terminals={terminals}
-            statuses={statuses}
-            projects={settings?.workspaces ?? []}
-          />
+        {!active?.root && <EmptyState onNewChat={newChat} onNewTerminal={() => newTerminal()} />}
+        {mounted.length > 0 && (
+          // The mounted workspaces share one box, stacked; the one on screen is
+          // on top. See WorkspaceCanvas for how the others are kept.
+          <div className="relative min-h-0 flex-1" style={active?.root ? undefined : { display: 'none' }}>
+            {mounted.map((w) => (
+              <WorkspaceCanvas
+                key={w.id}
+                workspace={w}
+                hidden={w.id !== active?.id}
+                sessions={sessions}
+                terminals={terminals}
+                statuses={statuses}
+                projects={settings?.workspaces ?? []}
+              />
+            ))}
+          </div>
         )}
       </main>
 
@@ -556,7 +626,7 @@ export function WorkspacesView() {
 function SubAgentRow({
   session, status, isActive, onOpen,
 }: {
-  session: Session; status: AgentStatus | undefined; isActive: boolean; onOpen: () => void;
+  session: SessionSummary; status: AgentStatus | undefined; isActive: boolean; onOpen: () => void;
 }) {
   return (
     <button
@@ -581,10 +651,12 @@ function SubAgentRow({
  * window needs to know so it can offer itself as a target.
  */
 function WorkspaceCanvas({
-  workspace, sessions, terminals, statuses, projects,
+  workspace, hidden, sessions, terminals, statuses, projects,
 }: {
   workspace: Workspace;
-  sessions: Session[];
+  /** Kept mounted but not on screen. */
+  hidden: boolean;
+  sessions: SessionSummary[];
   terminals: TerminalInfo[];
   statuses: Map<string, AgentStatus>;
   projects: WorkspaceFolder[];
@@ -593,7 +665,19 @@ function WorkspaceCanvas({
   const {
     splitPane, movePane, swapPanes, closePane, setActivePane, canSplitPane, resizePanes,
     newChatInPane, newTerminalInPane,
-  } = useStore();
+  } = useStore(
+    useShallow((s) => ({
+      splitPane: s.splitPane,
+      movePane: s.movePane,
+      swapPanes: s.swapPanes,
+      closePane: s.closePane,
+      setActivePane: s.setActivePane,
+      canSplitPane: s.canSplitPane,
+      resizePanes: s.resizePanes,
+      newChatInPane: s.newChatInPane,
+      newTerminalInPane: s.newTerminalInPane,
+    })),
+  );
 
   // A dropped drag that never fired dragend (cancelled over a non-target) would
   // otherwise leave every window showing a target forever.
@@ -672,7 +756,7 @@ function WorkspaceCanvas({
             setDragging(null);
           }}
         >
-          <PaneBody pane={node} />
+          <PaneBody pane={node} hidden={hidden} />
         </PaneFrame>
       );
     }
@@ -697,8 +781,16 @@ function WorkspaceCanvas({
   return (
     // The field and its padding belong to the workbench now, so the windows sit
     // on the same surface, at the same gap, as the sidebar and the inspector.
-    <div className="flex min-h-0 flex-1" style={{ gap: 'var(--pane-gap)' }}>
-      {renderNode(workspace.root!)}
+    // A hidden workspace is skipped with content-visibility rather than
+    // display:none: its styles, layout and scroll positions are kept, so
+    // showing it again is a paint, not a rebuild. It sits under the one on
+    // screen, which covers it, so it never takes a click.
+    <div
+      className="absolute inset-0 flex min-h-0"
+      style={{ gap: 'var(--pane-gap)', zIndex: hidden ? 0 : 1, contentVisibility: hidden ? 'hidden' : 'visible' }}
+      aria-hidden={hidden || undefined}
+    >
+      <PaneVisibleContext.Provider value={!hidden}>{renderNode(workspace.root!)}</PaneVisibleContext.Provider>
     </div>
   );
 }

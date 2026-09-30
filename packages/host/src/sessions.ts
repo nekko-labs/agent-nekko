@@ -1,7 +1,9 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'fs';
+import { readFile, readdir, stat } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { join } from 'path';
-import type { Session } from '@agent-nekko/shared';
+import type { Session, SessionSummary } from '@agent-nekko/shared';
+import { summarizeSession } from '@agent-nekko/shared';
 import { dataDir } from './store.js';
 
 function sessionsDir(): string {
@@ -26,6 +28,56 @@ export function listSessions(): Session[] {
     .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/**
+ * Summaries by file path, valid while the file's mtime and size still match.
+ *
+ * Keyed by the full path rather than the id so data dirs never share entries
+ * (the cloud edition serves several). Writes through this module refresh their
+ * entry directly; anything else that touches a file (another process on the
+ * same data dir) shows up as a changed mtime and is re-read.
+ */
+const summaryCache = new Map<string, { mtimeMs: number; size: number; summary: SessionSummary }>();
+
+function remember(file: string, session: Session): void {
+  try {
+    const st = statSync(file);
+    summaryCache.set(file, { mtimeMs: st.mtimeMs, size: st.size, summary: summarizeSession(session) });
+  } catch {
+    summaryCache.delete(file);
+  }
+}
+
+/**
+ * Every chat without its transcript, newest first.
+ *
+ * Asynchronous on purpose: this runs on every sidebar refresh, and in the
+ * desktop app the host shares a thread with the window's IPC. Only files that
+ * changed since the last call are read and parsed; the rest come from the cache.
+ */
+export async function listSessionSummaries(): Promise<SessionSummary[]> {
+  const dir = sessionsDir();
+  const names = (await readdir(dir)).filter((f) => f.endsWith('.json'));
+  const live = new Set<string>();
+  const out = await Promise.all(
+    names.map(async (name): Promise<SessionSummary | null> => {
+      const file = join(dir, name);
+      live.add(file);
+      try {
+        const st = await stat(file);
+        const hit = summaryCache.get(file);
+        if (hit && hit.mtimeMs === st.mtimeMs && hit.size === st.size) return hit.summary;
+        const summary = summarizeSession(JSON.parse(await readFile(file, 'utf8')) as Session);
+        summaryCache.set(file, { mtimeMs: st.mtimeMs, size: st.size, summary });
+        return summary;
+      } catch {
+        return null;
+      }
+    }),
+  );
+  for (const file of summaryCache.keys()) if (file.startsWith(dir) && !live.has(file)) summaryCache.delete(file);
+  return out.filter((s): s is SessionSummary => !!s).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
 export function getSession(id: string): Session | null {
   if (!existsSync(pathFor(id))) return null;
   try {
@@ -37,11 +89,15 @@ export function getSession(id: string): Session | null {
 
 export function saveSession(s: Session): void {
   s.updatedAt = Date.now();
-  writeFileSync(pathFor(s.id), JSON.stringify(s, null, 2), 'utf8');
+  const file = pathFor(s.id);
+  writeFileSync(file, JSON.stringify(s, null, 2), 'utf8');
+  remember(file, s);
 }
 
 export function deleteSession(id: string): void {
-  if (existsSync(pathFor(id))) rmSync(pathFor(id));
+  const file = pathFor(id);
+  summaryCache.delete(file);
+  if (existsSync(file)) rmSync(file);
 }
 
 export function setSessionWorkspace(id: string, workspaceId?: string): Session | null {

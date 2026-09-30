@@ -10,6 +10,13 @@ const FREE_COLOR = 'var(--surface-2)';
 const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
 
 /**
+ * `n.toLocaleString()`, with the formatter built once. The gauge repaints as a
+ * reply streams, and toLocaleString() constructs a new formatter on every call.
+ */
+let numberFormat: Intl.NumberFormat | undefined;
+const num = (n: number) => (numberFormat ??= new Intl.NumberFormat()).format(n);
+
+/**
  * Compact context-window gauge for the composer footer: usage bar + count with
  * a hover/focus breakdown of where the tokens go (mirrors the Context
  * Inspector's color vocabulary), plus the chat's estimated cost. Keyboard
@@ -75,7 +82,7 @@ export function ContextGauge({
       <span
         className="flex cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 outline-hidden focus-visible:ring-2 focus-visible:ring-(--ring)"
         tabIndex={0}
-        aria-label={`Context: ${used.toLocaleString()}${windowTokens ? ` of ${windowTokens.toLocaleString()}` : ''} tokens in use`}
+        aria-label={`Context: ${num(used)}${windowTokens ? ` of ${num(windowTokens)}` : ''} tokens in use`}
       >
         <span className="font-medium text-ink-soft">Context</span>
         <span className="tabular-nums">
@@ -110,7 +117,7 @@ export function ContextGauge({
         <div className="mb-2 flex items-baseline justify-between">
           <span className="font-semibold text-ink">Context window</span>
           <span className="text-ink-faint">
-            {windowTokens ? `${used.toLocaleString()} / ${windowTokens.toLocaleString()}` : used.toLocaleString()}
+            {windowTokens ? `${num(used)} / ${num(windowTokens)}` : num(used)}
             {windowTokens ? <span className="ml-1 text-ink-soft">({Math.round(pct)}%)</span> : null}
           </span>
         </div>
@@ -118,7 +125,7 @@ export function ContextGauge({
         {windowTokens > 0 && (
           <div className="mb-2.5 flex h-2 w-full overflow-hidden rounded-full" style={{ background: FREE_COLOR }}>
             {rows.map((r) => (
-              <span key={r.src} title={`${r.meta.label}: ${r.n.toLocaleString()} tok`} style={{ width: `${r.pctWin}%`, background: r.meta.color }} />
+              <span key={r.src} title={`${r.meta.label}: ${num(r.n)} tok`} style={{ width: `${r.pctWin}%`, background: r.meta.color }} />
             ))}
           </div>
         )}
@@ -127,7 +134,7 @@ export function ContextGauge({
           <div key={r.src} className="flex items-center gap-2 py-0.5">
             <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: r.meta.color }} />
             <span className="min-w-0 flex-1 truncate text-ink-soft">{r.meta.label}</span>
-            <span className="shrink-0 tabular-nums text-ink-faint">{r.n.toLocaleString()} tok</span>
+            <span className="shrink-0 tabular-nums text-ink-faint">{num(r.n)} tok</span>
             {windowTokens > 0 && <span className="w-9 shrink-0 text-right tabular-nums text-ink-faint">{r.pctWin < 0.1 ? '<0.1' : r.pctWin.toFixed(1)}%</span>}
           </div>
         ))}
@@ -135,13 +142,13 @@ export function ContextGauge({
           <div className="flex items-center gap-2 py-0.5">
             <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: FREE_COLOR }} />
             <span className="min-w-0 flex-1 truncate text-ink-soft">Free space</span>
-            <span className="shrink-0 tabular-nums text-ink-faint">{free.toLocaleString()} tok</span>
+            <span className="shrink-0 tabular-nums text-ink-faint">{num(free)} tok</span>
             <span className="w-9 shrink-0 text-right tabular-nums text-ink-faint">{freePct.toFixed(1)}%</span>
           </div>
         )}
         <div className="mt-1.5 flex justify-between border-t border-line pt-1.5 font-medium text-ink">
           <span>Total in use</span>
-          <span className="tabular-nums">{used.toLocaleString()} tok</span>
+          <span className="tabular-nums">{num(used)} tok</span>
         </div>
       </div>
     </div>

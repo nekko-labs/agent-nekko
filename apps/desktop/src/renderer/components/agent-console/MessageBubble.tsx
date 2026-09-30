@@ -1,11 +1,16 @@
-import React, { useState } from 'react';
+import React, { memo, useState } from 'react';
 import type { ChatMessage } from '@agent-nekko/shared';
 import { Markdown } from '../Markdown.js';
 import { ReasoningBlock } from './ReasoningBlock.js';
 import { ToolCard } from './ToolCard.js';
-import { fmtTime } from './transcript.js';
+import { fmtDateTime, fmtTime } from './transcript.js';
+import { useRowState } from './rowState.js';
 
-export function MessageBubble({
+/**
+ * One message. Memoized: a transcript row re-renders only when its message (or
+ * a handler it was given) actually changes, not on every keystroke or token.
+ */
+export const MessageBubble = memo(function MessageBubble({
   message,
   onResend,
   onReset,
@@ -22,10 +27,12 @@ export function MessageBubble({
   chronological?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
-  const [editing, setEditing] = useState(false);
+  // Kept per transcript row, so an edit in progress survives the row scrolling
+  // out of the window and back.
+  const [editing, setEditing] = useRowState('editing', false);
   const isUser = message.role === 'user';
   const displayText = isUser && message.skill ? message.skill.input : message.content;
-  const [draft, setDraft] = useState(displayText);
+  const [draft, setDraft] = useRowState('edit-draft', displayText);
   if (message.role === 'tool') return null;
   // Animate only genuinely-new content (the optimistic user bubble and the live
   // stream). Persisted messages render statically, so the optimistic→saved and
@@ -109,7 +116,7 @@ export function MessageBubble({
         {displayText && message.content && (
           <div className={`mt-1.5 flex items-center gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${isUser ? 'justify-end' : ''}`}>
             {isUser && message.createdAt > 0 && (
-              <span className="text-ink-faint/70" title={new Date(message.createdAt).toLocaleString()}>{fmtTime(message.createdAt)}</span>
+              <span className="text-ink-faint/70" title={fmtDateTime(message.createdAt)}>{fmtTime(message.createdAt)}</span>
             )}
             <button onClick={copy} title="Copy prompt" className="hover:text-ink">{copied ? '✓ copied' : 'Copy'}</button>
             {onResend && <button onClick={() => { setDraft(displayText); setEditing(true); }} title="Edit & resend" className="hover:text-ink">Edit</button>}
@@ -127,4 +134,4 @@ export function MessageBubble({
       </div>
     </div>
   );
-}
+});
