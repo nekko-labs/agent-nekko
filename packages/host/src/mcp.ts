@@ -2,6 +2,8 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import type { ToolSpec } from '@agent-nekko/core';
 import { brandEnv } from '@agent-nekko/shared';
 import type { McpServerConfig, McpServerStatus, HypergateInfo, ToolResult, ToolCall } from '@agent-nekko/shared';
+import { daemonCall } from './engine/daemon.js';
+import { daemonOwns } from './daemon-loop.js';
 
 /**
  * Minimal MCP client, hand-rolled so we add no dependency. Two transports:
@@ -148,8 +150,34 @@ class McpServer {
 
 const servers = new Map<string, McpServer>();
 
+/**
+ * The servers as the engine daemon last reported them, once it runs them
+ * (`mcp:sync`, crates/nekkod/src/mcp.rs). The daemon keeps them alive across a
+ * host restart and parses their output off this event loop; this side keeps
+ * a snapshot so the tool list and status stay synchronous.
+ */
+interface DaemonMcp {
+  specs: ToolSpec[];
+  servers: Record<string, { connected: boolean; tools: Array<{ name: string; description?: string }>; error?: string }>;
+}
+let remote: DaemonMcp | null = null;
+
+async function mcpDaemon() {
+  const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
+  return daemon && (await daemonOwns(daemon, 'mcp:sync')) ? daemon : undefined;
+}
+
 /** Reconcile running servers with the configured+enabled set (idempotent). */
 export async function syncMcp(configs: McpServerConfig[]): Promise<void> {
+  const daemon = await mcpDaemon();
+  if (daemon) {
+    remote = await daemon<DaemonMcp>('mcp:sync', configs);
+    // Any this host started before the daemon took over.
+    for (const srv of servers.values()) srv.stop();
+    servers.clear();
+    return;
+  }
+  remote = null;
   const want = new Map(configs.filter((c) => c.enabled).map((c) => [c.id, c]));
   // Stop servers no longer wanted.
   for (const [id, srv] of servers) {
@@ -173,6 +201,7 @@ export async function syncMcp(configs: McpServerConfig[]): Promise<void> {
 
 /** Agent tool specs for every connected MCP tool, namespaced `mcp__<id>__<tool>`. */
 export function mcpToolSpecs(): ToolSpec[] {
+  if (remote) return remote.specs;
   const out: ToolSpec[] = [];
   for (const [id, srv] of servers) {
     for (const t of srv.tools) {
@@ -197,6 +226,15 @@ export function mcpToolList(): Array<{ name: string; description: string }> {
 
 /** Route an `mcp__<id>__<tool>` call to the right server. */
 export async function callMcpTool(call: ToolCall): Promise<ToolResult> {
+  if (remote) {
+    const daemon = daemonCall();
+    if (!daemon) return { toolCallId: call.id, output: 'The engine is not running.', isError: true };
+    try {
+      return await daemon<ToolResult>('mcp:call', call);
+    } catch (e) {
+      return { toolCallId: call.id, output: `MCP call failed: ${(e as Error).message}`, isError: true };
+    }
+  }
   const parts = call.name.split('__');
   const id = parts[1];
   const tool = parts.slice(2).join('__');
@@ -361,7 +399,7 @@ export function withHypergate(servers: McpServerConfig[], info: HypergateInfo): 
 /** Connection status for the UI. */
 export function mcpStatus(configs: McpServerConfig[]): McpServerStatus[] {
   return configs.map((c) => {
-    const srv = servers.get(c.id);
+    const srv = remote ? remote.servers[c.id] : servers.get(c.id);
     return {
       id: c.id,
       name: c.name,
