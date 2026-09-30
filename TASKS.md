@@ -213,6 +213,12 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### Reply suggestions (added 2026-09-30)
+
+After each reply, the model writes what the user is most likely to say next, shown as one-click chips and as composer ghost text.
+
+- [x] **T163**, Model-written reply suggestions: a new `chat:suggest` channel (full five-touch chain) calls `suggestReplies` in the host, a bounded sideband request on the reply's own provider/model asking for 2-4 short follow-ups plus the single most likely next message. The renderer pins the result to the reply it was written for, renders the follow-ups as one-click send chips above the composer, and shows the likely next message as composer ghost text that Right Arrow accepts into the draft. Unattended sessions (task/training/sub-agent) and offline-remote combos are skipped, any failure yields no suggestions, and `parseReplySuggestions` tolerates fenced JSON, alternate field names, and bare-line output from small models. · [spec](SPEC.md#working-in-a-codebase) · Done: 2026-09-30
+
 ### Context usage and safe continuation (added 2026-09-29)
 
 Workspace cards reflect estimated transcript usage during active replies, the chat warning begins at 95%, and automatic compaction continues within the same session after the current turn. Compaction is cancellable while in progress; starting a new chat preserves the unmodified original transcript.

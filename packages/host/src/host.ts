@@ -157,7 +157,7 @@ import {
   startWorkflowScheduler,
   reconcileWorkflowRuns,
 } from './workflows.js';
-import { sendChat, abortChat, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { sendChat, abortChat, suggestReplies, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting } from './compaction.js';
 import { initLimits, getLimits, clearLimits } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
@@ -283,6 +283,12 @@ export interface Host {
   cancelSessionCompaction(sessionId: string): void;
   queuePrompt(sessionId: string, text: string): Session | null;
   dequeuePrompt(sessionId: string, index: number): Session | null;
+  /**
+   * Model-written next-step ideas for a chat's last reply: one-click follow-up
+   * chips plus the ghost-text draft. Sideband, unpersisted; null when there's
+   * nothing to suggest from.
+   */
+  suggestReplies(sessionId: string): Promise<import('@agent-nekko/shared').ReplySuggestions | null>;
   approveTool(sessionId: string, toolCallId: string, approved: boolean): void;
   /** Answer an `ask_user` call; an empty list means "not answering". */
   answerQuestion(sessionId: string, callId: string, answers: AskAnswer[]): void;
@@ -726,6 +732,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     cancelSessionCompaction,
     queuePrompt: sessions.queuePrompt,
     dequeuePrompt: sessions.dequeuePrompt,
+    suggestReplies,
     approveTool: (sessionId, toolCallId, approved) => resolveApproval(sessionId, toolCallId, approved),
     answerQuestion: (sessionId, callId, answers) => resolveQuestion(sessionId, callId, answers),
     pendingInput: getPendingInput,
