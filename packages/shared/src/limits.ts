@@ -1,5 +1,29 @@
 /** Subscription limit state and per-model list-price estimates. */
 
+import type { ProviderConfig } from './models.js';
+
+/**
+ * Provider kinds that publish a documented usage/credit read authorized for the
+ * same API key a user configures for inference (not a separate admin or
+ * management key). OpenRouter's `GET /api/v1/key` is the one such read today.
+ * A kind without one stays out so the UI can say "no usage API" rather than
+ * scraping a dashboard or inventing a number.
+ */
+const API_KEY_LIMIT_KINDS: ReadonlySet<ProviderConfig['kind']> = new Set(['openrouter']);
+
+/**
+ * The key the limits service can fetch for this provider, or null when nothing
+ * can be read. A signed-in provider reads by `tokenKey`; an API-key provider
+ * with a documented read gets `provider:<id>` so its snapshot lives in the same
+ * store without a token. Everything else is null, which the UI reports
+ * distinctly rather than showing an empty read.
+ */
+export function limitsKeyFor(provider: ProviderConfig): string | null {
+  if (provider.auth === 'subscription' && provider.tokenKey) return provider.tokenKey;
+  if (provider.apiKey && API_KEY_LIMIT_KINDS.has(provider.kind)) return `provider:${provider.id}`;
+  return null;
+}
+
 /** A single provider-side usage/limit window, normalized across vendors. */
 export interface LimitWindow {
   id: string;
