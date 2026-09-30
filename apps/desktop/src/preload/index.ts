@@ -94,6 +94,7 @@ const api: NekkoApi = {
   queuePrompt: (sessionId, text) => inv(IpcChannels.chatQueue, sessionId, text),
   dequeuePrompt: (sessionId, index) => inv(IpcChannels.chatDequeue, sessionId, index),
   suggestReplies: (sessionId) => inv(IpcChannels.chatSuggest, sessionId),
+  fillPromptPart: (sessionId, part, draft) => inv(IpcChannels.chatFillPrompt, sessionId, part, draft),
   approveTool: (sessionId, toolCallId, approved) => inv(IpcChannels.toolApprove, sessionId, toolCallId, approved),
   answerQuestion: (sessionId, callId, answers) => inv(IpcChannels.chatAnswer, sessionId, callId, answers),
   pendingInput: () => inv(IpcChannels.chatPending),

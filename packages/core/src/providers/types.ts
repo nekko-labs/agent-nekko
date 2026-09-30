@@ -43,7 +43,7 @@ export interface ChatRequest {
    * generation, reply suggestions). Providers ignore it; the host and tests
    * use it to keep bookkeeping traffic out of turn accounting.
    */
-  purpose?: 'title' | 'suggest';
+  purpose?: 'title' | 'suggest' | 'fill';
 }
 
 /** Streamed chunk from a provider, normalized. */

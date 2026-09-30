@@ -242,6 +242,68 @@ export async function suggestReplies(sessionId: string): Promise<ReplySuggestion
   }
 }
 
+/**
+ * Draft one missing piece of a prompt the user is composing: the analyzer's
+ * click-to-fill chips used to insert fixed starter snippets matched by text
+ * rules; this asks the model to write the snippet from the prompt itself
+ * instead, so a "Role" chip on a code review prompt gets a code-reviewer
+ * persona, not the generic senior-engineer line.
+ *
+ * Same sideband family as `suggestReplies`: small call on the session's own
+ * provider and model, tagged `purpose: 'fill'`, writes nothing, and any
+ * failure returns null so the caller falls back to the deterministic snippet.
+ */
+export async function fillPromptPart(sessionId: string, part: string, draft: string): Promise<string | null> {
+  const session = getSession(sessionId);
+  if (!session) return null;
+  const settings = getSettings();
+  const providerId = session.providerId ?? settings.defaultProviderId;
+  const modelId = session.modelId ?? settings.defaultModelId;
+  const provider = providerId ? settings.providers.find((p) => p.id === providerId) : undefined;
+  if (!provider?.enabled || !modelId) return null;
+  if (session.offline && !offlineProviderAllowed(provider)) return null;
+  if (!providerEndpoint(provider)) return null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  try {
+    const resolved = await resolveSubscriptionProvider(provider);
+    let out = '';
+    for await (const chunk of createProvider(resolved).chat({
+      model: modelId,
+      messages: [
+        {
+          id: 'fill',
+          role: 'user',
+          createdAt: Date.now(),
+          content:
+            `The user is composing this prompt for an AI assistant:\n` +
+            `"""\n${draft.slice(0, 2_000).trim()}\n"""\n\n` +
+            `The prompt is missing a "${part}" part. Write one short snippet they could add to cover it, matched to their topic and voice: at most two sentences or a few short lines. ` +
+            `Return only the snippet text; no preamble, no quotes, no labels.`,
+        },
+      ],
+      temperature: 0.4,
+      maxOutputTokens: 120,
+      think: false,
+      purpose: 'fill',
+      signal: controller.signal,
+    })) {
+      if (chunk.type === 'text') out += chunk.delta;
+    }
+    const cleaned = out
+      .trim()
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .trim()
+      .slice(0, 320);
+    return cleaned || null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /** Resolve a pending tool approval (called from IPC when the user clicks). */
 export function resolveApproval(sessionId: string, toolCallId: string, approved: boolean): void {
   pendingApprovals.get(toolCallId)?.(approved);

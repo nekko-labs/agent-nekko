@@ -9,6 +9,8 @@ let requests: Array<{ providerId: string; request: ChatRequest }> = [];
 let titleRequests: Array<{ providerId: string; request: ChatRequest }> = [];
 let suggestRequests: Array<{ providerId: string; request: ChatRequest }> = [];
 let suggestError: Error | null = null;
+let fillRequests: Array<{ providerId: string; request: ChatRequest }> = [];
+let fillError: Error | null = null;
 let listings: string[] = [];
 let rounds: Array<ProviderChunk[] | Error> = [];
 let models: ModelInfo[] = [];
@@ -48,6 +50,11 @@ vi.mock('@agent-nekko/core', async () => {
           if (suggestError) throw suggestError;
           for (const chunk of [{ type: 'text', delta: '{"options":["Run the tests","Explain the diff"],"next":"Run the new tests"}' }, { type: 'done' }] as ProviderChunk[]) yield chunk;
           return;
+        } else if (request.purpose === 'fill') {
+          fillRequests.push({ providerId: config.id, request });
+          if (fillError) throw fillError;
+          for (const chunk of [{ type: 'text', delta: 'You are a senior reviewer for this codebase.' }, { type: 'done' }] as ProviderChunk[]) yield chunk;
+          return;
         } else {
           requests.push({ providerId: config.id, request });
         }
@@ -64,7 +71,7 @@ const { saveSettings, getSettings } = await import('./store.js');
 const { executeTool } = await import('./tools.js');
 const { terminalSnapshot, writeTerminal, closeTerminal } = await import('./terminal.js');
 const { createSession, getSession, saveSession, listSessions } = await import('./sessions.js');
-const { sendChat, previewContext, resolveApproval, suggestReplies } = await import('./chat.js');
+const { sendChat, previewContext, resolveApproval, suggestReplies, fillPromptPart } = await import('./chat.js');
 const { BUILTIN_TOOLS } = await import('@agent-nekko/core');
 let dir: string;
 let providers: ProviderConfig[];
@@ -82,6 +89,8 @@ beforeEach(() => {
   titleRequests = [];
   suggestRequests = [];
   suggestError = null;
+  fillRequests = [];
+  fillError = null;
   listings = [];
   rounds = [];
   models = [{ id: 'local-exact', providerId: 'local', name: 'Local exact' }];
@@ -413,6 +422,56 @@ describe('reply suggestions', () => {
     saveSession(session);
     expect(await suggestReplies(session.id)).toBeNull();
     expect(suggestRequests).toEqual([]);
+  });
+});
+
+describe('prompt part fills', () => {
+  const drafting = () => {
+    const session = createSession();
+    session.providerId = 'frontier';
+    session.modelId = 'frontier-exact';
+    saveSession(session);
+    return session;
+  };
+
+  it('drafts the missing part on the session provider and model, out of band', async () => {
+    const session = drafting();
+    const out = await fillPromptPart(session.id, 'Role', 'review my parser for edge cases');
+    expect(out).toBe('You are a senior reviewer for this codebase.');
+    expect(fillRequests).toHaveLength(1);
+    expect(fillRequests[0].providerId).toBe('frontier');
+    expect(fillRequests[0].request.model).toBe('frontier-exact');
+    expect(fillRequests[0].request.purpose).toBe('fill');
+    expect(fillRequests[0].request.messages.at(-1)?.content).toContain('review my parser for edge cases');
+    expect(fillRequests[0].request.messages.at(-1)?.content).toContain('"Role"');
+    expect(requests).toEqual([]);
+  });
+
+  it('returns null for missing sessions and sessions with no usable provider', async () => {
+    expect(await fillPromptPart('missing-session', 'Role', 'draft')).toBeNull();
+    const session = drafting();
+    session.providerId = 'disabled';
+    saveSession(session);
+    expect(await fillPromptPart(session.id, 'Role', 'draft')).toBeNull();
+    expect(fillRequests).toEqual([]);
+  });
+
+  it('turns a provider failure into null so the deterministic snippet fills', async () => {
+    const session = drafting();
+    fillError = new Error('provider down');
+    expect(await fillPromptPart(session.id, 'Role', 'draft')).toBeNull();
+  });
+
+  it('respects the offline gate for remote providers', async () => {
+    providers[1].baseUrl = 'https://remote.example/v1';
+    saveSettings({ providers });
+    const session = drafting();
+    session.providerId = 'local';
+    session.modelId = 'local-exact';
+    session.offline = true;
+    saveSession(session);
+    expect(await fillPromptPart(session.id, 'Role', 'draft')).toBeNull();
+    expect(fillRequests).toEqual([]);
   });
 });
 
