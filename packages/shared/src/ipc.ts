@@ -96,6 +96,7 @@ export const IpcChannels = {
   chatQueue: 'chat:queue',
   chatDequeue: 'chat:dequeue',
   chatSuggest: 'chat:suggest',
+  chatFillPrompt: 'chat:fillPrompt',
   toolApprove: 'tool:approve',
   chatAnswer: 'chat:answer',
   chatPending: 'chat:pending',
@@ -444,6 +445,14 @@ export interface NekkoApi {
    * unattended run, no usable provider). Never persists anything.
    */
   suggestReplies(sessionId: string): Promise<ReplySuggestions | null>;
+  /**
+   * Model-drafted snippet for a prompt part the composer is missing (the
+   * analyzer's click-to-fill chips). A sideband call on the chat's own provider
+   * and model; null when there is no usable provider or the model returns
+   * nothing usable, in which case the deterministic starter text is the
+   * fallback. Never persists anything.
+   */
+  fillPromptPart(sessionId: string, part: string, draft: string): Promise<string | null>;
   approveTool(sessionId: string, toolCallId: string, approved: boolean): Promise<void>;
   /**
    * Answer an `ask_user` call, which unblocks the turn that asked. Passing no

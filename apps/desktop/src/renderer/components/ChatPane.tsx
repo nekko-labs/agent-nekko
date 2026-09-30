@@ -1847,6 +1847,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
             <PromptAnalyzer
               text={draft}
               sessionId={sessionId}
+              canModelFill={hasProvider}
               workspaces={settings?.workspaces ?? []}
               contextItems={ctx?.items ?? []}
               activeWorkspaceIds={session ? getSessionWorkspaceIds(session) : []}
