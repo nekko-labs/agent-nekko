@@ -16,10 +16,14 @@ bytes = "1"
 futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
 getrandom = "0.3"
 libc = "0.2"
+ndarray = "0.17"
+# Pinned: ort 2 is still a release candidate and minor bumps change the API.
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native", "api-22"] }
 portable-pty = "0.9"
 reqwest = { version = "0.12", default-features = false, features = ["json"] }
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# preserve_order: a decision's option order is its meaning (criteria dicts), and Laya's input is the state serialized in the order the caller wrote it.
+serde_json = { version = "1", features = ["preserve_order"] }
 tokio = { version = "1", features = ["full"] }
 tokio-tungstenite = "0.27"
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security"] }

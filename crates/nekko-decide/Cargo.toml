@@ -1,0 +1,28 @@
+[package]
+name = "nekko-decide"
+description = "Local decision models (Laya): a native ONNX Runtime session that answers typed questions with calibrated probabilities, in the TypeSafe Jev response shape."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# The Linux prebuilt ONNX Runtime with CUDA also carries TensorRT and needs the CUDA 13 runtime
+# at run time; it is several hundred MB, so it is opt-in (`--features cuda`) rather than what CI
+# and the default Linux build download. Without it Linux runs on the CPU provider.
+cuda = ["ort/cuda"]
+
+[dependencies]
+ort = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+tokenizers = { version = "0.22.2", default-features = false, features = ["fancy-regex"] }
+
+# Execution providers, per target: each maps to the prebuilt ONNX Runtime pyke ships for it
+# (see ort-sys's dist table). A provider that fails to start at run time falls back to CPU.
+[target.'cfg(windows)'.dependencies]
+ort = { workspace = true, features = ["directml"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+ort = { workspace = true, features = ["coreml"] }
