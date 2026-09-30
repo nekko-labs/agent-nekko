@@ -463,12 +463,12 @@ describe('agent tools golden sets', () => {
       const sid = seq.policy.sessionId ?? '';
       for (const [n, step] of seq.steps.entries()) {
         if ('changes' in step) {
-          out.push({ changes: listChanges(sid).map((c) => ({ path: normalize(c.path, root), original: recordOutput(c.original), current: recordOutput(c.current) })) });
+          out.push({ changes: (await listChanges(sid)).map((c) => ({ path: normalize(c.path, root), original: recordOutput(c.original), current: recordOutput(c.current) })) });
         } else if ('accept' in step) {
-          acceptChange(sid, resolve(root, 'ws', 'app', step.accept));
+          await acceptChange(sid, resolve(root, 'ws', 'app', step.accept));
           out.push({ accepted: step.accept });
         } else if ('acceptAll' in step) {
-          acceptAllChanges(sid);
+          await acceptAllChanges(sid);
           out.push({ acceptedAll: true });
         } else {
           const call = { id: `${seq.name}-${n}`, name: String(step.call.name), input: step.call.input } as ToolCall;

@@ -162,8 +162,3 @@ pub fn read_dir(dir: &str) -> Result<Vec<DirEntry>, String> {
     out.sort_by(|a, b| a.name.as_bytes().cmp(b.name.as_bytes()));
     Ok(out)
 }
-
-/// `statSync(p).size`, following links.
-pub fn size(p: &str) -> Option<u64> {
-    std::fs::metadata(p).ok().map(|m| m.len())
-}

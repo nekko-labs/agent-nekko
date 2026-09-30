@@ -18,6 +18,8 @@ getrandom = "0.3"
 # The collator V8's `localeCompare` uses (root collation), so sorted lists match the TS host's.
 icu_collator = "2"
 libc = "0.2"
+# Substring search for grep's literal fast path.
+memchr = "2"
 ndarray = "0.17"
 # Pinned: ort 2 is still a release candidate and minor bumps change the API.
 ort = { version = "=2.0.0-rc.13", default-features = false, features = ["std", "ndarray", "download-binaries", "copy-dylibs", "tls-native", "api-22"] }
