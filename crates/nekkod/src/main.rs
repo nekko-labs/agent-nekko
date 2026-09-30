@@ -9,6 +9,7 @@ mod config;
 mod decide;
 mod engine;
 mod hub;
+mod loops;
 mod procgroup;
 mod routes;
 mod wire;
@@ -63,7 +64,14 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
     };
     let engine = Arc::new(engine::Engine::new(backend.clone()));
     let sessions = cfg.data_dir.clone().map(|d| Arc::new(nekko_store::SessionStore::new(d)));
-    let ctx = Ctx { terminals: terminals.clone(), backend: backend.clone(), hub, engine: engine.clone(), sessions };
+    let ctx = Ctx {
+        terminals: terminals.clone(),
+        backend: backend.clone(),
+        hub,
+        engine: engine.clone(),
+        sessions,
+        loops: Arc::default(),
+    };
     routes::forward_terminal_events(&ctx);
 
     let app = wire::App { ctx, token: cfg.token.clone().into(), origins: Arc::new(cfg.allowed_origins.clone()) };

@@ -186,7 +186,7 @@ async fn every_scripted_run_matches_the_ts_loop() {
             },
             &client,
             &tools,
-            &mut |e| events.push(e),
+            &mut |e, _| events.push(e),
         )
         .await;
         let got = normalize(

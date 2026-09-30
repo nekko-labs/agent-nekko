@@ -160,6 +160,7 @@ import {
 } from './workflows.js';
 import { setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
+import { loopEnd, loopEvent, loopTool } from './daemon-loop.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting } from './compaction.js';
 import { initLimits, getLimits, clearLimits } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
@@ -247,6 +248,10 @@ export interface Host {
   engineStatus(): Promise<EngineStatus>;
   /** For the engine daemon's router: load a model it was asked for, or say why not. */
   engineRouterLoad(modelId: string, image: boolean): Promise<{ ok: boolean; status?: number; message?: string }>;
+  /** A daemon-driven run's callbacks (daemon-loop.ts): a tool call, its events, its end. */
+  loopTool(runId: string, call: import('@agent-nekko/shared').ToolCall): Promise<import('@agent-nekko/shared').ToolResult>;
+  loopEvent(runId: string, payload: { events?: import('@agent-nekko/shared').AgentEvent[]; history?: import('@agent-nekko/shared').ChatMessage[] }): Promise<void>;
+  loopEnd(runId: string, payload: { history?: import('@agent-nekko/shared').ChatMessage[] }): void;
   /** For the engine daemon's router: `GET /v1/models`. */
   engineRouterModels(): Promise<unknown>;
   engineRouterModel(modelId: string): Promise<unknown>;
@@ -729,6 +734,9 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
 
     engineStatus: () => engine.status(),
     engineRouterLoad: (modelId, image) => engine.routerLoad(modelId, image),
+    loopTool,
+    loopEvent,
+    loopEnd,
     engineRouterModels: () => engine.routerModels(),
     engineRouterModel: (modelId) => engine.routerModel(modelId),
     engineInstall: (buildId, runtime) => engine.installEngine(buildId, runtime),
