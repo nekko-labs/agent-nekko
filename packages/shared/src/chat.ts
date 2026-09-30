@@ -92,6 +92,14 @@ export interface Session {
    * default) reads each prompt and picks between them.
    */
   autoQuality?: import('./model-select.js').AutoQuality;
+  /**
+   * When true, Auto mode may move a turn to an equivalent model on another
+   * provider when this chat's provider is spent (its binding usage window is
+   * exhausted or past the switch threshold) or when an equivalent model
+   * elsewhere is materially cheaper. Off by default: the pick never
+   * downgrades capability, and the reason is shown on the turn.
+   */
+  autoProviderSwitch?: boolean;
   /** Tool-execution policy for this chat. */
   mode?: ChatMode;
   /**

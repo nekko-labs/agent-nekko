@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
-import { pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, planAsPromptBlock, estimateCostUSD, shortLiveStatus } from '@agent-nekko/shared';
+import { pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, planAsPromptBlock, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
+import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { useGitStatus } from '../useGitStatus.js';
 import { clearLiveRun, getLiveRun, useLiveRun } from '../liveRuns.js';
-import { useProviderLimits } from '../useLimits.js';
+import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { Markdown } from './Markdown.js';
 import {
@@ -1009,21 +1010,34 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // / Quality). Per-chat, because a throwaway question and a refactor rarely
   // want the same spend.
   const autoQuality: AutoQuality = session?.autoQuality ?? 'normal';
+  // Opt-in per chat: when this provider is spent, Auto may run the turn on an
+  // equivalent model elsewhere. Never in offline chats, which must stay local.
+  const autoSwitch = !!session?.autoProviderSwitch && !session?.offline;
 
   /** Resolve Auto mode against a prompt, with the reasoning for the chip. */
-  const autoPickFor = (text: string) => {
+  const autoPickFor = (text: string, cross = crossModels): AutoProviderPick | null => {
     const favSet = new Set(settings?.favoriteModels ?? []);
-    const favs = new Set(models.filter((m) => favSet.has(`${providerId}::${m.id}`)).map((m) => m.id));
-    // Auto never reaches for a model the plan can't serve right now: picking a
-    // capped model is a turn that fails on send rather than a smarter choice.
-    return pickAutoModel(runnableModels, text, { quality: autoQuality, preferred: favs });
+    if (!autoSwitch || !providerId) {
+      const favs = new Set(models.filter((m) => favSet.has(`${providerId}::${m.id}`)).map((m) => m.id));
+      // Auto never reaches for a model the plan can't serve right now: picking a
+      // capped model is a turn that fails on send rather than a smarter choice.
+      const pick = pickAutoModel(runnableModels, text, { quality: autoQuality, preferred: favs });
+      return pick ? { ...pick, providerId: providerId ?? '', providerLabel: activeProvider?.label ?? providerId ?? '', switched: false } : null;
+    }
+    return pickAcrossProviders(buildPools(cross), text, {
+      quality: autoQuality,
+      preferred: favSet,
+      homeProviderId: providerId,
+      switchOnCapacity: true,
+    });
   };
 
-  // The concrete model to run this reply on: the picked one, or, in Auto mode -
-  // the best available model for the prompt (favorites break ties).
-  const resolveModelId = (text: string): string | null => {
-    if (modelId !== AUTO_MODEL_ID) return modelId;
-    return autoPickFor(text)?.modelId ?? null;
+  // The provider + concrete model this turn will run on: the picked ones, or,
+  // in Auto mode - the best available for the prompt (favorites break ties).
+  const resolveBrain = (text: string, pick?: AutoProviderPick | null): { providerId: string; modelId: string } | null => {
+    if (modelId !== AUTO_MODEL_ID) return providerId && modelId ? { providerId, modelId } : null;
+    const p = pick === undefined ? autoPickFor(text) : pick;
+    return p && p.providerId ? { providerId: p.providerId, modelId: p.modelId } : null;
   };
 
   /**
@@ -1032,7 +1046,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    * is broken": the most common way in was switching tabs, since the workbench
    * unmounts a pane and the rebuilt one can land on a provider with no models.
    */
-  const requireBrain = (text: string): { providerId: string; modelId: string } | null => {
+  const requireBrain = (text: string, pick?: AutoProviderPick | null): { providerId: string; modelId: string } | null => {
     const toast = (message: string) => useStore.getState().pushToast('error', message);
     if (!providerId) {
       toast(providers.length === 0
@@ -1040,7 +1054,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         : 'This chat is still loading its model, try again in a moment.');
       return null;
     }
-    const resolved = resolveModelId(text);
+    const resolved = resolveBrain(text, pick);
     if (!resolved) {
       const label = providers.find((p) => p.id === providerId)?.label ?? 'this provider';
       toast(models.length === 0
@@ -1052,8 +1066,8 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     }
     // Remembered here rather than at each call site: every turn goes through
     // this gate, so this is the one place that always knows what will run.
-    modelForCostRef.current = resolved;
-    return { providerId, modelId: resolved };
+    modelForCostRef.current = resolved.modelId;
+    return resolved;
   };
 
   const send = async (override?: string) => {
@@ -1093,8 +1107,17 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
       return;
     }
 
-    const brain = requireBrain(text);
+    // A capacity-aware Auto pick needs the other providers' model lists; the
+    // fetch resolves them fresh rather than trusting state from an old render.
+    const cross = modelId === AUTO_MODEL_ID ? await ensureCrossModels() : crossModels;
+    const pick = modelId === AUTO_MODEL_ID ? autoPickFor(text, cross) : null;
+    const brain = requireBrain(text, pick ?? undefined);
     if (!brain) return;
+    if (pick?.switched) {
+      // A switch that never explains itself is a silent downgrade in waiting:
+      // the reason is shown once per turn that actually moves providers.
+      useStore.getState().pushToast('info', pick.reason);
+    }
     if (override === undefined) { setDraft(''); setPendingImages([]); clearDraft(sessionId); }
     setActiveSkill(null);
     beginTurn();
@@ -1411,6 +1434,78 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const runnableModels = models.filter(
     (m) => resolveModelAvailability({ model: m, provider: activeProvider, limits: providerLimits }).status === 'ready',
   );
+
+  /**
+   * This chat's provider as a pool: its models, whatever live limits it
+   * publishes, and whether its turns are free (local or plan-included), which
+   * is what the cross-provider pick weighs against every other pool.
+   */
+  const homePool: ProviderPool | null = providerId
+    ? {
+        providerId,
+        providerLabel: activeProvider?.label ?? providerId,
+        models,
+        limits: providerLimits,
+        auth: activeProvider?.auth,
+        tokenKey: activeProvider?.tokenKey,
+        local: providerKind ? isLocalProvider(providerKind) : undefined,
+      }
+    : null;
+
+  const [crossModels, setCrossModels] = useState<Record<string, ModelInfo[]>>({});
+  // Every provider's limits, read only while Auto could actually move a turn
+  // off this provider.
+  const crossLimits = useAllProviderLimits(providers, modelId === AUTO_MODEL_ID && autoSwitch);
+
+  /**
+   * The other providers' model lists, fetched once when the chat is in Auto
+   * mode with follow-capacity on: either switch trigger (spent provider or a
+   * materially cheaper same-tier model elsewhere) needs the full pool, and
+   * neither can be evaluated without it. Returns the fresh map for callers
+   * that cannot wait a render, since `setState` inside this closure is stale.
+   */
+  const ensureCrossModels = async (): Promise<Record<string, ModelInfo[]>> => {
+    if (modelId !== AUTO_MODEL_ID || !autoSwitch) return crossModels;
+    if (Object.keys(crossModels).length) return crossModels;
+    const entries = await Promise.all(
+      providers
+        .filter((p) => p.enabled && p.id !== providerId)
+        .map((p) =>
+          window.nekko
+            .listModels(p.id)
+            .then((m) => [p.id, m] as const)
+            .catch(() => [p.id, [] as ModelInfo[]] as const),
+        ),
+    );
+    const fresh = Object.fromEntries(entries);
+    setCrossModels(fresh);
+    return fresh;
+  };
+  useEffect(() => {
+    if (modelId === AUTO_MODEL_ID && autoSwitch) void ensureCrossModels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSwitch, modelId]);
+
+  /** The pools a capacity-aware Auto pick can draw on: home first, then every
+   *  other enabled provider whose models we have fetched. */
+  const buildPools = (cross: Record<string, ModelInfo[]>): ProviderPool[] => [
+    ...(homePool ? [homePool] : []),
+    ...providers
+      .filter((p) => p.enabled && p.id !== providerId)
+      .map((p) => {
+        const key = limitsKeyFor(p);
+        return {
+          providerId: p.id,
+          providerLabel: p.label,
+          models: cross[p.id] ?? [],
+          limits: key ? crossLimits[key] : undefined,
+          auth: p.auth,
+          tokenKey: p.tokenKey,
+          local: isLocalProvider(p.kind),
+        };
+      }),
+  ];
+
   const isCloudModel = !providerKind || !isLocalProvider(providerKind);
   const isSubscription = activeProvider?.auth === 'subscription';
   // Reasoning toggle: offered only for a concrete, reasoning-capable model.
@@ -1776,6 +1871,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                       .then((s) => { if (s) setSession(s); })
                       .catch(() => {});
                   }}
+                  followCapacity={!!session?.autoProviderSwitch}
+                  onFollowCapacity={(v) => {
+                    window.nekko
+                      .setSessionOptions(sessionId, { autoProviderSwitch: v })
+                      .then((s) => { if (s) setSession(s); })
+                      .catch(() => {});
+                  }}
                 />
               )}
               {autoPick && (
@@ -1783,7 +1885,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                   className="min-w-0 shrink truncate text-[10px] text-ink-faint"
                   title={`Auto will run this message on ${autoPick.name}. ${autoPick.reason}`}
                 >
-                  → {autoPick.name}
+                  → {autoPick.name}{autoPick.switched ? ` · ${autoPick.providerLabel}` : ''}
                 </span>
               )}
               {thinkingSupported ? (
