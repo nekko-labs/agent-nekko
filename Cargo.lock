@@ -1008,6 +1008,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "nekko-chat"
+version = "0.1.0"
+dependencies = [
+ "nekko-agent",
+ "nekko-loop",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "nekko-context"
 version = "0.1.0"
 dependencies = [
