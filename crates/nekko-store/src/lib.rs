@@ -151,8 +151,12 @@ mod tests {
         (SessionStore::new(&dir), dir)
     }
 
-    fn rand_suffix() -> u128 {
-        SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos()
+    /// Unique per test: tests run in parallel, and on Windows two of them can
+    /// read the same clock tick, share a folder, and delete it under each other.
+    fn rand_suffix() -> String {
+        static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        format!("{n}-{}", SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos())
     }
 
     #[test]
