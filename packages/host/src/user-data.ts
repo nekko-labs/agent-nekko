@@ -21,7 +21,8 @@ export function legacyUserDataDirs(home = homedir(), appData?: string): string[]
 
 // Chromium writes these into the new desktop profile at startup, before the
 // migration dialog can open; the running browser owns them, so they never move.
-const BROWSER_STARTUP_FILES = new Set(['Local State', 'SingletonLock', 'SingletonCookie', 'SingletonSocket']);
+// The single-instance lock is `lockfile` on Windows, `Singleton*` elsewhere.
+const BROWSER_STARTUP_FILES = new Set(['Local State', 'lockfile', 'SingletonLock', 'SingletonCookie', 'SingletonSocket']);
 
 function inside(path: string, root: string): boolean {
   const rel = relative(resolve(root), resolve(path));

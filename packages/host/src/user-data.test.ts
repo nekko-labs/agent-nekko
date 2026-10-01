@@ -40,7 +40,7 @@ describe('confirmed user-data migration', () => {
   it('moves the desktop browser profile into one the running app already started', () => {
     const {dir,target}=fixture(); const profile=join(dir,'profile'), source=join(profile,'agent-nekko'), started=join(target,'desktop'); mkdirSync(source,{recursive:true}); mkdirSync(started,{recursive:true});
     writeFileSync(join(source,'settings.json'),'{}'); writeFileSync(join(profile,'Local State'),'old'); mkdirSync(join(profile,'Local Storage')); writeFileSync(join(profile,'Local Storage','fixture'),'ui settings');
-    writeFileSync(join(started,'Local State'),'running'); for (const name of ['SingletonLock','SingletonCookie','SingletonSocket']) symlinkSync('fixture',join(started,name));
+    writeFileSync(join(started,'Local State'),'running'); writeFileSync(join(started,'lockfile'),''); for (const name of ['SingletonLock','SingletonCookie','SingletonSocket']) symlinkSync('fixture',join(started,name));
     migrateUserData(source,target,profile);
     expect(existsSync(join(target,'settings.json'))).toBe(true); expect(readFileSync(join(started,'Local Storage','fixture'),'utf8')).toBe('ui settings');
     expect(readFileSync(join(started,'Local State'),'utf8')).toBe('running'); expect(readFileSync(join(profile,'Local State'),'utf8')).toBe('old');
