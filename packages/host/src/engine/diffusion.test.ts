@@ -7,6 +7,12 @@ import { diffusionBuilds, matchDiffusionAsset, matchDiffusionCompanion, diffusio
 import { createEngineInstaller } from './install.js';
 import { createDownloads } from './download.js';
 import { imageCompanionSetFor, imageCompanionStatus } from './image-companions.js';
+import { RUNTIME_RELEASES } from './runtime-releases.js';
+
+// Releases are fetched by the pinned tag, which the runtime updater bumps; the
+// fixtures follow it so an update PR is judged on its own merits.
+const TAG = RUNTIME_RELEASES.diffusion.tag;
+const SHA = TAG.split('-').pop();
 const dirs: string[] = [];
 afterEach(async () => { for (const dir of dirs.splice(0)) await rm(dir, { recursive: true, force: true }); });
 
@@ -28,8 +34,8 @@ describe('diffusion runtime', () => {
   it('previews the pinned release and counts all required archive bytes', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'nekko-sd-preview-')); dirs.push(dir);
     const installer = createEngineInstaller({ runtime: 'diffusion', engineDir: () => dir, downloads: createDownloads({}), getGpuStats: async () => null, platform:'win32', arch:'x64', run: async () => null,
-      fetch: (async () => new Response(JSON.stringify({ tag_name:'master-900-c92d73c', assets: [
-        { name: 'sd-master-c92d73c-bin-win-cuda12-x64.zip', browser_download_url:'https://github.com/example/main.zip', size:300 },
+      fetch: (async () => new Response(JSON.stringify({ tag_name:TAG, assets: [
+        { name: `sd-master-${SHA}-bin-win-cuda12-x64.zip`, browser_download_url:'https://github.com/example/main.zip', size:300 },
         { name: 'cudart-sd-bin-win-cu12-x64.zip', browser_download_url:'https://github.com/example/libs.zip', size:600 },
       ] }))) as typeof fetch });
     expect((await installer.preview('sd-win-x64-cuda'))?.sizeBytes).toBe(900);
@@ -38,7 +44,7 @@ describe('diffusion runtime', () => {
     const dir=await mkdtemp(join(tmpdir(),'nekko-sd-checksum-'));dirs.push(dir);
     const downloads=createDownloads({fetch:(async()=>new Response('corrupt archive')) as typeof fetch});
     const run=vi.fn(async()=>null);
-    const installer=createEngineInstaller({runtime:'diffusion',engineDir:()=>dir,downloads,getGpuStats:async()=>null,platform:'win32',arch:'x64',run,fetch:(async()=>new Response(JSON.stringify({tag_name:'master-900-c92d73c',assets:[{name:'sd-master-c92d73c-bin-win-cpu-x64.zip',size:15,browser_download_url:'https://github.com/example/runtime.zip',digest:`sha256:${'0'.repeat(64)}`}]}))) as typeof fetch});
+    const installer=createEngineInstaller({runtime:'diffusion',engineDir:()=>dir,downloads,getGpuStats:async()=>null,platform:'win32',arch:'x64',run,fetch:(async()=>new Response(JSON.stringify({tag_name:TAG,assets:[{name:`sd-master-${SHA}-bin-win-cpu-x64.zip`,size:15,browser_download_url:'https://github.com/example/runtime.zip',digest:`sha256:${'0'.repeat(64)}`}]}))) as typeof fetch});
     expect((await installer.install('sd-win-x64-cpu')).ok).toBe(true);
     await vi.waitFor(()=>expect(downloads.list()[0].state).toBe('failed'));
     expect(downloads.list()[0].message).toMatch(/checksum/);expect(run).not.toHaveBeenCalled();
