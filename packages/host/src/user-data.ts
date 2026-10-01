@@ -19,6 +19,11 @@ export function legacyUserDataDirs(home = homedir(), appData?: string): string[]
   return sources;
 }
 
+// Chromium writes these into the new desktop profile at startup, before the
+// migration dialog can open; the running browser owns them, so they never move.
+// The single-instance lock is `lockfile` on Windows, `Singleton*` elsewhere.
+const BROWSER_STARTUP_FILES = new Set(['Local State', 'lockfile', 'SingletonLock', 'SingletonCookie', 'SingletonSocket']);
+
 function inside(path: string, root: string): boolean {
   const rel = relative(resolve(root), resolve(path));
   return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel));
@@ -60,7 +65,7 @@ export function migrateUserData(source: string, destination: string, desktopProf
     if (resolve(desktopProfile) !== dirname(from) || inside(to, desktopProfile)) throw new Error('The desktop profile must be the source data folder\'s parent, separate from the destination.');
     const profileTarget = join(to, 'desktop');
     if (resolve(desktopProfile) === resolve(profileTarget) || !existsSync(desktopProfile)) throw new Error('The old desktop profile is not a separate existing folder.');
-    if (!prior && existsSync(profileTarget) && readdirSync(profileTarget).length) throw new Error('The new desktop profile already contains browser data. Close the app and resolve the profile conflict before migrating.');
+    if (!prior && existsSync(profileTarget) && readdirSync(profileTarget).some(n => !BROWSER_STARTUP_FILES.has(n))) throw new Error('The new desktop profile already contains browser data. Close the app and resolve the profile conflict before migrating.');
     mkdirSync(profileTarget, { recursive: true, mode: 0o700 });
   }
   const saveJournal = (phase: string) => writeJsonAtomic(journalPath, { from, to, phase, desktopProfile, moves });
@@ -115,7 +120,7 @@ export function migrateUserData(source: string, destination: string, desktopProf
     saveJournal('desktop');
     for (const entry of readdirSync(desktopProfile, { withFileTypes: true })) {
       const path = join(desktopProfile, entry.name);
-      if (resolve(path) === from || entry.isSymbolicLink()) continue;
+      if (resolve(path) === from || entry.isSymbolicLink() || BROWSER_STARTUP_FILES.has(entry.name)) continue;
       const target = join(to, 'desktop', entry.name);
       if (existsSync(target)) throw new Error('A desktop-profile file already exists. Migration stopped without overwriting it.');
       renameSync(path, target);
