@@ -5,15 +5,27 @@ import { parseSSE } from './sse.js';
 import { DecodeClock } from './decode-clock.js';
 
 /**
- * ChatGPT-plan models. The Codex backend has no public /models route, so we
- * ship the current subscription model set as a curated list, the same way the
- * Anthropic provider does for Claude.
+ * Last-known subscription model set, used only when the live catalog cannot be
+ * fetched (offline, unsigned, backend down). The Codex backend retired the
+ * gpt-5/codex ids in 2026, so this mirrors the current picker generation.
  */
-const CHATGPT_MODELS: Array<{ id: string; name: string; ctx: number }> = [
-  { id: 'gpt-5-codex', name: 'GPT-5 Codex', ctx: 400000 },
-  { id: 'gpt-5', name: 'GPT-5', ctx: 400000 },
-  { id: 'codex-mini-latest', name: 'Codex Mini', ctx: 200000 },
+const CHATGPT_MODELS: Array<{ id: string; name: string; ctx?: number }> = [
+  { id: 'gpt-6.1-sol', name: 'GPT-6.1 Sol' },
+  { id: 'gpt-6-sol', name: 'GPT-6 Sol' },
+  { id: 'gpt-6-luna', name: 'GPT-6 Luna' },
+  { id: 'gpt-6-astra', name: 'GPT-6 Astra' },
+  { id: 'gpt-5.6-sol', name: 'GPT-5.6 Sol', ctx: 272000 },
+  { id: 'gpt-5.6-terra', name: 'GPT-5.6 Terra', ctx: 272000 },
+  { id: 'gpt-5.6-luna', name: 'GPT-5.6 Luna', ctx: 272000 },
 ];
+
+/**
+ * The Codex backend filters its model catalog by the Codex CLI version a client
+ * reports — unversioned and stale versions get a truncated or empty list. This
+ * pins a recent CLI release; raise it when the backend starts gating newer
+ * entries behind a higher line.
+ */
+const CODEX_CLIENT_VERSION = '0.157.0';
 
 /**
  * The Codex backend requires this beta header for Responses-API streaming and
@@ -59,14 +71,76 @@ export class ChatGptProvider implements Provider {
     };
   }
 
+  /**
+   * Headers for the catalog GET: same subscription auth as chat, but no
+   * `OpenAI-Beta`/`session_id`, which are Responses-API concerns.
+   */
+  private catalogHeaders(): Record<string, string> {
+    if (!this.config.accountId) throw new Error(MISSING_ACCOUNT_ID);
+    return {
+      Accept: 'application/json',
+      Authorization: `Bearer ${this.config.apiKey ?? ''}`,
+      'chatgpt-account-id': this.config.accountId,
+      originator: ORIGINATOR,
+    };
+  }
+
+  /**
+   * The live subscription catalog: `GET {base}/codex/models`, the same route
+   * the Codex CLI's models manager reads. The backend filters it by the
+   * `client_version` we report, the account's plan, and active rollouts, so
+   * the answer is exactly the set this sign-in can run — including models that
+   * did not exist when this build shipped. Returns null on any failure so the
+   * caller can fall back to the curated list.
+   */
+  private async fetchCatalog(): Promise<ModelInfo[] | null> {
+    if (!this.config.apiKey || !this.config.accountId) return null;
+    const url = `${this.base()}/codex/models?client_version=${CODEX_CLIENT_VERSION}`;
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: this.catalogHeaders() });
+    } catch {
+      return null;
+    }
+    if (!res.ok) return null;
+    const json: any = await res.json().catch(() => null);
+    const rows: any[] = Array.isArray(json?.models) ? json.models : [];
+    const models = rows.flatMap((m, order): { model: ModelInfo; priority: number; order: number }[] => {
+      const id = typeof m?.slug === 'string' && m.slug ? m.slug : typeof m?.id === 'string' ? m.id : '';
+      if (!id) return [];
+      // The picker list is authoritative for what this account may run;
+      // hidden or unpicked entries stay out of ours.
+      if (typeof m.visibility === 'string' && m.visibility !== 'list') return [];
+      if (m.show_in_picker === false) return [];
+      const ctx = m.context_window ?? m.max_context_window;
+      const name =
+        typeof m.display_name === 'string' && m.display_name
+          ? m.display_name
+          : typeof m.name === 'string' && m.name
+            ? m.name
+            : id;
+      return [
+        {
+          model: { id, providerId: this.config.id, name, contextLength: typeof ctx === 'number' && ctx > 0 ? ctx : undefined },
+          priority: typeof m.priority === 'number' ? m.priority : Number.MAX_SAFE_INTEGER,
+          order,
+        },
+      ];
+    });
+    models.sort((a, b) => a.priority - b.priority || a.order - b.order);
+    return models.length ? models.map((m) => m.model) : null;
+  }
+
   async listModels(): Promise<ModelInfo[]> {
+    const all =
+      (await this.fetchCatalog()) ??
+      CHATGPT_MODELS.map((m) => ({
+        id: m.id,
+        providerId: this.config.id,
+        name: m.name,
+        contextLength: m.ctx,
+      }));
     const custom = this.config.customModelId?.trim();
-    const all = CHATGPT_MODELS.map((m) => ({
-      id: m.id,
-      providerId: this.config.id,
-      name: m.name,
-      contextLength: m.ctx,
-    }));
     if (custom && !all.some((m) => m.id === custom)) {
       all.push({
         id: custom,
@@ -84,6 +158,20 @@ export class ChatGptProvider implements Provider {
     }
     if (!this.config.accountId) {
       return { ok: false, message: MISSING_ACCOUNT_ID };
+    }
+    // A real check, not just "a token exists": the catalog route is the same
+    // auth + account the Responses calls need, and its failure is the message
+    // worth showing.
+    const url = `${this.base()}/codex/models?client_version=${CODEX_CLIENT_VERSION}`;
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: this.catalogHeaders() });
+    } catch (e) {
+      return { ok: false, message: friendlyError(e, this.base()) };
+    }
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, message: `chatgpt ${res.status}: ${text.slice(0, 200)}` };
     }
     return { ok: true, message: 'Signed in with a ChatGPT subscription' };
   }

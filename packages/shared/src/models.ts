@@ -138,10 +138,11 @@ export function gpuMemoryLabel(stats: Pick<GpuStats, 'unified'> | null): string 
  * Reasoning ("thinking") model detection by id/name. Covers the common local and
  * cloud reasoning families (DeepSeek-R1, Qwen3, QwQ, Magistral, gpt-oss,
  * phi-4-reasoning, o1/o3/o4, Gemini thinking, …). Used to decide whether to offer
- * the per-chat thinking toggle.
+ * the per-chat thinking toggle. `gpt-?[5-9]` covers the whole reasoning
+ * generation: GPT-5 through the GPT-6 picker ids.
  */
 const THINKING_MODEL_RE =
-  /(?:^|[-_/ .])(?:r1|reason|reasoning|qwq|qwen-?3|magistral|thinking|think|o1|o3|o4|gpt-?5|gpt-oss|deepseek-?r|phi-?4-reasoning|cogito|marco-o1|sky-t1|deephermes|granite[\w.-]*thinking)/i;
+  /(?:^|[-_/ .])(?:r1|reason|reasoning|qwq|qwen-?3|magistral|thinking|think|o1|o3|o4|gpt-?[5-9]|gpt-oss|deepseek-?r|phi-?4-reasoning|cogito|marco-o1|sky-t1|deephermes)/i;
 
 export function modelSupportsThinking(model: { id: string; name?: string }): boolean {
   return THINKING_MODEL_RE.test(`${model.id} ${model.name ?? ''}`);

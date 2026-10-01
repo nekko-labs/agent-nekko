@@ -299,6 +299,7 @@ const api: NekkoApi = {
   checkForUpdates: () => inv(IpcChannels.updateCheck),
   downloadUpdate: () => inv(IpcChannels.updateDownload),
   quitAndInstall: () => inv(IpcChannels.updateInstall),
+  runUpdateChecks: () => inv(IpcChannels.updatesCheck),
 
   onAgentEvent: (cb: (e: AgentEvent) => void) => {
     const listener = (_: unknown, e: AgentEvent) => cb(e);
@@ -354,6 +355,16 @@ const api: NekkoApi = {
     const listener = (_: unknown, e: { tokenKey: string; limits: SubscriptionLimits }) => cb(e);
     bus.on(IpcEvents.limitsUpdated, listener);
     return () => bus.removeListener(IpcEvents.limitsUpdated, listener);
+  },
+  onModelsUpdated: (cb: (e: { providerId: string }) => void) => {
+    const listener = (_: unknown, e: { providerId: string }) => cb(e);
+    bus.on(IpcEvents.modelsUpdated, listener);
+    return () => bus.removeListener(IpcEvents.modelsUpdated, listener);
+  },
+  onSkillsUpdated: (cb: (catalog: import('@agent-nekko/shared').VaizerCatalog) => void) => {
+    const listener = (_: unknown, catalog: import('@agent-nekko/shared').VaizerCatalog) => cb(catalog);
+    bus.on(IpcEvents.skillsUpdated, listener);
+    return () => bus.removeListener(IpcEvents.skillsUpdated, listener);
   },
   openTerminalStream: (id, handlers) => engine.openTerminal(id, handlers),
   onDeepLink: (cb: (url: string) => void) => {

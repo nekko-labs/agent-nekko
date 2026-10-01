@@ -239,6 +239,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.remoteRotate]: () => host.rotateRemoteSecret(),
 
     [C.appInfo]: () => host.appInfo(),
+    [C.updatesCheck]: () => host.runUpdateChecks(),
     [C.mcpStatus]: () => host.mcpStatus(),
     [C.mcpHypergate]: ([port]) => host.detectHypergate(port),
     [C.mcpHypergateConnect]: ([port]) => host.connectHypergate(port),

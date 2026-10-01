@@ -430,48 +430,333 @@
     ]
   },
   "chatgpt": {
+    "requests": [
+      {
+        "method": "GET",
+        "url": "https://chatgpt.com/backend-api/codex/models?client_version=0.157.0",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "originator": "codex_cli_rs"
+        },
+        "body": null
+      }
+    ],
+    "models": [
+      {
+        "id": "gpt-6-astra",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Astra",
+        "contextLength": 400000
+      },
+      {
+        "id": "gpt-6-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Sol",
+        "contextLength": 400000
+      },
+      {
+        "id": "gpt-id-only",
+        "providerId": "chatgpt",
+        "name": "Id Only",
+        "contextLength": 200000
+      },
+      {
+        "id": "gpt-6-luna",
+        "providerId": "chatgpt",
+        "name": "gpt-6-luna"
+      }
+    ]
+  },
+  "chatgpt-catalog-404-falls-back": {
+    "requests": [
+      {
+        "method": "GET",
+        "url": "https://chatgpt.com/backend-api/codex/models?client_version=0.157.0",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "originator": "codex_cli_rs"
+        },
+        "body": null
+      }
+    ],
+    "models": [
+      {
+        "id": "gpt-6.1-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-6.1 Sol"
+      },
+      {
+        "id": "gpt-6-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Sol"
+      },
+      {
+        "id": "gpt-6-luna",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Luna"
+      },
+      {
+        "id": "gpt-6-astra",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Astra"
+      },
+      {
+        "id": "gpt-5.6-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Sol",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-terra",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Terra",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Luna",
+        "contextLength": 272000
+      }
+    ]
+  },
+  "chatgpt-catalog-empty-falls-back": {
+    "requests": [
+      {
+        "method": "GET",
+        "url": "https://chatgpt.com/backend-api/codex/models?client_version=0.157.0",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "originator": "codex_cli_rs"
+        },
+        "body": null
+      }
+    ],
+    "models": [
+      {
+        "id": "gpt-6.1-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-6.1 Sol"
+      },
+      {
+        "id": "gpt-6-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Sol"
+      },
+      {
+        "id": "gpt-6-luna",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Luna"
+      },
+      {
+        "id": "gpt-6-astra",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Astra"
+      },
+      {
+        "id": "gpt-5.6-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Sol",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-terra",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Terra",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Luna",
+        "contextLength": 272000
+      }
+    ]
+  },
+  "chatgpt-catalog-wrong-shape-falls-back": {
+    "requests": [
+      {
+        "method": "GET",
+        "url": "https://chatgpt.com/backend-api/codex/models?client_version=0.157.0",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "originator": "codex_cli_rs"
+        },
+        "body": null
+      }
+    ],
+    "models": [
+      {
+        "id": "gpt-6.1-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-6.1 Sol"
+      },
+      {
+        "id": "gpt-6-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Sol"
+      },
+      {
+        "id": "gpt-6-luna",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Luna"
+      },
+      {
+        "id": "gpt-6-astra",
+        "providerId": "chatgpt",
+        "name": "GPT-6 Astra"
+      },
+      {
+        "id": "gpt-5.6-sol",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Sol",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-terra",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Terra",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "providerId": "chatgpt",
+        "name": "GPT-5.6 Luna",
+        "contextLength": 272000
+      }
+    ]
+  },
+  "chatgpt-no-account": {
     "requests": [],
     "models": [
       {
-        "id": "gpt-5-codex",
-        "providerId": "chatgpt",
-        "name": "GPT-5 Codex",
-        "contextLength": 400000
+        "id": "gpt-6.1-sol",
+        "providerId": "chatgpt-no-account",
+        "name": "GPT-6.1 Sol"
       },
       {
-        "id": "gpt-5",
-        "providerId": "chatgpt",
-        "name": "GPT-5",
-        "contextLength": 400000
+        "id": "gpt-6-sol",
+        "providerId": "chatgpt-no-account",
+        "name": "GPT-6 Sol"
       },
       {
-        "id": "codex-mini-latest",
-        "providerId": "chatgpt",
-        "name": "Codex Mini",
-        "contextLength": 200000
+        "id": "gpt-6-luna",
+        "providerId": "chatgpt-no-account",
+        "name": "GPT-6 Luna"
+      },
+      {
+        "id": "gpt-6-astra",
+        "providerId": "chatgpt-no-account",
+        "name": "GPT-6 Astra"
+      },
+      {
+        "id": "gpt-5.6-sol",
+        "providerId": "chatgpt-no-account",
+        "name": "GPT-5.6 Sol",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-terra",
+        "providerId": "chatgpt-no-account",
+        "name": "GPT-5.6 Terra",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "providerId": "chatgpt-no-account",
+        "name": "GPT-5.6 Luna",
+        "contextLength": 272000
       }
     ]
   },
   "chatgpt-custom": {
-    "requests": [],
+    "requests": [
+      {
+        "method": "GET",
+        "url": "https://chatgpt.com/backend-api/codex/models?client_version=0.157.0",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "originator": "codex_cli_rs"
+        },
+        "body": null
+      }
+    ],
     "models": [
       {
-        "id": "gpt-5-codex",
+        "id": "gpt-6.1-sol",
         "providerId": "chatgpt-custom",
-        "name": "GPT-5 Codex",
-        "contextLength": 400000
+        "name": "GPT-6.1 Sol"
       },
       {
-        "id": "gpt-5",
+        "id": "gpt-6-sol",
         "providerId": "chatgpt-custom",
-        "name": "GPT-5",
-        "contextLength": 400000
+        "name": "GPT-6 Sol"
       },
       {
-        "id": "codex-mini-latest",
+        "id": "gpt-6-luna",
         "providerId": "chatgpt-custom",
-        "name": "Codex Mini",
-        "contextLength": 200000
+        "name": "GPT-6 Luna"
+      },
+      {
+        "id": "gpt-6-astra",
+        "providerId": "chatgpt-custom",
+        "name": "GPT-6 Astra"
+      },
+      {
+        "id": "gpt-5.6-sol",
+        "providerId": "chatgpt-custom",
+        "name": "GPT-5.6 Sol",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-terra",
+        "providerId": "chatgpt-custom",
+        "name": "GPT-5.6 Terra",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "providerId": "chatgpt-custom",
+        "name": "GPT-5.6 Luna",
+        "contextLength": 272000
+      },
+      {
+        "id": "my-codex-model",
+        "providerId": "chatgpt-custom",
+        "name": "my-codex-model (custom)",
+        "contextLength": 128000
+      }
+    ]
+  },
+  "chatgpt-custom-live": {
+    "requests": [
+      {
+        "method": "GET",
+        "url": "https://chatgpt.com/backend-api/codex/models?client_version=0.157.0",
+        "headers": {
+          "Accept": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "originator": "codex_cli_rs"
+        },
+        "body": null
+      }
+    ],
+    "models": [
+      {
+        "id": "gpt-6.1-sol",
+        "providerId": "chatgpt-custom",
+        "name": "GPT-6.1 Sol"
       },
       {
         "id": "my-codex-model",
@@ -485,22 +770,42 @@
     "requests": [],
     "models": [
       {
-        "id": "gpt-5-codex",
+        "id": "gpt-6.1-sol",
         "providerId": "chatgpt-custom-dup",
-        "name": "GPT-5 Codex",
-        "contextLength": 400000
+        "name": "GPT-6.1 Sol"
       },
       {
-        "id": "gpt-5",
+        "id": "gpt-6-sol",
         "providerId": "chatgpt-custom-dup",
-        "name": "GPT-5",
-        "contextLength": 400000
+        "name": "GPT-6 Sol"
       },
       {
-        "id": "codex-mini-latest",
+        "id": "gpt-6-luna",
         "providerId": "chatgpt-custom-dup",
-        "name": "Codex Mini",
-        "contextLength": 200000
+        "name": "GPT-6 Luna"
+      },
+      {
+        "id": "gpt-6-astra",
+        "providerId": "chatgpt-custom-dup",
+        "name": "GPT-6 Astra"
+      },
+      {
+        "id": "gpt-5.6-sol",
+        "providerId": "chatgpt-custom-dup",
+        "name": "GPT-5.6 Sol",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-terra",
+        "providerId": "chatgpt-custom-dup",
+        "name": "GPT-5.6 Terra",
+        "contextLength": 272000
+      },
+      {
+        "id": "gpt-5.6-luna",
+        "providerId": "chatgpt-custom-dup",
+        "name": "GPT-5.6 Luna",
+        "contextLength": 272000
       }
     ]
   }

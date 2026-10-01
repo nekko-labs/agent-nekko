@@ -282,6 +282,13 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     /* eslint-disable-next-line */
   }, [provider.id, provider.tokenKey]);
 
+  // A background catalog refresh (Settings → Updates) can land new models on
+  // this card while the page is open.
+  useEffect(() => window.nekko.onModelsUpdated((e) => {
+    if (e.providerId === provider.id) void load();
+    /* eslint-disable-next-line */
+  }), [provider.id]);
+
   // Keep the badge honest when the host refreshes or signs out the token this
   // card points at (e.g. a mid-chat renewal lands while the page is open).
   useEffect(() => {

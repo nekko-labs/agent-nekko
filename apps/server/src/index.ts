@@ -155,6 +155,8 @@ async function main() {
     const onOauth = (s: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.oauthStatus, payload: s }));
     const onLimits = (e: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.limitsUpdated, payload: e }));
     const onDownloads = (j: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.downloadsUpdated, payload: j }));
+    const onModels = (e: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.modelsUpdated, payload: e }));
+    const onSkills = (c: unknown) => socket.send(JSON.stringify({ channel: IpcEvents.skillsUpdated, payload: c }));
     host.events.on('agentEvent', onAgent);
     host.events.on('indexProgress', onIndex);
     host.events.on('terminalEvent', onTerminal);
@@ -163,6 +165,8 @@ async function main() {
     host.events.on('oauthStatus', onOauth);
     host.events.on('limitsUpdated', onLimits);
     host.events.on('downloadsUpdated', onDownloads);
+    host.events.on('modelsUpdated', onModels);
+    host.events.on('skillsUpdated', onSkills);
     socket.on('close', () => {
       host.events.off('agentEvent', onAgent);
       host.events.off('indexProgress', onIndex);
@@ -172,6 +176,8 @@ async function main() {
       host.events.off('oauthStatus', onOauth);
       host.events.off('limitsUpdated', onLimits);
       host.events.off('downloadsUpdated', onDownloads);
+      host.events.off('modelsUpdated', onModels);
+      host.events.off('skillsUpdated', onSkills);
     });
   });
 

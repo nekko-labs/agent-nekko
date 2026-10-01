@@ -42,6 +42,8 @@ function makeWebClient(): NekkoApi {
   const oauthStatusCbs = new Set<(s: OAuthStatus) => void>();
   const limitsUpdatedCbs = new Set<(e: { tokenKey: string; limits: SubscriptionLimits }) => void>();
   const downloadsUpdatedCbs = new Set<(jobs: import('@agent-nekko/shared').DownloadJob[]) => void>();
+  const modelsUpdatedCbs = new Set<(e: { providerId: string }) => void>();
+  const skillsUpdatedCbs = new Set<(catalog: import('@agent-nekko/shared').VaizerCatalog) => void>();
   // Server build version captured when this tab loaded (for refresh detection).
   let loadVersion: string | null = null;
   const dispatchEvent = (channel: string, payload: any) => {
@@ -55,6 +57,8 @@ function makeWebClient(): NekkoApi {
     else if (channel === IpcEvents.oauthStatus) oauthStatusCbs.forEach((cb) => cb(payload));
     else if (channel === IpcEvents.limitsUpdated) limitsUpdatedCbs.forEach((cb) => cb(payload));
     else if (channel === IpcEvents.downloadsUpdated) downloadsUpdatedCbs.forEach((cb) => cb(payload));
+    else if (channel === IpcEvents.modelsUpdated) modelsUpdatedCbs.forEach((cb) => cb(payload));
+    else if (channel === IpcEvents.skillsUpdated) skillsUpdatedCbs.forEach((cb) => cb(payload));
   };
 
   // Relay transport: when the page is opened with ?relay=&room=&key=[&pair=],
@@ -520,6 +524,7 @@ function makeWebClient(): NekkoApi {
     quitAndInstall: async () => {
       location.reload();
     },
+    runUpdateChecks: () => call(IpcChannels.updatesCheck),
 
     onAgentEvent: (cb) => {
       agentCbs.add(cb);
@@ -560,6 +565,14 @@ function makeWebClient(): NekkoApi {
     onDownloadsUpdated: (cb) => {
       downloadsUpdatedCbs.add(cb);
       return () => downloadsUpdatedCbs.delete(cb);
+    },
+    onModelsUpdated: (cb) => {
+      modelsUpdatedCbs.add(cb);
+      return () => modelsUpdatedCbs.delete(cb);
+    },
+    onSkillsUpdated: (cb) => {
+      skillsUpdatedCbs.add(cb);
+      return () => skillsUpdatedCbs.delete(cb);
     },
     // A browser tab has no OS handing it `agent-nekko://` URLs, so this is the
     // honest implementation rather than a missing one.
