@@ -73,6 +73,26 @@ export function subscriptionProviderConfig(
 }
 
 /**
+ * The ProviderConfig an existing card keeps after an in-place sign-in resets
+ * its credential ("Reconnect" on a failing cloud card). Identity stays (id,
+ * label, baseUrl, custom model override); the fresh sign-in token replaces
+ * the stale one and the plain `apiKey` field is cleared (`apiKey: undefined`
+ * survives neither structured clone nor the settings JSON, so the stored
+ * record ends up keyless on purpose): a card that reconnects on a plan is a
+ * plan card now, so auth flips to 'subscription'. OpenRouter is the exception
+ * on both counts: its sign-in mints a metered key, so auth stays 'apikey'.
+ */
+export function reconnectProviderConfig(provider: ProviderConfig, status: OAuthStatus): ProviderConfig {
+  return {
+    ...provider,
+    auth: provider.kind === 'openrouter' ? 'apikey' : 'subscription',
+    apiKey: undefined,
+    tokenKey: status.tokenKey || provider.tokenKey,
+    accountId: status.accountId ?? provider.accountId,
+  };
+}
+
+/**
  * The add-provider form, shared between the Models tab and the onboarding
  * wizard. By default it offers every kind with a type picker; `fixedKind` pins
  * one kind and hides the picker (the wizard's per-provider cards), `apiKeyOnly`

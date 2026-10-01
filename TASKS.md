@@ -493,6 +493,10 @@ Planned by Philip for later; not started. See [SPEC roadmap](SPEC.md#roadmap-bey
 
 > Append as work lands; bug fixes folded into the feature they harden. Verified throughout against a live LM Studio gemma reasoning model (streaming reasoning, single + multi-step tool loops, index-grounded context).
 
+### Reconnect a failing cloud provider in place (2026-10-01)
+
+- [x] **T175**, **A cloud card whose test fails on a missing or dead credential now offers "Reconnect" instead of dead-ending on the red message.** For provider kinds with a sign-in flow (Claude, ChatGPT, OpenRouter; `SUBSCRIPTION_KINDS` in `providers/AddProvider.tsx`), the Models card shows a Reconnect button beside the failure that opens the in-place sign-in (`SubscriptionSignIn`, same browser OAuth + paste fallback as first connect). Completing it saves `reconnectProviderConfig(provider, status)`: same card identity (id/label/baseUrl/custom model), `apiKey` cleared, auth flipped to `'subscription'` (OpenRouter stays `'apikey'`, minting a fresh metered key), token key + account id refreshed, then the card re-tests immediately so the Offline badge can't sit over a working connection. The same re-test now also lands after a subscription re-auth on an already-connected card. Unit coverage: `components/providers/AddProvider.test.tsx` pins the config conversion (auth flip, key cleared, identity kept, OpenRouter exception, fallbacks). See [SPEC.md](SPEC.md) Models page bullet, `[updated 2026-10-01]`.
+
 ### Latest, one models surface, OpenRouter sign-in, and plans that are the agent's own (2026-09-30)
 
 - [x] **T161**, **One ask turned out to be seven: the model server surface, the "needs a JSON file" failures, OpenRouter as a real provider, workspace titles, the plan rail, the default port, and Workflows written for people who have never made one.** (T-number to re-check at merge per the shared-checkout note.)

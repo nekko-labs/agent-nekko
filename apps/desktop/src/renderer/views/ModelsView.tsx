@@ -5,7 +5,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { SubscriptionSignIn } from '../components/SubscriptionSignIn.js';
-import { AddProvider } from '../components/providers/AddProvider.js';
+import { AddProvider, SUBSCRIPTION_KINDS, reconnectProviderConfig } from '../components/providers/AddProvider.js';
 import { PlusIcon, TrashIcon, CheckIcon, StarIcon } from '../icons.js';
 import { RuntimeCard } from '../components/runtimes/RuntimeCard.js';
 
@@ -241,6 +241,11 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
   const subName = provider.kind === 'chatgpt' ? 'ChatGPT' : provider.kind === 'openrouter' ? 'OpenRouter' : 'Claude';
   const subOAuthProvider: OAuthProvider =
     provider.kind === 'chatgpt' ? 'chatgpt' : provider.kind === 'openrouter' ? 'openrouter' : 'claude';
+  // A cloud card holding a dead credential (missing/revoked key) can reset
+  // itself in place through the kind's sign-in; kinds with no sign-in flow
+  // (OpenAI, openai-compat) keep the remove-and-re-add path.
+  const reconnectOAuth = SUBSCRIPTION_KINDS[provider.kind];
+  const [reconnecting, setReconnecting] = useState(false);
 
   useEffect(() => {
     setCustomModel(provider.customModelId ?? '');
@@ -327,6 +332,29 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
       provider.kind === 'openrouter' ? 'OpenRouter key connected.' : `Signed in with your ${subName} subscription.`,
     );
     onChanged();
+    // Re-probe right away: the card keeps its old conn state across the prop
+    // refresh, so without this an "Offline" badge would linger over a
+    // connection that works again.
+    load();
+    void test();
+  };
+
+  // "Reconnect" on a failing api-key card: the same sign-in, but the result
+  // also resets the stored credential and flips the card to subscription auth.
+  const reconnectSubscription = async (status: OAuthStatus) => {
+    setReconnecting(false);
+    if (provider.tokenKey && provider.tokenKey !== status.tokenKey) {
+      await window.nekko.oauthSignOut(provider.id).catch(() => {});
+    }
+    await window.nekko.saveProvider(reconnectProviderConfig(provider, status));
+    setSub(await window.nekko.oauthStatus(provider.id).catch(() => null));
+    pushToast(
+      'success',
+      provider.kind === 'openrouter' ? 'OpenRouter key connected.' : `Signed in with your ${subName} subscription.`,
+    );
+    onChanged();
+    load();
+    void test();
   };
 
   // Persist a chatgpt custom model override without disturbing the rest of the card.
@@ -447,7 +475,31 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button className="btn btn-outline py-1.5 text-[12px]" onClick={test}>Test connection</button>
         {conn.state === 'fail' && <span className="text-[12px]" style={{ color: 'var(--danger)' }}>{conn.message}</span>}
+        {conn.state === 'fail' && !subscription && reconnectOAuth && (
+          <button className="btn btn-outline py-1.5 text-[12px]" onClick={() => setReconnecting((v) => !v)}>
+            Reconnect
+          </button>
+        )}
       </div>
+
+      {/* The failing-card fix path: sign in with the subscription (or mint a
+          new OpenRouter key) and the credential on this card resets in place. */}
+      {reconnecting && !subscription && reconnectOAuth && (
+        <div className="mt-3 rounded-xl border p-3 text-[12px]" style={{ borderColor: 'var(--line)' }}>
+          <div className="space-y-2">
+            <p className="text-ink-faint">
+              {provider.kind === 'openrouter'
+                ? 'Sign in again to mint a fresh key; it replaces the missing or revoked one on this card.'
+                : `Sign in with your ${subName} subscription to reset this connection. The sign-in replaces the missing or stale API key, and the card runs on your plan from then on.`}
+            </p>
+            <SubscriptionSignIn
+              oauthProvider={reconnectOAuth}
+              label={`Sign in with ${subName}`}
+              onConnected={reconnectSubscription}
+            />
+          </div>
+        </div>
+      )}
 
       {subscription && (
         <div className="mt-3 rounded-xl border p-3 text-[12px]" style={{ borderColor: 'var(--line)' }}>
