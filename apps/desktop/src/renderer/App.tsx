@@ -102,6 +102,13 @@ export function App() {
   // listener and the run's output went nowhere until the next event arrived.
   useEffect(() => startLiveRuns(), []);
 
+  // A background catalog check (Settings → Updates) can land a new provider
+  // model list mid-session: re-list so pickers show it immediately.
+  useEffect(
+    () => window.nekko.onModelsUpdated((e) => void useStore.getState().reloadModels(e.providerId)),
+    [],
+  );
+
   useEffect(() => {
     refreshSettings();
     refreshProviders();

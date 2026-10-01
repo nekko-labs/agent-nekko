@@ -267,6 +267,8 @@ export const IpcChannels = {
   updateCheck: 'update:check',
   updateDownload: 'update:download',
   updateInstall: 'update:install',
+  // Host-side refresh checks (Settings → Updates "Check now"): model lists + skills.
+  updatesCheck: 'updates:check',
 
   dialogOpenFolder: 'dialog:openFolder',
 } as const;
@@ -284,6 +286,10 @@ export const IpcEvents = {
   workflowsUpdated: 'workflows:updated',
   limitsUpdated: 'limits:updated',
   downloadsUpdated: 'downloads:updated',
+  /** A provider's model list changed in a background refresh. */
+  modelsUpdated: 'models:updated',
+  /** The skills marketplace catalog refreshed. */
+  skillsUpdated: 'skills:updated',
   deepLink: 'app:deepLink',
 } as const;
 
@@ -736,6 +742,12 @@ export interface NekkoApi {
   downloadUpdate(): Promise<UpdateInfo>;
   /** Install + relaunch (desktop) or reload the page (web). */
   quitAndInstall(): Promise<void>;
+  /**
+   * Run the host's refresh checks now, ignoring the toggles: provider model
+   * lists and the skills catalog. Resolves when the checks have run; changes
+   * arrive as `modelsUpdated`/`skillsUpdated`.
+   */
+  runUpdateChecks(): Promise<void>;
 
   onAgentEvent(cb: (e: AgentEvent) => void): () => void;
   onOAuthStatus(cb: (s: OAuthStatus) => void): () => void;
@@ -765,6 +777,10 @@ export interface NekkoApi {
   onLimitsUpdated(cb: (e: { tokenKey: string; limits: SubscriptionLimits }) => void): () => void;
   /** Fires as engine and model downloads progress, finish, or fail. */
   onDownloadsUpdated(cb: (jobs: import('./engine.js').DownloadJob[]) => void): () => void;
+  /** Fires when a background refresh found a changed provider model list. */
+  onModelsUpdated(cb: (e: { providerId: string }) => void): () => void;
+  /** Fires when the skills marketplace catalog refreshed to a new skill set. */
+  onSkillsUpdated(cb: (catalog: import('./vaizer.js').VaizerCatalog) => void): () => void;
   /**
    * Fires when another app asks Agent Nekko to do something through an `agent-nekko://`
    * URL: today, Hypergate's "Connect Agent Nekko" button. Desktop only, since the

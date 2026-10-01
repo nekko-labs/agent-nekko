@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer } from '@agent-nekko/shared';
+import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
 import { ThemePresetPicker } from '../components/ThemePresetPicker.js';
-import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION } from '@agent-nekko/shared';
+import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION, updateChecks } from '@agent-nekko/shared';
 import { ShieldIcon, SunIcon, TrashIcon, RobotIcon, WandIcon } from '../icons.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
 import { useT, LANGUAGES } from '../i18n.js';
@@ -107,7 +107,7 @@ export function SettingsView() {
         </section>
 
         {/* Updates */}
-        <UpdatesSection settings={settings} onToggle={(v) => update({ autoUpdate: v })} />
+        <UpdatesSection settings={settings} update={update} />
 
         {/* Sandbox */}
         <section className="card mt-5 p-5">
@@ -800,10 +800,25 @@ function GuardrailsSection({
   );
 }
 
-function UpdatesSection({ settings, onToggle }: { settings: AppSettings; onToggle: (v: boolean) => void }) {
+function UpdatesSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {
   const updater = useUpdater();
   const { app: info, info: status, stage } = updater;
   const isWeb = info?.edition === 'web';
+  const checks = updateChecks(settings);
+  const [catalogState, setCatalogState] = useState<'idle' | 'checking' | 'done' | 'failed'>('idle');
+  // The app toggle also writes the legacy `autoUpdate` field: the main-process
+  // startup check and the first-run prompt still read it.
+  const setCheck = (key: keyof UpdateCheckSettings, v: boolean) =>
+    update({ updates: { ...settings.updates, [key]: v }, ...(key === 'app' ? { autoUpdate: v } : {}) });
+  const runCatalogChecks = async () => {
+    setCatalogState('checking');
+    try {
+      await window.nekko.runUpdateChecks();
+      setCatalogState('done');
+    } catch {
+      setCatalogState('failed');
+    }
+  };
   const statusText = stage === 'available'
     ? isWeb ? 'A newer build is ready.' : `Update available: v${status?.version ?? ''}`
     : stage === 'downloaded'
@@ -828,10 +843,31 @@ function UpdatesSection({ settings, onToggle }: { settings: AppSettings; onToggl
       </p>
       <div className="mt-3 flex min-h-[40px] items-center justify-between">
         <div>
-          <span className="text-[13px]">Check for updates automatically</span>
+          <span className="text-[13px]">App updates</span>
           <p className="text-[11px] text-ink-faint">Connects to the internet to look for new versions.</p>
         </div>
-        <Toggle on={!!settings.autoUpdate} onChange={onToggle} />
+        <Toggle on={checks.app} onChange={(v) => void setCheck('app', v)} />
+      </div>
+      <div className="mt-3 flex min-h-[40px] items-center justify-between border-t border-line pt-3">
+        <div>
+          <span className="text-[13px]">Provider model lists</span>
+          <p className="text-[11px] text-ink-faint">Re-read each configured provider's catalog in the background, so new models appear without an app release.</p>
+        </div>
+        <Toggle on={checks.modelLists} onChange={(v) => void setCheck('modelLists', v)} />
+      </div>
+      <div className="mt-3 flex min-h-[40px] items-center justify-between border-t border-line pt-3">
+        <div>
+          <span className="text-[13px]">Skills catalog</span>
+          <p className="text-[11px] text-ink-faint">Refresh the skills marketplace shelf in the background.</p>
+        </div>
+        <Toggle on={checks.skills} onChange={(v) => void setCheck('skills', v)} />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button className="btn btn-outline py-1.5 text-[12px]" onClick={() => void runCatalogChecks()} disabled={catalogState === 'checking'}>
+          {catalogState === 'checking' ? 'Refreshing…' : 'Refresh catalogs now'}
+        </button>
+        {catalogState === 'done' && <span className="text-[12px] text-ink-faint" role="status">Model lists and skills checked.</span>}
+        {catalogState === 'failed' && <span className="text-[12px] text-danger" role="status">Refresh failed; try again.</span>}
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button className="btn btn-outline py-1.5 text-[12px]" onClick={() => void updater.check(true)} disabled={stage === 'checking' || stage === 'downloading' || stage === 'installing'}>

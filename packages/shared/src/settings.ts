@@ -86,6 +86,35 @@ export interface OnboardingState {
 /** Bump when the wizard's steps change enough that existing users should see it again. */
 export const ONBOARDING_VERSION = 1;
 
+/**
+ * The background refresh checks under Settings → Updates, one toggle each.
+ * These are metadata refreshes only: a check may swap a provider's model list
+ * or the skills shelf, never downloads or installs anything (app updates keep
+ * their own download/install flow).
+ */
+export interface UpdateCheckSettings {
+  /** New app versions (desktop: GitHub releases; web: server version). */
+  app?: boolean;
+  /** Re-fetch each configured provider's model list (e.g. new ChatGPT models). */
+  modelLists?: boolean;
+  /** Refresh the skills marketplace catalog. */
+  skills?: boolean;
+}
+
+/**
+ * Resolve the effective per-check flags. `app` falls back to the legacy
+ * `autoUpdate` field so existing installs keep their choice; `modelLists`
+ * defaults on since it only queries providers the user already configured;
+ * `skills` defaults off (opt-in network refresh).
+ */
+export function updateChecks(s: AppSettings): Required<UpdateCheckSettings> {
+  return {
+    app: s.updates?.app ?? s.autoUpdate ?? false,
+    modelLists: s.updates?.modelLists ?? true,
+    skills: s.updates?.skills ?? false,
+  };
+}
+
 export interface AppSettings {
   theme: ThemeMode;
   navOrder?: string[];
@@ -105,10 +134,12 @@ export interface AppSettings {
   mascotEnabled: boolean;
   /** How hard the model works per turn (an effort rung or a temperature). */
   effort?: EffortLevel;
-  /** Check for app updates automatically (desktop). */
+  /** Check for app updates automatically (desktop). Superseded by `updates.app`. */
   autoUpdate?: boolean;
   /** Whether we've shown the first-run "enable auto-update?" prompt. */
   autoUpdatePrompted?: boolean;
+  /** Per-check toggles for Settings → Updates (see `updateChecks`). */
+  updates?: UpdateCheckSettings;
   /** UI language (BCP-47-ish code, e.g. "en", "es"). Undefined = follow system. */
   language?: string;
   /** Default tool-execution policy for new chats. */

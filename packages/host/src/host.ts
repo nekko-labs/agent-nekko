@@ -179,6 +179,7 @@ import { createRemoteService } from './remote.js';
 import { createMessagingService } from './messaging/service.js';
 import { detectAgentTools, installSubagent, refreshSubagent, subagentSnippet } from './integrations.js';
 import { getGpuStats, getGpuStatsFresh } from './gpu.js';
+import { startUpdateChecks } from './update-checks.js';
 import { detectGpuAdapters } from './gpu-adapters.js';
 import { getSystemStats } from './system.js';
 import { stopLocalServer } from './servers.js';
@@ -510,6 +511,8 @@ export interface Host {
   importCliAuth(): Promise<Record<OAuthProvider, boolean>>;
 
   appInfo(): AppInfo;
+  /** Settings → "Check now": run the model-list and skills refreshes at once. */
+  runUpdateChecks(): Promise<void>;
   /** Connect (or reconnect) configured MCP servers and return their status. */
   mcpStatus(): Promise<McpServerStatus[]>;
   /** Probe for a local Hypergate daemon and return its gateway info (no side effects). */
@@ -625,6 +628,15 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     getGpuStats,
     getSystemStats,
     engine,
+  });
+
+  // Periodic catalog refreshes (Settings → Updates): provider model lists and
+  // the skills shelf, each on its own toggle. The `host.listModels` call inside
+  // the service is deferred past construction.
+  const updateChecks = startUpdateChecks({
+    settings: getSettings,
+    listModels: (id) => host.listModels(id),
+    emit: (channel, payload) => events.emit(channel, payload),
   });
 
   const host: Host = {
@@ -1004,6 +1016,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     importCliAuth: async () => importCliAuth(),
 
     appInfo: () => ({ version: brandEnv('VERSION') ?? '0.0.0', platform: process.platform, edition: 'web' }),
+    runUpdateChecks: () => updateChecks.runNow(),
     mcpStatus: async () => {
       const configs = getSettings().mcpServers ?? [];
       await syncMcp(configs);
