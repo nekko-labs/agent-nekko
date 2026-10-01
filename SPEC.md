@@ -1,6 +1,6 @@
 ---
 status: active
-last-updated: 2026-09-30
+last-updated: 2026-10-01
 owner:
 ---
 
@@ -261,6 +261,48 @@ Agent tools feel slow when the UI waits on something or redraws too much. Agent 
 **The engine can fail without taking the window with it.** `[shipped 2026-09-30, desktop]` The desktop window no longer runs the engine: a separate engine daemon (`nekkod`, in Rust) owns the terminals and supervises the rest of the engine as its own process. If either crashes it is restarted and the UI reconnects; the window, drafts and scroll positions survive. If the daemon binary is missing, the app still starts, running the rest of the engine directly with its older terminals.
 
 **The terminal keeps up with any output.** `[shipped 2026-09-30, desktop]` Terminals render on the GPU with xterm.js on WebGL by default. Ghostty's terminal core compiled to WebAssembly is offered in Settings as an experimental renderer: it draws correctly, but under a 40 MB flood it held the UI thread 20-30 ms a frame where xterm stayed inside one, so it is not the default until that changes. Output is delivered at most once per frame rather than once per chunk, and a flood of output (a large `cat`, a runaway build log) slows the program producing it instead of freezing the app. Measured on the desktop app: a keypress in another input while a visible terminal prints 40 MB reaches the screen in 7.1 ms p95 (7.6 ms before), and the longest frame dropped from 20.9 ms to 4.4 ms. Keystroke echo through the engine takes under 1 ms on its own; PowerShell adds about 15 ms of its own before it echoes, which no terminal can remove (Command Prompt and Git Bash echo in under 1 ms). Prompt themes built on Nerd Fonts render when one is installed.
+
+### How it's built: the window, the engine daemon and the TS host
+
+*A plain-language overview of the moving parts, for anyone reading the code or the task list. "TS" means TypeScript.* `[in progress]` *As of 2026-10-01.*
+
+On the desktop, Agent Nekko runs as three processes:
+
+| Part | Written in | What it does |
+| --- | --- | --- |
+| **The window** | TypeScript (React in Electron) | Everything you see and type into. It never does disk, network or agent work itself; it asks the engine. |
+| **The engine daemon, `nekkod`** | Rust | The engine's front door. The window talks only to it, over one local connection. It answers what has already been rebuilt in Rust and passes every other request on to the TS host unchanged. It starts the TS host, restarts it if it crashes, and outlives it. |
+| **The TS host** | TypeScript (on Node) | The original engine (`packages/host`). Everything not moved yet still runs here. |
+
+**Why split it.** The engine used to be one TypeScript process doing everything at once, so a long reply, a big file search or a slow tool in one chat could hold up opening another chat or typing in a terminal. Rebuilding the engine in Rust, piece by piece, gives each job its own lane, keeps loaded models and running servers alive when the rest of the engine restarts, and takes the heaviest work off the TypeScript event loop. The window itself stays web technology on purpose (see "Native desktop shell" above).
+
+**How a piece moves.** One service at a time. Each request the window can make has a name; once the daemon handles a name itself it answers in Rust, and every other name still goes to the TS host, so the window never changes when something moves. Each Rust version is held to the TypeScript original by recorded test data (golden files): the TypeScript code writes down what it does on a set of cases, and the Rust code must reproduce it exactly. Each move also gets a live check on a real local model before it merges. Where the Rust version deliberately behaves differently (stopping a whole process tree rather than one process, say), the task list says so.
+
+**Already in the daemon:**
+
+- Terminals (2026-09-30).
+- The local model servers (llama.cpp, stable-diffusion.cpp) and the OpenAI-compatible address in front of them, so loaded models survive engine restarts (2026-09-30).
+- Decision models (Laya) (2026-10-01).
+- Reading and saving chats: the chat list, opening a chat, and the user's own edits (rename, pin, options, queued follow-ups). With the TS host busy, opening a 7 MB chat went from 403 ms to 14 ms and listing 301 chats from 797 ms to 22 ms (2026-10-01).
+- The agent loop that produces a chat reply, streaming from the model providers, with the reply's tokens going straight from the daemon to the window (2026-10-01).
+- The short side calls after a reply: the chat's title, suggested replies, and filling in part of a prompt (2026-10-01).
+- MCP servers (2026-10-01).
+- The built-in file and shell tools (read, write, edit, list, glob, grep, bash), their guardrails, and the list of pending file changes (2026-10-01).
+
+**Still in the TS host:**
+
+- Setting up each turn: which provider and model, a fresh sign-in token, the system prompt, the context (guidelines, memory, attachments, connector and workspace-search snippets) and which tools are on offer. The daemon then runs the turn.
+- Anything waiting on a person: tool approvals and the agent's questions. The daemon asks the TS host, which shows the prompt, so the board, notifications and the phone relay work as before.
+- The tools not rebuilt yet: sub-agents, plans, `decide`, the browser, training reports.
+- After a turn: recording usage and starting the next queued message.
+- Settings, connectors, messaging, workflows, training runs, the phone relay, Hypergate discovery and model downloads.
+- Turns on a Claude subscription, end to end, because only the TS host records the rate-limit headers they carry.
+
+**Editions.** Only the desktop app runs behind the daemon today. The web, npx and Docker editions run the TS host on its own, so everything above is still TypeScript there until they move behind the daemon too.
+
+**Falling back.** If the daemon binary is missing, the desktop app still starts and runs the TS host directly. For diagnosing a problem, setting `NEKKO_AGENT_LOOP=ts` keeps agent runs, side calls, MCP servers and the built-in tools in the TS host; chats and pending changes stay in the daemon.
+
+**The end state.** Everything moves, the TS host is retired, and the web, npx and Docker editions ship the daemon too. Remaining in order: the rest of a turn (its setup, approvals and questions, the queue), then connectors, messaging and workflows, the phone relay's agent, and training. The plan and each step's details are in `TASKS.md` (PF14).
 
 ### Models & providers
 
