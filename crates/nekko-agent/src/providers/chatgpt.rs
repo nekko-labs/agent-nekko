@@ -243,9 +243,7 @@ impl ChatGptProvider {
             .iter()
             .enumerate()
             .filter_map(|(order, m)| {
-                let id = js::coalesce(m.get("slug"), m.get("id"))
-                    .filter(|v| js::truthy(Some(v)))
-                    .map(js::display)?;
+                let id = js::coalesce(m.get("slug"), m.get("id")).filter(|v| js::truthy(Some(v))).map(js::display)?;
                 // The picker list is authoritative for what this account may
                 // run; hidden or unpicked entries stay out of ours.
                 if m.get("visibility").and_then(Value::as_str).is_some_and(|v| v != "list") {
