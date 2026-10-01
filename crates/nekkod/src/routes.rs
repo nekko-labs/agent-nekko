@@ -19,6 +19,10 @@ pub struct Ctx {
     pub engine: Arc<crate::engine::Engine>,
     /// Session reads (`nekko-store`), when the data directory is known.
     pub sessions: Option<Arc<nekko_store::SessionStore>>,
+    /// Agent runs the TS host hands the daemon (`loop:run`).
+    pub loops: Arc<crate::loops::Loops>,
+    /// MCP servers the TS host syncs and calls (`mcp:sync`, `mcp:call`).
+    pub mcp: Arc<crate::mcp::Mcp>,
 }
 
 /// Terminals whose ids start with this are the TS host's read-only agent
@@ -78,6 +82,37 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
             }
             terminal_op(ctx, channel, &id, &args)
         }
+        "loop:run" => ctx.loops.start(ctx.backend.clone(), ctx.hub.clone(), arg(&args, 0).clone()),
+        "loop:abort" => Ok(json!(ctx.loops.abort(str_arg(&args, 0).unwrap_or_default()))),
+        "changes:list" => {
+            let (changes, id) = (ctx.loops.changes.clone(), str_arg(&args, 0).unwrap_or_default().to_string());
+            let list =
+                tokio::task::spawn_blocking(move || changes.list_changes(&id)).await.map_err(|e| e.to_string())?;
+            Ok(serde_json::to_value(list).unwrap_or(json!([])))
+        }
+        "changes:accept" => {
+            ctx.loops
+                .changes
+                .accept_change(str_arg(&args, 0).unwrap_or_default(), str_arg(&args, 1).unwrap_or_default());
+            Ok(Value::Null)
+        }
+        "changes:acceptAll" => {
+            ctx.loops.changes.accept_all(str_arg(&args, 0).unwrap_or_default());
+            Ok(Value::Null)
+        }
+        // The host snapshots a file here before its own tool executor writes it.
+        "changes:record" => {
+            let changes = ctx.loops.changes.clone();
+            let (id, path) =
+                (str_arg(&args, 0).unwrap_or_default().to_string(), str_arg(&args, 1).unwrap_or_default().to_string());
+            tokio::task::spawn_blocking(move || changes.record_original(&id, &path))
+                .await
+                .map_err(|e| e.to_string())?;
+            Ok(Value::Null)
+        }
+        "mcp:sync" => Ok(ctx.mcp.sync(arg(&args, 0)).await),
+        "mcp:call" => Ok(ctx.mcp.call(arg(&args, 0)).await),
+        "provider:complete" => crate::sideband::complete(arg(&args, 0)).await,
         c if SESSION_CHANNELS.contains(&c) && ctx.sessions.is_some() => {
             session_op(ctx.sessions.clone().expect("checked"), channel, args).await
         }
@@ -93,6 +128,15 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
 /// Channels the daemon serves itself (reported by `daemon:info`).
 pub const OWNED: &[&str] = &[
     "daemon:info",
+    "loop:run",
+    "loop:abort",
+    "provider:complete",
+    "changes:list",
+    "changes:accept",
+    "changes:acceptAll",
+    "changes:record",
+    "mcp:sync",
+    "mcp:call",
     "sessions:summaries",
     "sessions:list",
     "session:get",

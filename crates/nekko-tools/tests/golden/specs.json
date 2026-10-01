@@ -1,0 +1,130 @@
+[
+  {
+    "name": "read_file",
+    "description": "Read the contents of a file at an absolute or workspace-relative path.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to the file."
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "write_file",
+    "description": "Create or overwrite a file with the given contents.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ]
+    }
+  },
+  {
+    "name": "edit_file",
+    "description": "Replace an exact string in a file with a new string.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "old_string": {
+          "type": "string",
+          "description": "Exact text to replace (must be unique)."
+        },
+        "new_string": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "old_string",
+        "new_string"
+      ]
+    }
+  },
+  {
+    "name": "glob",
+    "description": "Find files matching a glob pattern within the workspace.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "description": "e.g. src/**/*.ts"
+        }
+      },
+      "required": [
+        "pattern"
+      ]
+    }
+  },
+  {
+    "name": "grep",
+    "description": "Search file contents with a regular expression.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "description": "Optional directory to scope the search."
+        }
+      },
+      "required": [
+        "pattern"
+      ]
+    }
+  },
+  {
+    "name": "list_dir",
+    "description": "List the entries of a directory.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path"
+      ]
+    }
+  },
+  {
+    "name": "bash",
+    "description": "Run a shell command in the workspace. Subject to guardrails, risky commands require user approval.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Optional working directory."
+        }
+      },
+      "required": [
+        "command"
+      ]
+    }
+  }
+]

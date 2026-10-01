@@ -119,6 +119,6 @@ function looksLikeLoop(tail: string, o: Required<RunawayOptions>): boolean {
  */
 export const RUNAWAY_NOTE =
   '_Stopped: the model got stuck repeating itself and stopped making progress. ' +
-  'Nothing was lost — everything before the loop is above. ' +
+  'Nothing was lost: everything before the loop is above. ' +
   'This is usually the model rather than the prompt: try again, lower Effort, ' +
   'or switch to a different model if it keeps happening._';

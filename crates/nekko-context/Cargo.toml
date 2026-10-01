@@ -1,0 +1,12 @@
+[package]
+name = "nekko-context"
+description = "The agent's system prompt and per-turn context for the Agent Nekko engine daemon, built exactly as the TS host builds them."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+nekko-js = { path = "../nekko-js" }
+serde_json.workspace = true

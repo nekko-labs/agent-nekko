@@ -284,7 +284,7 @@ function makeWebClient(): NekkoApi {
     engineImportModel: (path) => call(IpcChannels.engineImportModel, path),
     engineDeleteModel: (id) => call(IpcChannels.engineDeleteModel, id),
     engineSaveModelPreset: (id, preset) => call(IpcChannels.engineSaveModelPreset, id, preset),
-    engineCatalog: (query) => call(IpcChannels.engineCatalog, query),
+    engineCatalog: (query, format) => call(IpcChannels.engineCatalog, query, format),
     engineCatalogModel: (id) => call(IpcChannels.engineCatalogModel, id),
     engineCatalogDetail: (id) => call(IpcChannels.engineCatalogDetail, id),
     engineFolders: () => call(IpcChannels.engineFolders),

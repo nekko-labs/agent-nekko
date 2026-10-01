@@ -9,4 +9,5 @@ publish.workspace = true
 
 [dependencies]
 getrandom.workspace = true
+nekko-js = { path = "../nekko-js" }
 serde_json.workspace = true

@@ -7,7 +7,7 @@
 //! test (`tests/golden.rs`) compares this against summaries the TS function
 //! wrote. Each helper below names the TS function it follows.
 
-use crate::js;
+use nekko_js as js;
 use serde_json::{Map, Value, json};
 
 /// `SUMMARY_TURNS`.

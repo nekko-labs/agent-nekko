@@ -32,6 +32,7 @@ export function CatalogBrowser({
   onQuery,
   hideSearch = false,
   memory,
+  mlx = false,
 }: {
   onOpen: (id: string) => void;
   /** Controlled search text; the Models surface shares one box for both lists. */
@@ -41,7 +42,10 @@ export function CatalogBrowser({
   hideSearch?: boolean;
   /** This machine's memory pool, for the "will it run here" chips. */
   memory?: EngineMemory;
+  /** An Apple Silicon Mac: offer MLX checkpoints beside GGUF. */
+  mlx?: boolean;
 }) {
+  const [format, setFormat] = useState<'gguf' | 'mlx'>('gguf');
   const [inner, setInner] = useState('');
   const [models, setModels] = useState<CatalogModel[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +60,7 @@ export function CatalogBrowser({
     setLoading(true);
     // Debounced so typing a model name does not fire a request per keystroke.
     const t = setTimeout(async () => {
-      const res = await window.nekko.engineCatalog(value.trim() || undefined).catch(() => []);
+      const res = await window.nekko.engineCatalog(value.trim() || undefined, format).catch(() => []);
       if (!live) return;
       setModels(res);
       setLoading(false);
@@ -65,7 +69,7 @@ export function CatalogBrowser({
       live = false;
       clearTimeout(t);
     };
-  }, [value]);
+  }, [value, format]);
 
   return (
     <div>
@@ -78,8 +82,26 @@ export function CatalogBrowser({
           spellCheck={false}
         />
       )}
+      {mlx && (
+        <div role="radiogroup" aria-label="Model format" className="mt-1.5 inline-flex rounded-lg border border-line p-0.5">
+          {(['gguf', 'mlx'] as const).map((f) => (
+            <button
+              key={f}
+              role="radio"
+              aria-checked={format === f}
+              onClick={() => setFormat(f)}
+              title={f === 'gguf' ? 'llama.cpp models' : 'MLX checkpoints, fastest on Apple Silicon'}
+              className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${format === f ? 'bg-surface-2 text-ink' : 'text-ink-faint hover:text-ink'}`}
+            >
+              {f === 'gguf' ? 'GGUF' : 'MLX'}
+            </button>
+          ))}
+        </div>
+      )}
       <p className="mt-1.5 text-[11px] text-ink-faint">
-        {value
+        {format === 'mlx'
+          ? `${value ? 'Searching' : 'The most downloaded'} MLX checkpoints on Hugging Face (mostly mlx-community conversions). Each one is a folder, downloaded whole.`
+          : value
           ? 'Searching GGUF repositories on Hugging Face.'
           : 'A short starter list — the search above finds anything else. Open a model for its card, its builds and its sizes.'}
       </p>

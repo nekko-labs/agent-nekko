@@ -134,7 +134,7 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
         if (asksEverything(opts)) {
           if (!(await opts.requestApproval(call, `Write ${p}`, 'medium'))) return err(call, 'Write not approved by user.');
         }
-        recordOriginal(opts.sessionId, p);
+        await recordOriginal(opts.sessionId, p);
         mkdirSync(dirname(p), { recursive: true });
         writeFileSync(p, String(a.content ?? ''), 'utf8');
         return ok(call, `Wrote ${p} (${String(a.content ?? '').length} bytes)`);
@@ -150,7 +150,7 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
         const count = cur.split(a.old_string).length - 1;
         if (count === 0) return err(call, 'old_string not found in file.');
         if (count > 1) return err(call, `old_string matched ${count} times; make it unique.`);
-        recordOriginal(opts.sessionId, p);
+        await recordOriginal(opts.sessionId, p);
         writeFileSync(p, cur.replace(a.old_string, a.new_string), 'utf8');
         return ok(call, `Edited ${p}`);
       }

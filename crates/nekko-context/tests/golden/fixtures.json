@@ -1,0 +1,43 @@
+{
+  "files": {
+    "ws1/AGENTS.md": { "text": "# Rules\n\nUse tabs.\nNo em dashes.\n" },
+    "ws1/CLAUDE.md": { "text": "See AGENTS.md for all guidance.\n" },
+    "ws1/.cursorrules": { "text": "  Prefer small PRs.  \n" },
+    "ws2/AGENTS.md": { "text": "# Rules\n\nUse tabs.\nNo em dashes.\n" },
+    "ws2/GEMINI.md": { "text": "Gemini-only guidance: keep answers short. Mentions AGENTS.md but is long enough to be real guidance on its own, so it stays. ", "repeat": 8 },
+    "ws2/.windsurfrules": { "dir": true },
+    "ws3/CLAUDE.md": { "text": "﻿BOM first, then text with a lone é and an emoji 😀.\n" },
+    "files/notes.md": { "text": "Line one\r\nLine two\r\n\r\n   indented\ttab" },
+    "files/big.txt": { "text": "0123456789", "repeat": 2500 },
+    "files/emoji.txt": { "text": "😀 emoji-only line 😀", "repeat": 3 },
+    "files/invalid.bin": { "base64": "aGVsbG8g/3dvcmxkIMOox4Pp" },
+    "files/a-dir": { "dir": true },
+    "data/memory/m-global.md": { "text": "---\nid: m-global\nscope: global\ntitle: \"Deploy: how we ship\"\ntags: [release, ci]\ncreatedAt: 1790000000000\nupdatedAt: 1790000000500\n---\n\nShip every change as a PR.\n\n" },
+    "data/memory/m-old.md": { "text": "---\nid: m-old\nscope: global\ntitle: Old note\ntags: []\ncreatedAt: 1690000000000\nupdatedAt: 1690000000000\n---\nOlder." },
+    "data/memory/m-ws.md": { "text": "---\nid: m-ws\nscope: workspace\nworkspaceId: w1\ntitle: Workspace note\ntags: [x]\ncreatedAt: 0x10\nupdatedAt: 1790000000100\n---\nOnly for w1." },
+    "data/memory/m-other-ws.md": { "text": "---\nid: m-other\nscope: workspace\nworkspaceId: w2\ntitle: Other\ntags: [x]\ncreatedAt: 1\nupdatedAt: 2\n---\nw2 only." },
+    "data/memory/ignored.txt": { "text": "not a note" }
+  },
+  "workspaces": [
+    { "id": "w1", "name": "One", "rel": "ws1" },
+    { "id": "w2", "name": "Two", "rel": "ws2/" },
+    { "id": "w3", "name": "Three", "rel": "ws3/sub/.." },
+    { "id": "w4", "name": "Missing", "rel": "nope" }
+  ],
+  "attached": ["files/notes.md", "files/big.txt", "files/emoji.txt", "files/invalid.bin", "files/a-dir", "files/missing.md"],
+  "connectorSnippets": [{ "label": "Open issue #12", "origin": "github", "body": "Crash on start, reproduced on Windows" }],
+  "indexSnippets": [{ "relPath": "src/app.ts", "path": "/repo/src/app.ts", "body": "export function start() {\n  run();\n}" }],
+  "history": [
+    { "id": "u1", "role": "user", "content": "Fix the crash", "createdAt": 1 },
+    { "id": "a1", "role": "assistant", "content": "", "toolCalls": [{ "id": "c1", "name": "read_file", "input": { "path": "src/app.ts", "limit": 2.0 } }], "createdAt": 2 },
+    { "id": "t1", "role": "tool", "content": "", "toolResult": { "toolCallId": "c1", "output": "export function start()" }, "createdAt": 3 }
+  ],
+  "excluded": ["guideline:<ws1>/.cursorrules", "idx:/repo/src/app.ts"],
+  "pinned": ["mem:m-global"],
+  "contextWindow": 131072,
+  "prompts": [
+    { "workspaces": [], "contextBlock": "", "platform": "win32" },
+    { "workspaces": "fixture", "contextBlock": "rendered", "platform": "linux", "canAsk": true, "canPlan": true, "orchestrationHint": "Delegate research to sub-agents.\nKeep the edits yourself." },
+    { "workspaces": "fixture", "contextBlock": "", "platform": "darwin", "canPlan": true }
+  ]
+}

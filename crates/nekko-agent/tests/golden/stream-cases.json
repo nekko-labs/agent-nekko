@@ -1,0 +1,760 @@
+[
+  {
+    "name": "oa-text-usage",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":2}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-tool-fragments",
+    "provider": "openai",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":null,\"tool_calls\":[{\"index\":0,\"id\":\"c1\",\"type\":\"function\",\"function\":{\"name\":\"read_\",\"arguments\":\"{\\\"pa\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":\"c2\",\"function\":{\"name\":\"bash\",\"arguments\":\"\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"name\":\"file\",\"arguments\":\"th\\\":\\\"a.ts\\\"}\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":1,\"function\":{\"arguments\":\"{\\\"command\\\":\\\"ls\\\"}\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n",
+          "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":50,\"completion_tokens\":20}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-tool-no-id-no-index",
+    "provider": "llamacpp",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"function\":{\"name\":\"bash\",\"arguments\":\"{\\\"command\\\":\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"function\":{\"arguments\":\"\\\"pwd\\\"}\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":3,\"function\":{\"name\":\"noargs\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":9,\"completion_tokens\":4}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-tool-args-odd",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"bad\",\"function\":{\"name\":\"a\",\"arguments\":\"{bad\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":1,\"id\":\"arr\",\"function\":{\"name\":\"b\",\"arguments\":\"[1,2.0,\\\"x\\\"]\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":2,\"id\":\"num\",\"function\":{\"name\":\"c\",\"arguments\":\" 42 \"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"again\",\"function\":{\"name\":\"d\",\"arguments\":\"{}\"}}]}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-usage-before-calls-in-one-event",
+    "provider": "vllm",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"ok\",\"tool_calls\":[{\"index\":0,\"id\":\"x\",\"function\":{\"name\":\"n\",\"arguments\":\"{\\\"a\\\":1}\"}}]},\"finish_reason\":\"tool_calls\"}],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":1}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-reasoning",
+    "provider": "lmstudio",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"Let me think\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"reasoning\":\" carefully.\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"content\":\"\",\"reasoning_content\":\" More.\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"\",\"reasoning\":\"hidden\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"reasoning_content\":null,\"reasoning\":\" Shown.\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"content\":\"42\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-nothing-generated",
+    "provider": "openai",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":0}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-usage-zeros-and-missing",
+    "provider": "openai",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\n\n",
+          "data: {\"choices\":[],\"usage\":{}}\n\n",
+          "data: {\"usage\":null}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-byte-splits",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "body": "data: {\"choices\":[{\"delta\":{\"content\":\"café 😀 \"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"reasoning_content\":\"日本\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"end\"}}]}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n",
+        "cuts": [
+          3,
+          7,
+          37,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          60,
+          61,
+          62,
+          63,
+          64,
+          80,
+          81,
+          82,
+          83,
+          84,
+          85,
+          86
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-framing-noise",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "chunks": [
+          ": keep-alive comment\n\n",
+          "event: message\nid: 1\nretry: 100\ndata: {\"choices\":[{\"delta\":{\"content\":\"a\"}}]}\n\n",
+          "data: {not json\n\n",
+          "data:\n\n",
+          "data:    \n\n",
+          "   data: {\"choices\":[{\"delta\":{\"content\":\"b\"}}]}   \n\n",
+          "DATA: {\"choices\":[{\"delta\":{\"content\":\"ignored\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"content\":\"c\"}}]}\ndata: {\"choices\":[{\"delta\":{\"content\":\"d\"}}]}\n\n",
+          "data: 123\n\ndata: \"str\"\n\ndata: []\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-done-mid-event",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"kept\"}}]}\ndata: [DONE]\ndata: {\"choices\":[{\"delta\":{\"content\":\"lost\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"lost too\"}}]}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-no-done-trailing-dropped",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"a\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{\"content\":\"no blank line\"}}]}\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-crlf-framing",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"x\"}}]}\r\n\r\n",
+          "data: [DONE]\r\n\r\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-invalid-utf8",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "bodyHex": "646174613a207b2263686f69636573223a5b7b2264656c7461223a7b22636f6e74656e74223a2261ff62227d7d5d7d0a0ae282"
+      }
+    ]
+  },
+  {
+    "name": "oa-http-401-api-error",
+    "provider": "openai",
+    "responses": [
+      {
+        "status": 401,
+        "body": "{\"error\":{\"message\":\"Incorrect API key provided.\",\"type\":\"invalid_request_error\"}}"
+      }
+    ]
+  },
+  {
+    "name": "oa-http-500-empty",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "status": 500,
+        "body": ""
+      }
+    ]
+  },
+  {
+    "name": "oa-http-429-long-text",
+    "provider": "openrouter",
+    "responses": [
+      {
+        "status": 429,
+        "body": "Too many requests 😀 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    ]
+  },
+  {
+    "name": "oa-http-400-message-not-string",
+    "provider": "openai",
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":{\"nested\":true}}}"
+      }
+    ]
+  },
+  {
+    "name": "oa-network-error",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "networkError": "fetch failed"
+      }
+    ]
+  },
+  {
+    "name": "oa-network-econnrefused",
+    "provider": "llamacpp",
+    "responses": [
+      {
+        "networkError": "connect ECONNREFUSED 127.0.0.1:11500"
+      }
+    ]
+  },
+  {
+    "name": "oa-network-other",
+    "provider": "openai",
+    "responses": [
+      {
+        "networkError": "weird thing"
+      }
+    ]
+  },
+  {
+    "name": "an-text-tool-usage",
+    "provider": "anthropic",
+    "request": "system-and-tools",
+    "responses": [
+      {
+        "headers": {
+          "anthropic-ratelimit-requests-remaining": "49",
+          "request-id": "req_1"
+        },
+        "chunks": [
+          "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"usage\":{\"input_tokens\":120,\"output_tokens\":1}}}\n\n",
+          "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+          "event: ping\ndata: {\"type\":\"ping\"}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Reading \"}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"it.\"}}\n\n",
+          "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+          "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"toolu_1\",\"name\":\"read_file\",\"input\":{}}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\"}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"path\\\": \\\"a\"}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\".ts\\\"}\"}}\n\n",
+          "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\n",
+          "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"},\"usage\":{\"output_tokens\":42}}\n\n",
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"after stop\"}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-thinking-ignored-but-timed",
+    "provider": "anthropic-sub",
+    "request": "opus-5-normal",
+    "responses": [
+      {
+        "chunks": [
+          "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":7}}}\n\n",
+          "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"hmm\"}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"sig\"}}\n\n",
+          "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+          "event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":3}}\n\n",
+          "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{}}\n\n",
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-tool-no-json-and-bad-json",
+    "provider": "anthropic",
+    "responses": [
+      {
+        "chunks": [
+          "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"t0\",\"name\":\"noargs\"}}\n\n",
+          "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n",
+          "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"tool_use\",\"id\":\"t1\",\"name\":\"broken\"}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"a\\\":\"}}\n\n",
+          "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":1}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{}\"}}\n\n",
+          "event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":0}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-stream-error",
+    "provider": "anthropic",
+    "responses": [
+      {
+        "chunks": [
+          "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":3}}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"Partial\"}}\n\n",
+          "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n\n",
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"never\"}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-stream-error-no-message",
+    "provider": "anthropic",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"error\"}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-no-message-stop",
+    "provider": "anthropic",
+    "responses": [
+      {
+        "chunks": [
+          "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"cut\"}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-retry-without-temperature",
+    "provider": "anthropic",
+    "request": "sonnet-4-6-high",
+    "chats": 2,
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"`temperature` is deprecated for this model.\"}}"
+      },
+      {
+        "headers": {
+          "x-attempt": "2"
+        },
+        "chunks": [
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ]
+      },
+      {
+        "chunks": [
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-retry-without-effort",
+    "provider": "anthropic",
+    "request": "opus-5-xhigh",
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"type\":\"error\",\"error\":{\"message\":\"`output_config` is not supported for this model.\"}}"
+      },
+      {
+        "chunks": [
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-retry-to-neither",
+    "provider": "anthropic",
+    "request": "opus-5-normal",
+    "chats": 2,
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"output_config: unexpected field\"}}"
+      },
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"top_k and temperature are not supported\"}}"
+      },
+      {
+        "chunks": [
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ]
+      },
+      {
+        "chunks": [
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "an-retry-exhausted",
+    "provider": "anthropic",
+    "request": "sonnet-4-6-high",
+    "responses": [
+      {
+        "status": 400,
+        "body": "`temperature` is deprecated for this model."
+      },
+      {
+        "status": 400,
+        "body": "`temperature` is deprecated for this model."
+      },
+      {
+        "status": 400,
+        "body": "`temperature` is deprecated for this model. éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+      }
+    ]
+  },
+  {
+    "name": "an-400-not-sampling",
+    "provider": "anthropic",
+    "request": "opus-5-normal",
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"max_tokens: must be greater than 0\"}}"
+      }
+    ]
+  },
+  {
+    "name": "an-401",
+    "provider": "anthropic-sub",
+    "responses": [
+      {
+        "status": 401,
+        "body": "{\"type\":\"error\",\"error\":{\"type\":\"authentication_error\",\"message\":\"invalid x-api-key\"}}"
+      }
+    ]
+  },
+  {
+    "name": "an-network-error",
+    "provider": "anthropic",
+    "responses": [
+      {
+        "networkError": "fetch failed"
+      }
+    ]
+  },
+  {
+    "name": "cg-full",
+    "provider": "chatgpt",
+    "request": "think-on",
+    "responses": [
+      {
+        "headers": {
+          "x-codex-primary-used-percent": "12"
+        },
+        "chunks": [
+          "data: {\"type\":\"response.created\",\"response\":{\"id\":\"r1\"}}\n\n",
+          "data: {\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"thinking \"}\n\n",
+          "data: {\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"\"}\n\n",
+          "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Hello\"}\n\n",
+          "data: {\"type\":\"response.output_text.delta\",\"delta\":\" world\"}\n\n",
+          "data: {\"type\":\"response.output_item.done\",\"item\":{\"type\":\"message\",\"content\":[]}}\n\n",
+          "data: {\"type\":\"response.output_item.done\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_1\",\"call_id\":\"call_9\",\"name\":\"read_file\",\"arguments\":\"{\\\"path\\\":\\\"b.ts\\\"}\"}}\n\n",
+          "data: {\"type\":\"response.output_item.done\",\"item\":{\"type\":\"function_call\",\"id\":\"fc_2\",\"name\":\"bash\",\"arguments\":\"\"}}\n\n",
+          "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":10,\"output_tokens\":7}}}\n\n",
+          "data: {\"type\":\"response.output_text.delta\",\"delta\":\"after\"}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cg-incomplete",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.output_text.delta\",\"delta\":\"partial\"}\n\n",
+          "data: {\"type\":\"response.incomplete\",\"response\":{\"usage\":{\"input_tokens\":4,\"output_tokens\":2}}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cg-completed-no-usage",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.completed\",\"response\":{}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cg-failed",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.output_text.delta\",\"delta\":\"a\"}\n\n",
+          "data: {\"type\":\"response.failed\",\"response\":{\"error\":{\"message\":\"ran out of room\"}}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cg-error",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"error\",\"error\":{\"message\":\"model overloaded\"}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cg-error-top-level-message",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"error\",\"message\":\"rate limited\",\"code\":429}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cg-error-unknown",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.failed\",\"response\":{}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cg-no-completed",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.output_text.delta\",\"delta\":\"x\"}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "cg-401-headers-first",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "status": 401,
+        "headers": {
+          "x-codex-primary-used-percent": "100"
+        },
+        "body": "nope"
+      }
+    ]
+  },
+  {
+    "name": "cg-no-account-id",
+    "provider": "chatgpt-no-account",
+    "responses": []
+  },
+  {
+    "name": "cg-network-error",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "networkError": "fetch failed"
+      }
+    ]
+  },
+  {
+    "name": "ol-text-usage",
+    "provider": "ollama",
+    "request": "system-and-tools",
+    "responses": [
+      {
+        "chunks": [
+          "{\"model\":\"m\",\"message\":{\"role\":\"assistant\",\"content\":\"Hel\"},\"done\":false}\n",
+          "{\"model\":\"m\",\"message\":{\"role\":\"assistant\",\"content\":\"lo\"},\"done\":false}\n",
+          "{\"model\":\"m\",\"message\":{\"role\":\"assistant\",\"content\":\"\"},\"done\":true,\"done_reason\":\"stop\",\"prompt_eval_count\":26,\"eval_count\":2,\"eval_duration\":123456789}\n",
+          "{\"message\":{\"content\":\"after done\"}}\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ol-thinking-and-tools",
+    "provider": "ollama",
+    "request": "think-on",
+    "responses": [
+      {
+        "chunks": [
+          "{\"message\":{\"role\":\"assistant\",\"content\":\"\",\"thinking\":\"Considering\"}}\n",
+          "{\"message\":{\"role\":\"assistant\",\"content\":\"\",\"thinking\":\" options.\"}}\n",
+          "{\"message\":{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"function\":{\"name\":\"read_file\",\"arguments\":{\"path\":\"a.ts\",\"n\":1,\"f\":0.5}}},{\"function\":{\"name\":\"bash\",\"arguments\":{\"command\":\"ls 😀\"}}},{\"function\":{\"name\":\"noargs\"}}]}}\n",
+          "{\"done\":true,\"prompt_eval_count\":10,\"eval_count\":30,\"eval_duration\":2500000}\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ol-eval-under-a-millisecond",
+    "provider": "ollama",
+    "responses": [
+      {
+        "chunks": [
+          "{\"message\":{\"content\":\"x\"}}\n",
+          "{\"done\":true,\"eval_count\":1,\"eval_duration\":400000}\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ol-eval-duration-string",
+    "provider": "ollama",
+    "responses": [
+      {
+        "chunks": [
+          "{\"message\":{\"content\":\"x\"}}\n",
+          "{\"done\":true,\"eval_duration\":\"5000000\"}\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ol-no-eval-duration",
+    "provider": "ollama",
+    "responses": [
+      {
+        "chunks": [
+          "{\"message\":{\"content\":\"x\"}}\n",
+          "{\"done\":true,\"prompt_eval_count\":1,\"eval_count\":1}\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ol-nothing-generated",
+    "provider": "ollama",
+    "responses": [
+      {
+        "chunks": [
+          "{\"done\":true}\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ol-byte-splits-and-noise",
+    "provider": "ollama",
+    "responses": [
+      {
+        "body": "{\"message\":{\"content\":\"café 😀\"}}\n\n   \n{not json}\n  {\"message\":{\"content\":\" end\"}}\n{\"done\":true,\"eval_duration\":1000000}\n",
+        "cuts": [
+          5,
+          30,
+          31,
+          32,
+          33,
+          34,
+          50
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ol-last-line-without-newline",
+    "provider": "ollama",
+    "responses": [
+      {
+        "chunks": [
+          "{\"message\":{\"content\":\"x\"}}\n",
+          "{\"done\":true,\"eval_count\":5}"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ol-http-500",
+    "provider": "ollama",
+    "responses": [
+      {
+        "status": 500,
+        "body": "{\"error\":\"model not found\"}"
+      }
+    ]
+  },
+  {
+    "name": "ol-network-error",
+    "provider": "ollama",
+    "responses": [
+      {
+        "networkError": "fetch failed"
+      }
+    ]
+  }
+]

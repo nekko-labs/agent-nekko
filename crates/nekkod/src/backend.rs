@@ -284,6 +284,13 @@ fn is_daemon_terminal_echo(text: &str) -> bool {
     !id.starts_with("agent_")
 }
 
+/// True for a backend agent event the daemon already sent: a run the daemon
+/// drives (`loop:run`) publishes its events itself, in order, and the backend
+/// re-emits its copies only for its own listeners (the phone relay, messaging).
+fn is_relay_only(text: &str) -> bool {
+    text.contains("\"relayOnly\":true") && text.contains("\"agent:event\"")
+}
+
 async fn relay_events(port: u16, token: String, hub: Hub) {
     let url = format!("ws://127.0.0.1:{port}/api/events?token={token}");
     loop {
@@ -293,7 +300,7 @@ async fn relay_events(port: u16, token: String, hub: Hub) {
                     match msg {
                         Ok(Message::Text(text)) => {
                             let text = text.as_str();
-                            if !is_daemon_terminal_echo(text) {
+                            if !is_daemon_terminal_echo(text) && !is_relay_only(text) {
                                 hub.publish_raw(text, false);
                             }
                         }
@@ -311,6 +318,14 @@ async fn relay_events(port: u16, token: String, hub: Hub) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn drops_agent_events_the_daemon_already_sent() {
+        assert!(is_relay_only(
+            r#"{"channel":"agent:event","payload":{"type":"text","sessionId":"s","delta":"x","relayOnly":true}}"#
+        ));
+        assert!(!is_relay_only(r#"{"channel":"agent:event","payload":{"type":"text","sessionId":"s","delta":"x"}}"#));
+    }
 
     #[test]
     fn drops_only_echoes_of_daemon_terminals() {

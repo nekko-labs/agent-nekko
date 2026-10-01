@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
 import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
@@ -44,6 +44,9 @@ import { ensureFreshToken, resolveSubscriptionProvider } from './oauth.js';
 import { searchWorkspace } from './workspace.js';
 import { buildSpec } from './spec.js';
 import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
+import { daemonCall } from './engine/daemon.js';
+import { daemonOwns, runAgentViaDaemon } from './daemon-loop.js';
+import { completeText } from './sideband.js';
 
 /**
  * Retrieve code snippets from the session's workspace index relevant to the
@@ -78,6 +81,9 @@ function collectIndexSnippets(
 }
 
 type Sender = (event: AgentEvent) => void;
+
+/** The built-in tools the engine daemon runs itself (crates/nekko-tools `PORTED_TOOLS`). */
+const DAEMON_TOOLS = new Set(['read_file', 'write_file', 'edit_file', 'glob', 'grep', 'list_dir', 'bash']);
 
 const abortControllers = new Map<string, AbortController>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
@@ -139,8 +145,7 @@ async function titleSession(
   const assistantText =
     [...session.messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
   try {
-    let out = '';
-    for await (const chunk of createProvider(provider).chat({
+    const out = await completeText(provider, {
       model: modelId,
       messages: [
         {
@@ -158,9 +163,7 @@ async function titleSession(
       maxOutputTokens: 24,
       think: false,
       purpose: 'title',
-    })) {
-      if (chunk.type === 'text') out += chunk.delta;
-    }
+    });
     const title = out
       .replace(/["'`]/g, '')
       .replace(/\s+/g, ' ')
@@ -222,12 +225,9 @@ export async function suggestReplies(sessionId: string): Promise<ReplySuggestion
     })
     .join('\n\n');
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
   try {
     const resolved = await resolveSubscriptionProvider(provider);
-    let out = '';
-    for await (const chunk of createProvider(resolved).chat({
+    const out = await completeText(resolved, {
       model: modelId,
       messages: [
         {
@@ -246,15 +246,10 @@ export async function suggestReplies(sessionId: string): Promise<ReplySuggestion
       maxOutputTokens: 220,
       think: false,
       purpose: 'suggest',
-      signal: controller.signal,
-    })) {
-      if (chunk.type === 'text') out += chunk.delta;
-    }
+    });
     return parseReplySuggestions(out);
   } catch {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -280,12 +275,9 @@ export async function fillPromptPart(sessionId: string, part: string, draft: str
   if (session.offline && !offlineProviderAllowed(provider)) return null;
   if (!providerEndpoint(provider)) return null;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30_000);
   try {
     const resolved = await resolveSubscriptionProvider(provider);
-    let out = '';
-    for await (const chunk of createProvider(resolved).chat({
+    const out = await completeText(resolved, {
       model: modelId,
       messages: [
         {
@@ -303,10 +295,7 @@ export async function fillPromptPart(sessionId: string, part: string, draft: str
       maxOutputTokens: 120,
       think: false,
       purpose: 'fill',
-      signal: controller.signal,
-    })) {
-      if (chunk.type === 'text') out += chunk.delta;
-    }
+    });
     const cleaned = out
       .trim()
       .replace(/^["'`]+|["'`]+$/g, '')
@@ -315,8 +304,6 @@ export async function fillPromptPart(sessionId: string, part: string, draft: str
     return cleaned || null;
   } catch {
     return null;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -370,11 +357,12 @@ export function isChatRunning(sessionId: string): boolean {
 }
 
 /** Read guideline files (AGENTS.md/CLAUDE.md/...) from the workspace roots. */
-function collectGuidelines(): Array<{ path: string; content: string }> {
-  const settings = getSettings();
+export function collectGuidelines(
+  workspaces: Array<{ path: string }> = getSettings().workspaces,
+): Array<{ path: string; content: string }> {
   const out: Array<{ path: string; content: string }> = [];
   const names = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', 'GEMINI.md'];
-  for (const w of settings.workspaces) {
+  for (const w of workspaces) {
     const found: Array<{ path: string; name: string; content: string }> = [];
     for (const n of names) {
       if (!isGuidelineFile(n)) continue;
@@ -418,7 +406,7 @@ export function isPointerTo(
   return siblings.some((s) => s.name !== file.name && body.includes(s.name));
 }
 
-function collectAttached(paths: string[]): Array<{ path: string; content: string }> {
+export function collectAttached(paths: string[]): Array<{ path: string; content: string }> {
   return paths
     .map((p) => {
       try {
@@ -789,14 +777,17 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     };
 
     try {
-      for await (const event of runAgent({
+      const defaultCwd = session.workspaceId
+        ? settings.workspaces.find((w) => w.id === session.workspaceId)?.path ?? settings.workspaces[0]?.path
+        : settings.workspaces[0]?.path;
+      const runOptions = {
         sessionId: opts.sessionId,
         provider: createProvider(resolvedProvider),
         model: opts.modelId,
         system,
         history: session.messages,
         tools,
-        executeTool: async (call) => {
+        executeTool: async (call: ToolCall): Promise<ToolResult> => {
           if (!tools.some((tool) => tool.name === call.name)) {
             return { toolCallId: call.id, output: 'This tool is disabled or unavailable for this chat.', isError: true };
           }
@@ -859,9 +850,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             ? callMcpTool(call)
             : executeTool(call, {
                 settings,
-                defaultCwd: session.workspaceId
-                  ? settings.workspaces.find((w) => w.id === session.workspaceId)?.path ?? settings.workspaces[0]?.path
-                  : settings.workspaces[0]?.path,
+                defaultCwd,
                 requestApproval,
                 mode,
                 allowBrowserControl,
@@ -878,9 +867,34 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         signal: abort.signal,
         onHeaders:
           provider.kind === 'anthropic' && provider.auth === 'subscription' && provider.tokenKey
-            ? (headers) => LimitsService.recordFromHeaders(provider.tokenKey!, provider.kind, headers)
+            ? (headers: Headers) => LimitsService.recordFromHeaders(provider.tokenKey!, provider.kind, headers)
             : undefined,
-      })) {
+      };
+      // Under the engine daemon the run itself is the daemon's (daemon-loop.ts):
+      // its tokens reach the UI without passing through this process. A run
+      // that reports rate-limit headers stays here, since only this side
+      // records them.
+      // NEKKO_AGENT_LOOP=ts keeps every run in this process (a kill switch).
+      const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
+      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonOwns(daemon, 'loop:run'));
+      const source = viaDaemon
+        ? runAgentViaDaemon(daemon, {
+            ...runOptions,
+            provider: resolvedProvider,
+            requestApproval,
+            // The built-in file and shell tools run in the daemon too.
+            toolContext: {
+              native: tools.map((t) => t.name).filter((n) => DAEMON_TOOLS.has(n)),
+              sessionId: opts.sessionId,
+              mode,
+              sandboxMode: settings.sandboxMode,
+              guardrails: settings.guardrails,
+              workspaces: settings.workspaces.map((w) => ({ id: w.id, path: w.path })),
+              defaultCwd,
+            },
+          })
+        : runAgent(runOptions);
+      for await (const event of source) {
         eventsSeen = true;
         if (event.type === 'usage') {
           recordUsage({

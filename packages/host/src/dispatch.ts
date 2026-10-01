@@ -41,6 +41,13 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     // Internal: the engine daemon's router (crates/nekko-infer) asking the
     // engine's policy about a model it does not have running.
     'engine:routerLoad': ([id, image]) => host.engineRouterLoad(String(id), Boolean(image)),
+    // A daemon-driven agent run calling back (daemon-loop.ts).
+    'loop:tool': ([runId, call]) => host.loopTool(String(runId), call as never),
+    'loop:event': ([runId, payload]) => host.loopEvent(String(runId), payload as never),
+    'loop:end': ([runId, payload]) => host.loopEnd(String(runId), payload as never),
+    'loop:approve': ([runId, call, reason, severity]) => host.loopApprove(String(runId), call as never, String(reason), severity as never),
+    'loop:log': ([sessionId, workspaceId, data]) => host.loopLog(String(sessionId), (workspaceId as string | null) ?? undefined, String(data)),
+    'changes:notify': ([sessionId]) => host.changesNotify(String(sessionId)),
     'engine:routerModels': () => host.engineRouterModels(),
     'engine:routerModel': ([id]) => host.engineRouterModel(String(id)),
     [C.engineInstall]: ([buildId, runtime]) => host.engineInstall(buildId, runtime),
@@ -52,7 +59,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.engineImportModel]: ([path]) => host.engineImportModel(path),
     [C.engineDeleteModel]: ([id]) => host.engineDeleteModel(id),
     [C.engineSaveModelPreset]: ([id, preset]) => host.engineSaveModelPreset(id, preset),
-    [C.engineCatalog]: ([query]) => host.engineCatalog(query),
+    [C.engineCatalog]: ([query, format]) => host.engineCatalog(query, format),
     [C.engineCatalogModel]: ([id]) => host.engineCatalogModel(id),
     [C.engineCatalogDetail]: ([id]) => host.engineCatalogDetail(id),
     [C.engineFolders]: () => host.engineFolders(),

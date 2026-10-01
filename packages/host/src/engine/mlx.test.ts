@@ -30,6 +30,17 @@ describe('MLX models on disk', () => {
     expect(await readMlxModel(modelDir('bert-base', { model_type: 'bert' }))).toBeNull();
   });
 
+  it('reads a catalog download, which lands in <models>/mlx/<owner>_<repo>', async () => {
+    // A repo tagged mlx with no quantization block and no "mlx" in its name:
+    // the download folder is what marks it.
+    const models = mkdtempSync(join(tmpdir(), 'nekko-models-'));
+    const dir = join(models, 'mlx', 'OBLITERATUS_Qwen3.8-27B-OBLITERATED');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'config.json'), JSON.stringify({ model_type: 'qwen3' }));
+    writeFileSync(join(dir, 'model.safetensors'), Buffer.alloc(1024));
+    expect(await readMlxModel(dir)).toMatchObject({ architecture: 'qwen3' });
+  });
+
   it('marks vision models', async () => {
     const info = await readMlxModel(modelDir('mlx-vl', { model_type: 'qwen2_5_vl', vision_config: {} }));
     expect(info?.vision).toBe(true);

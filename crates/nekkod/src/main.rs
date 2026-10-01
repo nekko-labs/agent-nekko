@@ -9,8 +9,11 @@ mod config;
 mod decide;
 mod engine;
 mod hub;
+mod loops;
+mod mcp;
 mod procgroup;
 mod routes;
+mod sideband;
 mod wire;
 
 use backend::Backend;
@@ -63,7 +66,27 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
     };
     let engine = Arc::new(engine::Engine::new(backend.clone()));
     let sessions = cfg.data_dir.clone().map(|d| Arc::new(nekko_store::SessionStore::new(d)));
-    let ctx = Ctx { terminals: terminals.clone(), backend: backend.clone(), hub, engine: engine.clone(), sessions };
+    let mcp: Arc<mcp::Mcp> = Arc::default();
+    let changes = Arc::new(nekko_tools::ChangeTracker::new());
+    {
+        // The host tells the UI and the phone relay, as it did when it kept the list.
+        let backend = backend.clone();
+        changes.set_notifier(move |session_id| {
+            let (backend, id) = (backend.clone(), session_id.to_string());
+            tokio::spawn(async move {
+                let _ = backend.call("changes:notify", serde_json::json!([id])).await;
+            });
+        });
+    }
+    let ctx = Ctx {
+        terminals: terminals.clone(),
+        backend: backend.clone(),
+        hub,
+        engine: engine.clone(),
+        sessions,
+        loops: Arc::new(loops::Loops::new(changes)),
+        mcp: mcp.clone(),
+    };
     routes::forward_terminal_events(&ctx);
 
     let app = wire::App { ctx, token: cfg.token.clone().into(), origins: Arc::new(cfg.allowed_origins.clone()) };
@@ -80,6 +103,7 @@ async fn run(cfg: config::Config) -> anyhow::Result<()> {
     engine.shutdown();
     backend.shutdown().await;
     terminals.close_all();
+    mcp.stop_all();
     Ok(())
 }
 

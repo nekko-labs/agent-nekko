@@ -1,0 +1,6243 @@
+{
+  "win32": {
+    "resolve": [
+      {
+        "base": "C:\\ws\\app",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": ".",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": ".",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": ".",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\..foo\\bar"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\a\\b"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\ÉCOLE\\x"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "src\\main.ts",
+        "out": "c:\\WS\\App\\src\\main.ts"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "src/main.ts",
+        "out": "c:\\WS\\App\\src\\main.ts"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "..\\lib",
+        "out": "c:\\WS\\lib"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "../../x",
+        "out": "c:\\x"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": ".",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "..foo\\bar",
+        "out": "c:\\WS\\App\\..foo\\bar"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "a\\\\b",
+        "out": "c:\\WS\\App\\a\\b"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "\\root",
+        "out": "c:\\root"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "ÉCOLE\\x",
+        "out": "c:\\WS\\App\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\",
+        "path": "src\\main.ts",
+        "out": "C:\\src\\main.ts"
+      },
+      {
+        "base": "C:\\",
+        "path": "src/main.ts",
+        "out": "C:\\src\\main.ts"
+      },
+      {
+        "base": "C:\\",
+        "path": "..\\lib",
+        "out": "C:\\lib"
+      },
+      {
+        "base": "C:\\",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\",
+        "path": ".",
+        "out": "C:\\"
+      },
+      {
+        "base": "C:\\",
+        "path": "",
+        "out": "C:\\"
+      },
+      {
+        "base": "C:\\",
+        "path": "..foo\\bar",
+        "out": "C:\\..foo\\bar"
+      },
+      {
+        "base": "C:\\",
+        "path": "a\\\\b",
+        "out": "C:\\a\\b"
+      },
+      {
+        "base": "C:\\",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ÉCOLE\\x"
+      },
+      {
+        "base": "D:\\other",
+        "path": "src\\main.ts",
+        "out": "D:\\other\\src\\main.ts"
+      },
+      {
+        "base": "D:\\other",
+        "path": "src/main.ts",
+        "out": "D:\\other\\src\\main.ts"
+      },
+      {
+        "base": "D:\\other",
+        "path": "..\\lib",
+        "out": "D:\\lib"
+      },
+      {
+        "base": "D:\\other",
+        "path": "../../x",
+        "out": "D:\\x"
+      },
+      {
+        "base": "D:\\other",
+        "path": ".",
+        "out": "D:\\other"
+      },
+      {
+        "base": "D:\\other",
+        "path": "",
+        "out": "D:\\other"
+      },
+      {
+        "base": "D:\\other",
+        "path": "..foo\\bar",
+        "out": "D:\\other\\..foo\\bar"
+      },
+      {
+        "base": "D:\\other",
+        "path": "a\\\\b",
+        "out": "D:\\other\\a\\b"
+      },
+      {
+        "base": "D:\\other",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "D:\\other",
+        "path": "\\root",
+        "out": "D:\\root"
+      },
+      {
+        "base": "D:\\other",
+        "path": "ÉCOLE\\x",
+        "out": "D:\\other\\ÉCOLE\\x"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "src\\main.ts",
+        "out": "\\\\server\\share\\dir\\src\\main.ts"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "src/main.ts",
+        "out": "\\\\server\\share\\dir\\src\\main.ts"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "..\\lib",
+        "out": "\\\\server\\share\\lib"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "../../x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": ".",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "..foo\\bar",
+        "out": "\\\\server\\share\\dir\\..foo\\bar"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "a\\\\b",
+        "out": "\\\\server\\share\\dir\\a\\b"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "\\root",
+        "out": "\\\\server\\share\\root"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "ÉCOLE\\x",
+        "out": "\\\\server\\share\\dir\\ÉCOLE\\x"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "src\\main.ts",
+        "out": "\\\\server\\share\\src\\main.ts"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "src/main.ts",
+        "out": "\\\\server\\share\\src\\main.ts"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "..\\lib",
+        "out": "\\\\server\\share\\lib"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "../../x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": ".",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "..foo\\bar",
+        "out": "\\\\server\\share\\..foo\\bar"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "a\\\\b",
+        "out": "\\\\server\\share\\a\\b"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "\\root",
+        "out": "\\\\server\\share\\root"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "ÉCOLE\\x",
+        "out": "\\\\server\\share\\ÉCOLE\\x"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "src\\main.ts",
+        "out": "\\\\server\\share\\x\\src\\main.ts"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "src/main.ts",
+        "out": "\\\\server\\share\\x\\src\\main.ts"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "..\\lib",
+        "out": "\\\\server\\share\\lib"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "../../x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "//server/share/x",
+        "path": ".",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "..foo\\bar",
+        "out": "\\\\server\\share\\x\\..foo\\bar"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "a\\\\b",
+        "out": "\\\\server\\share\\x\\a\\b"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "\\root",
+        "out": "\\\\server\\share\\root"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "ÉCOLE\\x",
+        "out": "\\\\server\\share\\x\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\lib\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\lib\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": ".",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\lib\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\lib\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\lib\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\x.ts\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\x.ts\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\src\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "../../x",
+        "out": "C:\\ws\\app\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": ".",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\src\\x.ts\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\src\\x.ts\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\src\\x.ts\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\..foo\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\..foo\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "../../x",
+        "out": "C:\\ws\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": ".",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\..foo\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\..foo\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\..foo\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\application\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\application\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": ".",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\application\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\application\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\application\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\src\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "../../x",
+        "out": "C:\\ws\\app\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": ".",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\src\\main.ts\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\src\\main.ts\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\src\\main.ts\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "src\\main.ts",
+        "out": "C:\\x\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "src/main.ts",
+        "out": "C:\\x\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "..\\lib",
+        "out": "C:\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": ".",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "..foo\\bar",
+        "out": "C:\\x\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "a\\\\b",
+        "out": "C:\\x\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\x\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\café\\menu.txt\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\café\\menu.txt\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\café\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "../../x",
+        "out": "C:\\ws\\app\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": ".",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\café\\menu.txt\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\café\\menu.txt\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\café\\menu.txt\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\ÉCOLE\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\ÉCOLE\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "../../x",
+        "out": "C:\\ws\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": ".",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\ÉCOLE\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\ÉCOLE\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\ÉCOLE\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "C:x",
+        "out": "C:\\ws\\app\\x"
+      },
+      {
+        "base": "c:\\ws",
+        "path": "C:x\\..\\..\\y",
+        "out": "C:\\y"
+      }
+    ],
+    "resolveOne": [
+      {
+        "path": "C:\\ws\\app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "path": "C:\\ws\\app\\",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "path": "C:/ws/app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "path": "c:\\WS\\App",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "path": "C:\\",
+        "out": "C:\\"
+      },
+      {
+        "path": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "path": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "path": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "path": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "path": "C:\\ws\\app\\..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "path": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "path": "C:\\ws\\app\\..foo",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "path": "C:\\ws\\application",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "path": "C:\\ws\\app\\src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "path": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "C:\\x"
+      },
+      {
+        "path": "C:\\ws\\app\\café\\menu.txt",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "path": "C:\\ws\\app\\ÉCOLE",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      }
+    ],
+    "relative": [
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app\\",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:/ws/app",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "c:\\WS\\App",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "src\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..foo"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\application",
+        "out": "..\\application"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\app",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app\\",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:/ws/app",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "c:\\WS\\App",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "src\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..foo"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\application",
+        "out": "..\\application"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\app\\",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "ÉCOLE"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app",
+        "out": ""
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app\\",
+        "out": ""
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:/ws/app",
+        "out": ""
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "c:\\WS\\App",
+        "out": ""
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "src\\x.ts"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..foo"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\application",
+        "out": "..\\application"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\x"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "café\\menu.txt"
+      },
+      {
+        "from": "C:/ws/app",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "ÉCOLE"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app",
+        "out": ""
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app\\",
+        "out": ""
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:/ws/app",
+        "out": ""
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "c:\\WS\\App",
+        "out": ""
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "src\\x.ts"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..foo"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\application",
+        "out": "..\\application"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\x"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "café\\menu.txt"
+      },
+      {
+        "from": "c:\\WS\\App",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "ÉCOLE"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app",
+        "out": "ws\\app"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app\\",
+        "out": "ws\\app"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:/ws/app",
+        "out": "ws\\app"
+      },
+      {
+        "from": "C:\\",
+        "to": "c:\\WS\\App",
+        "out": "WS\\App"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\",
+        "out": ""
+      },
+      {
+        "from": "C:\\",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "ws\\lib"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "ws\\app\\src\\x.ts"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "ws\\app\\..foo"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\application",
+        "out": "ws\\application"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "ws\\app\\src\\main.ts"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "x"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "ws\\app\\café\\menu.txt"
+      },
+      {
+        "from": "C:\\",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "ws\\app\\ÉCOLE"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app\\",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:/ws/app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "D:\\other",
+        "to": "c:\\WS\\App",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\",
+        "out": "C:\\"
+      },
+      {
+        "from": "D:\\other",
+        "to": "D:\\other",
+        "out": ""
+      },
+      {
+        "from": "D:\\other",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "D:\\other",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "D:\\other",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\application",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "C:\\x"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "from": "D:\\other",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app\\",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:/ws/app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "c:\\WS\\App",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\",
+        "out": "C:\\"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "\\\\server\\share\\dir",
+        "out": ""
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "\\\\server\\share",
+        "out": ".."
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "//server/share/x",
+        "out": "..\\x"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\application",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "C:\\x"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "from": "\\\\server\\share\\dir",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app\\",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:/ws/app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "c:\\WS\\App",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\",
+        "out": "C:\\"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "\\\\server\\share\\dir",
+        "out": "dir"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "\\\\server\\share",
+        "out": ""
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "//server/share/x",
+        "out": "x"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\application",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "C:\\x"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "from": "\\\\server\\share",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app\\",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:/ws/app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "c:\\WS\\App",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\",
+        "out": "C:\\"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "\\\\server\\share\\dir",
+        "out": "..\\dir"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "\\\\server\\share",
+        "out": ".."
+      },
+      {
+        "from": "//server/share/x",
+        "to": "//server/share/x",
+        "out": ""
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\application",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "C:\\x"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "from": "//server/share/x",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app",
+        "out": "..\\app"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app\\",
+        "out": "..\\app"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:/ws/app",
+        "out": "..\\app"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "c:\\WS\\App",
+        "out": "..\\App"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "..\\app\\src\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..\\app\\..foo"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\application",
+        "out": "..\\application"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "..\\app\\src\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "..\\app\\café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\app\\..\\lib",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "..\\app\\ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:/ws/app",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "c:\\WS\\App",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\",
+        "out": "..\\..\\..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\..\\..\\lib"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..\\..\\..foo"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\application",
+        "out": "..\\..\\..\\application"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "..\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "..\\..\\café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "..\\..\\ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app\\",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:/ws/app",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "c:\\WS\\App",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\",
+        "out": "..\\..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\..\\lib"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "..\\src\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app\\..foo",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\application",
+        "out": "..\\..\\application"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "..\\src\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "..\\café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\app\\..foo",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "..\\ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app",
+        "out": "..\\app"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app\\",
+        "out": "..\\app"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:/ws/app",
+        "out": "..\\app"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "c:\\WS\\App",
+        "out": "..\\App"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "..\\app\\src\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..\\app\\..foo"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\application",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "..\\app\\src\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "..\\app\\café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\application",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "..\\app\\ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:/ws/app",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "c:\\WS\\App",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\",
+        "out": "..\\..\\..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\..\\..\\lib"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "..\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..\\..\\..foo"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\application",
+        "out": "..\\..\\..\\application"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "..\\..\\café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\main.ts",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "..\\..\\ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app",
+        "out": "..\\ws\\app"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app\\",
+        "out": "..\\ws\\app"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:/ws/app",
+        "out": "..\\ws\\app"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "c:\\WS\\App",
+        "out": "..\\WS\\App"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\ws\\lib"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "..\\ws\\app\\src\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..\\ws\\app\\..foo"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\application",
+        "out": "..\\ws\\application"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "..\\ws\\app\\src\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "..\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "..\\ws\\app\\ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app\\",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:/ws/app",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "c:\\WS\\App",
+        "out": "..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\",
+        "out": "..\\..\\..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\..\\..\\lib"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "..\\..\\src\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..\\..\\..foo"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\application",
+        "out": "..\\..\\..\\application"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "..\\..\\src\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": ""
+      },
+      {
+        "from": "C:\\ws\\app\\café\\menu.txt",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": "..\\..\\ÉCOLE"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app\\",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:/ws/app",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "c:\\WS\\App",
+        "out": ".."
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\",
+        "out": "..\\..\\.."
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app\\..\\lib",
+        "out": "..\\..\\lib"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "..\\src\\x.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app\\..foo",
+        "out": "..\\..foo"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\application",
+        "out": "..\\..\\application"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app\\src\\main.ts",
+        "out": "..\\src\\main.ts"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "..\\..\\..\\x"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app\\café\\menu.txt",
+        "out": "..\\café\\menu.txt"
+      },
+      {
+        "from": "C:\\ws\\app\\ÉCOLE",
+        "to": "C:\\ws\\app\\ÉCOLE",
+        "out": ""
+      }
+    ],
+    "isAbsolute": [
+      {
+        "path": "C:\\ws\\app",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\app\\",
+        "out": true
+      },
+      {
+        "path": "C:/ws/app",
+        "out": true
+      },
+      {
+        "path": "c:\\WS\\App",
+        "out": true
+      },
+      {
+        "path": "C:\\",
+        "out": true
+      },
+      {
+        "path": "D:\\other",
+        "out": true
+      },
+      {
+        "path": "\\\\server\\share\\dir",
+        "out": true
+      },
+      {
+        "path": "\\\\server\\share",
+        "out": true
+      },
+      {
+        "path": "//server/share/x",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\app\\..\\lib",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\app\\..foo",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\application",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\app\\src\\main.ts",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\app\\café\\menu.txt",
+        "out": true
+      },
+      {
+        "path": "C:\\ws\\app\\ÉCOLE",
+        "out": true
+      },
+      {
+        "path": "src\\main.ts",
+        "out": false
+      },
+      {
+        "path": "src/main.ts",
+        "out": false
+      },
+      {
+        "path": "..\\lib",
+        "out": false
+      },
+      {
+        "path": "../../x",
+        "out": false
+      },
+      {
+        "path": ".",
+        "out": false
+      },
+      {
+        "path": "",
+        "out": false
+      },
+      {
+        "path": "..foo\\bar",
+        "out": false
+      },
+      {
+        "path": "a\\\\b",
+        "out": false
+      },
+      {
+        "path": "D:\\y",
+        "out": true
+      },
+      {
+        "path": "\\root",
+        "out": true
+      },
+      {
+        "path": "ÉCOLE\\x",
+        "out": false
+      },
+      {
+        "path": "\\ws\\app",
+        "out": true
+      },
+      {
+        "path": "/ws/app",
+        "out": true
+      },
+      {
+        "path": "C:",
+        "out": false
+      },
+      {
+        "path": "C:x",
+        "out": false
+      },
+      {
+        "path": "x:y",
+        "out": false
+      },
+      {
+        "path": "a:\\b:",
+        "out": true
+      },
+      {
+        "path": "/",
+        "out": true
+      }
+    ],
+    "join": [
+      {
+        "base": "C:\\ws\\app",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": ".",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "D:\\y",
+        "out": "C:\\ws\\app\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "\\root",
+        "out": "C:\\ws\\app\\root"
+      },
+      {
+        "base": "C:\\ws\\app",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": ".",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "",
+        "out": "C:\\ws\\app\\"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "D:\\y",
+        "out": "C:\\ws\\app\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "\\root",
+        "out": "C:\\ws\\app\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": ".",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\..foo\\bar"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\a\\b"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "D:\\y",
+        "out": "C:\\ws\\app\\D:\\y"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "\\root",
+        "out": "C:\\ws\\app\\root"
+      },
+      {
+        "base": "C:/ws/app",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\ÉCOLE\\x"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "src\\main.ts",
+        "out": "c:\\WS\\App\\src\\main.ts"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "src/main.ts",
+        "out": "c:\\WS\\App\\src\\main.ts"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "..\\lib",
+        "out": "c:\\WS\\lib"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "../../x",
+        "out": "c:\\x"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": ".",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "..foo\\bar",
+        "out": "c:\\WS\\App\\..foo\\bar"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "a\\\\b",
+        "out": "c:\\WS\\App\\a\\b"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "D:\\y",
+        "out": "c:\\WS\\App\\D:\\y"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "\\root",
+        "out": "c:\\WS\\App\\root"
+      },
+      {
+        "base": "c:\\WS\\App",
+        "path": "ÉCOLE\\x",
+        "out": "c:\\WS\\App\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\",
+        "path": "src\\main.ts",
+        "out": "C:\\src\\main.ts"
+      },
+      {
+        "base": "C:\\",
+        "path": "src/main.ts",
+        "out": "C:\\src\\main.ts"
+      },
+      {
+        "base": "C:\\",
+        "path": "..\\lib",
+        "out": "C:\\lib"
+      },
+      {
+        "base": "C:\\",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\",
+        "path": ".",
+        "out": "C:\\"
+      },
+      {
+        "base": "C:\\",
+        "path": "",
+        "out": "C:\\"
+      },
+      {
+        "base": "C:\\",
+        "path": "..foo\\bar",
+        "out": "C:\\..foo\\bar"
+      },
+      {
+        "base": "C:\\",
+        "path": "a\\\\b",
+        "out": "C:\\a\\b"
+      },
+      {
+        "base": "C:\\",
+        "path": "D:\\y",
+        "out": "C:\\D:\\y"
+      },
+      {
+        "base": "C:\\",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:\\",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ÉCOLE\\x"
+      },
+      {
+        "base": "D:\\other",
+        "path": "src\\main.ts",
+        "out": "D:\\other\\src\\main.ts"
+      },
+      {
+        "base": "D:\\other",
+        "path": "src/main.ts",
+        "out": "D:\\other\\src\\main.ts"
+      },
+      {
+        "base": "D:\\other",
+        "path": "..\\lib",
+        "out": "D:\\lib"
+      },
+      {
+        "base": "D:\\other",
+        "path": "../../x",
+        "out": "D:\\x"
+      },
+      {
+        "base": "D:\\other",
+        "path": ".",
+        "out": "D:\\other"
+      },
+      {
+        "base": "D:\\other",
+        "path": "",
+        "out": "D:\\other"
+      },
+      {
+        "base": "D:\\other",
+        "path": "..foo\\bar",
+        "out": "D:\\other\\..foo\\bar"
+      },
+      {
+        "base": "D:\\other",
+        "path": "a\\\\b",
+        "out": "D:\\other\\a\\b"
+      },
+      {
+        "base": "D:\\other",
+        "path": "D:\\y",
+        "out": "D:\\other\\D:\\y"
+      },
+      {
+        "base": "D:\\other",
+        "path": "\\root",
+        "out": "D:\\other\\root"
+      },
+      {
+        "base": "D:\\other",
+        "path": "ÉCOLE\\x",
+        "out": "D:\\other\\ÉCOLE\\x"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "src\\main.ts",
+        "out": "\\\\server\\share\\dir\\src\\main.ts"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "src/main.ts",
+        "out": "\\\\server\\share\\dir\\src\\main.ts"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "..\\lib",
+        "out": "\\\\server\\share\\lib"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "../../x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": ".",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "..foo\\bar",
+        "out": "\\\\server\\share\\dir\\..foo\\bar"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "a\\\\b",
+        "out": "\\\\server\\share\\dir\\a\\b"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "D:\\y",
+        "out": "\\\\server\\share\\dir\\D:\\y"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "\\root",
+        "out": "\\\\server\\share\\dir\\root"
+      },
+      {
+        "base": "\\\\server\\share\\dir",
+        "path": "ÉCOLE\\x",
+        "out": "\\\\server\\share\\dir\\ÉCOLE\\x"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "src\\main.ts",
+        "out": "\\\\server\\share\\src\\main.ts"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "src/main.ts",
+        "out": "\\\\server\\share\\src\\main.ts"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "..\\lib",
+        "out": "\\\\server\\share\\lib"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "../../x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": ".",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "..foo\\bar",
+        "out": "\\\\server\\share\\..foo\\bar"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "a\\\\b",
+        "out": "\\\\server\\share\\a\\b"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "D:\\y",
+        "out": "\\\\server\\share\\D:\\y"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "\\root",
+        "out": "\\\\server\\share\\root"
+      },
+      {
+        "base": "\\\\server\\share",
+        "path": "ÉCOLE\\x",
+        "out": "\\\\server\\share\\ÉCOLE\\x"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "src\\main.ts",
+        "out": "\\\\server\\share\\x\\src\\main.ts"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "src/main.ts",
+        "out": "\\\\server\\share\\x\\src\\main.ts"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "..\\lib",
+        "out": "\\\\server\\share\\lib"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "../../x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "//server/share/x",
+        "path": ".",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "..foo\\bar",
+        "out": "\\\\server\\share\\x\\..foo\\bar"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "a\\\\b",
+        "out": "\\\\server\\share\\x\\a\\b"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "D:\\y",
+        "out": "\\\\server\\share\\x\\D:\\y"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "\\root",
+        "out": "\\\\server\\share\\x\\root"
+      },
+      {
+        "base": "//server/share/x",
+        "path": "ÉCOLE\\x",
+        "out": "\\\\server\\share\\x\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\lib\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\lib\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": ".",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\lib\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\lib\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "D:\\y",
+        "out": "C:\\ws\\lib\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "\\root",
+        "out": "C:\\ws\\lib\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\..\\lib",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\lib\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\x.ts\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\x.ts\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\src\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "../../x",
+        "out": "C:\\ws\\app\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": ".",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\src\\x.ts\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\src\\x.ts\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "D:\\y",
+        "out": "C:\\ws\\app\\src\\x.ts\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "\\root",
+        "out": "C:\\ws\\app\\src\\x.ts\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\src\\x.ts\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\..foo\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\..foo\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "../../x",
+        "out": "C:\\ws\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": ".",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\..foo\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\..foo\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "D:\\y",
+        "out": "C:\\ws\\app\\..foo\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "\\root",
+        "out": "C:\\ws\\app\\..foo\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\..foo",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\..foo\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\application\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\application\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": ".",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\application\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\application\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "D:\\y",
+        "out": "C:\\ws\\application\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "\\root",
+        "out": "C:\\ws\\application\\root"
+      },
+      {
+        "base": "C:\\ws\\application",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\application\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\src\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "../../x",
+        "out": "C:\\ws\\app\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": ".",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\src\\main.ts\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\src\\main.ts\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "D:\\y",
+        "out": "C:\\ws\\app\\src\\main.ts\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "\\root",
+        "out": "C:\\ws\\app\\src\\main.ts\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\main.ts",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\src\\main.ts\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "src\\main.ts",
+        "out": "C:\\x\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "src/main.ts",
+        "out": "C:\\x\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "..\\lib",
+        "out": "C:\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": ".",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "..foo\\bar",
+        "out": "C:\\x\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "a\\\\b",
+        "out": "C:\\x\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "D:\\y",
+        "out": "C:\\x\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "\\root",
+        "out": "C:\\x\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\x\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\café\\menu.txt\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\café\\menu.txt\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\café\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "../../x",
+        "out": "C:\\ws\\app\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": ".",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\café\\menu.txt\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\café\\menu.txt\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "D:\\y",
+        "out": "C:\\ws\\app\\café\\menu.txt\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "\\root",
+        "out": "C:\\ws\\app\\café\\menu.txt\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\café\\menu.txt",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\café\\menu.txt\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "src\\main.ts",
+        "out": "C:\\ws\\app\\ÉCOLE\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "src/main.ts",
+        "out": "C:\\ws\\app\\ÉCOLE\\src\\main.ts"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "..\\lib",
+        "out": "C:\\ws\\app\\lib"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "../../x",
+        "out": "C:\\ws\\x"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": ".",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "..foo\\bar",
+        "out": "C:\\ws\\app\\ÉCOLE\\..foo\\bar"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "a\\\\b",
+        "out": "C:\\ws\\app\\ÉCOLE\\a\\b"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "D:\\y",
+        "out": "C:\\ws\\app\\ÉCOLE\\D:\\y"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "\\root",
+        "out": "C:\\ws\\app\\ÉCOLE\\root"
+      },
+      {
+        "base": "C:\\ws\\app\\ÉCOLE",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ws\\app\\ÉCOLE\\ÉCOLE\\x"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "src\\main.ts",
+        "out": "src\\main.ts\\src\\main.ts"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "src/main.ts",
+        "out": "src\\main.ts\\src\\main.ts"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "..\\lib",
+        "out": "src\\lib"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "../../x",
+        "out": "x"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": ".",
+        "out": "src\\main.ts"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "",
+        "out": "src\\main.ts"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "..foo\\bar",
+        "out": "src\\main.ts\\..foo\\bar"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "a\\\\b",
+        "out": "src\\main.ts\\a\\b"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "D:\\y",
+        "out": ".\\src\\main.ts\\D:\\y"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "\\root",
+        "out": "src\\main.ts\\root"
+      },
+      {
+        "base": "src\\main.ts",
+        "path": "ÉCOLE\\x",
+        "out": "src\\main.ts\\ÉCOLE\\x"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "src\\main.ts",
+        "out": "src\\main.ts\\src\\main.ts"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "src/main.ts",
+        "out": "src\\main.ts\\src\\main.ts"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "..\\lib",
+        "out": "src\\lib"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "../../x",
+        "out": "x"
+      },
+      {
+        "base": "src/main.ts",
+        "path": ".",
+        "out": "src\\main.ts"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "",
+        "out": "src\\main.ts"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "..foo\\bar",
+        "out": "src\\main.ts\\..foo\\bar"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "a\\\\b",
+        "out": "src\\main.ts\\a\\b"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "D:\\y",
+        "out": ".\\src\\main.ts\\D:\\y"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "\\root",
+        "out": "src\\main.ts\\root"
+      },
+      {
+        "base": "src/main.ts",
+        "path": "ÉCOLE\\x",
+        "out": "src\\main.ts\\ÉCOLE\\x"
+      },
+      {
+        "base": "..\\lib",
+        "path": "src\\main.ts",
+        "out": "..\\lib\\src\\main.ts"
+      },
+      {
+        "base": "..\\lib",
+        "path": "src/main.ts",
+        "out": "..\\lib\\src\\main.ts"
+      },
+      {
+        "base": "..\\lib",
+        "path": "..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "base": "..\\lib",
+        "path": "../../x",
+        "out": "..\\..\\x"
+      },
+      {
+        "base": "..\\lib",
+        "path": ".",
+        "out": "..\\lib"
+      },
+      {
+        "base": "..\\lib",
+        "path": "",
+        "out": "..\\lib"
+      },
+      {
+        "base": "..\\lib",
+        "path": "..foo\\bar",
+        "out": "..\\lib\\..foo\\bar"
+      },
+      {
+        "base": "..\\lib",
+        "path": "a\\\\b",
+        "out": "..\\lib\\a\\b"
+      },
+      {
+        "base": "..\\lib",
+        "path": "D:\\y",
+        "out": ".\\..\\lib\\D:\\y"
+      },
+      {
+        "base": "..\\lib",
+        "path": "\\root",
+        "out": "..\\lib\\root"
+      },
+      {
+        "base": "..\\lib",
+        "path": "ÉCOLE\\x",
+        "out": "..\\lib\\ÉCOLE\\x"
+      },
+      {
+        "base": "../../x",
+        "path": "src\\main.ts",
+        "out": "..\\..\\x\\src\\main.ts"
+      },
+      {
+        "base": "../../x",
+        "path": "src/main.ts",
+        "out": "..\\..\\x\\src\\main.ts"
+      },
+      {
+        "base": "../../x",
+        "path": "..\\lib",
+        "out": "..\\..\\lib"
+      },
+      {
+        "base": "../../x",
+        "path": "../../x",
+        "out": "..\\..\\..\\x"
+      },
+      {
+        "base": "../../x",
+        "path": ".",
+        "out": "..\\..\\x"
+      },
+      {
+        "base": "../../x",
+        "path": "",
+        "out": "..\\..\\x"
+      },
+      {
+        "base": "../../x",
+        "path": "..foo\\bar",
+        "out": "..\\..\\x\\..foo\\bar"
+      },
+      {
+        "base": "../../x",
+        "path": "a\\\\b",
+        "out": "..\\..\\x\\a\\b"
+      },
+      {
+        "base": "../../x",
+        "path": "D:\\y",
+        "out": ".\\..\\..\\x\\D:\\y"
+      },
+      {
+        "base": "../../x",
+        "path": "\\root",
+        "out": "..\\..\\x\\root"
+      },
+      {
+        "base": "../../x",
+        "path": "ÉCOLE\\x",
+        "out": "..\\..\\x\\ÉCOLE\\x"
+      },
+      {
+        "base": ".",
+        "path": "src\\main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "base": ".",
+        "path": "src/main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "base": ".",
+        "path": "..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "base": ".",
+        "path": "../../x",
+        "out": "..\\..\\x"
+      },
+      {
+        "base": ".",
+        "path": ".",
+        "out": "."
+      },
+      {
+        "base": ".",
+        "path": "",
+        "out": "."
+      },
+      {
+        "base": ".",
+        "path": "..foo\\bar",
+        "out": "..foo\\bar"
+      },
+      {
+        "base": ".",
+        "path": "a\\\\b",
+        "out": "a\\b"
+      },
+      {
+        "base": ".",
+        "path": "D:\\y",
+        "out": ".\\D:\\y"
+      },
+      {
+        "base": ".",
+        "path": "\\root",
+        "out": "root"
+      },
+      {
+        "base": ".",
+        "path": "ÉCOLE\\x",
+        "out": "ÉCOLE\\x"
+      },
+      {
+        "base": "",
+        "path": "src\\main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "base": "",
+        "path": "src/main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "base": "",
+        "path": "..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "base": "",
+        "path": "../../x",
+        "out": "..\\..\\x"
+      },
+      {
+        "base": "",
+        "path": ".",
+        "out": "."
+      },
+      {
+        "base": "",
+        "path": "",
+        "out": "."
+      },
+      {
+        "base": "",
+        "path": "..foo\\bar",
+        "out": "..foo\\bar"
+      },
+      {
+        "base": "",
+        "path": "a\\\\b",
+        "out": "a\\b"
+      },
+      {
+        "base": "",
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "base": "",
+        "path": "\\root",
+        "out": "\\root"
+      },
+      {
+        "base": "",
+        "path": "ÉCOLE\\x",
+        "out": "ÉCOLE\\x"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "src\\main.ts",
+        "out": "..foo\\bar\\src\\main.ts"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "src/main.ts",
+        "out": "..foo\\bar\\src\\main.ts"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "..\\lib",
+        "out": "..foo\\lib"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "../../x",
+        "out": "x"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": ".",
+        "out": "..foo\\bar"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "",
+        "out": "..foo\\bar"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "..foo\\bar",
+        "out": "..foo\\bar\\..foo\\bar"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "a\\\\b",
+        "out": "..foo\\bar\\a\\b"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "D:\\y",
+        "out": ".\\..foo\\bar\\D:\\y"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "\\root",
+        "out": "..foo\\bar\\root"
+      },
+      {
+        "base": "..foo\\bar",
+        "path": "ÉCOLE\\x",
+        "out": "..foo\\bar\\ÉCOLE\\x"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "src\\main.ts",
+        "out": "a\\b\\src\\main.ts"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "src/main.ts",
+        "out": "a\\b\\src\\main.ts"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "..\\lib",
+        "out": "a\\lib"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "../../x",
+        "out": "x"
+      },
+      {
+        "base": "a\\\\b",
+        "path": ".",
+        "out": "a\\b"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "",
+        "out": "a\\b"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "..foo\\bar",
+        "out": "a\\b\\..foo\\bar"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "a\\\\b",
+        "out": "a\\b\\a\\b"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "D:\\y",
+        "out": ".\\a\\b\\D:\\y"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "\\root",
+        "out": "a\\b\\root"
+      },
+      {
+        "base": "a\\\\b",
+        "path": "ÉCOLE\\x",
+        "out": "a\\b\\ÉCOLE\\x"
+      },
+      {
+        "base": "D:\\y",
+        "path": "src\\main.ts",
+        "out": "D:\\y\\src\\main.ts"
+      },
+      {
+        "base": "D:\\y",
+        "path": "src/main.ts",
+        "out": "D:\\y\\src\\main.ts"
+      },
+      {
+        "base": "D:\\y",
+        "path": "..\\lib",
+        "out": "D:\\lib"
+      },
+      {
+        "base": "D:\\y",
+        "path": "../../x",
+        "out": "D:\\x"
+      },
+      {
+        "base": "D:\\y",
+        "path": ".",
+        "out": "D:\\y"
+      },
+      {
+        "base": "D:\\y",
+        "path": "",
+        "out": "D:\\y"
+      },
+      {
+        "base": "D:\\y",
+        "path": "..foo\\bar",
+        "out": "D:\\y\\..foo\\bar"
+      },
+      {
+        "base": "D:\\y",
+        "path": "a\\\\b",
+        "out": "D:\\y\\a\\b"
+      },
+      {
+        "base": "D:\\y",
+        "path": "D:\\y",
+        "out": "D:\\y\\D:\\y"
+      },
+      {
+        "base": "D:\\y",
+        "path": "\\root",
+        "out": "D:\\y\\root"
+      },
+      {
+        "base": "D:\\y",
+        "path": "ÉCOLE\\x",
+        "out": "D:\\y\\ÉCOLE\\x"
+      },
+      {
+        "base": "\\root",
+        "path": "src\\main.ts",
+        "out": "\\root\\src\\main.ts"
+      },
+      {
+        "base": "\\root",
+        "path": "src/main.ts",
+        "out": "\\root\\src\\main.ts"
+      },
+      {
+        "base": "\\root",
+        "path": "..\\lib",
+        "out": "\\lib"
+      },
+      {
+        "base": "\\root",
+        "path": "../../x",
+        "out": "\\x"
+      },
+      {
+        "base": "\\root",
+        "path": ".",
+        "out": "\\root"
+      },
+      {
+        "base": "\\root",
+        "path": "",
+        "out": "\\root"
+      },
+      {
+        "base": "\\root",
+        "path": "..foo\\bar",
+        "out": "\\root\\..foo\\bar"
+      },
+      {
+        "base": "\\root",
+        "path": "a\\\\b",
+        "out": "\\root\\a\\b"
+      },
+      {
+        "base": "\\root",
+        "path": "D:\\y",
+        "out": "\\root\\D:\\y"
+      },
+      {
+        "base": "\\root",
+        "path": "\\root",
+        "out": "\\root\\root"
+      },
+      {
+        "base": "\\root",
+        "path": "ÉCOLE\\x",
+        "out": "\\root\\ÉCOLE\\x"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "src\\main.ts",
+        "out": "ÉCOLE\\x\\src\\main.ts"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "src/main.ts",
+        "out": "ÉCOLE\\x\\src\\main.ts"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "..\\lib",
+        "out": "ÉCOLE\\lib"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "../../x",
+        "out": "x"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": ".",
+        "out": "ÉCOLE\\x"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "",
+        "out": "ÉCOLE\\x"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "..foo\\bar",
+        "out": "ÉCOLE\\x\\..foo\\bar"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "a\\\\b",
+        "out": "ÉCOLE\\x\\a\\b"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "D:\\y",
+        "out": ".\\ÉCOLE\\x\\D:\\y"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "\\root",
+        "out": "ÉCOLE\\x\\root"
+      },
+      {
+        "base": "ÉCOLE\\x",
+        "path": "ÉCOLE\\x",
+        "out": "ÉCOLE\\x\\ÉCOLE\\x"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "src\\main.ts",
+        "out": "\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "src/main.ts",
+        "out": "\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "..\\lib",
+        "out": "\\ws\\lib"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "../../x",
+        "out": "\\x"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": ".",
+        "out": "\\ws\\app"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "",
+        "out": "\\ws\\app"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "..foo\\bar",
+        "out": "\\ws\\app\\..foo\\bar"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "a\\\\b",
+        "out": "\\ws\\app\\a\\b"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "D:\\y",
+        "out": "\\ws\\app\\D:\\y"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "\\root",
+        "out": "\\ws\\app\\root"
+      },
+      {
+        "base": "\\ws\\app",
+        "path": "ÉCOLE\\x",
+        "out": "\\ws\\app\\ÉCOLE\\x"
+      },
+      {
+        "base": "/ws/app",
+        "path": "src\\main.ts",
+        "out": "\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "/ws/app",
+        "path": "src/main.ts",
+        "out": "\\ws\\app\\src\\main.ts"
+      },
+      {
+        "base": "/ws/app",
+        "path": "..\\lib",
+        "out": "\\ws\\lib"
+      },
+      {
+        "base": "/ws/app",
+        "path": "../../x",
+        "out": "\\x"
+      },
+      {
+        "base": "/ws/app",
+        "path": ".",
+        "out": "\\ws\\app"
+      },
+      {
+        "base": "/ws/app",
+        "path": "",
+        "out": "\\ws\\app"
+      },
+      {
+        "base": "/ws/app",
+        "path": "..foo\\bar",
+        "out": "\\ws\\app\\..foo\\bar"
+      },
+      {
+        "base": "/ws/app",
+        "path": "a\\\\b",
+        "out": "\\ws\\app\\a\\b"
+      },
+      {
+        "base": "/ws/app",
+        "path": "D:\\y",
+        "out": "\\ws\\app\\D:\\y"
+      },
+      {
+        "base": "/ws/app",
+        "path": "\\root",
+        "out": "\\ws\\app\\root"
+      },
+      {
+        "base": "/ws/app",
+        "path": "ÉCOLE\\x",
+        "out": "\\ws\\app\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:",
+        "path": "src\\main.ts",
+        "out": "C:\\src\\main.ts"
+      },
+      {
+        "base": "C:",
+        "path": "src/main.ts",
+        "out": "C:\\src\\main.ts"
+      },
+      {
+        "base": "C:",
+        "path": "..\\lib",
+        "out": "C:\\lib"
+      },
+      {
+        "base": "C:",
+        "path": "../../x",
+        "out": "C:\\x"
+      },
+      {
+        "base": "C:",
+        "path": ".",
+        "out": "C:\\"
+      },
+      {
+        "base": "C:",
+        "path": "",
+        "out": "C:."
+      },
+      {
+        "base": "C:",
+        "path": "..foo\\bar",
+        "out": "C:\\..foo\\bar"
+      },
+      {
+        "base": "C:",
+        "path": "a\\\\b",
+        "out": "C:\\a\\b"
+      },
+      {
+        "base": "C:",
+        "path": "D:\\y",
+        "out": "C:\\D:\\y"
+      },
+      {
+        "base": "C:",
+        "path": "\\root",
+        "out": "C:\\root"
+      },
+      {
+        "base": "C:",
+        "path": "ÉCOLE\\x",
+        "out": "C:\\ÉCOLE\\x"
+      },
+      {
+        "base": "C:x",
+        "path": "src\\main.ts",
+        "out": "C:x\\src\\main.ts"
+      },
+      {
+        "base": "C:x",
+        "path": "src/main.ts",
+        "out": "C:x\\src\\main.ts"
+      },
+      {
+        "base": "C:x",
+        "path": "..\\lib",
+        "out": "C:lib"
+      },
+      {
+        "base": "C:x",
+        "path": "../../x",
+        "out": "C:..\\x"
+      },
+      {
+        "base": "C:x",
+        "path": ".",
+        "out": "C:x"
+      },
+      {
+        "base": "C:x",
+        "path": "",
+        "out": "C:x"
+      },
+      {
+        "base": "C:x",
+        "path": "..foo\\bar",
+        "out": "C:x\\..foo\\bar"
+      },
+      {
+        "base": "C:x",
+        "path": "a\\\\b",
+        "out": "C:x\\a\\b"
+      },
+      {
+        "base": "C:x",
+        "path": "D:\\y",
+        "out": "C:x\\D:\\y"
+      },
+      {
+        "base": "C:x",
+        "path": "\\root",
+        "out": "C:x\\root"
+      },
+      {
+        "base": "C:x",
+        "path": "ÉCOLE\\x",
+        "out": "C:x\\ÉCOLE\\x"
+      },
+      {
+        "base": "x:y",
+        "path": "src\\main.ts",
+        "out": "x:y\\src\\main.ts"
+      },
+      {
+        "base": "x:y",
+        "path": "src/main.ts",
+        "out": "x:y\\src\\main.ts"
+      },
+      {
+        "base": "x:y",
+        "path": "..\\lib",
+        "out": "x:lib"
+      },
+      {
+        "base": "x:y",
+        "path": "../../x",
+        "out": "x:..\\x"
+      },
+      {
+        "base": "x:y",
+        "path": ".",
+        "out": "x:y"
+      },
+      {
+        "base": "x:y",
+        "path": "",
+        "out": "x:y"
+      },
+      {
+        "base": "x:y",
+        "path": "..foo\\bar",
+        "out": "x:y\\..foo\\bar"
+      },
+      {
+        "base": "x:y",
+        "path": "a\\\\b",
+        "out": "x:y\\a\\b"
+      },
+      {
+        "base": "x:y",
+        "path": "D:\\y",
+        "out": "x:y\\D:\\y"
+      },
+      {
+        "base": "x:y",
+        "path": "\\root",
+        "out": "x:y\\root"
+      },
+      {
+        "base": "x:y",
+        "path": "ÉCOLE\\x",
+        "out": "x:y\\ÉCOLE\\x"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "src\\main.ts",
+        "out": "a:\\b:\\src\\main.ts"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "src/main.ts",
+        "out": "a:\\b:\\src\\main.ts"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "..\\lib",
+        "out": "a:\\lib"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "../../x",
+        "out": "a:\\x"
+      },
+      {
+        "base": "a:\\b:",
+        "path": ".",
+        "out": "a:\\b:"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "",
+        "out": "a:\\b:"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "..foo\\bar",
+        "out": "a:\\b:\\..foo\\bar"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "a\\\\b",
+        "out": "a:\\b:\\a\\b"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "D:\\y",
+        "out": "a:\\b:\\D:\\y"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "\\root",
+        "out": "a:\\b:\\root"
+      },
+      {
+        "base": "a:\\b:",
+        "path": "ÉCOLE\\x",
+        "out": "a:\\b:\\ÉCOLE\\x"
+      },
+      {
+        "base": "/",
+        "path": "src\\main.ts",
+        "out": "\\src\\main.ts"
+      },
+      {
+        "base": "/",
+        "path": "src/main.ts",
+        "out": "\\src\\main.ts"
+      },
+      {
+        "base": "/",
+        "path": "..\\lib",
+        "out": "\\lib"
+      },
+      {
+        "base": "/",
+        "path": "../../x",
+        "out": "\\x"
+      },
+      {
+        "base": "/",
+        "path": ".",
+        "out": "\\"
+      },
+      {
+        "base": "/",
+        "path": "",
+        "out": "\\"
+      },
+      {
+        "base": "/",
+        "path": "..foo\\bar",
+        "out": "\\..foo\\bar"
+      },
+      {
+        "base": "/",
+        "path": "a\\\\b",
+        "out": "\\a\\b"
+      },
+      {
+        "base": "/",
+        "path": "D:\\y",
+        "out": "\\D:\\y"
+      },
+      {
+        "base": "/",
+        "path": "\\root",
+        "out": "\\root"
+      },
+      {
+        "base": "/",
+        "path": "ÉCOLE\\x",
+        "out": "\\ÉCOLE\\x"
+      }
+    ],
+    "normalize": [
+      {
+        "path": "C:\\ws\\app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "path": "C:\\ws\\app\\",
+        "out": "C:\\ws\\app\\"
+      },
+      {
+        "path": "C:/ws/app",
+        "out": "C:\\ws\\app"
+      },
+      {
+        "path": "c:\\WS\\App",
+        "out": "c:\\WS\\App"
+      },
+      {
+        "path": "C:\\",
+        "out": "C:\\"
+      },
+      {
+        "path": "D:\\other",
+        "out": "D:\\other"
+      },
+      {
+        "path": "\\\\server\\share\\dir",
+        "out": "\\\\server\\share\\dir"
+      },
+      {
+        "path": "\\\\server\\share",
+        "out": "\\\\server\\share\\"
+      },
+      {
+        "path": "//server/share/x",
+        "out": "\\\\server\\share\\x"
+      },
+      {
+        "path": "C:\\ws\\app\\..\\lib",
+        "out": "C:\\ws\\lib"
+      },
+      {
+        "path": "C:\\ws\\app\\.\\src\\.\\x.ts",
+        "out": "C:\\ws\\app\\src\\x.ts"
+      },
+      {
+        "path": "C:\\ws\\app\\..foo",
+        "out": "C:\\ws\\app\\..foo"
+      },
+      {
+        "path": "C:\\ws\\application",
+        "out": "C:\\ws\\application"
+      },
+      {
+        "path": "C:\\ws\\app\\src\\main.ts",
+        "out": "C:\\ws\\app\\src\\main.ts"
+      },
+      {
+        "path": "C:\\ws\\app\\src\\..\\..\\..\\..\\x",
+        "out": "C:\\x"
+      },
+      {
+        "path": "C:\\ws\\app\\café\\menu.txt",
+        "out": "C:\\ws\\app\\café\\menu.txt"
+      },
+      {
+        "path": "C:\\ws\\app\\ÉCOLE",
+        "out": "C:\\ws\\app\\ÉCOLE"
+      },
+      {
+        "path": "src\\main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "path": "src/main.ts",
+        "out": "src\\main.ts"
+      },
+      {
+        "path": "..\\lib",
+        "out": "..\\lib"
+      },
+      {
+        "path": "../../x",
+        "out": "..\\..\\x"
+      },
+      {
+        "path": ".",
+        "out": "."
+      },
+      {
+        "path": "",
+        "out": "."
+      },
+      {
+        "path": "..foo\\bar",
+        "out": "..foo\\bar"
+      },
+      {
+        "path": "a\\\\b",
+        "out": "a\\b"
+      },
+      {
+        "path": "D:\\y",
+        "out": "D:\\y"
+      },
+      {
+        "path": "\\root",
+        "out": "\\root"
+      },
+      {
+        "path": "ÉCOLE\\x",
+        "out": "ÉCOLE\\x"
+      },
+      {
+        "path": "\\ws\\app",
+        "out": "\\ws\\app"
+      },
+      {
+        "path": "/ws/app",
+        "out": "\\ws\\app"
+      },
+      {
+        "path": "C:",
+        "out": "C:."
+      },
+      {
+        "path": "C:x",
+        "out": "C:x"
+      },
+      {
+        "path": "x:y",
+        "out": "x:y"
+      },
+      {
+        "path": "a:\\b:",
+        "out": "a:\\b:"
+      },
+      {
+        "path": "/",
+        "out": "\\"
+      }
+    ]
+  },
+  "posix": {
+    "resolve": [
+      {
+        "base": "/ws/app",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "/ws/app",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app",
+        "path": ".",
+        "out": "/ws/app"
+      },
+      {
+        "base": "/ws/app",
+        "path": "",
+        "out": "/ws/app"
+      },
+      {
+        "base": "/ws/app",
+        "path": "..foo/bar",
+        "out": "/ws/app/..foo/bar"
+      },
+      {
+        "base": "/ws/app",
+        "path": "a//b",
+        "out": "/ws/app/a/b"
+      },
+      {
+        "base": "/ws/app",
+        "path": "a\\b",
+        "out": "/ws/app/a\\b"
+      },
+      {
+        "base": "/ws/app",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app/",
+        "path": ".",
+        "out": "/ws/app"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "",
+        "out": "/ws/app"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "..foo/bar",
+        "out": "/ws/app/..foo/bar"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "a//b",
+        "out": "/ws/app/a/b"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "a\\b",
+        "out": "/ws/app/a\\b"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/",
+        "path": "src/main.ts",
+        "out": "/src/main.ts"
+      },
+      {
+        "base": "/",
+        "path": "../lib",
+        "out": "/lib"
+      },
+      {
+        "base": "/",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/",
+        "path": ".",
+        "out": "/"
+      },
+      {
+        "base": "/",
+        "path": "",
+        "out": "/"
+      },
+      {
+        "base": "/",
+        "path": "..foo/bar",
+        "out": "/..foo/bar"
+      },
+      {
+        "base": "/",
+        "path": "a//b",
+        "out": "/a/b"
+      },
+      {
+        "base": "/",
+        "path": "a\\b",
+        "out": "/a\\b"
+      },
+      {
+        "base": "/",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "src/main.ts",
+        "out": "/ws/lib/src/main.ts"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": ".",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "..foo/bar",
+        "out": "/ws/lib/..foo/bar"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "a//b",
+        "out": "/ws/lib/a/b"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "a\\b",
+        "out": "/ws/lib/a\\b"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/src/main.ts"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "../lib",
+        "out": "/ws/app/lib"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": ".",
+        "out": "/ws/app/src"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "",
+        "out": "/ws/app/src"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "..foo/bar",
+        "out": "/ws/app/src/..foo/bar"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "a//b",
+        "out": "/ws/app/src/a/b"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "a\\b",
+        "out": "/ws/app/src/a\\b"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "src/main.ts",
+        "out": "/ws/app/..foo/src/main.ts"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "../lib",
+        "out": "/ws/app/lib"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": ".",
+        "out": "/ws/app/..foo"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "",
+        "out": "/ws/app/..foo"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "..foo/bar",
+        "out": "/ws/app/..foo/..foo/bar"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "a//b",
+        "out": "/ws/app/..foo/a/b"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "a\\b",
+        "out": "/ws/app/..foo/a\\b"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/ws/application",
+        "path": "src/main.ts",
+        "out": "/ws/application/src/main.ts"
+      },
+      {
+        "base": "/ws/application",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/application",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/application",
+        "path": ".",
+        "out": "/ws/application"
+      },
+      {
+        "base": "/ws/application",
+        "path": "",
+        "out": "/ws/application"
+      },
+      {
+        "base": "/ws/application",
+        "path": "..foo/bar",
+        "out": "/ws/application/..foo/bar"
+      },
+      {
+        "base": "/ws/application",
+        "path": "a//b",
+        "out": "/ws/application/a/b"
+      },
+      {
+        "base": "/ws/application",
+        "path": "a\\b",
+        "out": "/ws/application/a\\b"
+      },
+      {
+        "base": "/ws/application",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/main.ts/src/main.ts"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "../lib",
+        "out": "/ws/app/src/lib"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "../../../x",
+        "out": "/ws/x"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": ".",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "..foo/bar",
+        "out": "/ws/app/src/main.ts/..foo/bar"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "a//b",
+        "out": "/ws/app/src/main.ts/a/b"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "a\\b",
+        "out": "/ws/app/src/main.ts/a\\b"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "//ws//app",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "//ws//app",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "//ws//app",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "//ws//app",
+        "path": ".",
+        "out": "/ws/app"
+      },
+      {
+        "base": "//ws//app",
+        "path": "",
+        "out": "/ws/app"
+      },
+      {
+        "base": "//ws//app",
+        "path": "..foo/bar",
+        "out": "/ws/app/..foo/bar"
+      },
+      {
+        "base": "//ws//app",
+        "path": "a//b",
+        "out": "/ws/app/a/b"
+      },
+      {
+        "base": "//ws//app",
+        "path": "a\\b",
+        "out": "/ws/app/a\\b"
+      },
+      {
+        "base": "//ws//app",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/ws/café",
+        "path": "src/main.ts",
+        "out": "/ws/café/src/main.ts"
+      },
+      {
+        "base": "/ws/café",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/café",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/café",
+        "path": ".",
+        "out": "/ws/café"
+      },
+      {
+        "base": "/ws/café",
+        "path": "",
+        "out": "/ws/café"
+      },
+      {
+        "base": "/ws/café",
+        "path": "..foo/bar",
+        "out": "/ws/café/..foo/bar"
+      },
+      {
+        "base": "/ws/café",
+        "path": "a//b",
+        "out": "/ws/café/a/b"
+      },
+      {
+        "base": "/ws/café",
+        "path": "a\\b",
+        "out": "/ws/café/a\\b"
+      },
+      {
+        "base": "/ws/café",
+        "path": "/abs",
+        "out": "/abs"
+      }
+    ],
+    "relative": [
+      {
+        "from": "/ws/app",
+        "to": "/ws/app",
+        "out": ""
+      },
+      {
+        "from": "/ws/app",
+        "to": "/ws/app/",
+        "out": ""
+      },
+      {
+        "from": "/ws/app",
+        "to": "/",
+        "out": "../.."
+      },
+      {
+        "from": "/ws/app",
+        "to": "/ws/app/../lib",
+        "out": "../lib"
+      },
+      {
+        "from": "/ws/app",
+        "to": "/ws/app/./src",
+        "out": "src"
+      },
+      {
+        "from": "/ws/app",
+        "to": "/ws/app/..foo",
+        "out": "..foo"
+      },
+      {
+        "from": "/ws/app",
+        "to": "/ws/application",
+        "out": "../application"
+      },
+      {
+        "from": "/ws/app",
+        "to": "/ws/app/src/main.ts",
+        "out": "src/main.ts"
+      },
+      {
+        "from": "/ws/app",
+        "to": "//ws//app",
+        "out": ""
+      },
+      {
+        "from": "/ws/app",
+        "to": "/ws/café",
+        "out": "../café"
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/ws/app",
+        "out": ""
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/ws/app/",
+        "out": ""
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/",
+        "out": "../.."
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/ws/app/../lib",
+        "out": "../lib"
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/ws/app/./src",
+        "out": "src"
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/ws/app/..foo",
+        "out": "..foo"
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/ws/application",
+        "out": "../application"
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/ws/app/src/main.ts",
+        "out": "src/main.ts"
+      },
+      {
+        "from": "/ws/app/",
+        "to": "//ws//app",
+        "out": ""
+      },
+      {
+        "from": "/ws/app/",
+        "to": "/ws/café",
+        "out": "../café"
+      },
+      {
+        "from": "/",
+        "to": "/ws/app",
+        "out": "ws/app"
+      },
+      {
+        "from": "/",
+        "to": "/ws/app/",
+        "out": "ws/app"
+      },
+      {
+        "from": "/",
+        "to": "/",
+        "out": ""
+      },
+      {
+        "from": "/",
+        "to": "/ws/app/../lib",
+        "out": "ws/lib"
+      },
+      {
+        "from": "/",
+        "to": "/ws/app/./src",
+        "out": "ws/app/src"
+      },
+      {
+        "from": "/",
+        "to": "/ws/app/..foo",
+        "out": "ws/app/..foo"
+      },
+      {
+        "from": "/",
+        "to": "/ws/application",
+        "out": "ws/application"
+      },
+      {
+        "from": "/",
+        "to": "/ws/app/src/main.ts",
+        "out": "ws/app/src/main.ts"
+      },
+      {
+        "from": "/",
+        "to": "//ws//app",
+        "out": "ws/app"
+      },
+      {
+        "from": "/",
+        "to": "/ws/café",
+        "out": "ws/café"
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/ws/app",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/ws/app/",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/",
+        "out": "../.."
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/ws/app/../lib",
+        "out": ""
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/ws/app/./src",
+        "out": "../app/src"
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/ws/app/..foo",
+        "out": "../app/..foo"
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/ws/application",
+        "out": "../application"
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/ws/app/src/main.ts",
+        "out": "../app/src/main.ts"
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "//ws//app",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/app/../lib",
+        "to": "/ws/café",
+        "out": "../café"
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/ws/app",
+        "out": ".."
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/ws/app/",
+        "out": ".."
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/",
+        "out": "../../.."
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/ws/app/../lib",
+        "out": "../../lib"
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/ws/app/./src",
+        "out": ""
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/ws/app/..foo",
+        "out": "../..foo"
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/ws/application",
+        "out": "../../application"
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/ws/app/src/main.ts",
+        "out": "main.ts"
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "//ws//app",
+        "out": ".."
+      },
+      {
+        "from": "/ws/app/./src",
+        "to": "/ws/café",
+        "out": "../../café"
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/ws/app",
+        "out": ".."
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/ws/app/",
+        "out": ".."
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/",
+        "out": "../../.."
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/ws/app/../lib",
+        "out": "../../lib"
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/ws/app/./src",
+        "out": "../src"
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/ws/app/..foo",
+        "out": ""
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/ws/application",
+        "out": "../../application"
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/ws/app/src/main.ts",
+        "out": "../src/main.ts"
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "//ws//app",
+        "out": ".."
+      },
+      {
+        "from": "/ws/app/..foo",
+        "to": "/ws/café",
+        "out": "../../café"
+      },
+      {
+        "from": "/ws/application",
+        "to": "/ws/app",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/application",
+        "to": "/ws/app/",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/application",
+        "to": "/",
+        "out": "../.."
+      },
+      {
+        "from": "/ws/application",
+        "to": "/ws/app/../lib",
+        "out": "../lib"
+      },
+      {
+        "from": "/ws/application",
+        "to": "/ws/app/./src",
+        "out": "../app/src"
+      },
+      {
+        "from": "/ws/application",
+        "to": "/ws/app/..foo",
+        "out": "../app/..foo"
+      },
+      {
+        "from": "/ws/application",
+        "to": "/ws/application",
+        "out": ""
+      },
+      {
+        "from": "/ws/application",
+        "to": "/ws/app/src/main.ts",
+        "out": "../app/src/main.ts"
+      },
+      {
+        "from": "/ws/application",
+        "to": "//ws//app",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/application",
+        "to": "/ws/café",
+        "out": "../café"
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/ws/app",
+        "out": "../.."
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/ws/app/",
+        "out": "../.."
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/",
+        "out": "../../../.."
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/ws/app/../lib",
+        "out": "../../../lib"
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/ws/app/./src",
+        "out": ".."
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/ws/app/..foo",
+        "out": "../../..foo"
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/ws/application",
+        "out": "../../../application"
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/ws/app/src/main.ts",
+        "out": ""
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "//ws//app",
+        "out": "../.."
+      },
+      {
+        "from": "/ws/app/src/main.ts",
+        "to": "/ws/café",
+        "out": "../../../café"
+      },
+      {
+        "from": "//ws//app",
+        "to": "/ws/app",
+        "out": ""
+      },
+      {
+        "from": "//ws//app",
+        "to": "/ws/app/",
+        "out": ""
+      },
+      {
+        "from": "//ws//app",
+        "to": "/",
+        "out": "../.."
+      },
+      {
+        "from": "//ws//app",
+        "to": "/ws/app/../lib",
+        "out": "../lib"
+      },
+      {
+        "from": "//ws//app",
+        "to": "/ws/app/./src",
+        "out": "src"
+      },
+      {
+        "from": "//ws//app",
+        "to": "/ws/app/..foo",
+        "out": "..foo"
+      },
+      {
+        "from": "//ws//app",
+        "to": "/ws/application",
+        "out": "../application"
+      },
+      {
+        "from": "//ws//app",
+        "to": "/ws/app/src/main.ts",
+        "out": "src/main.ts"
+      },
+      {
+        "from": "//ws//app",
+        "to": "//ws//app",
+        "out": ""
+      },
+      {
+        "from": "//ws//app",
+        "to": "/ws/café",
+        "out": "../café"
+      },
+      {
+        "from": "/ws/café",
+        "to": "/ws/app",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/café",
+        "to": "/ws/app/",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/café",
+        "to": "/",
+        "out": "../.."
+      },
+      {
+        "from": "/ws/café",
+        "to": "/ws/app/../lib",
+        "out": "../lib"
+      },
+      {
+        "from": "/ws/café",
+        "to": "/ws/app/./src",
+        "out": "../app/src"
+      },
+      {
+        "from": "/ws/café",
+        "to": "/ws/app/..foo",
+        "out": "../app/..foo"
+      },
+      {
+        "from": "/ws/café",
+        "to": "/ws/application",
+        "out": "../application"
+      },
+      {
+        "from": "/ws/café",
+        "to": "/ws/app/src/main.ts",
+        "out": "../app/src/main.ts"
+      },
+      {
+        "from": "/ws/café",
+        "to": "//ws//app",
+        "out": "../app"
+      },
+      {
+        "from": "/ws/café",
+        "to": "/ws/café",
+        "out": ""
+      }
+    ],
+    "isAbsolute": [
+      {
+        "path": "/ws/app",
+        "out": true
+      },
+      {
+        "path": "/ws/app/",
+        "out": true
+      },
+      {
+        "path": "/",
+        "out": true
+      },
+      {
+        "path": "/ws/app/../lib",
+        "out": true
+      },
+      {
+        "path": "/ws/app/./src",
+        "out": true
+      },
+      {
+        "path": "/ws/app/..foo",
+        "out": true
+      },
+      {
+        "path": "/ws/application",
+        "out": true
+      },
+      {
+        "path": "/ws/app/src/main.ts",
+        "out": true
+      },
+      {
+        "path": "//ws//app",
+        "out": true
+      },
+      {
+        "path": "/ws/café",
+        "out": true
+      },
+      {
+        "path": "src/main.ts",
+        "out": false
+      },
+      {
+        "path": "../lib",
+        "out": false
+      },
+      {
+        "path": "../../../x",
+        "out": false
+      },
+      {
+        "path": ".",
+        "out": false
+      },
+      {
+        "path": "",
+        "out": false
+      },
+      {
+        "path": "..foo/bar",
+        "out": false
+      },
+      {
+        "path": "a//b",
+        "out": false
+      },
+      {
+        "path": "a\\b",
+        "out": false
+      },
+      {
+        "path": "/abs",
+        "out": true
+      }
+    ],
+    "join": [
+      {
+        "base": "/ws/app",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "/ws/app",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app",
+        "path": ".",
+        "out": "/ws/app"
+      },
+      {
+        "base": "/ws/app",
+        "path": "",
+        "out": "/ws/app"
+      },
+      {
+        "base": "/ws/app",
+        "path": "..foo/bar",
+        "out": "/ws/app/..foo/bar"
+      },
+      {
+        "base": "/ws/app",
+        "path": "a//b",
+        "out": "/ws/app/a/b"
+      },
+      {
+        "base": "/ws/app",
+        "path": "a\\b",
+        "out": "/ws/app/a\\b"
+      },
+      {
+        "base": "/ws/app",
+        "path": "/abs",
+        "out": "/ws/app/abs"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app/",
+        "path": ".",
+        "out": "/ws/app"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "",
+        "out": "/ws/app/"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "..foo/bar",
+        "out": "/ws/app/..foo/bar"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "a//b",
+        "out": "/ws/app/a/b"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "a\\b",
+        "out": "/ws/app/a\\b"
+      },
+      {
+        "base": "/ws/app/",
+        "path": "/abs",
+        "out": "/ws/app/abs"
+      },
+      {
+        "base": "/",
+        "path": "src/main.ts",
+        "out": "/src/main.ts"
+      },
+      {
+        "base": "/",
+        "path": "../lib",
+        "out": "/lib"
+      },
+      {
+        "base": "/",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/",
+        "path": ".",
+        "out": "/"
+      },
+      {
+        "base": "/",
+        "path": "",
+        "out": "/"
+      },
+      {
+        "base": "/",
+        "path": "..foo/bar",
+        "out": "/..foo/bar"
+      },
+      {
+        "base": "/",
+        "path": "a//b",
+        "out": "/a/b"
+      },
+      {
+        "base": "/",
+        "path": "a\\b",
+        "out": "/a\\b"
+      },
+      {
+        "base": "/",
+        "path": "/abs",
+        "out": "/abs"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "src/main.ts",
+        "out": "/ws/lib/src/main.ts"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": ".",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "..foo/bar",
+        "out": "/ws/lib/..foo/bar"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "a//b",
+        "out": "/ws/lib/a/b"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "a\\b",
+        "out": "/ws/lib/a\\b"
+      },
+      {
+        "base": "/ws/app/../lib",
+        "path": "/abs",
+        "out": "/ws/lib/abs"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/src/main.ts"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "../lib",
+        "out": "/ws/app/lib"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": ".",
+        "out": "/ws/app/src"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "",
+        "out": "/ws/app/src"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "..foo/bar",
+        "out": "/ws/app/src/..foo/bar"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "a//b",
+        "out": "/ws/app/src/a/b"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "a\\b",
+        "out": "/ws/app/src/a\\b"
+      },
+      {
+        "base": "/ws/app/./src",
+        "path": "/abs",
+        "out": "/ws/app/src/abs"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "src/main.ts",
+        "out": "/ws/app/..foo/src/main.ts"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "../lib",
+        "out": "/ws/app/lib"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": ".",
+        "out": "/ws/app/..foo"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "",
+        "out": "/ws/app/..foo"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "..foo/bar",
+        "out": "/ws/app/..foo/..foo/bar"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "a//b",
+        "out": "/ws/app/..foo/a/b"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "a\\b",
+        "out": "/ws/app/..foo/a\\b"
+      },
+      {
+        "base": "/ws/app/..foo",
+        "path": "/abs",
+        "out": "/ws/app/..foo/abs"
+      },
+      {
+        "base": "/ws/application",
+        "path": "src/main.ts",
+        "out": "/ws/application/src/main.ts"
+      },
+      {
+        "base": "/ws/application",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/application",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/application",
+        "path": ".",
+        "out": "/ws/application"
+      },
+      {
+        "base": "/ws/application",
+        "path": "",
+        "out": "/ws/application"
+      },
+      {
+        "base": "/ws/application",
+        "path": "..foo/bar",
+        "out": "/ws/application/..foo/bar"
+      },
+      {
+        "base": "/ws/application",
+        "path": "a//b",
+        "out": "/ws/application/a/b"
+      },
+      {
+        "base": "/ws/application",
+        "path": "a\\b",
+        "out": "/ws/application/a\\b"
+      },
+      {
+        "base": "/ws/application",
+        "path": "/abs",
+        "out": "/ws/application/abs"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/main.ts/src/main.ts"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "../lib",
+        "out": "/ws/app/src/lib"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "../../../x",
+        "out": "/ws/x"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": ".",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "..foo/bar",
+        "out": "/ws/app/src/main.ts/..foo/bar"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "a//b",
+        "out": "/ws/app/src/main.ts/a/b"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "a\\b",
+        "out": "/ws/app/src/main.ts/a\\b"
+      },
+      {
+        "base": "/ws/app/src/main.ts",
+        "path": "/abs",
+        "out": "/ws/app/src/main.ts/abs"
+      },
+      {
+        "base": "//ws//app",
+        "path": "src/main.ts",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "base": "//ws//app",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "//ws//app",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "//ws//app",
+        "path": ".",
+        "out": "/ws/app"
+      },
+      {
+        "base": "//ws//app",
+        "path": "",
+        "out": "/ws/app"
+      },
+      {
+        "base": "//ws//app",
+        "path": "..foo/bar",
+        "out": "/ws/app/..foo/bar"
+      },
+      {
+        "base": "//ws//app",
+        "path": "a//b",
+        "out": "/ws/app/a/b"
+      },
+      {
+        "base": "//ws//app",
+        "path": "a\\b",
+        "out": "/ws/app/a\\b"
+      },
+      {
+        "base": "//ws//app",
+        "path": "/abs",
+        "out": "/ws/app/abs"
+      },
+      {
+        "base": "/ws/café",
+        "path": "src/main.ts",
+        "out": "/ws/café/src/main.ts"
+      },
+      {
+        "base": "/ws/café",
+        "path": "../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "base": "/ws/café",
+        "path": "../../../x",
+        "out": "/x"
+      },
+      {
+        "base": "/ws/café",
+        "path": ".",
+        "out": "/ws/café"
+      },
+      {
+        "base": "/ws/café",
+        "path": "",
+        "out": "/ws/café"
+      },
+      {
+        "base": "/ws/café",
+        "path": "..foo/bar",
+        "out": "/ws/café/..foo/bar"
+      },
+      {
+        "base": "/ws/café",
+        "path": "a//b",
+        "out": "/ws/café/a/b"
+      },
+      {
+        "base": "/ws/café",
+        "path": "a\\b",
+        "out": "/ws/café/a\\b"
+      },
+      {
+        "base": "/ws/café",
+        "path": "/abs",
+        "out": "/ws/café/abs"
+      }
+    ],
+    "normalize": [
+      {
+        "path": "/ws/app",
+        "out": "/ws/app"
+      },
+      {
+        "path": "/ws/app/",
+        "out": "/ws/app/"
+      },
+      {
+        "path": "/",
+        "out": "/"
+      },
+      {
+        "path": "/ws/app/../lib",
+        "out": "/ws/lib"
+      },
+      {
+        "path": "/ws/app/./src",
+        "out": "/ws/app/src"
+      },
+      {
+        "path": "/ws/app/..foo",
+        "out": "/ws/app/..foo"
+      },
+      {
+        "path": "/ws/application",
+        "out": "/ws/application"
+      },
+      {
+        "path": "/ws/app/src/main.ts",
+        "out": "/ws/app/src/main.ts"
+      },
+      {
+        "path": "//ws//app",
+        "out": "/ws/app"
+      },
+      {
+        "path": "/ws/café",
+        "out": "/ws/café"
+      },
+      {
+        "path": "src/main.ts",
+        "out": "src/main.ts"
+      },
+      {
+        "path": "../lib",
+        "out": "../lib"
+      },
+      {
+        "path": "../../../x",
+        "out": "../../../x"
+      },
+      {
+        "path": ".",
+        "out": "."
+      },
+      {
+        "path": "",
+        "out": "."
+      },
+      {
+        "path": "..foo/bar",
+        "out": "..foo/bar"
+      },
+      {
+        "path": "a//b",
+        "out": "a/b"
+      },
+      {
+        "path": "a\\b",
+        "out": "a\\b"
+      },
+      {
+        "path": "/abs",
+        "out": "/abs"
+      }
+    ]
+  }
+}

@@ -56,10 +56,32 @@ export interface EngineDaemon {
 export const DAEMON_PORT = '{port}';
 
 let current: EngineDaemon | undefined;
+let currentLink: { url: string; token: string } | undefined;
 
 /** Hand the model servers to the engine daemon (desktop backend under nekkod). */
 export function useEngineDaemon(link: { url: string; token: string } | null): void {
   current = link ? daemonClient(link) : undefined;
+  currentLink = link ?? undefined;
+}
+
+/**
+ * Call any daemon channel, when this host runs under the daemon (the desktop
+ * backend); undefined in the web and server editions.
+ */
+export function daemonCall(): (<T>(channel: string, ...args: unknown[]) => Promise<T>) | undefined {
+  const link = currentLink;
+  if (!link) return undefined;
+  return async <T>(channel: string, ...args: unknown[]): Promise<T> => {
+    const res = await fetch(`${link.url}/api/${channel}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${link.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ args }),
+    });
+    const text = await res.text();
+    const body = text ? JSON.parse(text) : null;
+    if (!res.ok) throw new Error(body?.error ?? `${channel}: HTTP ${res.status}`);
+    return body as T;
+  };
 }
 
 export function engineDaemon(): EngineDaemon | undefined {
