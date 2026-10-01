@@ -1,0 +1,31 @@
+{
+  "id": "s_extra",
+  "title": "Chat s_extra",
+  "workspaceId": "w1",
+  "messages": [
+    {
+      "id": "u1",
+      "role": "user",
+      "content": "hi",
+      "createdAt": 1790000000002
+    }
+  ],
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000100000,
+  "zeta": 1,
+  "alpha": {
+    "nested": [
+      1,
+      2
+    ]
+  },
+  "pinned": true,
+  "tags": [
+    "a",
+    "b"
+  ],
+  "autoModel": false,
+  "queue": [
+    "next"
+  ]
+}

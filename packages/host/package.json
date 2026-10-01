@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./user-data": {
+      "types": "./dist/user-data.d.ts",
+      "import": "./dist/user-data.js"
     }
   },
   "scripts": {
@@ -19,6 +23,7 @@
   "dependencies": {
     "@agent-nekko/core": "*",
     "@agent-nekko/shared": "*",
+    "@browserbasehq/stagehand": "4.0.3",
     "@lydell/node-pty": "^1.2.0-beta.14"
   }
 }

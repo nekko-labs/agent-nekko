@@ -18,6 +18,7 @@ export interface TerminalInfo {
   cwd: string;
   /** Shell binary the PTY is running (e.g. powershell.exe, /bin/zsh). */
   shell: string;
+  agentSessionId?: string;
   createdAt: number;
   /** Manual sidebar position within its project (set by drag-to-reorder). */
   order?: number;
@@ -54,3 +55,23 @@ export interface TerminalSnapshot {
 export type TerminalEvent =
   | { type: 'data'; terminalId: string; data: string }
   | { type: 'exit'; terminalId: string; code: number | null };
+
+/** What a terminal stream calls back with (see `NekkoApi.openTerminalStream`). */
+export interface TerminalStreamHandlers {
+  /** First frame: the pty's size and whether the shell still runs; `replay` bytes of scrollback follow. */
+  onHello?(hello: { cols: number; rows: number; running: boolean; replay: number; info?: TerminalInfo }): void;
+  /** Raw output bytes (escape sequences included). Acknowledge them once parsed. */
+  onData(bytes: Uint8Array): void;
+  onExit?(code: number | null): void;
+  /** The stream dropped (the engine restarted); reopen to resume from the scrollback. */
+  onClose?(): void;
+}
+
+/** A live terminal stream. */
+export interface TerminalStream {
+  write(data: string): void;
+  resize(cols: number, rows: number): void;
+  /** Tell the engine this many output bytes were parsed, so it can send more. */
+  ack(bytes: number): void;
+  close(): void;
+}

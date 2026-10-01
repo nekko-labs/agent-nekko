@@ -22,6 +22,10 @@ files:
 extraResources:
   - from: ../cli/app-dist/agent-nekko-cli.cjs
     to: cli/agent-nekko-cli.cjs
+  # The engine daemon (crates/nekkod), built and staged by scripts/stage-daemon.mjs.
+  # main/engine-process.ts starts it from <resources>/bin.
+  - from: resources/bin
+    to: bin
 asarUnpack:
   - "**/node_modules/@lydell/node-pty/**"
   - "**/node_modules/@lydell/node-pty-*/**"

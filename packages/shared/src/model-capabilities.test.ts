@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { estimateTranscriptTokens, estimateTokens } from './context.js';
 import {
   claudeContextWindow,
   effectiveEffort,
@@ -7,6 +8,15 @@ import {
   parseClaudeModel,
   usesNativeEffort,
 } from './model-capabilities.js';
+
+describe('transcript context estimate', () => {
+  it('counts replayed tool traffic but not reasoning omitted by providers', () => {
+    expect(estimateTranscriptTokens([
+      { role: 'assistant', content: 'Working', reasoning: 'private'.repeat(100_000), toolCalls: [{ name: 'bash', input: { command: 'pwd' } }] },
+      { role: 'tool', content: '', toolResult: { output: 'C:/code' } },
+    ])).toBe(estimateTokens('Working\nbash\n{"command":"pwd"}\n\nC:/code'));
+  });
+});
 
 describe('parseClaudeModel', () => {
   it('reads family and version, ignoring a vendor prefix and a date suffix', () => {

@@ -14,6 +14,7 @@ import type {
   LoadParams,
   LoadResult,
   Session,
+  SessionSummary,
   SendOptions,
   OAuthProvider,
   OAuthSessionInfo,
@@ -104,7 +105,7 @@ import { usageSummary, clearUsage } from './usage.js';
 import { indexWorkspace, getIndexStatus, searchWorkspace, listIndexedFiles } from './workspace.js';
 import { readFile, writeFile, listDir } from './files.js';
 import { getGitStatus } from './git.js';
-import { listChanges, acceptChange, acceptAllChanges, setChangeNotifier } from './changes.js';
+import { listChanges, acceptChange, acceptAllChanges, notifyChanges, setChangeNotifier } from './changes.js';
 import { listSessionPrs, getPrDiff, prAction } from './pr.js';
 import { listComments, addComment, resolveComment } from './comments.js';
 import {
@@ -157,7 +158,10 @@ import {
   startWorkflowScheduler,
   reconcileWorkflowRuns,
 } from './workflows.js';
-import { sendChat, abortChat, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
+import { loopApprove, loopEnd, loopEvent, loopLog, loopTool } from './daemon-loop.js';
+import { compactSession, cancelSessionCompaction, isSessionCompacting } from './compaction.js';
 import { initLimits, getLimits, clearLimits } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
 import {
@@ -172,8 +176,10 @@ import {
 } from './oauth.js';
 import { buildSpec, buildSpecDoc, readSpecDocs, setSpecMethodology, toggleSpecTask, specPathForSession } from './spec.js';
 import { createRemoteService } from './remote.js';
+import { createMessagingService } from './messaging/service.js';
 import { detectAgentTools, installSubagent, refreshSubagent, subagentSnippet } from './integrations.js';
 import { getGpuStats, getGpuStatsFresh } from './gpu.js';
+import { detectGpuAdapters } from './gpu-adapters.js';
 import { getSystemStats } from './system.js';
 import { stopLocalServer } from './servers.js';
 import { lmsProbe, lmsLoad, lmsUnload } from './lms.js';
@@ -240,20 +246,52 @@ export interface Host {
 
   /** The built-in engine: install, catalog, library, and its own server. */
   engineStatus(): Promise<EngineStatus>;
-  engineInstall(buildId?: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
-  engineUninstall(): Promise<{ ok: boolean; message: string }>;
+  /** For the engine daemon's router: load a model it was asked for, or say why not. */
+  engineRouterLoad(modelId: string, image: boolean): Promise<{ ok: boolean; status?: number; message?: string }>;
+  /** A daemon-driven run's callbacks (daemon-loop.ts): a tool call, its events, its end. */
+  loopTool(runId: string, call: import('@agent-nekko/shared').ToolCall): Promise<import('@agent-nekko/shared').ToolResult>;
+  loopEvent(runId: string, payload: { events?: import('@agent-nekko/shared').AgentEvent[]; history?: import('@agent-nekko/shared').ChatMessage[] }): Promise<void>;
+  loopEnd(runId: string, payload: { history?: import('@agent-nekko/shared').ChatMessage[] }): void;
+  loopApprove(runId: string, call: import('@agent-nekko/shared').ToolCall, reason: string, severity: 'low' | 'medium' | 'high'): Promise<boolean>;
+  loopLog(sessionId: string, workspaceId: string | undefined, data: string): void;
+  changesNotify(sessionId: string): void;
+  /** For the engine daemon's router: `GET /v1/models`. */
+  engineRouterModels(): Promise<unknown>;
+  engineRouterModel(modelId: string): Promise<unknown>;
+  engineInstall(buildId?: string, runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  engineInstallPreview(runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string): Promise<import('@agent-nekko/shared').EngineInstallPreview | null>;
+  engineGenerateImage(request: import('@agent-nekko/shared').ImageGenerationRequest): Promise<import('@agent-nekko/shared').ImageGenerationResult>;
+  engineUninstall(runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string }>;
   engineSettingsSave(patch: Partial<EngineSettings>): Promise<EngineSettings>;
   engineModels(): Promise<Array<LocalModel & { loaded: boolean }>>;
   engineImportModel(path: string): Promise<{ ok: boolean; message: string; model?: LocalModel }>;
   engineDeleteModel(id: string): Promise<{ ok: boolean; message: string }>;
   engineSaveModelPreset(id: string, preset: EngineLoadPreset): Promise<void>;
-  engineCatalog(query?: string): Promise<CatalogModel[]>;
+  engineCatalog(query?: string, format?: 'gguf' | 'mlx'): Promise<CatalogModel[]>;
   engineCatalogModel(id: string): Promise<CatalogModel | null>;
   engineCatalogDetail(id: string): Promise<CatalogModelDetail | null>;
   /** Where the library looks for models, plus known folders nobody has added. */
   engineFolders(): Promise<ModelFolderReport>;
   engineFoldersSave(folders: ModelFolder[]): Promise<ModelFolderReport>;
   engineDownloadModel(modelId: string, quantLabel: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  /** Fetch a resident-or-not model's missing companions (projector, configs). */
+  engineDownloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  engineImageCompanions(modelId: string): Promise<import('@agent-nekko/shared').ImageCompanionStatus | null>;
+  engineDownloadImageCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  decisionsCatalog(): Promise<import('@agent-nekko/shared').DecisionCatalogEntry[]>;
+  decisionsModels(): Promise<import('@agent-nekko/shared').InstalledDecisionModel[]>;
+  decisionsDownload(catalogId: string, precision?: import('@agent-nekko/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsDelete(id: string): Promise<{ ok: boolean; message: string }>;
+  decisionsAddFolder(path: string): Promise<{ ok: boolean; message: string }>;
+  decisionsStatus(): Promise<import('@agent-nekko/shared').DecisionStatus>;
+  decisionsLoad(id: string, precision?: import('@agent-nekko/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsUnload(): Promise<{ ok: boolean; message: string }>;
+  decisionsRun(provider: import('@agent-nekko/shared').DecisionProvider, request: import('@agent-nekko/shared').DecisionRequest): Promise<import('@agent-nekko/shared').DecisionResponse>;
+  decisionsCheckTypesafe(): Promise<{ ok: boolean; message: string }>;
+  /** Set a resident model's idle TTL in seconds (0 keeps it loaded). */
+  engineSetResidentTtl(modelId: string, ttlSeconds: number): Promise<{ ok: boolean; message: string }>;
+  /** Add or remove a model from the list loaded when the engine starts. */
+  engineSetAutoload(modelId: string, enabled: boolean): Promise<EngineSettings>;
   engineDownloads(): Promise<DownloadJob[]>;
   engineCancelDownload(id: string): Promise<void>;
   engineDismissDownload(id: string): Promise<void>;
@@ -270,6 +308,8 @@ export interface Host {
   getSystemStats(): Promise<SystemStats | null>;
 
   listSessions(): Session[];
+  /** Every chat without its transcript, from a cache that re-reads only changed files. */
+  listSessionSummaries(): Promise<SessionSummary[]>;
   createSession(workspaceId?: string): Session;
   getSession(id: string): Session | null;
   deleteSession(id: string): void;
@@ -277,20 +317,35 @@ export interface Host {
   setSessionSupportingWorkspaces(id: string, workspaceIds: string[]): Session | null;
   setSessionAttachments(id: string, paths: string[]): Session | null;
   sendChat(opts: SendOptions): Promise<void>;
+  generateImageTurn(opts: import('@agent-nekko/shared').ImageTurnOptions): Promise<void>;
+  sessionImages(sessionId: string, limit: number): Array<{ messageId: string; src: string }>;
   abortChat(sessionId: string): void;
+  compactSession(sessionId: string): Promise<Session>;
+  cancelSessionCompaction(sessionId: string): void;
   queuePrompt(sessionId: string, text: string): Session | null;
   dequeuePrompt(sessionId: string, index: number): Session | null;
+  /**
+   * Model-written next-step ideas for a chat's last reply: one-click follow-up
+   * chips plus the ghost-text draft. Sideband, unpersisted; null when there's
+   * nothing to suggest from.
+   */
+  suggestReplies(sessionId: string): Promise<import('@agent-nekko/shared').ReplySuggestions | null>;
+  /**
+   * Model-drafted fill for a missing prompt part (analyzer click-to-fill).
+   * Sideband, unpersisted; null falls back to the deterministic snippet.
+   */
+  fillPromptPart(sessionId: string, part: string, draft: string): Promise<string | null>;
   approveTool(sessionId: string, toolCallId: string, approved: boolean): void;
   /** Answer an `ask_user` call; an empty list means "not answering". */
   answerQuestion(sessionId: string, callId: string, answers: AskAnswer[]): void;
   /** Every session waiting on a person right now, keyed by session id. */
   pendingInput(): Record<string, PendingInput>;
 
-  listTerminals(): TerminalInfo[];
+  listTerminals(): Promise<TerminalInfo[]>;
   listShells(): ShellOption[];
-  createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): TerminalInfo;
-  terminalSnapshot(id: string): TerminalSnapshot | null;
-  updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): void;
+  createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo>;
+  terminalSnapshot(id: string): Promise<TerminalSnapshot | null>;
+  updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): Promise<void>;
   writeTerminal(id: string, data: string): void;
   resizeTerminal(id: string, cols: number, rows: number): void;
   runInTerminal(id: string, command: string): void;
@@ -309,7 +364,7 @@ export interface Host {
   specPath(sessionId: string): string | null;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'thinking' | 'providerId' | 'modelId' | 'plan'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams'>>,
   ): Session | null;
   truncateSession(id: string, messageId: string): Session | null;
   clearSessions(scope: 'today' | 'month' | 'all'): number;
@@ -336,11 +391,11 @@ export interface Host {
   listDir(path: string): DirEntry[];
 
   /** Files the agent changed this session (for diff/approve). */
-  listChanges(sessionId: string): FileChange[];
+  listChanges(sessionId: string): Promise<FileChange[]>;
   /** Keep a file's changes, stop tracking it. */
-  acceptChange(sessionId: string, path: string): void;
+  acceptChange(sessionId: string, path: string): Promise<void>;
   /** Keep all of a session's changes. */
-  acceptAllChanges(sessionId: string): void;
+  acceptAllChanges(sessionId: string): Promise<void>;
 
   /** Live PR state for every PR URL referenced in a chat's transcript. */
   listSessionPrs(sessionId: string): Promise<PrInfo[]>;
@@ -444,12 +499,15 @@ export interface Host {
   /** The remote-access service itself (headless relay-agent mode attaches here). */
   remote: import('./remote.js').RemoteService;
 
+  /** Inbound messaging channels (Telegram bot, …): live per-channel state. */
+  messagingStatus(): import('@agent-nekko/shared').MessagingStatus;
+
   beginOAuth(provider: OAuthProvider): Promise<OAuthSessionInfo>;
   finishOAuth(sessionId: string, pasted: string): Promise<OAuthStatus>;
   cancelOAuth(sessionId: string): Promise<void>;
   oauthStatus(providerConfigId: string): Promise<OAuthStatus>;
   oauthSignOut(providerConfigId: string): Promise<void>;
-  importCliAuth(): Promise<{ claude: boolean; chatgpt: boolean }>;
+  importCliAuth(): Promise<Record<OAuthProvider, boolean>>;
 
   appInfo(): AppInfo;
   /** Connect (or reconnect) configured MCP servers and return their status. */
@@ -464,7 +522,7 @@ export interface Host {
   connectHypergate(port?: number): Promise<import('@agent-nekko/shared').HypergateInfo | null>;
 }
 
-export function createHost(opts: { dataDir: string }): Host {
+export function createHost(opts: { dataDir: string; allowBrowserControl?: boolean }): Host {
   setDataDir(opts.dataDir);
   const events = new EventEmitter();
   initOAuth(events);
@@ -477,6 +535,13 @@ export function createHost(opts: { dataDir: string }): Host {
   // Automation tasks: fired-task agent events ride the same bus as live chats;
   // task-list changes get their own event. Start the periodic scheduler.
   setTaskSender((e) => events.emit('agentEvent', e));
+  setDecisionRunner({
+    available: async () => {
+      const s = await engine.decisions.status();
+      return s.local.loaded ? 'local' : s.typesafe.configured ? 'typesafe' : null;
+    },
+    run: (provider, request) => engine.decisions.run(provider, request),
+  });
   setTasksNotifier((tasks) => events.emit('tasksUpdated', tasks));
   startTaskScheduler();
   // Training/goal runs: agent events ride the shared bus; run changes get their
@@ -523,6 +588,7 @@ export function createHost(opts: { dataDir: string }): Host {
     dataDir,
     getGpuStats,
     getGpuStatsFresh,
+    getGpuAdapters: detectGpuAdapters,
     settings: () => ({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }),
     saveSettings: async (patch) => {
       const next = { ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine, ...patch };
@@ -534,6 +600,9 @@ export function createHost(opts: { dataDir: string }): Host {
     // provider entry is kept in step with the address it is actually serving on.
     onServing: (baseUrl) => ensureEngineProvider(baseUrl),
     hfToken: () => getSettings().hfToken || undefined,
+    typesafeKey: () => getSettings().typesafeApiKey || process.env.TYPESAFE_API_KEY || undefined,
+    decisionFolders: () => getSettings().decisionModelDirs ?? [],
+    saveDecisionFolders: (dirs) => { saveSettings({ decisionModelDirs: dirs }); },
     externalBinPath: () => getSettings().engineBinPath || undefined,
   });
 
@@ -564,7 +633,11 @@ export function createHost(opts: { dataDir: string }): Host {
     remote: null as unknown as import('./remote.js').RemoteService, // set right after construction (needs `host`)
 
     getSettings,
-    updateSettings: (patch) => saveSettings(patch),
+    updateSettings: (patch) => {
+      const next = saveSettings(patch);
+      if (patch.messaging !== undefined) messaging.update(next.messaging);
+      return next;
+    },
 
     listProviders: () => getSettings().providers,
     saveProvider: (p) => {
@@ -663,19 +736,46 @@ export function createHost(opts: { dataDir: string }): Host {
       runtimes.autoPlan(providerId, modelId, budgetFraction, parallelSlots),
 
     engineStatus: () => engine.status(),
-    engineInstall: (buildId) => engine.installEngine(buildId),
-    engineUninstall: () => engine.uninstallEngine(),
+    engineRouterLoad: (modelId, image) => engine.routerLoad(modelId, image),
+    loopTool,
+    loopEvent,
+    loopEnd,
+    loopApprove,
+    loopLog,
+    changesNotify: notifyChanges,
+    engineRouterModels: () => engine.routerModels(),
+    engineRouterModel: (modelId) => engine.routerModel(modelId),
+    engineInstall: (buildId, runtime) => engine.installEngine(buildId, runtime),
+    engineUninstall: (runtime) => engine.uninstallEngine(runtime),
+    engineInstallPreview: (runtime, buildId) => engine.installPreview(runtime, buildId),
+    engineGenerateImage: (request) => engine.generateImage(request),
     engineSettingsSave: (patch) => engine.saveSettings(patch),
     engineModels: () => engine.models(),
     engineImportModel: (path) => engine.importModel(path),
     engineDeleteModel: (id) => engine.deleteModel(id),
     engineSaveModelPreset: (id, preset) => engine.saveModelPreset(id, preset),
-    engineCatalog: (query) => (query ? engine.catalogSearch(query) : engine.catalogCurated()),
+    engineCatalog: (query, format) =>
+      format === 'mlx' ? engine.catalogSearch(query ?? '', 20, 'mlx') : query ? engine.catalogSearch(query) : engine.catalogCurated(),
     engineCatalogModel: (id) => engine.catalogModel(id),
     engineCatalogDetail: (id) => engine.catalogDetail(id),
     engineFolders: () => engine.folders(),
     engineFoldersSave: (folders) => engine.saveFolders(folders),
     engineDownloadModel: (modelId, quantLabel) => engine.downloadModel(modelId, quantLabel),
+    engineDownloadCompanions: (modelId) => engine.downloadCompanions(modelId),
+    engineImageCompanions: (modelId) => engine.imageCompanions(modelId),
+    engineDownloadImageCompanions: (modelId) => engine.downloadImageCompanions(modelId),
+    decisionsCatalog: () => engine.decisions.catalog(),
+    decisionsModels: () => engine.decisions.models(),
+    decisionsDownload: (catalogId, precision) => engine.decisions.download(catalogId, precision),
+    decisionsDelete: (id) => engine.decisions.remove(id),
+    decisionsAddFolder: (path) => engine.decisions.addFolder(path),
+    decisionsStatus: () => engine.decisions.status(),
+    decisionsLoad: (id, precision) => engine.decisions.load(id, precision),
+    decisionsUnload: () => engine.decisions.unload(),
+    decisionsRun: (provider, request) => engine.decisions.run(provider, request),
+    decisionsCheckTypesafe: () => engine.decisions.checkTypesafe(),
+    engineSetResidentTtl: async (modelId, ttlSeconds) => engine.setResidentTtl(modelId, ttlSeconds),
+    engineSetAutoload: (modelId, enabled) => engine.setAutoload(modelId, enabled),
     engineDownloads: async () => engine.downloads(),
     engineCancelDownload: async (id) => engine.cancelDownload(id),
     engineDismissDownload: async (id) => engine.dismissDownload(id),
@@ -686,6 +786,7 @@ export function createHost(opts: { dataDir: string }): Host {
     getSystemStats: () => getSystemStats(),
 
     listSessions: sessions.listSessions,
+    listSessionSummaries: sessions.listSessionSummaries,
     createSession: sessions.createSession,
     getSession: sessions.getSession,
     deleteSession: sessions.deleteSession,
@@ -711,10 +812,24 @@ export function createHost(opts: { dataDir: string }): Host {
       return resetSettings();
     },
     listTools: () => [...BUILTIN_TOOLS.map((t) => ({ name: t.name, description: t.description })), ...mcpToolList()],
-    sendChat: (o) => sendChat(o, (e) => events.emit('agentEvent', e)),
-    abortChat,
+    sendChat: (o) => {
+      if (isSessionCompacting(o.sessionId)) {
+        events.emit('agentEvent', { type: 'error', sessionId: o.sessionId, message: 'This chat is being compacted. Wait or move to a new chat.' });
+        return Promise.resolve();
+      }
+      return sendChat(o, (e) => events.emit('agentEvent', e), !!opts.allowBrowserControl);
+    },
+    abortChat: (sessionId) => {
+      if (!abortImageTurn(sessionId)) abortChat(sessionId);
+    },
+    sessionImages: (sessionId, limit) => sessionImages(sessionId, limit),
+    generateImageTurn: (o) => generateImageTurn(o, (request, onStage) => engine.generateImage(request, onStage), (e) => events.emit('agentEvent', e)),
+    compactSession,
+    cancelSessionCompaction,
     queuePrompt: sessions.queuePrompt,
     dequeuePrompt: sessions.dequeuePrompt,
+    suggestReplies,
+    fillPromptPart,
     approveTool: (sessionId, toolCallId, approved) => resolveApproval(sessionId, toolCallId, approved),
     answerQuestion: (sessionId, callId, answers) => resolveQuestion(sessionId, callId, answers),
     pendingInput: getPendingInput,
@@ -862,6 +977,8 @@ export function createHost(opts: { dataDir: string }): Host {
     renameRemoteDevice: (deviceId, name) => host.remote.rename(deviceId, name),
     rotateRemoteSecret: () => host.remote.rotate(),
 
+    messagingStatus: () => messaging.status(),
+
     beginOAuth,
     finishOAuth,
     cancelOAuth: async (sessionId) => { cancelOAuth(sessionId); },
@@ -908,5 +1025,9 @@ export function createHost(opts: { dataDir: string }): Host {
   // remote access was left enabled when the host last shut down.
   host.remote = createRemoteService(host);
   host.remote.startIfEnabled();
+  // Messaging channels likewise drive the host; configured adapters come up
+  // with the process and reconfigure through updateSettings above.
+  const messaging = createMessagingService(host);
+  messaging.update(getSettings().messaging);
   return host;
 }

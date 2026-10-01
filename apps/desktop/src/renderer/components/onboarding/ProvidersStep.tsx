@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@agent-nekko/shared';
-import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
+import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { SubscriptionSignIn } from '../SubscriptionSignIn.js';
@@ -18,7 +19,15 @@ type TestState = { state: 'testing' } | { state: 'done'; ok: boolean; message: s
  * shows as connected instead of offering a duplicate add.
  */
 export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => void }) {
-  const { providers, refreshProviders, pushToast, setView, setOnboardingOpen } = useStore();
+  const { providers, refreshProviders, pushToast, setView, setOnboardingOpen } = useStore(
+    useShallow((s) => ({
+      providers: s.providers,
+      refreshProviders: s.refreshProviders,
+      pushToast: s.pushToast,
+      setView: s.setView,
+      setOnboardingOpen: s.setOnboardingOpen,
+    })),
+  );
   const [scan, setScan] = useState<'scanning' | 'done' | 'failed'>('scanning');
   const [found, setFound] = useState<ProviderConfig[]>([]);
   const [addingId, setAddingId] = useState<string | null>(null);
@@ -240,12 +249,12 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
                   Agent Nekko <span className="font-normal text-ink-faint">(this app)</span>
                 </h3>
                 <p className="mt-0.5 text-[12px] text-ink-faint">
-                  Run models here, with nothing else installed. Model Server downloads the engine, and picks up
+                  Run models here, with nothing else installed. Nekko Server downloads the engine, and picks up
                   anything Ollama or LM Studio already pulled onto this machine.
                 </p>
               </div>
               <button className="btn btn-outline shrink-0 py-1.5 text-[12px]" onClick={openModels}>
-                Open Model Server
+                Open Nekko Server
               </button>
             </div>
           </div>
@@ -535,7 +544,7 @@ function DefaultOffer({ providers }: { providers: ProviderConfig[] }) {
                 <option value="">Ask per chat</option>
                 {models.map((m) => {
                   const price = provider
-                    ? formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: isLocalProvider(provider.kind) })
+                    ? formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: isLocalProvider(provider.kind), pricing: modelPricing(m) })
                     : undefined;
                   return (
                     <option key={m.id} value={m.id}>

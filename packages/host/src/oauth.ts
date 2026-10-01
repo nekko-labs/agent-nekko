@@ -25,6 +25,14 @@ const CHATGPT_TOKEN_URL = 'https://auth.openai.com/oauth/token';
 const CHATGPT_SCOPES = 'openid profile email offline_access';
 const CHATGPT_REDIRECT_URI = 'http://localhost:1455/auth/callback';
 
+/**
+ * OpenRouter's sign-in is the same PKCE shape minus the parts it does not use:
+ * no client id, no scopes, and no state echo. What the exchange returns is a
+ * permanent API key, not a token pair, so there is nothing to refresh.
+ */
+const OPENROUTER_AUTHORIZE_URL = 'https://openrouter.ai/auth';
+const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/auth/keys';
+
 /** Milliseconds a pending OAuth session stays valid. */
 const SESSION_TTL_MS = 10 * 60 * 1000;
 
@@ -133,6 +141,15 @@ function buildAuthorizeUrl(
   challenge: string,
   state: string,
 ): string {
+  if (provider === 'openrouter') {
+    // OpenRouter's own parameter names: it calls the redirect `callback_url`
+    // and does not take a client_id, scope, or state.
+    const url = new URL(OPENROUTER_AUTHORIZE_URL);
+    url.searchParams.set('callback_url', redirectUri);
+    url.searchParams.set('code_challenge', challenge);
+    url.searchParams.set('code_challenge_method', 'S256');
+    return url.toString();
+  }
   const url = new URL(provider === 'claude' ? CLAUDE_AUTHORIZE_URL : CHATGPT_AUTHORIZE_URL);
   // Claude's console callback only renders the `code#state` string to copy when
   // `code=true` is set; without it the page has nothing for the manual fallback
@@ -194,6 +211,34 @@ async function startLoopback(
   session: OAuthSession,
   handler: (req: import('node:http').IncomingMessage, res: import('node:http').ServerResponse) => void,
 ): Promise<boolean> {
+  if (session.provider === 'openrouter') {
+    // OpenRouter accepts any callback URL, so the port can be whatever the OS
+    // hands out rather than a fixed one the provider registered.
+    const server = createServer(handler);
+    session.server = server;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', () => {
+          server.removeListener('error', reject);
+          resolve();
+        });
+      });
+      const address = server.address();
+      const port = typeof address === 'object' && address ? address.port : 0;
+      if (!port) throw new Error('no port');
+      session.redirectUri = `http://localhost:${port}/callback`;
+      return true;
+    } catch {
+      try {
+        server.close();
+      } catch {
+        /* best effort */
+      }
+      session.server = undefined;
+      return false;
+    }
+  }
   if (session.provider === 'claude') {
     const port = await findClaudeLoopbackPort(session, handler);
     if (!port) return false;
@@ -262,7 +307,8 @@ async function callbackHandler(
       res.end('missing code');
       return;
     }
-    if (state !== session.state) {
+    // OpenRouter does not echo a state; its protection is the PKCE verifier.
+    if (session.provider !== 'openrouter' && state !== session.state) {
       res.writeHead(400);
       res.end('invalid state');
       return;
@@ -297,7 +343,12 @@ export async function beginOAuth(provider: OAuthProvider): Promise<OAuthSessionI
     verifier,
     state,
     challenge,
-    redirectUri: provider === 'claude' ? CLAUDE_MANUAL_REDIRECT_URI : CHATGPT_REDIRECT_URI,
+    redirectUri:
+      provider === 'claude'
+        ? CLAUDE_MANUAL_REDIRECT_URI
+        : provider === 'openrouter'
+          ? 'http://localhost/callback'
+          : CHATGPT_REDIRECT_URI,
     mode: 'manual',
     expiresAt: Date.now() + SESSION_TTL_MS,
   };
@@ -312,6 +363,11 @@ export async function beginOAuth(provider: OAuthProvider): Promise<OAuthSessionI
   const listening = await startLoopback(session, handler);
   if (listening) {
     session.mode = 'loopback';
+  } else if (provider === 'openrouter') {
+    // OpenRouter's flow has no paste-a-code page; without a local listener it
+    // cannot complete at all, so fail now rather than at the callback.
+    closeSession(session);
+    throw new Error('Could not open a local listener for the sign-in callback. Check nothing else is saturating the port range, then try again.');
   }
 
   const authUrl = buildAuthorizeUrl(provider, session.redirectUri, challenge, state);
@@ -423,8 +479,13 @@ function tokenExpiresAt(tokenSet: OAuthTokenSet): number | undefined {
 }
 
 function tokenFromResponse(provider: OAuthProvider, json: Record<string, unknown>, obtainedAt: number): OAuthTokenSet {
-  const accessToken = json.access_token as string | undefined;
+  // OpenRouter's exchange returns the API key itself as `key`, not a token pair.
+  const accessToken = (json.access_token ?? json.key) as string | undefined;
   if (!accessToken) throw new Error('Token response missing access_token.');
+
+  if (provider === 'openrouter') {
+    return { provider, accessToken, obtainedAt };
+  }
 
   const idToken = json.id_token as string | undefined;
   const accountId = provider === 'chatgpt' ? (idToken ? extractAccountId(idToken) : undefined) : undefined;
@@ -455,9 +516,28 @@ async function exchangeCode(
   verifier: string,
   state: string,
 ): Promise<OAuthTokenSet> {
+  const obtainedAt = Date.now();
+
+  if (provider === 'openrouter') {
+    const res = await fetch(OPENROUTER_KEY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ code, code_verifier: verifier, code_challenge_method: 'S256' }),
+    });
+    const text = await res.text().catch(() => '');
+    if (!res.ok) {
+      const errBody = safeJson(text);
+      const errField = errBody?.error as { message?: unknown } | undefined;
+      const err = String(errField?.message ?? errBody?.error_description ?? (text.slice(0, 200) || `HTTP ${res.status}`));
+      throw new Error(`Key exchange failed: ${err}`);
+    }
+    const json = safeJson(text);
+    if (!json?.key) throw new Error('OpenRouter returned no API key.');
+    return tokenFromResponse(provider, json, obtainedAt);
+  }
+
   const isClaude = provider === 'claude';
   const tokenUrl = isClaude ? CLAUDE_TOKEN_URL : CHATGPT_TOKEN_URL;
-  const obtainedAt = Date.now();
 
   let body: string;
   let headers: Record<string, string>;
@@ -577,6 +657,11 @@ export async function ensureFreshToken(tokenKey: string, force = false): Promise
     if (!force && expiresAt && expiresAt - 60_000 > Date.now()) {
       return tokenSet.accessToken;
     }
+    // An OpenRouter sign-in produces a permanent API key: no expiry, no refresh
+    // token, nothing to renew. It stays valid until the user revokes it.
+    if (!expiresAt && !tokenSet.refreshToken) {
+      return tokenSet.accessToken;
+    }
     if (!tokenSet.refreshToken) {
       throw new Error(`Subscription session expired for ${tokenKey}. Sign in again.`);
     }
@@ -593,7 +678,11 @@ export async function ensureFreshToken(tokenKey: string, force = false): Promise
 }
 
 export async function resolveSubscriptionProvider(config: ProviderConfig): Promise<ProviderConfig> {
-  if (config.auth !== 'subscription') return config;
+  // A tokenKey means the credential lives in the OAuth token store rather than
+  // on the config itself. That covers subscription tokens (Claude/ChatGPT,
+  // auth 'subscription') and the API key OpenRouter's sign-in minted, which is
+  // saved as auth 'apikey' because it bills per token, not per plan.
+  if (config.auth !== 'subscription' && !config.tokenKey) return config;
   if (!config.tokenKey) {
     throw new Error('Provider is configured for subscription sign-in but has no token key. Sign in again in Settings.');
   }
@@ -607,6 +696,13 @@ export async function resolveSubscriptionProvider(config: ProviderConfig): Promi
 
 export function signOut(tokenKey: string): void {
   deleteToken(tokenKey);
+}
+
+/** True when `tokenKey` belongs to a real subscription session (refreshes,
+ * has limits to poll). OpenRouter keys are metered API keys. */
+export function isSubscriptionToken(tokenKey: string): boolean {
+  const provider = getToken(tokenKey)?.provider;
+  return provider === 'claude' || provider === 'chatgpt';
 }
 
 export function getOAuthStatus(tokenKey: string): OAuthStatus {
@@ -624,8 +720,9 @@ function parseCliTimestamp(raw: unknown): number {
   return Date.now();
 }
 
-export function importCliAuth(): { claude: boolean; chatgpt: boolean } {
-  const result = { claude: false, chatgpt: false };
+export function importCliAuth(): Record<OAuthProvider, boolean> {
+  // OpenRouter has no first-party CLI with a credential file to import.
+  const result: Record<OAuthProvider, boolean> = { claude: false, chatgpt: false, openrouter: false };
 
   const claudePath = join(homedir(), '.claude', '.credentials.json');
   if (existsSync(claudePath)) {

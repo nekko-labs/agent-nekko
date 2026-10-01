@@ -1,18 +1,26 @@
 import { useMemo, useState } from 'react';
-import type { LocalModel } from '@agent-nekko/shared';
-import { MODEL_FOLDER_PROVIDERS } from '@agent-nekko/shared';
+import type { LocalModel, ModelModality } from '@agent-nekko/shared';
+import { MODALITY_LABELS, MODEL_FOLDER_PROVIDERS, unsupportedLoadReason } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
-import { CheckIcon, TrashIcon } from '../../icons.js';
+import { CheckIcon, TrashIcon, WarningIcon } from '../../icons.js';
 import { formatBytes, formatTokens } from '../runtimes/verdict.js';
 import { EngineLoadDrawer } from './EngineLoadDrawer.js';
+import { ImageGeneration } from './ImageGeneration.js';
 
 /**
  * The models on this machine.
  *
- * A row is a whole model's state in one line: what it is, whether it is in
- * memory, and the one action that changes that. Settings live behind the row
- * rather than on it, because the common case is "load this" and the uncommon one
- * is "load this with 32k context and a quantized KV cache".
+ * A row is a whole model's state in one line: what it is, what kind of model it
+ * is, whether it is in memory, whether it loads at start, and the one action
+ * that changes that. Settings live behind the row rather than on it, because
+ * the common case is "load this" and the uncommon one is "load this with 32k
+ * context and a quantized KV cache".
+ *
+ * Not every GGUF is a chat model. A diffusion checkpoint, a speech recognizer
+ * or a draft head gets its own badge and an explanation instead of a Load
+ * button, because letting it fail inside llama-server was how this page used to
+ * teach people nothing. A vision model missing its projector still loads, and
+ * says plainly what it cannot do until the projector arrives.
  *
  * Not all of them are ours. A model found in Ollama's or LM Studio's folder runs
  * here exactly like one we downloaded, and says where it came from so nobody has
@@ -20,23 +28,70 @@ import { EngineLoadDrawer } from './EngineLoadDrawer.js';
  * and removing it from here would break that app without saying so.
  */
 
+/** The filter is "all" or one bucket; unsupported modalities share a bucket. */
+type Filter = 'all' | 'chat' | 'vision' | 'embedding' | 'image' | 'other';
+
+const FILTER_LABELS: Record<Filter, string> = {
+  all: 'All',
+  chat: 'Chat',
+  vision: 'Vision',
+  embedding: 'Embeddings',
+  image: 'Images',
+  other: "Can't run here",
+};
+
+function bucketOf(modality?: ModelModality): Filter {
+  if (modality === 'vision') return 'vision';
+  if (modality === 'embedding') return 'embedding';
+  if (modality === 'image') return 'image';
+  if (modality === 'audio' || modality === 'draft' || modality === 'unknown') return 'other';
+  return 'chat';
+}
+
+/** Chip colors per modality: servable kinds are neutral, the rest warn. */
+function modalityTone(modality?: ModelModality): string {
+  switch (modality) {
+    case 'vision':
+      return 'var(--accent)';
+    case 'embedding':
+      return 'var(--success, var(--accent))';
+    case 'image':
+    case 'audio':
+    case 'draft':
+    case 'unknown':
+      return 'var(--warning, #d1a054)';
+    default:
+      return 'var(--ink-faint)';
+  }
+}
+
 export function ModelLibrary({
   providerId,
   models,
   canLoad,
   onChanged,
+  query = '',
+  autoloadIds,
+  running,
 }: {
   providerId: string;
   models: Array<LocalModel & { loaded: boolean }>;
   /** False until the engine binary exists: the list is real, running it is not. */
   canLoad: boolean;
   onChanged: () => void;
+  /** Live filter from the shared search box (matches name, id, quant, folder). */
+  query?: string;
+  /** Ids marked to load when the engine starts. */
+  autoloadIds?: Set<string>;
+  /** Whether the engine is serving: autoload is a promise only while it is. */
+  running?: boolean;
 }) {
   const pushToast = useStore((s) => s.pushToast);
   const [open, setOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importPath, setImportPath] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
 
   const unload = async (id: string) => {
     setBusy(id);
@@ -54,9 +109,9 @@ export function ModelLibrary({
     // own answer when it has never been configured. Opening the drawer is for
     // changing that, not for performing it.
     const params = model.preset ? { ...model.preset, budgetFraction: undefined } : null;
-    const res = params
-      ? await window.nekko.runtimeLoad(providerId, model.id, params)
-      : await autoLoad(providerId, model.id);
+    const res = await (params || model.modality === 'image'
+      ? window.nekko.runtimeLoad(providerId, model.id, params ?? {})
+      : autoLoad(providerId, model.id)).catch((e: Error) => ({ ok: false, message: e.message }));
     setBusy(null);
     pushToast(res.ok ? 'success' : 'error', res.message ?? (res.ok ? 'Loaded.' : "Couldn't load it."));
     onChanged();
@@ -69,10 +124,52 @@ export function ModelLibrary({
     onChanged();
   };
 
+  const fetchCompanions = async (model: LocalModel) => {
+    setBusy(model.id);
+    const res = await window.nekko
+      .engineDownloadCompanions(model.id)
+      .catch((e: Error) => ({ ok: false, message: e.message }));
+    setBusy(null);
+    pushToast(res.ok ? 'success' : 'error', res.message);
+    onChanged();
+  };
+
+  const toggleAutoload = async (model: LocalModel, on: boolean) => {
+    await window.nekko.engineSetAutoload(model.id, on).catch(() => null);
+    pushToast(
+      'info',
+      on ? `${model.name} loads when the engine starts.` : `${model.name} no longer loads on start.`,
+    );
+    onChanged();
+  };
+
   /** How many folders are contributing, for the line above the list. */
   const folders = useMemo(
     () => new Set(models.map((m) => m.folderId ?? 'primary')).size,
     [models],
+  );
+
+  /** Which filter buckets this library actually contains, in display order. */
+  const buckets = useMemo(() => {
+    const present = new Set(models.map((m) => bucketOf(m.modality)));
+    return (Object.keys(FILTER_LABELS) as Filter[]).filter((f) => f === 'all' || present.has(f));
+  }, [models]);
+
+  const searched = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return models;
+    return models.filter((m) =>
+      [m.name, m.id, m.quantization, m.parameterSize, m.sourceRepo, m.folderProvider]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [models, query]);
+
+  const visible = useMemo(
+    () => (filter === 'all' ? searched : searched.filter((m) => bucketOf(m.modality) === filter)),
+    [searched, filter],
   );
 
   const runImport = async () => {
@@ -93,9 +190,11 @@ export function ModelLibrary({
         <p className="text-[11.5px] text-ink-faint">
           {models.length === 0
             ? 'No models yet.'
-            : `${models.length} model${models.length === 1 ? '' : 's'} · ${formatBytes(
-                models.reduce((n, m) => n + m.sizeBytes, 0),
-              )} on disk${folders > 1 ? ` · across ${folders} folders` : ''}`}
+            : query.trim() || filter !== 'all'
+              ? `${visible.length} of ${models.length} on this machine`
+              : `${models.length} model${models.length === 1 ? '' : 's'} · ${formatBytes(
+                  models.reduce((n, m) => n + m.sizeBytes, 0),
+                )} on disk${folders > 1 ? ` · across ${folders} folders` : ''}`}
         </p>
         <button className="text-[11.5px] text-ink-faint hover:text-ink" onClick={() => setImporting((v) => !v)}>
           Add a file I already have
@@ -117,6 +216,25 @@ export function ModelLibrary({
         </div>
       )}
 
+      {buckets.length > 2 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {buckets.map((f) => (
+            <button
+              key={f}
+              className="rounded-full px-2 py-0.5 text-[11px]"
+              style={
+                filter === f
+                  ? { background: 'color-mix(in srgb, var(--accent) 16%, transparent)', color: 'var(--accent)' }
+                  : { color: 'var(--ink-faint)' }
+              }
+              onClick={() => setFilter(f)}
+            >
+              {FILTER_LABELS[f]}
+            </button>
+          ))}
+        </div>
+      )}
+
       {!canLoad && models.length > 0 && (
         <p className="mt-2 rounded-xl border border-dashed px-3 py-2 text-[11.5px]" style={{ borderColor: 'var(--line)', color: 'var(--warning)' }}>
           These are on disk and ready. Download the engine above to run them here.
@@ -125,105 +243,214 @@ export function ModelLibrary({
 
       {models.length === 0 ? (
         <p className="mt-3 rounded-xl border border-dashed px-4 py-3.5 text-[12.5px] text-ink-faint" style={{ borderColor: 'var(--line)' }}>
-          Nothing here yet. Open <strong>Find models</strong> to download one, <strong>Folders</strong> to point at a
+          Nothing here yet. Pick a recommendation below to download one, open <strong>Folders</strong> to point at a
           folder another app already fills, or add a GGUF you have.
+        </p>
+      ) : visible.length === 0 ? (
+        <p className="mt-3 text-[12px] text-ink-faint">
+          Nothing on this machine matches {filter !== 'all' ? `${FILTER_LABELS[filter].toLowerCase()} models` : `"${query.trim()}"`}.
         </p>
       ) : (
         <div className="mt-2 space-y-1.5">
-          {models.map((m) => (
-            <div key={m.id}>
-              <div
-                className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px]"
-                style={{ background: 'var(--surface-2)' }}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate font-medium">{m.name}</span>
-                    {m.loaded && (
-                      <span
-                        className="inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] text-white"
-                        style={{ background: 'var(--success)' }}
+          {visible.map((m) => {
+            const unsupported = m.modality === 'image' ? undefined : unsupportedLoadReason(m);
+            const missingProjector = m.modality === 'vision' && !m.hasProjector;
+            return (
+              <div key={m.id}>
+                <div
+                  className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px]"
+                  style={{ background: 'var(--surface-2)', opacity: unsupported ? 0.85 : 1 }}
+                >
+                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="min-w-0 max-w-full truncate font-medium">{m.name}</span>
+                      {m.modality && m.modality !== 'chat' && (
+                        <span
+                          className="chip shrink-0"
+                          style={{ color: modalityTone(m.modality) }}
+                          title={modalityTitle(m.modality)}
+                        >
+                          {MODALITY_LABELS[m.modality]}
+                        </span>
+                      )}
+                      {m.format === 'mlx' && (
+                        <span className="chip shrink-0" title="An MLX model folder, run by the MLX runtime on Apple Silicon">
+                          MLX
+                        </span>
+                      )}
+                      {m.modality === 'vision' && !m.hasProjector && (
+                        <span className="chip shrink-0" style={{ color: 'var(--warning, #d1a054)' }} title="Its projector file (mmproj-*.gguf) is missing, so it answers text only">
+                          no projector
+                        </span>
+                      )}
+                      {m.loaded && (
+                        <span
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] text-white"
+                          style={{ background: 'var(--success)' }}
+                        >
+                          <CheckIcon className="h-2.5 w-2.5" /> in memory
+                        </span>
+                      )}
+                      {autoloadIds?.has(m.id) && (
+                        <span className="chip shrink-0" title="Loads automatically when the engine starts">
+                          on start
+                        </span>
+                      )}
+                      {m.managed === false && (
+                        <span className="chip shrink-0" title={`Read from ${m.path}`}>
+                          {m.folderProvider ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label : 'other folder'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="truncate text-[11px] text-ink-faint">
+                      {[
+                        m.quantization,
+                        m.parameterSize,
+                        formatBytes(m.sizeBytes),
+                        m.maxContext && `${formatTokens(m.maxContext)} max context`,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  </div>
+
+                  <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
+                    {!unsupported && !m.loaded && (
+                      <button
+                        className="rounded-full border px-2 py-1 text-[11px]"
+                        style={{ borderColor: autoloadIds?.has(m.id) ? 'var(--accent)' : 'var(--line)' }}
+                        title={
+                          autoloadIds?.has(m.id)
+                            ? 'Loads when the engine starts. Click to stop that.'
+                            : running
+                              ? 'Also load it when the engine starts'
+                              : 'Load it automatically when the engine starts'
+                        }
+                        onClick={() => void toggleAutoload(m, !autoloadIds?.has(m.id))}
                       >
-                        <CheckIcon className="h-2.5 w-2.5" /> in memory
-                      </span>
+                        on start
+                      </button>
                     )}
-                    {m.managed === false && (
-                      <span className="chip shrink-0" title={`Read from ${m.path}`}>
-                        {m.folderProvider ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label : 'other folder'}
+                    {!unsupported && (
+                      <button
+                        className="rounded-full border px-2 py-1 text-[11px] hover:border-[var(--accent)]"
+                        style={{ borderColor: open === m.id ? 'var(--accent)' : 'var(--line)' }}
+                        onClick={() => setOpen(open === m.id ? null : m.id)}
+                      >
+                        {m.modality === 'image' ? 'Image settings' : 'Settings'}
+                      </button>
+                    )}
+                    {unsupported ? null : m.loaded ? (
+                      <button
+                        className="rounded-full border px-2 py-1 text-[11px]"
+                        style={{ borderColor: 'var(--line)' }}
+                        disabled={busy === m.id}
+                        onClick={() => void unload(m.id)}
+                      >
+                        {busy === m.id ? 'unloading…' : 'Unload'}
+                      </button>
+                    ) : (
+                      <button
+                        className="rounded-full px-2.5 py-1 text-[11px] text-white disabled:opacity-50"
+                        style={{ background: 'var(--accent)' }}
+                        title={canLoad ? `Load ${m.name} into memory` : 'Download the engine first'}
+                        disabled={busy === m.id || (!canLoad && m.modality !== 'image')}
+                        onClick={() => void quickLoad(m)}
+                      >
+                        {busy === m.id ? 'loading…' : 'Load'}
+                      </button>
+                    )}
+                    {m.managed === false ? (
+                      // The file belongs to whichever app downloaded it. Saying so
+                      // beats a delete button that refuses after the click.
+                      <span
+                        className="px-1.5 text-[10px] text-ink-faint"
+                        title={`Delete this in ${m.folderProvider ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label : 'the app that downloaded it'}`}
+                      >
+                        borrowed
                       </span>
+                    ) : (
+                      <button className="btn btn-ghost px-1.5 py-1" title="Delete this model" onClick={() => void remove(m)}>
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
                     )}
                   </div>
-                  <p className="truncate text-[11px] text-ink-faint">
-                    {[
-                      m.quantization,
-                      m.parameterSize,
-                      formatBytes(m.sizeBytes),
-                      m.maxContext && `${formatTokens(m.maxContext)} max context`,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
+                </div>
+
+                {unsupported && (
+                  <p className="mt-1 flex items-start gap-1.5 px-2.5 text-[11px]" style={{ color: 'var(--warning, #d1a054)' }}>
+                    <WarningIcon className="mt-0.5 h-3 w-3 shrink-0" />
+                    {unsupported}
                   </p>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-1.5">
-                  <button
-                    className="rounded-full border px-2 py-1 text-[11px] hover:border-[var(--accent)]"
-                    style={{ borderColor: open === m.id ? 'var(--accent)' : 'var(--line)' }}
-                    onClick={() => setOpen(open === m.id ? null : m.id)}
-                  >
-                    Settings
-                  </button>
-                  {m.loaded ? (
+                )}
+                {missingProjector && !unsupported && (
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 px-2.5 text-[11px]" style={{ color: 'var(--warning, #d1a054)' }}>
+                    <WarningIcon className="h-3 w-3 shrink-0" />
+                    Its projector (mmproj-*.gguf) is missing: it answers text but cannot see images.
                     <button
-                      className="rounded-full border px-2 py-1 text-[11px]"
-                      style={{ borderColor: 'var(--line)' }}
+                      className="underline underline-offset-2 hover:text-ink"
                       disabled={busy === m.id}
-                      onClick={() => void unload(m.id)}
+                      onClick={() => void fetchCompanions(m)}
                     >
-                      {busy === m.id ? 'unloading…' : 'Unload'}
+                      Fetch it now
                     </button>
-                  ) : (
-                    <button
-                      className="rounded-full px-2.5 py-1 text-[11px] text-white disabled:opacity-50"
-                      style={{ background: 'var(--accent)' }}
-                      title={canLoad ? `Load ${m.name} into memory` : 'Download the engine first'}
-                      disabled={busy === m.id || !canLoad}
-                      onClick={() => void quickLoad(m)}
-                    >
-                      {busy === m.id ? 'loading…' : 'Load'}
-                    </button>
-                  )}
-                  {m.managed === false ? (
-                    // The file belongs to whichever app downloaded it. Saying so
-                    // beats a delete button that refuses after the click.
-                    <span
-                      className="px-1.5 text-[10px] text-ink-faint"
-                      title={`Delete this in ${m.folderProvider ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label : 'the app that downloaded it'}`}
-                    >
-                      borrowed
-                    </span>
-                  ) : (
-                    <button className="btn btn-ghost px-1.5 py-1" title="Delete this model" onClick={() => void remove(m)}>
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
+                  </p>
+                )}
+                {m.lastLoadError && !m.loaded && (
+                  <p className="mt-1 flex flex-wrap items-start gap-1.5 px-2.5 text-[11px]" style={{ color: 'var(--danger, var(--warning, #d1a054))' }}>
+                    <WarningIcon className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>Last load failed: {m.lastLoadError}</span>
+                    {missingProjector && (
+                      <button
+                        className="underline underline-offset-2 hover:text-ink"
+                        disabled={busy === m.id}
+                        onClick={() => void fetchCompanions(m)}
+                      >
+                        Fetch companion files
+                      </button>
+                    )}
+                  </p>
+                )}
 
-              {open === m.id && (
-                <EngineLoadDrawer
-                  providerId={providerId}
-                  model={m}
-                  onDone={onChanged}
-                  onClose={() => setOpen(null)}
-                />
-              )}
-            </div>
-          ))}
+                {open === m.id && m.modality === 'image' && <ImageGeneration model={m} onChanged={onChanged} />}
+                {open === m.id && m.modality !== 'image' && (
+                  <EngineLoadDrawer
+                    providerId={providerId}
+                    model={m}
+                    autoloaded={autoloadIds?.has(m.id) ?? false}
+                    onToggleAutoload={(on) => void toggleAutoload(m, on)}
+                    onFetchCompanions={() => void fetchCompanions(m)}
+                    onDone={onChanged}
+                    onClose={() => setOpen(null)}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
+}
+
+/** One sentence for the badge tooltip: what the kind means for running it. */
+function modalityTitle(modality: ModelModality): string {
+  switch (modality) {
+    case 'vision':
+      return 'A chat model that can also read images, when its projector file is present';
+    case 'embedding':
+      return 'Turns text into vectors. Answers /v1/embeddings, not chat';
+    case 'image':
+      return 'An image-generation model. Runs in the optional stable-diffusion.cpp runtime';
+    case 'audio':
+      return 'A speech-recognition model. llama.cpp cannot serve it';
+    case 'draft':
+      return 'A speculative-decoding draft head. Only runs attached to its full model';
+    case 'unknown':
+      return 'The file would not parse as a GGUF';
+    default:
+      return 'A chat model';
+  }
 }
 
 /**

@@ -100,6 +100,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # The engine daemon ships inside the installer; `npm run release` builds
+      # it (apps/desktop/scripts/stage-daemon.mjs) and fails without cargo.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: npm ci
       - run: npm run build
 

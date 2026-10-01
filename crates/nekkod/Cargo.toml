@@ -1,0 +1,39 @@
+[package]
+name = "nekkod"
+description = "The Agent Nekko engine daemon: one loopback wire for the UI, native services, and a supervised TS host for everything not ported yet."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[features]
+# Linux: run decision models on CUDA (pulls the several-hundred-MB CUDA build of ONNX Runtime).
+cuda = ["nekko-decide/cuda"]
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+bytes.workspace = true
+futures-util.workspace = true
+getrandom.workspace = true
+nekko-agent = { path = "../nekko-agent" }
+nekko-chat = { path = "../nekko-chat" }
+nekko-decide = { path = "../nekko-decide" }
+nekko-infer = { path = "../nekko-infer" }
+nekko-js = { path = "../nekko-js" }
+nekko-loop = { path = "../nekko-loop" }
+nekko-store = { path = "../nekko-store" }
+nekko-term = { path = "../nekko-term" }
+nekko-tools = { path = "../nekko-tools" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tokio-tungstenite.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true

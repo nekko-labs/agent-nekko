@@ -1,19 +1,21 @@
-import { app, BrowserWindow, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
 import { fileURLToPath } from 'url';
 import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
-import { createHost } from '@agent-nekko/host';
-import { IpcEvents } from '@agent-nekko/shared';
+// Only the data-root helpers: the host itself runs in the engine process, and
+// importing the package root would load all of it (node-pty included) here.
+import { defaultUserDataDir, legacyUserDataDirs, migrateUserData, prepareUserDataRoot } from '@agent-nekko/host/user-data';
+import { brandEnv, IpcEvents, type AppSettings } from '@agent-nekko/shared';
 import { registerIpc } from './ipc.js';
 import { checkForUpdates } from './update.js';
-import { loadWindowBounds, saveWindowBounds } from './windowState.js';
+import { loadWindowBounds, saveWindowBounds, setWindowStateDir } from './windowState.js';
 import { preservePackagedProfile } from './appIdentity.js';
-import { closeWorkflowLoopbackListener, manageWorkflowLoopbackListener } from './workflow-listener.js';
-import { closeApiServer } from './api-server.js';
-import { startLocalAccess, stopLocalAccess } from './local-access.js';
+import { EngineProcess } from './engine-process.js';
 
-/** Set once the host exists; marks the CLI link as not serving on quit. */
-let onQuitLocalAccess: (() => void) | null = null;
+/** The engine (nekkod, or the TS backend alone); set once the app is ready. */
+let engine: EngineProcess | null = null;
+/** True once the engine has been stopped for quit, so the second quit goes through. */
+let engineStopped = false;
 import {
   TITLEBAR_HEIGHT,
   TITLEBAR_OVERLAY_CHANNEL,
@@ -29,6 +31,7 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
   process.exit(1);
 }
 
+const previousProfile = app.getPath('userData');
 preservePackagedProfile(app);
 
 /**
@@ -288,15 +291,45 @@ app.whenReady().then(() => {
   // from it.
   if (process.platform !== 'darwin') Menu.setApplicationMenu(null);
 
-  const dataDir = join(app.getPath('userData'), 'agent-nekko');
-  const host = createHost({ dataDir });
-  registerIpc(host);
-  manageWorkflowLoopbackListener(host);
-  // The local API server comes back up with the app (on by default), with the
-  // CLI linked and everything pointed at it refreshed: a CLI or MCP client
-  // should not need the window touched first.
-  startLocalAccess(app, host);
-  onQuitLocalAccess = () => stopLocalAccess(host);
+  // Where user data lives is decided here, before the engine starts, because a
+  // move from an older profile needs a native dialog and the user's answer.
+  let dataDir = defaultUserDataDir();
+  const devSource = join(previousProfile, 'agent-nekko');
+  try {
+    if (!brandEnv('DATA_DIR') && !existsSync(join(dataDir, 'settings.json')) && existsSync(join(devSource, 'settings.json'))) throw new Error('An existing desktop profile needs confirmation before moving.');
+    dataDir = prepareUserDataRoot();
+  } catch (e) {
+    if (brandEnv('DATA_DIR')) throw e;
+    const sources = [...new Set([...legacyUserDataDirs(undefined, app.getPath('appData')), ...(existsSync(join(devSource, 'settings.json')) ? [devSource] : [])])];
+    if (!sources.length) { dialog.showErrorBox('Data migration needs attention', (e as Error).message); app.quit(); return; }
+    const choice = dialog.showMessageBoxSync({ type: 'question', title: 'Move Agent Nekko data', message: 'Choose the profile to move into ~/.agent-nekko', detail: `Close all other Agent Nekko desktop, web and CLI instances first. Settings, sessions and managed model files will move to ${dataDir}. Borrowed model folders are unchanged. Other profiles are not merged or deleted.`, buttons: ['Cancel', ...sources.map(p => `Move ${p}`)], defaultId: 0, cancelId: 0, noLink: true });
+    if (choice === 0) { app.quit(); return; }
+    try {
+      const source = sources[choice - 1];
+      migrateUserData(source, dataDir, source.endsWith('agent-nekko') ? join(source, '..') : undefined);
+    }
+    catch (failure) { dialog.showErrorBox('Data migration stopped', (failure as Error).message); app.quit(); return; }
+  }
+  // The engine runs in its own processes (see engine-process.ts); the window
+  // only needs to know where it listens.
+  const rendererUrl = process.env['ELECTRON_RENDERER_URL'];
+  engine = new EngineProcess({
+    dataDir,
+    app: {
+      isPackaged: app.isPackaged,
+      appPath: app.getAppPath(),
+      userData: app.getPath('userData'),
+      version: app.getVersion(),
+      resourcesPath: app.isPackaged ? process.resourcesPath : undefined,
+    },
+    // A packaged page is a file:// document: fetch reports its origin as
+    // `null`, a WebSocket handshake as `file://`.
+    origins: ['null', 'file://', ...(rendererUrl ? [new URL(rendererUrl).origin] : [])],
+    mainDir: __dirname,
+  });
+  engine.start();
+  registerIpc(engine);
+  setWindowStateDir(dataDir);
   registerTitleBarOverlaySync();
   // A link that launched the app is already on this process's command line
   // (Windows/Linux); park it so the first load replays it.
@@ -304,9 +337,9 @@ app.whenReady().then(() => {
   createWindow();
 
   // Auto-check for updates a few seconds after launch, if the user opted in.
-  if (host.getSettings().autoUpdate) {
-    setTimeout(() => { void checkForUpdates(); }, 4000);
-  }
+  void engine.call<AppSettings>('settings:get').then((settings) => {
+    if (settings?.autoUpdate) setTimeout(() => { void checkForUpdates(); }, 4000);
+  }).catch(() => {});
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -314,16 +347,22 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  closeWorkflowLoopbackListener();
-  // The API server deliberately survives this: on macOS the app is still
-  // running with no window open, and a CLI or MCP client pointed at it should
-  // not lose its connection because someone closed the last window. Quitting
-  // takes it down, below.
+  // The engine (and the API server in it) deliberately survives this: on macOS
+  // the app is still running with no window open, and a CLI or MCP client
+  // pointed at it should not lose its connection because someone closed the
+  // last window. Quitting takes it down, below.
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => {
-  closeWorkflowLoopbackListener();
-  closeApiServer();
-  onQuitLocalAccess?.();
+// Quitting waits for the engine to shut down cleanly (it marks the CLI link as
+// not serving and stops model servers it started), then quits for real.
+app.on('before-quit', (event) => {
+  if (engineStopped || !engine) return;
+  event.preventDefault();
+  const stopping = engine;
+  engine = null;
+  void stopping.stop().finally(() => {
+    engineStopped = true;
+    app.quit();
+  });
 });

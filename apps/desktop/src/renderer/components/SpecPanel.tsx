@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { SpecDocStatus, Session } from '@agent-nekko/shared';
+import type { SpecDocStatus, SessionMeta } from '@agent-nekko/shared';
 import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, getMethodology, getSessionWorkspaceIds, parseTasks } from '@agent-nekko/shared';
 import { ExternalIcon } from '../icons.js';
 import { useStore } from '../store.js';
@@ -10,7 +10,7 @@ import { useStore } from '../store.js';
  * Later artifacts are chained from the earlier ones server-side. The tasks doc
  * renders as an interactive checklist whose toggles write back to the file.
  */
-export function SpecPanel({ sessionId, session }: { sessionId: string; session: Session | null }) {
+export function SpecPanel({ sessionId, session }: { sessionId: string; session: SessionMeta | null }) {
   const refreshSessions = useStore((s) => s.refreshSessions);
   const pushToast = useStore((s) => s.pushToast);
   const settings = useStore((s) => s.settings);
@@ -325,7 +325,7 @@ function GuidelineDocs({ workspacePath, onOpen }: { workspacePath?: string; onOp
   if (!workspacePath) return null;
 
   const join = (name: string) => `${workspacePath.replace(/[\\/]+$/, '')}/${name}`;
-  const rows = GUIDELINE_DOCS.filter((g) => g.always || present?.has(g.filename));
+  const rows = GUIDELINE_DOCS.filter((g) => g.always && present && !present.has(g.filename));
 
   const create = async (g: (typeof GUIDELINE_DOCS)[number]) => {
     const path = join(g.filename);
@@ -341,9 +341,11 @@ function GuidelineDocs({ workspacePath, onOpen }: { workspacePath?: string; onOp
     }
   };
 
+  if (!rows.length) return null;
+
   return (
     <div className="mt-3">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Guidelines</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Create missing instructions</p>
       <div className="space-y-1.5">
         {rows.map((g) => {
           const exists = present?.has(g.filename) ?? false;

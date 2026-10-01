@@ -310,6 +310,84 @@ export function planProgress(plan: PlanStep[] | undefined): PlanProgress {
   return { total: steps.length, done, skipped, current, ratio: steps.length ? (done + skipped) / steps.length : 0 };
 }
 
+/** Input shape of an `update_plan` tool call. */
+export interface PlanUpdateInput {
+  replace?: boolean;
+  steps?: Array<Record<string, unknown>>;
+}
+
+export interface PlanUpdateResult {
+  plan: PlanStep[];
+  /** True when `steps` replaced the plan outright (initial write or a re-plan). */
+  replaced: boolean;
+  /** Steps that transitioned to done this call. */
+  finished: PlanStep[];
+  /** Steps that transitioned to skipped this call. */
+  skippedNow: PlanStep[];
+}
+
+/**
+ * Apply an `update_plan` call to an existing plan: the semantics both writers
+ * share — goal-run plans on a TrainingRun and the live `agentPlan` on an
+ * ordinary chat session.
+ *
+ * `replace` (or having no plan yet) writes the list wholesale; otherwise steps
+ * upsert by id, falling back to a case-insensitive title match so the model
+ * can update a step whose id it forgot. Titles cap at 160 chars, notes at 240,
+ * and unknown statuses are ignored rather than rejected.
+ */
+export function applyPlanUpdate(
+  current: PlanStep[] | undefined,
+  input: PlanUpdateInput,
+): PlanUpdateResult | { error: string } {
+  const raw = Array.isArray(input.steps) ? input.steps : [];
+  if (!raw.length) return { error: 'Pass at least one step.' };
+
+  const valid: PlanStepStatus[] = ['pending', 'active', 'done', 'skipped'];
+  const now = Date.now();
+  const hadPlan = (current ?? []).length > 0;
+  const replace = input.replace === true || !hadPlan;
+  const next: PlanStep[] = replace ? [] : [...(current ?? [])];
+  const finished: PlanStep[] = [];
+  const skippedNow: PlanStep[] = [];
+
+  const freshId = () => {
+    let n = next.length + 1;
+    while (next.some((s) => s.id === `step_${n}`)) n++;
+    return `step_${n}`;
+  };
+  for (const r of raw) {
+    const title = String(r.title ?? '').trim().slice(0, 160);
+    const id = typeof r.id === 'string' && r.id.trim() ? r.id.trim() : '';
+    const status = typeof r.status === 'string' && valid.includes(r.status as PlanStepStatus)
+      ? (r.status as PlanStepStatus)
+      : undefined;
+    const note = typeof r.note === 'string' && r.note.trim() ? r.note.trim().slice(0, 240) : undefined;
+    let step = id ? next.find((s) => s.id === id) : undefined;
+    if (!step && !replace && title) step = next.find((s) => s.title.toLowerCase() === title.toLowerCase());
+    if (step) {
+      const was = step.status;
+      if (title) step.title = title;
+      if (status) step.status = status;
+      if (note) step.note = note;
+      step.updatedAt = now;
+      if (status === 'done' && was !== 'done') finished.push(step);
+      else if (status === 'skipped' && was !== 'skipped') skippedNow.push(step);
+    } else if (title) {
+      next.push({ id: id || freshId(), title, status: status ?? 'pending', note, createdAt: now, updatedAt: now });
+    }
+  }
+  if (!next.length) return { error: 'The plan cannot be empty; pass the full step list.' };
+  return { plan: next, replaced: replace, finished, skippedNow };
+}
+
+/** The text an `update_plan` call echoes back so the agent knows each step's id. */
+export function planEcho(plan: PlanStep[]): string {
+  const p = planProgress(plan);
+  const lines = plan.map((s, i) => `${i + 1}. [${s.status}] ${s.id}: ${s.title}`);
+  return `Plan saved (${p.done}/${p.total} done${p.skipped ? `, ${p.skipped} skipped` : ''}):\n${lines.join('\n')}`;
+}
+
 /** A node placed on the idea-maze canvas (column/row grid coordinates). */
 export interface MazeNode {
   exp: ExperimentNode;

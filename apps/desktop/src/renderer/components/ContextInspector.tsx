@@ -1,8 +1,9 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ContextBundle, Session, WorkspaceFolder } from '@agent-nekko/shared';
+import React, { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { ContextBundle, SessionMeta, WorkspaceFolder } from '@agent-nekko/shared';
 import { getSessionWorkspaceIds, estimateTokens } from '@agent-nekko/shared';
 import { FolderIcon, FileIcon, PlusIcon, TrashIcon, ExternalIcon, ChevronIcon } from '../icons.js';
 import { useStore } from '../store.js';
+import { afterPaint } from '../afterPaint.js';
 import { SpecPanel } from './SpecPanel.js';
 import { ResourceDock } from './ResourceMonitor.js';
 import { ProviderLimitsDock } from './ProviderLimitsDock.js';
@@ -60,7 +61,13 @@ function baseName(p: string): string {
  *     counts. It takes the whole panel while every folder is collapsed and gives
  *     ground as soon as a tree opens.
  */
-export function ContextInspector({ sessionId }: { sessionId: string | null }) {
+export const ContextInspector = memo(function ContextInspector({ sessionId: shown }: { sessionId: string | null }) {
+  // Follows the chat on screen one frame behind: switching chats paints the
+  // chat first, and this panel's re-read of the new one comes after that frame
+  // rather than inside the switch. (A deferred value is not enough: React can
+  // render it before the browser gets to paint.)
+  const [sessionId, setSessionId] = useState(shown);
+  useEffect(() => (shown === sessionId ? undefined : afterPaint(() => setSessionId(shown))), [shown, sessionId]);
   const settings = useStore((s) => s.settings);
   const sessions = useStore((s) => s.sessions);
   const refreshSettings = useStore((s) => s.refreshSettings);
@@ -104,7 +111,7 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
     }
     refreshBundle();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, attached.length, session?.workspaceId, session?.supportingWorkspaceIds?.length, session?.messages.length]);
+  }, [sessionId, attached.length, session?.workspaceId, session?.supportingWorkspaceIds?.length, session?.messageCount]);
 
   // Follow a running turn. `session.messages` only moves when the store reloads
   // sessions (end of turn), but the agent checkpoints every finished step, so
@@ -455,7 +462,7 @@ export function ContextInspector({ sessionId }: { sessionId: string | null }) {
       <ResourceDock />
     </div>
   );
-}
+});
 
 /**
  * One project folder as an accordion: the row carries what the agent may see
@@ -466,7 +473,7 @@ function FolderAccordion({
   workspace, session, expanded, onToggleExpanded, onMakePrimary, onInclude, onExclude, onRemove, onOpenFile,
 }: {
   workspace: WorkspaceFolder;
-  session: Session | null;
+  session: SessionMeta | null;
   expanded: boolean;
   onToggleExpanded: () => void;
   onMakePrimary: () => void;

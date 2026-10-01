@@ -1,0 +1,266 @@
+//! `executeTool` from `packages/host/src/tools.ts`: one call, with the
+//! sandbox, the guardrails and the chat mode applied in the same order.
+//!
+//! Every handler returns `Err(message)` where the TS code would throw; that
+//! becomes an error result carrying the message, as the TS `catch` does.
+
+use crate::bash::{Failure, RunRequest};
+use crate::context::{ChatMode, ToolCall, ToolContext, ToolResult};
+use crate::guardrails::{Action, Severity, classify_command, default_guardrails};
+use crate::js;
+use crate::nodefs;
+use crate::sandbox::{asks_everything, assert_in_jail, first_workspace, process_cwd, resolve_path};
+use crate::search::{glob_files, grep_files};
+use serde_json::Value;
+
+/// A file tool's read cap, in UTF-16 code units.
+const READ_CAP: usize = 60_000;
+const GLOB_LIMIT: usize = 200;
+const GREP_LIMIT: usize = 100;
+
+type Outcome = Result<ToolResult, String>;
+
+/// Run one built-in tool call. Names this crate does not implement (see
+/// [`crate::NOT_PORTED`]) get the TS host's `Unknown tool` error, so the
+/// caller routes those elsewhere first.
+pub async fn execute(call: &ToolCall, ctx: &ToolContext) -> ToolResult {
+    let outcome = match call.name.as_str() {
+        "read_file" => read_file(call, ctx),
+        "write_file" => write_file(call, ctx).await,
+        "edit_file" => edit_file(call, ctx).await,
+        "list_dir" => list_dir(call, ctx),
+        "glob" => glob(call, ctx),
+        "grep" => grep(call, ctx),
+        "bash" => bash(call, ctx).await,
+        _ => Ok(ToolResult::err(call, format!("Unknown tool: {}", call.name))),
+    };
+    outcome.unwrap_or_else(|message| ToolResult::err(call, message))
+}
+
+fn arg<'a>(call: &'a ToolCall, key: &str) -> Option<&'a Value> {
+    call.input.get(key)
+}
+
+/// Ask the user; a cancel while the prompt is open counts as a no.
+async fn approve(call: &ToolCall, ctx: &ToolContext, reason: &str, severity: Severity) -> bool {
+    tokio::select! {
+        ok = ctx.approver.approve(call, reason, severity) => ok,
+        _ = ctx.cancel.cancelled() => false,
+    }
+}
+
+fn session(ctx: &ToolContext) -> Option<&str> {
+    ctx.session_id.as_deref().filter(|s| !s.is_empty())
+}
+
+fn record_original(ctx: &ToolContext, path: &str) {
+    if let (Some(sid), Some(changes)) = (session(ctx), ctx.changes.as_ref()) {
+        changes.record_original(sid, path);
+    }
+}
+
+fn read_file(call: &ToolCall, ctx: &ToolContext) -> Outcome {
+    let p = resolve_path(arg(call, "path"), ctx)?;
+    assert_in_jail(&p, ctx)?;
+    if !nodefs::exists(&p) {
+        return Ok(ToolResult::err(call, format!("File not found: {p}")));
+    }
+    let content = nodefs::read_utf8(&p)?;
+    Ok(ToolResult::ok(
+        call,
+        if js::len16(&content) > READ_CAP {
+            format!("{}\n\u{2026}(truncated)", js::slice16(&content, READ_CAP))
+        } else {
+            content
+        },
+    ))
+}
+
+/// `dirname(p)` for a resolved path.
+fn dirname(p: &str) -> String {
+    std::path::Path::new(p).parent().map(|d| d.to_string_lossy().into_owned()).unwrap_or_else(|| p.to_string())
+}
+
+async fn write_file(call: &ToolCall, ctx: &ToolContext) -> Outcome {
+    let p = resolve_path(arg(call, "path"), ctx)?;
+    assert_in_jail(&p, ctx)?;
+    if asks_everything(ctx) && !approve(call, ctx, &format!("Write {p}"), Severity::Medium).await {
+        return Ok(ToolResult::err(call, "Write not approved by user."));
+    }
+    record_original(ctx, &p);
+    nodefs::mkdir_p(&dirname(&p))?;
+    // String(a.content ?? '')
+    let content = if js::nullish(arg(call, "content")) { String::new() } else { js::to_string(arg(call, "content")) };
+    nodefs::write_utf8(&p, &content)?;
+    Ok(ToolResult::ok(call, format!("Wrote {p} ({} bytes)", js::len16(&content))))
+}
+
+async fn edit_file(call: &ToolCall, ctx: &ToolContext) -> Outcome {
+    let p = resolve_path(arg(call, "path"), ctx)?;
+    assert_in_jail(&p, ctx)?;
+    if !nodefs::exists(&p) {
+        return Ok(ToolResult::err(call, format!("File not found: {p}")));
+    }
+    if asks_everything(ctx) && !approve(call, ctx, &format!("Edit {p}"), Severity::Medium).await {
+        return Ok(ToolResult::err(call, "Edit not approved by user."));
+    }
+    let cur = nodefs::read_utf8(&p)?;
+    // `cur.split(old_string)`: undefined splits nothing off; anything else is
+    // String(x), null included.
+    let old = arg(call, "old_string").map(|v| js::to_string(Some(v)));
+    let count = match &old {
+        None => 0,
+        Some(sep) => js::split_count(&cur, sep),
+    };
+    if count == 0 {
+        return Ok(ToolResult::err(call, "old_string not found in file."));
+    }
+    if count > 1 {
+        return Ok(ToolResult::err(call, format!("old_string matched {count} times; make it unique.")));
+    }
+    record_original(ctx, &p);
+    let old = old.unwrap_or_default();
+    // `replace` coerces a missing replacement to "undefined", as String() does.
+    let new = js::to_string(arg(call, "new_string"));
+    nodefs::write_utf8(&p, &js::replace_first(&cur, &old, &new))?;
+    Ok(ToolResult::ok(call, format!("Edited {p}")))
+}
+
+fn list_dir(call: &ToolCall, ctx: &ToolContext) -> Outcome {
+    let p = resolve_path(arg(call, "path"), ctx)?;
+    assert_in_jail(&p, ctx)?;
+    if !nodefs::exists(&p) {
+        return Ok(ToolResult::err(call, format!("Directory not found: {p}")));
+    }
+    let entries: Vec<String> =
+        nodefs::read_dir(&p)?.into_iter().map(|e| if e.is_dir { format!("{}/", e.name) } else { e.name }).collect();
+    Ok(ToolResult::ok(call, if entries.is_empty() { "(empty)".to_string() } else { entries.join("\n") }))
+}
+
+fn glob(call: &ToolCall, ctx: &ToolContext) -> Outcome {
+    // Note the order: the first workspace wins over the chat's directory.
+    let root = first_workspace(ctx).map(str::to_string).or_else(|| ctx.default_cwd.clone()).unwrap_or_else(process_cwd);
+    let matches = glob_files(&root, arg(call, "pattern"), GLOB_LIMIT)?;
+    Ok(ToolResult::ok(call, if matches.is_empty() { "(no matches)".to_string() } else { matches.join("\n") }))
+}
+
+fn grep(call: &ToolCall, ctx: &ToolContext) -> Outcome {
+    let root = if js::truthy(arg(call, "path")) {
+        resolve_path(arg(call, "path"), ctx)?
+    } else {
+        first_workspace(ctx).map(str::to_string).unwrap_or_else(process_cwd)
+    };
+    assert_in_jail(&root, ctx)?;
+    let lines = grep_files(&root, arg(call, "pattern"), GREP_LIMIT);
+    Ok(ToolResult::ok(call, if lines.is_empty() { "(no matches)".to_string() } else { lines.join("\n") }))
+}
+
+/// What the command-log terminal is sent: control characters other than tab
+/// and newline dropped, newlines as `\r\n`.
+pub(crate) fn sanitize_for_terminal(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '\n' => out.push_str("\r\n"),
+            '\t' | '\u{20}'..='\u{7E}' => out.push(c),
+            c if u32::from(c) >= 0x80 => out.push(c),
+            _ => {}
+        }
+    }
+    out
+}
+
+async fn bash(call: &ToolCall, ctx: &ToolContext) -> Outcome {
+    let raw_command = arg(call, "command");
+    let command = js::to_string(raw_command);
+    let default_rules;
+    let rules = match &ctx.guardrails {
+        Some(r) => r.as_slice(),
+        None => {
+            default_rules = default_guardrails();
+            &default_rules
+        }
+    };
+    let decision = classify_command(&command, rules);
+    let labels = decision.matches.iter().map(|m| m.label.as_str()).collect::<Vec<_>>().join(", ");
+    // A deny guardrail is a hard floor in every mode (even YOLO).
+    if decision.action == Action::Deny {
+        return Ok(ToolResult::err(call, format!("Blocked by guardrail ({labels}).")));
+    }
+    // YOLO never prompts; Ask always prompts; Guardrails prompts on ask-rules.
+    let needs_approval = ctx.mode != ChatMode::Yolo && (asks_everything(ctx) || decision.action == Action::Ask);
+    if needs_approval {
+        let reason = if labels.is_empty() { "Run command" } else { labels.as_str() };
+        if !approve(call, ctx, reason, decision.severity).await {
+            return Ok(ToolResult::err(call, "Command not approved by user."));
+        }
+    }
+    let cwd = if js::truthy(arg(call, "cwd")) {
+        resolve_path(arg(call, "cwd"), ctx)?
+    } else {
+        first_workspace(ctx).map(str::to_string).unwrap_or_else(process_cwd)
+    };
+
+    let workspace_id = ctx.workspaces.iter().find(|w| w.path == cwd).map(|w| w.id.clone());
+    let mirror = |text: &str| {
+        if let (Some(sid), Some(log)) = (session(ctx), ctx.command_log.as_ref()) {
+            log.append(sid, workspace_id.as_deref(), &sanitize_for_terminal(text));
+        }
+    };
+    mirror(&format!("$ {command}\n"));
+
+    let outcome = match raw_command {
+        // `exec` validates its argument before spawning anything.
+        Some(Value::String(cmd)) => {
+            ctx.runner
+                .run(RunRequest {
+                    command: cmd,
+                    cwd: &cwd,
+                    limits: ctx.limits,
+                    cancel: &ctx.cancel,
+                    on_output: &mirror,
+                })
+                .await
+        }
+        other => crate::bash::RunOutcome {
+            failure: Some(Failure::Error(js::invalid_string_arg("command", other))),
+            ..Default::default()
+        },
+    };
+
+    let cap = ctx.limits.output_cap;
+    Ok(match outcome.failure {
+        None => {
+            let mut output = outcome.stdout.clone();
+            if !outcome.stderr.is_empty() {
+                output.push_str("\n[stderr]\n");
+                output.push_str(&outcome.stderr);
+            }
+            let output = js::slice16(&output, cap);
+            if outcome.stdout.is_empty() && outcome.stderr.is_empty() {
+                mirror("(no output)\n");
+            }
+            ToolResult::ok(call, if output.is_empty() { "(no output)" } else { output })
+        }
+        Some(Failure::Error(message)) => {
+            let output = format!("Command failed: {message}\n{}{}", outcome.stdout, outcome.stderr);
+            mirror("[command failed]\n");
+            ToolResult::err(call, js::slice16(&output, cap))
+        }
+        Some(Failure::Cancelled) => {
+            let output = format!("Command cancelled.\n{}{}", outcome.stdout, outcome.stderr);
+            mirror("[command cancelled]\n");
+            ToolResult::err(call, js::slice16(&output, cap))
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitizes_like_the_ts_mirror() {
+        assert_eq!(sanitize_for_terminal("a\r\nb\x1b[0m\x7f\tc😀"), "a\r\nb[0m\tc😀");
+    }
+}

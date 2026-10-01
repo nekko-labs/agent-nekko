@@ -1,0 +1,7534 @@
+{
+  "openai": {
+    "minimal": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent.\nBe terse."
+          },
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent."
+          },
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "https://example.com/cat.png"
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,line\nbreak"
+                }
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "sys"
+          },
+          {
+            "role": "system",
+            "content": "An old system message kept in history."
+          },
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": "Let me look at it first.",
+            "tool_calls": [
+              {
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                  "name": "read_file",
+                  "arguments": "{\"path\":\"src/parser.ts\",\"lines\":[1,2.5],\"opts\":{\"exact\":1,\"big\":1e+21}}"
+                }
+              },
+              {
+                "id": "call_2",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{\"command\":\"npm test -- parser\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "export function parse() {}"
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_2",
+            "content": "Error: 1 failing"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_3",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_3",
+            "content": ""
+          },
+          {
+            "role": "tool",
+            "content": "orphan tool output"
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.5,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "Réponds en français 🐱"
+          },
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                  "name": "write",
+                  "arguments": "{\"text\":\"ñ 😀 \\\"q\\\" \\\\ \\u0001\",\"n\":-0.5}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": "wrote 😀"
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 32,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "openrouter": {
+    "minimal": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent.\nBe terse."
+          },
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent."
+          },
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "https://example.com/cat.png"
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,line\nbreak"
+                }
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "sys"
+          },
+          {
+            "role": "system",
+            "content": "An old system message kept in history."
+          },
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": "Let me look at it first.",
+            "tool_calls": [
+              {
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                  "name": "read_file",
+                  "arguments": "{\"path\":\"src/parser.ts\",\"lines\":[1,2.5],\"opts\":{\"exact\":1,\"big\":1e+21}}"
+                }
+              },
+              {
+                "id": "call_2",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{\"command\":\"npm test -- parser\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "export function parse() {}"
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_2",
+            "content": "Error: 1 failing"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_3",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_3",
+            "content": ""
+          },
+          {
+            "role": "tool",
+            "content": "orphan tool output"
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.5,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "Réponds en français 🐱"
+          },
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                  "name": "write",
+                  "arguments": "{\"text\":\"ñ 😀 \\\"q\\\" \\\\ \\u0001\",\"n\":-0.5}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": "wrote 😀"
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 32,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "lmstudio": {
+    "minimal": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent.\nBe terse."
+          },
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent."
+          },
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "https://example.com/cat.png"
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,line\nbreak"
+                }
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "sys"
+          },
+          {
+            "role": "system",
+            "content": "An old system message kept in history."
+          },
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": "Let me look at it first.",
+            "tool_calls": [
+              {
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                  "name": "read_file",
+                  "arguments": "{\"path\":\"src/parser.ts\",\"lines\":[1,2.5],\"opts\":{\"exact\":1,\"big\":1e+21}}"
+                }
+              },
+              {
+                "id": "call_2",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{\"command\":\"npm test -- parser\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "export function parse() {}"
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_2",
+            "content": "Error: 1 failing"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_3",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_3",
+            "content": ""
+          },
+          {
+            "role": "tool",
+            "content": "orphan tool output"
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.5,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "Réponds en français 🐱"
+          },
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                  "name": "write",
+                  "arguments": "{\"text\":\"ñ 😀 \\\"q\\\" \\\\ \\u0001\",\"n\":-0.5}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": "wrote 😀"
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 32,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "vllm": {
+    "minimal": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent.\nBe terse."
+          },
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent."
+          },
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "https://example.com/cat.png"
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,line\nbreak"
+                }
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "sys"
+          },
+          {
+            "role": "system",
+            "content": "An old system message kept in history."
+          },
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": "Let me look at it first.",
+            "tool_calls": [
+              {
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                  "name": "read_file",
+                  "arguments": "{\"path\":\"src/parser.ts\",\"lines\":[1,2.5],\"opts\":{\"exact\":1,\"big\":1e+21}}"
+                }
+              },
+              {
+                "id": "call_2",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{\"command\":\"npm test -- parser\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "export function parse() {}"
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_2",
+            "content": "Error: 1 failing"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_3",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_3",
+            "content": ""
+          },
+          {
+            "role": "tool",
+            "content": "orphan tool output"
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.5,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "Réponds en français 🐱"
+          },
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                  "name": "write",
+                  "arguments": "{\"text\":\"ñ 😀 \\\"q\\\" \\\\ \\u0001\",\"n\":-0.5}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": "wrote 😀"
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 32,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "llamacpp": {
+    "minimal": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent.\nBe terse."
+          },
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent."
+          },
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "https://example.com/cat.png"
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,line\nbreak"
+                }
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "sys"
+          },
+          {
+            "role": "system",
+            "content": "An old system message kept in history."
+          },
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": "Let me look at it first.",
+            "tool_calls": [
+              {
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                  "name": "read_file",
+                  "arguments": "{\"path\":\"src/parser.ts\",\"lines\":[1,2.5],\"opts\":{\"exact\":1,\"big\":1e+21}}"
+                }
+              },
+              {
+                "id": "call_2",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{\"command\":\"npm test -- parser\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "export function parse() {}"
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_2",
+            "content": "Error: 1 failing"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_3",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_3",
+            "content": ""
+          },
+          {
+            "role": "tool",
+            "content": "orphan tool output"
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.5,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "Réponds en français 🐱"
+          },
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                  "name": "write",
+                  "arguments": "{\"text\":\"ñ 😀 \\\"q\\\" \\\\ \\u0001\",\"n\":-0.5}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": "wrote 😀"
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 32,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "openai-compat": {
+    "minimal": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent.\nBe terse."
+          },
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent."
+          },
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=="
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "https://example.com/cat.png"
+                }
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "data:image/png;base64,line\nbreak"
+                }
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "sys"
+          },
+          {
+            "role": "system",
+            "content": "An old system message kept in history."
+          },
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": "Let me look at it first.",
+            "tool_calls": [
+              {
+                "id": "call_1",
+                "type": "function",
+                "function": {
+                  "name": "read_file",
+                  "arguments": "{\"path\":\"src/parser.ts\",\"lines\":[1,2.5],\"opts\":{\"exact\":1,\"big\":1e+21}}"
+                }
+              },
+              {
+                "id": "call_2",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{\"command\":\"npm test -- parser\"}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_1",
+            "content": "export function parse() {}"
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_2",
+            "content": "Error: 1 failing"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "call_3",
+                "type": "function",
+                "function": {
+                  "name": "bash",
+                  "arguments": "{}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "call_3",
+            "content": ""
+          },
+          {
+            "role": "tool",
+            "content": "orphan tool output"
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.5,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "system",
+            "content": "Réponds en français 🐱"
+          },
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": null,
+            "tool_calls": [
+              {
+                "id": "c1",
+                "type": "function",
+                "function": {
+                  "name": "write",
+                  "arguments": "{\"text\":\"ñ 😀 \\\"q\\\" \\\\ \\u0001\",\"n\":-0.5}"
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "tool_call_id": "c1",
+            "content": "wrote 😀"
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "m",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 32,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "ollama": {
+    "minimal": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "m",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "qwen3-coder-30b",
+        "stream": true,
+        "options": {
+          "temperature": 0.2,
+          "num_predict": 2048
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent.\nBe terse."
+          },
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "m",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a coding agent."
+          },
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "gemma-4-12b",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "What is in these?",
+            "images": [
+              "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+              "/9j/4AAQSkZJRgABAQ==",
+              "https://example.com/cat.png",
+              "line\nbreak"
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "m",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "sys"
+          },
+          {
+            "role": "system",
+            "content": "An old system message kept in history."
+          },
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": "Let me look at it first.",
+            "tool_calls": [
+              {
+                "function": {
+                  "name": "read_file",
+                  "arguments": {
+                    "path": "src/parser.ts",
+                    "lines": [
+                      1,
+                      2.5
+                    ],
+                    "opts": {
+                      "exact": 1,
+                      "big": 1e+21
+                    }
+                  }
+                }
+              },
+              {
+                "function": {
+                  "name": "bash",
+                  "arguments": {
+                    "command": "npm test -- parser"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "export function parse() {}"
+          },
+          {
+            "role": "tool",
+            "content": "Error: 1 failing"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "function": {
+                  "name": "bash",
+                  "arguments": {}
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": ""
+          },
+          {
+            "role": "tool",
+            "content": "orphan tool output"
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read_file",
+              "description": "Read a file from the workspace.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a shell command.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "timeout": {
+                    "type": "number",
+                    "default": 120
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "think": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "qwen3-8b",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "think": false,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-opus-5-5",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "options": {
+          "temperature": 0.2
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "options": {
+          "temperature": 0.5
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "options": {
+          "temperature": 1
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-opus-5",
+        "stream": true,
+        "options": {
+          "temperature": 1
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "stream": true,
+        "options": {
+          "temperature": 1
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "stream": true,
+        "options": {
+          "temperature": 1
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-fable-5-1",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "stream": true,
+        "options": {
+          "temperature": 1
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "m",
+        "stream": true,
+        "options": {
+          "temperature": 0
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "m",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "m",
+        "stream": true,
+        "options": {
+          "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "system",
+            "content": "Réponds en français 🐱"
+          },
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+              {
+                "function": {
+                  "name": "write",
+                  "arguments": {
+                    "text": "ñ 😀 \"q\" \\ \u0001",
+                    "n": -0.5
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "role": "tool",
+            "content": "wrote 😀"
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "m",
+        "stream": true,
+        "options": {
+          "temperature": 0.7,
+          "num_predict": 32
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "anthropic": {
+    "minimal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "max_tokens": 2048,
+        "stream": true,
+        "temperature": 0.2,
+        "system": "You are a coding agent.\nBe terse.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "name": "read_file",
+            "description": "Read a file from the workspace.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          },
+          {
+            "name": "bash",
+            "description": "Run a shell command.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "number",
+                  "default": 120
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": "You are a coding agent.",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "image/png",
+                  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "image/jpeg",
+                  "data": "/9j/4AAQSkZJRgABAQ=="
+                }
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "application/octet-stream",
+                  "data": "https://example.com/cat.png"
+                }
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "application/octet-stream",
+                  "data": "data:image/png;base64,line\nbreak"
+                }
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": "sys",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Let me look at it first."
+              },
+              {
+                "type": "tool_use",
+                "id": "call_1",
+                "name": "read_file",
+                "input": {
+                  "path": "src/parser.ts",
+                  "lines": [
+                    1,
+                    2.5
+                  ],
+                  "opts": {
+                    "exact": 1,
+                    "big": 1e+21
+                  }
+                }
+              },
+              {
+                "type": "tool_use",
+                "id": "call_2",
+                "name": "bash",
+                "input": {
+                  "command": "npm test -- parser"
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_1",
+                "content": "export function parse() {}"
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_2",
+                "content": "Error: 1 failing"
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "call_3",
+                "name": "bash",
+                "input": {}
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_3",
+                "content": ""
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "name": "read_file",
+            "description": "Read a file from the workspace.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          },
+          {
+            "name": "bash",
+            "description": "Run a shell command.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "number",
+                  "default": 120
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "medium"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "medium"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "low"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "medium"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "xhigh"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "max"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "high"
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 0,
+        "stream": true,
+        "temperature": 0,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": "",
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": "Réponds en français 🐱",
+        "messages": [
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "c1",
+                "name": "write",
+                "input": {
+                  "text": "ñ 😀 \"q\" \\ \u0001",
+                  "n": -0.5
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "c1",
+                "content": "wrote 😀"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 32,
+        "stream": true,
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "anthropic-sub": {
+    "minimal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "max_tokens": 2048,
+        "stream": true,
+        "temperature": 0.2,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          },
+          {
+            "type": "text",
+            "text": "You are a coding agent.\nBe terse."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "List the files."
+          }
+        ],
+        "tools": [
+          {
+            "name": "read_file",
+            "description": "Read a file from the workspace.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          },
+          {
+            "name": "bash",
+            "description": "Run a shell command.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "number",
+                  "default": 120
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          },
+          {
+            "type": "text",
+            "text": "You are a coding agent."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Do the thing"
+          },
+          {
+            "role": "user",
+            "content": "You have reached the step limit. Answer now."
+          }
+        ],
+        "tools": []
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "image/png",
+                  "data": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+                }
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "image/jpeg",
+                  "data": "/9j/4AAQSkZJRgABAQ=="
+                }
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "application/octet-stream",
+                  "data": "https://example.com/cat.png"
+                }
+              },
+              {
+                "type": "image",
+                "source": {
+                  "type": "base64",
+                  "media_type": "application/octet-stream",
+                  "data": "data:image/png;base64,line\nbreak"
+                }
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "A cat and a dot."
+          },
+          {
+            "role": "user",
+            "content": "And no images here"
+          }
+        ]
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          },
+          {
+            "type": "text",
+            "text": "sys"
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Fix the failing test in parser.ts"
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Let me look at it first."
+              },
+              {
+                "type": "tool_use",
+                "id": "call_1",
+                "name": "read_file",
+                "input": {
+                  "path": "src/parser.ts",
+                  "lines": [
+                    1,
+                    2.5
+                  ],
+                  "opts": {
+                    "exact": 1,
+                    "big": 1e+21
+                  }
+                }
+              },
+              {
+                "type": "tool_use",
+                "id": "call_2",
+                "name": "bash",
+                "input": {
+                  "command": "npm test -- parser"
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_1",
+                "content": "export function parse() {}"
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_2",
+                "content": "Error: 1 failing"
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "call_3",
+                "name": "bash",
+                "input": {}
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "call_3",
+                "content": ""
+              }
+            ]
+          },
+          {
+            "role": "assistant",
+            "content": "Fixed: the parser now handles empty input."
+          },
+          {
+            "role": "user",
+            "content": "Thanks!"
+          }
+        ],
+        "tools": [
+          {
+            "name": "read_file",
+            "description": "Read a file from the workspace.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          },
+          {
+            "name": "bash",
+            "description": "Run a shell command.",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "number",
+                  "default": 120
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Why is the sky blue?"
+          }
+        ]
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "high"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "medium"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "medium"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "low"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "medium"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "xhigh"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "max"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 1,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 1,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "high"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "high"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "max_tokens": 4096,
+        "stream": true,
+        "output_config": {
+          "effort": "high"
+        },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 0,
+        "stream": true,
+        "temperature": 0,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          },
+          {
+            "type": "text",
+            "text": "Réponds en français 🐱"
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+          },
+          {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "tool_use",
+                "id": "c1",
+                "name": "write",
+                "input": {
+                  "text": "ñ 😀 \"q\" \\ \u0001",
+                  "n": -0.5
+                }
+              }
+            ]
+          },
+          {
+            "role": "user",
+            "content": [
+              {
+                "type": "tool_result",
+                "tool_use_id": "c1",
+                "content": "wrote 😀"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "m",
+        "max_tokens": 32,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "Name this chat"
+          }
+        ]
+      }
+    }
+  },
+  "chatgpt": {
+    "minimal": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "m",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "system-and-tools": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "qwen3-coder-30b",
+        "instructions": "You are a coding agent.\nBe terse.",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "List the files."
+              }
+            ]
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "name": "read_file",
+            "description": "Read a file from the workspace.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          },
+          {
+            "type": "function",
+            "name": "bash",
+            "description": "Run a shell command.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "number",
+                  "default": 120
+                }
+              }
+            }
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 0.2,
+        "max_output_tokens": 2048
+      }
+    },
+    "wrap-up-no-tools": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "m",
+        "instructions": "You are a coding agent.",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Do the thing"
+              }
+            ]
+          },
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "You have reached the step limit. Answer now."
+              }
+            ]
+          }
+        ],
+        "tools": [],
+        "stream": true,
+        "store": false
+      }
+    },
+    "images": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "gemma-4-12b",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "What is in these?"
+              },
+              {
+                "type": "input_image",
+                "image_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+              },
+              {
+                "type": "input_image",
+                "image_url": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=="
+              },
+              {
+                "type": "input_image",
+                "image_url": "https://example.com/cat.png"
+              },
+              {
+                "type": "input_image",
+                "image_url": "data:image/png;base64,line\nbreak"
+              }
+            ]
+          },
+          {
+            "type": "message",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "A cat and a dot."
+              }
+            ]
+          },
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "And no images here"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "tool-round-trip": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "m",
+        "instructions": "sys",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Fix the failing test in parser.ts"
+              }
+            ]
+          },
+          {
+            "type": "message",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Let me look at it first."
+              }
+            ]
+          },
+          {
+            "type": "function_call",
+            "call_id": "call_1",
+            "name": "read_file",
+            "arguments": "{\"path\":\"src/parser.ts\",\"lines\":[1,2.5],\"opts\":{\"exact\":1,\"big\":1e+21}}"
+          },
+          {
+            "type": "function_call",
+            "call_id": "call_2",
+            "name": "bash",
+            "arguments": "{\"command\":\"npm test -- parser\"}"
+          },
+          {
+            "type": "function_call_output",
+            "call_id": "call_1",
+            "output": "export function parse() {}"
+          },
+          {
+            "type": "function_call_output",
+            "call_id": "call_2",
+            "output": "Error: 1 failing"
+          },
+          {
+            "type": "function_call",
+            "call_id": "call_3",
+            "name": "bash",
+            "arguments": "{}"
+          },
+          {
+            "type": "function_call_output",
+            "call_id": "call_3",
+            "output": ""
+          },
+          {
+            "type": "message",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "output_text",
+                "text": "Fixed: the parser now handles empty input."
+              }
+            ]
+          },
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Thanks!"
+              }
+            ]
+          }
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "name": "read_file",
+            "description": "Read a file from the workspace.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path"
+              ]
+            }
+          },
+          {
+            "type": "function",
+            "name": "bash",
+            "description": "Run a shell command.",
+            "parameters": {
+              "type": "object",
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "number",
+                  "default": 120
+                }
+              }
+            }
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "think-on": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Why is the sky blue?"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "reasoning": {
+          "summary": "auto"
+        }
+      }
+    },
+    "think-off": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "qwen3-8b",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Why is the sky blue?"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "opus-5-normal": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 0.7
+      }
+    },
+    "opus-5-5-normal": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 0.7
+      }
+    },
+    "opus-5-5-unset": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-opus-5-5",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "opus-5-low": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 0.2
+      }
+    },
+    "opus-5-medium": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 0.5
+      }
+    },
+    "opus-5-xhigh": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 1
+      }
+    },
+    "opus-5-max": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-opus-5",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 1
+      }
+    },
+    "sonnet-4-6-high": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-sonnet-4-6",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 1
+      }
+    },
+    "haiku-4-5-max": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-haiku-4-5-20251001",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 1
+      }
+    },
+    "fable-normal": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-fable-5-1",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "opus-4-dated": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "claude-opus-4-20250514",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 1
+      }
+    },
+    "vendor-prefixed": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "anthropic/Claude-Opus-5",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "zero-temperature-zero-cap": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "m",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "temperature": 0
+      }
+    },
+    "empty-system": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "m",
+        "instructions": "",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "unicode": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "m",
+        "instructions": "Réponds en français 🐱",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀"
+              }
+            ]
+          },
+          {
+            "type": "function_call",
+            "call_id": "c1",
+            "name": "write",
+            "arguments": "{\"text\":\"ñ 😀 \\\"q\\\" \\\\ \\u0001\",\"n\":-0.5}"
+          },
+          {
+            "type": "function_call_output",
+            "call_id": "c1",
+            "output": "wrote 😀"
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "purpose": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "m",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "Name this chat"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "max_output_tokens": 32
+      }
+    }
+  }
+}

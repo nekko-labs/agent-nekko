@@ -66,6 +66,7 @@ export function PromptAnalyzer({
   contextItems = [],
   activeWorkspaceIds = [],
   onFill,
+  canModelFill = false,
 }: {
   text: string;
   sessionId?: string;
@@ -76,9 +77,14 @@ export function PromptAnalyzer({
   activeWorkspaceIds?: string[];
   /** Insert a starter snippet for a missing part into the draft. */
   onFill?: (fill: PartFill) => void;
+  /** A provider is configured, so missing-part chips can ask the model to
+   *  draft the snippet from this prompt (deterministic text is the fallback). */
+  canModelFill?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [specDocs, setSpecDocs] = useState<Record<string, SpecDocStatus[]>>({});
+  /** Part id whose model fill is in flight, for the chip's busy state. */
+  const [filling, setFilling] = useState<string | null>(null);
 
   const a = useMemo(() => analyzePrompt(text), [text]);
 
@@ -152,6 +158,31 @@ export function PromptAnalyzer({
   const issues = a.findings.length;
   const refCount = mentionedIds.length + looseFolders.length;
   const showAnnotated = a.findings.some((f) => f.start != null) || mentions.length > 0;
+
+  /**
+   * Click-to-fill for a missing part. With a provider the model drafts the
+   * snippet from the prompt itself (a "Role" chip on a code prompt writes a
+   * code persona); anything unavailable falls back to the deterministic text.
+   */
+  const fillPart = async (p: { id: string; label: string }) => {
+    if (filling || !onFill) return;
+    const fallback = suggestPartFill(p.id, text);
+    const placement: PartFill['placement'] = p.id === 'role' ? 'start' : 'end';
+    if (!canModelFill || !sessionId) {
+      if (fallback) onFill(fallback);
+      return;
+    }
+    setFilling(p.id);
+    try {
+      const snippet = await window.nekko.fillPromptPart(sessionId, p.id, text);
+      const fill: PartFill | null = snippet ? { snippet, placement } : fallback;
+      if (fill) onFill(fill);
+    } catch {
+      if (fallback) onFill(fallback);
+    } finally {
+      setFilling(null);
+    }
+  };
 
   return (
     <div className={`collapse-wrap ${active ? '' : 'collapsed'}`} aria-hidden={!active}>
@@ -249,7 +280,7 @@ export function PromptAnalyzer({
                 );
               }
               const fill = onFill ? suggestPartFill(p.id, text) : null;
-              if (!fill) {
+              if (!fill && !(canModelFill && sessionId)) {
                 return (
                   <span
                     key={p.id}
@@ -261,14 +292,20 @@ export function PromptAnalyzer({
                   </span>
                 );
               }
+              const busy = filling === p.id;
               return (
                 <button
                   key={p.id}
-                  title={`${p.hint} Click to insert: "${fill.snippet}"`}
-                  className="rounded-full border border-dashed border-line px-2 py-0.5 text-[11px] text-ink-faint transition-colors hover:border-solid hover:border-accent hover:text-accent"
-                  onClick={() => onFill?.(fill)}
+                  disabled={busy}
+                  title={
+                    canModelFill && sessionId
+                      ? `${p.hint} Click to have the model draft it for this prompt.`
+                      : `${p.hint} Click to insert: "${fill?.snippet}"`
+                  }
+                  className="rounded-full border border-dashed border-line px-2 py-0.5 text-[11px] text-ink-faint transition-colors hover:border-solid hover:border-accent hover:text-accent disabled:opacity-60"
+                  onClick={() => void fillPart(p)}
                 >
-                  + {p.label}
+                  + {p.label}{busy && <span className="dots" />}
                 </button>
               );
             })}

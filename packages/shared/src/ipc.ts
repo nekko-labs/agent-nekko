@@ -2,7 +2,7 @@
 
 import type { AppSettings, UsageSummary } from './settings.js';
 import type { ProviderConfig, ModelInfo } from './models.js';
-import type { Session, SendOptions, AgentEvent, PendingInput } from './chat.js';
+import type { Session, SendOptions, AgentEvent, PendingInput, ReplySuggestions } from './chat.js';
 import type { TerminalInfo, TerminalSnapshot, ShellOption } from './terminal.js';
 import type { ContextBundle } from './context.js';
 import type { MemoryEntry, MemoryScope } from './memory.js';
@@ -53,6 +53,8 @@ export const IpcChannels = {
   runtimeAutoFit: 'runtime:autoFit',
 
   engineStatus: 'engine:status',
+  engineInstallPreview: 'engine:installPreview',
+  engineGenerateImage: 'engine:generateImage',
   engineInstall: 'engine:install',
   engineUninstall: 'engine:uninstall',
   engineSettingsSave: 'engine:settings',
@@ -64,6 +66,21 @@ export const IpcChannels = {
   engineCatalogModel: 'engine:catalogModel',
   engineCatalogDetail: 'engine:catalogDetail',
   engineDownloadModel: 'engine:downloadModel',
+  engineDownloadCompanions: 'engine:downloadCompanions',
+  engineImageCompanions: 'engine:imageCompanions',
+  engineDownloadImageCompanions: 'engine:downloadImageCompanions',
+  decisionsCatalog: 'decisions:catalog',
+  decisionsModels: 'decisions:models',
+  decisionsDownload: 'decisions:download',
+  decisionsDelete: 'decisions:delete',
+  decisionsAddFolder: 'decisions:addFolder',
+  decisionsStatus: 'decisions:status',
+  decisionsLoad: 'decisions:load',
+  decisionsUnload: 'decisions:unload',
+  decisionsRun: 'decisions:run',
+  decisionsCheckTypesafe: 'decisions:checkTypesafe',
+  engineSetResidentTtl: 'engine:residentTtl',
+  engineSetAutoload: 'engine:autoload',
   engineFolders: 'engine:folders',
   engineFoldersSave: 'engine:foldersSave',
   apiServerStatus: 'apiServer:status',
@@ -81,15 +98,22 @@ export const IpcChannels = {
   systemStats: 'system:stats',
 
   sessionsList: 'sessions:list',
+  sessionsSummaries: 'sessions:summaries',
   sessionCreate: 'session:create',
   sessionGet: 'session:get',
   sessionDelete: 'session:delete',
   sessionSetWorkspace: 'session:setWorkspace',
   sessionSetSupportingWorkspaces: 'session:setSupportingWorkspaces',
   chatSend: 'chat:send',
+  chatGenerateImage: 'chat:generateImage',
+  sessionImages: 'session:images',
   chatAbort: 'chat:abort',
+  chatCompact: 'chat:compact',
+  chatCancelCompaction: 'chat:cancelCompaction',
   chatQueue: 'chat:queue',
   chatDequeue: 'chat:dequeue',
+  chatSuggest: 'chat:suggest',
+  chatFillPrompt: 'chat:fillPrompt',
   toolApprove: 'tool:approve',
   chatAnswer: 'chat:answer',
   chatPending: 'chat:pending',
@@ -227,6 +251,7 @@ export const IpcChannels = {
   remoteEnable: 'remote:enable',
   remoteDisable: 'remote:disable',
   remoteStatus: 'remote:status',
+  messagingStatus: 'messaging:status',
   remotePairing: 'remote:pairing',
   remotePair: 'remote:pair',
   remoteDevices: 'remote:devices',
@@ -331,9 +356,11 @@ export interface NekkoApi {
   /** The built-in engine: install state, server state, resident models. */
   engineStatus(): Promise<import('./engine.js').EngineStatus>;
   /** Download and unpack a llama.cpp build. Always user-initiated. */
-  engineInstall(buildId?: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  engineInstall(buildId?: string, runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  engineInstallPreview(runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string): Promise<import('./engine.js').EngineInstallPreview | null>;
+  engineGenerateImage(request: import('./engine.js').ImageGenerationRequest): Promise<import('./engine.js').ImageGenerationResult>;
   /** Remove a managed engine install. An external binary is never touched. */
-  engineUninstall(): Promise<{ ok: boolean; message: string }>;
+  engineUninstall(runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string }>;
   /** Change the engine's server settings; a port or binding change restarts it. */
   engineSettingsSave(
     patch: Partial<import('./engine.js').EngineSettings>,
@@ -349,7 +376,8 @@ export interface NekkoApi {
   /** Save per-model load settings, applied every time it loads. */
   engineSaveModelPreset(id: string, preset: import('./engine.js').EngineLoadPreset): Promise<void>;
   /** The starter list, or search results when a query is given. */
-  engineCatalog(query?: string): Promise<import('./engine.js').CatalogModel[]>;
+  /** `format` `mlx` searches MLX checkpoints instead of GGUF repos. */
+  engineCatalog(query?: string, format?: 'gguf' | 'mlx'): Promise<import('./engine.js').CatalogModel[]>;
   /** One catalog repo's detail, including every quantization it publishes. */
   engineCatalogModel(id: string): Promise<import('./engine.js').CatalogModel | null>;
   /** The same, plus the model card, for a model's own page. */
@@ -365,6 +393,31 @@ export interface NekkoApi {
     modelId: string,
     quantLabel: string,
   ): Promise<{ ok: boolean; message: string; jobId?: string }>;
+  /**
+   * Fetch the files a model already on disk is missing: its projector (vision)
+   * and small config sidecars, into a Nekko-owned companions dir. Borrowed
+   * folders stay read-only; the engine finds the sidecars at load time.
+   */
+  engineDownloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  /** An image model's text encoders and VAE: which it has, which it lacks, and their size. */
+  engineImageCompanions(modelId: string): Promise<import('./engine.js').ImageCompanionStatus | null>;
+  /** Fetch the text encoders and VAE an image model is missing. */
+  engineDownloadImageCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
+  /* Decision models: Laya locally, TypeSafe Jev hosted. */
+  decisionsCatalog(): Promise<import('./decisions.js').DecisionCatalogEntry[]>;
+  decisionsModels(): Promise<import('./decisions.js').InstalledDecisionModel[]>;
+  decisionsDownload(catalogId: string, precision?: import('./decisions.js').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsDelete(id: string): Promise<{ ok: boolean; message: string }>;
+  decisionsAddFolder(path: string): Promise<{ ok: boolean; message: string }>;
+  decisionsStatus(): Promise<import('./decisions.js').DecisionStatus>;
+  decisionsLoad(id: string, precision?: import('./decisions.js').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsUnload(): Promise<{ ok: boolean; message: string }>;
+  decisionsRun(provider: import('./decisions.js').DecisionProvider, request: import('./decisions.js').DecisionRequest): Promise<import('./decisions.js').DecisionResponse>;
+  decisionsCheckTypesafe(): Promise<{ ok: boolean; message: string }>;
+  /** Set a resident model's idle TTL in seconds (0 keeps it loaded). */
+  engineSetResidentTtl(modelId: string, ttlSeconds: number): Promise<{ ok: boolean; message: string }>;
+  /** Add or remove a model from the list loaded when the engine starts. */
+  engineSetAutoload(modelId: string, enabled: boolean): Promise<import('./engine.js').EngineSettings>;
   /** Everything downloading or recently downloaded. */
   engineDownloads(): Promise<import('./engine.js').DownloadJob[]>;
   engineCancelDownload(id: string): Promise<void>;
@@ -406,6 +459,12 @@ export interface NekkoApi {
   getSystemStats(): Promise<import('./monitor.js').SystemStats | null>;
 
   listSessions(): Promise<Session[]>;
+  /**
+   * Every chat without its transcript: what the sidebar, the board and the
+   * insights read. Cheap enough to call on every refresh; `getSession` fetches
+   * a transcript when a chat is opened.
+   */
+  listSessionSummaries(): Promise<import('./session-summary.js').SessionSummary[]>;
   createSession(workspaceId?: string): Promise<Session>;
   getSession(id: string): Promise<Session | null>;
   deleteSession(id: string): Promise<void>;
@@ -413,11 +472,33 @@ export interface NekkoApi {
   setSessionSupportingWorkspaces(sessionId: string, workspaceIds: string[]): Promise<Session | null>;
   setSessionAttachments(sessionId: string, paths: string[]): Promise<Session | null>;
   sendChat(opts: SendOptions): Promise<void>;
+  /** One image-generation turn: the prompt and the picture are appended to the chat. */
+  generateImageTurn(opts: import('./chat.js').ImageTurnOptions): Promise<void>;
+  /** The newest pictures an image chat made, newest last, keyed by message id. */
+  sessionImages(sessionId: string, limit: number): Promise<Array<{ messageId: string; src: string }>>;
   abortChat(sessionId: string): Promise<void>;
+  compactSession(sessionId: string): Promise<Session>;
+  cancelSessionCompaction(sessionId: string): Promise<void>;
   /** Append a prompt to a chat's run-queue (runs when the current turn ends). */
   queuePrompt(sessionId: string, text: string): Promise<Session | null>;
   /** Remove a queued prompt by index. */
   dequeuePrompt(sessionId: string, index: number): Promise<Session | null>;
+  /**
+   * Model-written next-step ideas for a chat that just answered: a few short
+   * follow-ups for one-click chips plus the single most likely next message
+   * (shown as composer ghost text). A sideband call on the chat's own provider
+   * and model; null when there is nothing to suggest from (no reply yet,
+   * unattended run, no usable provider). Never persists anything.
+   */
+  suggestReplies(sessionId: string): Promise<ReplySuggestions | null>;
+  /**
+   * Model-drafted snippet for a prompt part the composer is missing (the
+   * analyzer's click-to-fill chips). A sideband call on the chat's own provider
+   * and model; null when there is no usable provider or the model returns
+   * nothing usable, in which case the deterministic starter text is the
+   * fallback. Never persists anything.
+   */
+  fillPromptPart(sessionId: string, part: string, draft: string): Promise<string | null>;
   approveTool(sessionId: string, toolCallId: string, approved: boolean): Promise<void>;
   /**
    * Answer an `ask_user` call, which unblocks the turn that asked. Passing no
@@ -474,7 +555,7 @@ export interface NekkoApi {
   specPath(sessionId: string): Promise<string | null>;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'thinking' | 'providerId' | 'modelId' | 'plan'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams'>>,
   ): Promise<Session | null>;
   truncateSession(id: string, messageId: string): Promise<Session | null>;
   /** Delete chats within a window; returns how many were removed. */
@@ -623,11 +704,13 @@ export interface NekkoApi {
   oauthStatus(providerConfigId: string): Promise<OAuthStatus>;
   oauthSignOut(providerConfigId: string): Promise<void>;
   /** Import tokens from the official CLI credential files without returning the secrets. */
-  importCliAuth(): Promise<{ claude: boolean; chatgpt: boolean }>;
+  importCliAuth(): Promise<Record<OAuthProvider, boolean>>;
 
   enableRemote(relayUrl: string): Promise<import('./remote.js').RemoteStatus>;
   disableRemote(): Promise<import('./remote.js').RemoteStatus>;
   getRemoteStatus(): Promise<import('./remote.js').RemoteStatus>;
+  /** Inbound messaging channels (Telegram bot, …): live per-channel state. */
+  getMessagingStatus(): Promise<import('./messaging.js').MessagingStatus>;
   getRemotePairing(): Promise<import('./remote.js').RemotePairing | null>;
   /** Mint a short-lived single-use pairing code for enrolling a new device. */
   startRemotePairing(): Promise<import('./remote.js').PairingGrant>;
@@ -659,6 +742,17 @@ export interface NekkoApi {
   onIndexProgress(cb: (s: IndexStatus) => void): () => void;
   onUpdateEvent(cb: (u: UpdateInfo) => void): () => void;
   onTerminalEvent(cb: (e: import('./terminal.js').TerminalEvent) => void): () => void;
+  /**
+   * One terminal's raw byte stream straight from the engine daemon, with
+   * flow control: output arrives at most once per frame, and a flood waits
+   * for `ack` instead of piling up. Resolves null where there is no daemon
+   * (the web edition, or the desktop app running without one); callers then
+   * use `onTerminalEvent` and `writeTerminal`.
+   */
+  openTerminalStream?(
+    id: string,
+    handlers: import('./terminal.js').TerminalStreamHandlers,
+  ): Promise<import('./terminal.js').TerminalStream | null>;
   /** Fires when a session's tracked file changes shift (after an agent edit/accept). */
   onChangesUpdated(cb: (e: { sessionId: string }) => void): () => void;
   /** Fires when the automation-task list changes (created/updated/fired/deleted). */

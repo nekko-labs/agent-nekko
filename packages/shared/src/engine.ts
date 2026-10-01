@@ -13,7 +13,8 @@
  * between a wrapper and a model server.
  */
 
-import type { KvCacheDtype } from './capacity.js';
+import type { FitVerdict, KvCacheDtype } from './capacity.js';
+import { ENGINE_PORT_DEFAULT } from './models.js';
 import type { ResidentModel } from './runtimes.js';
 
 /** Where an engine binary came from. */
@@ -75,6 +76,54 @@ export interface EngineInstall {
   recommended?: EngineBuild;
 }
 
+export interface EngineInstallPreview {
+  runtime: 'llama' | 'diffusion' | 'mlx';
+  version: string;
+  build: EngineBuild;
+  sizeBytes: number;
+  files: Array<{ name: string; sizeBytes: number }>;
+}
+
+export interface ImageGenerationRequest {
+  modelId: string;
+  prompt: string;
+  width: number;
+  height: number;
+  steps?: number;
+  cfgScale?: number;
+  seed?: number;
+}
+
+/** The companion files a diffusion model needs: text encoders, a VAE, an LLM encoder. */
+export type ImageCompanionRole = 'clip_l' | 'clip_g' | 't5xxl' | 'vae' | 'llm' | 'taesd';
+
+/** What an image model's companion set has on disk, and what fetching the rest costs. */
+export interface ImageCompanionStatus {
+  setId: string;
+  label: string;
+  files: Array<{
+    role: ImageCompanionRole;
+    /** `repo/path` on Hugging Face. */
+    source: string;
+    bytes: number;
+    /** Needs a Hugging Face token with the license accepted. */
+    gated: boolean;
+    /** Where it is on disk, when it is. */
+    path?: string;
+    /** A gated VAE is standing in (or, without a token, will) with its small ungated approximation. */
+    usingFallback: boolean;
+  }>;
+  ready: boolean;
+  missingBytes: number;
+  /** Steps and CFG scale the family is tuned for. */
+  defaults: { steps: number; cfgScale: number };
+}
+
+export interface ImageGenerationResult {
+  created: number;
+  data: Array<{ b64_json: string }>;
+}
+
 /**
  * The engine's own server configuration, which for every other runtime lives in
  * that runtime's app. Defaults are deliberately the safe ones: loopback only, no
@@ -90,6 +139,14 @@ export interface EngineSettings {
   corsOrigins?: string;
   /** Start the router when Agent Nekko starts. */
   autoStart: boolean;
+  /**
+   * Model ids to load right after the router binds, in order.
+   *
+   * `autoStart` brings the endpoint up; this is which models are resident when
+   * it does. Each loads with its saved preset (or the planner's default), and a
+   * failure is recorded on the model rather than blocking the rest.
+   */
+  autoload?: string[];
   /** Load a model on first request rather than making the user load it first. */
   jitLoad: boolean;
   /** Evict a model after this many idle seconds. 0 keeps it resident. */
@@ -109,7 +166,7 @@ export interface EngineSettings {
 }
 
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
-  port: 11500,
+  port: ENGINE_PORT_DEFAULT,
   bind: 'local',
   autoStart: false,
   jitLoad: true,
@@ -125,6 +182,9 @@ export function engineBaseUrl(settings: Pick<EngineSettings, 'port'>): string {
 /** Everything the engine card needs in one read. */
 export interface EngineStatus {
   install: EngineInstall;
+  diffusionInstall?: EngineInstall;
+  /** MLX (Apple Silicon only); `available` is empty on any other machine. */
+  mlxInstall?: EngineInstall;
   running: boolean;
   startedAt?: number;
   resident: ResidentModel[];
@@ -132,6 +192,40 @@ export interface EngineStatus {
   log: string[];
   port: number;
   settings: EngineSettings;
+  /** What this machine has to run models in, for "will it fit" guidance. */
+  memory?: EngineMemory;
+}
+
+/**
+ * The memory a downloaded model would be loaded into.
+ *
+ * `budgetBytes` is the pool's *total*, not the free figure: the question it
+ * answers is "can this file ever be served here", not "can it be served while
+ * everything else stays open", which the fit planner answers per-load.
+ */
+export interface EngineMemory {
+  budgetBytes: number;
+  /** What the number is, so the UI can name it honestly. */
+  kind: 'vram' | 'unified' | 'ram';
+}
+
+/**
+ * Whether a download of `sizeBytes` can run in `budgetBytes` of memory.
+ *
+ * Rough on purpose and marked as such: the file size plus ~20% stands in for
+ * the true working set (weights + KV + runtime), which the GGUF planner only
+ * computes exactly once the file is on disk. Unknown inputs return 'unknown'
+ * rather than a guess wearing a verdict's clothes.
+ */
+export function downloadFitVerdict(
+  sizeBytes: number | undefined,
+  budgetBytes: number | undefined,
+): FitVerdict {
+  if (!sizeBytes || !budgetBytes) return 'unknown';
+  const need = sizeBytes * 1.2;
+  if (need <= budgetBytes * 0.55) return 'fits';
+  if (need <= budgetBytes * 0.85) return 'tight';
+  return 'wont-load';
 }
 
 /**
@@ -165,6 +259,11 @@ export interface CatalogQuant {
   extraFiles?: string[];
   /** Short note for the picker, e.g. "best balance of size and quality". */
   note?: string;
+  /**
+   * `mlx`: the whole repo is one model folder (an MLX checkpoint), and
+   * `file` plus `extraFiles` are every file it needs. Absent means GGUF.
+   */
+  format?: 'mlx';
 }
 
 /** A model as offered for download, before it exists on disk. */
@@ -183,6 +282,8 @@ export interface CatalogModel {
   downloads?: number;
   /** Set on curated entries so the starter list can be shown before any search. */
   curated?: boolean;
+  /** The curated default pick: the one to suggest when someone asks "which one". */
+  recommended?: boolean;
   /** License id when the repo declares one, so a gated model can say so. */
   license?: string;
   /** The repo needs accepted terms or a token; we surface it rather than failing mid-download. */
@@ -237,20 +338,159 @@ export interface DownloadJob {
   message?: string;
 }
 
-/** A GGUF on disk, with whatever the header told us. */
+/** What a local model file is for. This decides whether llama-server can run it at all. */
+export type ModelModality = 'chat' | 'vision' | 'embedding' | 'audio' | 'image' | 'draft' | 'unknown';
+
+/** Short labels for the modality chips in the library. */
+export const MODALITY_LABELS: Record<ModelModality, string> = {
+  chat: 'chat',
+  vision: 'vision',
+  embedding: 'embeddings',
+  audio: 'audio',
+  image: 'image gen',
+  draft: 'draft head',
+  unknown: 'unreadable',
+};
+
+/**
+ * Image-generation weights (stable-diffusion.cpp / sd.cpp territory). These are
+ * GGUF files, but the graph inside is a diffusion model: llama-server cannot
+ * serve them no matter which flags accompany the file.
+ */
+const IMAGE_GEN_ARCHS =
+  /^(sd\d?|sdxl|sd-?turbo|stable-?diffusion.*|flux.*|wuerstchen|pixart.*|ltxv.*|hidream.*|chroma.*|qwen-?image.*|z-?image.*|ovis-?image.*|wan\d.*|hunyuan.*(image|video).*|cogvideo.*)/i;
+
+/** Speech-recognition and audio weights; these need a speech engine, not an LLM server. */
+const AUDIO_ARCHS = /^(whisper.*|parakeet.*|moonshine.*|sense-?voice.*|wav2vec.*|hubert.*|seamless.*|zipformer.*)/i;
+
+/**
+ * Speculative-decoding draft heads. They only run attached to a full model
+ * (`--model-draft`), never as the served model itself.
+ */
+const DRAFT_ARCHS = /draft|eagle|medusa|lookahead|speculative/i;
+
+/** Embedding encoders. Loadable (`--embedding`), but they answer /v1/embeddings, not chat. */
+const EMBEDDING_ARCHS = /bert|embed|bge|gte-?|roberta|xlm-?roberta|nomic|jina-?v\d/i;
+
+/**
+ * Architectures llama.cpp can serve with a multimodal projector attached.
+ * A sibling `mmproj-*.gguf` is the stronger signal and is checked separately;
+ * this set catches vision models whose projector was never downloaded, so they
+ * can be labelled and warned about before anyone tries to run one.
+ */
+const VISION_ARCHS =
+  /llava|qwen\d*vl|gemma[3-9]|gemma3n|mllama|llama-?\d?.*vision|pixtral|moondream|minicpm-?v|internvl|deepseek.*(ocr|vl)|smolvlm|paligemma|idefics|phi-?\d*.*vision|kimi-?vl|glm-?\d*v|ovis|voxtral|ultravox|muse-?glimmer|nemotron.*omni/i;
+
+/**
+ * What a model file is for, from the GGUF architecture, a projector sitting
+ * beside it, and (when the header could not be read) the file's own name.
+ *
+ * `hasProjector` is evidence rather than the question: a Gemma 4 without its
+ * mmproj is still a vision model, it is just one whose eyes were never
+ * downloaded, and classifying it `vision` is what lets the UI say so.
+ */
+export function modelModality(model: {
+  architecture?: string;
+  name?: string;
+  hasProjector?: boolean;
+  readable?: boolean;
+}): ModelModality {
+  const arch = model.architecture ?? '';
+  if (arch) {
+    if (IMAGE_GEN_ARCHS.test(arch)) return 'image';
+    if (AUDIO_ARCHS.test(arch)) return 'audio';
+    if (DRAFT_ARCHS.test(arch)) return 'draft';
+    if (EMBEDDING_ARCHS.test(arch)) return 'embedding';
+    if (VISION_ARCHS.test(arch)) return 'vision';
+  }
+  if (!arch && model.readable !== false) {
+    // A name is a file name; capping it keeps these patterns linear however
+    // long a string arrives.
+    const name = (model.name ?? '').slice(0, 256);
+    if (/(?:^|[ /_-])(?:sd[123](?:[. _-]|$)|sdxl|flux[. _-]|stable[-_ ]diffusion|qwen[-_ ]image|z[-_ ]image|hidream|chroma|text-to-image|image-to-image)/i.test(name)) return 'image';
+    if (/embedding|feature-extraction|(?:^|[ /_-])bge[-_]/i.test(name)) return 'embedding';
+    if (/whisper|parakeet|automatic-speech-recognition/i.test(name)) return 'audio';
+    if (VISION_ARCHS.test(name) || /image-text-to-text|\bvision\b/i.test(name)) return 'vision';
+  }
+  if (model.hasProjector) return 'vision';
+  if (model.readable === false) {
+    // An unreadable header means we cannot trust the name either, but the
+    // common case is an old GGML whisper file renamed `.gguf`, which is at
+    // least worth labelling honestly rather than as a chat model.
+    if (/whisper|parakeet|moonshine|sense-?voice/i.test(model.name ?? '')) return 'audio';
+    return 'unknown';
+  }
+  return 'chat';
+}
+
+/**
+ * Why a model cannot be loaded here, or undefined when it can.
+ *
+ * The sentence doubles as the row's explanation and the load failure, so it
+ * names what the file actually is and where it does run rather than just
+ * refusing. `chat`, `vision` and `embedding` models are all servable;
+ * everything else llama.cpp cannot run, however the flags are set.
+ */
+export function unsupportedLoadReason(model: {
+  modality?: ModelModality;
+  name?: string;
+  readable?: boolean;
+  format?: 'gguf' | 'mlx';
+  mlxRunnable?: boolean;
+}): string | undefined {
+  const name = model.name ?? 'This model';
+  if (model.format === 'mlx') {
+    return model.mlxRunnable ? undefined : `${name} is an MLX model, which runs on Apple Silicon Macs only.`;
+  }
+  switch (model.modality ?? modelModality(model)) {
+    case 'image':
+      return `${name} is an image-generation model. The llama.cpp engine cannot serve it; it runs in stable-diffusion.cpp (the runtime LM Studio uses for image models).`;
+    case 'audio':
+      return `${name} is a speech-recognition model, which llama.cpp cannot serve. It needs a speech engine such as whisper.cpp or parakeet.cpp.`;
+    case 'draft':
+      return `${name} is a speculative-decoding draft model. It can only run attached to its full model, not on its own.`;
+    case 'unknown':
+      return `${name} is not a readable GGUF${model.readable === false ? ' (it may be an older GGML-format file)' : ''}, so the engine cannot serve it.`;
+    default:
+      return undefined;
+  }
+}
+
+/** A model on disk (a GGUF file, or an MLX model folder), with whatever it told us. */
 export interface LocalModel {
   /** `<owner>/<repo>/<file>` for a downloaded model; the file name for an imported one. */
   id: string;
   name: string;
+  /** The GGUF file, or for an MLX model its folder. */
   path: string;
+  /** Absent means GGUF, which every row was before MLX. */
+  format?: 'gguf' | 'mlx';
+  /** For an MLX model: whether this machine can run it (Apple Silicon). */
+  mlxRunnable?: boolean;
   sizeBytes: number;
   quantization?: string;
   parameterSize?: string;
   architecture?: string;
+  /** What the file is for, classified from the architecture and its companions. */
+  modality?: ModelModality;
+  /** The file parsed as GGUF v2/v3; false means the header would not read at all. */
+  readable?: boolean;
+  /** A vision model's projector was found beside the weights or in the companions dir. */
+  hasProjector?: boolean;
+  /**
+   * The last load attempt's reason for failing, kept until a load succeeds.
+   * Runtime state, filled in by the server rather than stored in the index.
+   */
+  lastLoadError?: string;
   layers?: number;
   kvHeads?: number;
   headDim?: number;
   maxContext?: number;
+  /**
+   * The GGUF embeds `tokenizer.chat_template`, so llama.cpp can prompt it with
+   * no sidecar. Absent templates fall back to a template file beside the model.
+   */
+  hasChatTemplate?: boolean;
   /** Set when the file came from the catalog rather than an import. */
   sourceRepo?: string;
   /** The folder this file was found in, or `primary` for our own models dir. */
@@ -284,9 +524,12 @@ export interface EngineLoadPreset {
   ropeFreqBase?: number;
   ropeFreqScale?: number;
   seed?: number;
+  speculative?: boolean;
+  draftModelId?: string;
   ttlSeconds?: number;
   /** The simple slider's position, kept so the two surfaces stay one state. */
   budgetFraction?: number;
+  diffusion?: { clip_l?: string; clip_g?: string; t5xxl?: string; vae?: string; llm?: string; taesd?: string; standalone?: boolean; offloadToCpu?: boolean; clipOnCpu?: boolean };
 }
 
 /* ------------------------------------------------------- model folders */
@@ -376,4 +619,23 @@ export interface ModelFolderReport {
   folders: ModelFolderStatus[];
   /** Known layouts present on disk that nobody has added yet. */
   suggestions: ModelFolderSuggestion[];
+}
+
+/**
+ * The context a model gets when nothing asked for a size: its trained maximum,
+ * capped at 64k tokens.
+ *
+ * Left to itself llama.cpp takes the trained context for every parallel slot
+ * (4 by default), so a 262k-token model asked for a million-token KV cache and
+ * `--fit` filled the GPU to within 1 GiB of full. The first flash-attention
+ * kernel then sometimes could not be loaded ("CUDA error: shared object
+ * initialization failed") and the model server died on its first request; the
+ * oversized cache also made loads take 10 to 25 s. 64k is more than an agent
+ * turn needs, and the drawer can always ask for more.
+ */
+export const ENGINE_DEFAULT_CONTEXT = 65_536;
+
+export function defaultContextTokens(model: Pick<LocalModel, 'maxContext'>): number {
+  const trained = model.maxContext && model.maxContext > 0 ? model.maxContext : ENGINE_DEFAULT_CONTEXT;
+  return Math.min(trained, ENGINE_DEFAULT_CONTEXT);
 }

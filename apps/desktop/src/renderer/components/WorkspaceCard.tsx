@@ -1,6 +1,6 @@
-import React from 'react';
-import type { PrInfo, Session, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
-import { estimateTranscriptTokens, getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@agent-nekko/shared';
+import React, { memo } from 'react';
+import type { PrInfo, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
+import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@agent-nekko/shared';
 import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
 import { useGitStatus } from '../useGitStatus.js';
@@ -78,8 +78,8 @@ function Fact({
   const fluid = grow || shrink;
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-sm px-1 py-px ${grow ? 'min-w-0 flex-1' : shrink ? 'min-w-0 shrink' : 'shrink-0'}`}
-      style={tone ? { background: `color-mix(in srgb, ${tone} 13%, transparent)`, color: tone } : undefined}
+      className={`inline-flex items-center gap-1 ${grow ? 'min-w-0 flex-1' : shrink ? 'min-w-0 shrink' : 'shrink-0'}`}
+      style={tone ? { color: tone } : undefined}
       title={title}
     >
       {icon}
@@ -125,12 +125,22 @@ function mergePrs(branchPr: PrInfo | undefined, mentioned: PrInfo[] | undefined)
   return [...out.values()];
 }
 
-export function WorkspaceCard({
+function timeAgo(ms: number): string {
+  const minutes = Math.max(0, Math.floor(ms / 60_000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+function WorkspaceCardImpl({
   workspace,
   session,
   terminal,
   status,
   isActive,
+  now,
   projects,
   subAgentCount = 0,
   onOpen,
@@ -138,11 +148,12 @@ export function WorkspaceCard({
 }: {
   workspace: Workspace;
   /** The chat the workspace is about, when it is about one. */
-  session: Session | null;
+  session: SessionSummary | null;
   /** The terminal it is about instead, for a workspace opened from a shell. */
   terminal: TerminalInfo | null;
   status: AgentStatus | undefined;
   isActive: boolean;
+  now: number;
   projects: WorkspaceFolder[];
   /** How many sub-agents this chat has spawned. */
   subAgentCount?: number;
@@ -152,6 +163,7 @@ export function WorkspaceCard({
   const providers = useStore((s) => s.providers);
   const knownModels = useStore((s) => s.models);
   const mentionedPrs = useStore((s) => (session ? s.prsBySession[session.id] : undefined));
+  const liveCtxEstimate = useStore((s) => (session ? s.sessionCtxEstimate[session.id] : undefined));
   const provider = providers.find((p) => p.id === session?.providerId);
 
   const folders = (session ? getSessionWorkspaceIds(session) : terminal?.workspaceId ? [terminal.workspaceId] : [])
@@ -169,15 +181,20 @@ export function WorkspaceCard({
   // long run actually hits, and it is per chat, where a plan's usage limit is
   // per account and has its own Capacity panel.
   const modelInfo = session?.modelId ? knownModels.find((m) => m.id === session.modelId) : undefined;
-  const ctxUsed = session && session.messages.length ? estimateTranscriptTokens(session.messages) : 0;
+  const ctxUsed = status === 'working' && liveCtxEstimate != null
+    ? liveCtxEstimate
+    : session?.transcriptTokens ?? 0;
   const ctxWindow = modelInfo?.contextLength ?? guessContextWindow(session?.modelId);
   const ctxPct = ctxWindow > 0 ? (ctxUsed / ctxWindow) * 100 : 0;
 
   const windows = allPanes(workspace.root).length;
+  const lastReply = session?.lastReplyAt;
   const title = session?.title ?? terminal?.title ?? 'Workspace';
   const isChat = !!session;
   const model = session
-    ? session.autoModel
+    ? session.chatType === 'image'
+      ? `🎨 ${session.imageParams?.modelId ? (session.imageParams.modelId.split('/').pop() as string) : 'No image model yet'}`
+      : session.autoModel
       ? 'Auto'
       : session.modelId
         ? shortModelName(session.modelId, modelInfo?.name)
@@ -200,7 +217,7 @@ export function WorkspaceCard({
       /* The spine: a chat workspace carries an accent edge that fills in when it
          is the active one, so the thing this app is about is findable in a
          column of cards without reading a word of any of them. */
-      className={`group w-full cursor-pointer rounded-lg border-l-2 py-1.5 pl-2 pr-2 text-left transition-colors duration-150 ${
+      className={`group w-full cursor-pointer rounded-lg border-l py-1.5 pl-2 pr-2 text-left transition-colors duration-150 ${
         isActive ? 'bg-accent-soft' : 'hover:bg-surface-2'
       }`}
       style={{
@@ -225,6 +242,11 @@ export function WorkspaceCard({
         <span className={`min-w-0 flex-1 truncate text-[13px] ${isActive ? 'font-medium text-ink' : 'text-ink-soft'}`}>
           {title}
         </span>
+        {lastReply && !status && (
+          <time className="shrink-0 text-[10px] tabular-nums text-ink-faint" dateTime={new Date(lastReply).toISOString()} title={`Last reply ${new Date(lastReply).toLocaleString()}`}>
+            {timeAgo(now - lastReply)}
+          </time>
+        )}
         {prs.length ? <PrBadge prs={prs} compact /> : null}
         <button
           className="shrink-0 rounded-sm p-0.5 text-ink-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
@@ -358,3 +380,19 @@ export function WorkspaceCard({
     </div>
   );
 }
+
+type CardProps = React.ComponentProps<typeof WorkspaceCardImpl>;
+
+/**
+ * Memoized, so switching workspaces repaints the two cards whose state changed
+ * rather than the whole column. The handlers are left out of the comparison:
+ * the sidebar passes fresh closures every render, and each one only closes over
+ * this card's workspace id and store actions, which are compared (or stable).
+ */
+export const WorkspaceCard = memo(WorkspaceCardImpl, (a: CardProps, b: CardProps) => {
+  for (const key of Object.keys(b) as Array<keyof CardProps>) {
+    if (key === 'onOpen' || key === 'onClose') continue;
+    if (a[key] !== b[key]) return false;
+  }
+  return Object.keys(a).length === Object.keys(b).length;
+});

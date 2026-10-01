@@ -142,4 +142,61 @@ describe('model library', () => {
     const empty = createLibrary({ modelsDir: () => join(dir, 'not-created') });
     expect(await empty.list()).toEqual([]);
   });
+
+  it('labels each model with what kind of file it is', async () => {
+    await gguf('qwen3-8b.gguf');
+    await writeFile(
+      join(dir, 'sd.gguf'),
+      buildGguf([
+        ['general.architecture', str('sd3')],
+        ['general.name', str('Stable Diffusion')],
+      ]),
+    );
+
+    const byArch = new Map((await library.list()).map((m) => [m.architecture, m.modality]));
+    expect(byArch.get('llama')).toBe('chat');
+    expect(byArch.get('sd3')).toBe('image');
+  });
+
+  it('marks a file whose header will not read as unreadable, not chat', async () => {
+    await writeFile(join(dir, 'old-ggml.gguf'), 'GGML legacy bytes that are not a real GGUF');
+    const [model] = await library.list();
+    expect(model.readable).toBe(false);
+    expect(model.modality).toBe('unknown');
+  });
+
+  it('knows a vision model has its projector, from beside it or from the companions dir', async () => {
+    await gguf('gemma3-12b.gguf');
+    let [model] = await library.list();
+    expect(model.hasProjector).toBe(false);
+    // Nothing says "sees images" yet: plain llama architecture, no projector.
+    expect(model.modality).toBe('chat');
+
+    // A projector we fetched into the nekko-side dir counts the same as one
+    // dropped beside the weights.
+    const fetched = join(dir, '.companions');
+    await mkdir(fetched, { recursive: true });
+    // The dir is keyed by a hash of the model id; create it the same way the
+    // host does rather than hardcoding the hash.
+    const { companionsDir } = await import('./companions.js');
+    const sidecarDir = companionsDir(dir, model.id);
+    await mkdir(sidecarDir, { recursive: true });
+    await writeFile(join(sidecarDir, 'mmproj-gemma3-12b-BF16.gguf'), 'x');
+
+    [model] = await library.list();
+    expect(model.hasProjector).toBe(true);
+    // A projector is evidence: the same weights now classify as vision.
+    expect(model.modality).toBe('vision');
+  });
+
+  it('never lists the companions dir as models of its own', async () => {
+    await gguf('plain.gguf');
+    const { companionsDir } = await import('./companions.js');
+    const sidecarDir = companionsDir(dir, 'plain');
+    await mkdir(sidecarDir, { recursive: true });
+    await writeFile(join(sidecarDir, 'mmproj-plain.gguf'), 'x');
+    await writeFile(join(sidecarDir, 'stray.gguf'), 'x');
+
+    expect((await library.list()).map((m) => m.id)).toEqual(['plain']);
+  });
 });

@@ -88,6 +88,7 @@ export const ONBOARDING_VERSION = 1;
 
 export interface AppSettings {
   theme: ThemeMode;
+  navOrder?: string[];
   accent: string;
   /** Secondary accent used for the brand gradient and border beam. */
   accent2?: string;
@@ -114,6 +115,8 @@ export interface AppSettings {
   defaultChatMode?: import('./chat.js').ChatMode;
   /** Path to the shell new terminals launch by default (undefined = auto-detect). */
   defaultShellPath?: string;
+  /** How terminals draw. Undefined means the default (`xterm`). */
+  terminal?: { renderer?: TerminalRenderer };
   /** Reusable prompts invokable as `/name` in the composer. */
   prompts?: PromptTemplate[];
   /** Favorited models as `${providerId}::${modelId}`; sorted to the top. */
@@ -156,12 +159,21 @@ export interface AppSettings {
    * one.
    */
   hfToken?: string;
+  /** TypeSafe API key for the hosted Jev decision model. Optional: local Laya needs none. */
+  typesafeApiKey?: string;
+  /** Decision-model export folders the user added (each holds an ONNX export, tokenizer.json and rl_agent_config.json). */
+  decisionModelDirs?: string[];
   /** A `llama-server` binary the user pointed at instead of a managed install. */
   engineBinPath?: string;
   /** Experimental feature toggles (Settings → Experimental). Off = surface hidden. */
   experimental?: ExperimentalFlags;
   /** First-run setup wizard progress (undefined on installs that predate it). */
   onboarding?: OnboardingState;
+  /**
+   * Inbound messaging channels (Telegram bot, …). Each adapter stays off until
+   * enabled with an explicit allowlist of chat ids. See messaging.ts.
+   */
+  messaging?: import('./messaging.js').MessagingSettings;
 }
 
 /**
@@ -233,3 +245,12 @@ export function formatUSD(n: number): string {
   if (n < 0.01) return `$${n.toFixed(4)}`;
   return `$${n.toFixed(2)}`;
 }
+
+/**
+ * The terminal renderer: `xterm` is xterm.js on WebGL (the default); `ghostty`
+ * is Ghostty's terminal core in WebAssembly drawing to a canvas, experimental
+ * because under a heavy flood it holds the UI thread for 20-30 ms a frame
+ * where xterm stays inside one frame. A ghostty terminal falls back to xterm
+ * on its own when the WebAssembly module cannot load.
+ */
+export type TerminalRenderer = 'ghostty' | 'xterm';

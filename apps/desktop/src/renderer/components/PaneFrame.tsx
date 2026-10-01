@@ -27,7 +27,14 @@ export const PANE_DRAG_TYPE = 'application/x-nekko-pane';
  * it. Null outside a frame, so a pane rendered anywhere else keeps whatever
  * chrome it draws for itself.
  */
-const PaneChrome = createContext<HTMLElement | null>(null);
+const PaneChrome = createContext<HTMLElement | typeof SLOT_PENDING | null>(null);
+
+/**
+ * Inside a frame whose strip has not mounted yet (its first render). A pane
+ * then knows it is framed and draws no header of its own, instead of drawing
+ * one for a single render only to swap it for the portal on the next.
+ */
+const SLOT_PENDING = Symbol('pane-slot-pending');
 
 /**
  * Render into the window's title strip.
@@ -38,7 +45,7 @@ const PaneChrome = createContext<HTMLElement | null>(null);
  */
 export function PaneActions({ children }: { children: React.ReactNode }) {
   const slot = useContext(PaneChrome);
-  if (!slot) return null;
+  if (!slot || slot === SLOT_PENDING) return null;
   return createPortal(children, slot);
 }
 
@@ -143,7 +150,16 @@ export function PaneFrame({
       // The ring is a pseudo-element over the contents rather than an inset
       // shadow under them, so the title strip's own background can't paint over
       // the stretch of outline that traces the window's top corners.
-      style={{ '--panel-ring-color': isActive ? 'var(--accent)' : 'var(--line)' } as React.CSSProperties}
+      //
+      // The active window's ring is the accent mixed down toward the line
+      // rather than the accent itself: a full-strength accent traced around the
+      // whole pane read as a bright border framing the history. The mix still
+      // says "this one" and still follows the user's accent, just quieter.
+      style={{
+        '--panel-ring-color': isActive
+          ? 'color-mix(in srgb, var(--accent) 40%, var(--line))'
+          : 'var(--line)',
+      } as React.CSSProperties}
       onMouseDown={onFocus}
     >
       <div
@@ -186,7 +202,7 @@ export function PaneFrame({
           className="pane-body absolute inset-0"
           style={over ? { transform: MAKE_WAY[over], opacity: 0.55 } : undefined}
         >
-          <PaneChrome.Provider value={actionSlot}>{children}</PaneChrome.Provider>
+          <PaneChrome.Provider value={actionSlot ?? SLOT_PENDING}>{children}</PaneChrome.Provider>
         </div>
         {targeting && (
           <div

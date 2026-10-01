@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode } from '@agent-nekko/shared';
+import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
@@ -25,7 +26,7 @@ const CHAT_MODES: Array<{ value: ChatMode; label: string; desc: string }> = [
 ];
 
 export function SettingsView() {
-  const { applyTheme, onboardingOpen } = useStore();
+  const { applyTheme, onboardingOpen } = useStore(useShallow((s) => ({ applyTheme: s.applyTheme, onboardingOpen: s.onboardingOpen })));
   const tr = useT();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const prevOnboardingOpen = useRef(onboardingOpen);
@@ -143,6 +144,9 @@ export function SettingsView() {
 
         {/* Agent loop */}
         <AgentLoopSection settings={settings} update={update} />
+
+        {/* Terminal */}
+        <TerminalSection settings={settings} update={update} />
 
         {/* Spec-driven development */}
         <section className="card mt-5 p-5">
@@ -342,8 +346,39 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
   );
 }
 
+/**
+ * Which renderer terminals use. xterm.js on WebGL is the default because it
+ * holds the one-frame budget under heavy output; Ghostty's core is offered as
+ * an experiment until its canvas renderer does too.
+ */
+function TerminalSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {
+  return (
+    <section className="card mt-5 p-5">
+      <div className="flex items-center gap-2"><h2 className="font-semibold">Terminal</h2></div>
+      <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[13px]">Renderer</span>
+          <p className="text-[11px] text-ink-faint">
+            xterm.js draws on the GPU and stays smooth under heavy output. Ghostty uses the same terminal core as
+            the Ghostty app, but can lag while a command prints a lot. Open terminals redraw when you switch.
+          </p>
+        </div>
+        <select
+          className="input max-w-[180px] py-1.5"
+          aria-label="Terminal renderer"
+          value={settings.terminal?.renderer ?? 'xterm'}
+          onChange={(e) => update({ terminal: { ...settings.terminal, renderer: e.target.value as TerminalRenderer } })}
+        >
+          <option value="xterm">xterm.js</option>
+          <option value="ghostty">Ghostty (experimental)</option>
+        </select>
+      </div>
+    </section>
+  );
+}
+
 function BackupSection({ settings, onSettings }: { settings: AppSettings; onSettings: (s: AppSettings) => void }) {
-  const { pushToast, refreshProviders } = useStore();
+  const { pushToast, refreshProviders } = useStore(useShallow((s) => ({ pushToast: s.pushToast, refreshProviders: s.refreshProviders })));
 
   const exportSettings = () => {
     const blob = new Blob([JSON.stringify(settings, null, 2)], { type: 'application/json' });
@@ -390,7 +425,13 @@ function BackupSection({ settings, onSettings }: { settings: AppSettings; onSett
 }
 
 function DataSection({ onSettings }: { onSettings: (s: AppSettings) => void }) {
-  const { refreshSessions, refreshProviders, pushToast } = useStore();
+  const { refreshSessions, refreshProviders, pushToast } = useStore(
+    useShallow((s) => ({
+      refreshSessions: s.refreshSessions,
+      refreshProviders: s.refreshProviders,
+      pushToast: s.pushToast,
+    })),
+  );
   const [busy, setBusy] = useState(false);
 
   const clear = async (scope: 'today' | 'month' | 'all', label: string) => {
@@ -470,7 +511,7 @@ function McpSection({
   update: (patch: Partial<AppSettings>) => void;
   reload: () => Promise<void>;
 }) {
-  const { pushToast } = useStore();
+  const { pushToast } = useStore(useShallow((s) => ({ pushToast: s.pushToast })));
   const servers = settings.mcpServers ?? [];
   const [status, setStatus] = useState<McpServerStatus[]>([]);
   const [busy, setBusy] = useState(false);

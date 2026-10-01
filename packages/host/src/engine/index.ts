@@ -1,4 +1,9 @@
-import { join, resolve } from 'path';
+import { createMlxRuntime, mlxSupported } from './mlx.js';
+import { engineDaemon } from './daemon.js';
+import type { GpuAdapter } from '../gpu-adapters.js';
+import { totalmem } from 'os';
+import { dirname, join, resolve } from 'path';
+import { stat } from 'fs/promises';
 import type {
   CatalogModel,
   CatalogModelDetail,
@@ -7,6 +12,7 @@ import type {
   EngineLoadPreset,
   EngineSettings,
   GpuStats,
+  ImageCompanionStatus,
   LoadParams,
   LoadResult,
   LocalModel,
@@ -15,8 +21,11 @@ import type {
   ModelFolderSuggestion,
   StopResult,
 } from '@agent-nekko/shared';
-import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl } from '@agent-nekko/shared';
+import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl, modelModality } from '@agent-nekko/shared';
 import { createCatalog, hfFileUrl } from './catalog.js';
+import { companionsDir } from './companions.js';
+import { companionsBeside, imageCompanionsDir, imageCompanionSetFor, imageCompanionStatus } from './image-companions.js';
+import { createDecisions } from './decisions.js';
 import { createDownloads } from './download.js';
 import { knownFolder, knownFolderCandidates } from './folders.js';
 import { createEngineInstaller } from './install.js';
@@ -35,6 +44,8 @@ import { createEngineServer } from './server.js';
 export interface EngineDeps {
   dataDir: () => string;
   getGpuStats: () => Promise<GpuStats | null>;
+  /** GPUs the OS reports, for choosing a build on machines with no stats tool. */
+  getGpuAdapters?: () => Promise<GpuAdapter[]>;
   /**
    * A reading taken now rather than from the poll cache. The before/after pair
    * around a load is a measurement, and a cached "after" can report that loading
@@ -51,6 +62,11 @@ export interface EngineDeps {
    * no chat could pick a model from it, which is the whole point of running it.
    */
   onServing?: (baseUrl: string) => void;
+  /** TypeSafe API key for the hosted Jev decision model. */
+  typesafeKey?: () => string | undefined;
+  /** Decision-model export folders the user added, and how to save the list. */
+  decisionFolders?: () => string[];
+  saveDecisionFolders?: (dirs: string[]) => void;
   /** Hugging Face token for gated repos, when the user has configured one. */
   hfToken?: () => string | undefined;
   /** A `llama-server` the user pointed at by hand. */
@@ -63,21 +79,42 @@ export function createEngine(deps: EngineDeps) {
 
   const downloads = createDownloads({ onChange: deps.onDownloadsChanged });
   const library = createLibrary({ modelsDir, folders: () => deps.settings().modelFolders ?? [] });
-  const catalog = createCatalog({ token: deps.hfToken });
+  const catalog = createCatalog({ token: deps.hfToken, mlx: () => mlxSupported() });
   const installer = createEngineInstaller({
     engineDir,
     downloads,
     getGpuStats: deps.getGpuStats,
+    getGpuAdapters: deps.getGpuAdapters,
     externalPath: deps.externalBinPath,
   });
+
+  const diffusionInstaller = createEngineInstaller({ runtime: 'diffusion', engineDir: () => join(engineDir(), 'diffusion'), downloads, getGpuStats: deps.getGpuStats });
+  const mlxRuntime = createMlxRuntime({ dir: () => join(engineDir(), 'mlx'), downloads });
 
   const server = createEngineServer({
     settings: deps.settings,
     binPath: async () => (await installer.detect()).binPath,
+    diffusionBinPath: async () => (await diffusionInstaller.detect()).binPath,
+    mlxBinPath: () => mlxRuntime.binPath(),
     findModel: (id) => library.find(id),
     listModels: () => library.list(),
     getGpuStats: deps.getGpuStatsFresh ?? deps.getGpuStats,
+    workDir: () => join(engineDir(), 'templates'),
+    companionsDir: (modelId) => companionsDir(modelsDir(), modelId),
+    imageCompanionsDir: () => imageCompanionsDir(modelsDir()),
+    daemon: engineDaemon(),
   });
+  const decisions = createDecisions({
+    modelsDir,
+    downloads,
+    daemon: engineDaemon,
+    typesafeKey: () => deps.typesafeKey?.(),
+    folders: () => deps.decisionFolders?.() ?? [],
+    saveFolders: (dirs) => deps.saveDecisionFolders?.(dirs),
+  });
+
+  // A backend restarted under a daemon that kept serving picks its models up.
+  void server.reattach();
 
   /* ------------------------------------------------------------ acquisition */
 
@@ -97,7 +134,11 @@ export function createEngine(deps: EngineDeps) {
     const quant = model?.quants.find((q) => q.label === quantLabel) ?? model?.quants[0];
     if (!model || !quant) return { ok: false, message: 'That model is no longer published.' };
 
-    const destFor = (file: string) => join(modelsDir(), modelId.replace('/', '_'), file.split('/').pop() as string);
+    const mlx = quant.format === 'mlx';
+    const type = mlx ? 'mlx' : modelModality({ name: `${model.name} ${modelId} ${model.tags.join(' ')} ${model.pipelineTag ?? ''} ${quant.file}` });
+    // An MLX checkpoint is a folder, and the library finds it by `mlx` in its
+    // path: `<models>/mlx/<owner>_<repo>/`.
+    const destFor = (file: string) => join(modelsDir(), type, modelId.replace('/', '_'), file.split('/').pop() as string);
     const jobId = `model:${modelId}:${quant.label}`;
 
     const job = await downloads.start({
@@ -107,26 +148,158 @@ export function createEngine(deps: EngineDeps) {
       target: modelId,
       url: hfFileUrl(modelId, quant.file),
       dest: destFor(quant.file),
-      verify: async (path) => {
-        // A GGUF that will not parse is a failed download wearing the right
-        // extension, and catching it here means the library never lists one.
-        const { readGgufMetadata } = await import('./gguf.js');
-        return (await readGgufMetadata(path)) ? null : 'The downloaded file is not a readable GGUF.';
-      },
+      verify: mlx
+        ? undefined
+        : async (path) => {
+            // A GGUF that will not parse is a failed download wearing the right
+            // extension, and catching it here means the library never lists one.
+            const { readGgufMetadata } = await import('./gguf.js');
+            return (await readGgufMetadata(path)) ? null : 'The downloaded file is not a readable GGUF.';
+          },
     });
 
     for (const extra of quant.extraFiles ?? []) {
+      const dest = destFor(extra);
+      // Sidecars are shared across quants; one already on disk is not fetched
+      // again when a second build of the same repo is downloaded.
+      const landed = await stat(dest).then((s) => s.size > 0).catch(() => false);
+      if (landed) continue;
       void downloads.start({
         id: `${jobId}:${extra}`,
         kind: 'model',
         label: `${model.name} · ${extra.split('/').pop()}`,
         target: modelId,
         url: hfFileUrl(modelId, extra),
-        dest: destFor(extra),
+        dest,
       });
     }
 
     return { ok: true, message: `Downloading ${model.name} (${quant.label}).`, jobId: job.id };
+  }
+
+  /**
+   * Fetch the files a model already on disk is missing: a vision projector
+   * first, then the small configs its repo ships.
+   *
+   * This is the fix for the weights arriving without them (a manual download,
+   * a file copied out of another app). Managed models get the files beside the
+   * weights, where any tool can see them; a borrowed folder is read-only, so
+   * the files land in the nekko-owned companions dir the server also reads.
+   */
+  async function downloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }> {
+    const model = await library.find(modelId);
+    if (!model) return { ok: false, message: 'That model is not in the library.' };
+    const repo = sourceRepoFor(model);
+    if (!repo) {
+      return {
+        ok: false,
+        message: `Cannot tell which Hugging Face repo ${model.name} came from, so there is nowhere to fetch its companion files from.`,
+      };
+    }
+    const found = await catalog.companions(repo);
+    if (!found) {
+      return { ok: false, message: `Could not read the ${repo} repo on Hugging Face. It may be private or renamed.` };
+    }
+
+    const wanted = [found.projector, ...found.sidecars].filter((f): f is string => Boolean(f));
+    if (!wanted.length) {
+      return { ok: true, message: `${repo} ships no companion files for ${model.name}.` };
+    }
+    const destDir = model.managed === false ? companionsDir(modelsDir(), model.id) : dirname(model.path);
+    let queued = 0;
+    for (const file of wanted) {
+      const fileName = file.split('/').pop() as string;
+      const dest = join(destDir, fileName);
+      const landed = await stat(dest).then((s) => s.size > 0).catch(() => false);
+      // A file already beside the weights counts even when the destination is
+      // the companions dir: no point fetching what is already there.
+      const beside = join(dirname(model.path), fileName);
+      const already = landed || (dest !== beside && (await stat(beside).then((s) => s.size > 0).catch(() => false)));
+      if (already) continue;
+      void downloads.start({
+        id: `companions:${modelId}:${file}`,
+        kind: 'model',
+        label: `${model.name} · ${fileName}`,
+        target: modelId,
+        url: hfFileUrl(repo, file),
+        dest,
+      });
+      queued += 1;
+    }
+    return queued
+      ? { ok: true, message: `Fetching ${queued} companion file${queued === 1 ? '' : 's'} for ${model.name} from ${repo}.` }
+      : { ok: true, message: `${model.name} already has every companion file ${repo} ships.` };
+  }
+
+  /** An image model's text encoders and VAE: which are on disk and what the rest weighs. */
+  async function imageCompanions(modelId: string): Promise<ImageCompanionStatus | null> {
+    const model = await library.find(modelId);
+    if (!model || model.modality !== 'image') return null;
+    const beside = await companionsBeside(model, [companionsDir(modelsDir(), model.id)]);
+    return imageCompanionStatus(model, imageCompanionsDir(modelsDir()), beside, Boolean(deps.hfToken?.()));
+  }
+
+  /**
+   * Fetch the text encoders and VAE an image model lacks into the shared image
+   * companions directory. A gated VAE (SD3.5's, FLUX.1's) is fetched with the
+   * user's Hugging Face token when there is one, and otherwise its small
+   * ungated approximation (TAESD) stands in so the model still runs.
+   */
+  async function downloadImageCompanions(modelId: string): Promise<{ ok: boolean; message: string }> {
+    const model = await library.find(modelId);
+    if (!model) return { ok: false, message: 'That model is not in the library.' };
+    const set = imageCompanionSetFor(model);
+    const status = await imageCompanions(modelId);
+    if (!set || !status) {
+      return { ok: false, message: `No known text encoders for ${model.name}. Set their paths in its image settings.` };
+    }
+    const token = deps.hfToken?.();
+    const dir = imageCompanionsDir(modelsDir());
+    let queued = 0;
+    let bytes = 0;
+    let stoodIn = '';
+    set.files.forEach((file, i) => {
+      if (status.files[i].path) return;
+      const pick = file.gated && !token && file.fallback ? file.fallback : file;
+      if (pick !== file) stoodIn = ` Its VAE needs a Hugging Face token with the ${file.repo} license accepted, so the small TAESD decoder stands in (slightly softer detail).`;
+      void downloads.start({
+        id: `image-companions:${pick.saveAs}`,
+        kind: 'model',
+        label: `${set.label} · ${pick.role}`,
+        target: modelId,
+        url: hfFileUrl(pick.repo, pick.file),
+        dest: join(dir, pick.saveAs),
+        headers: pick === file && file.gated && token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      queued += 1;
+      bytes += pick.bytes;
+    });
+    if (!queued) return { ok: true, message: `${model.name} already has its text encoders and VAE.` };
+    return { ok: true, message: `Fetching ${queued} file${queued === 1 ? '' : 's'} (${(bytes / 1e9).toFixed(1)} GB) for ${set.label}.${stoodIn}` };
+  }
+
+  /**
+   * Which Hugging Face repo a library model came from, guessed from its id.
+   *
+   * A borrowed folder nests `publisher/repo/file` under the folder id
+   * (`lmstudio/unsloth/Qwen3-4B/file`), so the repo is the middle two segments.
+   * Our own downloads land in a dir named `owner_repo` (the single `_` the
+   * download path writes), so the first segment splits on its first `_`.
+   * Anything else (a loose import, an id a folder provider invented) returns
+   * undefined, which the caller turns into an honest "cannot tell" answer.
+   */
+  function sourceRepoFor(model: LocalModel): string | undefined {
+    if (model.sourceRepo) return model.sourceRepo;
+    const segs = model.id.split('/');
+    if (model.folderId && model.folderId !== 'primary' && segs.length >= 3) {
+      return `${segs[1]}/${segs[2]}`;
+    }
+    if ((!model.folderId || model.folderId === 'primary') && segs.length >= 2) {
+      const dir = segs[0];
+      const i = dir.indexOf('_');
+      if (i > 0 && i < dir.length - 1) return `${dir.slice(0, i)}/${dir.slice(i + 1)}`;
+    }
+    return undefined;
   }
 
   /* --------------------------------------------------------- model folders */
@@ -203,21 +376,35 @@ export function createEngine(deps: EngineDeps) {
   async function status() {
     const install = await installer.detect();
     const state = server.status();
+    const gpu = await deps.getGpuStats().catch(() => null);
+    // What the "will it fit" chips compare against: VRAM when there is a GPU to
+    // name, system RAM otherwise. Total, not free: the question is whether the
+    // model can ever be served here, not whether it fits beside open apps.
+    const memory = gpu && gpu.devices.length > 0
+      ? { budgetBytes: gpu.totalMB * 1024 * 1024, kind: gpu.unified ? ('unified' as const) : ('vram' as const) }
+      : { budgetBytes: totalmem(), kind: 'ram' as const };
     return {
       install,
+      diffusionInstall: await diffusionInstaller.detect(),
+      mlxInstall: await mlxRuntime.detect(),
       running: state.running,
       startedAt: state.startedAt,
       resident: state.resident,
       log: state.log,
       port: state.port,
       settings: deps.settings(),
+      memory,
     };
   }
 
-  /** Every model in the library, with load state folded in. */
+  /** Every model in the library, with load state and the last failure folded in. */
   async function models(): Promise<Array<LocalModel & { loaded: boolean }>> {
     const loaded = new Set(server.loadedIds());
-    return (await library.list()).map((m) => ({ ...m, loaded: loaded.has(m.id) }));
+    return (await library.list()).map((m) => ({
+      ...m,
+      loaded: loaded.has(m.id),
+      lastLoadError: server.loadErrorFor(m.id),
+    }));
   }
 
   async function start(): Promise<{ ok: boolean; message: string }> {
@@ -229,14 +416,52 @@ export function createEngine(deps: EngineDeps) {
   return {
     // engine binary
     detectEngine: () => installer.detect(),
-    installEngine: (buildId?: string) => installer.install(buildId),
-    uninstallEngine: () => installer.uninstall(),
+    installEngine: (buildId?: string, runtime: 'llama' | 'diffusion' | 'mlx' = 'llama') =>
+      runtime === 'mlx' ? mlxRuntime.install() : (runtime === 'diffusion' ? diffusionInstaller : installer).install(buildId),
+    uninstallEngine: async (runtime: 'llama' | 'diffusion' | 'mlx' = 'llama') => {
+      if (server.isRunning()) return { ok: false, message: 'Stop the model server before uninstalling a runtime.' };
+      if (downloads.list().some(j => j.id.startsWith(`engine:${runtime}:`) && downloads.isActive(j.id))) return { ok: false, message: 'Wait for the runtime installation to finish or cancel it before uninstalling.' };
+      if (runtime === 'mlx') return mlxRuntime.uninstall();
+      return (runtime === 'diffusion' ? diffusionInstaller : installer).uninstall();
+    },
+    installPreview: (runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string) =>
+      runtime === 'mlx' ? mlxRuntime.preview() : (runtime === 'diffusion' ? diffusionInstaller : installer).preview(buildId),
+    /**
+     * One image from a loaded (or loadable) image model. `onStage` hears
+     * whether it first has to load the model, which is most of a cold request.
+     */
+    generateImage: async (
+      request: import('@agent-nekko/shared').ImageGenerationRequest,
+      onStage?: (stage: 'loading' | 'generating') => void,
+    ): Promise<import('@agent-nekko/shared').ImageGenerationResult> => {
+      const { modelId, prompt, width, height, steps = 28, cfgScale = 4.5, seed = -1 } = request;
+      if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000 || ![width, height].every(n => Number.isInteger(n) && n >= 256 && n <= 2048 && n % 64 === 0) || !Number.isInteger(steps) || steps < 1 || steps > 100 || !Number.isFinite(cfgScale) || cfgScale < 0 || cfgScale > 30 || !Number.isSafeInteger(seed) || seed < -1) throw new Error('Use a prompt, dimensions from 256 to 2048 in multiples of 64, 1 to 100 steps and CFG from 0 to 30.');
+      const model = await library.find(modelId);
+      if (model?.modality !== 'image') throw new Error('Choose an image-generation model.');
+      if (!server.loadedIds().includes(modelId)) onStage?.('loading');
+      const started = await load(modelId, model.preset ?? {});
+      if (!started.ok) throw new Error(started.message);
+      onStage?.('generating');
+      const key = deps.settings().apiKey;
+      const res = await fetch(`${engineBaseUrl(deps.settings())}/images/generations`, {
+        method: 'POST', headers: { 'content-type': 'application/json', ...(key ? { authorization: `Bearer ${key}` } : {}) },
+        body: JSON.stringify({ model: modelId, prompt: `${prompt}\n<sd_cpp_extra_args>${JSON.stringify({ sample_params: { sample_steps: steps, guidance: { txt_cfg: cfgScale } }, seed })}</sd_cpp_extra_args>`, size: `${width}x${height}`, n: 1, output_format: 'png' }),
+        signal: AbortSignal.timeout(30 * 60_000),
+      });
+      const result = await res.json() as import('@agent-nekko/shared').ImageGenerationResult & { error?: { message?: string } };
+      if (!res.ok || !result.data?.length) throw new Error(result.error?.message ?? `Image generation failed (HTTP ${res.status}).`);
+      return result;
+    },
     // catalog + downloads
     catalogCurated: () => catalog.curated(),
-    catalogSearch: (q: string) => catalog.search(q),
+    catalogSearch: (q: string, limit?: number, format?: 'gguf' | 'mlx') => catalog.search(q, limit, format),
     catalogModel: (id: string) => catalog.model(id),
     catalogDetail: (id: string): Promise<CatalogModelDetail | null> => catalog.detail(id),
     downloadModel,
+    downloadCompanions,
+    imageCompanions,
+    downloadImageCompanions,
+    decisions,
     downloads: () => downloads.list(),
     cancelDownload: (id: string) => downloads.cancel(id),
     dismissDownload: (id: string) => downloads.dismiss(id),
@@ -256,6 +481,16 @@ export function createEngine(deps: EngineDeps) {
     stop: (): Promise<StopResult> => server.stop(),
     load,
     unload: (id: string) => server.unload(id),
+    setResidentTtl: (id: string, ttlSeconds: number) => {
+      const r = server.setResidentTtl(id, ttlSeconds);
+      return { ok: r.ok, message: r.message ?? '' };
+    },
+    /** Add or remove a model from the list loaded when the engine starts. */
+    setAutoload: (id: string, enabled: boolean) => {
+      const current = deps.settings().autoload ?? [];
+      const next = enabled ? [...new Set([...current, id])] : current.filter((m) => m !== id);
+      return deps.saveSettings({ autoload: next });
+    },
     status,
     isRunning: () => server.isRunning(),
     resident: () => server.resident(),
@@ -264,12 +499,21 @@ export function createEngine(deps: EngineDeps) {
       // The port and the binding are read when the socket is opened, so a change
       // to either only takes effect on the next start. Restarting here rather
       // than leaving the UI to explain that is the honest behaviour.
-      if (server.isRunning() && (patch.port !== undefined || patch.bind !== undefined)) {
+      const endpoint = patch.port !== undefined || patch.bind !== undefined;
+      if (server.isRunning() && server.servedByDaemon()) {
+        // The daemon's listener holds the key and CORS list as well, so any
+        // endpoint setting re-serves; loaded models stay loaded.
+        if (endpoint || patch.apiKey !== undefined || patch.corsOrigins !== undefined) await server.reconfigure();
+      } else if (server.isRunning() && endpoint) {
         await server.stop();
         await start();
       }
       return next;
     },
+    // The engine daemon's router, asking about models it does not have running.
+    routerLoad: (id: string, image: boolean) => server.routerLoad(id, image),
+    routerModels: () => server.routerModels(),
+    routerModel: (id: string) => server.routerModel(id),
     defaults: DEFAULT_ENGINE_SETTINGS,
   };
 }
@@ -277,7 +521,9 @@ export function createEngine(deps: EngineDeps) {
 export type Engine = ReturnType<typeof createEngine>;
 
 export { readGgufMetadata } from './gguf.js';
-export { buildArgs } from './server.js';
+export { buildArgs, explainLoadError } from './server.js';
+export { useEngineDaemon } from './daemon.js';
+export type { ModelCompanions } from './server.js';
 export { buildsFor, recommendedBuild, matchAsset, matchCompanion, allBuilds } from './builds.js';
 export { hfFileUrl } from './catalog.js';
 export type { EngineInstall, CatalogModel };

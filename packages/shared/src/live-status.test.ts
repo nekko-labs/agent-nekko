@@ -90,4 +90,13 @@ describe('shortLiveStatus', () => {
   it('says Starting before the first step lands', () => {
     expect(shortLiveStatus(emptyLiveActivity(T))).toBe('Starting');
   });
+
+  it('reports an image turn by its stage, never as writing a reply', () => {
+    const a = fold([
+      { type: 'image_status', sessionId: 's', stage: 'loading', label: 'Loading the image model' },
+      { type: 'image_status', sessionId: 's', stage: 'generating', label: 'Generating a 1024×1024 image' },
+    ]);
+    expect(a?.tail).toBe('');
+    expect(shortLiveStatus(a)).toBe('Generating a 1024×1024 image');
+  });
 });

@@ -1,0 +1,522 @@
+{
+  "providers": [
+    "openai",
+    "openrouter",
+    "lmstudio",
+    "vllm",
+    "llamacpp",
+    "openai-compat",
+    "ollama",
+    "anthropic",
+    "anthropic-sub",
+    "chatgpt"
+  ],
+  "requests": {
+    "minimal": {
+      "model": "m",
+      "messages": [
+        {
+          "id": "m1790000000010",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000010
+        }
+      ]
+    },
+    "system-and-tools": {
+      "model": "qwen3-coder-30b",
+      "system": "You are a coding agent.\nBe terse.",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "temperature": 0.2,
+      "maxOutputTokens": 2048,
+      "messages": [
+        {
+          "id": "m1790000000011",
+          "role": "user",
+          "content": "List the files.",
+          "createdAt": 1790000000011
+        }
+      ]
+    },
+    "wrap-up-no-tools": {
+      "model": "m",
+      "system": "You are a coding agent.",
+      "tools": [],
+      "messages": [
+        {
+          "id": "m1790000000012",
+          "role": "user",
+          "content": "Do the thing",
+          "createdAt": 1790000000012
+        },
+        {
+          "id": "m1790000000013",
+          "role": "user",
+          "content": "You have reached the step limit. Answer now.",
+          "createdAt": 1790000000013
+        }
+      ]
+    },
+    "images": {
+      "model": "gemma-4-12b",
+      "messages": [
+        {
+          "id": "m1790000000014",
+          "role": "user",
+          "content": "What is in these?",
+          "createdAt": 1790000000014,
+          "images": [
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+            "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ==",
+            "https://example.com/cat.png",
+            "data:image/png;base64,line\nbreak"
+          ]
+        },
+        {
+          "id": "m1790000000015",
+          "role": "assistant",
+          "content": "A cat and a dot.",
+          "createdAt": 1790000000015,
+          "images": [
+            "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+          ]
+        },
+        {
+          "id": "m1790000000016",
+          "role": "user",
+          "content": "And no images here",
+          "createdAt": 1790000000016,
+          "images": []
+        }
+      ]
+    },
+    "tool-round-trip": {
+      "model": "m",
+      "system": "sys",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ]
+    },
+    "think-on": {
+      "model": "qwen3-8b",
+      "think": true,
+      "messages": [
+        {
+          "id": "m1790000000017",
+          "role": "user",
+          "content": "Why is the sky blue?",
+          "createdAt": 1790000000017
+        }
+      ]
+    },
+    "think-off": {
+      "model": "qwen3-8b",
+      "think": false,
+      "messages": [
+        {
+          "id": "m1790000000018",
+          "role": "user",
+          "content": "Why is the sky blue?",
+          "createdAt": 1790000000018
+        }
+      ]
+    },
+    "opus-5-normal": {
+      "model": "claude-opus-5",
+      "effort": "normal",
+      "temperature": 0.7,
+      "messages": [
+        {
+          "id": "m1790000000019",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000019
+        }
+      ]
+    },
+    "opus-5-5-normal": {
+      "model": "claude-opus-5-5",
+      "effort": "normal",
+      "temperature": 0.7,
+      "messages": [
+        {
+          "id": "m1790000000020",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000020
+        }
+      ]
+    },
+    "opus-5-5-unset": {
+      "model": "claude-opus-5-5",
+      "messages": [
+        {
+          "id": "m1790000000021",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000021
+        }
+      ]
+    },
+    "opus-5-low": {
+      "model": "claude-opus-5",
+      "effort": "low",
+      "temperature": 0.2,
+      "messages": [
+        {
+          "id": "m1790000000022",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000022
+        }
+      ]
+    },
+    "opus-5-medium": {
+      "model": "claude-opus-5",
+      "effort": "medium",
+      "temperature": 0.5,
+      "messages": [
+        {
+          "id": "m1790000000023",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000023
+        }
+      ]
+    },
+    "opus-5-xhigh": {
+      "model": "claude-opus-5",
+      "effort": "xhigh",
+      "temperature": 1,
+      "messages": [
+        {
+          "id": "m1790000000024",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000024
+        }
+      ]
+    },
+    "opus-5-max": {
+      "model": "claude-opus-5",
+      "effort": "max",
+      "temperature": 1,
+      "messages": [
+        {
+          "id": "m1790000000025",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000025
+        }
+      ]
+    },
+    "sonnet-4-6-high": {
+      "model": "claude-sonnet-4-6",
+      "effort": "high",
+      "temperature": 1,
+      "messages": [
+        {
+          "id": "m1790000000026",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000026
+        }
+      ]
+    },
+    "haiku-4-5-max": {
+      "model": "claude-haiku-4-5-20251001",
+      "effort": "max",
+      "temperature": 1,
+      "messages": [
+        {
+          "id": "m1790000000027",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000027
+        }
+      ]
+    },
+    "fable-normal": {
+      "model": "claude-fable-5-1",
+      "effort": "normal",
+      "messages": [
+        {
+          "id": "m1790000000028",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000028
+        }
+      ]
+    },
+    "opus-4-dated": {
+      "model": "claude-opus-4-20250514",
+      "effort": "xhigh",
+      "temperature": 1,
+      "messages": [
+        {
+          "id": "m1790000000029",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000029
+        }
+      ]
+    },
+    "vendor-prefixed": {
+      "model": "anthropic/Claude-Opus-5",
+      "effort": "normal",
+      "messages": [
+        {
+          "id": "m1790000000030",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000030
+        }
+      ]
+    },
+    "zero-temperature-zero-cap": {
+      "model": "m",
+      "temperature": 0,
+      "maxOutputTokens": 0,
+      "messages": [
+        {
+          "id": "m1790000000031",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000031
+        }
+      ]
+    },
+    "empty-system": {
+      "model": "m",
+      "system": "",
+      "messages": [
+        {
+          "id": "m1790000000032",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000032
+        }
+      ]
+    },
+    "unicode": {
+      "model": "m",
+      "system": "Réponds en français 🐱",
+      "messages": [
+        {
+          "id": "m1790000000033",
+          "role": "user",
+          "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀",
+          "createdAt": 1790000000033
+        },
+        {
+          "id": "m1790000000034",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000034,
+          "toolCalls": [
+            {
+              "id": "c1",
+              "name": "write",
+              "input": {
+                "text": "ñ 😀 \"q\" \\ \u0001",
+                "n": -0.5
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000035",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000035,
+          "toolResult": {
+            "toolCallId": "c1",
+            "output": "wrote 😀"
+          }
+        }
+      ]
+    },
+    "purpose": {
+      "model": "m",
+      "purpose": "title",
+      "maxOutputTokens": 32,
+      "messages": [
+        {
+          "id": "m1790000000036",
+          "role": "user",
+          "content": "Name this chat",
+          "createdAt": 1790000000036
+        }
+      ]
+    }
+  }
+}

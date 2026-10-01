@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { AppSettings, Session, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
-import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, THEME_PRESETS } from '@agent-nekko/shared';
+import type { AppSettings, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 import {
@@ -115,7 +115,13 @@ const newWorkspaceId = () => `ws_${(++wsSeq).toString(36)}`;
 interface UiState {
   settings: AppSettings | null;
   view: View;
-  sessions: Session[];
+  /**
+   * Every chat, without transcripts (see SessionSummary). A chat pane fetches
+   * its own transcript through the session cache.
+   */
+  sessions: SessionSummary[];
+  sessionCtxEstimate: Record<string, number>;
+  setSessionCtxEstimate: (sessionId: string, tokens: number | null) => void;
   activeSessionId: string | null;
   providers: ProviderConfig[];
   models: ModelInfo[];
@@ -208,6 +214,8 @@ interface UiState {
   dismissToast: (id: string) => void;
   setPaletteOpen: (open: boolean) => void;
   newChat: () => Promise<void>;
+  /** A new Image chat on this image model, starting from its family's tuned steps and CFG. */
+  newImageChat: (modelId: string, defaults?: { steps: number; cfgScale: number }) => Promise<void>;
   setMascotMood: (m: MascotMood) => void;
   setView: (v: View) => void;
   setOnboardingOpen: (open: boolean) => void;
@@ -367,6 +375,18 @@ export const useStore = create<UiState>((set, get) => ({
   settings: null,
   view: 'command',
   sessions: [],
+  sessionCtxEstimate: {},
+  setSessionCtxEstimate: (sessionId, tokens) => set((state) => {
+    if (tokens == null) {
+      if (!(sessionId in state.sessionCtxEstimate)) return state;
+      const next = { ...state.sessionCtxEstimate };
+      delete next[sessionId];
+      return { sessionCtxEstimate: next };
+    }
+    return state.sessionCtxEstimate[sessionId] === tokens
+      ? state
+      : { sessionCtxEstimate: { ...state.sessionCtxEstimate, [sessionId]: tokens } };
+  }),
   activeSessionId: null,
   providers: [],
   models: [],
@@ -406,8 +426,16 @@ export const useStore = create<UiState>((set, get) => ({
     }),
   newChat: async () => {
     const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
-    await get().refreshSessions();
-    set({ activeSessionId: s.id, view: 'chat' });
+    set((state) => ({ sessions: [summarizeSession(s), ...state.sessions], activeSessionId: s.id, view: 'chat' }));
+    get().openChatPane(s.id);
+  },
+  newImageChat: async (modelId, defaults) => {
+    const created = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    const s = (await window.nekko.setSessionOptions(created.id, {
+      chatType: 'image',
+      imageParams: { ...DEFAULT_IMAGE_CHAT_PARAMS, modelId, ...(defaults ?? {}) },
+    })) ?? created;
+    set((state) => ({ sessions: [summarizeSession(s), ...state.sessions], activeSessionId: s.id, view: 'chat' }));
     get().openChatPane(s.id);
   },
   setMascotMood: (m) => set({ mascotMood: m }),
@@ -436,7 +464,7 @@ export const useStore = create<UiState>((set, get) => ({
   },
 
   refreshSessions: async () => {
-    const sessions = await window.nekko.listSessions();
+    const sessions = await window.nekko.listSessionSummaries();
     set({ sessions });
     if (!get().activeSessionId && sessions[0]) set({ activeSessionId: sessions[0].id });
   },
@@ -467,7 +495,6 @@ export const useStore = create<UiState>((set, get) => ({
     set((s) => (s.draftBySession[sessionId] === text
       ? s
       : { draftBySession: { ...s.draftBySession, [sessionId]: text } })),
-
   setActiveSession: (id) => set({ activeSessionId: id }),
 
   refreshProviders: async () => {

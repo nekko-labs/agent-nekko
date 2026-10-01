@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createHost } from '@agent-nekko/host';
+import { createHost, defaultUserDataDir, prepareUserDataRoot } from '@agent-nekko/host';
 import { brandEnv, CLI_LINK_FILE, isCliLink, IpcEvents, type CliLink } from '@agent-nekko/shared';
 import type {
   AppSettings,
@@ -30,9 +30,7 @@ import type {
 
 /** The data dir for the in-process (local) client. NEKKO_DATA_DIR wins, then ~/.nekko. */
 export function dataDir(): string {
-  const fromEnv = brandEnv('DATA_DIR');
-  if (fromEnv) return fromEnv;
-  return join(homedir(), '.nekko');
+  return defaultUserDataDir();
 }
 
 /**
@@ -136,7 +134,7 @@ export interface Client {
 
 /** In-process client backed by createHost on the data dir. */
 function localClient(): Client {
-  const host = createHost({ dataDir: dataDir() });
+  const host = createHost({ dataDir: prepareUserDataRoot() });
   return {
     ready: async () => {},
     getSettings: async () => host.getSettings(),

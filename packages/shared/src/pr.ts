@@ -64,11 +64,15 @@ export interface PrActionResult {
 
 const PR_URL_RE = /https?:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+/g;
 
-/** Every unique GitHub PR URL mentioned in a blob of text, trailing punctuation trimmed. */
+/**
+ * Every unique GitHub PR URL mentioned in a blob of text. A match ends at the
+ * PR number, so punctuation after the URL (a closing paren, a full stop) is
+ * never part of it.
+ */
 export function extractPrUrls(text: string): string[] {
   if (!text) return [];
   const out = new Set<string>();
-  for (const m of text.matchAll(PR_URL_RE)) out.add(m[0].replace(/[).,\]]+$/, ''));
+  for (const m of text.matchAll(PR_URL_RE)) out.add(m[0]);
   return [...out];
 }
 

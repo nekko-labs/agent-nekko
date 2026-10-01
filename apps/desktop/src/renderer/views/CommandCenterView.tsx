@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, PendingInput, ProviderConfig, Session, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
+import type { AgentEvent, PendingInput, ProviderConfig, SessionSummary, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
 import type { RemoteStatus } from '@agent-nekko/shared';
 import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider, reduceLiveActivity } from '@agent-nekko/shared';
 import type { OptimizationTip, AgentType, LiveActivity } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge, EmptyHint, PanelList } from '../components/primitives/index.js';
 import { ServerIcon, PlusIcon, CheckIcon, TerminalIcon, TrashIcon } from '../icons.js';
@@ -11,7 +12,21 @@ import { SessionBoard } from '../components/SessionBoard.js';
 const HOUR = 60 * 60_000;
 
 export function CommandCenterView() {
-  const { sessions, terminals, providers, settings, setView, newChat, openChatPane, openTerminalPane, newTerminal, refreshSessions, refreshTerminals } = useStore();
+  const { sessions, terminals, providers, settings, setView, newChat, openChatPane, openTerminalPane, newTerminal, refreshSessions, refreshTerminals } = useStore(
+    useShallow((s) => ({
+      sessions: s.sessions,
+      terminals: s.terminals,
+      providers: s.providers,
+      settings: s.settings,
+      setView: s.setView,
+      newChat: s.newChat,
+      openChatPane: s.openChatPane,
+      openTerminalPane: s.openTerminalPane,
+      newTerminal: s.newTerminal,
+      refreshSessions: s.refreshSessions,
+      refreshTerminals: s.refreshTerminals,
+    })),
+  );
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [tasks, setTasks] = useState<AutomationTask[]>([]);
@@ -98,7 +113,7 @@ export function CommandCenterView() {
   }, []);
 
   const childrenOf = useMemo(() => {
-    const m = new Map<string, Session[]>();
+    const m = new Map<string, SessionSummary[]>();
     for (const s of sessions) if (s.parentSessionId) m.set(s.parentSessionId, [...(m.get(s.parentSessionId) ?? []), s]);
     return m;
   }, [sessions]);
@@ -112,7 +127,7 @@ export function CommandCenterView() {
   const isSubscriptionSpend = !!usage?.hasSubscriptionUsage && (usage?.totalCost ?? 0) === 0;
 
   const isRunningSession = useMemo(
-    () => (s: Session) => running.has(s.id) || (childrenOf.get(s.id) ?? []).some((k) => running.has(k.id)),
+    () => (s: SessionSummary) => running.has(s.id) || (childrenOf.get(s.id) ?? []).some((k) => running.has(k.id)),
     [running, childrenOf],
   );
 
@@ -405,7 +420,7 @@ type InsightTab = 'optimize' | 'cost' | 'usage' | 'services';
 function InsightsSection({
   usage, sessions, providers, onOpenModels,
 }: {
-  usage: UsageSummary | null; sessions: Session[]; providers: ProviderConfig[]; onOpenModels: () => void;
+  usage: UsageSummary | null; sessions: SessionSummary[]; providers: ProviderConfig[]; onOpenModels: () => void;
 }) {
   const tips = useMemo(() => optimizationTips({ usage, sessions, providers }), [usage, sessions, providers]);
   const [tab, setTab] = useState<InsightTab>(tips.length > 0 ? 'optimize' : 'cost');
@@ -553,7 +568,7 @@ function ChartEmpty({ message, bars = 12 }: { message: string; bars?: number }) 
 }
 
 /** Cost breakdowns: monthly actual + projection, per-agent, per-model, and pricing. */
-function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null; sessions: Session[]; providers: ProviderConfig[] }) {
+function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null; sessions: SessionSummary[]; providers: ProviderConfig[] }) {
   const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
   const hasData = !!usage && ((usage.totalCost ?? 0) > 0.0000001 || !!usage.hasSubscriptionUsage);
 
@@ -577,7 +592,7 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
   const maxDayCost = Math.max(0.0001, ...recentCost.map((d) => d.cost ?? 0));
 
   const subscriptionChats = useMemo(() => {
-    if (!usage?.hasSubscriptionUsage) return [] as Session[];
+    if (!usage?.hasSubscriptionUsage) return [] as SessionSummary[];
     return sessions.filter((s) => {
       const t = usage.bySession[s.id];
       const p = providers.find((p) => p.id === s.providerId);

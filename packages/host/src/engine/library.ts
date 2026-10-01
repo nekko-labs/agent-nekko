@@ -1,5 +1,6 @@
+import { mlxSupported, readMlxModel, type MlxModelInfo } from './mlx.js';
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
-import { basename, join, resolve, sep } from 'path';
+import { basename, dirname, join, relative, resolve, sep } from 'path';
 import type {
   EngineLoadPreset,
   LocalModel,
@@ -7,8 +8,10 @@ import type {
   ModelFolderProviderId,
   ModelFolderStatus,
 } from '@agent-nekko/shared';
+import { modelModality } from '@agent-nekko/shared';
 import { readGgufMetadata } from './gguf.js';
 import { listOllamaModels } from './ollama.js';
+import { companionsDir } from './companions.js';
 
 /**
  * The models on this machine.
@@ -119,6 +122,9 @@ export function createLibrary(deps: LibraryDeps) {
         // Ollama's blobs are read from its manifests instead, and a Hugging Face
         // cache's blobs are the same bytes as the snapshot entries beside them.
         if (entry.isDirectory() && entry.name === 'blobs') continue;
+        // Our own sidecar store: its files belong to a model row, they are not
+        // rows themselves.
+        if (entry.isDirectory() && entry.name === '.companions') continue;
         if (entry.isDirectory() && depth < maxDepth) await walk(full, depth + 1);
         else if (entry.isFile() && entry.name.toLowerCase().endsWith('.gguf')) out.push(full);
       }
@@ -169,6 +175,28 @@ export function createLibrary(deps: LibraryDeps) {
       out.push({ ...stored, path, sizeBytes: size, managed: root.managed, folderId: root.id, folderProvider: root.provider });
     };
 
+    // Directories holding a multimodal projector. Gathered across the whole
+    // scan rather than checked per model, so the answer is the truth on disk
+    // at this instant rather than a flag that went stale in the index. The
+    // nekko-side companions dir counts too: it is where fetched projectors
+    // land for models in folders we do not write to.
+    const projectorDirs = new Set<string>();
+    const companionIds = new Set<string>();
+    for (const root of roots()) {
+      for (const path of root.provider === 'ollama' ? [] : await scanFolder(root)) {
+        if (/mmproj/i.test(basename(path))) projectorDirs.add(dirname(path).toLowerCase());
+      }
+    }
+    try {
+      const fetched = join(deps.modelsDir(), '.companions');
+      for (const key of await readdir(fetched)) {
+        const files = await readdir(join(fetched, key)).catch(() => [] as string[]);
+        if (files.some((f) => /mmproj/i.test(f) && f.toLowerCase().endsWith('.gguf'))) companionIds.add(key);
+      }
+    } catch {
+      /* no companions dir yet */
+    }
+
     for (const root of roots()) {
       // Ollama names its files by content hash, so its manifests are the only
       // place the model's name exists. Every other layout is a directory walk.
@@ -182,6 +210,65 @@ export function createLibrary(deps: LibraryDeps) {
         if (/mmproj/i.test(basename(path))) continue;
         await add(root, path);
       }
+    }
+
+    // MLX model folders: rows of their own, served by mlx_lm.server on an
+    // Apple Silicon Mac and explained as not runnable anywhere else.
+    const mlxRunnable = mlxSupported();
+    for (const root of roots()) {
+      if (root.provider === 'ollama') continue;
+      for (const { dir, info } of await scanMlxFolder(root)) {
+        if (seenPaths.has(dir.toLowerCase())) continue;
+        seenPaths.add(dir.toLowerCase());
+        let stored = byFile.get(dir);
+        if (!stored || stored.folderId !== root.id) {
+          stored = {
+            id: idFor(root, dir),
+            name: basename(dir),
+            file: dir,
+            format: 'mlx',
+            folderId: root.id,
+            folderProvider: root.provider,
+            architecture: info.architecture,
+            quantization: info.quantization,
+            maxContext: info.maxContext,
+            readable: true,
+            addedAt: Date.now(),
+          };
+          dirty = true;
+        }
+        let id = stored.id;
+        for (let n = 2; seenIds.has(id); n += 1) id = `${stored.id}-${n}`;
+        if (id !== stored.id) stored = { ...stored, id };
+        seenIds.add(id);
+        index.models[id] = stored;
+        out.push({
+          ...stored,
+          path: dir,
+          sizeBytes: info.sizeBytes,
+          managed: root.managed,
+          folderId: root.id,
+          folderProvider: root.provider,
+          modality: info.vision ? 'vision' : 'chat',
+          hasProjector: info.vision,
+          mlxRunnable,
+        });
+      }
+    }
+
+    // Fold live modality facts onto the rows: what kind of model this is and
+    // whether a vision model's projector is actually there.
+    const compKey = (id: string) => basename(companionsDir(deps.modelsDir(), id));
+    for (const model of out) {
+      if (model.format === 'mlx') continue;
+      model.hasProjector =
+        projectorDirs.has(dirname(model.path).toLowerCase()) || companionIds.has(compKey(model.id));
+      model.modality = modelModality({
+        architecture: model.architecture,
+        name: `${model.id} ${model.name}`,
+        hasProjector: model.hasProjector,
+        readable: model.readable,
+      });
     }
 
     // Drop rows whose file is gone, so a model deleted in Explorer stops showing.
@@ -200,6 +287,38 @@ export function createLibrary(deps: LibraryDeps) {
     return out.sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  /**
+   * MLX model folders under one root (a `config.json` beside `.safetensors`
+   * weights, see `readMlxModel`). A folder that is a model is not descended
+   * into; its weights are its own.
+   */
+  async function scanMlxFolder(root: Root): Promise<Array<{ dir: string; info: MlxModelInfo }>> {
+    const maxDepth = root.managed ? 3 : 5;
+    const out: Array<{ dir: string; info: MlxModelInfo }> = [];
+    const walk = async (dir: string, depth: number): Promise<void> => {
+      let entries;
+      try {
+        entries = await readdir(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      if (entries.some((e) => e.isFile() && e.name === 'config.json')) {
+        const info = await readMlxModel(dir);
+        if (info) {
+          out.push({ dir, info });
+          return;
+        }
+      }
+      if (depth >= maxDepth) return;
+      for (const entry of entries) {
+        if (!entry.isDirectory() || entry.name === 'blobs' || entry.name === '.companions') continue;
+        await walk(join(dir, entry.name), depth + 1);
+      }
+    };
+    await walk(root.path, 0);
+    return out;
+  }
+
   /** Read one file's header into a library row. */
   async function describe(root: Root, path: string, name?: string): Promise<StoredModel> {
     const meta = await readGgufMetadata(path);
@@ -211,6 +330,7 @@ export function createLibrary(deps: LibraryDeps) {
       id: name ? `${root.id}/${name}` : idFor(root, path),
       name: name || meta?.name?.trim() || file.replace(/\.gguf$/i, ''),
       file: path,
+      sourceRepo: root.managed && /^(chat|vision|embedding|image|audio|draft|unknown)$/.test(relative(root.path, path).split(sep)[0]) ? repoFromTypedPath(root.path, path) : undefined,
       folderId: root.id,
       folderProvider: root.provider,
       quantization: meta?.quantization,
@@ -220,6 +340,11 @@ export function createLibrary(deps: LibraryDeps) {
       kvHeads: meta?.kvHeads,
       headDim: meta?.headDim,
       maxContext: meta?.maxContext,
+      hasChatTemplate: Boolean(meta?.chatTemplate),
+      // False only when the header would not read at all: an old GGML file
+      // renamed .gguf, a truncated download. Absent on rows indexed before the
+      // flag existed, where it reads as true.
+      readable: meta !== null,
       addedAt: Date.now(),
     };
   }
@@ -281,6 +406,8 @@ export function createLibrary(deps: LibraryDeps) {
     const primary = roots()[0];
     const companions = (await scanFolder(primary)).filter((p) => isCompanionOf(p, model.path));
     for (const path of [model.path, ...companions]) await rm(path, { force: true });
+    // Sidecars we fetched for it live under our own dir, so they go too.
+    await rm(companionsDir(deps.modelsDir(), id), { recursive: true, force: true });
 
     const index = await readIndex();
     delete index.models[id];
@@ -351,9 +478,21 @@ async function exists(path: string): Promise<boolean> {
     .catch(() => false);
 }
 
-/** A later shard or the projector belonging to the same model. */
+/**
+ * A later shard, the projector, or a template we extracted, belonging to the
+ * same model.
+ */
+function repoFromTypedPath(root: string, path: string): string | undefined {
+  const repo = relative(root, path).split(sep)[1] ?? '';
+  const i = repo.indexOf('_');
+  return i > 0 ? `${repo.slice(0, i)}/${repo.slice(i + 1)}` : undefined;
+}
+
 function isCompanionOf(candidate: string, primary: string): boolean {
   if (candidate === primary) return false;
   const stem = primary.replace(/-00001-of-\d{5}\.gguf$/i, '').replace(/\.gguf$/i, '');
-  return candidate.startsWith(stem) && /(-\d{5}-of-\d{5}\.gguf|mmproj.*\.gguf)$/i.test(candidate);
+  return (
+    (candidate.startsWith(stem) && /(-\d{5}-of-\d{5}\.gguf|mmproj.*\.gguf)$/i.test(candidate)) ||
+    candidate === `${stem}.chat_template.jinja`
+  );
 }

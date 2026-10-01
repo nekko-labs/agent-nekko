@@ -34,11 +34,19 @@ type Surface = 'simple' | 'advanced';
 export function EngineLoadDrawer({
   providerId,
   model,
+  autoloaded = false,
+  onToggleAutoload,
+  onFetchCompanions,
   onDone,
   onClose,
 }: {
   providerId: string;
   model: LocalModel & { loaded: boolean };
+  /** In the list loaded when the engine starts. */
+  autoloaded?: boolean;
+  onToggleAutoload?: (on: boolean) => void;
+  /** Fetch the projector and config sidecars this model's repo ships. */
+  onFetchCompanions?: () => void;
   onDone: () => void;
   onClose: () => void;
 }) {
@@ -173,6 +181,46 @@ export function EngineLoadDrawer({
           onChange={patch}
         />
       )}
+
+      {/* Residency and startup are one question — "how does this model behave
+          when I am not looking at it" — so they sit together rather than being
+          a load flag and a server setting. */}
+      <div className="mt-3 space-y-2 rounded-lg border px-3 py-2.5" style={{ borderColor: 'var(--line)' }}>
+        {onToggleAutoload && (
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[12px]">Load when the engine starts</p>
+              <p className="text-[11px] text-ink-faint">Comes up with these saved settings every time the engine does.</p>
+            </div>
+            <Toggle value={autoloaded} onChange={onToggleAutoload} />
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[12px]">Keep it loaded</p>
+            <p className="text-[11px] text-ink-faint">
+              Never evict it for sitting idle. Off means the server's idle limit applies.
+            </p>
+          </div>
+          <Toggle
+            value={params.ttlSeconds === 0}
+            onChange={(v) => patch({ ttlSeconds: v ? 0 : undefined })}
+          />
+        </div>
+        {model.modality === 'vision' && !model.hasProjector && onFetchCompanions && (
+          <div className="flex items-center justify-between gap-3 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
+            <div>
+              <p className="text-[12px]">Projector file missing</p>
+              <p className="text-[11px] text-ink-faint">
+                This model can read images only with its mmproj-*.gguf beside it. Text works either way.
+              </p>
+            </div>
+            <button className="btn btn-outline shrink-0 py-1 text-[11.5px]" onClick={onFetchCompanions}>
+              Fetch it
+            </button>
+          </div>
+        )}
+      </div>
 
       {plan ? (
         <FitBar plan={plan} />
@@ -372,6 +420,15 @@ function AdvancedSurface({
         </select>
       </Row>
 
+      <Row
+        label="Speculative decoding"
+        hint="Guesses upcoming tokens from text already in the conversation and checks them in one pass. Edits that repeat their input come out several times faster."
+      >
+        <Toggle value={params.speculative !== false} onChange={(on) => onChange({ speculative: on ? undefined : false })} />
+      </Row>
+
+      {params.speculative !== false && <DraftModelRow model={model} value={params.draftModelId} onChange={(id) => onChange({ draftModelId: id })} />}
+
       <details className="rounded-lg border" style={{ borderColor: 'var(--line)' }}>
         <summary className="cursor-pointer select-none px-3 py-2 text-[12px] text-ink-faint">
           Compute and memory
@@ -464,6 +521,62 @@ function NumberInput({
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
     />
+  );
+}
+
+/**
+ * An optional second guesser: a small model of the same family. Offered only
+ * from the same architecture and well under the target's size, because a
+ * draft that is too large slows ordinary replies down (measured: a 7.5B draft
+ * on a 12B model halved prose speed while it sped edits up).
+ */
+function DraftModelRow({
+  model,
+  value,
+  onChange,
+}: {
+  model: LocalModel;
+  value?: string;
+  onChange: (id: string | undefined) => void;
+}) {
+  const [candidates, setCandidates] = useState<LocalModel[]>([]);
+  useEffect(() => {
+    let live = true;
+    window.nekko
+      .engineModels()
+      .then((all) => {
+        if (!live) return;
+        const family = model.architecture;
+        setCandidates(
+          all.filter(
+            (m) =>
+              m.id !== model.id &&
+              Boolean(family) &&
+              m.architecture === family &&
+              (m.modality === 'draft' || m.modality === 'chat' || !m.modality) &&
+              m.sizeBytes <= model.sizeBytes / 4,
+          ),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [model.id, model.architecture, model.sizeBytes]);
+  if (candidates.length === 0 && !value) return null;
+  return (
+    <Row label="Draft model" hint="A small model from the same family that guesses ahead. Optional; the lookup above needs none.">
+      <select
+        className="input w-40 py-1 text-[12px]"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value || undefined)}
+      >
+        <option value="">None</option>
+        {candidates.map((m) => (
+          <option key={m.id} value={m.id}>{m.id}</option>
+        ))}
+      </select>
+    </Row>
   );
 }
 

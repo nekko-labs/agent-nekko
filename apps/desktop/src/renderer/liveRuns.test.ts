@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentEvent } from '@agent-nekko/shared';
-import { __resetLiveRuns, applyEvent, clearLiveRun, getLiveRun, runningSessionIds } from './liveRuns.js';
+import { LIVE_STREAM_MAX, __resetLiveRuns, applyEvent, clampLive, clearLiveRun, getLiveRun, runningSessionIds, takeFinishedRun } from './liveRuns.js';
 
 // The registry repaints on an animation frame; the folding itself is synchronous
 // and is what these tests are about, so the scheduler is stubbed out.
@@ -100,5 +100,40 @@ describe('liveRuns', () => {
 
   it('ignores a clear for a session that is not running', () => {
     expect(() => clearLiveRun('nobody')).not.toThrow();
+  });
+
+  it('hands the finished run over once, so the pane can hold it until the transcript lands', () => {
+    applyEvent(text('a', 'the whole answer'));
+    applyEvent({ type: 'done', sessionId: 'a', messageId: 'm1' });
+    expect(getLiveRun('a')).toBeUndefined();
+    expect(runningSessionIds()).toEqual([]);
+    expect(takeFinishedRun('a')?.text).toBe('the whole answer');
+    expect(takeFinishedRun('a')).toBeUndefined();
+  });
+
+  it('forgets a finished run once the next turn starts', () => {
+    applyEvent(text('a', 'first'));
+    applyEvent({ type: 'done', sessionId: 'a', messageId: 'm1' });
+    applyEvent(text('a', 'second'));
+    expect(takeFinishedRun('a')).toBeUndefined();
+    expect(getLiveRun('a')?.text).toBe('second');
+  });
+
+  it('never holds more than the live cap, keeping the tail that is still being written', () => {
+    const para = 'x'.repeat(99) + '\n\n';
+    for (let i = 0; i < 600; i++) applyEvent(text('a', para));
+    const t = getLiveRun('a')!.text;
+    expect(t.length).toBeLessThanOrEqual(LIVE_STREAM_MAX + 2);
+    expect(t.startsWith('…\n')).toBe(true);
+    expect(t.endsWith(para)).toBe(true);
+  });
+
+  it('cuts back at a paragraph break, so the kept text stops shifting for a while', () => {
+    const over = 'a'.repeat(LIVE_STREAM_MAX - 10) + '\n\nlast paragraph ' + 'b'.repeat(40);
+    const clamped = clampLive(over);
+    expect(clamped.length).toBeLessThan(LIVE_STREAM_MAX);
+    expect(clampLive('short')).toBe('short');
+    // Appending a little more does not move the cut again.
+    expect(clampLive(clamped + 'more')).toBe(clamped + 'more');
   });
 });

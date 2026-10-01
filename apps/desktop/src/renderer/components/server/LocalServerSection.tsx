@@ -85,7 +85,7 @@ export function LocalServerSection() {
     <section className="mt-7">
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--accent-2)' }} />
-        <h2 className="text-[15px] font-semibold">Agent Nekko as a server</h2>
+        <h2 className="text-[15px] font-semibold">Agent server</h2>
         {running ? (
           <Badge tone="success" variant="solid" className="px-2 py-0.5">
             <CheckIcon className="h-3 w-3" /> Serving
@@ -117,6 +117,9 @@ export function LocalServerSection() {
               <button
                 className="btn btn-outline py-1 text-[12px]"
                 disabled={busy}
+                role="switch"
+                aria-label="Agent server"
+                aria-checked={settings.enabled}
                 onClick={() => save({ enabled: !settings.enabled })}
               >
                 {busy ? 'Working…' : settings.enabled ? 'Stop' : 'Start'}

@@ -1,13 +1,27 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, ChatMessage, Session, ToolCall, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
-import { pickAutoModel, AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, matchSkills, estimateTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, formatRate, hasResumableProgress, isLocalProvider, formatModelPriceLabel, resolveModelAvailability, blockLabel, planAsPromptBlock, summarizeThought, summarizeToolCall, truncateWords, estimateCostUSD, shortLiveStatus } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, planAsPromptBlock, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
+import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { useGitStatus } from '../useGitStatus.js';
-import { clearLiveRun, getLiveRun, useLiveRun } from '../liveRuns.js';
+import { clearLiveRun, getLiveRun, takeFinishedRun, useLiveRun, type LiveRun } from '../liveRuns.js';
+import { getCachedSession, loadSession, putCachedSession } from '../sessionCache.js';
+import { usePaneVisible } from '../paneVisibility.js';
+import { afterPaint } from '../afterPaint.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
-import { Markdown } from './Markdown.js';
+import {
+  ActivityGroup, ApprovalBar, AutoQualityMenu, MessageBubble, ModelPicker,
+  ReplyStatus, useElementWidth,
+} from './agent-console/index.js';
+import type { PendingApproval } from './agent-console/index.js';
+import { LiveTurn, producedTokens, useProducedTokens } from './agent-console/LiveTurn.js';
+import { ChatTypeToggle, ImageModeControls } from './agent-console/ImageModeControls.js';
+import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
+import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
+import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortMenu } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
 import { QuestionCard } from './QuestionCard.js';
@@ -18,20 +32,19 @@ import { ChatControls } from './ChatControls.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
 import { PrCard, PrBadge } from './PrCard.js';
-import { MiniNekko, NekkoAvatar } from './Mascot.js';
+import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
-import { PanelIcon, ShieldIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, ToolStepIcon, RobotIcon, StarIcon, ChatIcon, BranchIcon, WorktreeIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
 /**
- * How often streamed deltas are committed to React state. Tokens arrive one
- * event at a time; setting state per token re-renders the whole transcript per
- * token, which stutters on a long reply and locks the window on a very fast or
- * runaway one. Batching to ~20fps is imperceptible while streaming and turns
- * thousands of renders into a few dozen.
+ * How long the store's copy of the draft (read by the Context Inspector) trails
+ * the composer. Mirroring every keystroke re-rendered everything subscribed to
+ * the store while you typed; a short trailing debounce keeps the inspector's
+ * count current without that.
  */
-const STREAM_FLUSH_MS = 50;
+const DRAFT_MIRROR_MS = 150;
 
 /**
  * How often a running turn re-reads its context bundle. Each completed step is
@@ -68,17 +81,6 @@ function readComposerHeight(): number | null {
   }
 }
 
-/**
- * Cap on a live buffer's length. The engine cuts a looping model off (see
- * runaway.ts), so this is the second line of defence: it keeps the renderer
- * from ever holding an unbounded string. The tail is kept because that's the
- * part still being written.
- */
-const LIVE_STREAM_MAX = 40_000;
-
-function clampLive(s: string): string {
-  return s.length <= LIVE_STREAM_MAX ? s : `…\n${s.slice(-LIVE_STREAM_MAX)}`;
-}
 
 function readImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -227,10 +229,13 @@ function ImageMenu({ x, y, src, onClose }: { x: number; y: number; src: string; 
   );
 }
 
-interface PendingApproval {
-  call: ToolCall;
-  reason: string;
-  severity: 'low' | 'medium' | 'high';
+/** The provider and model a chat opens on: its own, or the app's defaults. */
+function initialBrain(s: Session | null | undefined): { providerId: string | null; modelId: string | null } {
+  const st = useStore.getState();
+  return {
+    providerId: s?.providerId ?? st.activeProviderId ?? st.providers[0]?.id ?? null,
+    modelId: s?.autoModel ? AUTO_MODEL_ID : (s?.modelId ?? st.activeModelId ?? null),
+  };
 }
 
 /**
@@ -276,17 +281,189 @@ function ChatHeader({
   );
 }
 
-export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; onRunningChange?: (running: boolean) => void }) {
-  const { providers, settings, setMascotMood, refreshSessions } = useStore();
+/**
+ * One transcript row: a message and the PR cards it is first to mention, a run
+ * of working steps, or the trailing PR cards. Memoized, so a row re-renders
+ * only when its own data does.
+ */
+const TranscriptRowView = memo(function TranscriptRowView({
+  row, streaming, prByUrl, sessionId, onEditResend, onImageClick, onImageContextMenu,
+}: {
+  row: TranscriptRow;
+  streaming: boolean;
+  prByUrl: Map<string, PrInfo>;
+  sessionId: string;
+  onEditResend: (id: string, text: string) => void;
+  onImageClick: (src: string) => void;
+  onImageContextMenu: (e: React.MouseEvent, src: string) => void;
+}) {
+  if (row.kind === 'activity') return <ActivityGroup items={row.items} />;
+  if (row.kind === 'prs') {
+    // PRs mentioned only in tool output (never in assistant text) still get a
+    // card, appended after the transcript.
+    return <>{row.urls.map((u) => <PrCard key={`orphan_${u}`} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}</>;
+  }
+  const editable = !streaming && row.message.role === 'user' && row.message.id !== 'tmp';
+  return (
+    <>
+      <MessageBubble
+        message={row.message}
+        onResend={editable ? onEditResend : undefined}
+        onReset={editable ? onEditResend : undefined}
+        onImageClick={onImageClick}
+        onImageContextMenu={onImageContextMenu}
+        chronological
+      />
+      {/* A PR card right after the message that first names it. */}
+      {row.prUrls.map((u) => <PrCard key={u} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}
+    </>
+  );
+});
 
-  const [session, setSession] = useState<Session | null>(null);
+/**
+ * Where a turn's live numbers stand against the last context bundle: what it
+ * has produced that the bundle does not include yet, and what it has output
+ * since the provider last reported usage. Read per frame by the small
+ * components below, so the pane around them does not re-render per token.
+ */
+interface LiveMarks {
+  /** Context tokens the current bundle already accounts for. */
+  ctxMark: number;
+  /** Context tokens the turn produced, kept once it ends until the bundle catches up. */
+  ctxTail: number;
+  /** Output tokens already priced by a usage event. */
+  outMark: number;
+}
+
+function useLiveContextTokens(sessionId: string, marks: LiveMarks): number {
+  const produced = useProducedTokens(sessionId);
+  const running = !!getLiveRun(sessionId);
+  return Math.max(0, (running ? produced.context : marks.ctxTail) - marks.ctxMark);
+}
+
+/** The composer's context gauge, moving with the reply as it streams. */
+const LiveContextGauge = memo(function LiveContextGauge({
+  sessionId, marks, ...gauge
+}: Omit<React.ComponentProps<typeof ContextGauge>, 'liveTokens'> & { sessionId: string; marks: LiveMarks }) {
+  return <ContextGauge {...gauge} liveTokens={useLiveContextTokens(sessionId, marks)} />;
+});
+
+/** The "running out of room" warning, counting the reply as it streams. */
+const LiveContextWarning = memo(function LiveContextWarning({
+  sessionId, marks, baseUsed, ...warning
+}: Omit<React.ComponentProps<typeof ContextWarning>, 'used' | 'sessionId'> & {
+  sessionId: string; marks: LiveMarks; baseUsed: number;
+}) {
+  const live = useLiveContextTokens(sessionId, marks);
+  return <ContextWarning sessionId={sessionId} {...warning} used={baseUsed + live} />;
+});
+
+/** The usage chip, pricing what has streamed since the last usage report. */
+const LiveUsageChip = memo(function LiveUsageChip({
+  sessionId, marks, measured, pendingIn, model, ...chip
+}: Omit<React.ComponentProps<typeof UsageLimitsChip>, 'turnCost'> & {
+  sessionId: string; marks: LiveMarks; measured: number; pendingIn: number; model: string | null;
+}) {
+  const produced = useProducedTokens(sessionId);
+  const turnCost = measured + estimateCostUSD(model ?? undefined, pendingIn, Math.max(0, produced.output - marks.outMark));
+  return <UsageLimitsChip {...chip} turnCost={turnCost} />;
+});
+
+/**
+ * The line under the conversation: what the reply is doing, read off the
+ * app-wide fold (so it says the same as the chat's Command Center card), and
+ * how long it has been at it.
+ */
+const LiveReplyStatus = memo(function LiveReplyStatus({
+  sessionId, startedAt, ...status
+}: Omit<React.ComponentProps<typeof ReplyStatus>, 'status' | 'elapsed'> & { sessionId: string; startedAt: number }) {
+  const run = useLiveRun(sessionId, !usePaneVisible());
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!status.streaming) return;
+    const tick = () => { if (startedAt) setElapsed(Math.round((Date.now() - startedAt) / 1000)); };
+    tick();
+    const t = setInterval(tick, 500);
+    return () => clearInterval(t);
+  }, [status.streaming, startedAt]);
+  const label = status.streaming ? shortLiveStatus(run?.activity) || 'Working' : '';
+  return <ReplyStatus {...status} status={label} elapsed={status.streaming ? elapsed : 0} />;
+});
+
+/**
+ * Focus the composer when a chat opens so you can start typing straight away,
+ * caret after any restored draft. Once per chat, and again whenever a pane
+ * kept mounted behind the scenes is shown, so switching back to a chat lands
+ * in its composer as it always did. Never steals focus from something else
+ * you're already typing in. `ready` is a dependency because the textarea is
+ * disabled until providers have loaded.
+ *
+ * Its own component so the pane showing and hiding re-renders this, not the
+ * chat; and done after the frame, because focus forces a layout, and paying for
+ * it inside the switch would hold back the frame that shows the chat.
+ */
+function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<HTMLTextAreaElement | null>; sessionId: string; ready: number }) {
+  const visible = usePaneVisible();
+  const focusedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!visible) {
+      focusedFor.current = null;
+      return;
+    }
+    if (focusedFor.current === sessionId) return;
+    return afterPaint(() => {
+      const el = target.current;
+      if (!el || el.disabled) return;
+      const active = document.activeElement;
+      // A composer in a pane that was just hidden may still hold focus for a
+      // moment; it is not someone typing.
+      const typingElsewhere =
+        active instanceof HTMLElement &&
+        active !== el &&
+        active.checkVisibility?.() !== false &&
+        (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+      if (typingElsewhere) return;
+      focusedFor.current = sessionId;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }, [visible, sessionId, ready, target]);
+  return null;
+}
+
+function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRunningChange?: (running: boolean) => void }) {
+  const { providers, settings, setMascotMood, refreshSessions } = useStore(
+    useShallow((s) => ({
+      providers: s.providers,
+      settings: s.settings,
+      setMascotMood: s.setMascotMood,
+      refreshSessions: s.refreshSessions,
+    })),
+  );
+
+  // Painted straight from the session cache when this chat was open recently;
+  // the host copy is fetched regardless and replaces it (stale-while-revalidate).
+  const [session, setSession] = useState<Session | null>(() => getCachedSession(sessionId) ?? null);
   // Seed the composer from whatever was parked for this chat, so an unsent
   // message survives a tab switch or a restart.
   const [draft, setDraft] = useState(() => loadDraft(sessionId)?.text ?? '');
+  // What the draft implies (the analyzer, the plan rail, Auto's pick, the
+  // gauge's draft count) renders from this, one step behind the keystroke, so
+  // a keypress paints the textarea before any of that work runs.
+  const deferredDraft = useDeferredValue(draft);
   const [streaming, setStreaming] = useState(false);
-  const [liveText, setLiveText] = useState('');
-  const [liveReasoning, setLiveReasoning] = useState('');
-  const [liveTools, setLiveTools] = useState<ToolCall[]>([]);
+  // Mirrors for the long-lived agent-event listener, so a token does not set
+  // state that is already set.
+  const streamingRef = useRef(false);
+  const thinkingRef = useRef(false);
+  /**
+   * The reply that just finished, kept on screen until its persisted copy is in
+   * `session`, then cleared in the same commit, so the end of a reply never
+   * flashes the answer out and back in. While a turn runs the live reply comes
+   * from liveRuns (see LiveTurn); this pane holds no copy of the stream.
+   */
+  const [held, setHeld] = useState<LiveRun | null>(null);
+  const heldRef = useRef<LiveRun | null>(null);
   const [approval, setApproval] = useState<PendingApproval | null>(null);
   /**
    * The question the agent stopped to ask, when it has. Seeded from the host on
@@ -299,8 +476,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // yet. Everything the agent writes (its reply, its tool calls, their results)
   // is replayed in the next request's prompt, so the window fills as the turn
   // runs; without this the gauge sat still for minutes and jumped at the end.
-  const [liveCtxTokens, setLiveCtxTokens] = useState(0);
-  const liveCtxRef = useRef(0);
+  // The produced count itself is read per frame from the live run (see
+  // LiveMarks); these are the marks it is measured against.
+  const [marks, setMarks] = useState<LiveMarks>({ ctxMark: 0, ctxTail: 0, outMark: 0 });
+  const marksRef = useRef(marks);
+  marksRef.current = marks;
   const lastCtxRefresh = useRef(0);
   const [tps, setTps] = useState(0);
   const [thinking, setThinking] = useState(false);
@@ -323,7 +503,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // else on it.
   const planRailWanted = useStore((s) => s.planRailOpen);
   const paneRef = useRef<HTMLDivElement>(null);
-  const paneWidth = useElementWidth(paneRef);
+  const paneWidth = useElementWidth(paneRef, sessionId);
   const planRailOpen = planRailWanted && paneWidth >= PLAN_RAIL_MIN_PANE;
   const wideEnoughForRail = paneWidth >= PLAN_RAIL_MIN_PANE;
   // The armed skill lives in the store (per session) so the Context Inspector on
@@ -340,14 +520,26 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
-  const [reasoningDuration, setReasoningDuration] = useState<number | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<string | null>(null);
+  // What the model thinks the user will say next: one-click follow-up chips and
+  // the composer's ghost text. Pinned to the reply it was written for (forId) so
+  // a newer turn can't inherit stale suggestions.
+  const [suggestions, setSuggestions] = useState<{ forId: string; options: string[]; next: string | null } | null>(null);
   // A failed reply stays in the transcript with a retry, instead of vanishing
   // with the toast.
   const [errorNotice, setErrorNotice] = useState<string | null>(null);
-  const [providerId, setProviderId] = useState<string | null>(null);
-  const [modelId, setModelId] = useState<string | null>(null);
+  // Seeded from the cached transcript when there is one, so a warm chat opens
+  // with its model already chosen instead of settling a render later.
+  // (A chat that is not cached waits for its own record, as it always has.)
+  const [providerId, setProviderId] = useState<string | null>(() => {
+    const cached = getCachedSession(sessionId);
+    return cached ? initialBrain(cached).providerId : null;
+  });
+  const [modelId, setModelId] = useState<string | null>(() => {
+    const cached = getCachedSession(sessionId);
+    return cached ? initialBrain(cached).modelId : null;
+  });
   const [models, setModels] = useState<ModelInfo[]>([]);
   // Whether this pane's model list has come back yet, so the "pick a model"
   // nudge waits for the truth instead of flashing during the fetch.
@@ -365,10 +557,17 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    * What the reply now running has cost so far, at published list prices,
    * accumulated per step as the usage events arrive rather than read back from
    * the usage log after the turn ends. A long agentic turn is exactly when
-   * someone wants to see the number moving.
+   * someone wants to see the number moving. `turnCostMeasured` is what usage
+   * events have reported; the chip adds an estimate for what has streamed since
+   * (see LiveUsageChip).
    */
-  const [turnCost, setTurnCost] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
+  const [turnCostMeasured, setTurnCostMeasured] = useState(0);
+  /**
+   * Prompt tokens of a step that has not reported usage yet, priced from the
+   * context gauge's own count the instant the turn starts, so the figure is
+   * never a zero that sits there while a large prompt is being processed.
+   */
+  const [pendingIn, setPendingIn] = useState(0);
   const [lastTurn, setLastTurn] = useState<{ out: number; tps: number; secs: number } | null>(null);
   // Keyboard state for the slash/@ menus: the highlighted row, and whether the
   // user dismissed the menu with Escape (typing re-opens it).
@@ -377,7 +576,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // "Jump to latest" pill: shown when new content streams in while the reader
   // has scrolled up.
   const [showJump, setShowJump] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const transcriptRef = useRef<VirtualTranscriptHandle>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   // A dragged composer height, or null to size to the draft. See COMPOSER_H_KEY.
   const [composerH, setComposerH] = useState<number | null>(readComposerHeight);
@@ -391,7 +590,6 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // also covers prompt processing, tool runs, and approval waits, so dividing
   // tokens by it under-reports throughput (badly, on a tool-heavy turn).
   const turnDecodeMsRef = useRef(0);
-  const reasoningStart = useRef(0);
   const turnOutRef = useRef(0);
   /**
    * Cost the provider has actually reported for this turn, summed per step.
@@ -401,37 +599,12 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    */
   const turnCostRef = useRef(0);
   /**
-   * Tokens streamed since the last usage report, and the prompt tokens of a
-   * step that has not reported yet.
-   *
-   * Without these the figure only moved once, at the end: an OpenAI-compatible
-   * server sends its usage chunk after the last content chunk, so there is
-   * nothing measured to show during the reply people actually want to watch.
-   * These price what has arrived so far and are dropped the moment the real
-   * numbers land, so the estimate converges on the truth rather than adding to it.
-   */
-  const pendingOutRef = useRef(0);
-  const pendingInRef = useRef(0);
-  /**
    * The model this turn is actually running on, for pricing its usage events.
    * A ref because the agent-event listener is long-lived, and the model can be
    * resolved per send (Auto mode), so the state variable would price a turn at
    * whatever the picker shows now rather than at what ran.
    */
   const modelForCostRef = useRef<string | null>(null);
-  // Ref mirrors of the live buffers: the agent-event listener closure is
-  // long-lived, so reading the state variables there would see stale values.
-  const liveToolsRef = useRef<ToolCall[]>([]);
-  const liveTextRef = useRef('');
-  // Streamed deltas land here and are committed together on a timer (see
-  // STREAM_FLUSH_MS), so the transcript renders per frame rather than per token.
-  const pendingText = useRef('');
-  const pendingReasoning = useRef('');
-  const flushTimer = useRef<number | null>(null);
-  // Whether the reader is at (or near) the bottom of the transcript. Streaming
-  // only auto-follows while this is true, so scrolling up to read is possible.
-  const pinnedRef = useRef(true);
-  const didFirstScroll = useRef(false);
 
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
@@ -445,9 +618,9 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   useEffect(() => {
     let live = true;
     const load = () => window.nekko.listChanges(sessionId).then((c) => { if (live) setChangeCount(c.length); }).catch(() => {});
-    load();
+    const cancel = afterPaint(load);
     const off = window.nekko.onChangesUpdated((e) => { if (e.sessionId === sessionId) load(); });
-    return () => { live = false; off(); };
+    return () => { live = false; cancel(); off(); };
   }, [sessionId]);
 
   useEffect(() => onRunningChange?.(streaming), [streaming, onRunningChange]);
@@ -456,22 +629,26 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    * Pull a fresh context bundle and settle the live estimate against it.
    *
    * The agent loop appends each assistant message and tool result to the
-   * session as it goes, so a mid-turn preview is real, not stale. Whatever has
-   * streamed since the request went out stays in `liveCtxRef` (the bundle can't
-   * know about it yet), which is why the mark is subtracted rather than reset:
-   * tokens that arrived during the round trip would otherwise be dropped.
+   * session as it goes, so a mid-turn preview is real, not stale. Whatever
+   * streams while the request is out stays counted (the bundle can't know about
+   * it yet), which is why the mark is what had been produced when the request
+   * went out rather than a reset: tokens that arrived during the round trip
+   * would otherwise be dropped.
    */
   const refreshCtx = () => {
-    const mark = liveCtxRef.current;
+    const run = getLiveRun(sessionId);
+    const mark = run ? producedTokens(run).context : marksRef.current.ctxTail;
     lastCtxRefresh.current = Date.now();
     window.nekko.previewContext(sessionId, [])
       .then((b) => {
         setCtx(b);
-        liveCtxRef.current = Math.max(0, liveCtxRef.current - mark);
-        setLiveCtxTokens(liveCtxRef.current);
+        setMarks((m) => ({ ...m, ctxMark: mark }));
       })
       .catch(() => setCtx(null));
   };
+
+  const refreshCtxRef = useRef(refreshCtx);
+  refreshCtxRef.current = refreshCtx;
 
   /** Refresh at most every CTX_REFRESH_MS, for the per-step mid-turn updates. */
   const refreshCtxThrottled = () => {
@@ -479,19 +656,38 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     refreshCtx();
   };
 
-  // Load the session; seed provider/model from it (or the global defaults).
+  /** Seed provider/model from the session (or the global defaults). */
+  const seedBrain = (s: Session | null) => {
+    const brain = initialBrain(s);
+    setProviderId(brain.providerId);
+    setModelId(brain.modelId);
+  };
+
+  // Load the session. A cached copy (if any) is already on screen from the
+  // first render; the host's copy replaces it when it arrives.
   useEffect(() => {
-    window.nekko.getSession(sessionId).then((s) => {
-      setSession(s);
-      const st = useStore.getState();
-      setProviderId(s?.providerId ?? st.activeProviderId ?? providers[0]?.id ?? null);
-      setModelId(s?.autoModel ? AUTO_MODEL_ID : (s?.modelId ?? st.activeModelId ?? null));
+    const cached = getCachedSession(sessionId);
+    let live = true;
+    // After the first paint: the frame (and a cached transcript) goes on
+    // screen before any of this is even asked for.
+    const cancel = afterPaint(() => {
+      loadSession(sessionId).then((s) => {
+        if (!live) return;
+        setSession(s);
+        if (!cached) seedBrain(s);
+      }).catch(() => {});
+      refreshCtx();
+      useStore.getState().refreshSessionPrs(sessionId);
     });
-    refreshCtx();
-    useStore.getState().refreshSessionPrs(sessionId);
-    setModelHintDone(false);
+    return () => { live = false; cancel(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // Whatever this pane shows is the freshest copy the renderer has, so the
+  // cache follows it (optimistic messages included; the next load replaces them).
+  useEffect(() => {
+    if (session?.id === sessionId) putCachedSession(session);
+  }, [session, sessionId]);
 
   // Models for this pane's provider (independent of other panes). A chat that
   // has never had a model picked is left unset on purpose: the nudge below the
@@ -499,96 +695,68 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   useEffect(() => {
     if (!providerId) { setModels([]); setModelsLoaded(false); return; }
     setModelsLoaded(false);
-    window.nekko.listModels(providerId).then((m) => {
-      setModels(m);
-      setModelId((cur) => (cur === AUTO_MODEL_ID || (cur && m.some((x) => x.id === cur)) ? cur : null));
-      setModelsLoaded(true);
-    }).catch(() => { setModels([]); setModelsLoaded(true); });
+    let live = true;
+    const cancel = afterPaint(() => {
+      window.nekko.listModels(providerId).then((m) => {
+        if (!live) return;
+        setModels(m);
+        setModelId((cur) => (cur === AUTO_MODEL_ID || (cur && m.some((x) => x.id === cur)) ? cur : null));
+        setModelsLoaded(true);
+      }).catch(() => { if (live) { setModels([]); setModelsLoaded(true); } });
+    });
+    return () => { live = false; cancel(); };
   }, [providerId]);
 
   // Per-chat estimated cost. usageSummary already zeroes subscription providers.
-  useEffect(() => {
+  useEffect(() => afterPaint(() => {
     window.nekko.getUsageSummary().then((u) => {
       const s = u.bySession[sessionId];
       setCost(s ? (s.cost ?? 0) : 0);
     }).catch(() => setCost(0));
-  }, [sessionId, session?.modelId, session?.messages.length]);
+  }), [sessionId, session?.modelId, session?.messages.length]);
 
-  /**
-   * What this turn has cost so far: measured where the provider has told us,
-   * estimated where it has not yet.
-   */
-  const publishTurnCost = () => {
-    const estimate = estimateCostUSD(
-      modelForCostRef.current ?? undefined,
-      pendingInRef.current,
-      pendingOutRef.current,
-    );
-    setTurnCost(turnCostRef.current + estimate);
-  };
-
-  // Commit whatever has streamed in since the last flush.
-  const flushStream = () => {
-    if (flushTimer.current != null) {
-      clearTimeout(flushTimer.current);
-      flushTimer.current = null;
-    }
-    const text = pendingText.current;
-    const reasoning = pendingReasoning.current;
-    pendingText.current = '';
-    pendingReasoning.current = '';
-    if (text) setLiveText((t) => clampLive(t + text));
-    if (reasoning) setLiveReasoning((t) => clampLive(t + reasoning));
-    // The same batch that paints the transcript moves the context gauge, so the
-    // estimate costs one extra number per frame rather than one per token.
-    if (text || reasoning) {
-      const produced = estimateTokens(text) + estimateTokens(reasoning);
-      liveCtxRef.current += produced;
-      setLiveCtxTokens(liveCtxRef.current);
-      pendingOutRef.current += produced;
-      publishTurnCost();
-    }
-  };
-
-  const scheduleFlush = () => {
-    if (flushTimer.current == null) {
-      flushTimer.current = window.setTimeout(flushStream, STREAM_FLUSH_MS);
-    }
-  };
-
-  // Never leave a pending flush behind on unmount or a session switch.
-  useEffect(() => () => {
-    if (flushTimer.current != null) clearTimeout(flushTimer.current);
-    flushTimer.current = null;
-    pendingText.current = '';
-    pendingReasoning.current = '';
-  }, [sessionId]);
+  // Keep the sidebar's per-workspace context readout fresh while a turn runs.
+  // The pane already re-reads its context bundle per step (throttled to
+  // CTX_REFRESH_MS); this adds a slow heartbeat so the number also creeps up
+  // between steps, and so it settles once at the end of the turn.
+  const latestCtxRef = useRef(ctx);
+  latestCtxRef.current = ctx;
+  const latestSessionRef = useRef(session);
+  latestSessionRef.current = session;
+  useEffect(() => {
+    if (!streaming) return;
+    const t = setInterval(() => {
+      const conversationTokens = latestCtxRef.current?.items.find((i) => i.included && i.source === 'conversation')?.tokens
+        ?? estimateTranscriptTokens(latestSessionRef.current?.messages ?? []);
+      const produced = producedTokens(getLiveRun(sessionId)).context;
+      const live = Math.max(0, produced - marksRef.current.ctxMark);
+      useStore.getState().setSessionCtxEstimate(sessionId, conversationTokens + live);
+    }, 4_000);
+    return () => {
+      clearInterval(t);
+      useStore.getState().setSessionCtxEstimate(sessionId, null);
+    };
+  }, [streaming, sessionId]);
 
   /**
    * Adopt a turn that was already running when this pane mounted.
    *
-   * Workspaces render only the active one, so switching tabs unmounts the
-   * pane, and a chat that is mid-reply comes back to a fresh, empty one. The
-   * run itself never stopped (liveRuns folds it for the whole app), so the
-   * text, the tool calls and the clock are read back here rather than waiting
-   * for the next token to repaint a pane that looked idle until it arrived.
+   * A pane that is not on screen may be unmounted, and a chat that is
+   * mid-reply comes back to a fresh pane. The run itself never stopped
+   * (liveRuns folds it for the whole app, and LiveTurn renders it from there),
+   * so only this pane's own telemetry, the clock and the counts, is read back
+   * here rather than waiting for the next event to say a turn is running.
    */
   useEffect(() => {
     const run = getLiveRun(sessionId);
     if (!run) return;
-    liveTextRef.current = run.text;
-    setLiveText(clampLive(run.text));
-    setLiveReasoning(clampLive(run.reasoning));
-    liveToolsRef.current = run.tools;
-    setLiveTools(run.tools);
-    liveCtxRef.current = 0;
     turnStart.current = run.startedAt;
     turnOutRef.current = run.outputTokens;
     turnDecodeMsRef.current = run.decodeMs;
     setTurnOut(run.outputTokens);
     setTps(decodeRate(run.outputTokens, run.decodeMs));
-    if (run.reasoningMs) setReasoningDuration(Math.round(run.reasoningMs / 1000));
-    if (run.reasoningStartedAt) { reasoningStart.current = run.reasoningStartedAt; setThinking(true); }
+    if (run.reasoningStartedAt) { thinkingRef.current = true; setThinking(true); }
+    streamingRef.current = true;
     setStreaming(true);
     setMascotMood('thinking');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -599,40 +767,38 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // this pane was opened at all — would otherwise be invisible here.
   useEffect(() => {
     let live = true;
-    window.nekko.pendingInput().then((pending) => {
-      if (!live) return;
-      const mine = pending[sessionId];
-      if (mine?.question) setQuestion(mine.question);
-      if (mine?.approval) setApproval({ call: mine.approval.call, reason: mine.approval.reason, severity: mine.approval.severity });
-    }).catch(() => {});
-    return () => { live = false; };
+    const cancel = afterPaint(() => {
+      window.nekko.pendingInput().then((pending) => {
+        if (!live) return;
+        const mine = pending[sessionId];
+        if (mine?.question) setQuestion(mine.question);
+        if (mine?.approval) setApproval({ call: mine.approval.call, reason: mine.approval.reason, severity: mine.approval.severity });
+      }).catch(() => {});
+    });
+    return () => { live = false; cancel(); };
   }, [sessionId]);
 
-  // Stream agent events for this session only.
+  // Agent events for this session only. The streamed text itself is folded by
+  // liveRuns and drawn by LiveTurn, once a frame; this listener only moves the
+  // pane between states (running, blocked, done) and its per-step numbers, so
+  // a token costs it nothing.
   useEffect(() => {
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
       if (e.sessionId !== sessionId) return;
       // A reply may start host-side (a queued follow-up, or a task-driven run):
       // reflect it as streaming even though this pane didn't call send().
-      if (e.type === 'text' || e.type === 'reasoning' || e.type === 'tool_call') {
-        setStreaming(true);
+      if (e.type === 'text' || e.type === 'reasoning' || e.type === 'tool_call' || e.type === 'image_status') {
+        if (!streamingRef.current) {
+          streamingRef.current = true;
+          setStreaming(true);
+          // A turn this pane did not start: nothing it produces is counted yet.
+          setMarks({ ctxMark: 0, ctxTail: 0, outMark: 0 });
+        }
         if (!turnStart.current) { turnStart.current = Date.now(); setMascotMood('thinking'); }
       }
       switch (e.type) {
-        case 'text':
-          if (reasoningStart.current) {
-            setReasoningDuration(Math.round((Date.now() - reasoningStart.current) / 1000));
-            reasoningStart.current = 0;
-          }
-          liveTextRef.current += e.delta;
-          pendingText.current += e.delta;
-          scheduleFlush();
-          break;
         case 'reasoning':
-          if (!reasoningStart.current) reasoningStart.current = Date.now();
-          pendingReasoning.current += e.delta;
-          scheduleFlush();
-          setThinking(true);
+          if (!thinkingRef.current) { thinkingRef.current = true; setThinking(true); }
           break;
         case 'usage': {
           // Accumulate output tokens and decode time across the reply's steps, so
@@ -648,21 +814,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           // Measured numbers for the step that just finished, so the estimate
           // that stood in for it is dropped rather than added to.
           turnCostRef.current += estimateCostUSD(modelForCostRef.current ?? undefined, e.inputTokens, e.outputTokens);
-          pendingOutRef.current = 0;
-          pendingInRef.current = 0;
-          publishTurnCost();
+          setTurnCostMeasured(turnCostRef.current);
+          setPendingIn(0);
+          setMarks((m) => ({ ...m, outMark: producedTokens(getLiveRun(sessionId)).output }));
           break;
         }
-        case 'tool_call':
-          if (reasoningStart.current) {
-            setReasoningDuration(Math.round((Date.now() - reasoningStart.current) / 1000));
-            reasoningStart.current = 0;
-          }
-          liveToolsRef.current = [...liveToolsRef.current, e.call];
-          setLiveTools((tc) => [...tc, e.call]);
-          liveCtxRef.current += estimateTokens(e.call.name) + estimateTokens(JSON.stringify(e.call.input ?? {}));
-          setLiveCtxTokens(liveCtxRef.current);
-          break;
         case 'tool_approval_required':
           setApproval({ call: e.call, reason: e.reason, severity: e.severity });
           setMascotMood('thinking');
@@ -686,12 +842,15 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           endTurn();
           break;
         case 'done':
-          if (reasoningStart.current) {
-            setReasoningDuration(Math.round((Date.now() - reasoningStart.current) / 1000));
-            reasoningStart.current = 0;
-          }
           endTurn();
           refreshCtx();
+          void requestSuggestions();
+          break;
+        case 'session_meta':
+          // The session record changed mid-turn — a new agent plan, or a fresh
+          // title — so re-read it and refresh the sidebar/boards alongside.
+          loadSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
+          void refreshSessions();
           break;
       }
     });
@@ -700,17 +859,19 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   }, [sessionId, setMascotMood]);
 
   const endTurn = () => {
+    streamingRef.current = false;
     setStreaming(false);
-    // The turn is over, so the app-wide live copy goes too: from here the
-    // persisted transcript is the record, and leaving the run in place would
-    // show the same reply twice to any pane that mounted afterwards.
+    // The turn is over. liveRuns has usually retired the run already (it hears
+    // the event first); if this listener got there first it is retired here, so
+    // the app-wide live copy never outlives the turn and a pane mounted later
+    // does not show the same reply twice.
+    const final = takeFinishedRun(sessionId) ?? getLiveRun(sessionId) ?? null;
     clearLiveRun(sessionId);
-    // Drop anything still buffered: the persisted message replaces it below, and
-    // a flush landing after the clear would resurrect the reply as a duplicate.
-    if (flushTimer.current != null) clearTimeout(flushTimer.current);
-    flushTimer.current = null;
-    pendingText.current = '';
-    pendingReasoning.current = '';
+    takeFinishedRun(sessionId);
+    heldRef.current = final;
+    setHeld(final);
+    // Until the bundle has been re-read, what the turn produced still counts.
+    setMarks((m) => ({ ...m, ctxTail: producedTokens(final ?? undefined).context }));
 
     // Snapshot the reply's telemetry for the idle subtext (refs only, so this is
     // safe inside the long-lived agent-event listener closure).
@@ -721,9 +882,8 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     turnOutRef.current = 0;
     turnDecodeMsRef.current = 0;
 
-    // Build a short completion summary from the tools used in this reply (refs, not
-    // state — see the ref mirrors above).
-    const usedTools = liveToolsRef.current;
+    // Build a short completion summary from the tools used in this reply.
+    const usedTools = final?.tools ?? [];
     if (usedTools.length > 0) {
       const unique = Array.from(new Set(usedTools.map((t) => t.name)));
       const hasEdit = unique.some((n) => n === 'edit_file' || n === 'write_file');
@@ -733,7 +893,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
       if (hasEdit) summary = 'Done updating those files.';
       else if (hasRead) summary = 'Done looking into that.';
       else if (hasBash) summary = 'Done running those commands.';
-      else if (liveTextRef.current.trim()) summary = 'Done.';
+      else if (final?.text.trim()) summary = 'Done.';
       if (summary) {
         setDoneSummary(summary);
         setTimeout(() => setDoneSummary(null), 4000);
@@ -742,52 +902,54 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
 
     setMascotMood('idle');
     turnStart.current = 0;
-    reasoningStart.current = 0;
-    liveToolsRef.current = [];
-    liveTextRef.current = '';
 
     // Hold the streamed reply on screen until its persisted copy is in state,
-    // then clear the live buffers in the same commit, so the end of a reply
-    // never flashes the answer out and back in.
-    window.nekko.getSession(sessionId).then((s) => {
+    // then clear the held copy in the same commit, so the end of a reply never
+    // flashes the answer out and back in.
+    loadSession(sessionId).then((s) => {
       setSession(s);
-      setLiveText('');
-      setLiveReasoning('');
-      setLiveTools([]);
-    });
+      if (heldRef.current === final) {
+        heldRef.current = null;
+        setHeld(null);
+      }
+    }).catch(() => {});
     refreshSessions();
     // A reply may have created or updated a PR (e.g. `gh pr create`).
     useStore.getState().refreshSessionPrs(sessionId);
   };
 
-  // Follow the stream only while the reader is pinned to the bottom; otherwise
-  // offer the jump pill instead of yanking them down on every token.
-  const onScroll = () => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const pinned = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
-    pinnedRef.current = pinned;
-    if (pinned) setShowJump(false);
-  };
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (pinnedRef.current) {
-      // Instant during streaming: a smooth scroll restarted on every token
-      // rubber-bands. Smooth only for discrete additions (a sent message).
-      const behavior: ScrollBehavior = streaming || !didFirstScroll.current ? 'auto' : 'smooth';
-      el.scrollTo({ top: el.scrollHeight, behavior });
-      didFirstScroll.current = true;
-    } else {
-      setShowJump(true);
+  /**
+   * Ask the model what the user might say next, then pin the answer to the
+   * reply it was written for. Nice-to-have traffic: a provider hiccup, a
+   * session with nothing to suggest from, or a malformed reply all just mean
+   * no chips this turn.
+   */
+  const requestSuggestions = async () => {
+    try {
+      const res = await window.nekko.suggestReplies(sessionId);
+      if (!res || (res.options.length === 0 && !res.next)) return;
+      const fresh = await window.nekko.getSession(sessionId);
+      const last = fresh?.messages[fresh.messages.length - 1];
+      // A turn that started while the call was in flight (a queued prompt, a
+      // send from another pane) makes the suggestions stale; drop them.
+      if (!last || last.role !== 'assistant') return;
+      setSuggestions({ forId: last.id, options: res.options, next: res.next });
+    } catch {
+      /* suggestions are nice-to-have */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.messages.length, liveText, liveTools.length]);
+  };
+
+  // The transcript follows the stream only while the reader is at the bottom
+  // (VirtualTranscript owns that); scrolled up, new content offers the jump
+  // pill instead of yanking them down on every token.
+  const onPinnedChange = useCallback((pinned: boolean) => {
+    if (pinned) setShowJump(false);
+  }, []);
+  const onGrowWhileUnpinned = useCallback(() => setShowJump(true), []);
 
   const jumpToLatest = () => {
-    pinnedRef.current = true;
     setShowJump(false);
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    transcriptRef.current?.scrollToBottom('smooth');
   };
 
   // Grow the composer with its content: reset to the 3-line minimum, then match
@@ -798,6 +960,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     if (!el) return;
     if (composerH != null) {
       el.style.height = `${composerH}px`;
+      return;
+    }
+    // An empty box is its two-row minimum, which is its natural height: no
+    // need to measure. Measuring reads layout, and doing that as a chat opens
+    // forced the whole pane to lay out inside the click that opened it.
+    if (!draft) {
+      el.style.height = '';
       return;
     }
     el.style.height = 'auto';
@@ -866,10 +1035,18 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     return () => clearTimeout(t);
   }, [sessionId, draft, pendingImages]);
 
-  // Mirror the draft into the store (undebounced) so the Context Inspector on
-  // the right counts what you're typing at the same moment the composer's own
-  // gauge does.
-  useEffect(() => { useStore.getState().setSessionDraft(sessionId, draft); }, [sessionId, draft]);
+  // Mirror the draft into the store so the Context Inspector on the right
+  // counts what you're typing. Trailing by DRAFT_MIRROR_MS, so a keystroke
+  // re-renders the composer and not every store subscriber; a cleared draft
+  // (just sent) goes through at once so it is never counted twice.
+  useEffect(() => {
+    if (!draft) {
+      useStore.getState().setSessionDraft(sessionId, draft);
+      return;
+    }
+    const t = setTimeout(() => useStore.getState().setSessionDraft(sessionId, draft), DRAFT_MIRROR_MS);
+    return () => clearTimeout(t);
+  }, [sessionId, draft]);
 
   // Flush on unmount (tab switch, leaving the Chat view) and on window close, so
   // the last keystrokes can't be lost inside the debounce window.
@@ -883,85 +1060,65 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // caret after any restored draft. Runs once per chat, and never steals focus
   // from something else you're already typing in. The provider count is a
   // dependency because the textarea is disabled until providers have loaded.
-  const focusedFor = useRef<string | null>(null);
-  useEffect(() => {
-    const el = composerRef.current;
-    if (!el || el.disabled || focusedFor.current === sessionId) return;
-    const active = document.activeElement;
-    const typingElsewhere =
-      active instanceof HTMLElement &&
-      active !== el &&
-      (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
-    if (typingElsewhere) return;
-    focusedFor.current = sessionId;
-    el.focus();
-    el.setSelectionRange(el.value.length, el.value.length);
-  }, [sessionId, providers.length]);
 
   const beginTurn = () => {
+    streamingRef.current = true;
     setStreaming(true);
-    if (flushTimer.current != null) clearTimeout(flushTimer.current);
-    flushTimer.current = null;
-    pendingText.current = '';
-    pendingReasoning.current = '';
-    setLiveText('');
-    setLiveReasoning('');
-    setLiveTools([]);
+    // Whatever was held from the last reply is about to be replaced.
+    heldRef.current = null;
+    setHeld(null);
+    thinkingRef.current = false;
     setThinking(false);
-    setReasoningDuration(null);
     setDoneSummary(null);
     setErrorNotice(null);
-    reasoningStart.current = 0;
+    // The reply they suggested against is about to be replaced.
+    setSuggestions(null);
     turnStart.current = Date.now();
     turnOutRef.current = 0;
     turnDecodeMsRef.current = 0;
     turnCostRef.current = 0;
-    pendingOutRef.current = 0;
-    // The prompt is priced from the context gauge's own count the instant the
-    // turn starts, so the figure is never a zero that sits there while a large
-    // prompt is being processed.
-    pendingInRef.current = (ctx?.items ?? []).filter((i) => i.included).reduce((n, i) => n + i.tokens, 0);
-    setTurnCost(estimateCostUSD(modelForCostRef.current ?? undefined, pendingInRef.current, 0));
-    liveToolsRef.current = [];
-    liveTextRef.current = '';
-    liveCtxRef.current = 0;
-    setLiveCtxTokens(0);
+    setTurnCostMeasured(0);
+    setPendingIn((ctx?.items ?? []).filter((i) => i.included).reduce((n, i) => n + i.tokens, 0));
+    setMarks({ ctxMark: 0, ctxTail: 0, outMark: 0 });
     setTurnOut(0);
-    setElapsed(0);
     setMascotMood('thinking');
     // Sending pins the reader to the bottom for the reply.
-    pinnedRef.current = true;
     setShowJump(false);
+    transcriptRef.current?.scrollToBottom();
   };
-
-  // Tick the elapsed-seconds counter while a turn is streaming (for the subtext).
-  useEffect(() => {
-    if (!streaming) return;
-    const t = setInterval(() => {
-      if (turnStart.current) setElapsed(Math.round((Date.now() - turnStart.current) / 1000));
-    }, 500);
-    return () => clearInterval(t);
-  }, [streaming]);
 
   // This chat's Auto profile: how hard Auto leans on capability (Cheap / Normal
   // / Quality). Per-chat, because a throwaway question and a refactor rarely
   // want the same spend.
   const autoQuality: AutoQuality = session?.autoQuality ?? 'normal';
+  // Opt-in per chat: when this provider is spent, Auto may run the turn on an
+  // equivalent model elsewhere. Never in offline chats, which must stay local.
+  const autoSwitch = !!session?.autoProviderSwitch && !session?.offline;
 
   /** Resolve Auto mode against a prompt, with the reasoning for the chip. */
-  const autoPickFor = (text: string) => {
+  const autoPickFor = (text: string, cross = crossModels): AutoProviderPick | null => {
     const favSet = new Set(settings?.favoriteModels ?? []);
-    const favs = new Set(models.filter((m) => favSet.has(`${providerId}::${m.id}`)).map((m) => m.id));
-    // Auto never reaches for a model the plan can't serve right now: picking a
-    // capped model is a turn that fails on send rather than a smarter choice.
-    return pickAutoModel(runnableModels, text, { quality: autoQuality, preferred: favs });
+    if (!autoSwitch || !providerId) {
+      const favs = new Set(models.filter((m) => favSet.has(`${providerId}::${m.id}`)).map((m) => m.id));
+      // Auto never reaches for a model the plan can't serve right now: picking a
+      // capped model is a turn that fails on send rather than a smarter choice.
+      const pick = pickAutoModel(runnableModels, text, { quality: autoQuality, preferred: favs });
+      return pick ? { ...pick, providerId: providerId ?? '', providerLabel: activeProvider?.label ?? providerId ?? '', switched: false } : null;
+    }
+    return pickAcrossProviders(buildPools(cross), text, {
+      quality: autoQuality,
+      preferred: favSet,
+      homeProviderId: providerId,
+      switchOnCapacity: true,
+    });
   };
 
-  // The concrete model to run this reply on: the picked one, or, in Auto mode -
-  // the best available model for the prompt (favorites break ties).
-  const resolveModelId = (text: string): string | null => {
-    if (modelId !== AUTO_MODEL_ID) return modelId;
-    return autoPickFor(text)?.modelId ?? null;
+  // The provider + concrete model this turn will run on: the picked ones, or,
+  // in Auto mode - the best available for the prompt (favorites break ties).
+  const resolveBrain = (text: string, pick?: AutoProviderPick | null): { providerId: string; modelId: string } | null => {
+    if (modelId !== AUTO_MODEL_ID) return providerId && modelId ? { providerId, modelId } : null;
+    const p = pick === undefined ? autoPickFor(text) : pick;
+    return p && p.providerId ? { providerId: p.providerId, modelId: p.modelId } : null;
   };
 
   /**
@@ -970,7 +1127,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    * is broken": the most common way in was switching tabs, since the workbench
    * unmounts a pane and the rebuilt one can land on a provider with no models.
    */
-  const requireBrain = (text: string): { providerId: string; modelId: string } | null => {
+  const requireBrain = (text: string, pick?: AutoProviderPick | null): { providerId: string; modelId: string } | null => {
     const toast = (message: string) => useStore.getState().pushToast('error', message);
     if (!providerId) {
       toast(providers.length === 0
@@ -978,7 +1135,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         : 'This chat is still loading its model, try again in a moment.');
       return null;
     }
-    const resolved = resolveModelId(text);
+    const resolved = resolveBrain(text, pick);
     if (!resolved) {
       const label = providers.find((p) => p.id === providerId)?.label ?? 'this provider';
       toast(models.length === 0
@@ -990,12 +1147,30 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     }
     // Remembered here rather than at each call site: every turn goes through
     // this gate, so this is the one place that always knows what will run.
-    modelForCostRef.current = resolved;
-    return { providerId, modelId: resolved };
+    modelForCostRef.current = resolved.modelId;
+    return resolved;
+  };
+
+  /** One image-chat turn: the prompt goes to the chat's image model, the picture comes back as the reply. */
+  const sendImage = async (prompt: string, fromDraft: boolean) => {
+    if (!session) return;
+    const params = { ...DEFAULT_IMAGE_CHAT_PARAMS, ...session.imageParams };
+    if (!params.modelId) {
+      useStore.getState().pushToast('error', 'Pick an image model below the chat first.');
+      return;
+    }
+    if (fromDraft) { setDraft(''); clearDraft(sessionId); }
+    beginTurn();
+    setSession((prev) => prev ? { ...prev, messages: [...prev.messages, { id: 'tmp', role: 'user', content: prompt, createdAt: Date.now() }] } : prev);
+    await window.nekko.generateImageTurn({ sessionId, prompt, params: { ...params, modelId: params.modelId } });
   };
 
   const send = async (override?: string) => {
     const input = override ?? draft;
+    if (imageMode) {
+      if (input.trim()) await sendImage(input.trim(), override === undefined);
+      return;
+    }
     const skill = activeSkill;
     // A plan only reaches the agent when the rail's checkbox says so, so the
     // panel stays a scratchpad by default and becomes an instruction on request.
@@ -1031,8 +1206,17 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
       return;
     }
 
-    const brain = requireBrain(text);
+    // A capacity-aware Auto pick needs the other providers' model lists; the
+    // fetch resolves them fresh rather than trusting state from an old render.
+    const cross = modelId === AUTO_MODEL_ID ? await ensureCrossModels() : crossModels;
+    const pick = modelId === AUTO_MODEL_ID ? autoPickFor(text, cross) : null;
+    const brain = requireBrain(text, pick ?? undefined);
     if (!brain) return;
+    if (pick?.switched) {
+      // A switch that never explains itself is a silent downgrade in waiting:
+      // the reason is shown once per turn that actually moves providers.
+      useStore.getState().pushToast('info', pick.reason);
+    }
     if (override === undefined) { setDraft(''); setPendingImages([]); clearDraft(sessionId); }
     setActiveSkill(null);
     beginTurn();
@@ -1189,6 +1373,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   };
 
   const hasProvider = providers.length > 0;
+  // An image chat runs on the engine's image model, not a chat provider, so it
+  // can compose with no provider configured at all.
+  const summaryType = useStore((st) => st.sessions.find((x) => x.id === sessionId)?.chatType);
+  const imageMode = (session ? session.chatType : summaryType) === 'image';
+  const canCompose = imageMode || hasProvider;
   const slashQuery = draft.startsWith('/') && !draft.includes('\n') ? draft.slice(1).toLowerCase() : null;
   const slashMatches =
     slashQuery !== null ? (settings?.prompts ?? []).filter((p) => p.name.toLowerCase().includes(slashQuery)) : [];
@@ -1267,6 +1456,14 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     composerRef.current?.focus();
   };
 
+  // Suggestions only count while the reply they were written for is still the
+  // latest word; anything newer retires them.
+  const lastMsgId = session?.messages[session.messages.length - 1]?.id;
+  const liveSuggestions = suggestions && suggestions.forId === lastMsgId ? suggestions : null;
+  // The model's single most likely next message, shown as the composer's
+  // placeholder while the box is empty; ArrowRight types it in.
+  const ghostSuggestion = !draft && liveSuggestions?.next ? liveSuggestions.next : null;
+
   const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const menuCount = slashMenuOpen ? skillMatches.length + slashMatches.length : atMenuOpen ? atMatches.length : 0;
     if (slashMenuOpen || atMenuOpen) {
@@ -1288,17 +1485,26 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         }
       }
     }
+    // → accepts the ghost suggestion while the box is empty (the box is empty
+    // whenever a ghost is showing, so the caret is already at the end).
+    if (e.key === 'ArrowRight' && ghostSuggestion && !e.currentTarget.value) {
+      e.preventDefault();
+      const el = e.currentTarget;
+      setDraft(ghostSuggestion);
+      requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length));
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       void send();
     }
   };
 
-  const openImageMenu = (e: React.MouseEvent, src: string) => {
+  const openImageMenu = useCallback((e: React.MouseEvent, src: string) => {
     e.preventDefault();
     e.stopPropagation();
     setImageMenu({ x: e.clientX, y: e.clientY, src });
-  };
+  }, []);
 
   const addImages = async (files: File[]) => {
     const images = await Promise.all(files.map((file) => readImage(file).catch(() => null)));
@@ -1332,6 +1538,78 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   const runnableModels = models.filter(
     (m) => resolveModelAvailability({ model: m, provider: activeProvider, limits: providerLimits }).status === 'ready',
   );
+
+  /**
+   * This chat's provider as a pool: its models, whatever live limits it
+   * publishes, and whether its turns are free (local or plan-included), which
+   * is what the cross-provider pick weighs against every other pool.
+   */
+  const homePool: ProviderPool | null = providerId
+    ? {
+        providerId,
+        providerLabel: activeProvider?.label ?? providerId,
+        models,
+        limits: providerLimits,
+        auth: activeProvider?.auth,
+        tokenKey: activeProvider?.tokenKey,
+        local: providerKind ? isLocalProvider(providerKind) : undefined,
+      }
+    : null;
+
+  const [crossModels, setCrossModels] = useState<Record<string, ModelInfo[]>>({});
+  // Every provider's limits, read only while Auto could actually move a turn
+  // off this provider.
+  const crossLimits = useAllProviderLimits(providers, modelId === AUTO_MODEL_ID && autoSwitch);
+
+  /**
+   * The other providers' model lists, fetched once when the chat is in Auto
+   * mode with follow-capacity on: either switch trigger (spent provider or a
+   * materially cheaper same-tier model elsewhere) needs the full pool, and
+   * neither can be evaluated without it. Returns the fresh map for callers
+   * that cannot wait a render, since `setState` inside this closure is stale.
+   */
+  const ensureCrossModels = async (): Promise<Record<string, ModelInfo[]>> => {
+    if (modelId !== AUTO_MODEL_ID || !autoSwitch) return crossModels;
+    if (Object.keys(crossModels).length) return crossModels;
+    const entries = await Promise.all(
+      providers
+        .filter((p) => p.enabled && p.id !== providerId)
+        .map((p) =>
+          window.nekko
+            .listModels(p.id)
+            .then((m) => [p.id, m] as const)
+            .catch(() => [p.id, [] as ModelInfo[]] as const),
+        ),
+    );
+    const fresh = Object.fromEntries(entries);
+    setCrossModels(fresh);
+    return fresh;
+  };
+  useEffect(() => {
+    if (modelId === AUTO_MODEL_ID && autoSwitch) void ensureCrossModels();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSwitch, modelId]);
+
+  /** The pools a capacity-aware Auto pick can draw on: home first, then every
+   *  other enabled provider whose models we have fetched. */
+  const buildPools = (cross: Record<string, ModelInfo[]>): ProviderPool[] => [
+    ...(homePool ? [homePool] : []),
+    ...providers
+      .filter((p) => p.enabled && p.id !== providerId)
+      .map((p) => {
+        const key = limitsKeyFor(p);
+        return {
+          providerId: p.id,
+          providerLabel: p.label,
+          models: cross[p.id] ?? [],
+          limits: key ? crossLimits[key] : undefined,
+          auth: p.auth,
+          tokenKey: p.tokenKey,
+          local: isLocalProvider(p.kind),
+        };
+      }),
+  ];
+
   const isCloudModel = !providerKind || !isLocalProvider(providerKind);
   const isSubscription = activeProvider?.auth === 'subscription';
   // Reasoning toggle: offered only for a concrete, reasoning-capable model.
@@ -1345,7 +1623,10 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   // Auto mode: the model the next message will actually run on. Shown whether or
   // not anything is typed yet - "Auto" alone tells you nothing, and the pick
   // moves as you type, which is exactly what's worth watching.
-  const autoPick = modelId === AUTO_MODEL_ID ? autoPickFor(draft) : null;
+  // Read from the deferred draft, like the analyzer and the plan rail below:
+  // the characters you type paint first, and what they imply follows a moment
+  // later without holding the keystroke up.
+  const autoPick = modelId === AUTO_MODEL_ID ? autoPickFor(deferredDraft) : null;
 
   // Nothing picked yet, but there is something to pick from: guide the choice
   // instead of failing on send.
@@ -1364,24 +1645,6 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
     if (open) setModelHintDone(true);
   };
 
-  /**
-   * What this reply is doing right now, in a few words.
-   *
-   * Read off the app-wide fold rather than recomputed here, so the phrase under
-   * the transcript and the one on the chat's Command Center card are the same
-   * sentence. Subscribing to the run is what makes it move: it changes on every
-   * tool call and thought, where the old label said "Streaming" for the whole
-   * turn regardless of what the agent was actually doing.
-   */
-  const liveRun = useLiveRun(sessionId);
-  const liveStatus = streaming ? shortLiveStatus(liveRun?.activity) || 'Working' : '';
-
-  // The in-flight turn's reasoning + tool calls, folded into one activity block.
-  const liveActivity: Activity[] = [
-    ...(liveReasoning ? [{ kind: 'reasoning' as const, text: liveReasoning, duration: reasoningDuration }] : []),
-    ...liveTools.map((c) => ({ kind: 'tool' as const, call: c })),
-  ];
-
   const queued = session?.queue ?? [];
 
   /**
@@ -1393,6 +1656,46 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
    * the column below it goes full width rather than indenting twice.
    */
   const contentWidth = planRailOpen || paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
+
+  // --- The transcript, as windowed rows ---
+  const messages = session?.messages;
+  const rows = useMemo(
+    () => (messages ? toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls) : []),
+    [messages],
+  );
+  const prByUrl = useMemo(() => new Map(prs.map((p) => [p.url, p])), [prs]);
+  // Handlers handed to rows go through refs, so a row never re-renders because
+  // this pane re-rendered.
+  const editResendRef = useRef(editResend);
+  editResendRef.current = editResend;
+  const onEditResend = useCallback((id: string, text: string) => { void editResendRef.current(id, text); }, []);
+  const renderRow = useCallback(
+    (row: TranscriptRow) => (
+      <TranscriptRowView
+        row={row}
+        streaming={streaming}
+        prByUrl={prByUrl}
+        sessionId={sessionId}
+        onEditResend={onEditResend}
+        onImageClick={setLightbox}
+        onImageContextMenu={openImageMenu}
+      />
+    ),
+    [streaming, prByUrl, sessionId, onEditResend, openImageMenu],
+  );
+  // Width of the text column, for the height estimates of rows not yet measured.
+  const columnWidth = Math.max(0, (paneWidth || 800) * (contentWidth.includes('75%') ? 0.75 : 1) - 32);
+  const estimate = useCallback((row: TranscriptRow) => estimateRowHeight(row, columnWidth), [columnWidth]);
+  const hasLive = !!(held || getLiveRun(sessionId));
+  const onCompacted = useCallback(() => {
+    refreshCtxRef.current();
+    loadSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
+  }, [sessionId]);
+  const skillTokens = useMemo(
+    () => (activeSkill ? { name: activeSkill.name, tokens: estimateTokens(activeSkill.template) } : null),
+    [activeSkill],
+  );
+  const ctxUsed = useMemo(() => (ctx ? ctx.items.filter((i) => i.included).reduce((s, i) => s + i.tokens, 0) : 0), [ctx]);
 
   return (
     <div ref={paneRef} className="flex h-full min-w-0 overflow-hidden">
@@ -1441,6 +1744,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                 {changeCount} change{changeCount === 1 ? '' : 's'}
               </button>
             )}
+            <button
+              className="btn btn-ghost px-2 py-1 text-[11px]"
+              onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
+              title="Open the agent's command log in a terminal window"
+            >
+              Commands
+            </button>
             {!!session?.messages.length && (
               <button className="btn btn-ghost px-2 py-1" onClick={exportChat} title="Export chat as Markdown"><DownloadIcon /></button>
             )}
@@ -1465,136 +1775,123 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
         </ChatHeader>
 
         <div className="relative flex min-h-0 w-full flex-1">
-          <div ref={scrollRef} onScroll={onScroll} className="w-full flex-1 overflow-y-auto overflow-x-hidden px-4 py-5">
-            <div className={`${contentWidth} space-y-5`}>
-              {!session?.messages.length && !liveText && !liveReasoning && (
-                <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
-                  <div>
-                    <h2 className="text-[15px] font-semibold">
-                      {!hasProvider ? 'Connect a model to get started' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
-                    </h2>
-                    <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
-                      {!hasProvider
-                        ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Model Providers.'
-                        : needsModel
-                          ? 'This chat has no model yet. Choose one below the composer, or let ✨ Auto pick per message.'
-                          : 'Ask a question or hand over a task. Use / for skills and prompts, @ to attach files, + for photos and folders.'}
-                    </p>
-                  </div>
-                  {!hasProvider ? (
-                    <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
-                  ) : needsModel ? (
-                    <button className="btn btn-primary" onClick={() => openModelMenu(true)}>Choose a model</button>
-                  ) : null}
+          <VirtualTranscript
+            ref={transcriptRef}
+            rows={rows}
+            renderRow={renderRow}
+            estimate={estimate}
+            cacheKey={sessionId}
+            className={`${contentWidth} space-y-5`}
+            onPinnedChange={onPinnedChange}
+            onGrowWhileUnpinned={onGrowWhileUnpinned}
+            header={!session?.messages.length && !hasLive ? (imageMode ? (
+              <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl text-[24px]" style={{ background: 'var(--accent-soft)' }} aria-hidden>🎨</div>
+                <div>
+                  <h2 className="text-[15px] font-semibold">What should Agent Nekko draw?</h2>
+                  <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
+                    Describe the picture below. It is made on this machine by the image model you pick, and every image stays in this chat with the settings that made it.
+                  </p>
                 </div>
-              )}
-              {session && (() => {
-                const shown = new Set<string>();
-                const prByUrl = new Map(prs.map((p) => [p.url, p]));
-                const blocks = toStreamBlocks(session.messages);
-                const rendered = blocks.map((b, i) => {
-                  if (b.type !== 'msg') return <ActivityGroup key={b.key} items={b.items} />;
-                  const isUser = b.message.role === 'user';
-                  const bubble = (
-                    <MessageBubble
-                      message={b.message}
-                      onResend={!streaming && isUser && b.message.id !== 'tmp' ? editResend : undefined}
-                      onReset={!streaming && isUser && b.message.id !== 'tmp' ? editResend : undefined}
-                      onImageClick={setLightbox}
-                      onImageContextMenu={openImageMenu}
-                      chronological
-                    />
-                  );
-                  // Surface a PR card right after the message that first names it.
-                  const urls = isUser ? [] : extractPrUrls(b.message.content).filter((u) => !shown.has(u));
-                  urls.forEach((u) => shown.add(u));
-                  if (!urls.length) return <React.Fragment key={`${b.message.id}_${i}`}>{bubble}</React.Fragment>;
+              </div>
+            ) : (
+              <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
+                <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
+                <div>
+                  <h2 className="text-[15px] font-semibold">
+                    {!hasProvider ? 'Connect a model to get started' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
+                  </h2>
+                  <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
+                    {!hasProvider
+                      ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Model Providers.'
+                      : needsModel
+                        ? 'This chat has no model yet. Choose one below the composer, or let ✨ Auto pick per message.'
+                        : 'Ask a question or hand over a task. Use / for skills and prompts, @ to attach files, + for photos and folders.'}
+                  </p>
+                </div>
+                {!hasProvider ? (
+                  <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
+                ) : needsModel ? (
+                  <button className="btn btn-primary" onClick={() => openModelMenu(true)}>Choose a model</button>
+                ) : null}
+              </div>
+            )) : undefined}
+            footer={
+              <>
+                {/* The reply being written: repaints once a frame on its own. */}
+                {imageMode
+                  ? <ImageLiveTurn sessionId={sessionId} streaming={streaming} />
+                  : <LiveTurn sessionId={sessionId} held={held} onImageClick={setLightbox} />}
+                {errorNotice && !streaming && (() => {
+                  // A stop the user asked for is not a failure, so it doesn't wear
+                  // the failure colour. Either way the run is resumable whenever it
+                  // left something behind: the steps it finished are on disk, so
+                  // Resume carries on rather than starting the work again.
+                  const stopped = errorNotice === 'Stopped';
+                  const canResume = hasResumableProgress(session?.messages ?? []);
+                  const tone = stopped ? 'var(--warning)' : 'var(--danger)';
                   return (
-                    <React.Fragment key={`${b.message.id}_${i}`}>
-                      {bubble}
-                      {urls.map((u) => <PrCard key={u} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}
-                    </React.Fragment>
+                  <div
+                    className="fade-in flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[12px]"
+                    style={{
+                      borderColor: `color-mix(in srgb, ${tone} 35%, transparent)`,
+                      background: `color-mix(in srgb, ${tone} 7%, transparent)`,
+                    }}
+                    role="alert"
+                  >
+                    <span className="shrink-0 font-medium" style={{ color: tone }}>
+                      {stopped ? 'Reply stopped' : 'Reply failed'}
+                    </span>
+                    <span className="min-w-0 flex-1 text-ink-soft">
+                      {stopped
+                        ? canResume ? 'The work so far is saved.' : 'Nothing had started yet.'
+                        : errorNotice}
+                    </span>
+                    {canResume && (
+                      <button
+                        className="btn btn-primary shrink-0 px-2.5 py-0.5 text-[11px]"
+                        title="Carry on from here, keeping every step already done"
+                        onClick={() => void resumeRun()}
+                      >
+                        Resume
+                      </button>
+                    )}
+                    {session?.messages.some((m) => m.role === 'user') && (
+                      <button
+                        className="btn btn-outline shrink-0 px-2.5 py-0.5 text-[11px]"
+                        title="Discard this reply and answer the prompt again from scratch"
+                        onClick={startOver}
+                      >
+                        Start over
+                      </button>
+                    )}
+                    <button className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-ink" title="Dismiss" onClick={() => setErrorNotice(null)}>
+                      <CloseIcon className="h-3 w-3" />
+                    </button>
+                  </div>
                   );
-                });
-                // PRs mentioned only in tool output (never in assistant text) still
-                // get a card, appended after the transcript.
-                const orphans = collectSessionPrUrls(session.messages).filter((u) => !shown.has(u));
-                return (
-                  <>
-                    {rendered}
-                    {orphans.map((u) => <PrCard key={`orphan_${u}`} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}
-                  </>
-                );
-              })()}
-              {liveActivity.length > 0 && <ActivityGroup items={liveActivity} streaming />}
-              {liveText && <MessageBubble message={{ id: 'live', role: 'assistant', content: liveText, createdAt: 0 }} onImageClick={setLightbox} chronological />}
-              {errorNotice && !streaming && (() => {
-                // A stop the user asked for is not a failure, so it doesn't wear
-                // the failure colour. Either way the run is resumable whenever it
-                // left something behind: the steps it finished are on disk, so
-                // Resume carries on rather than starting the work again.
-                const stopped = errorNotice === 'Stopped';
-                const canResume = hasResumableProgress(session?.messages ?? []);
-                const tone = stopped ? 'var(--warning)' : 'var(--danger)';
-                return (
-                <div
-                  className="fade-in flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[12px]"
-                  style={{
-                    borderColor: `color-mix(in srgb, ${tone} 35%, transparent)`,
-                    background: `color-mix(in srgb, ${tone} 7%, transparent)`,
-                  }}
-                  role="alert"
-                >
-                  <span className="shrink-0 font-medium" style={{ color: tone }}>
-                    {stopped ? 'Reply stopped' : 'Reply failed'}
-                  </span>
-                  <span className="min-w-0 flex-1 text-ink-soft">
-                    {stopped
-                      ? canResume ? 'The work so far is saved.' : 'Nothing had started yet.'
-                      : errorNotice}
-                  </span>
-                  {canResume && (
-                    <button
-                      className="btn btn-primary shrink-0 px-2.5 py-0.5 text-[11px]"
-                      title="Carry on from here, keeping every step already done"
-                      onClick={() => void resumeRun()}
-                    >
-                      Resume
-                    </button>
-                  )}
-                  {session?.messages.some((m) => m.role === 'user') && (
-                    <button
-                      className="btn btn-outline shrink-0 px-2.5 py-0.5 text-[11px]"
-                      title="Discard this reply and answer the prompt again from scratch"
-                      onClick={startOver}
-                    >
-                      Start over
-                    </button>
-                  )}
-                  <button className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-ink" title="Dismiss" onClick={() => setErrorNotice(null)}>
-                    <CloseIcon className="h-3 w-3" />
-                  </button>
-                </div>
-                );
-              })()}
-              <ContextWarning
-                sessionId={sessionId}
-                used={(ctx ? ctx.items.filter((i) => i.included).reduce((s, i) => s + i.tokens, 0) : 0) + liveCtxTokens}
-                windowTokens={selectedModelInfo?.contextLength ?? ctx?.contextWindow ?? 0}
-                session={session}
-              />
-              <ReplyStatus
-                streaming={streaming}
-                status={liveStatus}
-                elapsed={elapsed}
-                tps={tps}
-                out={turnOut}
-                last={lastTurn}
-                done={doneSummary}
-              />
-            </div>
-          </div>
+                })()}
+                <LiveContextWarning
+                  sessionId={sessionId}
+                  marks={marks}
+                  baseUsed={ctxUsed}
+                  windowTokens={selectedModelInfo?.contextLength ?? ctx?.contextWindow ?? 0}
+                  session={session}
+                  streaming={streaming}
+                  onCompacted={onCompacted}
+                />
+                <LiveReplyStatus
+                  sessionId={sessionId}
+                  startedAt={turnStart.current}
+                  streaming={streaming}
+                  tps={tps}
+                  out={turnOut}
+                  last={lastTurn}
+                  done={doneSummary}
+                />
+              </>
+            }
+          />
           {showJump && (
             <button
               className="fade-in absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-line px-3 py-1 text-[12px] font-medium text-ink-soft shadow-md hover:text-ink"
@@ -1645,9 +1942,17 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                 (model, reasoning, effort) plus the Automate action. The model
                 chip is the flexible member of its row and truncates first. */}
             <div className="flex items-center gap-1.5 pb-1">
-              <ChatControls session={session} isCloudModel={isCloudModel} onChange={setSession} />
+              <ChatControls
+                session={session}
+                isCloudModel={isCloudModel}
+                onChange={setSession}
+                leading={<ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
+              />
             </div>
-            <div className="flex items-center gap-1.5 pb-1.5">
+            <div className={`flex items-center gap-1.5 pb-1.5 ${imageMode ? 'flex-wrap' : ''}`}>
+              {imageMode && session ? (
+                <ImageModeControls session={session} onChange={setSession} busy={streaming} />
+              ) : (<>
               <ModelPicker
                 providers={providers}
                 providerId={providerId}
@@ -1685,6 +1990,13 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                       .then((s) => { if (s) setSession(s); })
                       .catch(() => {});
                   }}
+                  followCapacity={!!session?.autoProviderSwitch}
+                  onFollowCapacity={(v) => {
+                    window.nekko
+                      .setSessionOptions(sessionId, { autoProviderSwitch: v })
+                      .then((s) => { if (s) setSession(s); })
+                      .catch(() => {});
+                  }}
                 />
               )}
               {autoPick && (
@@ -1692,7 +2004,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                   className="min-w-0 shrink truncate text-[10px] text-ink-faint"
                   title={`Auto will run this message on ${autoPick.name}. ${autoPick.reason}`}
                 >
-                  → {autoPick.name}
+                  → {autoPick.name}{autoPick.switched ? ` · ${autoPick.providerLabel}` : ''}
                 </span>
               )}
               {thinkingSupported ? (
@@ -1725,6 +2037,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
               >
                 <BoltIcon className="h-3 w-3" /> Automate
               </button>
+              </>)}
             </div>
 
             {/* Queued follow-ups (animated in/out so the composer never jumps). */}
@@ -1753,9 +2066,11 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
               </div>
             </div>
 
+            {!imageMode && (
             <PromptAnalyzer
-              text={draft}
+              text={deferredDraft}
               sessionId={sessionId}
+              canModelFill={hasProvider}
               workspaces={settings?.workspaces ?? []}
               contextItems={ctx?.items ?? []}
               activeWorkspaceIds={session ? getSessionWorkspaceIds(session) : []}
@@ -1766,6 +2081,24 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                 composerRef.current?.focus();
               }}
             />
+            )}
+
+            {/* Model-written follow-ups to the reply above: one click sends it
+                outright, and starting any turn clears them. */}
+            {!imageMode && liveSuggestions && liveSuggestions.options.length > 0 && !streaming && (
+              <div className="mb-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Suggested replies">
+                {liveSuggestions.options.map((opt) => (
+                  <button
+                    key={opt}
+                    className="max-w-full truncate rounded-full border border-line bg-surface px-3 py-1.5 text-left text-[12px] text-ink-soft transition-colors hover:border-accent/50 hover:bg-surface-2 hover:text-ink"
+                    title={`Send: ${opt}`}
+                    onClick={() => { setSuggestions(null); void send(opt); }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="relative w-full">
               {atMenuOpen && (
@@ -1891,22 +2224,36 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                     </span>
                   </div>
                 )}
-                <textarea
-                  ref={composerRef}
-                  className={`${composerH != null ? '' : 'max-h-60 '}min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint`}
-                  rows={2}
-                  placeholder={hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first'}
-                  value={draft}
-                  role="combobox"
-                  aria-expanded={slashMenuOpen || atMenuOpen}
-                  aria-controls={slashMenuOpen ? `slash-menu-${sessionId}` : atMenuOpen ? `at-menu-${sessionId}` : undefined}
-                  aria-autocomplete="list"
-                  onChange={(e) => { setDraft(e.target.value); setMenuClosed(false); }}
-                  onPaste={onPaste}
-                  onKeyDown={onComposerKeyDown}
-                  disabled={!hasProvider}
-                />
+                <div className="relative">
+                  {/* The → badge announces the ghost-accept key, top-right in the
+                      textarea's padding so it never overlaps the text. */}
+                  {ghostSuggestion && (
+                    <span
+                      className="pointer-events-none absolute right-3 top-3 z-10 select-none rounded-md border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[10px] leading-none text-ink-faint"
+                      aria-hidden
+                    >
+                      →
+                    </span>
+                  )}
+                  <textarea
+                    ref={composerRef}
+                    className={`${composerH != null ? '' : 'max-h-60 '}min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint`}
+                    rows={2}
+                    placeholder={imageMode ? 'Describe the image you want…' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
+                    value={draft}
+                    role="combobox"
+                    aria-expanded={slashMenuOpen || atMenuOpen}
+                    aria-controls={slashMenuOpen ? `slash-menu-${sessionId}` : atMenuOpen ? `at-menu-${sessionId}` : undefined}
+                    aria-autocomplete="list"
+                    onChange={(e) => { setDraft(e.target.value); setMenuClosed(false); }}
+                    onPaste={imageMode ? undefined : onPaste}
+                    onKeyDown={onComposerKeyDown}
+                    disabled={!canCompose}
+                  />
+                  <ComposerFocus target={composerRef} sessionId={sessionId} ready={providers.length} />
+                </div>
                 <div className="flex items-center gap-2 px-2 pb-2 pt-1">
+                  {!imageMode && (<>
                   <div
                     ref={attachMenuRef}
                     className="relative"
@@ -2029,23 +2376,29 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                       }}
                     />
                   </div>
-                  <ContextGauge
+                  <LiveContextGauge
+                    sessionId={sessionId}
+                    marks={marks}
                     bundle={ctx}
                     subscription={isSubscription}
-                    skill={activeSkill ? { name: activeSkill.name, tokens: estimateTokens(activeSkill.template) } : null}
-                    draftTokens={draft.trim() ? estimateTokens(draft) : 0}
-                    liveTokens={liveCtxTokens}
+                    skill={skillTokens}
+                    draftTokens={deferredDraft.trim() ? estimateTokens(deferredDraft) : 0}
                     contextWindow={selectedModelInfo?.contextLength}
                   />
-                  <UsageLimitsChip
+                  <LiveUsageChip
+                    sessionId={sessionId}
+                    marks={marks}
+                    measured={turnCostMeasured}
+                    pendingIn={pendingIn}
+                    model={modelForCostRef.current}
                     provider={activeProvider}
                     session={session ?? undefined}
                     cost={cost}
-                    turnCost={turnCost}
                     running={streaming}
                   />
+                  </>)}
                   <div className="flex-1" />
-                  {draft.trim() && hasProvider && (
+                  {draft.trim() && hasProvider && !imageMode && (
                     <button
                       className="btn btn-ghost h-8 px-2.5 py-0 text-[12px]"
                       onClick={queueDraft}
@@ -2060,7 +2413,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
                       onClick={() => send()}
-                      disabled={(!draft.trim() && pendingImages.length === 0 && !activeSkill) || !hasProvider}
+                      disabled={imageMode ? !draft.trim() : (!draft.trim() && pendingImages.length === 0 && !activeSkill) || !hasProvider}
                       title="Send"
                       aria-label="Send"
                     >
@@ -2082,7 +2435,7 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
           <PlanRail
             sessionId={sessionId}
             session={session}
-            draft={draft}
+            draft={deferredDraft}
             streaming={streaming}
             onPlanChange={savePlan}
             onClose={() => useStore.getState().togglePlanRail()}
@@ -2122,791 +2475,5 @@ export function ChatPane({ sessionId, onRunningChange }: { sessionId: string; on
   );
 }
 
-/**
- * Provider + model as one legible control (instead of two microscopic selects):
- * a chip naming the current model that opens a flat picker of every provider's
- * models, grouped by provider, starred on top, Auto first.
- */
-function ModelPicker({
-  providers,
-  providerId,
-  models,
-  modelId,
-  open,
-  onOpenChange,
-  needsChoice,
-  hint,
-  onProvider,
-  onModel,
-}: {
-  providers: ProviderConfig[];
-  providerId: string | null;
-  models: ModelInfo[];
-  modelId: string | null;
-  /** Open state is owned by the pane so the "choose a model" nudges can open it. */
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  /** No model picked yet: the chip asks for one instead of reading as a setting. */
-  needsChoice?: boolean;
-  /** One-shot nudge shown over the chip; the pane retires it once the menu opens. */
-  hint?: string | null;
-  onProvider: (id: string) => void;
-  onModel: (providerId: string, id: string) => void;
-}) {
-  const settings = useStore((s) => s.settings);
-  const refreshSettings = useStore((s) => s.refreshSettings);
-  const setOpen = (next: boolean) => onOpenChange(next);
-  const [query, setQuery] = useState('');
-  // Models per provider, fetched when the menu opens so the list covers every
-  // provider (the `models` prop only holds the active provider's).
-  const [byProvider, setByProvider] = useState<Record<string, ModelInfo[]>>({});
-  // Live usage limits for every signed-in provider, so a model that can't run
-  // right now can say so instead of quietly failing on send.
-  const limitsByToken = useAllProviderLimits(providers, open);
-  const ref = useRef<HTMLDivElement>(null);
-  const hintId = React.useId();
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    let live = true;
-    Promise.all(
-      providers.map((p) =>
-        window.nekko.listModels(p.id)
-          .then((m) => [p.id, m] as const)
-          .catch(() => [p.id, [] as ModelInfo[]] as const),
-      ),
-    ).then((entries) => { if (live) setByProvider(Object.fromEntries(entries)); });
-    return () => { live = false; };
-  }, [open, providers]);
-
-  const favSet = new Set(settings?.favoriteModels ?? []);
-  const toggleFavorite = async (key: string) => {
-    const next = new Set(settings?.favoriteModels ?? []);
-    next.has(key) ? next.delete(key) : next.add(key);
-    await window.nekko.updateSettings({ favoriteModels: [...next] });
-    refreshSettings();
-  };
-
-  const modelsOf = (pid: string): ModelInfo[] =>
-    byProvider[pid] ?? (pid === providerId ? models : []);
-  const q = query.trim().toLowerCase();
-  const matches = (m: ModelInfo) => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
-
-  const groups = providers
-    .map((p) => ({ provider: p, models: modelsOf(p.id).filter(matches) }))
-    .filter((g) => g.models.length > 0);
-  const starred = groups.flatMap((g) =>
-    g.models
-      .filter((m) => favSet.has(`${g.provider.id}::${m.id}`))
-      .map((m) => ({ provider: g.provider, model: m })),
-  );
-  const total = providers.reduce((n, p) => n + modelsOf(p.id).length, 0);
-
-  const providerLabel = providers.find((p) => p.id === providerId)?.label ?? 'No provider';
-  const currentName =
-    modelId === AUTO_MODEL_ID ? '✨ Auto' : models.find((m) => m.id === modelId)?.name ?? 'No model';
-
-  const pick = (pid: string, mid: string) => {
-    if (pid !== providerId) onProvider(pid);
-    onModel(pid, mid);
-    setOpen(false);
-  };
-
-  /**
-   * Why a model can't be run, or null when it can. Provider-agnostic: the
-   * catalog's own claim (a model gated behind a bigger plan) combined with the
-   * live usage windows for whichever account this provider signs in as.
-   */
-  const availabilityOf = (p: ProviderConfig, m: ModelInfo) =>
-    resolveModelAvailability({ model: m, provider: p, limits: p.tokenKey ? limitsByToken[p.tokenKey] : undefined });
-
-  const row = (p: ProviderConfig, m: ModelInfo, showProvider: boolean) => {
-    const key = `${p.id}::${m.id}`;
-    const fav = favSet.has(key);
-    const selected = p.id === providerId && modelId === m.id;
-    const price = formatModelPriceLabel({ modelId: m.id, auth: p.auth, isLocal: isLocalProvider(p.kind) });
-    // A blocked model stays in the list and says why. Hiding it makes a model
-    // that exists look like one the app never heard of.
-    const availability = availabilityOf(p, m);
-    const blocked = availability.status === 'blocked';
-    const why = availability.detail ?? blockLabel(availability);
-    return (
-      <div
-        key={key}
-        className={`flex w-full items-center rounded-lg hover:bg-surface-2 ${selected ? 'text-accent' : ''}`}
-      >
-        <button
-          role="option"
-          aria-selected={selected}
-          aria-disabled={blocked}
-          disabled={blocked}
-          className={`flex min-w-0 flex-1 flex-col px-2.5 py-1.5 text-left ${blocked ? 'cursor-not-allowed' : ''}`}
-          onClick={() => pick(p.id, m.id)}
-          title={blocked ? `${m.name} · ${why}` : m.name}
-        >
-          <div className="flex w-full items-center gap-2">
-            <span className={`text-[12.5px] font-medium leading-tight ${blocked ? 'text-ink-faint' : ''}`}>{m.name}</span>
-            {blocked && (
-              <span
-                className="shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-semibold leading-none"
-                style={{
-                  background: 'color-mix(in srgb, var(--danger) 14%, transparent)',
-                  color: 'var(--danger)',
-                }}
-              >
-                {blockLabel(availability)}
-              </span>
-            )}
-            {showProvider && <span className="ml-auto shrink-0 text-[10px] text-ink-faint">{p.label}</span>}
-          </div>
-          <span className="truncate text-[10px] text-ink-faint" title={blocked ? why : 'Estimated list price per 1M tokens'}>
-            {blocked ? why : price}
-          </span>
-        </button>
-        <button
-          className={`shrink-0 rounded-sm p-1.5 ${fav ? 'text-accent' : 'text-ink-faint hover:text-ink'}`}
-          title={fav ? 'Unstar' : 'Star (pin to the top of this list)'}
-          aria-label={fav ? `Unstar ${m.name}` : `Star ${m.name}`}
-          aria-pressed={fav}
-          onClick={() => toggleFavorite(key)}
-        >
-          <StarIcon className="h-3.5 w-3.5" filled={fav} />
-        </button>
-      </div>
-    );
-  };
-
-  const header = (label: string) => (
-    <p className="px-2.5 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{label}</p>
-  );
-
-  return (
-    <div ref={ref} className="relative min-w-0 max-w-[240px]">
-      {/* The nudge rides above the chip as a tooltip rather than a strip in the
-          composer: it says its piece without pushing the composer down, and the
-          menu it asks for opens into the same space, replacing it. */}
-      {hint && !open && (
-        <div
-          id={hintId}
-          role="tooltip"
-          className="fade-in pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-max max-w-[260px] rounded-xl border px-2.5 py-1.5 text-[11px] leading-snug shadow-lg"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
-            background: 'var(--surface)',
-          }}
-        >
-          <span className="font-medium text-accent">Choose a model</span>
-          <span className="text-ink-soft"> · {hint}</span>
-          <span
-            className="absolute bottom-[-5px] left-4 h-2 w-2 rotate-45 border-b border-r"
-            style={{
-              borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
-              background: 'var(--surface)',
-            }}
-          />
-        </div>
-      )}
-      <button
-        className="ctl-menu max-w-full"
-        style={needsChoice ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
-        onClick={() => setOpen(!open)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-describedby={hint && !open ? hintId : undefined}
-        title={needsChoice ? 'This chat has no model yet - pick one' : `Model: ${currentName} · ${providerLabel}`}
-      >
-        <span className="min-w-0 truncate">{needsChoice ? 'Choose a model' : currentName}</span>
-        <span className="ctl-menu-label hidden min-w-0 truncate md:inline">· {providerLabel}</span>
-        <span className="ctl-caret">▾</span>
-      </button>
-      {/* The menu opens rightwards from the chip's own left edge: the picker is
-          the leftmost control of its row and the menu is wider than the chip, so
-          anchoring it right hung it outside the pane, over the sidebar. */}
-      {open && (
-        <div className="card absolute bottom-full left-0 z-40 mb-2 flex max-h-96 w-80 max-w-[calc(100vw-2rem)] flex-col p-1.5 shadow-lg">
-          {total > 8 && (
-            <input
-              className="input mb-1 rounded-lg px-2.5 py-1 text-[12px]"
-              placeholder="Filter models…"
-              value={query}
-              autoFocus
-              aria-label="Filter models"
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          )}
-          <div className="min-h-0 flex-1 overflow-y-auto" role="listbox" aria-label="Model">
-            {providers.length === 0 && <p className="px-2.5 py-1.5 text-[11px] text-ink-faint">No provider configured.</p>}
-            {providers.length > 0 && groups.length === 0 && (
-              <p className="px-2.5 py-1.5 text-[11px] text-ink-faint">{q ? 'No models match.' : 'No models available.'}</p>
-            )}
-            {total > 1 && !q && (
-              <button
-                role="option"
-                aria-selected={modelId === AUTO_MODEL_ID}
-                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] hover:bg-surface-2 ${modelId === AUTO_MODEL_ID ? 'text-accent' : ''}`}
-                onClick={() => { onModel(providerId ?? '', AUTO_MODEL_ID); setOpen(false); }}
-                title="Agent Nekko picks the best model for each message"
-              >
-                ✨ Auto <span className="text-[11px] text-ink-faint">(pick best)</span>
-              </button>
-            )}
-            {starred.length > 0 && !q && (
-              <>
-                {header('★ Starred')}
-                {starred.map((s) => row(s.provider, s.model, true))}
-              </>
-            )}
-            {groups.map((g) => (
-              <React.Fragment key={g.provider.id}>
-                {header(g.provider.label)}
-                {g.models.map((m) => row(g.provider, m, false))}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/**
- * How hard ✨ Auto leans on capability for this chat. Sits beside the model chip
- * and only while Auto is selected, so the strip doesn't carry a control that
- * does nothing.
- */
-function AutoQualityMenu({ quality, onPick }: { quality: AutoQuality; onPick: (q: AutoQuality) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        className="ctl-menu whitespace-nowrap"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={`Auto profile: ${AUTO_QUALITY_META[quality].label} - ${AUTO_QUALITY_META[quality].description}`}
-      >
-        <span className="ctl-menu-label">Auto</span>
-        {AUTO_QUALITY_META[quality].label}
-        <span className="ctl-caret">▾</span>
-      </button>
-      {open && (
-        <div className="card absolute bottom-8 left-0 z-40 w-60 p-1.5 shadow-lg" role="menu">
-          {AUTO_QUALITIES.map((q) => (
-            <button
-              key={q}
-              role="menuitemradio"
-              aria-checked={quality === q}
-              className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2 ${quality === q ? 'text-accent' : ''}`}
-              onClick={() => { onPick(q); setOpen(false); }}
-            >
-              <span className="text-[13px] font-medium">{AUTO_QUALITY_META[q].label}</span>
-              <span className="text-[11px] text-ink-faint">{AUTO_QUALITY_META[q].description}</span>
-            </button>
-          ))}
-          <p className="border-t border-line px-2.5 pb-0.5 pt-1.5 text-[10px] text-ink-faint">Applies to this chat only.</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** One step of an assistant turn: a tool call, a reasoning block, or a bit of
- *  narration text between tools. Grouped into a single collapsible section. */
-type Activity =
-  | { kind: 'tool'; call: ToolCall }
-  | { kind: 'reasoning'; text: string; duration: number | null }
-  | { kind: 'note'; text: string };
-
-/** A render block of the transcript: a message bubble (user or the final
- *  assistant answer) or a grouped run of the model's working steps. */
-type StreamBlock =
-  | { type: 'msg'; message: ChatMessage }
-  | { type: 'activity'; key: string; items: Activity[] };
-
-/**
- * Fold a transcript into render blocks, collapsing each run of the model's
- * working steps (reasoning, tool calls, and inter-tool narration) into one
- * activity group so a many-step turn reads as a single expandable line instead
- * of a wall of "Used <tool>" rows. Only the final answer stays a bubble.
- */
-function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
-  const blocks: StreamBlock[] = [];
-  let run: Activity[] = [];
-  let runKey = '';
-  const flush = () => {
-    if (run.length) { blocks.push({ type: 'activity', key: `act_${runKey}`, items: run }); run = []; }
-  };
-  /**
-   * Narration the model wrote mid-run is speech, not a step.
-   *
-   * It used to fold into the collapsed activity group as a "Said" row, which
-   * meant the model could explain what it was about to do and have that
-   * explanation hidden behind a disclosure triangle: the one part of a run
-   * written *to the reader* was the part the reader could not see. So it
-   * leaves the group as its own bubble, and because a bubble cannot sit inside
-   * the group, it also closes the run: the steps before it and the steps after
-   * it become separate groups, which is the grouping the sequence already had.
-   */
-  const say = (m: ChatMessage, i: number) => {
-    flush();
-    blocks.push({ type: 'msg', message: { ...m, id: `${m.id}_said_${i}`, toolCalls: undefined } });
-  };
-  // The turn's answer is the last assistant message's own text, even when that
-  // message also made tool calls, a run cut short by the step budget, an abort,
-  // or a model that concludes in the same message as its final tool call.
-  // Without this its wrap-up would fold into the collapsed activity group and
-  // vanish; mid-run narration still folds in as before.
-  let lastAssistant = -1;
-  messages.forEach((m, i) => { if (m.role === 'assistant') lastAssistant = i; });
-
-  messages.forEach((m, i) => {
-    if (m.role === 'tool') return;
-    if (m.role === 'user') { flush(); blocks.push({ type: 'msg', message: m }); return; }
-    // Assistant messages that still call tools are working steps; the one that
-    // stops calling tools is the answer.
-    if (m.toolCalls?.length) {
-      const isFinalAnswer = i === lastAssistant && m.content.trim().length > 0;
-      if (!run.length) runKey = `${m.id}_${i}`;
-      if (m.reasoning) run.push({ kind: 'reasoning', text: m.reasoning, duration: m.reasoningSeconds ?? null });
-      // Narration is written out in full as part of the conversation, and it
-      // splits the run in two: what led up to it, and what it went on to do.
-      if (m.content.trim() && !isFinalAnswer) say(m, i);
-      m.toolCalls.forEach((c) => run.push({ kind: 'tool', call: c }));
-      if (isFinalAnswer) { flush(); blocks.push({ type: 'msg', message: m }); }
-    } else {
-      flush();
-      blocks.push({ type: 'msg', message: m });
-    }
-  });
-  flush();
-  return blocks;
-}
-
-const fmtTok = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
-
-/** Short local time for a message timestamp (e.g. "3:42 PM"). */
-function fmtTime(ts: number): string {
-  if (!ts) return '';
-  try { return new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
-  catch { return ''; }
-}
-
-/**
- * A turn's working steps, as the sequence they actually were.
- *
- * This used to be one line — "Worked on 6 steps · read_file, grep" — that hid
- * the order behind a click, and the order is the interesting part: what the
- * model thought, what it did about it, what it found, what it did next. So each
- * step is its own numbered row, in order, one line each: a thought shows where
- * it landed, a tool shows what it was pointed at, narration shows its first
- * line. Every row still opens to its full content, and the whole run still
- * collapses to the old one-liner, so a 40-step turn doesn't take over the
- * transcript.
- */
-function ActivityGroup({ items, streaming = false }: { items: Activity[]; streaming?: boolean }) {
-  // Open while the turn runs (watching it work is the point), folded away
-  // afterwards so a finished transcript reads as answers.
-  const [open, setOpen] = useState(streaming);
-  const tools = items.filter((it): it is Extract<Activity, { kind: 'tool' }> => it.kind === 'tool');
-  const toolCount = tools.length;
-  const summary = streaming
-    ? (toolCount ? `Working · ${tools[tools.length - 1].call.name}` : 'Thinking')
-    : (toolCount
-        ? `Worked on ${items.length} step${items.length === 1 ? '' : 's'}`
-        : 'Thought it through');
-  return (
-    <div className={`${streaming ? 'fade-in ' : ''}mt-1 font-mono text-[12px]`}>
-      <button
-        className="flex w-full items-center gap-1.5 py-0.5 text-left text-ink-faint hover:text-ink-soft"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
-        <ToolStepIcon className="h-3 w-3 shrink-0 text-accent" />
-        <span className="font-medium text-ink-soft">{summary}</span>
-        {!streaming && toolCount > 0 && (
-          <span className="min-w-0 truncate text-ink-faint">
-            · {Array.from(new Set(tools.map((t) => t.call.name))).join(', ')}
-          </span>
-        )}
-        {streaming && <span className="dots" />}
-      </button>
-      {open && (
-        <ol className="ml-[7px] mt-0.5 border-l border-line pl-2.5">
-          {items.map((it, i) => (
-            <StepRow
-              key={stepKey(it, i)}
-              index={i + 1}
-              item={it}
-              // The last row of a live run is the one happening now.
-              live={streaming && i === items.length - 1}
-            />
-          ))}
-        </ol>
-      )}
-    </div>
-  );
-}
-
-/** A stable-ish key per step (tool calls have ids; thoughts and notes don't). */
-function stepKey(it: Activity, i: number): string {
-  return it.kind === 'tool' ? `${it.call.id}_${i}` : `${it.kind}_${i}`;
-}
-
-/**
- * One step in the sequence: a numbered, single-line row that opens to the whole
- * thing. The headline is what a reader needs to follow the run without opening
- * anything, which for a thought means its conclusion, not its opening.
- */
-function StepRow({ index, item, live }: { index: number; item: Activity; live: boolean }) {
-  const [open, setOpen] = useState(false);
-
-  const kind =
-    item.kind === 'tool' ? (item.call.name === 'spawn_agent' ? 'agent' : 'tool') : item.kind;
-  const headline =
-    item.kind === 'reasoning'
-      ? summarizeThought(item.text) || 'Thought it through'
-      : item.kind === 'note'
-        ? truncateWords(item.text.replace(/\s+/g, ' ').trim(), 90)
-        : summarizeToolCall(item.call);
-
-  const label =
-    item.kind === 'reasoning'
-      ? live ? 'Thinking' : item.duration != null ? `Thought ${item.duration}s` : 'Thought'
-      : item.kind === 'note'
-        ? 'Said'
-        : item.call.name;
-
-  const icon =
-    kind === 'reasoning' ? <ThoughtIcon className="h-3 w-3 shrink-0 text-ink-faint" />
-      : kind === 'agent' ? <RobotIcon className="h-3 w-3 shrink-0 text-accent" />
-        : kind === 'note' ? <ChatIcon className="h-3 w-3 shrink-0 text-ink-faint" />
-          : <ToolStepIcon className="h-3 w-3 shrink-0 text-ink-faint" />;
-
-  return (
-    <li className="list-none">
-      <button
-        className="flex w-full items-baseline gap-1.5 py-0.5 text-left text-ink-faint hover:text-ink-soft"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <span className="w-4 shrink-0 text-right text-[10px] tabular-nums opacity-60">{index}</span>
-        <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
-        <span className="self-center">{icon}</span>
-        <span className={`shrink-0 font-medium ${live ? 'text-accent' : 'text-ink-soft'}`}>{label}</span>
-        {headline && <span className="min-w-0 truncate">· {headline}</span>}
-        {live && <span className="dots" />}
-      </button>
-      {open && (
-        item.kind === 'note' ? (
-          <div className="ml-[34px] border-l border-line py-0.5 pl-2 font-sans text-[13px] text-ink-soft">
-            <Markdown text={item.text} />
-          </div>
-        ) : (
-          <pre className="ml-[34px] mt-0.5 max-h-60 overflow-auto whitespace-pre-wrap border-l border-line pl-2 text-[12px] leading-relaxed text-ink-faint">
-            {item.kind === 'reasoning' ? item.text : JSON.stringify(item.call.input, null, 2)}
-          </pre>
-        )
-      )}
-    </li>
-  );
-}
-
-/**
- * The live subtext under the conversation: while a turn streams it shows
- * elapsed time, throughput, and tokens generated; right after a turn it shows
- * the completion summary; idle, it keeps a muted summary of the last turn.
- * All three render as the same single row, so the transcript's tail never
- * changes height.
- */
-function ReplyStatus({
-  streaming, status, elapsed, tps, out, last, done,
-}: {
-  // `elapsed` is how long the reply has been running; `tps` is the model's decode
-  // rate over the time it spent generating, so the two deliberately don't divide
-  // into each other (a turn spends much of its wall clock running tools).
-  // `status` is the few-word present-tense line: what it is doing, not that it is.
-  streaming: boolean; status: string; elapsed: number; tps: number; out: number;
-  last: { out: number; tps: number; secs: number } | null;
-  done?: string | null;
-}) {
-  if (streaming) {
-    return (
-      <div className="fade-in flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-1 text-[12px] text-ink-faint">
-        <span className="flex items-center gap-2 text-ink-soft"><MiniNekko size={16} /> {status || 'Working'}<span className="dots" /></span>
-        {elapsed > 0 && <span>· {elapsed}s</span>}
-        {tps > 0 && <span title="Output tokens per second while the model was generating">· {formatRate(tps)} tok/s</span>}
-        {out > 0 && <span>· {fmtTok(out)} tokens</span>}
-      </div>
-    );
-  }
-  if (done) {
-    return (
-      <div className="fade-in flex items-center gap-2 pt-1 text-[12px]" style={{ color: 'var(--success)' }} role="status">
-        <span>✓</span> {done}
-      </div>
-    );
-  }
-  if (last && last.out > 0) {
-    return (
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[11px] text-ink-faint/80">
-        <span>Last reply</span>
-        <span>· {fmtTok(last.out)} tokens</span>
-        {last.tps > 0 && <span title="Output tokens per second while the model was generating">· {formatRate(last.tps)} tok/s</span>}
-        {last.secs > 0 && <span>· {last.secs}s</span>}
-      </div>
-    );
-  }
-  return null;
-}
-
-/**
- * The measured width of an element, for layout decisions a CSS breakpoint can't
- * make: inside a splittable workbench, "is there room" is a question about the
- * pane, and the viewport can't answer it. Returns 0 until the first measurement,
- * so callers should treat 0 as "narrow" and let the real value arrive.
- */
-function useElementWidth(ref: React.RefObject<HTMLElement | null>): number {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => setWidth(el.clientWidth);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref]);
-  return width;
-}
-
-/** Compact thinking indicator — matches tool card style. */
-function ReasoningBlock({ text, live, duration }: { text: string; live: boolean; duration: number | null }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="mt-1">
-      <button
-        className="flex w-full items-center gap-1.5 py-0.5 text-left text-[12px] font-mono text-ink-faint hover:text-ink-soft"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-      >
-        <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
-        <ThoughtIcon className="h-3 w-3 shrink-0" />
-        <span>{live ? 'Thinking…' : duration != null ? `Thought for ${duration}s` : 'Thought process'}</span>
-      </button>
-      {open && <pre className="ml-[18px] mt-0.5 max-h-60 overflow-y-auto whitespace-pre-wrap border-l border-line pl-2 text-[12px] font-mono leading-relaxed text-ink-faint">{text}</pre>}
-    </div>
-  );
-}
-
-function MessageBubble({
-  message,
-  onResend,
-  onReset,
-  onImageClick,
-  onImageContextMenu,
-  chronological,
-}: {
-  message: ChatMessage;
-  onResend?: (id: string, text: string) => void;
-  /** Rewind the chat to this message and re-run it (replaces the old Regenerate). */
-  onReset?: (id: string, text: string) => void;
-  onImageClick?: (src: string) => void;
-  onImageContextMenu?: (e: React.MouseEvent, src: string) => void;
-  chronological?: boolean;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const isUser = message.role === 'user';
-  const displayText = isUser && message.skill ? message.skill.input : message.content;
-  const [draft, setDraft] = useState(displayText);
-  if (message.role === 'tool') return null;
-  // Animate only genuinely-new content (the optimistic user bubble and the live
-  // stream). Persisted messages render statically, so the optimistic→saved and
-  // live→saved swaps at the end of a turn don't replay the entrance.
-  const entering = message.id === 'tmp' || message.id === 'live';
-  const copy = () => {
-    navigator.clipboard?.writeText(message.content).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); });
-  };
-
-  if (editing) {
-    return (
-      <div className="flex justify-end">
-        <div className="w-full max-w-[85%]">
-          <textarea className="input max-h-48 min-h-[60px] resize-none text-[14px]" value={draft} autoFocus onChange={(e) => setDraft(e.target.value)} />
-          <div className="mt-1.5 flex justify-end gap-2">
-            <button className="btn btn-ghost py-1 text-[12px]" onClick={() => { setEditing(false); setDraft(displayText); }}>Cancel</button>
-            <button className="btn btn-primary py-1 text-[12px]" onClick={() => { setEditing(false); onResend?.(message.id, draft); }}>Save &amp; send</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // In chronological mode, render reasoning, tools, and text as separate
-  // interleaved blocks so the layout is consistent with the live streaming view.
-  if (chronological && !isUser) {
-    const parts: React.ReactNode[] = [];
-    if (message.reasoning) {
-      parts.push(<ReasoningBlock key="reasoning" text={message.reasoning} live={false} duration={message.reasoningSeconds ?? null} />);
-    }
-    if (displayText) {
-      parts.push(
-        <div key="text" className={`group ${entering ? 'fade-in ' : ''}flex justify-start`}>
-          <div className="msg-ai">
-            <Markdown text={message.content} />
-            {displayText && message.content && (
-              <div className="mt-1 flex gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-                <button onClick={copy} title="Copy message" className="hover:text-ink">{copied ? '✓ copied' : 'Copy'}</button>
-              </div>
-            )}
-          </div>
-        </div>,
-      );
-    }
-    if (message.toolCalls?.length) {
-      message.toolCalls.forEach((c) => parts.push(<ToolCard key={c.id} call={c} />));
-    }
-    return <>{parts}</>;
-  }
-
-  return (
-    <div className={`group ${entering ? 'fade-in ' : ''}flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div className={isUser ? 'msg-user' : 'msg-ai'}>
-        {isUser && message.skill && (
-          <span className="skill-pill mb-2 inline-flex text-[11px]">
-            <span className="skill-pill-slash">/</span>{message.skill.name}
-          </span>
-        )}
-        {isUser && message.images?.length ? (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {message.images.map((image, i) => (
-              <img
-                key={`${image.slice(0, 24)}-${i}`}
-                src={image}
-                alt={`Attached image ${i + 1}`}
-                className="h-[104px] w-[104px] cursor-pointer rounded-lg object-cover"
-                onClick={() => onImageClick?.(image)}
-                onContextMenu={(e) => onImageContextMenu?.(e, image)}
-                title="Click to preview · right-click to copy or save"
-              />
-            ))}
-          </div>
-        ) : null}
-        {!isUser && message.reasoning && (
-          <ReasoningBlock text={message.reasoning} live={false} duration={message.reasoningSeconds ?? null} />
-        )}
-        {/* Your own messages render as markdown too: people type dashed lists and
-            `code` in the composer and expect them to come out formatted. */}
-        {displayText && <Markdown text={isUser ? displayText : message.content} />}
-        {message.toolCalls?.map((c) => <ToolCard key={c.id} call={c} />)}
-        {displayText && message.content && (
-          <div className={`mt-1.5 flex items-center gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${isUser ? 'justify-end' : ''}`}>
-            {isUser && message.createdAt > 0 && (
-              <span className="text-ink-faint/70" title={new Date(message.createdAt).toLocaleString()}>{fmtTime(message.createdAt)}</span>
-            )}
-            <button onClick={copy} title="Copy prompt" className="hover:text-ink">{copied ? '✓ copied' : 'Copy'}</button>
-            {onResend && <button onClick={() => { setDraft(displayText); setEditing(true); }} title="Edit & resend" className="hover:text-ink">Edit</button>}
-            {onReset && (
-              <button
-                onClick={() => onReset(message.id, displayText)}
-                title="Rewind the chat to this message and re-run it"
-                className="hover:text-ink"
-              >
-                Reset here
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/**
- * One tool invocation, collapsed to a single line. Neutral coloring on
- * purpose: danger signaling belongs to the approval flow, not to every bash
- * call, so real warnings keep their weight.
- */
-function ToolCard({ call }: { call: ToolCall }) {
-  const isSpawn = call.name === 'spawn_agent';
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="mt-1 font-mono text-[12px]">
-      <button
-        className="flex w-full items-center gap-1.5 py-0.5 text-left text-ink-faint hover:text-ink-soft"
-        onClick={() => setOpen((value) => !value)}
-        aria-expanded={open}
-      >
-        <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
-        {isSpawn && <RobotIcon className="h-3 w-3 shrink-0 text-accent" />}
-        <span className="font-medium">Used <span className="font-mono text-ink-soft">{call.name}</span> tool</span>
-      </button>
-      {open && <pre className="ml-[18px] mt-0.5 overflow-x-auto whitespace-pre-wrap border-l border-line pl-2 text-ink-faint">{JSON.stringify(call.input, null, 2)}</pre>}
-    </div>
-  );
-}
-
-/**
- * The tool-approval prompt: the highest-stakes moment in the app, so it gets a
- * deliberate entrance, keyboard focus (Deny by default), and Y / N / Esc keys.
- */
-function ApprovalBar({ approval, onDecide }: { approval: PendingApproval; onDecide: (ok: boolean) => void }) {
-  const denyRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { denyRef.current?.focus(); }, []);
-  const color =
-    approval.severity === 'high' ? 'var(--danger)' : approval.severity === 'medium' ? 'var(--warning)' : 'var(--ink-faint)';
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'y' || e.key === 'Y') { e.preventDefault(); onDecide(true); }
-    else if (e.key === 'n' || e.key === 'N' || e.key === 'Escape') { e.preventDefault(); onDecide(false); }
-  };
-  return (
-    <div
-      className="slide-up border-t border-line px-5 py-3"
-      style={{ background: 'var(--surface-2)' }}
-      role="alertdialog"
-      aria-label={`Approval required: ${approval.reason}`}
-      onKeyDown={onKeyDown}
-    >
-      <div className="mx-auto flex max-w-3xl items-center gap-3">
-        <ShieldIcon className="h-5 w-5" />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-[13px] font-semibold">Approval required</span>
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white" style={{ background: color }}>{approval.severity}</span>
-            <span className="text-[12px] text-ink-faint">{approval.reason}</span>
-          </div>
-          <code className="mt-0.5 block truncate font-mono text-[12px] text-ink-soft">
-            {String((approval.call.input as Record<string, unknown>).command ?? JSON.stringify(approval.call.input))}
-          </code>
-        </div>
-        <button ref={denyRef} className="btn btn-outline" onClick={() => onDecide(false)} title="Deny (N or Esc)">Deny</button>
-        <button className="btn btn-primary" onClick={() => onDecide(true)} title="Approve (Y)">Approve</button>
-      </div>
-    </div>
-  );
-}
+/** Memoized: the workspace around a chat re-renders for its own reasons (a status dot, a sidebar card); the chat does not follow. */
+export const ChatPane = memo(ChatPaneImpl);

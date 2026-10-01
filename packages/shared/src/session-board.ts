@@ -62,7 +62,9 @@ export function isStalled(messages: ChatMessage[]): boolean {
 export function sessionLane(input: {
   running: boolean;
   pending?: PendingInput;
-  messages: ChatMessage[];
+  /** The transcript, or, from a summary, whether it already ends stalled. */
+  messages?: ChatMessage[];
+  stalled?: boolean;
 }): { lane: SessionLane; blocked?: BlockedReason } {
   if (input.pending?.question) return { lane: 'needs-you', blocked: 'question' };
   if (input.pending?.approval) return { lane: 'needs-you', blocked: 'approval' };
@@ -70,7 +72,7 @@ export function sessionLane(input: {
   // moved past whatever stopped it, and reading it as blocked would park a live
   // agent in a lane that asks the user to do something about it.
   if (input.running) return { lane: 'working' };
-  if (isStalled(input.messages)) return { lane: 'needs-you', blocked: 'interrupted' };
+  if (input.stalled ?? isStalled(input.messages ?? [])) return { lane: 'needs-you', blocked: 'interrupted' };
   return { lane: 'idle' };
 }
 
@@ -91,6 +93,8 @@ export interface TurnExcerpt {
   at: number;
   /** The reply this came from was cut off part-way. */
   interrupted?: boolean;
+  /** An image-chat reply: the picture itself is fetched on demand (`sessionImages`). */
+  image?: { width: number; height: number; seed: number };
 }
 
 /**
@@ -108,13 +112,15 @@ export function recentTurns(messages: ChatMessage[], limit: number): TurnExcerpt
     const m = messages[i];
     if (m.role !== 'user' && m.role !== 'assistant') continue;
     const text = m.content.trim();
-    if (!text) continue;
+    const g = m.role === 'assistant' && m.images?.length ? m.generated : undefined;
+    if (!text && !g) continue;
     out.push({
       id: m.id,
       role: m.role,
-      text,
+      text: text || (g ? `${g.width}×${g.height} image` : ''),
       at: m.createdAt,
       ...(m.interrupted ? { interrupted: true } : {}),
+      ...(g ? { image: { width: g.width, height: g.height, seed: g.seed } } : {}),
     });
   }
   return out.reverse();

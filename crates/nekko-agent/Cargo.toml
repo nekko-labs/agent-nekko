@@ -1,0 +1,19 @@
+[package]
+name = "nekko-agent"
+description = "Model providers for the Agent Nekko engine daemon: the TS host's OpenAI-compatible, Anthropic, Ollama and ChatGPT clients, request for request and chunk for chunk."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+getrandom.workspace = true
+nekko-js = { path = "../nekko-js" }
+# native-tls: the cloud providers are HTTPS. It is the TLS stack ort's
+# download already builds (schannel, Security.framework, OpenSSL), so this adds
+# only reqwest's glue to it.
+reqwest = { workspace = true, features = ["native-tls"] }
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true

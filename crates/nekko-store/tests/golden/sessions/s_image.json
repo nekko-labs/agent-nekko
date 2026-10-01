@@ -1,0 +1,73 @@
+{
+  "id": "s_image",
+  "title": "Chat s_image",
+  "workspaceId": "w1",
+  "messages": [
+    {
+      "id": "u1",
+      "role": "user",
+      "content": "a lighthouse at sunset",
+      "createdAt": 1790000000002
+    },
+    {
+      "id": "a1",
+      "role": "assistant",
+      "content": "",
+      "createdAt": 1790000000002,
+      "images": [
+        "data:image/png;base64,eA=="
+      ],
+      "generated": {
+        "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+        "width": 1024,
+        "height": 1024,
+        "steps": 4,
+        "cfgScale": 1,
+        "seed": 1417088981,
+        "ms": 4100
+      }
+    },
+    {
+      "id": "u2",
+      "role": "user",
+      "content": "same, in snow",
+      "createdAt": 1790000000002
+    },
+    {
+      "id": "a2",
+      "role": "assistant",
+      "content": "",
+      "createdAt": 1790000000002,
+      "images": [
+        "data:image/png;base64,eQ==",
+        "data:image/png;base64,eg=="
+      ],
+      "generated": {
+        "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+        "width": 768,
+        "height": 1344,
+        "steps": 4,
+        "cfgScale": 1,
+        "seed": 836320352,
+        "ms": 4100
+      }
+    },
+    {
+      "id": "a3",
+      "role": "assistant",
+      "content": "The image could not be generated: Missing vae",
+      "createdAt": 1790000000002
+    }
+  ],
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000100000,
+  "chatType": "image",
+  "imageParams": {
+    "modelId": "m",
+    "width": 768,
+    "height": 1344,
+    "steps": 4,
+    "cfgScale": 1,
+    "seed": -1
+  }
+}

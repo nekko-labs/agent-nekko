@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   AskAnswer,
   AskRequest,
@@ -7,16 +7,17 @@ import type {
   LiveStep,
   PendingInput,
   ProviderConfig,
-  Session,
+  SessionSummary,
   TurnExcerpt,
   UsageSummary,
 } from '@agent-nekko/shared';
 import {
   BLOCKED_META,
+  DEFAULT_IMAGE_CHAT_PARAMS,
   LANE_META,
   SESSION_LANES,
+  SUMMARY_TURNS,
   classifySession,
-  recentTurns,
   sessionLane,
   summarizeToolCall,
   taskCadence,
@@ -46,10 +47,11 @@ import { ChatIcon, ChevronIcon, RobotIcon, ThoughtIcon, ToolStepIcon, TrashIcon 
 const LANE_CAP = 6;
 /** Turns of conversation on a resting card, and on an opened one. */
 const TURNS_COLLAPSED = 2;
-const TURNS_EXPANDED = 8;
+// A summary carries this many turns, so an opened card never asks for more.
+const TURNS_EXPANDED = SUMMARY_TURNS;
 
 export interface BoardCard {
-  session: Session;
+  session: SessionSummary;
   task?: AutomationTask;
   lane: SessionLane;
   blocked?: BlockedReason;
@@ -73,13 +75,13 @@ export function SessionBoard({
   onRefresh,
   onNewChat,
 }: {
-  sessions: Session[];
+  sessions: SessionSummary[];
   tasks: AutomationTask[];
   providers: ProviderConfig[];
   usage: UsageSummary | null;
   running: Set<string>;
   pending: Record<string, PendingInput>;
-  childrenOf: Map<string, Session[]>;
+  childrenOf: Map<string, SessionSummary[]>;
   runStarts: Map<string, number>;
   /** Live step rails, keyed by session. A mutable map read at paint time. */
   activity: Map<string, LiveActivity>;
@@ -97,7 +99,7 @@ export function SessionBoard({
   // A chat counts as working when it, or anything it delegated to, is running:
   // a parent parked on `spawn_agent` is not idle, it is waiting on its swarm.
   const isRunning = useMemo(() => {
-    const check = (s: Session): boolean =>
+    const check = (s: SessionSummary): boolean =>
       running.has(s.id) || (childrenOf.get(s.id) ?? []).some(check);
     return check;
   }, [running, childrenOf]);
@@ -107,7 +109,7 @@ export function SessionBoard({
       sessions.map((session) => {
         const p = pending[session.id];
         const live = isRunning(session);
-        const { lane, blocked } = sessionLane({ running: live, pending: p, messages: session.messages });
+        const { lane, blocked } = sessionLane({ running: live, pending: p, stalled: session.stalled });
         return {
           session,
           task: taskBySession.get(session.id),
@@ -179,7 +181,7 @@ function Lane({
   cards: BoardCard[];
   providers: ProviderConfig[];
   usage: UsageSummary | null;
-  childrenOf: Map<string, Session[]>;
+  childrenOf: Map<string, SessionSummary[]>;
   activity: Map<string, LiveActivity>;
   now: number;
   onOpen: (id: string) => void;
@@ -234,7 +236,7 @@ function SessionCard({
   card: BoardCard;
   provider?: ProviderConfig;
   tokens?: { input: number; output: number };
-  childrenOf: Map<string, Session[]>;
+  childrenOf: Map<string, SessionSummary[]>;
   activity?: LiveActivity;
   now: number;
   onOpen: (id: string) => void;
@@ -245,14 +247,26 @@ function SessionCard({
   // more of the same content. Opening the chat is still one click away, but it
   // is no longer the price of reading two more sentences.
   const [expanded, setExpanded] = useState(false);
-  const msgs = session.messages.filter((m) => m.role === 'user' || m.role === 'assistant').length;
+  const msgs = session.exchangeCount;
   const tok = tokens ? tokens.input + tokens.output : 0;
   const turns = useMemo(
-    () => recentTurns(session.messages, expanded ? TURNS_EXPANDED : TURNS_COLLAPSED),
-    [session.messages, expanded],
+    () => session.recentTurns.slice(-(expanded ? TURNS_EXPANDED : TURNS_COLLAPSED)),
+    [session.recentTurns, expanded],
   );
   const swarm = countDescendants(session.id, childrenOf);
   const agentType = classifySession(session, task);
+  const imageChat = session.chatType === 'image';
+  // An image chat's turns are pictures. The summary carries only their size;
+  // the pictures themselves come on demand, for the cards actually on screen.
+  const [thumbs, setThumbs] = useState<Map<string, string>>(new Map());
+  useEffect(() => {
+    if (!imageChat || !session.imageCount) return;
+    let live = true;
+    window.nekko.sessionImages(session.id, TURNS_EXPANDED)
+      .then((list) => { if (live) setThumbs(new Map(list.map((i) => [i.messageId, i.src]))); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [imageChat, session.id, session.imageCount]);
   const live = card.running ? activity : undefined;
 
   const answer = async (answers: AskAnswer[]) => {
@@ -298,9 +312,19 @@ function SessionCard({
 
       <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 pl-[12px] text-[10.5px] text-ink-faint">
         <span style={{ color: agentType.color }} title={agentType.label}>{agentType.icon}</span>
-        <span className="truncate">{session.modelId ?? provider?.label ?? 'no model'}</span>
-        <span>· {msgs} msg{msgs === 1 ? '' : 's'}</span>
-        {tok > 0 && <span>· {tok.toLocaleString()} tok</span>}
+        {imageChat ? (
+          <>
+            <span className="truncate">{session.imageParams?.modelId?.split('/').pop() ?? 'no image model'}</span>
+            <span>· {session.imageCount} image{session.imageCount === 1 ? '' : 's'}</span>
+            {session.imageParams && <span>· {session.imageParams.width}×{session.imageParams.height}</span>}
+          </>
+        ) : (
+          <>
+            <span className="truncate">{session.modelId ?? provider?.label ?? 'no model'}</span>
+            <span>· {msgs} msg{msgs === 1 ? '' : 's'}</span>
+            {tok > 0 && <span>· {tok.toLocaleString()} tok</span>}
+          </>
+        )}
         {task && <span>· {taskCadence(task)}</span>}
         {swarm > 0 && (
           <span className="flex items-center gap-0.5" title={`${swarm} sub-agent${swarm === 1 ? '' : 's'}`}>
@@ -343,7 +367,7 @@ function SessionCard({
       {live && <LiveRail activity={live} />}
 
       {/* And what was said, both sides of it. */}
-      {turns.length > 0 && <TurnList turns={turns} expanded={expanded} />}
+      {turns.length > 0 && <TurnList turns={turns} expanded={expanded} thumbs={thumbs} />}
 
       {(turns.length > 0 || (live?.steps.length ?? 0) > 0) && (
         <button
@@ -398,7 +422,8 @@ function SessionCard({
  * each, so a glance answers "what is it doing" without opening anything.
  */
 function LiveRail({ activity }: { activity: LiveActivity }) {
-  const tail = activity.tail.trim();
+  // An image turn narrates nothing; its stage stands in for the narration line.
+  const tail = (activity.image ?? activity.tail).trim();
   const thinking = activity.thinking.trim();
   return (
     <div
@@ -460,7 +485,7 @@ function StepRow({ step, live = false }: { step: LiveStep; live?: boolean }) {
  * without the instruction above it reads as a non-sequitur. Showing the
  * exchange costs a line and makes the card legible on its own.
  */
-function TurnList({ turns, expanded }: { turns: TurnExcerpt[]; expanded: boolean }) {
+function TurnList({ turns, expanded, thumbs }: { turns: TurnExcerpt[]; expanded: boolean; thumbs?: Map<string, string> }) {
   return (
     <div className={`mt-2 space-y-1.5 ${expanded ? 'max-h-72 overflow-y-auto pr-1' : ''}`}>
       {turns.map((t) => (
@@ -471,12 +496,26 @@ function TurnList({ turns, expanded }: { turns: TurnExcerpt[]; expanded: boolean
           >
             {t.role === 'user' ? 'You' : 'Nekko'}
           </span>
+          {t.image ? (
+            thumbs?.get(t.id) ? (
+              <img
+                src={thumbs.get(t.id)}
+                alt={`Generated ${t.text}`}
+                title={`${t.text} · seed ${t.image.seed}`}
+                className={`${expanded ? 'h-32' : 'h-16'} w-auto rounded-md border border-line`}
+                style={{ aspectRatio: `${t.image.width} / ${t.image.height}` }}
+              />
+            ) : (
+              <p className="text-[11.5px] text-ink-soft">{t.text}</p>
+            )
+          ) : (
           <p
             className={`min-w-0 flex-1 whitespace-pre-wrap text-[11.5px] leading-snug ${expanded ? '' : 'line-clamp-3'} ${t.role === 'user' ? 'text-ink-faint' : 'text-ink-soft'}`}
           >
             {t.text}
             {t.interrupted && <span className="ml-1 text-[10px] italic" style={{ color: 'var(--warning)' }}>(cut off)</span>}
           </p>
+          )}
         </div>
       ))}
     </div>
@@ -514,7 +553,7 @@ function ApprovalRow({
 }
 
 /** A reply that stopped part-way: resumed, or re-run, from here. */
-function StalledRow({ session, onOpen }: { session: Session; onOpen: (id: string) => void }) {
+function StalledRow({ session, onOpen }: { session: SessionSummary; onOpen: (id: string) => void }) {
   const pushToast = useStore((s) => s.pushToast);
   const [busy, setBusy] = useState(false);
   const resume = async () => {
@@ -564,7 +603,7 @@ function StalledRow({ session, onOpen }: { session: Session; onOpen: (id: string
 function ReplyBox({
   session, running, question, onRefresh, onOpen,
 }: {
-  session: Session;
+  session: SessionSummary;
   running: boolean;
   /** Set when the agent is parked on a question; typing here answers it. */
   question?: AskRequest;
@@ -598,6 +637,19 @@ function ReplyBox({
       } finally {
         setBusy(false);
       }
+      return;
+    }
+
+    if (session.chatType === 'image') {
+      const params = { ...DEFAULT_IMAGE_CHAT_PARAMS, ...session.imageParams };
+      if (running) { pushToast('info', 'Wait for this image to finish.'); return; }
+      if (!params.modelId) { pushToast('info', 'Pick an image model for this chat first.'); onOpen(session.id); return; }
+      setText('');
+      void window.nekko
+        .generateImageTurn({ sessionId: session.id, prompt: body, params: { ...params, modelId: params.modelId } })
+        .catch((e: Error) => pushToast('error', e.message))
+        .finally(onRefresh);
+      setTimeout(onRefresh, 200);
       return;
     }
 
@@ -636,13 +688,13 @@ function ReplyBox({
     }
   };
 
-  const action = question ? 'Answer' : running ? 'Queue' : 'Send';
+  const action = question ? 'Answer' : session.chatType === 'image' ? 'Generate' : running ? 'Queue' : 'Send';
   return (
     <div className="mt-2 flex items-center gap-1.5">
       <input
         ref={input}
         className="input min-w-0 flex-1 py-1 text-[11.5px]"
-        placeholder={question ? 'Answer in your own words…' : running ? 'Queue the next instruction' : 'Reply…'}
+        placeholder={question ? 'Answer in your own words…' : session.chatType === 'image' ? (running ? 'Generating…' : 'Describe the next image…') : running ? 'Queue the next instruction' : 'Reply…'}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -669,7 +721,7 @@ function ReplyBox({
 }
 
 /** Count every descendant sub-agent under a session. */
-function countDescendants(id: string, childrenOf: Map<string, Session[]>): number {
+function countDescendants(id: string, childrenOf: Map<string, SessionSummary[]>): number {
   return (childrenOf.get(id) ?? []).reduce((n, k) => n + 1 + countDescendants(k.id, childrenOf), 0);
 }
 

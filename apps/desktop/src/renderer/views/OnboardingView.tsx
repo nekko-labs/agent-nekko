@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { OnboardingState } from '@agent-nekko/shared';
 import { ONBOARDING_VERSION } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { WizardShell } from '../components/onboarding/WizardShell.js';
 import {
@@ -16,7 +17,7 @@ import { IntegrationsStep } from '../components/onboarding/IntegrationsStep.js';
 import { DoneStep } from '../components/onboarding/DoneStep.js';
 
 export function OnboardingView() {
-  const { settings, setOnboardingOpen } = useStore();
+  const { settings, setOnboardingOpen } = useStore(useShallow((s) => ({ settings: s.settings, setOnboardingOpen: s.setOnboardingOpen })));
   const [index, setIndex] = useState(0);
   const stepsRef = useRef<Record<string, 'done' | 'skipped'>>({});
   const runningRef = useRef(false);

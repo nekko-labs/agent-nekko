@@ -1,0 +1,1450 @@
+{
+ "cases": [
+  {
+   "id": "readme-email",
+   "note": "the README example, JSON state, all three types",
+   "state": {
+    "from": "user@acme.com",
+    "subject": "Duplicate charge on invoice #4411",
+    "body": "Hi, we were billed twice for March. Please refund the duplicate today or we will cancel our plan."
+   },
+   "questions": {
+    "department": {
+     "type": "choice",
+     "instructions": "Which department should handle this request?",
+     "criteria": {
+      "billing": "invoices, payments, refunds",
+      "technical": "bugs, outages, system errors",
+      "sales": "pricing, new contracts",
+      "other": "everything else"
+     }
+    },
+    "urgency": {
+     "type": "score",
+     "instructions": "How urgent is this request?",
+     "criteria": [
+      "not urgent",
+      "soon",
+      "critical deadline or blocking issue"
+     ]
+    },
+    "churn_risk": {
+     "type": "noul",
+     "instructions": "Does the user threaten to cancel or leave?"
+    },
+    "refund_requested": {
+     "type": "noul",
+     "instructions": "Does the user explicitly request a refund?"
+    }
+   }
+  },
+  {
+   "id": "readme-text",
+   "note": "the quickstart example, text state",
+   "state": "Hi, we were billed twice for March. Please refund the duplicate today or we will cancel our plan.",
+   "questions": {
+    "department": {
+     "type": "choice",
+     "instructions": "Which department should handle this request?",
+     "criteria": {
+      "billing": "invoices, payments, refunds",
+      "technical": "bugs, outages, system errors",
+      "other": "everything else"
+     }
+    },
+    "urgency": {
+     "type": "score",
+     "instructions": "How urgent is this?",
+     "criteria": [
+      "not urgent",
+      "soon",
+      "blocking"
+     ]
+    },
+    "churn_risk": {
+     "type": "noul",
+     "instructions": "Does the user threaten to cancel or leave?"
+    }
+   }
+  },
+  {
+   "id": "choice-02",
+   "note": "choice with 2 options (dict criteria)",
+   "state": "Ticket 2: Login shipment shipment ticket discount seat migration card latency card outage Payment discount. manager dispute deadline alert ticket security team alert upgrade Outage refund ticket report..",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related team questions",
+      "technical": "requests about technical and related contract questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-03",
+   "note": "choice with 3 options (list criteria)",
+   "state": "Ticket 3: Backup payment security renewal ticket card dashboard dispute payment password card Invoice dashboard. migration phishing database crash dashboard security phishing dashboard deadline Dispute pricing database dispute. pricing incident escalation.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-04",
+   "note": "choice with 4 options (dict criteria)",
+   "state": "Ticket 4: Backup seat delay deadline dashboard pricing shipment password refund deadline phishing License login. database incident security ticket upgrade bug delay migration latency Refund chargeback migration upgrade. crash discount seat license dispute ticket.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related invoice questions",
+      "technical": "requests about technical and related shipment questions",
+      "sales": "requests about sales and related payment questions",
+      "legal": "requests about legal and related outage questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-05",
+   "note": "choice with 5 options (list criteria)",
+   "state": "Ticket 5: Fraud migration customer chargeback incident refund report backup chargeback login discount Contract ticket. dashboard backup escalation security delay vendor backup invoice latency Weekend upgrade bug escalation. discount password renewal fraud fraud team renewal Renewal invoice.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales",
+      "legal",
+      "security"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-06",
+   "note": "choice with 6 options (dict criteria)",
+   "state": "Ticket 6: Vendor shipment metric migration outage invoice pricing payment dashboard ticket account Refund upgrade. metric crash weekend security security delay crash vendor phishing Migration fraud shipment manager. billing shipment ticket weekend migration team delay Crash dispute license delay outage.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related shipment questions",
+      "technical": "requests about technical and related delay questions",
+      "sales": "requests about sales and related customer questions",
+      "legal": "requests about legal and related backup questions",
+      "security": "requests about security and related refund questions",
+      "shipping": "requests about shipping and related refund questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-07",
+   "note": "choice with 7 options (list criteria)",
+   "state": "Ticket 7: Account pricing deadline chargeback login password security delay ticket payment login Alert latency. outage shipment manager weekend password backup shipment phishing manager Login vendor contract database. dispute dispute payment login vendor payment deadline Login database outage phishing renewal license. weekend pricing.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales",
+      "legal",
+      "security",
+      "shipping",
+      "hr"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-08",
+   "note": "choice with 8 options (dict criteria)",
+   "state": "Ticket 8: Database ticket escalation renewal crash outage shipment renewal backup alert latency Deadline chargeback. refund report metric report escalation metric vendor crash deadline Shipment metric database refund. upgrade incident weekend dashboard escalation contract migration Delay password escalation fraud escalation delay. login billing backup shipment metric.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related refund questions",
+      "technical": "requests about technical and related customer questions",
+      "sales": "requests about sales and related chargeback questions",
+      "legal": "requests about legal and related fraud questions",
+      "security": "requests about security and related dashboard questions",
+      "shipping": "requests about shipping and related fraud questions",
+      "hr": "requests about hr and related report questions",
+      "marketing": "requests about marketing and related pricing questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-09",
+   "note": "choice with 9 options (list criteria)",
+   "state": "Ticket 9: Report fraud ticket upgrade renewal bug invoice billing alert report card Shipment billing. phishing fraud outage escalation discount team manager discount discount Backup login contract renewal. alert payment password escalation delay license latency Database weekend shipment upgrade latency deadline. upgrade billing outage crash invoice Weekend login escalation.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales",
+      "legal",
+      "security",
+      "shipping",
+      "hr",
+      "marketing",
+      "design"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-10",
+   "note": "choice with 10 options (dict criteria)",
+   "state": "Ticket 10: Vendor outage manager dashboard vendor invoice latency report metric upgrade chargeback Discount outage. incident metric account password backup ticket outage weekend renewal Card customer escalation weekend. license migration report bug seat ticket renewal Report backup team fraud escalation outage. payment invoice backup renewal crash Seat security ticket backup account phishing.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related shipment questions",
+      "technical": "requests about technical and related bug questions",
+      "sales": "requests about sales and related contract questions",
+      "legal": "requests about legal and related invoice questions",
+      "security": "requests about security and related alert questions",
+      "shipping": "requests about shipping and related metric questions",
+      "hr": "requests about hr and related backup questions",
+      "marketing": "requests about marketing and related password questions",
+      "design": "requests about design and related security questions",
+      "finance": "requests about finance and related report questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-11",
+   "note": "choice with 11 options (list criteria)",
+   "state": "Ticket 11: Team phishing report team alert payment crash bug alert dashboard dispute Fraud bug. delay team seat pricing shipment security dispute outage card Deadline team chargeback fraud. chargeback discount fraud invoice incident password login Outage crash backup card refund report. account team payment crash incident Database dispute license metric invoice shipment report chargeback. upgrade.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales",
+      "legal",
+      "security",
+      "shipping",
+      "hr",
+      "marketing",
+      "design",
+      "finance",
+      "support"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-12",
+   "note": "choice with 12 options (dict criteria)",
+   "state": "Ticket 12: Dashboard upgrade incident customer pricing escalation invoice ticket dashboard upgrade chargeback Report card. database phishing invoice fraud pricing team ticket discount billing Latency login vendor crash. password alert billing deadline shipment refund login Alert database shipment manager team contract. manager renewal security account fraud Phishing discount login phishing discount alert shipment deadline. card weekend card Dashboard.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related password questions",
+      "technical": "requests about technical and related card questions",
+      "sales": "requests about sales and related shipment questions",
+      "legal": "requests about legal and related alert questions",
+      "security": "requests about security and related payment questions",
+      "shipping": "requests about shipping and related outage questions",
+      "hr": "requests about hr and related upgrade questions",
+      "marketing": "requests about marketing and related phishing questions",
+      "design": "requests about design and related password questions",
+      "finance": "requests about finance and related chargeback questions",
+      "support": "requests about support and related seat questions",
+      "research": "requests about research and related dashboard questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-13",
+   "note": "choice with 13 options (list criteria)",
+   "state": "Ticket 13: Migration license bug chargeback database pricing database chargeback bug renewal password Security latency. license refund manager renewal card invoice upgrade pricing shipment Migration team manager renewal. migration customer database metric phishing vendor manager Ticket manager dispute account chargeback contract. customer card dispute migration team Phishing fraud renewal team team security bug license. crash bug incident Customer migration ticket report.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales",
+      "legal",
+      "security",
+      "shipping",
+      "hr",
+      "marketing",
+      "design",
+      "finance",
+      "support",
+      "research",
+      "operations"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-14",
+   "note": "choice with 14 options (dict criteria)",
+   "state": "Ticket 14: Delay fraud chargeback incident backup upgrade migration license password team seat Report deadline. deadline contract migration database account customer migration ticket dispute Dispute incident pricing discount. phishing upgrade discount invoice chargeback password contract Card billing refund shipment upgrade latency. escalation deadline payment team card Delay chargeback contract payment payment dispute dispute ticket. bug delay metric Alert crash upgrade team fraud latency metric.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related customer questions",
+      "technical": "requests about technical and related upgrade questions",
+      "sales": "requests about sales and related backup questions",
+      "legal": "requests about legal and related chargeback questions",
+      "security": "requests about security and related crash questions",
+      "shipping": "requests about shipping and related report questions",
+      "hr": "requests about hr and related incident questions",
+      "marketing": "requests about marketing and related refund questions",
+      "design": "requests about design and related alert questions",
+      "finance": "requests about finance and related password questions",
+      "support": "requests about support and related invoice questions",
+      "research": "requests about research and related billing questions",
+      "operations": "requests about operations and related pricing questions",
+      "procurement": "requests about procurement and related dashboard questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-15",
+   "note": "choice with 15 options (list criteria)",
+   "state": "Ticket 15: Latency invoice incident outage discount backup refund login pricing ticket backup Contract billing. report customer upgrade deadline migration customer database latency customer Account database seat alert. weekend database vendor report weekend metric shipment Report vendor ticket team vendor account. chargeback team deadline password metric Refund crash renewal security bug fraud refund license. incident metric pricing Delay contract deadline login password report phishing license deadline alert..",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales",
+      "legal",
+      "security",
+      "shipping",
+      "hr",
+      "marketing",
+      "design",
+      "finance",
+      "support",
+      "research",
+      "operations",
+      "procurement",
+      "compliance"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-16",
+   "note": "choice with 16 options (dict criteria)",
+   "state": "Ticket 16: Ticket dashboard dashboard license weekend database team invoice weekend migration backup Dispute database. invoice license seat billing pricing card seat refund database Card migration refund pricing. card dispute refund report report card dispute License database seat ticket migration weekend. shipment customer metric manager incident Chargeback bug vendor license payment outage license shipment. invoice incident ticket Backup metric pricing seat seat account report report password discount. dashboard Invoice team.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related escalation questions",
+      "technical": "requests about technical and related discount questions",
+      "sales": "requests about sales and related login questions",
+      "legal": "requests about legal and related password questions",
+      "security": "requests about security and related payment questions",
+      "shipping": "requests about shipping and related metric questions",
+      "hr": "requests about hr and related discount questions",
+      "marketing": "requests about marketing and related password questions",
+      "design": "requests about design and related phishing questions",
+      "finance": "requests about finance and related latency questions",
+      "support": "requests about support and related pricing questions",
+      "research": "requests about research and related refund questions",
+      "operations": "requests about operations and related customer questions",
+      "procurement": "requests about procurement and related contract questions",
+      "compliance": "requests about compliance and related incident questions",
+      "facilities": "requests about facilities and related pricing questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-17",
+   "note": "choice with 17 options (list criteria)",
+   "state": "Ticket 17: Incident weekend seat ticket license bug security upgrade contract refund backup Escalation weekend. migration alert account dispute deadline renewal phishing login renewal Crash pricing security phishing. latency billing security contract dispute password seat Weekend shipment alert dashboard dispute card. pricing weekend alert billing refund Manager ticket vendor login customer login dashboard ticket. payment invoice deadline Backup contract phishing latency backup incident ticket login upgrade password. upgrade Crash card phishing security phishing.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales",
+      "legal",
+      "security",
+      "shipping",
+      "hr",
+      "marketing",
+      "design",
+      "finance",
+      "support",
+      "research",
+      "operations",
+      "procurement",
+      "compliance",
+      "facilities",
+      "training"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-18",
+   "note": "choice with 18 options (dict criteria)",
+   "state": "Ticket 18: Bug contract team billing backup crash metric dispute metric bug dashboard License report. migration crash migration contract account incident bug backup discount Backup crash ticket vendor. alert crash metric latency seat migration invoice Billing deadline database deadline security customer. payment vendor incident upgrade upgrade Card seat phishing contract license dashboard vendor alert. pricing metric dispute Discount crash latency chargeback manager renewal weekend alert dashboard vendor. delay Crash payment migration security billing security dashboard shipment.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related seat questions",
+      "technical": "requests about technical and related report questions",
+      "sales": "requests about sales and related outage questions",
+      "legal": "requests about legal and related weekend questions",
+      "security": "requests about security and related upgrade questions",
+      "shipping": "requests about shipping and related outage questions",
+      "hr": "requests about hr and related bug questions",
+      "marketing": "requests about marketing and related upgrade questions",
+      "design": "requests about design and related pricing questions",
+      "finance": "requests about finance and related seat questions",
+      "support": "requests about support and related pricing questions",
+      "research": "requests about research and related report questions",
+      "operations": "requests about operations and related outage questions",
+      "procurement": "requests about procurement and related vendor questions",
+      "compliance": "requests about compliance and related escalation questions",
+      "facilities": "requests about facilities and related customer questions",
+      "training": "requests about training and related metric questions",
+      "partners": "requests about partners and related billing questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "choice-19",
+   "note": "choice with 19 options (list criteria)",
+   "state": "Ticket 19: Outage incident contract alert crash deadline customer incident license payment pricing Card migration. delay migration weekend account upgrade delay account seat refund Vendor fraud crash password. crash contract security report escalation password delay Weekend refund delay payment manager deadline. team seat vendor alert discount Dispute weekend database security vendor delay latency escalation. crash renewal renewal Dispute metric delay phishing report invoice report dashboard card contract. incident Dashboard alert metric ticket manager security bug invoice backup shipment refund.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": [
+      "billing",
+      "technical",
+      "sales",
+      "legal",
+      "security",
+      "shipping",
+      "hr",
+      "marketing",
+      "design",
+      "finance",
+      "support",
+      "research",
+      "operations",
+      "procurement",
+      "compliance",
+      "facilities",
+      "training",
+      "partners",
+      "press"
+     ]
+    }
+   }
+  },
+  {
+   "id": "choice-20",
+   "note": "choice with 20 options (dict criteria)",
+   "state": "Ticket 20: Pricing migration dispute delay account vendor discount refund weekend weekend password Delay renewal. account dashboard payment team weekend latency crash account dispute Billing billing manager shipment. dispute incident metric deadline shipment latency vendor Backup outage crash delay shipment crash. migration license seat migration discount Fraud contract refund upgrade database database vendor backup. login invoice chargeback Fraud seat upgrade renewal chargeback billing card team pricing dispute. upgrade Phishing manager discount discount deadline contract renewal payment manager customer database Contract. card login.",
+   "questions": {
+    "route": {
+     "type": "choice",
+     "instructions": "Which team owns this ticket?",
+     "criteria": {
+      "billing": "requests about billing and related payment questions",
+      "technical": "requests about technical and related report questions",
+      "sales": "requests about sales and related dashboard questions",
+      "legal": "requests about legal and related outage questions",
+      "security": "requests about security and related dashboard questions",
+      "shipping": "requests about shipping and related card questions",
+      "hr": "requests about hr and related discount questions",
+      "marketing": "requests about marketing and related team questions",
+      "design": "requests about design and related incident questions",
+      "finance": "requests about finance and related team questions",
+      "support": "requests about support and related license questions",
+      "research": "requests about research and related upgrade questions",
+      "operations": "requests about operations and related contract questions",
+      "procurement": "requests about procurement and related bug questions",
+      "compliance": "requests about compliance and related weekend questions",
+      "facilities": "requests about facilities and related manager questions",
+      "training": "requests about training and related contract questions",
+      "partners": "requests about partners and related incident questions",
+      "press": "requests about press and related delay questions",
+      "other": "requests about other and related metric questions"
+     }
+    }
+   }
+  },
+  {
+   "id": "score-02",
+   "note": "score with 2 levels",
+   "state": "Pricing fraud customer discount phishing card bug escalation license fraud manager Vendor payment. outage incident security fraud incident bug escalation team database Alert renewal shipment login. bug card vendor team alert database incident Incident pricing metric fraud weekend dispute. dashboard.",
+   "questions": {
+    "severity": {
+     "type": "score",
+     "instructions": "How severe is the reported problem?",
+     "criteria": [
+      "level of severity 0 out of 1",
+      "level of severity 1 out of 1"
+     ]
+    }
+   }
+  },
+  {
+   "id": "score-03",
+   "note": "score with 3 levels",
+   "state": "Report latency password card contract chargeback escalation report billing contract metric Shipment renewal. database payment refund outage database delay renewal card incident License bug weekend payment. weekend database vendor fraud backup shipment ticket Crash payment latency fraud alert dashboard. migration.",
+   "questions": {
+    "severity": {
+     "type": "score",
+     "instructions": "How severe is the reported problem?",
+     "criteria": [
+      "level of severity 0 out of 2",
+      "level of severity 1 out of 2",
+      "level of severity 2 out of 2"
+     ]
+    }
+   }
+  },
+  {
+   "id": "score-04",
+   "note": "score with 4 levels",
+   "state": "Refund crash database deadline billing invoice renewal refund discount delay pricing Contract password. chargeback billing ticket chargeback login crash payment migration deadline Account fraud discount dispute. seat weekend outage report team security backup Migration bug vendor outage delay outage. card.",
+   "questions": {
+    "severity": {
+     "type": "score",
+     "instructions": "How severe is the reported problem?",
+     "criteria": [
+      "level of severity 0 out of 3",
+      "level of severity 1 out of 3",
+      "level of severity 2 out of 3",
+      "level of severity 3 out of 3"
+     ]
+    }
+   }
+  },
+  {
+   "id": "score-05",
+   "note": "score with 5 levels",
+   "state": "Payment customer payment delay invoice seat incident vendor billing license discount Customer discount. pricing delay deadline customer discount manager fraud escalation report Metric database bug fraud. seat incident migration login account fraud contract Customer bug deadline security alert vendor. dispute.",
+   "questions": {
+    "severity": {
+     "type": "score",
+     "instructions": "How severe is the reported problem?",
+     "criteria": [
+      "level of severity 0 out of 4",
+      "level of severity 1 out of 4",
+      "level of severity 2 out of 4",
+      "level of severity 3 out of 4",
+      "level of severity 4 out of 4"
+     ]
+    }
+   }
+  },
+  {
+   "id": "score-07",
+   "note": "score with 7 levels",
+   "state": "Backup fraud payment manager dashboard seat renewal manager security contract migration License card. outage upgrade account crash bug payment crash pricing security Renewal backup ticket contract. password discount password metric crash pricing report Upgrade shipment backup upgrade manager manager. backup.",
+   "questions": {
+    "severity": {
+     "type": "score",
+     "instructions": "How severe is the reported problem?",
+     "criteria": [
+      "level of severity 0 out of 6",
+      "level of severity 1 out of 6",
+      "level of severity 2 out of 6",
+      "level of severity 3 out of 6",
+      "level of severity 4 out of 6",
+      "level of severity 5 out of 6",
+      "level of severity 6 out of 6"
+     ]
+    }
+   }
+  },
+  {
+   "id": "score-10",
+   "note": "score with 10 levels",
+   "state": "Escalation card backup weekend dashboard upgrade dispute security password security weekend Alert account. outage contract alert shipment pricing team dispute invoice incident Manager payment database upgrade. license ticket ticket alert delay weekend phishing Report upgrade renewal crash migration weekend. dashboard.",
+   "questions": {
+    "severity": {
+     "type": "score",
+     "instructions": "How severe is the reported problem?",
+     "criteria": [
+      "level of severity 0 out of 9",
+      "level of severity 1 out of 9",
+      "level of severity 2 out of 9",
+      "level of severity 3 out of 9",
+      "level of severity 4 out of 9",
+      "level of severity 5 out of 9",
+      "level of severity 6 out of 9",
+      "level of severity 7 out of 9",
+      "level of severity 8 out of 9",
+      "level of severity 9 out of 9"
+     ]
+    }
+   }
+  },
+  {
+   "id": "noul-plain",
+   "note": "",
+   "state": "The server has been down for three hours and nobody answers the phone.",
+   "questions": {
+    "outage": {
+     "type": "noul",
+     "instructions": "Is there an ongoing outage?"
+    }
+   }
+  },
+  {
+   "id": "noul-criteria",
+   "note": "",
+   "state": "Please send me the receipt for last month, thanks!",
+   "questions": {
+    "receipt": {
+     "type": "noul",
+     "instructions": "Is the user asking for a document?",
+     "criteria": {
+      "true": "the user asks for a receipt, invoice or statement",
+      "false": "anything else"
+     }
+    }
+   }
+  },
+  {
+   "id": "noul-labels",
+   "note": "",
+   "state": "I love this product, it changed how our team works.",
+   "questions": {
+    "positive": {
+     "type": "noul",
+     "instructions": "Is this review positive?",
+     "labels": {
+      "false": "negative",
+      "true": "positive"
+     }
+    }
+   }
+  },
+  {
+   "id": "noul-bool-keys",
+   "note": "criteria keys normalised case-insensitively",
+   "state": "Our card was charged by a merchant we have never heard of.",
+   "questions": {
+    "fraud": {
+     "type": "noul",
+     "instructions": "Could this be fraud?",
+     "criteria": {
+      "True": "possible fraud",
+      "FALSE": "no fraud"
+     }
+    }
+   }
+  },
+  {
+   "id": "long-fits",
+   "note": "150-word text state",
+   "state": "Fraud metric database discount refund refund customer customer database account renewal Shipment bug. database delay refund contract deadline weekend escalation seat phishing Delay manager dashboard discount. refund chargeback contract billing billing ticket vendor Ticket card backup upgrade shipment license. customer outage shipment phishing password Alert refund renewal chargeback account renewal dispute ticket. security renewal dashboard Security discount migration upgrade chargeback fraud license manager outage invoice. account Metric payment password crash billing deadline customer alert escalation dashboard renewal Backup. ticket metric seat database phishing team deadline password deadline password Migration card license. latency alert phishing alert card invoice upgrade report Weekend password pricing account phishing. billing dispute account contract weekend metric Contract dispute incident database card license login. seat outage dispute backup Backup weekend pricing backup customer dashboard payment seat alert. seat incident Weekend renewal fraud latency chargeback invoice login account fraud payment card. Ticket login latency phishing refund incident contract.",
+   "questions": {
+    "topic": {
+     "type": "choice",
+     "instructions": "What is the main topic?",
+     "criteria": [
+      "billing",
+      "outage",
+      "security",
+      "other"
+     ]
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is anything described as urgent?"
+    }
+   }
+  },
+  {
+   "id": "long-near-limit",
+   "note": "230-word text state",
+   "state": "Fraud metric discount backup weekend login bug alert chargeback manager security Invoice dashboard. card shipment card ticket ticket metric migration contract dashboard Metric manager shipment invoice. incident incident ticket deadline pricing upgrade database Manager team customer backup fraud database. team ticket security card escalation Deadline card delay chargeback deadline metric renewal pricing. team discount incident Backup crash renewal dispute crash deadline shipment pricing outage billing. fraud Login delay crash migration seat card login database card alert weekend Delay. database incident incident fraud customer card contract vendor migration deadline Latency dispute weekend. shipment team phishing payment card metric phishing card Latency password shipment database account. dispute card contract license billing card Outage password database backup shipment vendor upgrade. database latency escalation payment Vendor password security backup password shipment database login phishing. team refund Incident contract crash report report database team database dashboard phishing discount. Vendor login login weekend outage card phishing chargeback upgrade password payment Discount seat. database ticket incident dashboard migration database ticket incident escalation Backup fraud customer security. backup ticket password delay alert card latency Metric password pricing account discount account. weekend metric license shipment team Password shipment invoice database crash security outage vendor. escalation alert report Fraud payment card phishing payment password seat shipment manager refund. ticket Metric dashboard alert chargeback crash vendor security bug vendor chargeback upgrade Alert. alert renewal card discount upgrade incident vendor contract payment.",
+   "questions": {
+    "topic": {
+     "type": "choice",
+     "instructions": "What is the main topic?",
+     "criteria": [
+      "billing",
+      "outage",
+      "security",
+      "other"
+     ]
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is anything described as urgent?"
+    }
+   }
+  },
+  {
+   "id": "long-at-limit",
+   "note": "300-word text state",
+   "state": "Dispute alert seat license incident dashboard manager upgrade refund escalation dispute Latency payment. customer delay latency team seat escalation outage renewal billing Backup phishing backup bug. deadline discount alert password discount account team Customer delay outage chargeback refund migration. refund dashboard migration pricing card Team latency invoice pricing renewal delay pricing metric. license license card Crash weekend contract license account password password migration password chargeback. payment Phishing crash phishing contract card login billing discount backup card seat Invoice. database account delay renewal migration discount customer shipment password weekend Escalation upgrade login. delay incident chargeback fraud discount seat seat payment Customer report crash pricing deadline. login database database latency dispute deadline Chargeback dispute license license pricing renewal customer. weekend vendor fraud escalation Backup alert deadline shipment database chargeback pricing pricing escalation. billing seat Team payment fraud customer database metric seat card incident password account. Crash payment license upgrade report security billing account payment fraud discount Vendor password. ticket metric upgrade vendor database upgrade license invoice crash Password incident dashboard latency. dashboard license billing backup database invoice bug Latency delay vendor customer login latency. payment upgrade login security dispute Incident alert alert weekend customer dashboard payment login. alert weekend report Fraud delay alert metric phishing metric incident deadline license alert. fraud Database card latency deadline team team ticket escalation seat alert migration Team. latency license refund payment report dashboard password vendor weekend alert Account license customer. security phishing latency invoice report card report license Bug fraud payment report vendor. shipment security security chargeback upgrade incident Latency report metric contract delay billing refund. invoice outage fraud alert Renewal backup chargeback phishing database security pricing incident contract. crash customer Vendor phishing migration pricing alert shipment weekend discount shipment backup latency. Billing chargeback security team delay shipment weekend escalation login migration payment Customer account. fraud.",
+   "questions": {
+    "topic": {
+     "type": "choice",
+     "instructions": "What is the main topic?",
+     "criteria": [
+      "billing",
+      "outage",
+      "security",
+      "other"
+     ]
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is anything described as urgent?"
+    }
+   }
+  },
+  {
+   "id": "long-truncated",
+   "note": "700-word text state",
+   "state": "Refund card dispute billing alert security report invoice alert incident phishing Seat contract. metric report outage dispute password upgrade manager delay card Upgrade chargeback team upgrade. chargeback report team backup phishing deadline ticket Fraud upgrade metric team delay weekend. fraud report shipment report dashboard Escalation fraud alert bug invoice report dispute billing. seat card license Invoice customer incident license report deadline login weekend seat renewal. discount Account security crash security crash security manager team dispute delay card Invoice. outage dashboard dispute license outage security database outage account card Delay license account. database latency ticket bug vendor customer customer account Card payment metric latency crash. outage license billing alert customer fraud Shipment billing password outage outage fraud shipment. password invoice team delay Pricing pricing escalation refund security billing license invoice chargeback. seat shipment Security outage vendor license billing database delay billing manager card license. Alert seat license outage weekend latency seat security database ticket account Deadline weekend. bug invoice invoice renewal seat manager invoice crash fraud Refund license chargeback incident. security refund manager metric license latency report Customer security manager card ticket backup. password bug payment security ticket Report payment chargeback login ticket refund payment billing. shipment login dashboard Migration pricing renewal delay weekend dispute phishing metric phishing shipment. chargeback Security team manager latency manager team delay dispute refund report login Crash. discount delay deadline weekend chargeback fraud incident ticket billing refund Discount dashboard report. vendor escalation payment contract report login alert account Incident vendor billing manager renewal. refund deadline alert license crash billing Team login payment manager delay outage metric. alert team discount alert Seat delay login account payment incident bug team security. password migration Escalation escalation dispute chargeback payment renewal shipment dashboard card chargeback vendor. Card metric team metric phishing ticket incident customer vendor weekend password Outage backup. report license billing customer database shipment discount customer delay Upgrade outage metric contract. seat fraud weekend seat seat manager fraud Weekend dispute security metric team dispute. renewal incident report billing alert Database fraud metric bug database latency security latency. incident delay weekend Password dispute incident incident crash invoice discount chargeback upgrade login. alert Shipment card security customer phishing database weekend discount migration incident metric Manager. login card billing crash vendor ticket chargeback chargeback password password Migration latency migration. vendor password escalation report delay deadline dashboard weekend Dashboard alert payment metric team. billing backup seat contract bug payment Account database backup weekend escalation bug payment. team seat pricing upgrade Security weekend security incident fraud fraud billing refund escalation. license login Chargeback metric invoice vendor report customer billing shipment weekend outage escalation. Ticket weekend card renewal customer customer password outage crash alert account Team pricing. ticket dispute chargeback bug database fraud backup fraud phishing Delay fraud migration manager. shipment card team manager latency team card Chargeback escalation security phishing report latency. report customer payment backup fraud Security manager contract incident escalation billing password refund. delay vendor card Customer bug shipment phishing seat ticket manager team invoice manager. account Migration seat invoice backup crash backup outage license payment billing password Security. vendor contract alert account refund dashboard escalation report alert metric Manager team latency. backup refund payment deadline escalation backup outage migration Report incident payment seat customer. latency bug fraud delay password alert Shipment billing report password deadline outage escalation. pricing escalation bug database Upgrade deadline customer team fraud payment weekend login password. metric metric Outage dashboard ticket account refund latency dispute password password fraud dashboard. Bug contract incident customer crash crash upgrade delay discount weekend manager Discount delay. bug card dispute metric security fraud migration phishing fraud Weekend pricing delay invoice. discount report backup team shipment alert card Chargeback latency delay chargeback database fraud. phishing report migration dashboard crash Migration payment ticket chargeback security database payment shipment. latency license license Chargeback card security dashboard team payment incident customer outage deadline. billing Crash delay shipment seat weekend discount crash discount seat escalation login Latency. weekend refund pricing metric phishing dashboard report license card refund Password refund report. chargeback contract database invoice refund login license manager Deadline pricing account account contract. renewal payment bug alert login latency Upgrade seat login crash vendor security contract. payment phishing delay phishing Invoice dispute password customer delay license card.",
+   "questions": {
+    "topic": {
+     "type": "choice",
+     "instructions": "What is the main topic?",
+     "criteria": [
+      "billing",
+      "outage",
+      "security",
+      "other"
+     ]
+    },
+    "urgent": {
+     "type": "noul",
+     "instructions": "Is anything described as urgent?"
+    }
+   }
+  },
+  {
+   "id": "long-many-options",
+   "note": "long state with 12 described options (tight head budget)",
+   "state": "Deadline escalation crash card bug database backup renewal shipment migration escalation Incident security. shipment fraud metric crash weekend fraud payment latency ticket Escalation latency pricing report. bug vendor billing shipment incident shipment dashboard Account deadline outage upgrade phishing invoice. manager latency ticket security shipment Report incident crash card report login customer renewal. latency discount team Card bug alert bug outage contract refund discount dashboard weekend. shipment Manager dispute shipment pricing seat fraud invoice escalation billing renewal incident Deadline. crash login dispute latency team migration security deadline renewal customer Dashboard login renewal. card pricing card weekend contract delay contract pricing License bug bug weekend pricing. latency phishing account metric database migration Contract ticket bug password alert license invoice. payment login billing latency Escalation deadline billing deadline escalation weekend ticket security shipment. bug outage Ticket deadline team database seat chargeback database chargeback seat delay account. Latency backup escalation license team shipment team weekend migration password alert License account. dashboard security renewal migration manager license weekend fraud discount License escalation card fraud. team crash escalation billing crash customer invoice Customer license crash discount dispute migration. weekend database weekend customer deadline Invoice contract alert security crash invoice incident seat. discount alert team Latency migration weekend report phishing incident dispute fraud dispute card. license Crash refund delay seat password payment outage login weekend seat ticket Phishing. dispute payment vendor license crash delay deadline deadline bug migration Report billing renewal. renewal team escalation weekend phishing bug ticket migration Latency upgrade report vendor escalation. bug dashboard vendor dispute dashboard discount Password security backup report incident invoice contract. billing metric password billing Chargeback invoice vendor security upgrade dispute invoice payment account. weekend migration Discount renewal payment login deadline outage login billing alert database phishing. License discount team login weekend database crash contract metric discount upgrade Upgrade ticket. password phishing crash phishing bug customer chargeback security shipment Contract renewal renewal pricing. security shipment outage alert chargeback escalation discount Customer database fraud card fraud discount. billing login billing dispute manager Crash seat bug contract pricing metric chargeback incident. invoice database escalation Delay backup vendor team card shipment discount discount team ticket. migration Account payment outage payment deadline refund seat discount renewal invoice license Phishing. license license contract metric manager password outage customer discount card Account billing account. outage escalation upgrade fraud database phishing pricing refund License deadline weekend alert database. bug incident weekend login latency backup Chargeback migration discount vendor delay manager invoice. vendor refund crash renewal Bug dispute seat login migration bug payment manager pricing. invoice chargeback Outage alert deadline team password discount payment database billing manager renewal. Dashboard fraud shipment ticket alert discount database vendor metric latency delay Manager fraud. crash bug renewal dashboard backup bug migration discount chargeback Incident alert security password. backup backup incident database weekend deadline incident Phishing password backup migration account vendor. billing metric crash delay dispute Refund outage manager login account crash login license. bug upgrade migration Invoice vendor incident license crash ticket contract discount customer escalation. pricing Seat incident migration crash team.",
+   "questions": {
+    "team": {
+     "type": "choice",
+     "instructions": "Which team?",
+     "criteria": {
+      "billing": "the billing team handles Escalation weekend outage migration alert metric.",
+      "technical": "the technical team handles Renewal vendor password migration contract metric.",
+      "sales": "the sales team handles Login shipment shipment ticket discount seat.",
+      "legal": "the legal team handles Backup payment security renewal ticket card.",
+      "security": "the security team handles Backup seat delay deadline dashboard pricing.",
+      "shipping": "the shipping team handles Fraud migration customer chargeback incident refund.",
+      "hr": "the hr team handles Vendor shipment metric migration outage invoice.",
+      "marketing": "the marketing team handles Account pricing deadline chargeback login password.",
+      "design": "the design team handles Database ticket escalation renewal crash outage.",
+      "finance": "the finance team handles Report fraud ticket upgrade renewal bug.",
+      "support": "the support team handles Vendor outage manager dashboard vendor invoice.",
+      "research": "the research team handles Team phishing report team alert payment."
+     }
+    }
+   }
+  },
+  {
+   "id": "head-budget-cap",
+   "note": "option descriptions over 48 tokens and over the head budget: per-option cap path",
+   "state": "Short state about a login problem.",
+   "questions": {
+    "pick": {
+     "type": "choice",
+     "instructions": "Which description fits best?",
+     "criteria": {
+      "opt0": "Report incident payment report migration dispute escalation latency delay billing vendor Shipment refund. crash billing database deadline license login password account team Fraud seat ticket renewal. metric contract crash ticket security discount ticket Ticket billing team bug incident shipment. card invoice pricing report metric Bug.",
+      "opt1": "Dispute license dispute customer backup dispute account billing incident ticket discount Billing customer. team report invoice ticket report refund ticket latency renewal Report invoice report renewal. crash deadline ticket customer delay refund contract Latency vendor contract pricing metric upgrade. pricing payment outage crash refund Billing.",
+      "opt2": "Alert ticket discount dispute customer discount manager outage chargeback escalation alert Password backup. account crash chargeback delay account security database backup vendor Password dispute outage password. shipment fraud bug crash incident outage payment Login team delay backup renewal alert. backup refund discount login pricing Security.",
+      "opt3": "Discount pricing customer crash escalation seat renewal chargeback refund outage manager Contract refund. outage phishing report weekend outage shipment chargeback incident ticket Report card weekend dashboard. upgrade weekend chargeback license metric renewal migration Billing password manager database incident manager. pricing password refund crash database Ticket.",
+      "opt4": "Report vendor ticket invoice crash login pricing bug ticket alert fraud Vendor security. seat delay billing outage backup weekend seat alert pricing Bug contract weekend contract. login team license shipment discount invoice latency Login alert password upgrade delay deadline. report bug deadline chargeback delay Card.",
+      "opt5": "Pricing migration seat upgrade billing dashboard license security security chargeback customer Login weekend. fraud deadline payment security chargeback delay billing phishing report Backup contract refund license. upgrade pricing latency contract manager incident upgrade Login escalation seat license seat backup. ticket bug phishing password escalation Payment.",
+      "opt6": "Metric upgrade escalation vendor weekend upgrade backup incident bug manager customer Metric pricing. delay refund chargeback escalation renewal outage fraud pricing crash Chargeback discount refund latency. payment refund contract security report chargeback delay Card metric customer contract latency incident. outage chargeback bug report shipment Manager.",
+      "opt7": "Dashboard fraud vendor pricing metric chargeback backup team ticket chargeback delay Ticket latency. contract team discount refund renewal crash security weekend license Escalation chargeback metric account. chargeback ticket deadline vendor latency seat customer Renewal login bug chargeback refund team. invoice metric crash invoice card Alert.",
+      "opt8": "Security weekend metric password delay migration ticket shipment dispute incident ticket Chargeback metric. vendor card vendor customer shipment vendor deadline ticket renewal Account bug discount delay. backup refund ticket chargeback customer latency chargeback Alert phishing security billing seat upgrade. crash login chargeback seat alert Upgrade.",
+      "opt9": "Weekend latency discount renewal contract payment upgrade phishing dispute seat escalation Seat login. payment upgrade refund incident account contract database card manager Crash upgrade password refund. renewal discount metric escalation alert dashboard team Metric fraud payment alert latency phishing. discount billing outage discount latency Account."
+     }
+    }
+   }
+  },
+  {
+   "id": "json-nested",
+   "note": "nested JSON with floats, nulls, bools and unicode",
+   "state": {
+    "ticket": {
+     "id": 4411,
+     "priority": null,
+     "tags": [
+      "billing",
+      "vip"
+     ],
+     "score": 0.5,
+     "tiny": 1e-05,
+     "big": 1e+16,
+     "ok": true,
+     "amount": 129.99,
+     "customer": {
+      "name": "Zoë Ångström",
+      "tier": 3
+     }
+    },
+    "messages": [
+     {
+      "role": "user",
+      "text": "I was charged twice."
+     },
+     {
+      "role": "agent",
+      "text": "Looking into it."
+     }
+    ]
+   },
+   "questions": {
+    "billing": {
+     "type": "noul",
+     "instructions": "Is this ticket about billing?"
+    },
+    "vip": {
+     "type": "noul",
+     "instructions": "Is the customer a VIP?"
+    }
+   }
+  },
+  {
+   "id": "json-escapes",
+   "note": "JSON string escapes",
+   "state": {
+    "body": "Line one\nLine two\ttabbed \"quoted\" back\\slash",
+    "ctrl": "bell\u0007 end"
+   },
+   "questions": {
+    "escalate": {
+     "type": "noul",
+     "instructions": "Should this be escalated?"
+    }
+   }
+  },
+  {
+   "id": "json-list-state",
+   "note": "conversation list state (left truncation)",
+   "state": [
+    {
+     "role": "user",
+     "content": "Hi, my order has not arrived."
+    },
+    {
+     "role": "assistant",
+     "content": "Sorry, let me check. Can you share the order number?"
+    },
+    {
+     "role": "user",
+     "content": "It is 7781. I want a refund now, or I am filing a chargeback."
+    }
+   ],
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "What does the user want?",
+     "criteria": [
+      "refund",
+      "status update",
+      "cancel",
+      "other"
+     ]
+    },
+    "threat": {
+     "type": "noul",
+     "instructions": "Does the user threaten a chargeback?"
+    }
+   }
+  },
+  {
+   "id": "json-list-long",
+   "note": "long conversation: left truncation keeps the newest turn",
+   "state": [
+    {
+     "role": "user",
+     "content": "Fraud database ticket delay shipment backup billing login discount team database Phishing manager. incident license escalation backup vendor contract report incident billing Payment customer login incident. latency shipment phishing alert dashboard bug backup Crash contract crash team ticket customer. escalation."
+    },
+    {
+     "role": "assistant",
+     "content": "Manager license contract payment pricing escalation metric upgrade account dispute metric Escalation weekend. report chargeback card vendor password alert contract seat escalation Delay customer fraud delay. refund weekend phishing dashboard security seat seat Manager escalation vendor discount invoice account. card."
+    },
+    {
+     "role": "user",
+     "content": "Upgrade chargeback dispute deadline dashboard password payment pricing chargeback security vendor Crash incident. pricing alert seat billing card card report upgrade alert Discount discount card seat. manager upgrade billing latency manager seat bug Outage login report metric discount report. weekend."
+    },
+    {
+     "role": "assistant",
+     "content": "Outage chargeback shipment license team bug phishing crash crash deadline deadline Shipment payment. backup migration report chargeback ticket contract shipment ticket metric Seat license login upgrade. password dispute deadline dashboard bug chargeback security Incident deadline latency renewal customer latency. manager."
+    },
+    {
+     "role": "user",
+     "content": "Card license alert deadline card login weekend metric alert outage metric Shipment escalation. refund dashboard renewal account dashboard report metric dashboard renewal License migration outage crash. card card backup password outage login refund Latency card contract deadline invoice vendor. refund."
+    },
+    {
+     "role": "assistant",
+     "content": "Customer customer security dashboard fraud refund renewal escalation renewal payment outage Incident deadline. customer deadline delay vendor fraud contract chargeback incident vendor Report contract outage phishing. contract login backup dispute renewal outage seat Migration weekend contract dispute password account. upgrade."
+    },
+    {
+     "role": "user",
+     "content": "Invoice upgrade payment ticket password upgrade license deadline billing dashboard billing Incident weekend. pricing customer discount contract incident outage chargeback crash team Report weekend team migration. password security refund refund dispute metric payment Delay shipment login dispute contract alert. report."
+    },
+    {
+     "role": "assistant",
+     "content": "Deadline login pricing license license dashboard discount discount crash dashboard password Discount database. backup outage weekend alert password renewal fraud fraud incident Manager database phishing alert. database license dashboard discount dispute fraud delay Migration latency weekend database backup payment. database."
+    },
+    {
+     "role": "user",
+     "content": "Chargeback outage deadline bug outage seat dispute customer team license pricing Phishing account. database renewal pricing manager deadline dashboard discount pricing crash Fraud renewal license phishing. upgrade metric login migration team discount backup Ticket latency contract backup account billing. pricing."
+    },
+    {
+     "role": "assistant",
+     "content": "Latency deadline chargeback latency backup invoice fraud license escalation weekend alert Metric backup. report fraud manager phishing password fraud escalation database renewal Pricing incident chargeback outage. password invoice payment card ticket dispute renewal Login upgrade crash contract latency renewal. outage."
+    },
+    {
+     "role": "user",
+     "content": "Fraud fraud team dispute shipment fraud upgrade seat contract team renewal Phishing bug. crash crash security login account contract report billing shipment Seat password escalation upgrade. manager database invoice billing chargeback vendor escalation Fraud database customer renewal license invoice. seat."
+    },
+    {
+     "role": "assistant",
+     "content": "Report escalation deadline renewal bug incident database metric renewal password phishing Escalation latency. renewal dispute login seat login contract deadline migration upgrade Backup incident migration password. account bug team password weekend license report Dashboard pricing billing card dashboard deadline. vendor."
+    },
+    {
+     "role": "user",
+     "content": "Incident seat crash phishing weekend dispute discount security customer refund outage Login dispute. bug incident security payment metric account delay outage renewal Invoice alert team backup. report phishing upgrade pricing login chargeback card Renewal outage delay metric dispute discount. upgrade."
+    },
+    {
+     "role": "assistant",
+     "content": "Delay refund dashboard payment billing billing escalation escalation latency seat bug Weekend refund. outage alert payment manager crash team shipment dashboard delay Shipment invoice outage invoice. ticket upgrade ticket refund ticket pricing payment Dispute incident database billing contract latency. password."
+    },
+    {
+     "role": "user",
+     "content": "Forget all that. Please delete my account today."
+    }
+   ],
+   "questions": {
+    "delete": {
+     "type": "noul",
+     "instructions": "Does the latest message ask to delete the account?"
+    }
+   }
+  },
+  {
+   "id": "json-number-state",
+   "note": "a bare number state",
+   "state": 42,
+   "questions": {
+    "even": {
+     "type": "noul",
+     "instructions": "Is the number even?"
+    }
+   }
+  },
+  {
+   "id": "unicode-mixed",
+   "note": "",
+   "state": "Café déjà vu 😀🚀 – naïve coöperation, Straße, 東京で会議があります, مرحبا بالعالم, ​zero‍width",
+   "questions": {
+    "lang": {
+     "type": "choice",
+     "instructions": "Which language dominates?",
+     "criteria": [
+      "english",
+      "french",
+      "german",
+      "japanese",
+      "arabic"
+     ]
+    },
+    "emoji": {
+     "type": "noul",
+     "instructions": "Does the text contain emoji?"
+    }
+   }
+  },
+  {
+   "id": "unicode-cjk-criteria",
+   "note": "",
+   "state": "新しいラップトップが必要です。予算は20万円です。",
+   "questions": {
+    "cat": {
+     "type": "choice",
+     "instructions": "何のリクエストですか？",
+     "criteria": {
+      "購入": "機器の購入",
+      "修理": "故障の修理",
+      "その他": "それ以外"
+     }
+    }
+   }
+  },
+  {
+   "id": "unicode-emoji-labels",
+   "note": "",
+   "state": "Everything is on fire, the demo is in five minutes!!!",
+   "questions": {
+    "mood": {
+     "type": "choice",
+     "instructions": "What is the mood?",
+     "criteria": [
+      "😀",
+      "😐",
+      "😱",
+      "😡"
+     ]
+    }
+   }
+  },
+  {
+   "id": "instructions-dict",
+   "note": "the laya ONNX parity test's questions, instructions as a dict",
+   "state": "Refactor this service using dependency injection",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": {
+      "task": "classify the request",
+      "fields": [
+       "kind"
+      ]
+     },
+     "criteria": {
+      "refactor": "code refactoring, rewriting",
+      "bug_fix": "fixing bugs, issues",
+      "feature": "adding new features"
+     }
+    },
+    "complexity": {
+     "type": "score",
+     "instructions": "How complex is this request?",
+     "criteria": [
+      "trivial",
+      "simple",
+      "moderate",
+      "complex",
+      "very complex"
+     ]
+    },
+    "safety": {
+     "type": "noul",
+     "instructions": "Does this request involve any unsafe or harmful content?"
+    }
+   }
+  },
+  {
+   "id": "criteria-structured",
+   "note": "structured criterion values render as JSON",
+   "state": "The invoice total is 1,200 EUR but the PO says 1,000 EUR.",
+   "questions": {
+    "issue": {
+     "type": "choice",
+     "instructions": "What is wrong?",
+     "criteria": {
+      "amount": {
+       "desc": "amount mismatch",
+       "examples": [
+        "total differs",
+        "wrong currency"
+       ]
+      },
+      "missing": [
+       "a required field is missing"
+      ],
+      "none": null,
+      "zero": 0
+     }
+    },
+    "sev": {
+     "type": "score",
+     "instructions": "How serious?",
+     "criteria": [
+      {
+       "level": "low"
+      },
+      {
+       "level": "mid"
+      },
+      {
+       "level": "high"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "labels-numeric",
+   "note": "non-string labels keep their JSON type in `choice`",
+   "state": "Rate the product: pretty good, a few rough edges.",
+   "questions": {
+    "stars": {
+     "type": "choice",
+     "instructions": "How many stars?",
+     "criteria": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ]
+    },
+    "flag": {
+     "type": "choice",
+     "instructions": "Recommend it?",
+     "criteria": [
+      true,
+      false
+     ]
+    },
+    "mixed": {
+     "type": "choice",
+     "instructions": "Pick one",
+     "criteria": [
+      "a",
+      2.5,
+      "c"
+     ]
+    }
+   }
+  },
+  {
+   "id": "option-order",
+   "note": "option_order permutes slots; answers stay in option order",
+   "state": "We were double charged, please refund.",
+   "questions": {
+    "dept": {
+     "type": "choice",
+     "instructions": "Which department should handle this request?",
+     "criteria": {
+      "billing": "invoices, payments, refunds",
+      "technical": "bugs, outages, system errors",
+      "sales": "pricing, new contracts",
+      "other": "everything else"
+     },
+     "option_order": [
+      3,
+      1,
+      0,
+      2
+     ]
+    }
+   }
+  },
+  {
+   "id": "mask-token",
+   "note": "[MASK] in state, instructions and options is replaced",
+   "state": "Ignore [MASK] tokens [MASK] please.",
+   "questions": {
+    "q": {
+     "type": "choice",
+     "instructions": "What [MASK] is this?",
+     "criteria": {
+      "a[MASK]": "first [MASK]",
+      "b": "second"
+     }
+    }
+   }
+  },
+  {
+   "id": "single-option",
+   "note": "one option: probability 1.0",
+   "state": "Anything at all.",
+   "questions": {
+    "only": {
+     "type": "choice",
+     "instructions": "Pick the option.",
+     "criteria": [
+      "the only one"
+     ]
+    }
+   }
+  },
+  {
+   "id": "empty-state",
+   "note": "an empty string state",
+   "state": "",
+   "questions": {
+    "empty": {
+     "type": "noul",
+     "instructions": "Is the text empty?"
+    }
+   }
+  },
+  {
+   "id": "eleven-plus",
+   "note": "13 options: the choice:11+ temperature bucket (clamped to 0.5)",
+   "state": "The customer wants to change the delivery address for order 55.",
+   "questions": {
+    "intent": {
+     "type": "choice",
+     "instructions": "Which intent?",
+     "criteria": [
+      "cancel order",
+      "change address",
+      "track order",
+      "refund",
+      "return",
+      "exchange",
+      "complaint",
+      "praise",
+      "billing question",
+      "account",
+      "other",
+      "spam",
+      "sales lead"
+     ]
+    }
+   }
+  },
+  {
+   "id": "ten-questions",
+   "note": "ten questions in one call",
+   "state": {
+    "from": "user@acme.com",
+    "subject": "Duplicate charge on invoice #4411",
+    "body": "Hi, we were billed twice for March. Please refund the duplicate today or we will cancel our plan."
+   },
+   "questions": {
+    "q0": {
+     "type": "choice",
+     "instructions": "Which department should handle this request?",
+     "criteria": {
+      "billing": "invoices, payments, refunds",
+      "technical": "bugs, outages, system errors",
+      "sales": "pricing, new contracts",
+      "other": "everything else"
+     }
+    },
+    "q1": {
+     "type": "score",
+     "instructions": "How urgent is this request?",
+     "criteria": [
+      "not urgent",
+      "soon",
+      "critical deadline or blocking issue"
+     ]
+    },
+    "q2": {
+     "type": "noul",
+     "instructions": "Does the user threaten to cancel or leave?"
+    },
+    "q3": {
+     "type": "noul",
+     "instructions": "Does the user explicitly request a refund?"
+    },
+    "q4": {
+     "type": "noul",
+     "instructions": "Is the tone polite?"
+    },
+    "q5": {
+     "type": "choice",
+     "instructions": "Which month is mentioned?",
+     "criteria": [
+      "January",
+      "February",
+      "March",
+      "April"
+     ]
+    },
+    "q6": {
+     "type": "score",
+     "instructions": "How angry is the customer?",
+     "criteria": [
+      "calm",
+      "annoyed",
+      "angry",
+      "furious"
+     ]
+    },
+    "q7": {
+     "type": "noul",
+     "instructions": "Is an invoice number mentioned?"
+    },
+    "q8": {
+     "type": "choice",
+     "instructions": "What is the requested action?",
+     "criteria": {
+      "refund": "money back",
+      "fix": "correct the invoice",
+      "info": "explain"
+     }
+    },
+    "q9": {
+     "type": "noul",
+     "instructions": "Is this spam?"
+    }
+   }
+  },
+  {
+   "id": "instructions-long",
+   "note": "instructions longer than the head budget are cut",
+   "state": "Backup payment security renewal ticket card dashboard dispute payment password card Invoice dashboard. migration phishing database crash dashboard security phishing dashboard deadline Dispute pricing database dispute. pricing incident escalation invoice password discount payment Outage seat refund upgrade dashboard card. escalation manager deadline vendor team Renewal ticket delay outage renewal metric latency migration. manager dispute seat Weekend alert escalation vendor customer.",
+   "questions": {
+    "q": {
+     "type": "noul",
+     "instructions": "Considering Backup seat delay deadline dashboard pricing shipment password refund deadline phishing License login. database incident security ticket upgrade bug delay migration latency Refund chargeback migration upgrade. crash discount seat license dispute ticket shipment Card billing escalation alert backup bug. backup dashboard upgrade shipment phishing Seat invoice license vendor seat alert crash weekend. manager card license Manager team discount database seat migration outage shipment outage report. dispute Upgrade incident security chargeback dashboard billing pricing crash password weekend crash Dispute. dispute team upgrade bug customer manager payment account dispute phishing Crash account delay. login database upgrade payment fraud backup contract billing Bug license report refund outage. customer shipment license account refund account License account pricing chargeback weekend fraud password. license fraud crash team License renewal migration escalation card discount billing vendor invoice. ticket outage Report discount ticket ticket license vendor delay team latency manager latency. Contract login login login discount card pricing. is this about billing?"
+    }
+   }
+  },
+  {
+   "id": "choice-empty-desc",
+   "note": "empty and null descriptions render the label alone",
+   "state": "Please reset my password.",
+   "questions": {
+    "kind": {
+     "type": "choice",
+     "instructions": "Which kind?",
+     "criteria": {
+      "account": "",
+      "billing": null,
+      "other": "anything else"
+     }
+    }
+   }
+  },
+  {
+   "id": "noul-false-only",
+   "note": "",
+   "state": "The package arrived damaged.",
+   "questions": {
+    "damage": {
+     "type": "noul",
+     "instructions": "Was something damaged?",
+     "criteria": {
+      "false": "the item arrived intact"
+     }
+    }
+   }
+  },
+  {
+   "id": "score-long-levels",
+   "note": "long level descriptions",
+   "state": "Migration account crash backup crash contract license dashboard phishing fraud backup Pricing phishing. dispute alert invoice upgrade refund metric bug crash alert Escalation bug billing account. contract shipment phishing migration.",
+   "questions": {
+    "quality": {
+     "type": "score",
+     "instructions": "How good is the write-up?",
+     "criteria": [
+      "Manager delay deadline customer password report discount security manager renewal database Backup ticket. metric crash ticket database report bug outage.",
+      "Login crash shipment phishing escalation discount weekend ticket vendor chargeback deadline Vendor crash. card login refund metric chargeback fraud crash.",
+      "Incident card weekend database pricing renewal upgrade dashboard renewal dispute payment Fraud shipment. manager alert login backup database outage weekend.",
+      "Metric phishing ticket database report team security report deadline refund billing Password dashboard. alert team alert shipment license billing payment.",
+      "Weekend delay fraud security alert dispute crash latency billing chargeback login Pricing fraud. ticket password alert backup invoice pricing refund.",
+      "Dashboard deadline security weekend vendor dispute seat customer phishing bug metric Contract vendor. account ticket latency outage payment outage seat."
+     ]
+    }
+   }
+  },
+  {
+   "id": "json-unicode-keys",
+   "note": "non-ASCII JSON keys",
+   "state": {
+    "клиент": "Иван",
+    "sujet": "problème de facturation",
+    "金额": 1200
+   },
+   "questions": {
+    "billing": {
+     "type": "noul",
+     "instructions": "Is this about billing?"
+    }
+   }
+  },
+  {
+   "id": "collapsed-options",
+   "note": "30 options sharing a long prefix: spans collapse under the per-option cap",
+   "state": "Short.",
+   "questions": {
+    "pick": {
+     "type": "choice",
+     "instructions": "Which?",
+     "criteria": {
+      "option 0": "the same long shared prefix for every single option in this list, then 0",
+      "option 1": "the same long shared prefix for every single option in this list, then 1",
+      "option 2": "the same long shared prefix for every single option in this list, then 2",
+      "option 3": "the same long shared prefix for every single option in this list, then 3",
+      "option 4": "the same long shared prefix for every single option in this list, then 4",
+      "option 5": "the same long shared prefix for every single option in this list, then 5",
+      "option 6": "the same long shared prefix for every single option in this list, then 6",
+      "option 7": "the same long shared prefix for every single option in this list, then 7",
+      "option 8": "the same long shared prefix for every single option in this list, then 8",
+      "option 9": "the same long shared prefix for every single option in this list, then 9",
+      "option 10": "the same long shared prefix for every single option in this list, then 10",
+      "option 11": "the same long shared prefix for every single option in this list, then 11",
+      "option 12": "the same long shared prefix for every single option in this list, then 12",
+      "option 13": "the same long shared prefix for every single option in this list, then 13",
+      "option 14": "the same long shared prefix for every single option in this list, then 14",
+      "option 15": "the same long shared prefix for every single option in this list, then 15",
+      "option 16": "the same long shared prefix for every single option in this list, then 16",
+      "option 17": "the same long shared prefix for every single option in this list, then 17",
+      "option 18": "the same long shared prefix for every single option in this list, then 18",
+      "option 19": "the same long shared prefix for every single option in this list, then 19",
+      "option 20": "the same long shared prefix for every single option in this list, then 20",
+      "option 21": "the same long shared prefix for every single option in this list, then 21",
+      "option 22": "the same long shared prefix for every single option in this list, then 22",
+      "option 23": "the same long shared prefix for every single option in this list, then 23",
+      "option 24": "the same long shared prefix for every single option in this list, then 24",
+      "option 25": "the same long shared prefix for every single option in this list, then 25",
+      "option 26": "the same long shared prefix for every single option in this list, then 26",
+      "option 27": "the same long shared prefix for every single option in this list, then 27",
+      "option 28": "the same long shared prefix for every single option in this list, then 28",
+      "option 29": "the same long shared prefix for every single option in this list, then 29"
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 
 /**
@@ -6,7 +7,7 @@ import { useStore } from '../../store.js';
  * moves. Each card finishes the wizard and jumps straight to the thing.
  */
 export function DoneStep({ onFinish }: { onFinish: (after?: () => void) => void }) {
-  const { newChat, setView } = useStore();
+  const { newChat, setView } = useStore(useShallow((s) => ({ newChat: s.newChat, setView: s.setView })));
 
   const items: Array<{ title: string; desc: string; action: () => void }> = [
     {

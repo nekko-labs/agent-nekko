@@ -20,9 +20,14 @@
  * every subscriber in the app; instead the state lives in a plain Map and
  * components subscribe to the sessions they care about on an animation-frame
  * cadence. `useLiveRun` below is the whole public surface for a component.
+ *
+ * This is also the only place streamed text is accumulated. A chat pane used to
+ * keep a second copy, flushed into React state on its own 50 ms timer, which
+ * meant two re-renders per frame for the same tokens; the pane now reads the
+ * run from here like everything else does.
  */
 
-import { useSyncExternalStore } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import type { AgentEvent, ToolCall } from '@agent-nekko/shared';
 import { describeLiveActivity, emptyLiveActivity, reduceLiveActivity, type LiveActivity } from '@agent-nekko/shared';
 
@@ -50,6 +55,31 @@ export interface LiveRun {
 }
 
 const runs = new Map<string, LiveRun>();
+/**
+ * Runs that just ended, kept until the pane showing them has the persisted
+ * transcript in hand (see `takeFinishedRun`), so the end of a reply never
+ * blinks out and back in. Not visible to anything that asks what is running.
+ */
+const finished = new Map<string, LiveRun>();
+const FINISHED_MAX = 8;
+
+/**
+ * Cap on a live buffer's length. The engine cuts a looping model off (see
+ * runaway.ts), so this is the second line of defence: the renderer never holds
+ * an unbounded string. Past the cap the head is dropped back to three quarters
+ * of it, at a paragraph break where there is one, so the retained tail (the
+ * part still being written) stays put for thousands of tokens instead of
+ * shifting under every one, which keeps its finished blocks memoized.
+ */
+export const LIVE_STREAM_MAX = 40_000;
+
+export function clampLive(s: string): string {
+  if (s.length <= LIVE_STREAM_MAX) return s;
+  let cut = s.length - Math.floor(LIVE_STREAM_MAX * 0.75);
+  const para = s.indexOf('\n\n', cut);
+  if (para >= 0 && para - cut < 2_000) cut = para + 2;
+  return `…\n${s.slice(cut)}`;
+}
 /** Per-session subscriber sets, so a pane only wakes for its own chat. */
 const listeners = new Map<string, Set<() => void>>();
 /** Subscribers that want to know about *any* change (the sub-agent rail). */
@@ -116,12 +146,19 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
   const folded = reduceLiveActivity(runs.get(id)?.activity, event, now);
 
   if (event.type === 'done' || event.type === 'error') {
+    const ended = runs.get(id);
     runs.delete(id);
+    if (ended) {
+      finished.delete(id);
+      finished.set(id, ended);
+      while (finished.size > FINISHED_MAX) finished.delete(finished.keys().next().value!);
+    }
     markDirty(id);
     return;
   }
 
   const prev = runs.get(id) ?? emptyRun(id, now);
+  if (!runs.has(id)) finished.delete(id);
   const next: LiveRun = { ...prev, activity: folded ?? prev.activity };
 
   switch (event.type) {
@@ -132,11 +169,11 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
         next.reasoningMs += now - next.reasoningStartedAt;
         next.reasoningStartedAt = 0;
       }
-      next.text = prev.text + event.delta;
+      next.text = clampLive(prev.text + event.delta);
       break;
     case 'reasoning':
       if (!next.reasoningStartedAt) next.reasoningStartedAt = now;
-      next.reasoning = prev.reasoning + event.delta;
+      next.reasoning = clampLive(prev.reasoning + event.delta);
       break;
     case 'tool_call':
       if (next.reasoningStartedAt) {
@@ -168,6 +205,16 @@ export function startLiveRuns(): () => void {
 /** The run in flight for a session, or undefined when it is idle. */
 export function getLiveRun(sessionId: string): LiveRun | undefined {
   return runs.get(sessionId);
+}
+
+/**
+ * The run that just ended for a session, handed over once. The pane that was
+ * showing it keeps it on screen until the persisted reply replaces it.
+ */
+export function takeFinishedRun(sessionId: string): LiveRun | undefined {
+  const run = finished.get(sessionId);
+  finished.delete(sessionId);
+  return run;
 }
 
 /** Every session with a turn in flight. */
@@ -202,11 +249,14 @@ function subscribeTo(sessionId: string, fn: () => void): () => void {
  * Returns `undefined` while that chat is idle, which is the signal to render
  * the stored transcript instead.
  */
-export function useLiveRun(sessionId: string): LiveRun | undefined {
-  return useSyncExternalStore(
-    (fn) => subscribeTo(sessionId, fn),
-    () => runs.get(sessionId),
+export function useLiveRun(sessionId: string, paused = false): LiveRun | undefined {
+  // A hidden pane stops listening; it reads the current run again the moment
+  // it is shown, since the snapshot is always the live map's entry.
+  const subscribe = useCallback(
+    (fn: () => void) => (paused ? () => {} : subscribeTo(sessionId, fn)),
+    [sessionId, paused],
   );
+  return useSyncExternalStore(subscribe, () => runs.get(sessionId));
 }
 
 /**
@@ -231,6 +281,7 @@ export function describeRun(sessionId: string): string {
 /** Reset everything. Tests only. */
 export function __resetLiveRuns(): void {
   runs.clear();
+  finished.clear();
   listeners.clear();
   globalListeners.clear();
   dirty.clear();

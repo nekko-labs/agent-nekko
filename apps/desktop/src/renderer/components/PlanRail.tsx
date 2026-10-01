@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, Session } from '@agent-nekko/shared';
+import type { AgentEvent, Session, SessionSummary } from '@agent-nekko/shared';
 import {
   addPlanStep,
   insertPlanStep,
@@ -14,6 +14,7 @@ import {
   summarizeToolCall,
   getStrategy,
   DEFAULT_ORCHESTRATION,
+  planProgress,
   type PromptStepStatus,
   type PromptPlan,
 } from '@agent-nekko/shared';
@@ -157,6 +158,13 @@ export function PlanRail({
   const activity = useSubAgentActivity(sessionId, children.map((c) => c.id));
 
   const progress = planProgressCount(plan);
+  /**
+   * The plan the agent published itself via update_plan — what it decided to
+   * do after reading the request, kept live as it works. When present it leads
+   * the rail; the editable list below stays what the prompt decodes to.
+   */
+  const agentPlan = session?.agentPlan;
+  const agentProgress = planProgress(agentPlan);
   const queued = session?.queue ?? [];
 
   const edit = (next: PromptPlan) => onPlanChange(next);
@@ -280,10 +288,60 @@ export function PlanRail({
       </header>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
+        {/* ---- Agent's plan ----
+            Read-only: the agent owns it and keeps it current via update_plan.
+            It answers "what is it doing" the way the editable list cannot — the
+            editable list is your prompt's plan, this one is the agent's. */}
+        {!!agentPlan?.length && (
+          <section>
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Agent plan</span>
+              <span className="text-[10px] tabular-nums text-ink-faint">
+                {agentProgress.done + agentProgress.skipped}/{agentProgress.total}
+              </span>
+              {streaming && (
+                <span
+                  className="h-1.5 w-1.5 animate-pulse rounded-full"
+                  style={{ background: 'var(--accent)' }}
+                  title="The agent is working"
+                />
+              )}
+            </div>
+            <ol className="space-y-0.5">
+              {agentPlan.map((step) => (
+                <li key={step.id} className="flex items-start gap-1.5 rounded-lg px-1 py-0.5">
+                  <span className="mt-[5px] shrink-0">
+                    <StepDot status={step.status === 'active' ? 'running' : step.status} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={`block text-[12px] leading-snug ${
+                        step.status === 'skipped' ? 'text-ink-faint line-through' : 'text-ink-soft'
+                      }`}
+                    >
+                      {step.title}
+                    </span>
+                    {step.note && (
+                      <span className="block truncate text-[10px] text-ink-faint" title={step.note}>
+                        {step.note}
+                      </span>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-1 px-0.5 text-[10px] leading-snug text-ink-faint">
+              What the agent decided after reading the request; it keeps this current as it works.
+            </p>
+          </section>
+        )}
+
         {/* ---- Plan ---- */}
         <section>
           <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Plan</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+              {agentPlan?.length ? 'Your steps' : 'Plan'}
+            </span>
             {progress.total > 0 && (
               <span className="text-[10px] tabular-nums text-ink-faint">{progress.done}/{progress.total}</span>
             )}
@@ -611,12 +669,11 @@ function StepDot({ status }: { status: PromptStepStatus }) {
 }
 
 /** What a sub-agent row says under its title. */
-function subAgentSubtitle(child: Session, a: SubAgentActivity | undefined): string {
+function subAgentSubtitle(child: SessionSummary, a: SubAgentActivity | undefined): string {
   if (a?.tool) return a.detail ? `${a.tool} · ${a.detail}` : `Running ${a.tool}`;
   if (a?.running) return 'Working…';
   if (a?.failed) return 'Stopped on an error';
-  const last = [...child.messages].reverse().find((m) => m.role === 'assistant' && m.content.trim());
-  if (last) return last.content.trim().replace(/\s+/g, ' ').slice(0, 60);
+  if (child.lastReplyText) return child.lastReplyText.slice(0, 60);
   return 'Waiting to start';
 }
 
@@ -668,7 +725,11 @@ function useSubAgentActivity(parentId: string, ids: string[]): Record<string, Su
         let next: SubAgentActivity = cur;
         if (e.type === 'tool_call') next = { running: true, failed: false, tool: e.call.name, detail: summarizeToolCall(e.call, 40) };
         else if (e.type === 'tool_result') next = { ...cur, running: true, tool: undefined, detail: undefined };
-        else if (e.type === 'text' || e.type === 'reasoning') next = { running: true, failed: false, tool: cur.tool, detail: cur.detail };
+        else if (e.type === 'text' || e.type === 'reasoning') {
+          // Every token of a sub-agent's reply lands here; only the first changes anything.
+          if (cur.running && !cur.failed) return prev;
+          next = { running: true, failed: false, tool: cur.tool, detail: cur.detail };
+        }
         else if (e.type === 'error') next = { running: false, failed: true };
         else if (e.type === 'done') next = { running: false, failed: false };
         else return prev;

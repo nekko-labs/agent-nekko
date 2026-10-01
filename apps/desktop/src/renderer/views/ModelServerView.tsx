@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { LocalModel } from '@agent-nekko/shared';
+import type { EngineMemory, LocalModel } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { EngineSection } from '../components/engine/EngineSection.js';
 import { ModelDetail } from '../components/engine/ModelDetail.js';
-import { LocalServerSection } from '../components/server/LocalServerSection.js';
 
 /**
  * This machine as a model server.
@@ -30,9 +29,11 @@ export function ModelServerView() {
   // section so the page it opens can use the whole view.
   const [openModelId, setOpenModelId] = useState<string | null>(null);
   const [models, setModels] = useState<LocalModel[]>([]);
+  const [memory, setMemory] = useState<EngineMemory | undefined>(undefined);
 
   const refreshModels = useCallback(async () => {
     setModels(await window.nekko.engineModels().catch(() => []));
+    setMemory((await window.nekko.engineStatus().catch(() => null))?.memory);
   }, []);
 
   useEffect(() => {
@@ -44,6 +45,7 @@ export function ModelServerView() {
       <div className="h-full overflow-y-auto">
         <ModelDetail
           modelId={openModelId}
+          memory={memory}
           // A repo's files land under a folder named after it, so this is how the
           // page knows which of its builds you already hold.
           installed={models.filter((m) => m.id.includes(openModelId.replace('/', '_')) || m.sourceRepo === openModelId)}
@@ -59,8 +61,8 @@ export function ModelServerView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-4xl px-8 py-8">
-        <h1 className="text-2xl font-semibold">Model Server</h1>
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
+        <h1 className="text-2xl font-semibold">Nekko Server</h1>
         <p className="mt-1 text-[13px] text-ink-faint">
           Run models on this machine, and let anything else on it drive Agent Nekko.
         </p>
@@ -74,8 +76,6 @@ export function ModelServerView() {
             }}
           />
         </div>
-
-        <LocalServerSection />
 
         <p className="mt-8 text-center text-[12px] text-ink-faint">
           Cloud keys and other machines' servers live in Model Providers.

@@ -60,6 +60,12 @@ describe('sessionLane', () => {
     expect(sessionLane({ running: false, messages: cut })).toEqual({ lane: 'needs-you', blocked: 'interrupted' });
   });
 
+  it('reads the stall off a summary the same way', () => {
+    expect(sessionLane({ running: false, stalled: true })).toEqual({ lane: 'needs-you', blocked: 'interrupted' });
+    expect(sessionLane({ running: false, stalled: false })).toEqual({ lane: 'idle' });
+    expect(sessionLane({ running: true, stalled: true })).toEqual({ lane: 'working' });
+  });
+
   it('does not call a chat stalled once it is running again', () => {
     const cut = [msg('user', 'go'), msg('assistant', 'half', { interrupted: true })];
     expect(sessionLane({ running: true, messages: cut })).toEqual({ lane: 'working' });

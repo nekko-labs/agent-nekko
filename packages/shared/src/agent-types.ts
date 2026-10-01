@@ -8,9 +8,10 @@
  */
 
 import type { Session } from './chat.js';
+import type { SessionSummary } from './session-summary.js';
 import type { AutomationTask, TaskKind } from './tasks.js';
 
-export type AgentRole = 'reviewer' | 'monitor' | 'researcher' | 'builder' | 'automation' | 'assistant';
+export type AgentRole = 'reviewer' | 'monitor' | 'researcher' | 'builder' | 'automation' | 'assistant' | 'artist';
 
 export interface AgentType {
   role: AgentRole;
@@ -84,8 +85,10 @@ export function classifyAgent(sig: AgentSignals): AgentType {
 }
 
 /** Extract classification signals from a chat session (+ its driving task, if any). */
-export function agentSignals(session: Session, task?: AutomationTask): AgentSignals {
-  const firstUser = session.messages.find((m) => m.role === 'user')?.content;
+export function agentSignals(session: Session | SessionSummary, task?: AutomationTask): AgentSignals {
+  const firstUser = 'messages' in session
+    ? session.messages.find((m) => m.role === 'user')?.content
+    : session.firstUserText;
   const prompt = task?.prompt ?? firstUser ?? session.title;
   return {
     taskKind: task?.kind,
@@ -97,6 +100,9 @@ export function agentSignals(session: Session, task?: AutomationTask): AgentSign
 }
 
 /** Classify a chat session directly (convenience). */
-export function classifySession(session: Session, task?: AutomationTask): AgentType {
+export function classifySession(session: Session | SessionSummary, task?: AutomationTask): AgentType {
+  // An image chat's prompts describe pictures, not work; reading them for
+  // "build" or "review" would misfile a request for a castle as a build agent.
+  if (session.chatType === 'image') return { role: 'artist', label: 'Image generation', icon: '🎨', color: '#e879a6' };
   return classifyAgent(agentSignals(session, task));
 }

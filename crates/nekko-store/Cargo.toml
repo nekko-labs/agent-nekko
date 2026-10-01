@@ -1,0 +1,13 @@
+[package]
+name = "nekko-store"
+description = "Session storage for the Agent Nekko engine daemon: reads chats off disk and summarizes them exactly as the TS host does."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[dependencies]
+getrandom.workspace = true
+nekko-js = { path = "../nekko-js" }
+serde_json.workspace = true

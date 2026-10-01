@@ -5,11 +5,14 @@ import { Badge } from '../primitives/index.js';
 import { CheckIcon, CopyIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
 import { EngineInstallCard } from './EngineInstallCard.js';
-import { ModelLibrary } from './ModelLibrary.js';
-import { CatalogBrowser } from './CatalogBrowser.js';
+import { ModelsHome } from './ModelsHome.js';
 import { DownloadsPanel } from './DownloadsPanel.js';
 import { EngineServerSettings } from './EngineServerSettings.js';
 import { ModelFolders } from './ModelFolders.js';
+import { DiffusionInstallCard } from './DiffusionInstallCard.js';
+import { MlxInstallCard } from './MlxInstallCard.js';
+import { DecisionModels } from './DecisionModels.js';
+import { LocalServerSection } from '../server/LocalServerSection.js';
 
 /**
  * The engine Agent Nekko runs itself, and the models it serves.
@@ -29,7 +32,7 @@ import { ModelFolders } from './ModelFolders.js';
 const POLL_MS = 6000;
 const PROVIDER_ID = 'nekko-engine';
 
-type Tab = 'models' | 'discover' | 'downloads' | 'folders' | 'server';
+type Tab = 'models' | 'downloads' | 'folders' | 'decisions';
 
 export function EngineSection({
   onProvidersChanged,
@@ -76,7 +79,7 @@ export function EngineSection({
   if (!status) return null;
 
   const { install, running } = status;
-  const installed = Boolean(install.binPath);
+  const installed = Boolean(install.binPath || status.diffusionInstall?.binPath);
   const active = jobs.filter((j) => j.state === 'downloading' || j.state === 'queued' || j.state === 'verifying');
   const residentBytes = status.resident.reduce((n, r) => n + (r.vramBytes ?? 0), 0);
   const borrowed = models.filter((m) => m.managed === false).length;
@@ -102,10 +105,12 @@ export function EngineSection({
   const address = `http://127.0.0.1:${status.settings.port}/v1`;
 
   return (
-    <section>
+    <section className="grid min-w-0 grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(340px,0.85fr)_minmax(0,1.4fr)]">
+      <div className="min-w-0">
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--accent)' }} />
-        <h2 className="text-[15px] font-semibold">Agent Nekko engine</h2>
+        <h2 className="text-[15px] font-semibold">Model server</h2>
+        <button className="btn btn-outline ml-auto py-1 text-[12px]" role="switch" aria-label="Model server" aria-checked={running} disabled={busy !== null || !installed} onClick={() => void toggle()}>{busy ? 'Working…' : running ? 'On' : 'Off'}</button>
         {running ? (
           <Badge tone="success" variant="solid" className="px-2 py-0.5">
             <CheckIcon className="h-3 w-3" /> Serving
@@ -117,8 +122,7 @@ export function EngineSection({
         )}
       </div>
       <p className="mt-0.5 text-[12px] text-ink-faint">
-        Run models with nothing else installed. Built on llama.cpp, managed here, served on one address any tool can
-        use — including models Ollama, LM Studio or anything else on this machine already downloaded.
+        Serve text and image models on one address, using managed runtimes or models already on this machine.
       </p>
 
       <div className="card mt-3 p-5">
@@ -126,9 +130,8 @@ export function EngineSection({
             which hid the library behind it — so a machine with twenty models
             already on it showed "not installed" and nothing else. What we have is
             true whether or not the runtime is downloaded; only running it isn't. */}
-        {!installed ? (
-          <EngineInstallCard install={install} onChanged={refresh} />
-        ) : (
+        {!install.binPath && <EngineInstallCard install={install} onChanged={refresh} />}
+        {installed && (
           <>
             <div className="flex flex-wrap items-center gap-2">
               <StatusDot running={running} busy={busy !== null} />
@@ -142,9 +145,6 @@ export function EngineSection({
               )}
               <div className="ml-auto flex items-center gap-2">
                 {running && <AddressPill address={address} />}
-                <button className="btn btn-outline py-1 text-[12px]" onClick={toggle} disabled={busy !== null}>
-                  {busy === 'starting' ? 'Starting…' : busy === 'stopping' ? 'Stopping…' : running ? 'Stop' : 'Start'}
-                </button>
               </div>
             </div>
 
@@ -157,12 +157,22 @@ export function EngineSection({
           </>
         )}
 
-        <div className="mt-3 flex flex-wrap gap-1.5 border-b pb-2" style={{ borderColor: 'var(--line)' }}>
+        <details className="mt-4 border-t border-line pt-4">
+          <summary className="cursor-pointer text-[12px] font-medium">Model server settings</summary>
+          <div className="mt-3"><EngineServerSettings settings={status.settings} install={install} running={running} onChanged={() => { void refresh(); onProvidersChanged(); }} /></div>
+        </details>
+        <DiffusionInstallCard install={status.diffusionInstall} onChanged={refresh} />
+        <MlxInstallCard install={status.mlxInstall} onChanged={refresh} />
+      </div>
+      <LocalServerSection />
+      </div>
+      <div className="min-w-0">
+        <h2 className="text-[15px] font-semibold">Models</h2>
+        <p className="mt-0.5 text-[12px] text-ink-faint">Find, download and run models from one library.</p>
+        <div className="card mt-3 min-w-0 p-4 sm:p-5">
+        <div className="flex flex-wrap gap-1.5 border-b pb-2" style={{ borderColor: 'var(--line)' }}>
           <TabButton active={tab === 'models'} onClick={() => setTab('models')}>
-            My models{models.length > 0 ? ` (${models.length})` : ''}
-          </TabButton>
-          <TabButton active={tab === 'discover'} onClick={() => setTab('discover')}>
-            Find models
+            Models{models.length > 0 ? ` (${models.length})` : ''}
           </TabButton>
           <TabButton active={tab === 'downloads'} onClick={() => setTab('downloads')}>
             Downloads{active.length > 0 ? ` (${active.length})` : ''}
@@ -170,29 +180,29 @@ export function EngineSection({
           <TabButton active={tab === 'folders'} onClick={() => setTab('folders')}>
             Folders{borrowed > 0 ? ` (${borrowed} borrowed)` : ''}
           </TabButton>
-          <TabButton active={tab === 'server'} onClick={() => setTab('server')}>
-            Server
+          <TabButton active={tab === 'decisions'} onClick={() => setTab('decisions')}>
+            Decisions
           </TabButton>
         </div>
 
         <div className="mt-3">
           {tab === 'models' && (
-            <ModelLibrary providerId={PROVIDER_ID} models={models} canLoad={installed} onChanged={refresh} />
-          )}
-          {tab === 'discover' && <CatalogBrowser onOpen={onOpenModel} />}
-          {tab === 'downloads' && <DownloadsPanel jobs={jobs} onChanged={refresh} />}
-          {tab === 'folders' && <ModelFolders onChanged={refresh} />}
-          {tab === 'server' && (
-            <EngineServerSettings
+            <ModelsHome
+              providerId={PROVIDER_ID}
+              models={models}
+              canLoad={installed}
+              memory={status.memory}
+              resident={status.resident}
               settings={status.settings}
-              install={install}
               running={running}
-              onChanged={() => {
-                refresh();
-                onProvidersChanged();
-              }}
+              onChanged={refresh}
+              onOpenModel={onOpenModel}
+              mlx={Boolean(status.mlxInstall?.available.length)}
             />
           )}
+          {tab === 'downloads' && <DownloadsPanel jobs={jobs} onChanged={refresh} />}
+          {tab === 'folders' && <ModelFolders onChanged={refresh} />}
+          {tab === 'decisions' && <DecisionModels />}
         </div>
 
         {status.log.length > 0 && (
@@ -203,6 +213,7 @@ export function EngineSection({
             </pre>
           </details>
         )}
+      </div>
       </div>
     </section>
   );

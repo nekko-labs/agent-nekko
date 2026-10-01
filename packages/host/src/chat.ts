@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, SendOptions, Session, ToolCall } from '@agent-nekko/shared';
-import { ASK_CANCELLED, EFFORT_TEMPERATURE, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
+import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -12,14 +12,30 @@ import {
   getConnector,
   ASK_USER_TOOL,
   BUILTIN_TOOLS,
+  DECIDE_TOOL,
+  decideRequestFromTool,
   REPORT_EXPERIMENT_TOOL,
   REPORT_ARTIFACT_TOOL,
   UPDATE_PLAN_TOOL,
   repairInterruptedHistory,
 } from '@agent-nekko/core';
-import { reportExperiment, reportArtifact, updateRunPlan } from './training.js';
+import { reportExperiment, reportArtifact, updateRunPlan, runPlanForSession } from './training.js';
 import { getSettings } from './store.js';
-import { getSession, saveSession, createSession } from './sessions.js';
+
+/**
+ * Where the `decide` tool sends its questions. Set by the host once the
+ * engine exists; `available` names the provider a turn would use (a loaded
+ * Laya first, then TypeSafe when a key is set), or null to leave the tool out.
+ */
+interface DecisionRunner {
+  available(): Promise<import('@agent-nekko/shared').DecisionProvider | null>;
+  run(provider: import('@agent-nekko/shared').DecisionProvider, request: import('@agent-nekko/shared').DecisionRequest): Promise<import('@agent-nekko/shared').DecisionResponse>;
+}
+let decisions: DecisionRunner | null = null;
+export function setDecisionRunner(runner: DecisionRunner | null): void {
+  decisions = runner;
+}
+import { getSession, saveSession, saveTurnSession, createSession } from './sessions.js';
 import { executeTool } from './tools.js';
 import { recordUsage } from './usage.js';
 import * as LimitsService from './limits.js';
@@ -28,6 +44,9 @@ import { ensureFreshToken, resolveSubscriptionProvider } from './oauth.js';
 import { searchWorkspace } from './workspace.js';
 import { buildSpec } from './spec.js';
 import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
+import { daemonCall } from './engine/daemon.js';
+import { daemonOwns, runAgentViaDaemon } from './daemon-loop.js';
+import { completeText } from './sideband.js';
 
 /**
  * Retrieve code snippets from the session's workspace index relevant to the
@@ -63,6 +82,9 @@ function collectIndexSnippets(
 
 type Sender = (event: AgentEvent) => void;
 
+/** The built-in tools the engine daemon runs itself (crates/nekko-tools `PORTED_TOOLS`). */
+const DAEMON_TOOLS = new Set(['read_file', 'write_file', 'edit_file', 'glob', 'grep', 'list_dir', 'bash']);
+
 const abortControllers = new Map<string, AbortController>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
 const pendingAnswers = new Map<string, (answers: AskAnswer[]) => void>();
@@ -90,6 +112,199 @@ export function getPendingInput(): Record<string, PendingInput> {
 
 function isAuthFailure(message: string): boolean {
   return /\b401\b|unauthorized|invalid auth|invalid api key|authentication/i.test(message);
+}
+
+/**
+ * Apply an `update_plan` call to an ordinary chat's live plan (run sessions go
+ * through updateRunPlan instead). Persisting and notifying are the caller's
+ * job — the function returns the echo text either way.
+ */
+function updateSessionPlan(session: Session, input: Record<string, unknown>): string {
+  const result = applyPlanUpdate(session.agentPlan, input);
+  if ('error' in result) return result.error;
+  session.agentPlan = result.plan;
+  session.updatedAt = Date.now();
+  return planEcho(result.plan);
+}
+
+/**
+ * Write a real title once a chat's first turn has content. Uses the chat's own
+ * provider and model; a failure just leaves the prompt-prefix placeholder.
+ * `titleAuto` is the guard: it flips false the moment the user names the chat.
+ */
+async function titleSession(
+  sessionId: string,
+  provider: ProviderConfig,
+  modelId: string,
+  send: Sender,
+): Promise<void> {
+  const session = getSession(sessionId);
+  if (!session || session.titleAuto !== true) return;
+  const userText = session.messages.find((m) => m.role === 'user')?.content ?? '';
+  if (!userText.trim()) return;
+  const assistantText =
+    [...session.messages].reverse().find((m) => m.role === 'assistant' && m.content.trim())?.content ?? '';
+  try {
+    const out = await completeText(provider, {
+      model: modelId,
+      messages: [
+        {
+          id: 'title',
+          role: 'user',
+          createdAt: Date.now(),
+          content:
+            `Give this task a short title, 3 to 6 words, for a workspace card. ` +
+            `Answer with only the title: no quotes, no trailing punctuation.\n\n` +
+            `Request: ${userText.slice(0, 600)}` +
+            (assistantText ? `\nWhat was done: ${assistantText.slice(0, 240)}` : ''),
+        },
+      ],
+      temperature: 0.2,
+      maxOutputTokens: 24,
+      think: false,
+      purpose: 'title',
+    });
+    const title = out
+      .replace(/["'`]/g, '')
+      .replace(/\s+/g, ' ')
+      .replace(/[.!?:;\-–—]+$/, '')
+      .trim()
+      .slice(0, 64);
+    if (!title) return;
+    const fresh = getSession(sessionId);
+    // Re-check the flag: a rename while the call was in flight is the user's.
+    if (!fresh || fresh.titleAuto !== true) return;
+    fresh.title = title;
+    // Written once: the flag stays the "may generate" gate, so landing a title
+    // also ends generation; a rename to it later is just a rename.
+    fresh.titleAuto = false;
+    fresh.updatedAt = Date.now();
+    saveSession(fresh);
+    send({ type: 'session_meta', sessionId });
+  } catch {
+    /* a nicer title is nice-to-have; the prompt prefix stays */
+  }
+}
+
+/**
+ * Suggest what the user might send next: a few short follow-ups (the one-click
+ * chips) plus the single most likely next message (the composer's ghost text).
+ *
+ * Same family as `titleSession`: a small sideband call on the provider and
+ * model the reply itself ran on, tagged `purpose: 'suggest'` so it stays out of
+ * turn accounting. It reads the persisted transcript, writes nothing, and a
+ * model or network failure just means no suggestions rather than an error.
+ */
+export async function suggestReplies(sessionId: string): Promise<ReplySuggestions | null> {
+  const session = getSession(sessionId);
+  if (!session) return null;
+  // Automation- and delegation-driven chats have nobody at the composer to
+  // click a suggestion, so they never pay for the call.
+  if (session.taskId || session.trainingRunId || session.parentSessionId) return null;
+  const last = session.messages[session.messages.length - 1];
+  if (!last || last.role !== 'assistant' || !last.content.trim()) return null;
+  const settings = getSettings();
+  const providerId = session.providerId ?? settings.defaultProviderId;
+  const modelId = session.modelId ?? settings.defaultModelId;
+  const provider = providerId ? settings.providers.find((p) => p.id === providerId) : undefined;
+  if (!provider?.enabled || !modelId) return null;
+  if (session.offline && !offlineProviderAllowed(provider)) return null;
+  if (!providerEndpoint(provider)) return null;
+
+  // The tail of the conversation, each message clipped: enough to suggest from,
+  // cheap enough for a small local model to read.
+  const tail = session.messages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .slice(-6)
+    .map((m) => {
+      const tools =
+        m.role === 'assistant' && m.toolCalls?.length
+          ? ` [used tools: ${Array.from(new Set(m.toolCalls.map((c) => c.name))).join(', ')}]`
+          : '';
+      return `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(0, 800).trim()}${tools}`;
+    })
+    .join('\n\n');
+
+  try {
+    const resolved = await resolveSubscriptionProvider(provider);
+    const out = await completeText(resolved, {
+      model: modelId,
+      messages: [
+        {
+          id: 'suggest',
+          role: 'user',
+          createdAt: Date.now(),
+          content:
+            `You are suggesting the user's next message in a chat with an AI assistant that can answer questions and work on their computer (read files, run commands, edit code).\n` +
+            `From the conversation, propose 2 to 4 short follow-up messages the user is most likely to send next, each under 10 words, written as the user would write them, specific to what the assistant just did or said.\n` +
+            `Then give "next": the single most likely next message in full, under 30 words.\n` +
+            `Reply with one JSON object and nothing else: {"options":["...","..."],"next":"..."}\n\n` +
+            `Conversation:\n${tail}`,
+        },
+      ],
+      temperature: 0.4,
+      maxOutputTokens: 220,
+      think: false,
+      purpose: 'suggest',
+    });
+    return parseReplySuggestions(out);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Draft one missing piece of a prompt the user is composing: the analyzer's
+ * click-to-fill chips used to insert fixed starter snippets matched by text
+ * rules; this asks the model to write the snippet from the prompt itself
+ * instead, so a "Role" chip on a code review prompt gets a code-reviewer
+ * persona, not the generic senior-engineer line.
+ *
+ * Same sideband family as `suggestReplies`: small call on the session's own
+ * provider and model, tagged `purpose: 'fill'`, writes nothing, and any
+ * failure returns null so the caller falls back to the deterministic snippet.
+ */
+export async function fillPromptPart(sessionId: string, part: string, draft: string): Promise<string | null> {
+  const session = getSession(sessionId);
+  if (!session) return null;
+  const settings = getSettings();
+  const providerId = session.providerId ?? settings.defaultProviderId;
+  const modelId = session.modelId ?? settings.defaultModelId;
+  const provider = providerId ? settings.providers.find((p) => p.id === providerId) : undefined;
+  if (!provider?.enabled || !modelId) return null;
+  if (session.offline && !offlineProviderAllowed(provider)) return null;
+  if (!providerEndpoint(provider)) return null;
+
+  try {
+    const resolved = await resolveSubscriptionProvider(provider);
+    const out = await completeText(resolved, {
+      model: modelId,
+      messages: [
+        {
+          id: 'fill',
+          role: 'user',
+          createdAt: Date.now(),
+          content:
+            `The user is composing this prompt for an AI assistant:\n` +
+            `"""\n${draft.slice(0, 2_000).trim()}\n"""\n\n` +
+            `The prompt is missing a "${part}" part. Write one short snippet they could add to cover it, matched to their topic and voice: at most two sentences or a few short lines. ` +
+            `Return only the snippet text; no preamble, no quotes, no labels.`,
+        },
+      ],
+      temperature: 0.4,
+      maxOutputTokens: 120,
+      think: false,
+      purpose: 'fill',
+    });
+    const cleaned = out
+      .trim()
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .trim()
+      .slice(0, 320);
+    return cleaned || null;
+  } catch {
+    return null;
+  }
 }
 
 /** Resolve a pending tool approval (called from IPC when the user clicks). */
@@ -137,12 +352,17 @@ export function abortChat(sessionId: string): void {
   releasePending(sessionId);
 }
 
+export function isChatRunning(sessionId: string): boolean {
+  return abortControllers.has(sessionId);
+}
+
 /** Read guideline files (AGENTS.md/CLAUDE.md/...) from the workspace roots. */
-function collectGuidelines(): Array<{ path: string; content: string }> {
-  const settings = getSettings();
+export function collectGuidelines(
+  workspaces: Array<{ path: string }> = getSettings().workspaces,
+): Array<{ path: string; content: string }> {
   const out: Array<{ path: string; content: string }> = [];
   const names = ['AGENTS.md', 'CLAUDE.md', '.cursorrules', '.windsurfrules', 'GEMINI.md'];
-  for (const w of settings.workspaces) {
+  for (const w of workspaces) {
     const found: Array<{ path: string; name: string; content: string }> = [];
     for (const n of names) {
       if (!isGuidelineFile(n)) continue;
@@ -186,7 +406,7 @@ export function isPointerTo(
   return siblings.some((s) => s.name !== file.name && body.includes(s.name));
 }
 
-function collectAttached(paths: string[]): Array<{ path: string; content: string }> {
+export function collectAttached(paths: string[]): Array<{ path: string; content: string }> {
   return paths
     .map((p) => {
       try {
@@ -293,7 +513,7 @@ function providerEndpoint(provider: ProviderConfig): URL | null {
   }
 }
 
-function offlineProviderAllowed(provider: ProviderConfig): boolean {
+export function offlineProviderAllowed(provider: ProviderConfig): boolean {
   const url = providerEndpoint(provider);
   // openai-compat is dual-use rather than a local kind, so it is allowed by
   // name; the loopback check still decides whether this endpoint is local.
@@ -393,7 +613,7 @@ async function runSubAgent(
 }
 
 /** Run a chat turn end to end. */
-export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
+export async function sendChat(opts: SendOptions, send: Sender, allowBrowserControl = false): Promise<void> {
   const settings = getSettings();
   const provider = settings.providers.find((p) => p.id === opts.providerId);
   if (!provider?.enabled) {
@@ -425,26 +645,32 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
   const allowSpawn = getStrategy(orchestration.strategy).allowsSpawn;
   const canAsk = !session.parentSessionId && !session.taskId && !session.trainingRunId;
   let tools: typeof BUILTIN_TOOLS = [];
+  let decideWith: import('@agent-nekko/shared').DecisionProvider | null = null;
   if (!offline) {
     if (settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
     const disabled = new Set(session.disabledTools ?? []);
     if (!allowSpawn) disabled.add('spawn_agent');
+    if (!allowBrowserControl || !canAsk) disabled.add('browser');
     tools = [...BUILTIN_TOOLS, ...mcpToolSpecs()].filter((t) => !disabled.has(t.name));
+    // update_plan goes to every session: goal runs treat it as the execution
+    // contract; ordinary chats publish it to the plan rail so the user sees the
+    // plan the agent derived, not a re-listing of their own prompt.
+    tools.push(UPDATE_PLAN_TOOL);
     // Run-driven sessions can register experiments into their run's idea maze
-    // and (goal runs) maintain their execution plan.
-    if (session.trainingRunId) tools.push(REPORT_EXPERIMENT_TOOL, REPORT_ARTIFACT_TOOL, UPDATE_PLAN_TOOL);
+    // and report the artifacts they produce.
+    if (session.trainingRunId) tools.push(REPORT_EXPERIMENT_TOOL, REPORT_ARTIFACT_TOOL);
     // Asking is only offered where somebody is there to answer. A sub-agent, an
     // automation, or a goal run has no one reading it, so a question would be a
     // run parked forever rather than a clarification.
     if (canAsk && !disabled.has(ASK_USER_TOOL.name)) tools.push(ASK_USER_TOOL);
+    decideWith = disabled.has(DECIDE_TOOL.name) ? null : await decisions?.available().catch(() => null) ?? null;
+    if (decideWith) tools.push(DECIDE_TOOL);
   }
   // Persist only when not incognito. Preserve any prompts queued mid-run (they
   // land on disk via queuePrompt) so a normal save doesn't clobber them.
   const persist = () => {
     if (incognito) return;
-    const disk = getSession(session.id);
-    if (disk?.queue) session.queue = disk.queue;
-    saveSession(session);
+    saveTurnSession(session);
   };
 
   // Build context with provenance. Offline mode skips internet connectors.
@@ -470,6 +696,7 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
     contextBlock,
     platform: process.platform,
     canAsk: tools.some((t) => t.name === ASK_USER_TOOL.name),
+    canPlan: tools.some((t) => t.name === UPDATE_PLAN_TOOL.name),
     orchestrationHint: tools.some((t) => t.name === 'spawn_agent')
       ? `${orchestrationPromptHint(orchestration)}\n\n${routingPrompt(settings.providers)}`
       : '',
@@ -496,7 +723,12 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
       ...(opts.skill ? { skill: opts.skill } : {}),
     };
     session.messages.push(userMsg);
-    if (session.title === 'New chat') session.title = opts.text.slice(0, 48) || 'New chat';
+    if (session.title === 'New chat') {
+      // Placeholder until the post-turn summarizer writes the real one; the
+      // flag says the app named it, so a better name may replace it.
+      session.title = opts.text.slice(0, 48) || 'New chat';
+      session.titleAuto = true;
+    }
   }
   session.providerId = opts.providerId;
   session.modelId = opts.modelId;
@@ -545,19 +777,30 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
     };
 
     try {
-      for await (const event of runAgent({
+      const defaultCwd = session.workspaceId
+        ? settings.workspaces.find((w) => w.id === session.workspaceId)?.path ?? settings.workspaces[0]?.path
+        : settings.workspaces[0]?.path;
+      const runOptions = {
         sessionId: opts.sessionId,
         provider: createProvider(resolvedProvider),
         model: opts.modelId,
         system,
         history: session.messages,
         tools,
-        executeTool: async (call) => {
+        executeTool: async (call: ToolCall): Promise<ToolResult> => {
           if (!tools.some((tool) => tool.name === call.name)) {
             return { toolCallId: call.id, output: 'This tool is disabled or unavailable for this chat.', isError: true };
           }
           if (call.name === ASK_USER_TOOL.name) {
             return { toolCallId: call.id, output: await askUser(call) };
+          }
+          if (call.name === DECIDE_TOOL.name && decisions && decideWith) {
+            try {
+              const res = await decisions.run(decideWith, decideRequestFromTool(call.input));
+              return { toolCallId: call.id, output: JSON.stringify({ model: res.model, provider: res.provider, answers: res.answers }) };
+            } catch (e) {
+              return { toolCallId: call.id, output: `decide failed: ${(e as Error).message}`, isError: true };
+            }
           }
           const indirect = call.name === 'spawn_agent' || isMcpTool(call.name);
           if (indirect && (mode === 'ask' || settings.sandboxMode === 'ask-everything')) {
@@ -580,9 +823,19 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
               return Promise.resolve({ toolCallId: call.id, output: `Failed to record the artifact: ${(e as Error).message}`, isError: true });
             }
           }
-          if (call.name === 'update_plan' && session.trainingRunId) {
+          if (call.name === 'update_plan') {
             try {
-              const output = updateRunPlan(opts.sessionId, call.input as Record<string, unknown>);
+              const input = call.input as Record<string, unknown>;
+              // Run sessions write the run's plan (and mirror it onto the
+              // session so the plan rail can render it too); ordinary chats
+              // write session.agentPlan directly. Either way the rail needs a
+              // session_meta poke to re-read.
+              const output = session.trainingRunId
+                ? updateRunPlan(opts.sessionId, input)
+                : updateSessionPlan(session, input);
+              if (session.trainingRunId) session.agentPlan = runPlanForSession(opts.sessionId);
+              persist();
+              send({ type: 'session_meta', sessionId: opts.sessionId });
               return Promise.resolve({ toolCallId: call.id, output });
             } catch (e) {
               return Promise.resolve({ toolCallId: call.id, output: `Failed to update the plan: ${(e as Error).message}`, isError: true });
@@ -597,11 +850,10 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
             ? callMcpTool(call)
             : executeTool(call, {
                 settings,
-                defaultCwd: session.workspaceId
-                  ? settings.workspaces.find((w) => w.id === session.workspaceId)?.path ?? settings.workspaces[0]?.path
-                  : settings.workspaces[0]?.path,
+                defaultCwd,
                 requestApproval,
                 mode,
+                allowBrowserControl,
                 sessionId: opts.sessionId,
               });
         },
@@ -615,9 +867,34 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
         signal: abort.signal,
         onHeaders:
           provider.kind === 'anthropic' && provider.auth === 'subscription' && provider.tokenKey
-            ? (headers) => LimitsService.recordFromHeaders(provider.tokenKey!, provider.kind, headers)
+            ? (headers: Headers) => LimitsService.recordFromHeaders(provider.tokenKey!, provider.kind, headers)
             : undefined,
-      })) {
+      };
+      // Under the engine daemon the run itself is the daemon's (daemon-loop.ts):
+      // its tokens reach the UI without passing through this process. A run
+      // that reports rate-limit headers stays here, since only this side
+      // records them.
+      // NEKKO_AGENT_LOOP=ts keeps every run in this process (a kill switch).
+      const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
+      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonOwns(daemon, 'loop:run'));
+      const source = viaDaemon
+        ? runAgentViaDaemon(daemon, {
+            ...runOptions,
+            provider: resolvedProvider,
+            requestApproval,
+            // The built-in file and shell tools run in the daemon too.
+            toolContext: {
+              native: tools.map((t) => t.name).filter((n) => DAEMON_TOOLS.has(n)),
+              sessionId: opts.sessionId,
+              mode,
+              sandboxMode: settings.sandboxMode,
+              guardrails: settings.guardrails,
+              workspaces: settings.workspaces.map((w) => ({ id: w.id, path: w.path })),
+              defaultCwd,
+            },
+          })
+        : runAgent(runOptions);
+      for await (const event of source) {
         eventsSeen = true;
         if (event.type === 'usage') {
           recordUsage({
@@ -680,6 +957,12 @@ export async function sendChat(opts: SendOptions, send: Sender): Promise<void> {
   // Keep the linked spec.md in sync with the conversation (best-effort).
   if (session.specLinked && !incognito && !offline) {
     buildSpec(opts.sessionId).catch(() => {});
+  }
+
+  // With the first turn done, ask the model for a real title. titleAuto guards
+  // a name the user typed; incognito/offline chats skip the extra call.
+  if (!incognito && !offline && session.titleAuto === true) {
+    void titleSession(opts.sessionId, resolvedProvider, opts.modelId, send);
   }
 
   // Run the next queued prompt, if any (and we weren't aborted). Each turn

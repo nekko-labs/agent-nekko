@@ -1,0 +1,29 @@
+{
+  "id": "s_missing",
+  "title": "Chat s_missing",
+  "workspaceId": "w1",
+  "messages": [
+    {
+      "id": "x1",
+      "role": "user",
+      "content": "no timestamp"
+    },
+    {
+      "id": "x2",
+      "role": "assistant",
+      "content": ""
+    },
+    {
+      "role": "assistant",
+      "content": "no id",
+      "createdAt": null
+    },
+    {
+      "id": "x4",
+      "role": "system",
+      "content": "ignored by turns"
+    }
+  ],
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000100000
+}

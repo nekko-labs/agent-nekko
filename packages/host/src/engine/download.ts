@@ -42,7 +42,7 @@ export interface DownloadRequest {
    * consumes the file. Returning a problem fails the job and removes the file, so
    * a retry starts clean.
    */
-  after?: (path: string) => Promise<string | null>;
+  after?: (path: string, signal: AbortSignal) => Promise<string | null>;
 }
 
 export interface DownloadsDeps {
@@ -99,7 +99,7 @@ export function createDownloads(deps: DownloadsDeps = {}) {
 
   async function start(req: DownloadRequest): Promise<DownloadJob> {
     const existing = jobs.get(req.id);
-    if (existing && (existing.state === 'downloading' || existing.state === 'queued')) return strip(existing);
+    if (existing && (existing.state === 'downloading' || existing.state === 'queued' || existing.state === 'verifying')) return strip(existing);
 
     const job: ActiveJob = {
       id: req.id,
@@ -117,7 +117,7 @@ export function createDownloads(deps: DownloadsDeps = {}) {
 
     // Deliberately not awaited: the caller gets the job back immediately and
     // follows it through the change events.
-    void run(req, job).catch((e: Error) => settle(job, 'failed', e.message));
+    void run(req, job).catch((e: Error) => settle(job, job.controller.signal.aborted ? 'cancelled' : 'failed', job.controller.signal.aborted ? 'Cancelled.' : e.message));
     return strip(job);
   }
 
@@ -186,11 +186,15 @@ export function createDownloads(deps: DownloadsDeps = {}) {
       }
     }
 
+    if (job.controller.signal.aborted) { settle(job, 'cancelled', 'Cancelled.'); return; }
     await rm(req.dest, { force: true });
     await rename(partial, req.dest);
 
     if (req.after) {
-      const problem = await req.after(req.dest);
+      job.state = 'verifying';
+      notify(true);
+      const problem = await req.after(req.dest, job.controller.signal);
+      if (job.controller.signal.aborted) { settle(job, 'cancelled', 'Cancelled.'); return; }
       if (problem) {
         await rm(req.dest, { force: true });
         throw new Error(problem);
@@ -223,7 +227,7 @@ export function createDownloads(deps: DownloadsDeps = {}) {
   function dismiss(id: string): void {
     const job = jobs.get(id);
     if (!job) return;
-    if (job.state === 'downloading' || job.state === 'queued') {
+    if (job.state === 'downloading' || job.state === 'queued' || job.state === 'verifying') {
       job.controller.abort();
       job.body?.destroy(new Error('cancelled'));
     }

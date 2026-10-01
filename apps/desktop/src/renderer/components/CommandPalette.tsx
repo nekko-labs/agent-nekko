@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore, viewEnabled, type View } from '../store.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { Modal } from './primitives/index.js';
@@ -12,7 +13,17 @@ interface Command {
 
 /** Ctrl/Cmd+K command palette for fast navigation and actions. */
 export function CommandPalette() {
-  const { paletteOpen, setPaletteOpen, setView, newChat, newTerminal, toggleContextPanel, settings } = useStore();
+  const { paletteOpen, setPaletteOpen, setView, newChat, newTerminal, toggleContextPanel, settings } = useStore(
+    useShallow((s) => ({
+      paletteOpen: s.paletteOpen,
+      setPaletteOpen: s.setPaletteOpen,
+      setView: s.setView,
+      newChat: s.newChat,
+      newTerminal: s.newTerminal,
+      toggleContextPanel: s.toggleContextPanel,
+      settings: s.settings,
+    })),
+  );
   const hypergate = useStore((s) => s.hypergate);
   const hypergateConnected = useStore((s) => (s.settings?.mcpServers ?? []).some((m) => m.id === 'hypergate'));
   const [query, setQuery] = useState('');
@@ -28,7 +39,7 @@ export function CommandPalette() {
       go('chat', 'Go to Chat'),
       go('skills', 'Go to Skills'),
       go('models', 'Go to Model Providers'),
-      go('modelserver', 'Go to Model Server'),
+      go('modelserver', 'Go to Nekko Server'),
       go('connectors', 'Go to Connectors'),
       // Experimental destinations stay out of the palette while their flag is off.
       ...(viewEnabled('memory', settings) ? [go('memory', 'Go to Memory')] : []),

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ArtifactKind, ExperimentNode, MazeNode, ModelInfo, ProviderConfig, TrainingRun } from '@agent-nekko/shared';
-import { formatRuntime, layoutMaze, runOutputDir, runStats, isLocalProvider, formatModelPriceLabel } from '@agent-nekko/shared';
+import { formatRuntime, layoutMaze, runOutputDir, runStats, isLocalProvider, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { LogSurface, StatTile } from './primitives/index.js';
 import { STATUS } from '../tokens.js';
@@ -107,7 +108,7 @@ function joinPath(base: string | undefined, rel: string): string {
  * run answers "what did I get, and where is it?" at a glance.
  */
 export function ArtifactsCard({ run }: { run: TrainingRun }) {
-  const { settings } = useStore();
+  const { settings } = useStore(useShallow((s) => ({ settings: s.settings })));
   const wsPath = settings?.workspaces?.find((w) => w.id === run.workspaceId)?.path ?? settings?.workspaces?.[0]?.path;
   const outDir = runOutputDir(run);
   const artifacts = run.artifacts ?? [];
@@ -446,7 +447,7 @@ export function RunModelPicker({
   modelId: string;
   onChange: (next: { providerId: string; modelId: string }) => void;
 }) {
-  const { settings } = useStore();
+  const { settings } = useStore(useShallow((s) => ({ settings: s.settings })));
   const providers = (settings?.providers ?? []).filter((p) => p.enabled) as ProviderConfig[];
   const provider = providers.find((p) => p.id === providerId);
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -484,7 +485,7 @@ export function RunModelPicker({
           <option value="">Pick a model…</option>
           {models.map((m) => {
             const price = provider
-              ? formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: isLocalProvider(provider.kind) })
+              ? formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: isLocalProvider(provider.kind), pricing: modelPricing(m) })
               : undefined;
             return (
               <option key={m.id} value={m.id}>

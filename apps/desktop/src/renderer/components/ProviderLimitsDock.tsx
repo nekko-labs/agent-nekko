@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
-import { formatUSD, isLocalProvider } from '@agent-nekko/shared';
+import { formatUSD, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
 import { ChevronIcon } from '../icons.js';
@@ -74,13 +74,16 @@ export function ProviderLimitsDock() {
   const metered = providers.filter((p) => p.enabled && !isLocalProvider(p.kind));
   const { byToken: limitsByToken, answered } = useProviderLimitsPortfolio(metered, open);
 
-  // Fetching is keyed by token, so a provider without one can only be listed as
-  // "not signed in" rather than measured.
-  const rows = metered.map((p) => ({
-    provider: p,
-    limits: p.tokenKey ? limitsByToken[p.tokenKey] : undefined,
-    answered: !!p.tokenKey && answered.has(p.tokenKey),
-  }));
+  // Fetching is keyed by limits key, so a provider without one can only be
+  // listed as unsigned or unmeasurable rather than measured.
+  const rows = metered.map((p) => {
+    const key = limitsKeyFor(p);
+    return {
+      provider: p,
+      limits: key ? limitsByToken[key] : undefined,
+      answered: !!key && answered.has(key),
+    };
+  });
 
   if (rows.length === 0) return null;
 
@@ -122,8 +125,8 @@ export function ProviderLimitsDock() {
             <ProviderRow key={provider.id} provider={provider} limits={limits} answered={settled} />
           ))}
           <p className="pt-0.5 text-[10px] leading-snug text-ink-faint">
-            Live reads from each provider, not a bill. A provider that reports no quota shows its
-            spend instead.
+            Live reads from each provider's documented usage endpoint, not a bill. Providers
+            without one say so instead of guessing.
           </p>
         </div>
       )}
@@ -158,7 +161,12 @@ function ProviderRow({
   const status = (): { text: string; tone?: string } => {
     if (subscription && !provider.tokenKey) return { text: 'not signed in' };
     if (!limits) {
-      if (!subscription) return { text: 'metered' };
+      if (!subscription) {
+        // A provider with a documented read gets asked; one without gets an
+        // honest "no usage API" rather than a label that implies data.
+        if (!limitsKeyFor(provider)) return { text: 'no usage API' };
+        return { text: answered ? 'no quota reported' : 'reading…' };
+      }
       return { text: answered ? 'no quota reported' : 'reading…' };
     }
     if (!binding) return { text: 'no quota reported' };

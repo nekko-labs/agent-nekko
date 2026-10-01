@@ -9,3 +9,6 @@ export { createDispatcher } from './dispatch.js';
 export { connectRelayAgent, type RelayAgentHandle, type RelayAgentOptions } from './relay.js';
 export { createRemoteService, type RemoteService } from './remote.js';
 export { dataDir, setDataDir, withDataDir } from './paths.js';
+export { defaultUserDataDir, legacyUserDataDirs, migrateUserData, prepareUserDataRoot } from './user-data.js';
+export { listAgentTerminals, useTerminalDaemon } from './terminal.js';
+export { useEngineDaemon } from './engine/daemon.js';

@@ -51,6 +51,18 @@ function id(prefix: string): string {
 }
 
 /**
+ * A chat that was an image chat carries replies that are only a picture. A
+ * chat model neither receives assistant images nor accepts an empty turn from
+ * every provider, so each becomes a line saying what was made; the stored
+ * transcript is left as it is.
+ */
+export function asSeenByChatModel(m: ChatMessage): ChatMessage {
+  if (m.role !== 'assistant' || !m.generated || m.content.trim()) return m;
+  const g = m.generated;
+  return { ...m, content: `[Generated a ${g.width}×${g.height} image with ${g.modelId.split('/').pop()}, seed ${g.seed}.]` };
+}
+
+/**
  * Window `history` to the last `turns` user-turn groups for sending to the
  * model. Cuts on a user-message boundary so the window always starts on a user
  * message and never splits a tool_use from its tool_result. Returns `history`
@@ -138,7 +150,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     try {
       for await (const chunk of opts.provider.chat({
         model: opts.model,
-        messages: [...windowHistory(opts.history, opts.maxHistoryTurns), ...extraMessages],
+        messages: [...windowHistory(opts.history, opts.maxHistoryTurns).map(asSeenByChatModel), ...extraMessages],
         system: opts.system,
         tools: sendTools,
         temperature: opts.temperature,
@@ -272,7 +284,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     // bubble, so the user knows the turn ended and can try again.
     const stalled = isEmptyTurn(turn);
     const content = stalled
-      ? '_The model returned an empty response and stopped. It may have run out of steam — try again, or rephrase._'
+      ? '_The model returned an empty response and stopped. It may have run out of steam: try again, or rephrase._'
       : text;
 
     // Record the assistant message. A stream we cut off for looping keeps its

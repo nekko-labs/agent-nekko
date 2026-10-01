@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+# Read-only: neither job writes to the repo (the perf report goes up as an
+# artifact, which does not use this token).
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,3 +29,53 @@ jobs:
       - run: npm test
       - run: npm run test:cli-package
       - run: npm run typecheck
+
+  # The engine daemon (crates/). Real ptys on every platform the app ships on,
+  # since ConPTY and Unix ptys fail differently.
+  daemon:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - if: runner.os == 'Linux'
+        run: cargo fmt --all -- --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+
+  # The speed contract (SPEC.md, "Speed & responsiveness"): headless Chrome over
+  # the DevTools protocol against the web edition and a scripted model. Fails
+  # when a p95 exceeds its budget; the report is uploaded either way so a
+  # regression shows its numbers, not only a red cross.
+  perf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      - run: npm run build:web
+      - name: Speed contract
+        # Judged against the 2x regression gate in budgets.mjs; a missed budget is
+        # measured once more before it fails the job (noisy shared runners). The
+        # runner has no GPU, so Chrome runs without its software GPU emulation.
+        run: node scripts/perf/run.mjs --out perf-results --attempts 2 --no-gpu
+      - name: Report
+        if: always()
+        run: cat perf-results/perf-report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: perf-report
+          path: perf-results/
+          if-no-files-found: ignore

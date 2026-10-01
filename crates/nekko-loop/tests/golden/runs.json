@@ -1,0 +1,1640 @@
+{
+ "defaultHistory": [
+  {
+   "id": "u0",
+   "role": "user",
+   "content": "Do the thing",
+   "createdAt": 1
+  }
+ ],
+ "tools": [
+  {
+   "name": "read_file",
+   "description": "Read a file.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "path": {
+      "type": "string"
+     }
+    }
+   }
+  },
+  {
+   "name": "bash",
+   "description": "Run a command.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "command": {
+      "type": "string"
+     }
+    }
+   }
+  }
+ ],
+ "scenarios": [
+  {
+   "name": "plain reply",
+   "responses": [
+    [
+     {
+      "text": "Hello"
+     },
+     {
+      "text": " there"
+     },
+     {
+      "usage": [
+       10,
+       2,
+       5
+      ]
+     },
+     {
+      "done": true
+     }
+    ]
+   ]
+  },
+  {
+   "name": "tool round trip",
+   "responses": [
+    [
+     {
+      "reasoning": "thinking it over"
+     },
+     {
+      "call": {
+       "id": "c1",
+       "name": "read_file",
+       "input": {
+        "path": "src/app.ts"
+       }
+      }
+     },
+     {
+      "usage": [
+       40,
+       8
+      ]
+     },
+     {
+      "done": true
+     }
+    ],
+    [
+     {
+      "text": "Read it."
+     }
+    ]
+   ],
+   "tools": {
+    "c1": {
+     "output": "export function start() {}"
+    }
+   }
+  },
+  {
+   "name": "two tool calls in one reply",
+   "responses": [
+    [
+     {
+      "call": {
+       "id": "c1",
+       "name": "read_file",
+       "input": {
+        "path": "src/app.ts"
+       }
+      }
+     },
+     {
+      "call": {
+       "id": "c2",
+       "name": "bash",
+       "input": {
+        "command": "ls"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "text": "Both done."
+     }
+    ]
+   ],
+   "tools": {
+    "c1": {
+     "output": "a"
+    },
+    "c2": {
+     "output": "b",
+     "isError": true
+    }
+   }
+  },
+  {
+   "name": "tool throws",
+   "responses": [
+    [
+     {
+      "call": {
+       "id": "c1",
+       "name": "bash",
+       "input": {}
+      }
+     }
+    ],
+    [
+     {
+      "text": "Recovered."
+     }
+    ]
+   ],
+   "tools": {
+    "c1": {
+     "throw": "boom"
+    }
+   }
+  },
+  {
+   "name": "empty then nudge answers",
+   "responses": [
+    [
+     {
+      "done": true
+     }
+    ],
+    [
+     {
+      "text": "Here is the answer."
+     }
+    ]
+   ]
+  },
+  {
+   "name": "empty twice stalls",
+   "responses": [
+    [],
+    []
+   ]
+  },
+  {
+   "name": "runaway text",
+   "responses": [
+    [
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     },
+     {
+      "text": "Let me start building this feature now.\n"
+     }
+    ]
+   ]
+  },
+  {
+   "name": "provider error mid-stream",
+   "responses": [
+    [
+     {
+      "reasoning": "plan"
+     },
+     {
+      "text": "partial answer"
+     },
+     {
+      "throw": "socket hang up"
+     }
+    ]
+   ]
+  },
+  {
+   "name": "error before any output",
+   "responses": [
+    [
+     {
+      "throw": "connect ECONNREFUSED 127.0.0.1:8080"
+     }
+    ]
+   ]
+  },
+  {
+   "name": "user stop mid-stream",
+   "abortAfter": [
+    0,
+    1
+   ],
+   "responses": [
+    [
+     {
+      "reasoning": "r1"
+     },
+     {
+      "text": "part of it"
+     },
+     {
+      "text": " never arrives"
+     }
+    ]
+   ]
+  },
+  {
+   "name": "aborted before start",
+   "abortBefore": true,
+   "responses": [
+    [
+     {
+      "text": "x"
+     }
+    ]
+   ]
+  },
+  {
+   "name": "step limit wrap-up",
+   "maxIterations": 2,
+   "responses": [
+    [
+     {
+      "call": {
+       "id": "c1",
+       "name": "read_file",
+       "input": {
+        "path": "src/app.ts"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "c2",
+       "name": "read_file",
+       "input": {
+        "path": "src/app.ts"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "reasoning": "wrapping"
+     },
+     {
+      "text": "Here is what I did."
+     }
+    ]
+   ],
+   "tools": {
+    "c1": {
+     "output": "one"
+    },
+    "c2": {
+     "output": "two"
+    }
+   }
+  },
+  {
+   "name": "resume after a cut-off reply",
+   "resume": true,
+   "history": [
+    {
+     "id": "u0",
+     "role": "user",
+     "content": "Do the thing",
+     "createdAt": 1
+    },
+    {
+     "id": "a1",
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "c9",
+       "name": "bash",
+       "input": {}
+      }
+     ],
+     "createdAt": 2
+    },
+    {
+     "id": "a2",
+     "role": "assistant",
+     "content": "half an answer",
+     "interrupted": true,
+     "createdAt": 3
+    }
+   ],
+   "responses": [
+    [
+     {
+      "text": "Continuing."
+     }
+    ]
+   ]
+  },
+  {
+   "name": "resume ending on a tool result",
+   "resume": true,
+   "history": [
+    {
+     "id": "u0",
+     "role": "user",
+     "content": "Do the thing",
+     "createdAt": 1
+    },
+    {
+     "id": "a1",
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "c1",
+       "name": "bash",
+       "input": {}
+      }
+     ],
+     "createdAt": 2
+    },
+    {
+     "id": "t1",
+     "role": "tool",
+     "content": "",
+     "toolResult": {
+      "toolCallId": "c1",
+      "output": "ok"
+     },
+     "createdAt": 3
+    }
+   ],
+   "responses": [
+    [
+     {
+      "text": "All set."
+     }
+    ]
+   ]
+  },
+  {
+   "name": "windowed history with an image turn",
+   "maxHistoryTurns": 1,
+   "history": [
+    {
+     "id": "u0",
+     "role": "user",
+     "content": "Do the thing",
+     "createdAt": 1
+    },
+    {
+     "id": "a0",
+     "role": "assistant",
+     "content": "",
+     "images": [
+      "data:x"
+     ],
+     "generated": {
+      "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+      "width": 1024,
+      "height": 1024,
+      "steps": 4,
+      "cfgScale": 1,
+      "seed": 7,
+      "ms": 4000
+     },
+     "createdAt": 2
+    },
+    {
+     "id": "u1",
+     "role": "user",
+     "content": "again",
+     "createdAt": 3
+    },
+    {
+     "id": "a1",
+     "role": "assistant",
+     "content": "",
+     "images": [
+      "data:y"
+     ],
+     "generated": {
+      "modelId": "lmstudio/unsloth/FLUX.2-klein-9B-GGUF/flux-2-klein-9b-Q8_0",
+      "width": 1024,
+      "height": 1024,
+      "steps": 4,
+      "cfgScale": 1,
+      "seed": 7,
+      "ms": 4000
+     },
+     "createdAt": 4
+    },
+    {
+     "id": "u2",
+     "role": "user",
+     "content": "describe it",
+     "createdAt": 5
+    }
+   ],
+   "responses": [
+    [
+     {
+      "text": "A cat."
+     }
+    ]
+   ]
+  }
+ ]
+}

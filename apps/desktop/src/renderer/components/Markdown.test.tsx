@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Markdown, safeHref } from './Markdown.js';
+import { Markdown, markdownSegments, renderWhole, safeHref } from './Markdown.js';
 
 const html = (text: string) => renderToStaticMarkup(<Markdown text={text} />);
 
@@ -148,5 +148,94 @@ describe('Markdown (document mode)', () => {
 
   it('does not mistake indexed code for a link', () => {
     expect(html('read rows[0](x) carefully')).toContain('rows[0](x)');
+  });
+});
+
+// The chat renderer splits text into blocks so a streaming reply re-parses only
+// its tail. It has to produce exactly what parsing the whole string produces.
+const whole = (text: string) =>
+  renderToStaticMarkup(<div className="space-y-1 text-[14px] leading-relaxed">{renderWhole(text, { doc: false })}</div>);
+
+const FIXTURES = [
+  'Agent Nekko project.\n- first thing\n- second thing',
+  '- top\n  - child\n  - sibling\n- next top',
+  'one\ntwo',
+  '- bullet\n1. number',
+  '1. first\n2. second',
+  '## Heading',
+  '> quoted',
+  '---',
+  '| Item | Count |\n| --- | --- |\n| Alpha | 1 |',
+  '```ts\n- not a bullet\n```',
+  '**b** *i* ~~s~~ `c` [text](https://agentnekko.com)',
+  'see https://agentnekko.com now',
+  'call some_long_name(x) when 2 * 3 * 4 is odd',
+  '',
+  '   \n  ',
+  'read rows[0](x) carefully',
+];
+
+const REPLY = [
+  '## Plan',
+  '',
+  'First I read the **parser** and the `tokenizer`, then:',
+  '- split the lexer',
+  '  - keep the fast path',
+  '- add tests',
+  '',
+  '   ',
+  '> A quote that runs',
+  '> over two lines',
+  '',
+  '| File | Change |',
+  '| --- | --- |',
+  '| lexer.ts | split |',
+  '',
+  '```ts',
+  'const x = 1;',
+  '',
+  '- still code',
+  '```',
+  'Text glued to the fence, then a rule:',
+  '---',
+  '1. one',
+  '2. two',
+  '',
+  '```',
+  'an unlabelled fence',
+  '```',
+  '',
+  'Done: see https://example.com/pr/1.',
+].join('\n');
+
+describe('Markdown block split', () => {
+  it('renders every fixture exactly as the whole-text parse does', () => {
+    for (const text of [...FIXTURES, REPLY]) expect(html(text)).toBe(whole(text));
+  });
+
+  it('matches the whole-text parse at every point of a streaming reply', () => {
+    // Every prefix, which covers an unterminated fence, a half-typed table row,
+    // a list mid-item and a line that is about to become blank.
+    for (let n = 0; n <= REPLY.length; n++) {
+      const prefix = REPLY.slice(0, n);
+      expect(html(prefix), `prefix of ${n} chars`).toBe(whole(prefix));
+    }
+  });
+
+  it('renders an unterminated fence as code while it streams', () => {
+    const out = html('Here:\n\n```ts\nconst a = 1;\n- not yet a bullet');
+    expect(out).toContain('<pre');
+    expect(out).toContain('- not yet a bullet');
+    expect(out).not.toContain('<li>');
+  });
+
+  it('leaves finished blocks untouched as a reply grows', () => {
+    // A segment is final once another begins after it: its key and source must
+    // come out the same in every longer prefix, which is what lets React skip it.
+    for (let n = 1; n < REPLY.length; n += 3) {
+      const before = markdownSegments(REPLY.slice(0, n));
+      const after = markdownSegments(REPLY.slice(0, n + 3));
+      for (const seg of before.slice(0, -1)) expect(after).toContainEqual(seg);
+    }
   });
 });

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { Session } from '@agent-nekko/shared';
 import { WarningIcon, CloseIcon } from '../icons.js';
 import { useStore } from '../store.js';
 
 /** Thresholds as fraction of the context window. */
-const WARN_PCT = 70;
-const CRITICAL_PCT = 85;
+const WARN_PCT = 95;
+const CRITICAL_PCT = 99;
 
 function fmt(n: number): string {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
@@ -25,20 +25,56 @@ export function ContextWarning({
   used,
   windowTokens,
   session,
+  streaming,
+  onCompacted,
 }: {
   sessionId: string;
   used: number;
   windowTokens: number;
   session: Session | null;
+  streaming: boolean;
+  onCompacted: () => void;
 }) {
   const pct = windowTokens ? (used / windowTokens) * 100 : 0;
   const dismissedKey = `nekko.ctxDismissed.${sessionId}`;
   const [dismissed, setDismissed] = useState(() => {
     try { return localStorage.getItem(dismissedKey) !== null; } catch { return false; }
   });
+  const [compaction, setCompaction] = useState<'idle' | 'running' | 'failed' | 'done'>('idle');
+  const [compactionError, setCompactionError] = useState('');
+  const autoStarted = useRef(false);
+  const cancelled = useRef(false);
 
-  // Only render when the threshold is breached and hasn't been dismissed.
-  if (pct < WARN_PCT || dismissed) return null;
+  const startCompaction = useCallback(async () => {
+    if (compaction === 'running') return;
+    cancelled.current = false;
+    setCompactionError('');
+    setCompaction('running');
+    try {
+      await window.nekko.compactSession(sessionId);
+      setCompaction('done');
+      onCompacted();
+      void useStore.getState().refreshSessions().catch(() => {});
+    } catch (error) {
+      if (!cancelled.current) {
+        setCompactionError((error as Error).message || 'Compaction failed.');
+        setCompaction('failed');
+      }
+    }
+  }, [compaction, onCompacted, sessionId]);
+
+  useEffect(() => {
+    if (pct < WARN_PCT) {
+      autoStarted.current = false;
+      if (compaction === 'done') setCompaction('idle');
+      return;
+    }
+    if (streaming || session?.incognito || session?.queue?.length || !session?.messages.length || autoStarted.current) return;
+    autoStarted.current = true;
+    void startCompaction();
+  }, [pct >= WARN_PCT, streaming, session?.incognito, session?.queue?.length, session?.messages.length, compaction, startCompaction]);
+
+  if (pct < WARN_PCT || (dismissed && compaction !== 'running')) return null;
 
   const isCritical = pct >= CRITICAL_PCT;
   const remaining = Math.max(0, windowTokens - used);
@@ -50,6 +86,10 @@ export function ContextWarning({
   };
 
   const openNewChat = async () => {
+    if (compaction === 'running') {
+      cancelled.current = true;
+      await window.nekko.cancelSessionCompaction(sessionId).catch(() => {});
+    }
     // Create a new session under the same workspace (if any).
     const wsId = session?.workspaceId;
     const created = await window.nekko.createSession(wsId ?? undefined);
@@ -142,28 +182,53 @@ export function ContextWarning({
             Context window is getting full
           </p>
           <p className="mt-0.5 text-ink-soft">
-            This conversation is using <span className="tabular-nums font-medium">{fmt(used)}</span> of{' '}
+            Estimated prompt size: <span className="tabular-nums font-medium">{fmt(used)}</span> of{' '}
             <span className="tabular-nums">{fmt(windowTokens)}</span> tokens{' '}
             (<span className="tabular-nums">{Math.round(pct)}%</span>).{' '}
-            {remaining > 0
-              ? `About ${freePct}% free — replies may get shorter or lose detail soon.`
-              : 'No room left for new replies.'}
+            {compaction === 'running'
+              ? 'Summarizing older conversation to continue in this session.'
+              : streaming && compaction === 'idle'
+                ? 'Automatic compaction will start after this reply finishes.'
+                : compaction === 'done'
+                ? 'Conversation compacted; the same session is ready to continue.'
+                : compaction === 'failed'
+                  ? `Automatic compaction failed: ${compactionError}`
+                  : remaining > 0
+                  ? `About ${freePct}% estimated headroom; actual provider usage can differ.`
+                  : 'The estimate exceeds the listed window. Provider token accounting can differ; if replies still work, this is not a hard limit.'}
           </p>
           <div className="mt-2.5 flex items-center gap-2">
-            <button
-              className="btn btn-primary h-7 px-3 text-[11px]"
-              onClick={openNewChat}
-              title="Open a fresh chat with the same workspace, provider, and model"
-            >
-              New chat
-            </button>
-            <button
-              className="btn btn-outline h-7 px-3 text-[11px]"
-              onClick={summarizeAndContinue}
-              title="Summarize this conversation and continue in a new chat"
-            >
-              Summarize & continue
-            </button>
+            {compaction === 'running' ? (
+              <button
+                className="btn btn-primary h-7 px-3 text-[11px]"
+                onClick={openNewChat}
+                title="Cancel compaction and open a fresh chat with the same workspace, provider, and model"
+              >
+                Move to new chat
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn btn-primary h-7 px-3 text-[11px]"
+                  onClick={openNewChat}
+                  title="Open a fresh chat with the same workspace, provider, and model"
+                >
+                  New chat
+                </button>
+                {(compaction === 'failed' || compaction === 'done') && (
+                  <button className="btn btn-outline h-7 px-3 text-[11px]" onClick={() => void startCompaction()}>
+                    {compaction === 'failed' ? 'Retry compaction' : 'Compact again'}
+                  </button>
+                )}
+                <button
+                  className="btn btn-outline h-7 px-3 text-[11px]"
+                  onClick={summarizeAndContinue}
+                  title="Summarize this conversation and continue in a new chat"
+                >
+                  Summarize & continue
+                </button>
+              </>
+            )}
           </div>
         </div>
         <button

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { LimitWindow, ModelInfo, OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
-import { formatUSD, isLocalProvider, isRuntimeKind, formatModelPriceLabel } from '@agent-nekko/shared';
+import { formatUSD, isLocalProvider, isRuntimeKind, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
+import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { SubscriptionSignIn } from '../components/SubscriptionSignIn.js';
@@ -41,7 +42,14 @@ function formatExpiry(expiresAt?: number): string | null {
 }
 
 export function ModelsView() {
-  const { providers, refreshProviders, pushToast, setView } = useStore();
+  const { providers, refreshProviders, pushToast, setView } = useStore(
+    useShallow((s) => ({
+      providers: s.providers,
+      refreshProviders: s.refreshProviders,
+      pushToast: s.pushToast,
+      setView: s.setView,
+    })),
+  );
   const [adding, setAdding] = useState(false);
   const [discovering, setDiscovering] = useState(false);
 
@@ -115,7 +123,7 @@ export function ModelsView() {
               </p>
             </div>
             <button className="btn btn-outline shrink-0 py-1.5 text-[12px]" onClick={() => setView('modelserver')}>
-              Open Model Server
+              Open Nekko Server
             </button>
           </div>
         </section>
@@ -215,9 +223,11 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
   // available for a local instance with the CLI installed. `null` = not yet
   // probed; the reason feeds the fallback badge's tooltip.
   const [lms, setLms] = useState<{ available: boolean; reason?: string } | null>(null);
-  // Subscription providers keep their OAuth token host-side; the renderer only
-  // ever sees this sanitized status (connected/account/expiry, never a token).
-  const subscription = provider.auth === 'subscription';
+  // Sign-in providers keep their credential host-side in the token store; the
+  // renderer only ever sees this sanitized status (connected/account/expiry,
+  // never a token). OpenRouter joins them with auth 'apikey' + a tokenKey: the
+  // key its sign-in minted is metered, not a plan.
+  const subscription = provider.auth === 'subscription' || (provider.kind === 'openrouter' && !!provider.tokenKey);
   const [sub, setSub] = useState<OAuthStatus | null>(null);
   const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
   const [relinking, setRelinking] = useState(false);
@@ -228,8 +238,9 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     const t = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
-  const subName = provider.kind === 'chatgpt' ? 'ChatGPT' : 'Claude';
-  const subOAuthProvider: OAuthProvider = provider.kind === 'chatgpt' ? 'chatgpt' : 'claude';
+  const subName = provider.kind === 'chatgpt' ? 'ChatGPT' : provider.kind === 'openrouter' ? 'OpenRouter' : 'Claude';
+  const subOAuthProvider: OAuthProvider =
+    provider.kind === 'chatgpt' ? 'chatgpt' : provider.kind === 'openrouter' ? 'openrouter' : 'claude';
 
   useEffect(() => {
     setCustomModel(provider.customModelId ?? '');
@@ -260,7 +271,7 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     if (provider.kind === 'lmstudio') {
       window.nekko.lmsAvailable(provider.id).then(setLms).catch(() => setLms({ available: false }));
     }
-    if (provider.auth === 'subscription') {
+    if (provider.auth === 'subscription' || (provider.kind === 'openrouter' && provider.tokenKey)) {
       window.nekko.oauthStatus(provider.id).then(setSub).catch(() => setSub(null));
     }
     /* eslint-disable-next-line */
@@ -291,7 +302,7 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     setRelinking(false);
     await window.nekko.oauthSignOut(provider.id);
     setSub(await window.nekko.oauthStatus(provider.id).catch(() => null));
-    pushToast('info', `Signed out of the ${subName} subscription.`);
+    pushToast('info', provider.kind === 'openrouter' ? 'OpenRouter key removed.' : `Signed out of the ${subName} subscription.`);
   };
 
   // A re-auth (or a first connect on an existing card) returns a new tokenKey;
@@ -305,12 +316,16 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
     }
     await window.nekko.saveProvider({
       ...provider,
-      auth: 'subscription',
+      // OpenRouter keeps auth 'apikey': the key its sign-in minted is metered.
+      auth: provider.auth,
       tokenKey: status.tokenKey || provider.tokenKey,
       accountId: status.accountId ?? provider.accountId,
     });
     setSub(await window.nekko.oauthStatus(provider.id).catch(() => null));
-    pushToast('success', `Signed in with your ${subName} subscription.`);
+    pushToast(
+      'success',
+      provider.kind === 'openrouter' ? 'OpenRouter key connected.' : `Signed in with your ${subName} subscription.`,
+    );
     onChanged();
   };
 
@@ -384,9 +399,13 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
               <Badge
                 tone={sub?.connected ? 'success' : 'warning'}
                 variant="soft"
-                title={`Runs on your ${subName} subscription instead of a metered API key`}
+                title={
+                  provider.kind === 'openrouter'
+                    ? 'Signed in via OpenRouter — the key lives in the app, usage bills to your OpenRouter balance'
+                    : `Runs on your ${subName} subscription instead of a metered API key`
+                }
               >
-                Subscription
+                {provider.kind === 'openrouter' ? 'Signed in' : 'Subscription'}
               </Badge>
             )}
             {provider.discovered && <span className="chip">discovered</span>}
@@ -448,11 +467,11 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
                     className="text-ink-faint hover:text-ink"
                     onClick={() => setRelinking(true)}
                   >
-                    Re-authenticate
+                    {provider.kind === 'openrouter' ? 'New key' : 'Re-authenticate'}
                   </button>
                   <span className="text-ink-faint">·</span>
                   <button className="text-ink-faint hover:text-ink" onClick={() => void signOutSubscription()}>
-                    Sign out
+                    {provider.kind === 'openrouter' ? 'Remove key' : 'Sign out'}
                   </button>
                 </div>
               </div>
@@ -491,7 +510,9 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
               <p style={{ color: 'var(--warning)' }}>
                 {sub.state === 'error' && sub.message
                   ? sub.message
-                  : 'Subscription session expired or signed out — sign in again.'}
+                  : provider.kind === 'openrouter'
+                    ? 'The saved key is missing or was revoked — sign in again to mint a new one.'
+                    : 'Subscription session expired or signed out — sign in again.'}
               </p>
               <SubscriptionSignIn
                 oauthProvider={subOAuthProvider}
@@ -525,7 +546,7 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
       <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
         {models.length === 0 && <p className="text-[12px] text-ink-faint">No models found.</p>}
         {models.map((m) => {
-          const price = formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: local });
+          const price = formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: local, pricing: modelPricing(m) });
           return (
             <div key={m.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-[12.5px]" style={{ background: 'var(--surface-2)' }}>
               <div className="flex min-w-0 items-center gap-1.5">

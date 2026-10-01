@@ -1,0 +1,435 @@
+//! The engine's one OpenAI-compatible address (`127.0.0.1:11500/v1` by
+//! default), in front of every loaded model server.
+//!
+//! Requests and replies pass through untouched in both directions (streaming
+//! included), so tool calls and any field a model server adds later keep
+//! working without this file learning about them. A client that hangs up
+//! mid-generation drops the upstream connection, which stops the generation.
+//!
+//! A request for a model that is not running is handed to the [`Policy`] (the
+//! TS engine, which knows the library, the saved settings and whether
+//! load-on-demand is on); once it reports the model loaded, the request goes
+//! through.
+//!
+//! Decisions (`/v1/decisions`, `/v1/systemone`) are the one exception to
+//! proxying: the decision model runs inside the daemon, so those requests are
+//! answered by the [`Decisions`] service behind the same auth and CORS.
+
+use crate::supervisor::{ActiveGuard, Kind, Supervisor};
+use axum::Router;
+use axum::body::Body;
+use axum::extract::{Request, State};
+use axum::http::{HeaderMap, HeaderValue, Method, StatusCode, header};
+use axum::response::{IntoResponse, Response};
+use bytes::Bytes;
+use http_body::{Body as HttpBody, Frame, SizeHint};
+use serde::Deserialize;
+use serde_json::{Value, json};
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll};
+use tokio::sync::oneshot;
+
+pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
+
+/// What the router asks the engine's policy layer.
+pub trait Policy: Send + Sync + 'static {
+    /// Load `model` (for the image endpoint when `image`), or say why not as
+    /// an HTTP status and a sentence.
+    fn load(&self, model: String, image: bool) -> BoxFuture<Result<(), (u16, String)>>;
+    /// The body of `GET /v1/models`.
+    fn models(&self) -> BoxFuture<Result<Value, String>>;
+    /// One row of it, or `None` for an unknown id.
+    fn model(&self, id: String) -> BoxFuture<Result<Option<Value>, String>>;
+}
+
+/// The engine's decision model (Laya, run natively by `nekko-decide` in the daemon), served on
+/// `POST /v1/decisions` (TypeSafe Jev's path) and `POST /v1/systemone` (Laya's `laya-serve`).
+///
+/// A trait rather than a dependency so this crate stays free of ONNX Runtime: the router only
+/// moves JSON, and the daemon decides what answers it.
+pub trait Decisions: Send + Sync + 'static {
+    /// Answer a Jev-shaped body (`{model?, state, questions}`), or say why not as an HTTP
+    /// status and a sentence (409 when no decision model is loaded).
+    fn decide(&self, body: Value) -> BoxFuture<Result<Value, (u16, String)>>;
+}
+
+/// A decision request is JSON text plus a 50,000-character state; 2 MB is `laya-serve`'s cap.
+const DECISION_BODY_LIMIT: usize = 2 * 1024 * 1024;
+
+#[derive(Clone, Debug, Deserialize, serde::Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServeConfig {
+    pub port: u16,
+    /// `127.0.0.1`, or `0.0.0.0` when the user chose to serve the network.
+    #[serde(default = "loopback")]
+    pub host: String,
+    #[serde(default)]
+    pub api_key: Option<String>,
+    /// Browser origins allowed to call the endpoint; `*` for any.
+    #[serde(default)]
+    pub cors_origins: Vec<String>,
+}
+
+fn loopback() -> String {
+    "127.0.0.1".into()
+}
+
+struct Running {
+    config: ServeConfig,
+    stop: oneshot::Sender<()>,
+}
+
+/// Starts and stops the listener; the supervisor and policy are shared.
+pub struct EngineRouter {
+    supervisor: Arc<Supervisor>,
+    policy: Arc<dyn Policy>,
+    decisions: Option<Arc<dyn Decisions>>,
+    running: Mutex<Option<Running>>,
+}
+
+#[derive(Clone)]
+struct Shared {
+    supervisor: Arc<Supervisor>,
+    policy: Arc<dyn Policy>,
+    decisions: Option<Arc<dyn Decisions>>,
+    config: Arc<ServeConfig>,
+    http: hyper_util::client::legacy::Client<hyper_util::client::legacy::connect::HttpConnector, Body>,
+}
+
+impl EngineRouter {
+    pub fn new(supervisor: Arc<Supervisor>, policy: Arc<dyn Policy>) -> Self {
+        Self { supervisor, policy, decisions: None, running: Mutex::new(None) }
+    }
+
+    /// Serve decisions from `decisions` as well. Without it the decision routes answer 409.
+    pub fn with_decisions(mut self, decisions: Arc<dyn Decisions>) -> Self {
+        self.decisions = Some(decisions);
+        self
+    }
+
+    pub fn serving(&self) -> Option<ServeConfig> {
+        self.running.lock().unwrap().as_ref().map(|r| r.config.clone())
+    }
+
+    /// Listen with this configuration. Already listening with the same one is
+    /// a no-op, which is what makes a restarted TS backend's "start" harmless.
+    pub async fn serve(&self, config: ServeConfig) -> Result<String, String> {
+        if self.serving().as_ref() == Some(&config) {
+            return Ok(format!("The engine is serving on port {}.", config.port));
+        }
+        self.stop();
+        let listener = tokio::net::TcpListener::bind((config.host.as_str(), config.port)).await.map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AddrInUse {
+                format!("Port {} is already in use. Pick another port for the engine.", config.port)
+            } else {
+                e.to_string()
+            }
+        })?;
+        let shared = Shared {
+            supervisor: self.supervisor.clone(),
+            policy: self.policy.clone(),
+            decisions: self.decisions.clone(),
+            config: Arc::new(config.clone()),
+            http: hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new()).build_http(),
+        };
+        let app = Router::new().fallback(handle).with_state(shared);
+        let (tx, rx) = oneshot::channel();
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, app)
+                .with_graceful_shutdown(async {
+                    let _ = rx.await;
+                })
+                .await;
+        });
+        let port = config.port;
+        *self.running.lock().unwrap() = Some(Running { config, stop: tx });
+        Ok(format!("The engine is serving on port {port}."))
+    }
+
+    pub fn stop(&self) {
+        if let Some(r) = self.running.lock().unwrap().take() {
+            let _ = r.stop.send(());
+        }
+    }
+}
+
+fn error(status: StatusCode, message: impl Into<String>) -> Response {
+    let body = json!({ "error": { "message": message.into(), "type": "invalid_request_error" } });
+    (status, axum::Json(body)).into_response()
+}
+
+fn cors(headers: &mut HeaderMap, config: &ServeConfig, origin: Option<&str>) {
+    let Some(origin) = origin else { return };
+    let value = if config.cors_origins.iter().any(|o| o == "*") {
+        HeaderValue::from_static("*")
+    } else if config.cors_origins.iter().any(|o| o == origin) {
+        match HeaderValue::from_str(origin) {
+            Ok(v) => v,
+            Err(_) => return,
+        }
+    } else {
+        return;
+    };
+    headers.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, value);
+    headers.insert(
+        header::ACCESS_CONTROL_ALLOW_HEADERS,
+        HeaderValue::from_static("authorization, content-type, x-api-key"),
+    );
+    headers.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, POST, OPTIONS"));
+}
+
+/// A bearer token or an `x-api-key` header, as OpenAI-style clients send one or the other.
+fn authorized(headers: &HeaderMap, key: &str) -> bool {
+    let eq = |got: &str| got.len() == key.len() && got.bytes().zip(key.bytes()).fold(0u8, |a, (x, y)| a | (x ^ y)) == 0;
+    let bearer = headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(str::trim);
+    let api_key = headers.get("x-api-key").and_then(|v| v.to_str().ok());
+    bearer.is_some_and(eq) || api_key.is_some_and(eq)
+}
+
+const INFERENCE: &[&str] = &["chat/completions", "completions", "embeddings", "rerank", "infill", "images/generations"];
+
+async fn handle(State(s): State<Shared>, req: Request) -> Response {
+    let origin = req.headers().get(header::ORIGIN).and_then(|v| v.to_str().ok()).map(str::to_string);
+    let mut res = route(s.clone(), req).await;
+    cors(res.headers_mut(), &s.config, origin.as_deref());
+    res
+}
+
+async fn route(s: Shared, req: Request) -> Response {
+    if req.method() == Method::OPTIONS {
+        return StatusCode::NO_CONTENT.into_response();
+    }
+    let path = req.uri().path().trim_end_matches('/').to_string();
+    let path = if path.is_empty() { "/".to_string() } else { path };
+
+    // Health is deliberately unauthenticated: it carries nothing, and something
+    // has to be able to tell whether the port is ours without a key.
+    if path == "/health" || path == "/" {
+        return axum::Json(json!({ "status": "ok", "service": "agent-nekko-engine", "models": s.supervisor.len() }))
+            .into_response();
+    }
+    if let Some(key) = s.config.api_key.as_deref().filter(|k| !k.is_empty())
+        && !authorized(req.headers(), key)
+    {
+        return (
+            StatusCode::UNAUTHORIZED,
+            axum::Json(json!({ "error": { "message": "Invalid API key.", "type": "invalid_request_error" } })),
+        )
+            .into_response();
+    }
+
+    let bare = path.strip_prefix("/v1").unwrap_or(&path).to_string();
+    if bare == "/decisions" || bare == "/systemone" {
+        return decide(&s, req).await;
+    }
+    if bare == "/models" {
+        return match s.policy.models().await {
+            Ok(v) => axum::Json(v).into_response(),
+            Err(e) => error(StatusCode::SERVICE_UNAVAILABLE, e),
+        };
+    }
+    if let Some(id) = bare.strip_prefix("/models/") {
+        let id = percent_decode(id);
+        return match s.policy.model(id.clone()).await {
+            Ok(Some(row)) => axum::Json(row).into_response(),
+            Ok(None) => error(StatusCode::NOT_FOUND, format!("No model named {id}.")),
+            Err(e) => error(StatusCode::SERVICE_UNAVAILABLE, e),
+        };
+    }
+    let Some(endpoint) = INFERENCE.iter().find(|e| bare == format!("/{e}")) else {
+        return error(StatusCode::NOT_FOUND, format!("Unknown route {path}."));
+    };
+    let image = *endpoint == "images/generations";
+
+    let (parts, body) = req.into_parts();
+    let body = match axum::body::to_bytes(body, 25 * 1024 * 1024).await {
+        Ok(b) => b,
+        Err(_) => return error(StatusCode::PAYLOAD_TOO_LARGE, "Request body too large."),
+    };
+    let requested = pick_model(&body);
+    let child = match resolve(&s, requested, image).await {
+        Ok(c) => c,
+        Err((status, message)) => {
+            return error(StatusCode::from_u16(status).unwrap_or(StatusCode::BAD_GATEWAY), message);
+        }
+    };
+    let guard = child.begin();
+    proxy(&s, child.port, format!("/v1{bare}"), &parts.method, &parts.headers, body, guard).await
+}
+
+/// A decision request, answered in-process by the loaded decision model rather than proxied.
+async fn decide(s: &Shared, req: Request) -> Response {
+    if req.method() != Method::POST {
+        return error(StatusCode::METHOD_NOT_ALLOWED, "Decisions are POST requests.");
+    }
+    let body = match axum::body::to_bytes(req.into_body(), DECISION_BODY_LIMIT).await {
+        Ok(b) => b,
+        Err(_) => return error(StatusCode::PAYLOAD_TOO_LARGE, "Request body too large."),
+    };
+    let body: Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(_) => return error(StatusCode::BAD_REQUEST, "The request body must be JSON."),
+    };
+    let Some(decisions) = s.decisions.as_ref() else {
+        return error(StatusCode::CONFLICT, "No decision model is loaded.");
+    };
+    match decisions.decide(body).await {
+        Ok(v) => axum::Json(v).into_response(),
+        Err((status, message)) => {
+            error(StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR), message)
+        }
+    }
+}
+
+/// Which running model serves this request, loading it through the policy
+/// when it is not running yet.
+async fn resolve(
+    s: &Shared,
+    requested: Option<String>,
+    image: bool,
+) -> Result<Arc<crate::supervisor::Child>, (u16, String)> {
+    let wanted = if image { Kind::Image } else { Kind::Chat };
+    let Some(id) = requested else {
+        // No model named: the most recently used one of the right kind is the
+        // least surprising answer.
+        return s
+            .supervisor
+            .most_recent(wanted)
+            .ok_or((409, "No model is loaded and the request named none.".to_string()));
+    };
+    if let Some(child) = s.supervisor.get(&id) {
+        if child.kind != wanted {
+            return Err((
+                400,
+                if image {
+                    "This endpoint needs an image-generation model.".into()
+                } else {
+                    "Image models use /v1/images/generations, not text inference.".into()
+                },
+            ));
+        }
+        return Ok(child);
+    }
+    s.policy.load(id.clone(), image).await?;
+    s.supervisor.get(&id).ok_or((503, format!("Couldn't load {id}.")))
+}
+
+async fn proxy(
+    s: &Shared,
+    port: u16,
+    path: String,
+    method: &Method,
+    headers: &HeaderMap,
+    body: Bytes,
+    guard: ActiveGuard,
+) -> Response {
+    let uri: hyper::Uri = match format!("http://127.0.0.1:{port}{path}").parse() {
+        Ok(u) => u,
+        Err(e) => return error(StatusCode::BAD_GATEWAY, e.to_string()),
+    };
+    let mut builder = hyper::Request::builder().method(method.clone()).uri(uri);
+    let content_type =
+        headers.get(header::CONTENT_TYPE).cloned().unwrap_or(HeaderValue::from_static("application/json"));
+    let accept = headers.get(header::ACCEPT).cloned().unwrap_or(HeaderValue::from_static("*/*"));
+    builder = builder.header(header::CONTENT_TYPE, content_type).header(header::ACCEPT, accept);
+    let upstream = match builder.body(Body::from(body)) {
+        Ok(r) => r,
+        Err(e) => return error(StatusCode::BAD_GATEWAY, e.to_string()),
+    };
+    let reply = match s.http.request(upstream).await {
+        Ok(r) => r,
+        Err(e) => return error(StatusCode::BAD_GATEWAY, format!("The model server stopped responding: {e}")),
+    };
+    let (mut parts, incoming) = reply.into_parts();
+    for h in ["connection", "keep-alive", "transfer-encoding", "upgrade", "proxy-connection", "te", "trailer"] {
+        parts.headers.remove(h);
+    }
+    // The guard rides the body: the request counts as in flight until the
+    // last byte is sent or the client goes away.
+    Response::from_parts(parts, Body::new(Guarded { inner: incoming, _guard: guard }))
+}
+
+struct Guarded<B> {
+    inner: B,
+    _guard: ActiveGuard,
+}
+
+impl<B> HttpBody for Guarded<B>
+where
+    B: HttpBody<Data = Bytes> + Unpin,
+{
+    type Data = Bytes;
+    type Error = B::Error;
+
+    fn poll_frame(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Result<Frame<Bytes>, B::Error>>> {
+        Pin::new(&mut self.inner).poll_frame(cx)
+    }
+
+    fn is_end_stream(&self) -> bool {
+        self.inner.is_end_stream()
+    }
+
+    fn size_hint(&self) -> SizeHint {
+        self.inner.size_hint()
+    }
+}
+
+fn pick_model(body: &[u8]) -> Option<String> {
+    let v: Value = serde_json::from_slice(body).ok()?;
+    v.get("model").and_then(Value::as_str).filter(|m| !m.is_empty()).map(str::to_string)
+}
+
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%'
+            && i + 2 < bytes.len()
+            && let Ok(b) = u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16)
+        {
+            out.push(b);
+            i += 3;
+            continue;
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn picks_the_model_from_a_body() {
+        assert_eq!(pick_model(br#"{"model":"qwen","messages":[]}"#).as_deref(), Some("qwen"));
+        assert_eq!(pick_model(br#"{"model":""}"#), None);
+        assert_eq!(pick_model(b"not json"), None);
+    }
+
+    #[test]
+    fn decodes_percent_escapes_in_model_ids() {
+        assert_eq!(percent_decode("lmstudio%3Agemma"), "lmstudio:gemma");
+        assert_eq!(percent_decode("plain"), "plain");
+    }
+
+    #[test]
+    fn checks_the_key_exactly() {
+        let mut h = HeaderMap::new();
+        h.insert(header::AUTHORIZATION, HeaderValue::from_static("Bearer secret-key"));
+        assert!(authorized(&h, "secret-key"));
+        assert!(!authorized(&h, "secret-kez"));
+        assert!(!authorized(&HeaderMap::new(), "secret-key"));
+        let mut x = HeaderMap::new();
+        x.insert("x-api-key", HeaderValue::from_static("secret-key"));
+        assert!(authorized(&x, "secret-key"));
+    }
+}

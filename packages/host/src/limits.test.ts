@@ -5,7 +5,9 @@ import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setDataDir } from './paths.js';
 import { setToken } from './oauth.js';
+import { saveSettings } from './store.js';
 import { initLimits, recordFromHeaders, poll, get, getLimits } from './limits.js';
+import { limitsKeyFor } from '@agent-nekko/shared';
 
 const TEST_NOW = 1_700_000_000_000;
 
@@ -452,6 +454,93 @@ describe('LimitsService Claude /api/oauth/usage poll', () => {
     initLimits(new EventEmitter());
     const limits = await poll(tokenKey);
     expect(limits!.windows[0]).toMatchObject({ usedPercent: 100, status: 'rate_limited' });
+  });
+});
+
+describe('LimitsService API-key provider read', () => {
+  beforeEach(() => {
+    const dir = mkdtempSync(join(tmpdir(), 'nekko-limits-'));
+    setDataDir(dir);
+    vi.useFakeTimers();
+    vi.setSystemTime(TEST_NOW);
+  });
+
+  const openRouterPayload = {
+    data: {
+      label: 'sk-or-test',
+      limit: 100,
+      limit_remaining: 74.5,
+      usage: 25.5,
+      usage_daily: 1.2,
+      is_free_tier: false,
+      free_model_daily_requests: { used: 3, limit: 50, remaining: 47 },
+    },
+  };
+
+  it('polls an OpenRouter API-key provider through its inference key', async () => {
+    saveSettings({
+      providers: [{
+        id: 'or-1', kind: 'openrouter', label: 'OpenRouter',
+        baseUrl: 'https://openrouter.ai/api/v1/', apiKey: 'sk-or-test', enabled: true,
+      }],
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(openRouterPayload), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    );
+
+    const events = new EventEmitter();
+    const emitted: Array<{ tokenKey: string }> = [];
+    events.on('limitsUpdated', (e) => emitted.push(e));
+    initLimits(events);
+
+    const limits = await poll('provider:or-1');
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://openrouter.ai/api/v1/key');
+    expect((init.headers as Record<string, string>).Authorization).toBe('Bearer sk-or-test');
+
+    expect(limits).toBeTruthy();
+    expect(limits!.creditsBalance).toBe(74.5);
+    expect(limits!.creditsState).toBe('balance');
+    expect(limits!.windows.find((w) => w.id === 'free_daily')).toMatchObject({ usedPercent: 6 });
+    expect(emitted).toHaveLength(1);
+    expect(emitted[0].tokenKey).toBe('provider:or-1');
+    expect(get('provider:or-1')).toEqual(limits);
+  });
+
+  it('returns undefined without fetching for a provider id that is not configured', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    initLimits(new EventEmitter());
+    const limits = await poll('provider:ghost');
+    expect(limits).toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('does not fetch for an API-key kind with no documented usage read', async () => {
+    // OpenAI's usage API needs a separate org admin key, which is not the key
+    // configured for inference; reading it would be unauthorized, so the
+    // service must decline rather than guess.
+    saveSettings({
+      providers: [{
+        id: 'oai-1', kind: 'openai', label: 'OpenAI',
+        baseUrl: 'https://api.openai.com/v1', apiKey: 'sk-test', enabled: true,
+      }],
+    });
+    const fetchMock = vi.spyOn(globalThis, 'fetch');
+    initLimits(new EventEmitter());
+    const limits = await poll('provider:oai-1');
+    expect(limits).toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('limitsKeyFor assigns keys only where an authorized read exists', () => {
+    const base = { label: 'p', baseUrl: 'https://x', enabled: true };
+    expect(limitsKeyFor({ ...base, id: 'a', kind: 'openai', apiKey: 'sk' })).toBeNull();
+    expect(limitsKeyFor({ ...base, id: 'b', kind: 'openrouter', apiKey: 'sk-or' })).toBe('provider:b');
+    expect(limitsKeyFor({ ...base, id: 'c', kind: 'openrouter' })).toBeNull();
+    expect(limitsKeyFor({ ...base, id: 'd', kind: 'openai', auth: 'subscription', tokenKey: 'chatgpt:1' }))
+      .toBe('chatgpt:1');
+    expect(limitsKeyFor({ ...base, id: 'e', kind: 'openai', auth: 'subscription' })).toBeNull();
   });
 });
 

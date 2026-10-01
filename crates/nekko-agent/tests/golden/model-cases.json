@@ -1,0 +1,188 @@
+[
+  {
+    "name": "openai",
+    "provider": "openai",
+    "responses": {
+      "https://api.openai.com/v1/models": {
+        "status": 200,
+        "body": "{\"data\":[{\"id\":\"gpt-5\",\"object\":\"model\",\"context_length\":400000,\"pricing\":{\"prompt\":\"0.00001\",\"completion\":\"0.00003\"}},{\"id\":\"gpt-4.1\",\"top_provider\":{\"context_length\":1047576},\"name\":\"ignored off OpenRouter\"},{\"id\":\"o3\",\"context_length\":null,\"top_provider\":{\"context_length\":200000}}]}"
+      }
+    }
+  },
+  {
+    "name": "openrouter",
+    "provider": "openrouter",
+    "responses": {
+      "https://openrouter.ai/api/v1/models": {
+        "status": 200,
+        "body": "{\"data\":[{\"id\":\"openai/gpt-5\",\"name\":\"OpenAI: GPT-5\",\"context_length\":400000,\"pricing\":{\"prompt\":\"0.00000125\",\"completion\":\"0.00001\"},\"supported_parameters\":[\"tools\",\"temperature\"]},{\"id\":\"meta/llama\",\"name\":\"\",\"top_provider\":{\"context_length\":8192},\"pricing\":{\"prompt\":\"\",\"completion\":\"0\"},\"supported_parameters\":[\"temperature\"]},{\"id\":\"x/unpriced\",\"name\":\"Unpriced\",\"pricing\":{\"prompt\":\"n/a\",\"completion\":\"0\"}},{\"id\":\"x/no-pricing\"}]}"
+      }
+    }
+  },
+  {
+    "name": "vllm",
+    "provider": "vllm",
+    "responses": {
+      "http://localhost:8000/v1/models": {
+        "status": 200,
+        "body": "{\"object\":\"list\",\"data\":[{\"id\":\"Qwen/Qwen3-8B\",\"max_model_len\":32768}]}"
+      }
+    }
+  },
+  {
+    "name": "llamacpp-bare-url",
+    "provider": "llamacpp",
+    "responses": {
+      "http://127.0.0.1:11500/v1/models": {
+        "status": 200,
+        "body": "{\"data\":[{\"id\":\"gemma-4-12b\"}]}"
+      }
+    }
+  },
+  {
+    "name": "openai-compat-no-data",
+    "provider": "openai-compat",
+    "responses": {
+      "http://10.5.0.2:1338/v1/models": {
+        "status": 200,
+        "body": "{\"object\":\"list\"}"
+      }
+    }
+  },
+  {
+    "name": "lmstudio-native",
+    "provider": "lmstudio",
+    "responses": {
+      "http://localhost:1234/api/v0/models": {
+        "status": 200,
+        "body": "{\"data\":[{\"id\":\"qwen3-8b\",\"state\":\"loaded\",\"loaded_context_length\":8192,\"max_context_length\":32768},{\"id\":\"gemma-4-12b\",\"state\":\"not-loaded\",\"max_context_length\":131072}]}"
+      }
+    }
+  },
+  {
+    "name": "lmstudio-native-404-falls-back",
+    "provider": "lmstudio",
+    "responses": {
+      "http://localhost:1234/api/v0/models": {
+        "status": 404,
+        "body": "{\"error\":\"not found\"}"
+      },
+      "http://localhost:1234/v1/models": {
+        "status": 200,
+        "body": "{\"data\":[{\"id\":\"qwen3-8b\"}]}"
+      }
+    }
+  },
+  {
+    "name": "lmstudio-native-unreachable-falls-back",
+    "provider": "lmstudio",
+    "responses": {
+      "http://localhost:1234/v1/models": {
+        "status": 200,
+        "body": "{\"data\":[{\"id\":\"qwen3-8b\"}]}"
+      }
+    }
+  },
+  {
+    "name": "lmstudio-native-empty-list-wins",
+    "provider": "lmstudio",
+    "responses": {
+      "http://localhost:1234/api/v0/models": {
+        "status": 200,
+        "body": "{\"data\":[]}"
+      },
+      "http://localhost:1234/v1/models": {
+        "status": 200,
+        "body": "{\"data\":[{\"id\":\"unused\"}]}"
+      }
+    }
+  },
+  {
+    "name": "openai-401",
+    "provider": "openai",
+    "responses": {
+      "https://api.openai.com/v1/models": {
+        "status": 401,
+        "body": "{\"error\":{\"message\":\"Incorrect API key provided.\"}}"
+      }
+    }
+  },
+  {
+    "name": "openai-503-text",
+    "provider": "openai",
+    "responses": {
+      "https://api.openai.com/v1/models": {
+        "status": 503,
+        "body": "upstream unavailable"
+      }
+    }
+  },
+  {
+    "name": "openai-unreachable",
+    "provider": "openai",
+    "responses": {}
+  },
+  {
+    "name": "ollama",
+    "provider": "ollama",
+    "responses": {
+      "http://localhost:11434/api/tags": {
+        "status": 200,
+        "body": "{\"models\":[{\"name\":\"llama3:8b\",\"size\":4661224676,\"details\":{\"family\":\"llama\",\"quantization_level\":\"Q4_0\",\"parameter_size\":\"8B\"}},{\"name\":\"qwen3:8b\",\"size\":5225376047,\"details\":{\"family\":\"qwen3\",\"quantization_level\":null}},{\"name\":\"tiny:latest\",\"size\":1}]}"
+      },
+      "http://localhost:11434/api/ps": {
+        "status": 200,
+        "body": "{\"models\":[{\"name\":\"llama3:8b\",\"size_vram\":5137025024},{\"name\":\"tiny:latest\",\"size_vram\":0}]}"
+      }
+    }
+  },
+  {
+    "name": "ollama-ps-unreachable",
+    "provider": "ollama",
+    "responses": {
+      "http://localhost:11434/api/tags": {
+        "status": 200,
+        "body": "{\"models\":[{\"name\":\"llama3:8b\",\"size\":10}]}"
+      }
+    }
+  },
+  {
+    "name": "ollama-error-status-still-parsed",
+    "provider": "ollama",
+    "responses": {
+      "http://localhost:11434/api/tags": {
+        "status": 500,
+        "body": "{\"models\":[{\"name\":\"a\"}]}"
+      },
+      "http://localhost:11434/api/ps": {
+        "status": 200,
+        "body": "not json"
+      }
+    }
+  },
+  {
+    "name": "ollama-unreachable",
+    "provider": "ollama",
+    "responses": {}
+  },
+  {
+    "name": "anthropic",
+    "provider": "anthropic",
+    "responses": {}
+  },
+  {
+    "name": "chatgpt",
+    "provider": "chatgpt",
+    "responses": {}
+  },
+  {
+    "name": "chatgpt-custom",
+    "provider": "chatgpt-custom",
+    "responses": {}
+  },
+  {
+    "name": "chatgpt-custom-duplicate",
+    "provider": "chatgpt-custom-dup",
+    "responses": {}
+  }
+]

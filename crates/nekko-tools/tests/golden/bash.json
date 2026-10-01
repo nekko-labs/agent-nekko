@@ -1,0 +1,238 @@
+{
+  "tree": {
+    "ws/app/sub/keep.txt": "x\n",
+    "ws/app/file.txt": "x\n"
+  },
+  "calls": [
+    {
+      "input": {
+        "command": "echo hello"
+      },
+      "result": {
+        "output": "hello\n",
+        "isError": false
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": "app",
+          "data": "$ echo hello\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "hello\n"
+        }
+      ]
+    },
+    {
+      "input": {
+        "command": ">&2 echo oops"
+      },
+      "result": {
+        "output": "\n[stderr]\noops\n",
+        "isError": false
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": "app",
+          "data": "$ >&2 echo oops\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "oops\n"
+        }
+      ]
+    },
+    {
+      "input": {
+        "command": "echo out&& >&2 echo err"
+      },
+      "result": {
+        "output": "out\n\n[stderr]\nerr\n",
+        "isError": false
+      },
+      "approvals": [],
+      "mirror": null
+    },
+    {
+      "input": {
+        "command": "exit 3"
+      },
+      "result": {
+        "output": "Command failed: Command failed: exit 3\n\n",
+        "isError": true
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": "app",
+          "data": "$ exit 3\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "[command failed]\n"
+        }
+      ]
+    },
+    {
+      "input": {
+        "command": "echo partial&& exit 4"
+      },
+      "result": {
+        "output": "Command failed: Command failed: echo partial&& exit 4\n\npartial\n",
+        "isError": true
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": "app",
+          "data": "$ echo partial&& exit 4\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "partial\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "[command failed]\n"
+        }
+      ]
+    },
+    {
+      "input": {
+        "command": ">&2 echo bad&& exit 5"
+      },
+      "result": {
+        "output": "Command failed: Command failed: >&2 echo bad&& exit 5\nbad\n\nbad\n",
+        "isError": true
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": "app",
+          "data": "$ >&2 echo bad&& exit 5\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "bad\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "[command failed]\n"
+        }
+      ]
+    },
+    {
+      "input": {
+        "command": "exit 0"
+      },
+      "result": {
+        "output": "(no output)",
+        "isError": false
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": "app",
+          "data": "$ exit 0\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "(no output)\n"
+        }
+      ]
+    },
+    {
+      "input": {
+        "command": "echo hi",
+        "cwd": "sub"
+      },
+      "result": {
+        "output": "hi\n",
+        "isError": false
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": null,
+          "data": "$ echo hi\n"
+        },
+        {
+          "workspaceId": null,
+          "data": "hi\n"
+        }
+      ]
+    },
+    {
+      "input": {
+        "command": "echo hi",
+        "cwd": "<ROOT>/ws/app/missing"
+      },
+      "result": {
+        "output": "Command failed: spawn <SHELL> ENOENT\n",
+        "isError": true
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": null,
+          "data": "$ echo hi\n"
+        },
+        {
+          "workspaceId": null,
+          "data": "[command failed]\n"
+        }
+      ]
+    },
+    {
+      "input": {
+        "command": "dd if=/dev/zero of=/dev/null"
+      },
+      "result": {
+        "output": "Blocked by guardrail (Raw disk / device write).",
+        "isError": true
+      },
+      "approvals": [],
+      "mirror": []
+    },
+    {
+      "input": {
+        "command": 5
+      },
+      "result": {
+        "output": "Command failed: The \"command\" argument must be of type string. Received type number (5)\n",
+        "isError": true
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": "app",
+          "data": "$ 5\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "[command failed]\n"
+        }
+      ]
+    },
+    {
+      "input": {},
+      "result": {
+        "output": "Command failed: The \"command\" argument must be of type string. Received undefined\n",
+        "isError": true
+      },
+      "approvals": [],
+      "mirror": [
+        {
+          "workspaceId": "app",
+          "data": "$ undefined\n"
+        },
+        {
+          "workspaceId": "app",
+          "data": "[command failed]\n"
+        }
+      ]
+    }
+  ]
+}

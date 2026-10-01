@@ -6,6 +6,11 @@ import type { AgentEvent, ModelInfo, ProviderConfig, Session } from '@agent-nekk
 import type { ChatRequest, Provider, ProviderChunk } from '@agent-nekko/core';
 
 let requests: Array<{ providerId: string; request: ChatRequest }> = [];
+let titleRequests: Array<{ providerId: string; request: ChatRequest }> = [];
+let suggestRequests: Array<{ providerId: string; request: ChatRequest }> = [];
+let suggestError: Error | null = null;
+let fillRequests: Array<{ providerId: string; request: ChatRequest }> = [];
+let fillError: Error | null = null;
 let listings: string[] = [];
 let rounds: Array<ProviderChunk[] | Error> = [];
 let models: ModelInfo[] = [];
@@ -33,7 +38,26 @@ vi.mock('@agent-nekko/core', async () => {
       },
       test: async () => ({ ok: true, message: '' }),
       async *chat(request) {
-        requests.push({ providerId: config.id, request });
+        // Sideband calls (title generation, reply suggestions) are recorded
+        // separately so the turn-traffic assertions below stay about routing.
+        if (request.purpose === 'title') {
+          titleRequests.push({ providerId: config.id, request });
+        } else if (request.purpose === 'suggest') {
+          suggestRequests.push({ providerId: config.id, request });
+          // A fire-and-forget titleSession from a previous test can bleed into
+          // this one and eat a queued round, so suggestion traffic gets a
+          // purpose-keyed default rather than sharing `rounds`.
+          if (suggestError) throw suggestError;
+          for (const chunk of [{ type: 'text', delta: '{"options":["Run the tests","Explain the diff"],"next":"Run the new tests"}' }, { type: 'done' }] as ProviderChunk[]) yield chunk;
+          return;
+        } else if (request.purpose === 'fill') {
+          fillRequests.push({ providerId: config.id, request });
+          if (fillError) throw fillError;
+          for (const chunk of [{ type: 'text', delta: 'You are a senior reviewer for this codebase.' }, { type: 'done' }] as ProviderChunk[]) yield chunk;
+          return;
+        } else {
+          requests.push({ providerId: config.id, request });
+        }
         const step = rounds.shift() ?? [{ type: 'text', delta: 'answer' }, { type: 'done' }];
         if (step instanceof Error) throw step;
         for (const chunk of step) yield chunk;
@@ -43,9 +67,11 @@ vi.mock('@agent-nekko/core', async () => {
 });
 
 const { setDataDir } = await import('./paths.js');
-const { saveSettings } = await import('./store.js');
+const { saveSettings, getSettings } = await import('./store.js');
+const { executeTool } = await import('./tools.js');
+const { terminalSnapshot, writeTerminal, closeTerminal } = await import('./terminal.js');
 const { createSession, getSession, saveSession, listSessions } = await import('./sessions.js');
-const { sendChat, previewContext, resolveApproval } = await import('./chat.js');
+const { sendChat, previewContext, resolveApproval, suggestReplies, fillPromptPart } = await import('./chat.js');
 const { BUILTIN_TOOLS } = await import('@agent-nekko/core');
 let dir: string;
 let providers: ProviderConfig[];
@@ -60,6 +86,11 @@ beforeEach(() => {
   ];
   saveSettings({ providers, workspaces: [], defaultChatMode: 'yolo' });
   requests = [];
+  titleRequests = [];
+  suggestRequests = [];
+  suggestError = null;
+  fillRequests = [];
+  fillError = null;
   listings = [];
   rounds = [];
   models = [{ id: 'local-exact', providerId: 'local', name: 'Local exact' }];
@@ -83,6 +114,42 @@ async function run(session = createSession(), providerId = 'frontier', modelId =
 function children(parent: Session) {
   return listSessions().filter((session) => session.parentSessionId === parent.id);
 }
+
+describe('agent command terminal', () => {
+  it('shows a guarded command once in a read-only terminal', async () => {
+    const sessionId = 'test-command';
+    const call = { id: 'cmd', name: 'bash', input: { command: 'node -p 42' } };
+    const result = await executeTool(call, { settings: getSettings(), sessionId, mode: 'yolo', requestApproval: async () => false });
+    const snapshot = await terminalSnapshot(`agent_${sessionId}`);
+    expect(result.output.trim()).toBe('42');
+    expect(snapshot?.info.agentSessionId).toBe(sessionId);
+    expect(snapshot?.buffer).toContain('$ node -p 42');
+    expect(snapshot?.buffer).toContain('42');
+    writeTerminal(`agent_${sessionId}`, 'ignored');
+    expect((await terminalSnapshot(`agent_${sessionId}`))?.buffer).toBe(snapshot?.buffer);
+    closeTerminal(`agent_${sessionId}`);
+  });
+});
+
+describe('browser permission boundary', () => {
+  it('hides browser control on non-desktop hosts and requests approval even in yolo mode', async () => {
+    const session = createSession();
+    rounds = [[{ type: 'tool_call', call: { id: 'browse', name: 'browser', input: { mode: 'existing', action: 'inspect' } } }, { type: 'done' }]];
+    await run(session);
+    expect(requests[0].request.tools?.some((tool) => tool.name === 'browser')).toBe(false);
+
+    rounds = [[{ type: 'tool_call', call: { id: 'browse2', name: 'browser', input: { mode: 'existing', action: 'inspect' } } }, { type: 'done' }]];
+    const events: AgentEvent[] = [];
+    const requestCount = requests.length;
+    await sendChat({ sessionId: session.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'inspect' }, (event) => {
+      events.push(event);
+      if (event.type === 'tool_approval_required') resolveApproval(session.id, event.call.id, false);
+    }, true);
+    expect(requests.slice(requestCount).some(({ request }) => request.tools?.some((tool) => tool.name === 'browser'))).toBe(true);
+    expect(events.some((event) => event.type === 'tool_approval_required')).toBe(true);
+    expect(events.find((event) => event.type === 'tool_result')).toMatchObject({ result: { output: 'Browser action not approved.', isError: true } });
+  });
+});
 
 describe('offline context preview', () => {
   it('does not fetch connectors for an offline session or missing session', async () => {
@@ -292,6 +359,122 @@ describe('explicit sub-agent routing', () => {
   });
 });
 
+describe('reply suggestions', () => {
+  const replied = () => {
+    const session = createSession();
+    session.providerId = 'frontier';
+    session.modelId = 'frontier-exact';
+    session.messages = [
+      { id: 'u1', role: 'user', content: 'add a test for the parser', createdAt: 1 },
+      { id: 'a1', role: 'assistant', content: 'Added chat.test.ts with the new cases.', createdAt: 2 },
+    ];
+    saveSession(session);
+    return session;
+  };
+
+  it('suggests from the reply on its own provider and model, out of band', async () => {
+    const session = replied();
+    const out = await suggestReplies(session.id);
+    expect(out).toEqual({ options: ['Run the tests', 'Explain the diff'], next: 'Run the new tests' });
+    expect(suggestRequests).toHaveLength(1);
+    expect(suggestRequests[0].providerId).toBe('frontier');
+    expect(suggestRequests[0].request.model).toBe('frontier-exact');
+    expect(suggestRequests[0].request.purpose).toBe('suggest');
+    expect(suggestRequests[0].request.messages.at(-1)?.content).toContain('Added chat.test.ts');
+    // Sideband traffic stays out of the turn buckets.
+    expect(requests).toEqual([]);
+  });
+
+  it('returns null when there is no reply to suggest from', async () => {
+    const session = createSession();
+    session.providerId = 'frontier';
+    session.modelId = 'frontier-exact';
+    session.messages = [{ id: 'u1', role: 'user', content: 'hi', createdAt: 1 }];
+    saveSession(session);
+    expect(await suggestReplies(session.id)).toBeNull();
+    expect(await suggestReplies('missing-session')).toBeNull();
+    expect(suggestRequests).toEqual([]);
+  });
+
+  it('skips sessions with nobody at the composer to click a chip', async () => {
+    for (const flag of ['taskId', 'trainingRunId', 'parentSessionId'] as const) {
+      const session = replied();
+      session[flag] = 'x1';
+      saveSession(session);
+      expect(await suggestReplies(session.id)).toBeNull();
+    }
+    expect(suggestRequests).toEqual([]);
+  });
+
+  it('turns a provider failure into no suggestions rather than an error', async () => {
+    const session = replied();
+    suggestError = new Error('provider down');
+    expect(await suggestReplies(session.id)).toBeNull();
+  });
+
+  it('respects the offline gate for remote providers', async () => {
+    providers[1].baseUrl = 'https://remote.example/v1';
+    saveSettings({ providers });
+    const session = replied();
+    session.providerId = 'local';
+    session.modelId = 'local-exact';
+    session.offline = true;
+    saveSession(session);
+    expect(await suggestReplies(session.id)).toBeNull();
+    expect(suggestRequests).toEqual([]);
+  });
+});
+
+describe('prompt part fills', () => {
+  const drafting = () => {
+    const session = createSession();
+    session.providerId = 'frontier';
+    session.modelId = 'frontier-exact';
+    saveSession(session);
+    return session;
+  };
+
+  it('drafts the missing part on the session provider and model, out of band', async () => {
+    const session = drafting();
+    const out = await fillPromptPart(session.id, 'Role', 'review my parser for edge cases');
+    expect(out).toBe('You are a senior reviewer for this codebase.');
+    expect(fillRequests).toHaveLength(1);
+    expect(fillRequests[0].providerId).toBe('frontier');
+    expect(fillRequests[0].request.model).toBe('frontier-exact');
+    expect(fillRequests[0].request.purpose).toBe('fill');
+    expect(fillRequests[0].request.messages.at(-1)?.content).toContain('review my parser for edge cases');
+    expect(fillRequests[0].request.messages.at(-1)?.content).toContain('"Role"');
+    expect(requests).toEqual([]);
+  });
+
+  it('returns null for missing sessions and sessions with no usable provider', async () => {
+    expect(await fillPromptPart('missing-session', 'Role', 'draft')).toBeNull();
+    const session = drafting();
+    session.providerId = 'disabled';
+    saveSession(session);
+    expect(await fillPromptPart(session.id, 'Role', 'draft')).toBeNull();
+    expect(fillRequests).toEqual([]);
+  });
+
+  it('turns a provider failure into null so the deterministic snippet fills', async () => {
+    const session = drafting();
+    fillError = new Error('provider down');
+    expect(await fillPromptPart(session.id, 'Role', 'draft')).toBeNull();
+  });
+
+  it('respects the offline gate for remote providers', async () => {
+    providers[1].baseUrl = 'https://remote.example/v1';
+    saveSettings({ providers });
+    const session = drafting();
+    session.providerId = 'local';
+    session.modelId = 'local-exact';
+    session.offline = true;
+    saveSession(session);
+    expect(await fillPromptPart(session.id, 'Role', 'draft')).toBeNull();
+    expect(fillRequests).toEqual([]);
+  });
+});
+
 describe('offline routing', () => {
   it.each([
     ['openai-compat', 'https://remote.example/v1'],
@@ -351,5 +534,39 @@ describe('offline routing', () => {
     const { events } = await run(createSession(), 'disabled', 'model');
     expect(events).toContainEqual(expect.objectContaining({ type: 'error' }));
     expect(requests).toEqual([]);
+  });
+});
+
+describe('session titles', () => {
+  /** titleSession runs fire-and-forget after the turn; drain microtasks. */
+  async function settle() {
+    for (let i = 0; i < 10; i += 1) await new Promise((r) => setImmediate(r));
+  }
+
+  it('writes a real title from the first turn, marked as sideband traffic', async () => {
+    const session = createSession();
+    await run(session);
+    await settle();
+    expect(titleRequests).toHaveLength(1);
+    expect(titleRequests[0].request.messages[0].content).toContain('delegate this');
+    expect(getSession(session.id)?.title).toBe('answer');
+    expect(getSession(session.id)?.titleAuto).toBe(false);
+
+    // A second turn does not regenerate: generation is a first-turn thing.
+    await sendChat({ sessionId: session.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'more work' }, () => {});
+    await settle();
+    expect(titleRequests).toHaveLength(1);
+    expect(getSession(session.id)?.title).toBe('answer');
+  });
+
+  it('leaves a title the user set alone', async () => {
+    const session = createSession();
+    session.title = 'My chat';
+    session.titleAuto = false;
+    saveSession(session);
+    await run(session);
+    await settle();
+    expect(titleRequests).toEqual([]);
+    expect(getSession(session.id)?.title).toBe('My chat');
   });
 });

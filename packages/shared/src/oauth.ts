@@ -1,6 +1,6 @@
 /** OAuth types and payloads shared between the host, IPC contracts, and UI. */
 
-export type OAuthProvider = 'claude' | 'chatgpt';
+export type OAuthProvider = 'claude' | 'chatgpt' | 'openrouter';
 
 export interface OAuthTokenSet {
   provider: OAuthProvider;

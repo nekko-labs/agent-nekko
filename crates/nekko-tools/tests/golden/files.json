@@ -1,0 +1,2957 @@
+{
+  "tree": {
+    "ws/app/src/main.ts": "export const main = 1;\nexport function run() {\n  return main;\n}\n",
+    "ws/app/src/util.ts": "export const util = true;\r\nexport const other = \"main\";\r\n",
+    "ws/app/src/deep/nested/leaf.ts": "leaf\n",
+    "ws/app/readme.md": "# App\n\nMain docs. main main\n",
+    "ws/app/bom.txt": "﻿bom first line\nsecond\n",
+    "ws/app/unicode.txt": "héllo wörld\n日本語テキスト\nemoji 😀 here\nÉCOLE école\nſecret\n",
+    "ws/app/invalid.bin": {
+      "hex": "61ff62e28263eda080c0800a6d61696e0af09f98"
+    },
+    "ws/app/binary.png": {
+      "hex": "89504e470d0a1a0a0000000d494844520000000000ff00fe6d61696e0000"
+    },
+    "ws/app/empty.txt": "",
+    "ws/app/one.txt": "x",
+    "ws/app/two.txt": "xy",
+    "ws/app/num.txt": "a42b",
+    "ws/app/dollars.txt": "price: TOKEN\n",
+    "ws/app/big.txt": {
+      "repeat": "abcdefghij",
+      "times": 7000
+    },
+    "ws/app/exact.txt": {
+      "repeat": "a",
+      "times": 60000
+    },
+    "ws/app/wide.txt": {
+      "repeat": "é",
+      "times": 65000
+    },
+    "ws/app/huge.log": {
+      "repeat": "main line\n",
+      "times": 110000
+    },
+    "ws/app/long-line.txt": "main xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n",
+    "ws/app/crlf-lines.txt": "  main padded  \r\nsecond main\r\n",
+    "ws/app/node_modules/pkg/index.ts": "main in node_modules\n",
+    "ws/app/.git/config": "main in git\n",
+    "ws/app/dist/out.ts": "main in dist\n",
+    "ws/app/empty-dir": {
+      "dir": true
+    },
+    "ws/app/space dir/file one.txt": "spaced main\n",
+    "ws/app/café/menu.txt": "crème main\n",
+    "ws/app/file(1).txt": "parens\n",
+    "ws/app/x[ab].txt": "brackets\n",
+    "ws/app/a.md": "a\n",
+    "ws/app/many/f000.txt": "hit\n",
+    "ws/app/many/f001.txt": "hit\n",
+    "ws/app/many/f002.txt": "hit\n",
+    "ws/app/many/f003.txt": "hit\n",
+    "ws/app/many/f004.txt": "hit\n",
+    "ws/app/many/f005.txt": "hit\n",
+    "ws/app/many/f006.txt": "hit\n",
+    "ws/app/many/f007.txt": "hit\n",
+    "ws/app/many/f008.txt": "hit\n",
+    "ws/app/many/f009.txt": "hit\n",
+    "ws/app/many/f010.txt": "hit\n",
+    "ws/app/many/f011.txt": "hit\n",
+    "ws/app/many/f012.txt": "hit\n",
+    "ws/app/many/f013.txt": "hit\n",
+    "ws/app/many/f014.txt": "hit\n",
+    "ws/app/many/f015.txt": "hit\n",
+    "ws/app/many/f016.txt": "hit\n",
+    "ws/app/many/f017.txt": "hit\n",
+    "ws/app/many/f018.txt": "hit\n",
+    "ws/app/many/f019.txt": "hit\n",
+    "ws/app/many/f020.txt": "hit\n",
+    "ws/app/many/f021.txt": "hit\n",
+    "ws/app/many/f022.txt": "hit\n",
+    "ws/app/many/f023.txt": "hit\n",
+    "ws/app/many/f024.txt": "hit\n",
+    "ws/app/many/f025.txt": "hit\n",
+    "ws/app/many/f026.txt": "hit\n",
+    "ws/app/many/f027.txt": "hit\n",
+    "ws/app/many/f028.txt": "hit\n",
+    "ws/app/many/f029.txt": "hit\n",
+    "ws/app/many/f030.txt": "hit\n",
+    "ws/app/many/f031.txt": "hit\n",
+    "ws/app/many/f032.txt": "hit\n",
+    "ws/app/many/f033.txt": "hit\n",
+    "ws/app/many/f034.txt": "hit\n",
+    "ws/app/many/f035.txt": "hit\n",
+    "ws/app/many/f036.txt": "hit\n",
+    "ws/app/many/f037.txt": "hit\n",
+    "ws/app/many/f038.txt": "hit\n",
+    "ws/app/many/f039.txt": "hit\n",
+    "ws/app/many/f040.txt": "hit\n",
+    "ws/app/many/f041.txt": "hit\n",
+    "ws/app/many/f042.txt": "hit\n",
+    "ws/app/many/f043.txt": "hit\n",
+    "ws/app/many/f044.txt": "hit\n",
+    "ws/app/many/f045.txt": "hit\n",
+    "ws/app/many/f046.txt": "hit\n",
+    "ws/app/many/f047.txt": "hit\n",
+    "ws/app/many/f048.txt": "hit\n",
+    "ws/app/many/f049.txt": "hit\n",
+    "ws/app/many/f050.txt": "hit\n",
+    "ws/app/many/f051.txt": "hit\n",
+    "ws/app/many/f052.txt": "hit\n",
+    "ws/app/many/f053.txt": "hit\n",
+    "ws/app/many/f054.txt": "hit\n",
+    "ws/app/many/f055.txt": "hit\n",
+    "ws/app/many/f056.txt": "hit\n",
+    "ws/app/many/f057.txt": "hit\n",
+    "ws/app/many/f058.txt": "hit\n",
+    "ws/app/many/f059.txt": "hit\n",
+    "ws/app/many/f060.txt": "hit\n",
+    "ws/app/many/f061.txt": "hit\n",
+    "ws/app/many/f062.txt": "hit\n",
+    "ws/app/many/f063.txt": "hit\n",
+    "ws/app/many/f064.txt": "hit\n",
+    "ws/app/many/f065.txt": "hit\n",
+    "ws/app/many/f066.txt": "hit\n",
+    "ws/app/many/f067.txt": "hit\n",
+    "ws/app/many/f068.txt": "hit\n",
+    "ws/app/many/f069.txt": "hit\n",
+    "ws/app/many/f070.txt": "hit\n",
+    "ws/app/many/f071.txt": "hit\n",
+    "ws/app/many/f072.txt": "hit\n",
+    "ws/app/many/f073.txt": "hit\n",
+    "ws/app/many/f074.txt": "hit\n",
+    "ws/app/many/f075.txt": "hit\n",
+    "ws/app/many/f076.txt": "hit\n",
+    "ws/app/many/f077.txt": "hit\n",
+    "ws/app/many/f078.txt": "hit\n",
+    "ws/app/many/f079.txt": "hit\n",
+    "ws/app/many/f080.txt": "hit\n",
+    "ws/app/many/f081.txt": "hit\n",
+    "ws/app/many/f082.txt": "hit\n",
+    "ws/app/many/f083.txt": "hit\n",
+    "ws/app/many/f084.txt": "hit\n",
+    "ws/app/many/f085.txt": "hit\n",
+    "ws/app/many/f086.txt": "hit\n",
+    "ws/app/many/f087.txt": "hit\n",
+    "ws/app/many/f088.txt": "hit\n",
+    "ws/app/many/f089.txt": "hit\n",
+    "ws/app/many/f090.txt": "hit\n",
+    "ws/app/many/f091.txt": "hit\n",
+    "ws/app/many/f092.txt": "hit\n",
+    "ws/app/many/f093.txt": "hit\n",
+    "ws/app/many/f094.txt": "hit\n",
+    "ws/app/many/f095.txt": "hit\n",
+    "ws/app/many/f096.txt": "hit\n",
+    "ws/app/many/f097.txt": "hit\n",
+    "ws/app/many/f098.txt": "hit\n",
+    "ws/app/many/f099.txt": "hit\n",
+    "ws/app/many/f100.txt": "hit\n",
+    "ws/app/many/f101.txt": "hit\n",
+    "ws/app/many/f102.txt": "hit\n",
+    "ws/app/many/f103.txt": "hit\n",
+    "ws/app/many/f104.txt": "hit\n",
+    "ws/app/many/f105.txt": "hit\n",
+    "ws/app/many/f106.txt": "hit\n",
+    "ws/app/many/f107.txt": "hit\n",
+    "ws/app/many/f108.txt": "hit\n",
+    "ws/app/many/f109.txt": "hit\n",
+    "ws/app/many/f110.txt": "hit\n",
+    "ws/app/many/f111.txt": "hit\n",
+    "ws/app/many/f112.txt": "hit\n",
+    "ws/app/many/f113.txt": "hit\n",
+    "ws/app/many/f114.txt": "hit\n",
+    "ws/app/many/f115.txt": "hit\n",
+    "ws/app/many/f116.txt": "hit\n",
+    "ws/app/many/f117.txt": "hit\n",
+    "ws/app/many/f118.txt": "hit\n",
+    "ws/app/many/f119.txt": "hit\n",
+    "ws/app/many/f120.txt": "hit\n",
+    "ws/app/many/f121.txt": "hit\n",
+    "ws/app/many/f122.txt": "hit\n",
+    "ws/app/many/f123.txt": "hit\n",
+    "ws/app/many/f124.txt": "hit\n",
+    "ws/app/many/f125.txt": "hit\n",
+    "ws/app/many/f126.txt": "hit\n",
+    "ws/app/many/f127.txt": "hit\n",
+    "ws/app/many/f128.txt": "hit\n",
+    "ws/app/many/f129.txt": "hit\n",
+    "ws/app/many/f130.txt": "hit\n",
+    "ws/app/many/f131.txt": "hit\n",
+    "ws/app/many/f132.txt": "hit\n",
+    "ws/app/many/f133.txt": "hit\n",
+    "ws/app/many/f134.txt": "hit\n",
+    "ws/app/many/f135.txt": "hit\n",
+    "ws/app/many/f136.txt": "hit\n",
+    "ws/app/many/f137.txt": "hit\n",
+    "ws/app/many/f138.txt": "hit\n",
+    "ws/app/many/f139.txt": "hit\n",
+    "ws/app/many/f140.txt": "hit\n",
+    "ws/app/many/f141.txt": "hit\n",
+    "ws/app/many/f142.txt": "hit\n",
+    "ws/app/many/f143.txt": "hit\n",
+    "ws/app/many/f144.txt": "hit\n",
+    "ws/app/many/f145.txt": "hit\n",
+    "ws/app/many/f146.txt": "hit\n",
+    "ws/app/many/f147.txt": "hit\n",
+    "ws/app/many/f148.txt": "hit\n",
+    "ws/app/many/f149.txt": "hit\n",
+    "ws/app/many/f150.txt": "hit\n",
+    "ws/app/many/f151.txt": "hit\n",
+    "ws/app/many/f152.txt": "hit\n",
+    "ws/app/many/f153.txt": "hit\n",
+    "ws/app/many/f154.txt": "hit\n",
+    "ws/app/many/f155.txt": "hit\n",
+    "ws/app/many/f156.txt": "hit\n",
+    "ws/app/many/f157.txt": "hit\n",
+    "ws/app/many/f158.txt": "hit\n",
+    "ws/app/many/f159.txt": "hit\n",
+    "ws/app/many/f160.txt": "hit\n",
+    "ws/app/many/f161.txt": "hit\n",
+    "ws/app/many/f162.txt": "hit\n",
+    "ws/app/many/f163.txt": "hit\n",
+    "ws/app/many/f164.txt": "hit\n",
+    "ws/app/many/f165.txt": "hit\n",
+    "ws/app/many/f166.txt": "hit\n",
+    "ws/app/many/f167.txt": "hit\n",
+    "ws/app/many/f168.txt": "hit\n",
+    "ws/app/many/f169.txt": "hit\n",
+    "ws/app/many/f170.txt": "hit\n",
+    "ws/app/many/f171.txt": "hit\n",
+    "ws/app/many/f172.txt": "hit\n",
+    "ws/app/many/f173.txt": "hit\n",
+    "ws/app/many/f174.txt": "hit\n",
+    "ws/app/many/f175.txt": "hit\n",
+    "ws/app/many/f176.txt": "hit\n",
+    "ws/app/many/f177.txt": "hit\n",
+    "ws/app/many/f178.txt": "hit\n",
+    "ws/app/many/f179.txt": "hit\n",
+    "ws/app/many/f180.txt": "hit\n",
+    "ws/app/many/f181.txt": "hit\n",
+    "ws/app/many/f182.txt": "hit\n",
+    "ws/app/many/f183.txt": "hit\n",
+    "ws/app/many/f184.txt": "hit\n",
+    "ws/app/many/f185.txt": "hit\n",
+    "ws/app/many/f186.txt": "hit\n",
+    "ws/app/many/f187.txt": "hit\n",
+    "ws/app/many/f188.txt": "hit\n",
+    "ws/app/many/f189.txt": "hit\n",
+    "ws/app/many/f190.txt": "hit\n",
+    "ws/app/many/f191.txt": "hit\n",
+    "ws/app/many/f192.txt": "hit\n",
+    "ws/app/many/f193.txt": "hit\n",
+    "ws/app/many/f194.txt": "hit\n",
+    "ws/app/many/f195.txt": "hit\n",
+    "ws/app/many/f196.txt": "hit\n",
+    "ws/app/many/f197.txt": "hit\n",
+    "ws/app/many/f198.txt": "hit\n",
+    "ws/app/many/f199.txt": "hit\n",
+    "ws/app/many/f200.txt": "hit\n",
+    "ws/app/many/f201.txt": "hit\n",
+    "ws/app/many/f202.txt": "hit\n",
+    "ws/app/many/f203.txt": "hit\n",
+    "ws/app/many/f204.txt": "hit\n",
+    "ws/app/many/f205.txt": "hit\n",
+    "ws/app/many/f206.txt": "hit\n",
+    "ws/app/many/f207.txt": "hit\n",
+    "ws/app/many/f208.txt": "hit\n",
+    "ws/app/many/f209.txt": "hit\n",
+    "ws/lib/index.ts": "lib main\n",
+    "ws/outside.txt": "outside\n"
+  },
+  "sequences": [
+    {
+      "name": "reads",
+      "policy": {
+        "setup": "two",
+        "mode": "guardrails",
+        "sandboxMode": "workspace-jail",
+        "rules": "default"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "src/main.ts"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "src/util.ts"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "bom.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "unicode.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "invalid.bin"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "binary.png"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "empty.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "big.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "exact.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "wide.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "src"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "missing.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "../outside.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "<ROOT>/ws/lib/index.ts"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": 42
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {}
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "space dir/file one.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "café/menu.txt"
+            }
+          }
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "export const main = 1;\nexport function run() {\n  return main;\n}\n",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "export const util = true;\nexport const other = \"main\";\n",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "﻿bom first line\nsecond\n",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "héllo wörld\n日本語テキスト\nemoji 😀 here\nÉCOLE école\nſecret\n",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "a�b�c�����\nmain\n�",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "�PNG\n\u001a\n\u0000\u0000\u0000\rIHDR\u0000\u0000\u0000\u0000\u0000�\u0000�main\u0000\u0000",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": {
+              "length": 60013,
+              "head": "abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij",
+              "tail": "defghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghij\n…(truncated)",
+              "fnv1a": "ed1883ac1e8f2c2c"
+            },
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": {
+              "length": 60000,
+              "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "tail": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "fnv1a": "7ae9aae5d86f1445"
+            },
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": {
+              "length": 60013,
+              "head": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+              "tail": "ééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé\n…(truncated)",
+              "fnv1a": "61e315fcbafd390c"
+            },
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "EISDIR: illegal operation on a directory, read",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "File not found: <ROOT>/ws/app/missing.txt",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Sandbox: <ROOT>/ws/outside.txt is outside the workspace folders. Add the folder or switch sandbox mode in Settings.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "lib main\n",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "The \"path\" argument must be of type string. Received type number (42)",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "The \"path\" argument must be of type string. Received undefined",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "spaced main\n",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "crème main\n",
+            "isError": false
+          },
+          "approvals": []
+        }
+      ],
+      "tree": {
+        "changed": {},
+        "removed": []
+      }
+    },
+    {
+      "name": "writes",
+      "policy": {
+        "setup": "two",
+        "mode": "guardrails",
+        "sandboxMode": "workspace-jail",
+        "rules": "default",
+        "sessionId": "s_writes"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "new.txt",
+              "content": "hello"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "deep/new/dir/file.txt",
+              "content": "nested\n"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "src/main.ts",
+              "content": "replaced\n"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "unicode-out.txt",
+              "content": "😀 é 日本\r\nline2"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "n-int.txt",
+              "content": 42
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "n-float.txt",
+              "content": 1.5
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "n-big.txt",
+              "content": 1e+21
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "bool.txt",
+              "content": true
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "null.txt",
+              "content": null
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "obj.txt",
+              "content": {
+                "a": 1
+              }
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "arr.txt",
+              "content": [
+                1,
+                null,
+                "a",
+                [
+                  2,
+                  3
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "missing-content.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "src",
+              "content": "dir"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "one.txt/child.txt",
+              "content": "under a file"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "../outside.txt",
+              "content": "escape"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "emoji-len.txt",
+              "content": "😀"
+            }
+          }
+        },
+        {
+          "changes": true
+        },
+        {
+          "accept": "new.txt"
+        },
+        {
+          "changes": true
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "src/main.ts",
+              "content": "export const main = 1;\nexport function run() {\n  return main;\n}\n"
+            }
+          }
+        },
+        {
+          "changes": true
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "../lib/index.ts",
+              "content": "lib changed\n"
+            }
+          }
+        },
+        {
+          "changes": true
+        },
+        {
+          "acceptAll": true
+        },
+        {
+          "changes": true
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/new.txt (5 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/deep/new/dir/file.txt (7 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/src/main.ts (9 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/unicode-out.txt (14 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/n-int.txt (2 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/n-float.txt (3 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/n-big.txt (5 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/bool.txt (4 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/null.txt (0 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/obj.txt (15 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/arr.txt (8 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/missing-content.txt (0 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "EISDIR: illegal operation on a directory, open '<ROOT>/ws/app/src'",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "EEXIST: file already exists, mkdir '<ROOT>/ws/app/one.txt'",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Sandbox: <ROOT>/ws/outside.txt is outside the workspace folders. Add the folder or switch sandbox mode in Settings.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/emoji-len.txt (2 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "changes": [
+            {
+              "path": "<ROOT>/ws/app/arr.txt",
+              "original": "",
+              "current": "1,,a,2,3"
+            },
+            {
+              "path": "<ROOT>/ws/app/bool.txt",
+              "original": "",
+              "current": "true"
+            },
+            {
+              "path": "<ROOT>/ws/app/deep/new/dir/file.txt",
+              "original": "",
+              "current": "nested\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/emoji-len.txt",
+              "original": "",
+              "current": "😀"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-big.txt",
+              "original": "",
+              "current": "1e+21"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-float.txt",
+              "original": "",
+              "current": "1.5"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-int.txt",
+              "original": "",
+              "current": "42"
+            },
+            {
+              "path": "<ROOT>/ws/app/new.txt",
+              "original": "",
+              "current": "hello"
+            },
+            {
+              "path": "<ROOT>/ws/app/obj.txt",
+              "original": "",
+              "current": "[object Object]"
+            },
+            {
+              "path": "<ROOT>/ws/app/src/main.ts",
+              "original": "export const main = 1;\nexport function run() {\n  return main;\n}\n",
+              "current": "replaced\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/unicode-out.txt",
+              "original": "",
+              "current": "😀 é 日本\r\nline2"
+            }
+          ]
+        },
+        {
+          "accepted": "new.txt"
+        },
+        {
+          "changes": [
+            {
+              "path": "<ROOT>/ws/app/arr.txt",
+              "original": "",
+              "current": "1,,a,2,3"
+            },
+            {
+              "path": "<ROOT>/ws/app/bool.txt",
+              "original": "",
+              "current": "true"
+            },
+            {
+              "path": "<ROOT>/ws/app/deep/new/dir/file.txt",
+              "original": "",
+              "current": "nested\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/emoji-len.txt",
+              "original": "",
+              "current": "😀"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-big.txt",
+              "original": "",
+              "current": "1e+21"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-float.txt",
+              "original": "",
+              "current": "1.5"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-int.txt",
+              "original": "",
+              "current": "42"
+            },
+            {
+              "path": "<ROOT>/ws/app/obj.txt",
+              "original": "",
+              "current": "[object Object]"
+            },
+            {
+              "path": "<ROOT>/ws/app/src/main.ts",
+              "original": "export const main = 1;\nexport function run() {\n  return main;\n}\n",
+              "current": "replaced\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/unicode-out.txt",
+              "original": "",
+              "current": "😀 é 日本\r\nline2"
+            }
+          ]
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/src/main.ts (64 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "changes": [
+            {
+              "path": "<ROOT>/ws/app/arr.txt",
+              "original": "",
+              "current": "1,,a,2,3"
+            },
+            {
+              "path": "<ROOT>/ws/app/bool.txt",
+              "original": "",
+              "current": "true"
+            },
+            {
+              "path": "<ROOT>/ws/app/deep/new/dir/file.txt",
+              "original": "",
+              "current": "nested\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/emoji-len.txt",
+              "original": "",
+              "current": "😀"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-big.txt",
+              "original": "",
+              "current": "1e+21"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-float.txt",
+              "original": "",
+              "current": "1.5"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-int.txt",
+              "original": "",
+              "current": "42"
+            },
+            {
+              "path": "<ROOT>/ws/app/obj.txt",
+              "original": "",
+              "current": "[object Object]"
+            },
+            {
+              "path": "<ROOT>/ws/app/unicode-out.txt",
+              "original": "",
+              "current": "😀 é 日本\r\nline2"
+            }
+          ]
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/lib/index.ts (12 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "changes": [
+            {
+              "path": "<ROOT>/ws/app/arr.txt",
+              "original": "",
+              "current": "1,,a,2,3"
+            },
+            {
+              "path": "<ROOT>/ws/app/bool.txt",
+              "original": "",
+              "current": "true"
+            },
+            {
+              "path": "<ROOT>/ws/app/deep/new/dir/file.txt",
+              "original": "",
+              "current": "nested\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/emoji-len.txt",
+              "original": "",
+              "current": "😀"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-big.txt",
+              "original": "",
+              "current": "1e+21"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-float.txt",
+              "original": "",
+              "current": "1.5"
+            },
+            {
+              "path": "<ROOT>/ws/app/n-int.txt",
+              "original": "",
+              "current": "42"
+            },
+            {
+              "path": "<ROOT>/ws/app/obj.txt",
+              "original": "",
+              "current": "[object Object]"
+            },
+            {
+              "path": "<ROOT>/ws/app/unicode-out.txt",
+              "original": "",
+              "current": "😀 é 日本\r\nline2"
+            },
+            {
+              "path": "<ROOT>/ws/lib/index.ts",
+              "original": "lib main\n",
+              "current": "lib changed\n"
+            }
+          ]
+        },
+        {
+          "acceptedAll": true
+        },
+        {
+          "changes": []
+        }
+      ],
+      "tree": {
+        "changed": {
+          "ws/app/arr.txt": {
+            "text": "1,,a,2,3"
+          },
+          "ws/app/bool.txt": {
+            "text": "true"
+          },
+          "ws/app/deep/": null,
+          "ws/app/deep/new/": null,
+          "ws/app/deep/new/dir/": null,
+          "ws/app/deep/new/dir/file.txt": {
+            "text": "nested\n"
+          },
+          "ws/app/emoji-len.txt": {
+            "text": "😀"
+          },
+          "ws/app/missing-content.txt": {
+            "text": ""
+          },
+          "ws/app/n-big.txt": {
+            "text": "1e+21"
+          },
+          "ws/app/n-float.txt": {
+            "text": "1.5"
+          },
+          "ws/app/n-int.txt": {
+            "text": "42"
+          },
+          "ws/app/new.txt": {
+            "text": "hello"
+          },
+          "ws/app/null.txt": {
+            "text": ""
+          },
+          "ws/app/obj.txt": {
+            "text": "[object Object]"
+          },
+          "ws/app/unicode-out.txt": {
+            "text": "😀 é 日本\r\nline2"
+          },
+          "ws/lib/index.ts": {
+            "text": "lib changed\n"
+          }
+        },
+        "removed": []
+      }
+    },
+    {
+      "name": "edits",
+      "policy": {
+        "setup": "two",
+        "mode": "guardrails",
+        "sandboxMode": "off",
+        "rules": "default",
+        "sessionId": "s_edits"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "src/main.ts",
+              "old_string": "main",
+              "new_string": "MAIN"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "src/main.ts",
+              "old_string": "const main = 1",
+              "new_string": "const main = 2"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "readme.md",
+              "old_string": "nope",
+              "new_string": "x"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "src/util.ts",
+              "old_string": "true;\n",
+              "new_string": "false;\n"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "src/util.ts",
+              "old_string": "true;\r\nexport",
+              "new_string": "false;\r\nexport"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "unicode.txt",
+              "old_string": "wörld",
+              "new_string": "world 🌍"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "dollars.txt",
+              "old_string": "TOKEN",
+              "new_string": "[$$|$&|$`|$'|$1|$<n>|$]"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "empty.txt",
+              "old_string": "",
+              "new_string": "filled $&"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "one.txt",
+              "old_string": "",
+              "new_string": "z"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "two.txt",
+              "old_string": "",
+              "new_string": ">"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "readme.md",
+              "old_string": "",
+              "new_string": "!"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "bom.txt",
+              "new_string": "x"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "bom.txt",
+              "old_string": null,
+              "new_string": "x"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "a.md",
+              "old_string": "a"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "invalid.bin",
+              "old_string": "main",
+              "new_string": "MAIN"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "binary.png",
+              "old_string": "main",
+              "new_string": "MAIN"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "num.txt",
+              "old_string": 42,
+              "new_string": 43
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "bom.txt",
+              "old_string": "﻿bom",
+              "new_string": "no bom"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "missing.txt",
+              "old_string": "a",
+              "new_string": "b"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "src",
+              "old_string": "a",
+              "new_string": "b"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "../outside.txt",
+              "old_string": "outside",
+              "new_string": "OUTSIDE"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "crlf-lines.txt",
+              "old_string": "second main\r\n",
+              "new_string": ""
+            }
+          }
+        },
+        {
+          "changes": true
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "old_string matched 2 times; make it unique.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/src/main.ts",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "old_string not found in file.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "old_string not found in file.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/src/util.ts",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/unicode.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/dollars.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/empty.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "old_string not found in file.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/two.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "old_string matched 27 times; make it unique.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "old_string not found in file.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "old_string not found in file.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/a.md",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/invalid.bin",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/binary.png",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/num.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/bom.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "File not found: <ROOT>/ws/app/missing.txt",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "EISDIR: illegal operation on a directory, read",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/outside.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/crlf-lines.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "changes": [
+            {
+              "path": "<ROOT>/ws/app/a.md",
+              "original": "a\n",
+              "current": "undefined\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/binary.png",
+              "original": "�PNG\r\n\u001a\n\u0000\u0000\u0000\rIHDR\u0000\u0000\u0000\u0000\u0000�\u0000�main\u0000\u0000",
+              "current": "�PNG\r\n\u001a\n\u0000\u0000\u0000\rIHDR\u0000\u0000\u0000\u0000\u0000�\u0000�MAIN\u0000\u0000"
+            },
+            {
+              "path": "<ROOT>/ws/app/bom.txt",
+              "original": "﻿bom first line\nsecond\n",
+              "current": "no bom first line\nsecond\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/crlf-lines.txt",
+              "original": "  main padded  \r\nsecond main\r\n",
+              "current": "  main padded  \r\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/dollars.txt",
+              "original": "price: TOKEN\n",
+              "current": "price: [$|TOKEN|price: |\n|$1|$<n>|$]\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/empty.txt",
+              "original": "",
+              "current": "filled "
+            },
+            {
+              "path": "<ROOT>/ws/app/invalid.bin",
+              "original": "a�b�c�����\nmain\n�",
+              "current": "a�b�c�����\nMAIN\n�"
+            },
+            {
+              "path": "<ROOT>/ws/app/num.txt",
+              "original": "a42b",
+              "current": "a43b"
+            },
+            {
+              "path": "<ROOT>/ws/app/src/main.ts",
+              "original": "export const main = 1;\nexport function run() {\n  return main;\n}\n",
+              "current": "export const main = 2;\nexport function run() {\n  return main;\n}\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/src/util.ts",
+              "original": "export const util = true;\r\nexport const other = \"main\";\r\n",
+              "current": "export const util = false;\r\nexport const other = \"main\";\r\n"
+            },
+            {
+              "path": "<ROOT>/ws/app/two.txt",
+              "original": "xy",
+              "current": ">xy"
+            },
+            {
+              "path": "<ROOT>/ws/app/unicode.txt",
+              "original": "héllo wörld\n日本語テキスト\nemoji 😀 here\nÉCOLE école\nſecret\n",
+              "current": "héllo world 🌍\n日本語テキスト\nemoji 😀 here\nÉCOLE école\nſecret\n"
+            },
+            {
+              "path": "<ROOT>/ws/outside.txt",
+              "original": "outside\n",
+              "current": "OUTSIDE\n"
+            }
+          ]
+        }
+      ],
+      "tree": {
+        "changed": {
+          "ws/app/a.md": {
+            "text": "undefined\n"
+          },
+          "ws/app/binary.png": {
+            "text": "�PNG\r\n\u001a\n\u0000\u0000\u0000\rIHDR\u0000\u0000\u0000\u0000\u0000�\u0000�MAIN\u0000\u0000"
+          },
+          "ws/app/bom.txt": {
+            "text": "no bom first line\nsecond\n"
+          },
+          "ws/app/crlf-lines.txt": {
+            "text": "  main padded  \r\n"
+          },
+          "ws/app/dollars.txt": {
+            "text": "price: [$|TOKEN|price: |\n|$1|$<n>|$]\n"
+          },
+          "ws/app/empty.txt": {
+            "text": "filled "
+          },
+          "ws/app/invalid.bin": {
+            "text": "a�b�c�����\nMAIN\n�"
+          },
+          "ws/app/num.txt": {
+            "text": "a43b"
+          },
+          "ws/app/src/main.ts": {
+            "text": "export const main = 2;\nexport function run() {\n  return main;\n}\n"
+          },
+          "ws/app/src/util.ts": {
+            "text": "export const util = false;\r\nexport const other = \"main\";\r\n"
+          },
+          "ws/app/two.txt": {
+            "text": ">xy"
+          },
+          "ws/app/unicode.txt": {
+            "text": "héllo world 🌍\n日本語テキスト\nemoji 😀 here\nÉCOLE école\nſecret\n"
+          },
+          "ws/outside.txt": {
+            "text": "OUTSIDE\n"
+          }
+        },
+        "removed": []
+      }
+    },
+    {
+      "name": "lists",
+      "policy": {
+        "setup": "two",
+        "mode": "guardrails",
+        "sandboxMode": "workspace-jail",
+        "rules": "default"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "."
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "src"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "src/deep"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "empty-dir"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "readme.md"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "missing"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "<ROOT>/ws"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "café"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "node_modules"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "many"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": 7
+            }
+          }
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": ".git/\na.md\nbig.txt\nbinary.png\nbom.txt\ncafé/\ncrlf-lines.txt\ndist/\ndollars.txt\nempty-dir/\nempty.txt\nexact.txt\nfile(1).txt\nhuge.log\ninvalid.bin\nlong-line.txt\nmany/\nnode_modules/\nnum.txt\none.txt\nreadme.md\nspace dir/\nsrc/\ntwo.txt\nunicode.txt\nwide.txt\nx[ab].txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "deep/\nmain.ts\nutil.ts",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "nested/",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "(empty)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "ENOTDIR: not a directory, scandir '<ROOT>/ws/app/readme.md'",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Directory not found: <ROOT>/ws/app/missing",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Sandbox: <ROOT>/ws is outside the workspace folders. Add the folder or switch sandbox mode in Settings.",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "menu.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "pkg/",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "f000.txt\nf001.txt\nf002.txt\nf003.txt\nf004.txt\nf005.txt\nf006.txt\nf007.txt\nf008.txt\nf009.txt\nf010.txt\nf011.txt\nf012.txt\nf013.txt\nf014.txt\nf015.txt\nf016.txt\nf017.txt\nf018.txt\nf019.txt\nf020.txt\nf021.txt\nf022.txt\nf023.txt\nf024.txt\nf025.txt\nf026.txt\nf027.txt\nf028.txt\nf029.txt\nf030.txt\nf031.txt\nf032.txt\nf033.txt\nf034.txt\nf035.txt\nf036.txt\nf037.txt\nf038.txt\nf039.txt\nf040.txt\nf041.txt\nf042.txt\nf043.txt\nf044.txt\nf045.txt\nf046.txt\nf047.txt\nf048.txt\nf049.txt\nf050.txt\nf051.txt\nf052.txt\nf053.txt\nf054.txt\nf055.txt\nf056.txt\nf057.txt\nf058.txt\nf059.txt\nf060.txt\nf061.txt\nf062.txt\nf063.txt\nf064.txt\nf065.txt\nf066.txt\nf067.txt\nf068.txt\nf069.txt\nf070.txt\nf071.txt\nf072.txt\nf073.txt\nf074.txt\nf075.txt\nf076.txt\nf077.txt\nf078.txt\nf079.txt\nf080.txt\nf081.txt\nf082.txt\nf083.txt\nf084.txt\nf085.txt\nf086.txt\nf087.txt\nf088.txt\nf089.txt\nf090.txt\nf091.txt\nf092.txt\nf093.txt\nf094.txt\nf095.txt\nf096.txt\nf097.txt\nf098.txt\nf099.txt\nf100.txt\nf101.txt\nf102.txt\nf103.txt\nf104.txt\nf105.txt\nf106.txt\nf107.txt\nf108.txt\nf109.txt\nf110.txt\nf111.txt\nf112.txt\nf113.txt\nf114.txt\nf115.txt\nf116.txt\nf117.txt\nf118.txt\nf119.txt\nf120.txt\nf121.txt\nf122.txt\nf123.txt\nf124.txt\nf125.txt\nf126.txt\nf127.txt\nf128.txt\nf129.txt\nf130.txt\nf131.txt\nf132.txt\nf133.txt\nf134.txt\nf135.txt\nf136.txt\nf137.txt\nf138.txt\nf139.txt\nf140.txt\nf141.txt\nf142.txt\nf143.txt\nf144.txt\nf145.txt\nf146.txt\nf147.txt\nf148.txt\nf149.txt\nf150.txt\nf151.txt\nf152.txt\nf153.txt\nf154.txt\nf155.txt\nf156.txt\nf157.txt\nf158.txt\nf159.txt\nf160.txt\nf161.txt\nf162.txt\nf163.txt\nf164.txt\nf165.txt\nf166.txt\nf167.txt\nf168.txt\nf169.txt\nf170.txt\nf171.txt\nf172.txt\nf173.txt\nf174.txt\nf175.txt\nf176.txt\nf177.txt\nf178.txt\nf179.txt\nf180.txt\nf181.txt\nf182.txt\nf183.txt\nf184.txt\nf185.txt\nf186.txt\nf187.txt\nf188.txt\nf189.txt\nf190.txt\nf191.txt\nf192.txt\nf193.txt\nf194.txt\nf195.txt\nf196.txt\nf197.txt\nf198.txt\nf199.txt\nf200.txt\nf201.txt\nf202.txt\nf203.txt\nf204.txt\nf205.txt\nf206.txt\nf207.txt\nf208.txt\nf209.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "The \"path\" argument must be of type string. Received type number (7)",
+            "isError": true
+          },
+          "approvals": []
+        }
+      ],
+      "tree": {
+        "changed": {},
+        "removed": []
+      }
+    },
+    {
+      "name": "lists-unjailed",
+      "policy": {
+        "setup": "two",
+        "mode": "yolo",
+        "sandboxMode": "off",
+        "rules": "default"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "<ROOT>/ws"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": ".."
+            }
+          }
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "app/\nlib/\noutside.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "app/\nlib/\noutside.txt",
+            "isError": false
+          },
+          "approvals": []
+        }
+      ],
+      "tree": {
+        "changed": {},
+        "removed": []
+      }
+    },
+    {
+      "name": "globs",
+      "policy": {
+        "setup": "two",
+        "mode": "guardrails",
+        "sandboxMode": "workspace-jail",
+        "rules": "default"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "**/*.ts"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "*.md"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "src/**"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "**/*.txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "?.md"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "src/*/*/*.ts"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "nomatch/**"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "file(1).txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "x[ab].txt"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "caf?/*"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "**"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {}
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": null
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": 5
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": [
+                "*",
+                ".",
+                "md"
+              ]
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "space dir/*"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "**/"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "src/**/leaf.ts"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "*"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": ""
+            }
+          }
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "src/deep/nested/leaf.ts\nsrc/main.ts\nsrc/util.ts",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "a.md\nreadme.md",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "src/deep/nested/leaf.ts\nsrc/main.ts\nsrc/util.ts",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "big.txt\nbom.txt\ncafé/menu.txt\ncrlf-lines.txt\ndollars.txt\nempty.txt\nexact.txt\nfile(1).txt\nlong-line.txt\nmany/f000.txt\nmany/f001.txt\nmany/f002.txt\nmany/f003.txt\nmany/f004.txt\nmany/f005.txt\nmany/f006.txt\nmany/f007.txt\nmany/f008.txt\nmany/f009.txt\nmany/f010.txt\nmany/f011.txt\nmany/f012.txt\nmany/f013.txt\nmany/f014.txt\nmany/f015.txt\nmany/f016.txt\nmany/f017.txt\nmany/f018.txt\nmany/f019.txt\nmany/f020.txt\nmany/f021.txt\nmany/f022.txt\nmany/f023.txt\nmany/f024.txt\nmany/f025.txt\nmany/f026.txt\nmany/f027.txt\nmany/f028.txt\nmany/f029.txt\nmany/f030.txt\nmany/f031.txt\nmany/f032.txt\nmany/f033.txt\nmany/f034.txt\nmany/f035.txt\nmany/f036.txt\nmany/f037.txt\nmany/f038.txt\nmany/f039.txt\nmany/f040.txt\nmany/f041.txt\nmany/f042.txt\nmany/f043.txt\nmany/f044.txt\nmany/f045.txt\nmany/f046.txt\nmany/f047.txt\nmany/f048.txt\nmany/f049.txt\nmany/f050.txt\nmany/f051.txt\nmany/f052.txt\nmany/f053.txt\nmany/f054.txt\nmany/f055.txt\nmany/f056.txt\nmany/f057.txt\nmany/f058.txt\nmany/f059.txt\nmany/f060.txt\nmany/f061.txt\nmany/f062.txt\nmany/f063.txt\nmany/f064.txt\nmany/f065.txt\nmany/f066.txt\nmany/f067.txt\nmany/f068.txt\nmany/f069.txt\nmany/f070.txt\nmany/f071.txt\nmany/f072.txt\nmany/f073.txt\nmany/f074.txt\nmany/f075.txt\nmany/f076.txt\nmany/f077.txt\nmany/f078.txt\nmany/f079.txt\nmany/f080.txt\nmany/f081.txt\nmany/f082.txt\nmany/f083.txt\nmany/f084.txt\nmany/f085.txt\nmany/f086.txt\nmany/f087.txt\nmany/f088.txt\nmany/f089.txt\nmany/f090.txt\nmany/f091.txt\nmany/f092.txt\nmany/f093.txt\nmany/f094.txt\nmany/f095.txt\nmany/f096.txt\nmany/f097.txt\nmany/f098.txt\nmany/f099.txt\nmany/f100.txt\nmany/f101.txt\nmany/f102.txt\nmany/f103.txt\nmany/f104.txt\nmany/f105.txt\nmany/f106.txt\nmany/f107.txt\nmany/f108.txt\nmany/f109.txt\nmany/f110.txt\nmany/f111.txt\nmany/f112.txt\nmany/f113.txt\nmany/f114.txt\nmany/f115.txt\nmany/f116.txt\nmany/f117.txt\nmany/f118.txt\nmany/f119.txt\nmany/f120.txt\nmany/f121.txt\nmany/f122.txt\nmany/f123.txt\nmany/f124.txt\nmany/f125.txt\nmany/f126.txt\nmany/f127.txt\nmany/f128.txt\nmany/f129.txt\nmany/f130.txt\nmany/f131.txt\nmany/f132.txt\nmany/f133.txt\nmany/f134.txt\nmany/f135.txt\nmany/f136.txt\nmany/f137.txt\nmany/f138.txt\nmany/f139.txt\nmany/f140.txt\nmany/f141.txt\nmany/f142.txt\nmany/f143.txt\nmany/f144.txt\nmany/f145.txt\nmany/f146.txt\nmany/f147.txt\nmany/f148.txt\nmany/f149.txt\nmany/f150.txt\nmany/f151.txt\nmany/f152.txt\nmany/f153.txt\nmany/f154.txt\nmany/f155.txt\nmany/f156.txt\nmany/f157.txt\nmany/f158.txt\nmany/f159.txt\nmany/f160.txt\nmany/f161.txt\nmany/f162.txt\nmany/f163.txt\nmany/f164.txt\nmany/f165.txt\nmany/f166.txt\nmany/f167.txt\nmany/f168.txt\nmany/f169.txt\nmany/f170.txt\nmany/f171.txt\nmany/f172.txt\nmany/f173.txt\nmany/f174.txt\nmany/f175.txt\nmany/f176.txt\nmany/f177.txt\nmany/f178.txt\nmany/f179.txt\nmany/f180.txt\nmany/f181.txt\nmany/f182.txt\nmany/f183.txt\nmany/f184.txt\nmany/f185.txt\nmany/f186.txt\nmany/f187.txt\nmany/f188.txt\nmany/f189.txt\nmany/f190.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "a.md",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "src/deep/nested/leaf.ts",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "(no matches)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "file(1).txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "x[ab].txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "café/menu.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "a.md\nbig.txt\nbinary.png\nbom.txt\ncafé/menu.txt\ncrlf-lines.txt\ndollars.txt\nempty.txt\nexact.txt\nfile(1).txt\nhuge.log\ninvalid.bin\nlong-line.txt\nmany/f000.txt\nmany/f001.txt\nmany/f002.txt\nmany/f003.txt\nmany/f004.txt\nmany/f005.txt\nmany/f006.txt\nmany/f007.txt\nmany/f008.txt\nmany/f009.txt\nmany/f010.txt\nmany/f011.txt\nmany/f012.txt\nmany/f013.txt\nmany/f014.txt\nmany/f015.txt\nmany/f016.txt\nmany/f017.txt\nmany/f018.txt\nmany/f019.txt\nmany/f020.txt\nmany/f021.txt\nmany/f022.txt\nmany/f023.txt\nmany/f024.txt\nmany/f025.txt\nmany/f026.txt\nmany/f027.txt\nmany/f028.txt\nmany/f029.txt\nmany/f030.txt\nmany/f031.txt\nmany/f032.txt\nmany/f033.txt\nmany/f034.txt\nmany/f035.txt\nmany/f036.txt\nmany/f037.txt\nmany/f038.txt\nmany/f039.txt\nmany/f040.txt\nmany/f041.txt\nmany/f042.txt\nmany/f043.txt\nmany/f044.txt\nmany/f045.txt\nmany/f046.txt\nmany/f047.txt\nmany/f048.txt\nmany/f049.txt\nmany/f050.txt\nmany/f051.txt\nmany/f052.txt\nmany/f053.txt\nmany/f054.txt\nmany/f055.txt\nmany/f056.txt\nmany/f057.txt\nmany/f058.txt\nmany/f059.txt\nmany/f060.txt\nmany/f061.txt\nmany/f062.txt\nmany/f063.txt\nmany/f064.txt\nmany/f065.txt\nmany/f066.txt\nmany/f067.txt\nmany/f068.txt\nmany/f069.txt\nmany/f070.txt\nmany/f071.txt\nmany/f072.txt\nmany/f073.txt\nmany/f074.txt\nmany/f075.txt\nmany/f076.txt\nmany/f077.txt\nmany/f078.txt\nmany/f079.txt\nmany/f080.txt\nmany/f081.txt\nmany/f082.txt\nmany/f083.txt\nmany/f084.txt\nmany/f085.txt\nmany/f086.txt\nmany/f087.txt\nmany/f088.txt\nmany/f089.txt\nmany/f090.txt\nmany/f091.txt\nmany/f092.txt\nmany/f093.txt\nmany/f094.txt\nmany/f095.txt\nmany/f096.txt\nmany/f097.txt\nmany/f098.txt\nmany/f099.txt\nmany/f100.txt\nmany/f101.txt\nmany/f102.txt\nmany/f103.txt\nmany/f104.txt\nmany/f105.txt\nmany/f106.txt\nmany/f107.txt\nmany/f108.txt\nmany/f109.txt\nmany/f110.txt\nmany/f111.txt\nmany/f112.txt\nmany/f113.txt\nmany/f114.txt\nmany/f115.txt\nmany/f116.txt\nmany/f117.txt\nmany/f118.txt\nmany/f119.txt\nmany/f120.txt\nmany/f121.txt\nmany/f122.txt\nmany/f123.txt\nmany/f124.txt\nmany/f125.txt\nmany/f126.txt\nmany/f127.txt\nmany/f128.txt\nmany/f129.txt\nmany/f130.txt\nmany/f131.txt\nmany/f132.txt\nmany/f133.txt\nmany/f134.txt\nmany/f135.txt\nmany/f136.txt\nmany/f137.txt\nmany/f138.txt\nmany/f139.txt\nmany/f140.txt\nmany/f141.txt\nmany/f142.txt\nmany/f143.txt\nmany/f144.txt\nmany/f145.txt\nmany/f146.txt\nmany/f147.txt\nmany/f148.txt\nmany/f149.txt\nmany/f150.txt\nmany/f151.txt\nmany/f152.txt\nmany/f153.txt\nmany/f154.txt\nmany/f155.txt\nmany/f156.txt\nmany/f157.txt\nmany/f158.txt\nmany/f159.txt\nmany/f160.txt\nmany/f161.txt\nmany/f162.txt\nmany/f163.txt\nmany/f164.txt\nmany/f165.txt\nmany/f166.txt\nmany/f167.txt\nmany/f168.txt\nmany/f169.txt\nmany/f170.txt\nmany/f171.txt\nmany/f172.txt\nmany/f173.txt\nmany/f174.txt\nmany/f175.txt\nmany/f176.txt\nmany/f177.txt\nmany/f178.txt\nmany/f179.txt\nmany/f180.txt\nmany/f181.txt\nmany/f182.txt\nmany/f183.txt\nmany/f184.txt\nmany/f185.txt\nmany/f186.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Cannot read properties of undefined (reading 'length')",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Cannot read properties of null (reading 'length')",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "(no matches)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "a.md\nreadme.md",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "space dir/file one.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "a.md\nbig.txt\nbinary.png\nbom.txt\ncafé/menu.txt\ncrlf-lines.txt\ndollars.txt\nempty.txt\nexact.txt\nfile(1).txt\nhuge.log\ninvalid.bin\nlong-line.txt\nmany/f000.txt\nmany/f001.txt\nmany/f002.txt\nmany/f003.txt\nmany/f004.txt\nmany/f005.txt\nmany/f006.txt\nmany/f007.txt\nmany/f008.txt\nmany/f009.txt\nmany/f010.txt\nmany/f011.txt\nmany/f012.txt\nmany/f013.txt\nmany/f014.txt\nmany/f015.txt\nmany/f016.txt\nmany/f017.txt\nmany/f018.txt\nmany/f019.txt\nmany/f020.txt\nmany/f021.txt\nmany/f022.txt\nmany/f023.txt\nmany/f024.txt\nmany/f025.txt\nmany/f026.txt\nmany/f027.txt\nmany/f028.txt\nmany/f029.txt\nmany/f030.txt\nmany/f031.txt\nmany/f032.txt\nmany/f033.txt\nmany/f034.txt\nmany/f035.txt\nmany/f036.txt\nmany/f037.txt\nmany/f038.txt\nmany/f039.txt\nmany/f040.txt\nmany/f041.txt\nmany/f042.txt\nmany/f043.txt\nmany/f044.txt\nmany/f045.txt\nmany/f046.txt\nmany/f047.txt\nmany/f048.txt\nmany/f049.txt\nmany/f050.txt\nmany/f051.txt\nmany/f052.txt\nmany/f053.txt\nmany/f054.txt\nmany/f055.txt\nmany/f056.txt\nmany/f057.txt\nmany/f058.txt\nmany/f059.txt\nmany/f060.txt\nmany/f061.txt\nmany/f062.txt\nmany/f063.txt\nmany/f064.txt\nmany/f065.txt\nmany/f066.txt\nmany/f067.txt\nmany/f068.txt\nmany/f069.txt\nmany/f070.txt\nmany/f071.txt\nmany/f072.txt\nmany/f073.txt\nmany/f074.txt\nmany/f075.txt\nmany/f076.txt\nmany/f077.txt\nmany/f078.txt\nmany/f079.txt\nmany/f080.txt\nmany/f081.txt\nmany/f082.txt\nmany/f083.txt\nmany/f084.txt\nmany/f085.txt\nmany/f086.txt\nmany/f087.txt\nmany/f088.txt\nmany/f089.txt\nmany/f090.txt\nmany/f091.txt\nmany/f092.txt\nmany/f093.txt\nmany/f094.txt\nmany/f095.txt\nmany/f096.txt\nmany/f097.txt\nmany/f098.txt\nmany/f099.txt\nmany/f100.txt\nmany/f101.txt\nmany/f102.txt\nmany/f103.txt\nmany/f104.txt\nmany/f105.txt\nmany/f106.txt\nmany/f107.txt\nmany/f108.txt\nmany/f109.txt\nmany/f110.txt\nmany/f111.txt\nmany/f112.txt\nmany/f113.txt\nmany/f114.txt\nmany/f115.txt\nmany/f116.txt\nmany/f117.txt\nmany/f118.txt\nmany/f119.txt\nmany/f120.txt\nmany/f121.txt\nmany/f122.txt\nmany/f123.txt\nmany/f124.txt\nmany/f125.txt\nmany/f126.txt\nmany/f127.txt\nmany/f128.txt\nmany/f129.txt\nmany/f130.txt\nmany/f131.txt\nmany/f132.txt\nmany/f133.txt\nmany/f134.txt\nmany/f135.txt\nmany/f136.txt\nmany/f137.txt\nmany/f138.txt\nmany/f139.txt\nmany/f140.txt\nmany/f141.txt\nmany/f142.txt\nmany/f143.txt\nmany/f144.txt\nmany/f145.txt\nmany/f146.txt\nmany/f147.txt\nmany/f148.txt\nmany/f149.txt\nmany/f150.txt\nmany/f151.txt\nmany/f152.txt\nmany/f153.txt\nmany/f154.txt\nmany/f155.txt\nmany/f156.txt\nmany/f157.txt\nmany/f158.txt\nmany/f159.txt\nmany/f160.txt\nmany/f161.txt\nmany/f162.txt\nmany/f163.txt\nmany/f164.txt\nmany/f165.txt\nmany/f166.txt\nmany/f167.txt\nmany/f168.txt\nmany/f169.txt\nmany/f170.txt\nmany/f171.txt\nmany/f172.txt\nmany/f173.txt\nmany/f174.txt\nmany/f175.txt\nmany/f176.txt\nmany/f177.txt\nmany/f178.txt\nmany/f179.txt\nmany/f180.txt\nmany/f181.txt\nmany/f182.txt\nmany/f183.txt\nmany/f184.txt\nmany/f185.txt\nmany/f186.txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "src/deep/nested/leaf.ts",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "a.md\nbig.txt\nbinary.png\nbom.txt\ncrlf-lines.txt\ndollars.txt\nempty.txt\nexact.txt\nfile(1).txt\nhuge.log\ninvalid.bin\nlong-line.txt\nnum.txt\none.txt\nreadme.md\ntwo.txt\nunicode.txt\nwide.txt\nx[ab].txt",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "(no matches)",
+            "isError": false
+          },
+          "approvals": []
+        }
+      ],
+      "tree": {
+        "changed": {},
+        "removed": []
+      }
+    },
+    {
+      "name": "globs-no-workspace",
+      "policy": {
+        "setup": "none",
+        "mode": "guardrails",
+        "sandboxMode": "workspace-jail",
+        "rules": "default"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "glob",
+            "input": {
+              "pattern": "src/*.ts"
+            }
+          }
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "src/main.ts\nsrc/util.ts",
+            "isError": false
+          },
+          "approvals": []
+        }
+      ],
+      "tree": {
+        "changed": {},
+        "removed": []
+      }
+    },
+    {
+      "name": "greps",
+      "policy": {
+        "setup": "two",
+        "mode": "guardrails",
+        "sandboxMode": "workspace-jail",
+        "rules": "default"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "main"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "MAIN"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "^export"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "(["
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "main",
+              "path": "src"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "main",
+              "path": "readme.md"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "hit"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "école"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "secret"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "ſecret"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "\\bdocs\\b"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "path": "src"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": 5
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "main",
+              "path": ""
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "lib",
+              "path": "../lib"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "padded"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "x{250}"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "日本"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "main",
+              "path": "missing-dir"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "bom"
+            }
+          }
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "binary.png:3: \u0000\u0000\u0000\rIHDR\u0000\u0000\u0000\u0000\u0000�\u0000�main\u0000\u0000\ncafé/menu.txt:1: crème main\ncrlf-lines.txt:1: main padded\ncrlf-lines.txt:2: second main\ninvalid.bin:2: main\nlong-line.txt:1: main xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nreadme.md:3: Main docs. main main\nspace dir/file one.txt:1: spaced main\nsrc/main.ts:1: export const main = 1;\nsrc/main.ts:3: return main;\nsrc/util.ts:2: export const other = \"main\";",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "binary.png:3: \u0000\u0000\u0000\rIHDR\u0000\u0000\u0000\u0000\u0000�\u0000�main\u0000\u0000\ncafé/menu.txt:1: crème main\ncrlf-lines.txt:1: main padded\ncrlf-lines.txt:2: second main\ninvalid.bin:2: main\nlong-line.txt:1: main xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nreadme.md:3: Main docs. main main\nspace dir/file one.txt:1: spaced main\nsrc/main.ts:1: export const main = 1;\nsrc/main.ts:3: return main;\nsrc/util.ts:2: export const other = \"main\";",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "src/main.ts:1: export const main = 1;\nsrc/main.ts:2: export function run() {\nsrc/util.ts:1: export const util = true;\nsrc/util.ts:2: export const other = \"main\";",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Invalid regex: ([",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "main.ts:1: export const main = 1;\nmain.ts:3: return main;\nutil.ts:2: export const other = \"main\";",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "(no matches)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "many/f000.txt:1: hit\nmany/f001.txt:1: hit\nmany/f002.txt:1: hit\nmany/f003.txt:1: hit\nmany/f004.txt:1: hit\nmany/f005.txt:1: hit\nmany/f006.txt:1: hit\nmany/f007.txt:1: hit\nmany/f008.txt:1: hit\nmany/f009.txt:1: hit\nmany/f010.txt:1: hit\nmany/f011.txt:1: hit\nmany/f012.txt:1: hit\nmany/f013.txt:1: hit\nmany/f014.txt:1: hit\nmany/f015.txt:1: hit\nmany/f016.txt:1: hit\nmany/f017.txt:1: hit\nmany/f018.txt:1: hit\nmany/f019.txt:1: hit\nmany/f020.txt:1: hit\nmany/f021.txt:1: hit\nmany/f022.txt:1: hit\nmany/f023.txt:1: hit\nmany/f024.txt:1: hit\nmany/f025.txt:1: hit\nmany/f026.txt:1: hit\nmany/f027.txt:1: hit\nmany/f028.txt:1: hit\nmany/f029.txt:1: hit\nmany/f030.txt:1: hit\nmany/f031.txt:1: hit\nmany/f032.txt:1: hit\nmany/f033.txt:1: hit\nmany/f034.txt:1: hit\nmany/f035.txt:1: hit\nmany/f036.txt:1: hit\nmany/f037.txt:1: hit\nmany/f038.txt:1: hit\nmany/f039.txt:1: hit\nmany/f040.txt:1: hit\nmany/f041.txt:1: hit\nmany/f042.txt:1: hit\nmany/f043.txt:1: hit\nmany/f044.txt:1: hit\nmany/f045.txt:1: hit\nmany/f046.txt:1: hit\nmany/f047.txt:1: hit\nmany/f048.txt:1: hit\nmany/f049.txt:1: hit\nmany/f050.txt:1: hit\nmany/f051.txt:1: hit\nmany/f052.txt:1: hit\nmany/f053.txt:1: hit\nmany/f054.txt:1: hit\nmany/f055.txt:1: hit\nmany/f056.txt:1: hit\nmany/f057.txt:1: hit\nmany/f058.txt:1: hit\nmany/f059.txt:1: hit\nmany/f060.txt:1: hit\nmany/f061.txt:1: hit\nmany/f062.txt:1: hit\nmany/f063.txt:1: hit\nmany/f064.txt:1: hit\nmany/f065.txt:1: hit\nmany/f066.txt:1: hit\nmany/f067.txt:1: hit\nmany/f068.txt:1: hit\nmany/f069.txt:1: hit\nmany/f070.txt:1: hit\nmany/f071.txt:1: hit\nmany/f072.txt:1: hit\nmany/f073.txt:1: hit\nmany/f074.txt:1: hit\nmany/f075.txt:1: hit\nmany/f076.txt:1: hit\nmany/f077.txt:1: hit\nmany/f078.txt:1: hit\nmany/f079.txt:1: hit\nmany/f080.txt:1: hit\nmany/f081.txt:1: hit\nmany/f082.txt:1: hit\nmany/f083.txt:1: hit\nmany/f084.txt:1: hit\nmany/f085.txt:1: hit\nmany/f086.txt:1: hit\nmany/f087.txt:1: hit\nmany/f088.txt:1: hit\nmany/f089.txt:1: hit\nmany/f090.txt:1: hit\nmany/f091.txt:1: hit\nmany/f092.txt:1: hit\nmany/f093.txt:1: hit\nmany/f094.txt:1: hit\nmany/f095.txt:1: hit\nmany/f096.txt:1: hit\nmany/f097.txt:1: hit\nmany/f098.txt:1: hit\nmany/f099.txt:1: hit",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "unicode.txt:4: ÉCOLE école",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "(no matches)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "unicode.txt:5: ſecret",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "readme.md:3: Main docs. main main",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "deep/nested/leaf.ts:1: leaf\ndeep/nested/leaf.ts:2: \nmain.ts:1: export const main = 1;\nmain.ts:2: export function run() {\nmain.ts:3: return main;\nmain.ts:4: }\nmain.ts:5: \nutil.ts:1: export const util = true;\nutil.ts:2: export const other = \"main\";\nutil.ts:3: ",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "(no matches)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "binary.png:3: \u0000\u0000\u0000\rIHDR\u0000\u0000\u0000\u0000\u0000�\u0000�main\u0000\u0000\ncafé/menu.txt:1: crème main\ncrlf-lines.txt:1: main padded\ncrlf-lines.txt:2: second main\ninvalid.bin:2: main\nlong-line.txt:1: main xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\nreadme.md:3: Main docs. main main\nspace dir/file one.txt:1: spaced main\nsrc/main.ts:1: export const main = 1;\nsrc/main.ts:3: return main;\nsrc/util.ts:2: export const other = \"main\";",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "index.ts:1: lib main",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "crlf-lines.txt:1: main padded",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "long-line.txt:1: main xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "unicode.txt:2: 日本語テキスト",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "(no matches)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "bom.txt:1: bom first line",
+            "isError": false
+          },
+          "approvals": []
+        }
+      ],
+      "tree": {
+        "changed": {},
+        "removed": []
+      }
+    },
+    {
+      "name": "greps-unjailed",
+      "policy": {
+        "setup": "two",
+        "mode": "guardrails",
+        "sandboxMode": "off",
+        "rules": "default"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "lib",
+              "path": "../lib"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "outside",
+              "path": ".."
+            }
+          }
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "index.ts:1: lib main",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "outside.txt:1: outside",
+            "isError": false
+          },
+          "approvals": []
+        }
+      ],
+      "tree": {
+        "changed": {},
+        "removed": []
+      }
+    },
+    {
+      "name": "ask-mode",
+      "policy": {
+        "setup": "two",
+        "mode": "ask",
+        "sandboxMode": "off",
+        "rules": "default",
+        "sessionId": "s_ask"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "asked.txt",
+              "content": "no"
+            }
+          },
+          "approve": false
+        },
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "asked.txt",
+              "content": "yes"
+            }
+          },
+          "approve": true
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "readme.md",
+              "old_string": "Main docs",
+              "new_string": "Docs"
+            }
+          },
+          "approve": false
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "readme.md",
+              "old_string": "Main docs",
+              "new_string": "Docs"
+            }
+          },
+          "approve": true
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "missing.txt",
+              "old_string": "a",
+              "new_string": "b"
+            }
+          },
+          "approve": true
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "readme.md"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "list_dir",
+            "input": {
+              "path": "src"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "grep",
+            "input": {
+              "pattern": "Docs"
+            }
+          }
+        },
+        {
+          "changes": true
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "Write not approved by user.",
+            "isError": true
+          },
+          "approvals": [
+            {
+              "reason": "Write <ROOT>/ws/app/asked.txt",
+              "severity": "medium"
+            }
+          ]
+        },
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/asked.txt (3 bytes)",
+            "isError": false
+          },
+          "approvals": [
+            {
+              "reason": "Write <ROOT>/ws/app/asked.txt",
+              "severity": "medium"
+            }
+          ]
+        },
+        {
+          "result": {
+            "output": "Edit not approved by user.",
+            "isError": true
+          },
+          "approvals": [
+            {
+              "reason": "Edit <ROOT>/ws/app/readme.md",
+              "severity": "medium"
+            }
+          ]
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/readme.md",
+            "isError": false
+          },
+          "approvals": [
+            {
+              "reason": "Edit <ROOT>/ws/app/readme.md",
+              "severity": "medium"
+            }
+          ]
+        },
+        {
+          "result": {
+            "output": "File not found: <ROOT>/ws/app/missing.txt",
+            "isError": true
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "# App\n\nDocs. main main\n",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "deep/\nmain.ts\nutil.ts",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "readme.md:3: Docs. main main",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "changes": [
+            {
+              "path": "<ROOT>/ws/app/asked.txt",
+              "original": "",
+              "current": "yes"
+            },
+            {
+              "path": "<ROOT>/ws/app/readme.md",
+              "original": "# App\n\nMain docs. main main\n",
+              "current": "# App\n\nDocs. main main\n"
+            }
+          ]
+        }
+      ],
+      "tree": {
+        "changed": {
+          "ws/app/asked.txt": {
+            "text": "yes"
+          },
+          "ws/app/readme.md": {
+            "text": "# App\n\nDocs. main main\n"
+          }
+        },
+        "removed": []
+      }
+    },
+    {
+      "name": "ask-everything",
+      "policy": {
+        "setup": "two",
+        "mode": "yolo",
+        "sandboxMode": "ask-everything",
+        "rules": "default",
+        "sessionId": "s_everything"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "yolo.txt",
+              "content": "no"
+            }
+          },
+          "approve": false
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "readme.md",
+              "old_string": "Main docs",
+              "new_string": "Docs"
+            }
+          },
+          "approve": false
+        },
+        {
+          "call": {
+            "name": "read_file",
+            "input": {
+              "path": "readme.md"
+            }
+          }
+        },
+        {
+          "changes": true
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "Write not approved by user.",
+            "isError": true
+          },
+          "approvals": [
+            {
+              "reason": "Write <ROOT>/ws/app/yolo.txt",
+              "severity": "medium"
+            }
+          ]
+        },
+        {
+          "result": {
+            "output": "Edit not approved by user.",
+            "isError": true
+          },
+          "approvals": [
+            {
+              "reason": "Edit <ROOT>/ws/app/readme.md",
+              "severity": "medium"
+            }
+          ]
+        },
+        {
+          "result": {
+            "output": "# App\n\nMain docs. main main\n",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "changes": []
+        }
+      ],
+      "tree": {
+        "changed": {},
+        "removed": []
+      }
+    },
+    {
+      "name": "no-session",
+      "policy": {
+        "setup": "two",
+        "mode": "guardrails",
+        "sandboxMode": "off",
+        "rules": "default"
+      },
+      "steps": [
+        {
+          "call": {
+            "name": "write_file",
+            "input": {
+              "path": "untracked.txt",
+              "content": "x"
+            }
+          }
+        },
+        {
+          "call": {
+            "name": "edit_file",
+            "input": {
+              "path": "readme.md",
+              "old_string": "Main docs",
+              "new_string": "Docs"
+            }
+          }
+        }
+      ],
+      "results": [
+        {
+          "result": {
+            "output": "Wrote <ROOT>/ws/app/untracked.txt (1 bytes)",
+            "isError": false
+          },
+          "approvals": []
+        },
+        {
+          "result": {
+            "output": "Edited <ROOT>/ws/app/readme.md",
+            "isError": false
+          },
+          "approvals": []
+        }
+      ],
+      "tree": {
+        "changed": {
+          "ws/app/readme.md": {
+            "text": "# App\n\nDocs. main main\n"
+          },
+          "ws/app/untracked.txt": {
+            "text": "x"
+          }
+        },
+        "removed": []
+      }
+    }
+  ]
+}

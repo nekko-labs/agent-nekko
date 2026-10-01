@@ -1,6 +1,8 @@
-import { spawn, type ChildProcess } from 'child_process';
+import { execFile, spawn, type ChildProcess } from 'child_process';
+import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises';
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'http';
 import { createServer as createProbe } from 'net';
+import { basename, dirname, join } from 'path';
 import type {
   EngineSettings,
   GpuStats,
@@ -10,6 +12,10 @@ import type {
   ResidentModel,
   StopResult,
 } from '@agent-nekko/shared';
+import { defaultContextTokens, unsupportedLoadReason } from '@agent-nekko/shared';
+import { DAEMON_PORT, type EngineDaemon } from './daemon.js';
+import { mlxArgs } from './mlx.js';
+import { diffusionArgs } from './diffusion.js';
 
 /**
  * The Nekko engine's server: one address, several models.
@@ -52,7 +58,10 @@ const LOG_LINES = 200;
 
 interface Child {
   modelId: string;
-  child: ChildProcess;
+  /** The process, when this module spawned it (no daemon). */
+  child?: ChildProcess;
+  /** Its pid, when the engine daemon spawned it. */
+  pid?: number;
   port: number;
   params: LoadParams;
   startedAt: number;
@@ -62,6 +71,7 @@ interface Child {
   vramBytes?: number;
   sizeBytes: number;
   contextTokens?: number;
+  activeRequests: number;
 }
 
 /**
@@ -80,17 +90,54 @@ export interface EngineServerDeps {
   settings: () => EngineSettings;
   /** Absolute path to `llama-server`, or undefined when none is installed. */
   binPath: () => Promise<string | undefined>;
+  diffusionBinPath?: () => Promise<string | undefined>;
+  /** `mlx_lm.server`, on an Apple Silicon Mac with MLX installed. */
+  mlxBinPath?: () => Promise<string | undefined>;
   findModel: (id: string) => Promise<LocalModel | undefined>;
   listModels: () => Promise<LocalModel[]>;
   getGpuStats: () => Promise<GpuStats | null>;
+  /**
+   * A writable directory for files we generate (a chat template extracted from
+   * a repo's JSON config), needed because a borrowed model folder may be
+   * read-only.
+   */
+  workDir?: () => string;
+  /**
+   * The nekko-owned sidecar directory for one model: where fetched companions
+   * (a projector, a template) live when the model itself is in a folder we do
+   * not write to.
+   */
+  companionsDir?: (modelId: string) => string;
+  /** The shared directory the image panel downloads text encoders and VAEs into. */
+  imageCompanionsDir?: () => string;
   spawnFn?: typeof spawn;
+  /** Which flags the binary accepts; defaults to asking it (`probeFlags`). */
+  flagSupport?: (bin: string) => Promise<FlagSupport>;
+  /**
+   * The engine daemon, when this host runs under one. It then owns the model
+   * server processes and the OpenAI-compatible port; this module keeps the
+   * policy (what to load, with which arguments, when to evict) and asks it.
+   */
+  daemon?: EngineDaemon;
 }
+
+/** How often residency (last use, requests in flight) is read back from the daemon. */
+const DAEMON_SYNC_MS = 3000;
 
 export function createEngineServer(deps: EngineServerDeps) {
   const spawnFn = deps.spawnFn ?? spawn;
   const children = new Map<string, Child>();
+  /**
+   * The translated reason the last load of each model failed, kept until the
+   * next success. In-memory on purpose: a failure that predates a restart is
+   * history, not state.
+   */
+  const lastLoadErrors = new Map<string, string>();
   const log: string[] = [];
   let server: Server | null = null;
+  /** Under the daemon: its router is listening on our behalf. */
+  let serving = false;
+  let syncTimer: ReturnType<typeof setInterval> | null = null;
   let sweeper: ReturnType<typeof setInterval> | null = null;
   let startedAt: number | undefined;
   /** Loads are serialized: two at once make the VRAM measurement meaningless. */
@@ -99,7 +146,7 @@ export function createEngineServer(deps: EngineServerDeps) {
   const killAll = () => {
     for (const c of children.values()) {
       try {
-        c.child.kill('SIGTERM');
+        c.child?.kill('SIGTERM');
       } catch {
         /* already gone */
       }
@@ -110,13 +157,27 @@ export function createEngineServer(deps: EngineServerDeps) {
   /* ------------------------------------------------------------- lifecycle */
 
   async function start(): Promise<{ ok: boolean; message: string }> {
-    if (server) return { ok: true, message: 'The engine is already running.' };
-    const bin = await deps.binPath();
+    if (server || serving) return { ok: true, message: 'The engine is already running.' };
+    const bin = await deps.binPath() || await deps.diffusionBinPath?.();
     if (!bin) {
       return { ok: false, message: 'No engine is installed yet. Install one from the Models tab first.' };
     }
     const settings = deps.settings();
     const host = settings.bind === 'lan' ? '0.0.0.0' : '127.0.0.1';
+
+    if (deps.daemon) {
+      const res = await deps.daemon.serve({
+        port: settings.port,
+        host,
+        apiKey: settings.apiKey || undefined,
+        corsOrigins: (settings.corsOrigins ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+      });
+      if (!res.ok) return res;
+      beginServing();
+      push(`Engine listening on http://${host}:${settings.port}/v1 (served by the engine daemon)`);
+      void adopt().then(() => autoload());
+      return { ok: true, message: `The engine is serving on port ${settings.port}.` };
+    }
 
     const next = createServer((req, res) => {
       void handle(req, res).catch((e: Error) => fail(res, 502, e.message));
@@ -145,15 +206,129 @@ export function createEngineServer(deps: EngineServerDeps) {
     sweeper = setInterval(() => void sweepIdle(), SWEEP_INTERVAL_MS);
     sweeper.unref?.();
     push(`Engine listening on http://${host}:${settings.port}/v1`);
+    void autoload();
     return { ok: true, message: `The engine is serving on port ${settings.port}.` };
   }
 
+  /**
+   * The models configured to come up with the engine.
+   *
+   * Fired rather than awaited: each load can take minutes and the endpoint is
+   * already answering (and JIT-loading) by then. Loads serialize through the
+   * same chain interactive loads use, so a request mid-startup joins the queue
+   * rather than racing the autoload list. A model that fails lands in
+   * `lastLoadErrors`; the rest keep coming.
+   */
+  async function autoload(): Promise<void> {
+    for (const id of deps.settings().autoload ?? []) {
+      const model = await deps.findModel(id).catch(() => undefined);
+      if (!model) {
+        push(`Autoload skipped ${id}: it is no longer in the library.`);
+        continue;
+      }
+      const res = await load(id, model.preset ?? {});
+      if (res.ok) push(`Autoloaded ${id}.`);
+      else push(`Autoload ${id} failed: ${res.message}`);
+    }
+  }
+
+  /** Under the daemon: mark the endpoint up and start following residency. */
+  function beginServing(): void {
+    serving = true;
+    startedAt ??= Date.now();
+    if (!sweeper) {
+      sweeper = setInterval(() => void sweepIdle(), SWEEP_INTERVAL_MS);
+      sweeper.unref?.();
+    }
+    if (!syncTimer) {
+      syncTimer = setInterval(() => void sync(), DAEMON_SYNC_MS);
+      syncTimer.unref?.();
+    }
+  }
+
+  /**
+   * Read residency back from the daemon: when each model was last used, what
+   * is in flight, and which ones are gone (a model server that crashed).
+   */
+  async function sync(): Promise<void> {
+    if (!deps.daemon || !serving) return;
+    const live = await deps.daemon.list().catch(() => null);
+    if (!live) return;
+    const byId = new Map(live.map((c) => [c.modelId, c]));
+    for (const [id, entry] of children) {
+      const c = byId.get(id);
+      if (!c) {
+        children.delete(id);
+        push(`${id} stopped.`);
+        continue;
+      }
+      entry.lastUsedAt = Math.max(entry.lastUsedAt, c.lastUsedAt);
+      entry.activeRequests = c.activeRequests;
+    }
+  }
+
+  /**
+   * Take over model servers the daemon is already running: this backend was
+   * restarted, and the models it had loaded kept serving through the daemon
+   * in the meantime.
+   */
+  async function adopt(): Promise<void> {
+    if (!deps.daemon) return;
+    const live = await deps.daemon.list().catch(() => [] as Awaited<ReturnType<EngineDaemon['list']>>);
+    for (const c of live) {
+      if (children.has(c.modelId)) continue;
+      const model = await deps.findModel(c.modelId).catch(() => undefined);
+      children.set(c.modelId, {
+        modelId: c.modelId,
+        pid: c.pid,
+        port: c.port,
+        params: model?.preset ?? {},
+        startedAt: c.startedAt,
+        lastUsedAt: c.lastUsedAt,
+        log: [],
+        sizeBytes: model?.sizeBytes ?? 0,
+        activeRequests: c.activeRequests,
+      });
+      push(`${c.modelId} was still loaded; carrying on with it.`);
+    }
+  }
+
+  /** On creation under a daemon that is already serving (this backend restarted). */
+  async function reattach(): Promise<void> {
+    if (!deps.daemon) return;
+    const listening = await deps.daemon.serving().catch(() => null);
+    if (!listening) return;
+    beginServing();
+    await adopt();
+  }
+
+  /**
+   * Under the daemon, apply new endpoint settings (port, binding, key, CORS)
+   * by re-serving: the listener restarts, the loaded models stay loaded.
+   */
+  async function reconfigure(): Promise<{ ok: boolean; message: string }> {
+    if (!deps.daemon || !serving) return { ok: true, message: 'Nothing to reconfigure.' };
+    const settings = deps.settings();
+    return deps.daemon.serve({
+      port: settings.port,
+      host: settings.bind === 'lan' ? '0.0.0.0' : '127.0.0.1',
+      apiKey: settings.apiKey || undefined,
+      corsOrigins: (settings.corsOrigins ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    });
+  }
+
   async function stop(): Promise<StopResult> {
-    if (!server) return { ok: true, message: 'The engine was not running.' };
+    if (!server && !serving) return { ok: true, message: 'The engine was not running.' };
     if (sweeper) clearInterval(sweeper);
     sweeper = null;
+    if (syncTimer) clearInterval(syncTimer);
+    syncTimer = null;
     for (const id of [...children.keys()]) await unload(id);
-    await new Promise<void>((resolve) => server?.close(() => resolve()));
+    if (serving) {
+      await deps.daemon?.stopServing().catch(() => {});
+      serving = false;
+    }
+    await new Promise<void>((resolve) => (server ? server.close(() => resolve()) : resolve()));
     server = null;
     startedAt = undefined;
     liveKillers.delete(killAll);
@@ -183,29 +358,124 @@ export function createEngineServer(deps: EngineServerDeps) {
       // "Reload with these settings" means.
       if (sameParams(existing.params, params)) {
         existing.lastUsedAt = Date.now();
+        // The TTL is residency policy, not load configuration: a new value
+        // applies to the resident process rather than forcing a reload.
+        existing.params = { ...existing.params, ttlSeconds: params.ttlSeconds };
         return { ok: true, message: `${modelId} is already loaded.` };
       }
       await unload(modelId);
     }
 
-    const bin = await deps.binPath();
-    if (!bin) return { ok: false, message: 'No engine is installed.' };
     const model = await deps.findModel(modelId);
     if (!model) return { ok: false, message: `${modelId} is not in the library.` };
+    const image = model.modality === 'image';
+    const mlx = model.format === 'mlx';
+    const bin = image ? await deps.diffusionBinPath?.() : mlx ? await deps.mlxBinPath?.() : await deps.binPath();
+    if (!bin) {
+      const message = image
+        ? 'Install stable-diffusion.cpp from Nekko Server to run this image-generation model.'
+        : mlx
+          ? (model.mlxRunnable ? 'Install MLX from Nekko Server to run this model.' : `${model.name} is an MLX model, which runs on Apple Silicon Macs only.`)
+          : 'No engine is installed.';
+      lastLoadErrors.set(modelId, message);
+      return { ok: false, message };
+    }
+
+    // Some files are models but not chat models: a diffusion checkpoint, a
+    // speech recognizer, a draft head. Spawning llama-server for one only ever
+    // ends in its generic "model loading error", so refuse here with the
+    // reason, the same one the library row shows instead of a Load button.
+    const unsupported = image ? undefined : unsupportedLoadReason(model);
+    if (unsupported) {
+      lastLoadErrors.set(modelId, unsupported);
+      return { ok: false, message: unsupported };
+    }
 
     const settings = deps.settings();
+    await sync();
     // Make room before spending minutes on a load that would immediately push
     // something else out anyway.
     while (children.size >= Math.max(1, settings.maxLoaded)) {
-      const oldest = [...children.values()].sort((a, b) => a.lastUsedAt - b.lastUsedAt)[0];
-      if (!oldest) break;
+      const oldest = [...children.values()].filter(c => c.activeRequests === 0).sort((a, b) => a.lastUsedAt - b.lastUsedAt)[0];
+      if (!oldest) return { ok: false, message: 'All resident models are processing requests. Wait for one to finish or increase the resident limit.' };
       push(`Unloading ${oldest.modelId} to make room for ${modelId}.`);
       await unload(oldest.modelId);
     }
 
-    const port = await freePort();
-    const args = buildArgs(model, port, params);
+    const companions = image || mlx ? {} : await resolveCompanions(model, deps.workDir?.(), deps.companionsDir?.(model.id));
+    if ('error' in companions) return { ok: false, message: companions.error };
+
+    // A draft model is resolved like the model itself; one that is gone or is
+    // not a GGUF is dropped with a note rather than failing the load.
+    let draftModel: string | undefined;
+    if (params.draftModelId) {
+      const draft = await deps.findModel(params.draftModelId).catch(() => undefined);
+      // A draft has to be the same kind of file as its target: llama.cpp
+      // drafts with a GGUF, mlx-lm with an MLX folder.
+      if (draft && (draft.format === 'mlx') === (model.format === 'mlx')) draftModel = draft.path;
+      else push(`Draft model ${params.draftModelId} is not usable with ${modelId}; loading without it.`);
+    }
+
+    // Under the daemon it picks the port and fills it in at spawn time.
+    const port: number | string = deps.daemon ? DAEMON_PORT : await freePort();
+    // A llama.cpp load always names its context; see defaultContextTokens.
+    // The stored params stay as asked, so a reload with the same settings is
+    // still recognised as the same load.
+    const contextTokens = image || mlx ? params.contextTokens : params.contextTokens ?? defaultContextTokens(model);
+    let args: string[];
+    try {
+      args = image
+        ? await diffusionArgs({ ...model, preset: { ...model.preset, ...params } }, port, deps.companionsDir?.(model.id), deps.imageCompanionsDir?.())
+        : mlx
+          ? mlxArgs(model, port, params, draftModel)
+          : buildArgs(model, port, { ...params, contextTokens: contextTokens ?? undefined }, { ...companions, draftModel }, await (deps.flagSupport ?? probeFlags)(bin));
+    } catch (e) {
+      const message = (e as Error).message;
+      lastLoadErrors.set(modelId, message);
+      return { ok: false, message };
+    }
     const before = await freeVramBytes();
+
+    if (deps.daemon) {
+      const outcome = await deps.daemon
+        .spawn({
+          modelId,
+          bin,
+          args,
+          kind: image ? 'image' : 'chat',
+          // llama.cpp answers /health with "loading model" until it is ready;
+          // stable-diffusion.cpp has no /health, and /v1/models means up.
+          healthPath: image ? '/v1/models' : '/health',
+          healthExpect: image ? undefined : '"ok"',
+          budgetSecs: Math.round(LOAD_BUDGET_MS / 1000),
+        })
+        .catch((e: Error) => ({ status: 'failed' as const, message: e.message, log: [] as string[] }));
+      if (outcome.status === 'failed') {
+        push(...outcome.log.slice(-4));
+        const message = explainLoadError(outcome.log) || outcome.message;
+        lastLoadErrors.set(modelId, message);
+        return { ok: false, message };
+      }
+      if (before !== null) await sleep(MEASURE_SETTLE_MS);
+      const after = await freeVramBytes();
+      const measured = before !== null && after !== null && before - after > 0 ? before - after : undefined;
+      children.set(modelId, {
+        modelId,
+        pid: outcome.pid,
+        port: outcome.port,
+        params,
+        startedAt: Date.now(),
+        lastUsedAt: Date.now(),
+        log: [],
+        vramBytes: measured,
+        sizeBytes: measured ?? model.sizeBytes,
+        contextTokens,
+        activeRequests: 0,
+      });
+      lastLoadErrors.delete(modelId);
+      push(`Loaded ${modelId} on port ${outcome.port}.`);
+      return { ok: true, message: `Loaded ${modelId}.` };
+    }
 
     const childLog: string[] = [];
     let child: ChildProcess;
@@ -230,18 +500,22 @@ export function createEngineServer(deps: EngineServerDeps) {
     });
     child.on('exit', (code, signal) => {
       exited = exited ?? `The model server exited (code ${code ?? signal}).`;
-      children.delete(modelId);
+      if (children.get(modelId)?.child === child) children.delete(modelId);
     });
 
     const deadline = Date.now() + LOAD_BUDGET_MS;
     while (Date.now() < deadline) {
       if (exited) {
         // The captured output is the answer: "failed to allocate" and "unknown
-        // argument" are different problems with different fixes.
+        // argument" are different problems with different fixes. llama.cpp's
+        // own wording is translated where a pattern is known, because "error
+        // loading model" leaves a person nowhere to start.
         push(...childLog.slice(-4));
-        return { ok: false, message: childLog.slice(-2).join(' ') || exited };
+        const message = explainLoadError(childLog) || exited;
+        lastLoadErrors.set(modelId, message);
+        return { ok: false, message };
       }
-      if (await healthy(port)) {
+      if (await healthy(Number(port), image)) {
         if (before !== null) await sleep(MEASURE_SETTLE_MS);
         const after = await freeVramBytes();
         // Measured, not projected: what the GPU reported before minus after.
@@ -251,7 +525,7 @@ export function createEngineServer(deps: EngineServerDeps) {
         const entry: Child = {
           modelId,
           child,
-          port,
+          port: Number(port),
           params,
           startedAt: Date.now(),
           lastUsedAt: Date.now(),
@@ -261,9 +535,11 @@ export function createEngineServer(deps: EngineServerDeps) {
           // reports here. The file size is only the floor, and only stands in
           // when nothing could be measured.
           sizeBytes: measured ?? model.sizeBytes,
-          contextTokens: params.contextTokens,
+          contextTokens,
+          activeRequests: 0,
         };
         children.set(modelId, entry);
+        lastLoadErrors.delete(modelId);
         push(`Loaded ${modelId} on port ${port}.`);
         return { ok: true, message: `Loaded ${modelId}.` };
       }
@@ -275,6 +551,7 @@ export function createEngineServer(deps: EngineServerDeps) {
     } catch {
       /* already gone */
     }
+    lastLoadErrors.set(modelId, 'The model did not finish loading in time.');
     return { ok: false, message: 'The model did not finish loading in time.' };
   }
 
@@ -282,11 +559,17 @@ export function createEngineServer(deps: EngineServerDeps) {
     const entry = children.get(modelId);
     if (!entry) return { ok: false, message: `${modelId} is not loaded.` };
     children.delete(modelId);
+    if (!entry.child) {
+      await deps.daemon?.kill(modelId).catch(() => false);
+      push(`Unloaded ${modelId}.`);
+      return { ok: true, message: `Unloaded ${modelId}.` };
+    }
+    const proc = entry.child;
     try {
-      entry.child.kill('SIGTERM');
+      proc.kill('SIGTERM');
       const timer = setTimeout(() => {
         try {
-          entry.child.kill('SIGKILL');
+          proc.kill('SIGKILL');
         } catch {
           /* already gone */
         }
@@ -301,15 +584,36 @@ export function createEngineServer(deps: EngineServerDeps) {
 
   /** Evict anything past its TTL. 0 means "stay resident until told otherwise". */
   async function sweepIdle(): Promise<void> {
+    await sync();
     const settings = deps.settings();
     const now = Date.now();
     for (const entry of [...children.values()]) {
       const ttl = (entry.params.ttlSeconds ?? settings.idleTtlSeconds) * 1000;
-      if (ttl > 0 && now - entry.lastUsedAt > ttl) {
+      if (entry.activeRequests === 0 && ttl > 0 && now - entry.lastUsedAt > ttl) {
         push(`${entry.modelId} was idle, unloading.`);
         await unload(entry.modelId);
       }
     }
+  }
+
+  /**
+   * Change a resident model's idle TTL without a reload.
+   *
+   * 0 is "keep loaded until I say so", which is the button the residency list
+   * offers next to the countdown. Anything else falls back to the server
+   * default when the value is left unset.
+   */
+  function setResidentTtl(modelId: string, ttlSeconds: number | undefined): LoadResult {
+    const entry = children.get(modelId);
+    if (!entry) return { ok: false, message: `${modelId} is not loaded.` };
+    entry.params = { ...entry.params, ttlSeconds };
+    return {
+      ok: true,
+      message:
+        ttlSeconds && ttlSeconds > 0
+          ? `${modelId} now unloads after ${ttlSeconds}s idle.`
+          : `${modelId} stays loaded until you unload it.`,
+    };
   }
 
   function resident(): ResidentModel[] {
@@ -321,6 +625,8 @@ export function createEngineServer(deps: EngineServerDeps) {
         sizeBytes: c.sizeBytes,
         vramBytes: c.vramBytes,
         contextLength: c.contextTokens,
+        lastUsedAt: c.lastUsedAt,
+        startedAt: c.startedAt,
         expiresAt: ttl > 0 ? c.lastUsedAt + ttl : undefined,
       };
     });
@@ -357,17 +663,19 @@ export function createEngineServer(deps: EngineServerDeps) {
         : json(res, 404, { error: { message: `No model named ${id}.`, type: 'invalid_request_error' } });
     }
 
-    const inference = /^\/(v1\/)?(chat\/completions|completions|embeddings|rerank|infill)$/.test(path);
+    const inference = /^\/(v1\/)?(chat\/completions|completions|embeddings|rerank|infill|images\/generations)$/.test(path);
     if (!inference) {
       return json(res, 404, { error: { message: `Unknown route ${path}.`, type: 'invalid_request_error' } });
     }
 
     const body = await readBody(req);
     const requested = pickModelId(body);
-    const target = await resolveTarget(requested);
+    const target = await resolveTarget(requested, path.endsWith('/images/generations'));
     if ('error' in target) return json(res, target.status, { error: { message: target.error, type: 'invalid_request_error' } });
 
     target.entry.lastUsedAt = Date.now();
+    target.entry.activeRequests += 1;
+    res.once('close', () => { target.entry.activeRequests -= 1; target.entry.lastUsedAt = Date.now(); });
     proxy(req, res, target.entry.port, path.startsWith('/v1/') ? path : `/v1${path}`, body);
   }
 
@@ -388,8 +696,11 @@ export function createEngineServer(deps: EngineServerDeps) {
    */
   async function resolveTarget(
     requested: string | undefined,
+    image = false,
   ): Promise<{ entry: Child } | { error: string; status: number }> {
     if (requested) {
+      const model = await deps.findModel(requested);
+      if (model && (model.modality === 'image') !== image) return { error: image ? 'This endpoint needs an image-generation model.' : 'Image models use /v1/images/generations, not text inference.', status: 400 };
       const loaded = children.get(requested);
       if (loaded) return { entry: loaded };
       const known = await deps.findModel(requested);
@@ -405,7 +716,8 @@ export function createEngineServer(deps: EngineServerDeps) {
 
     // No model named: the most recently used one is the least surprising answer,
     // and a client that names nothing has no expectation to violate.
-    const recent = [...children.values()].sort((a, b) => b.lastUsedAt - a.lastUsedAt)[0];
+    const eligible = await Promise.all([...children.values()].map(async entry => ({ entry, model: await deps.findModel(entry.modelId) })));
+    const recent = eligible.filter(row => (row.model?.modality === 'image') === image).map(row => row.entry).sort((a, b) => b.lastUsedAt - a.lastUsedAt)[0];
     if (recent) return { entry: recent };
     return { error: 'No model is loaded and the request named none.', status: 409 };
   }
@@ -447,9 +759,43 @@ export function createEngineServer(deps: EngineServerDeps) {
 
   /* ----------------------------------------------------------------- state */
 
+  /**
+   * The engine daemon's router asking for a model that is not running: the
+   * same answer `resolveTarget` gives for our own listener, without the proxy.
+   */
+  async function routerLoad(requested: string, image: boolean): Promise<{ ok: boolean; status?: number; message?: string }> {
+    await sync();
+    const model = await deps.findModel(requested);
+    if (!model) return { ok: false, status: 404, message: `No model named ${requested}. Check /v1/models.` };
+    if ((model.modality === 'image') !== image) {
+      return {
+        ok: false,
+        status: 400,
+        message: image ? 'This endpoint needs an image-generation model.' : 'Image models use /v1/images/generations, not text inference.',
+      };
+    }
+    if (children.has(requested)) return { ok: true };
+    if (!deps.settings().jitLoad) {
+      return { ok: false, status: 409, message: `${requested} is not loaded, and load-on-demand is off.` };
+    }
+    const result = await load(requested, model.preset ?? {});
+    return result.ok ? { ok: true } : { ok: false, status: 503, message: result.message ?? `Couldn't load ${requested}.` };
+  }
+
+  async function routerModels() {
+    await sync();
+    const models = await deps.listModels();
+    return { object: 'list', data: models.map((m) => modelRow(m, children.has(m.id))) };
+  }
+
+  async function routerModel(id: string) {
+    const model = await deps.findModel(id);
+    return model ? modelRow(model, children.has(id)) : null;
+  }
+
   function status() {
     return {
-      running: server !== null,
+      running: server !== null || serving,
       startedAt,
       resident: resident(),
       log: log.slice(-40),
@@ -467,7 +813,25 @@ export function createEngineServer(deps: EngineServerDeps) {
     return gpu && gpu.devices.length > 0 ? gpu.freeMB * 1024 * 1024 : null;
   }
 
-  return { start, stop, load, unload, status, resident, isRunning: () => server !== null, loadedIds: () => [...children.keys()] };
+  return {
+    start,
+    stop,
+    load,
+    unload,
+    setResidentTtl,
+    status,
+    resident,
+    loadErrorFor: (id: string) => lastLoadErrors.get(id),
+    isRunning: () => server !== null || serving,
+    loadedIds: () => [...children.keys()],
+    routerLoad,
+    routerModels,
+    routerModel,
+    sync,
+    reattach,
+    reconfigure,
+    servedByDaemon: () => serving,
+  };
 }
 
 export type EngineServer = ReturnType<typeof createEngineServer>;
@@ -482,13 +846,76 @@ export type EngineServer = ReturnType<typeof createEngineServer>;
  * threads and batch sizes in particular, where the engine's default is tuned to
  * the machine and ours would not be.
  */
-export function buildArgs(model: LocalModel, port: number, params: LoadParams): string[] {
+/**
+ * Files a model needs beside its weights, found by convention rather than by
+ * index so a file dropped into the folder by hand counts too.
+ */
+export interface ModelCompanions {
+  /** A vision model's projector (`mmproj-*.gguf`), passed as `--mmproj`. */
+  mmproj?: string;
+  /** A chat template file, passed as `--chat-template-file` with `--jinja`. */
+  chatTemplateFile?: string;
+  /** The draft model's file, when the load asked for one (`draftModelId`). */
+  draftModel?: string;
+}
+
+/**
+ * Which flags a `llama-server` build accepts, read from its own `--help`.
+ *
+ * The engine is installed once and kept, so the binary on a machine can be
+ * older than the flags this file knows about, and an unknown flag makes
+ * llama-server refuse to start at all. Every flag added after the first engine
+ * release goes through this, so an older build simply runs without it.
+ */
+export type FlagSupport = (flag: string) => boolean;
+
+const flagCache = new Map<string, Promise<FlagSupport>>();
+
+export function probeFlags(bin: string, run: (bin: string) => Promise<string> = helpText): Promise<FlagSupport> {
+  let probe = flagCache.get(bin);
+  if (!probe) {
+    probe = run(bin)
+      .then((text) => {
+        const known = new Set(text.match(/--[a-z0-9][a-z0-9-]*/g) ?? []);
+        return (flag: string) => known.has(flag);
+      })
+      // A build we cannot ask is treated as knowing none of the newer flags:
+      // a slower engine beats one that does not start.
+      .catch(() => () => false);
+    flagCache.set(bin, probe);
+  }
+  return probe;
+}
+
+function helpText(bin: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(bin, ['--help'], { windowsHide: true, timeout: 10_000, maxBuffer: 4 * 1024 * 1024 }, (err, stdout, stderr) => {
+      const text = `${stdout ?? ''}${stderr ?? ''}`;
+      if (text.includes('--')) resolve(text);
+      else reject(err ?? new Error('llama-server printed no help'));
+    });
+  });
+}
+
+export function buildArgs(
+  model: LocalModel,
+  port: number | string,
+  params: LoadParams,
+  companions?: ModelCompanions,
+  supports: FlagSupport = () => false,
+): string[] {
   const args = [
     '--model', model.path,
     '--alias', model.id,
     '--host', '127.0.0.1',
     '--port', String(port),
   ];
+  if (companions?.mmproj) args.push('--mmproj', companions.mmproj);
+  if (companions?.chatTemplateFile) {
+    // `--jinja` is what makes the template (and tool-call parsing) apply; a
+    // file without it is read and ignored by the chat path.
+    args.push('--chat-template-file', companions.chatTemplateFile, '--jinja');
+  }
   if (params.contextTokens) args.push('--ctx-size', String(params.contextTokens));
   if (params.gpuLayers !== undefined) args.push('--n-gpu-layers', String(params.gpuLayers));
   if (params.parallelSlots && params.parallelSlots > 1) args.push('--parallel', String(params.parallelSlots));
@@ -508,7 +935,34 @@ export function buildArgs(model: LocalModel, port: number, params: LoadParams): 
   if (params.seed !== undefined) args.push('--seed', String(params.seed));
   // Embedding models answer /v1/embeddings only in embedding mode, and a chat
   // request to one is a mistake worth failing loudly rather than serving.
-  if (model.architecture && /bert|embed/i.test(model.architecture)) args.push('--embedding');
+  const embedding = Boolean(model.architecture && /bert|embed/i.test(model.architecture));
+  if (embedding) {
+    args.push('--embedding');
+    return args;
+  }
+
+  // The agent-speed defaults, each measured against llama.cpp's own defaults
+  // on the same model (docs/benchmarks.md), and each only where the installed
+  // build knows the flag.
+  //
+  // An edited prompt (a tool result replaced, a message trimmed) reuses the
+  // cached chunks around the edit instead of re-reading from the change on.
+  if (supports('--cache-reuse')) args.push('--cache-reuse', '256');
+  // llama.cpp copies every idle slot out to its RAM prompt cache when a new
+  // request arrives. Keeping them in place instead cut the first turn of a
+  // new chat from 2.3 s to 1.7 s and a revisit of an evicted chat from 1.7 s
+  // to 0.8 s; the RAM cache still catches what a slot really loses.
+  if (supports('--no-cache-idle-slots')) args.push('--no-cache-idle-slots');
+  if (params.speculative !== false && supports('--spec-default')) {
+    // N-gram lookup from the conversation: 117 -> 506 tok/s on an edit that
+    // repeats its input, and faster on ordinary replies too. Works with a
+    // vision projector loaded as well (measured 633 tok/s on the same edit);
+    // llama.cpp only drops --cache-reuse for those, with a warning.
+    args.push('--spec-default');
+    if (companions?.draftModel && supports('--spec-draft-model')) {
+      args.push('--spec-draft-model', companions.draftModel, '--spec-draft-ngl', 'all', '--spec-type', 'draft-simple');
+    }
+  }
   return args;
 }
 
@@ -521,6 +975,7 @@ function modelRow(model: LocalModel, loaded: boolean) {
     // Extras beyond the OpenAI schema, which compatible clients ignore and ours
     // uses to show state without a second request.
     state: loaded ? 'loaded' : 'not-loaded',
+    modality: model.modality ?? 'chat',
     max_context_length: model.maxContext,
     quantization: model.quantization,
     size_bytes: model.sizeBytes,
@@ -531,9 +986,9 @@ function sameParams(a: LoadParams, b: LoadParams): boolean {
   const keys: Array<keyof LoadParams> = [
     'contextTokens', 'gpuLayers', 'kvCacheDtype', 'parallelSlots', 'batchSize',
     'ubatchSize', 'threads', 'flashAttention', 'mmap', 'mlock', 'ropeFreqBase',
-    'ropeFreqScale', 'seed',
+    'ropeFreqScale', 'seed', 'speculative', 'draftModelId',
   ];
-  return keys.every((k) => a[k] === b[k]);
+  return keys.every((k) => a[k] === b[k]) && JSON.stringify(a.diffusion ?? {}) === JSON.stringify(b.diffusion ?? {});
 }
 
 function pickModelId(body: Buffer): string | undefined {
@@ -603,10 +1058,11 @@ function fail(res: ServerResponse, status: number, message: string): void {
   json(res, status, { error: { message, type: 'server_error' } });
 }
 
-async function healthy(port: number): Promise<boolean> {
+async function healthy(port: number, image = false): Promise<boolean> {
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/health`);
+    const res = await fetch(`http://127.0.0.1:${port}/${image ? 'v1/models' : 'health'}`, { signal: AbortSignal.timeout(2000) });
     if (!res.ok) return false;
+    if (image) return true;
     const body = (await res.json()) as { status?: string };
     // llama-server reports `loading model` before it is ready to serve.
     return body.status === 'ok';
@@ -630,4 +1086,188 @@ function freePort(): Promise<number> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/* --------------------------------------------------------- model companions */
+
+/**
+ * The files a model needs beside its weights, resolved at load time.
+ *
+ * Looked up by convention in the model's own directory rather than carried on
+ * the library row, because the files are the truth there too: a sidecar a user
+ * drops in by hand should count, and one deleted outside the app should stop
+ * counting without an index update.
+ *
+ * Returns `{error}` for the one companion problem worth failing a load over:
+ * a split model missing a shard. Everything else absent is simply not passed.
+ */
+export async function resolveCompanions(
+  model: LocalModel,
+  workDir?: string,
+  companionsDirPath?: string,
+): Promise<ModelCompanions | { error: string }> {
+  const dir = dirname(model.path);
+  const file = basename(model.path);
+
+  // `name-00001-of-00005.gguf` is only the first fifth; llama.cpp opens the
+  // rest by name and dies on the first absent one, so check here and name it.
+  const shard = file.match(/-00001-of-(\d{5})\.gguf$/i);
+  if (shard) {
+    const total = Number(shard[1]);
+    for (let n = 2; n <= total; n += 1) {
+      const part = file.replace(/-00001-of-(\d{5})\.gguf$/i, `-${String(n).padStart(5, '0')}-of-$1.gguf`);
+      if (!(await exists(join(dir, part)))) {
+        return {
+          error: `${model.name} is split into ${total} files and ${part} is missing. Re-download it so every piece lands.`,
+        };
+      }
+    }
+  }
+
+  let entries: string[] = [];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return {}; // An unreadable directory fails on --model itself, which says so.
+  }
+
+  const companions: ModelCompanions = {};
+
+  // Sidecars we fetched for the model when its own folder is read-only. The
+  // model's directory wins: a file somebody dropped beside the weights is the
+  // one they meant to use.
+  const fetched: string[] = companionsDirPath
+    ? await readdir(companionsDirPath).catch(() => [] as string[])
+    : [];
+
+  const isMmproj = (e: string) => /mmproj/i.test(e) && e.toLowerCase().endsWith('.gguf');
+  const isJinja = (e: string) => e.toLowerCase().endsWith('.jinja');
+  const isTemplate = (e: string) => /chat[-_]?template.*\.jinja$/i.test(e);
+
+  // A vision model's projector. Without --mmproj the weights load fine and
+  // every image request fails, which is the failure mode worth wiring up.
+  const localProj = entries.find(isMmproj);
+  const fetchedProj = fetched.find(isMmproj);
+  if (localProj) companions.mmproj = join(dir, localProj);
+  else if (fetchedProj && companionsDirPath) companions.mmproj = join(companionsDirPath, fetchedProj);
+
+  // A chat template turns messages into a prompt; a GGUF converted without one
+  // answers chat requests with a template error. Repos ship it as a `.jinja`
+  // file or inside a JSON config, and either works for us.
+  const localJinja = entries.find(isTemplate) ?? entries.find(isJinja);
+  const fetchedJinja = fetched.find(isTemplate) ?? fetched.find(isJinja);
+  if (localJinja) {
+    companions.chatTemplateFile = join(dir, localJinja);
+  } else if (fetchedJinja && companionsDirPath) {
+    companions.chatTemplateFile = join(companionsDirPath, fetchedJinja);
+  } else if (workDir) {
+    companions.chatTemplateFile =
+      (await extractTemplate(dir, entries, file, workDir)) ??
+      (companionsDirPath ? await extractTemplate(companionsDirPath, fetched, file, workDir) : undefined);
+  }
+  return companions;
+}
+
+/**
+ * Pull `chat_template` out of a repo's JSON config into a `.jinja` file
+ * llama.cpp can take on the command line.
+ *
+ * Written under the engine's own work dir, not beside the model: a borrowed
+ * folder (LM Studio's, the HF cache) is read-only territory and a file we
+ * leave there is litter nobody asked for.
+ */
+async function extractTemplate(
+  dir: string,
+  entries: string[],
+  modelFile: string,
+  workDir: string,
+): Promise<string | undefined> {
+  const sources = ['chat_template.json', 'chat-template.json', 'tokenizer_config.json'];
+  for (const name of sources) {
+    if (!entries.some((e) => e.toLowerCase() === name)) continue;
+    try {
+      const parsed = JSON.parse(await readFile(join(dir, name), 'utf8')) as {
+        chat_template?: unknown;
+      };
+      const raw = parsed?.chat_template;
+      const template =
+        typeof raw === 'string'
+          ? raw
+          : Array.isArray(raw)
+            ? raw.find((t) => typeof t?.template === 'string')?.template
+            : undefined;
+      if (!template) continue;
+      const dest = join(workDir, `${modelFile.replace(/\.gguf$/i, '')}.chat_template.jinja`);
+      await mkdir(dirname(dest), { recursive: true });
+      await writeFile(dest, template, 'utf8');
+      return dest;
+    } catch {
+      // A config that will not parse is skipped, not fatal: the GGUF's own
+      // template (or llama.cpp's default) still applies.
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Turn a dead `llama-server`'s last output into a sentence that names the fix.
+ *
+ * The patterns are the failures a downloaded model actually dies with; each
+ * translation exists because the raw log line ("error loading model", a bare
+ * open() errno) was reported as a dead end. Unmatched output falls through to
+ * the tail of the log, which is still the best honest answer.
+ */
+export function explainLoadError(log: string[]): string {
+  // The whole captured log, not just a tail: the line that says why the load
+  // died is often followed by several lines of shutdown noise, and "exiting
+  // due to model loading error" is the epilogue rather than the cause.
+  const text = log.join('\n');
+  if (/unknown (model )?arch|unsupported (model|arch)/i.test(text)) {
+    return "This engine build doesn't know this model's architecture. Update the engine under Models → Server, then try again.";
+  }
+  if (/bad magic|invalid magic|not a (valid )?gguf|gguf.*(version|format)|unsupported format/i.test(text)) {
+    return "The file isn't a GGUF this engine can read (it may be an older GGML-format model, or a different file type renamed .gguf).";
+  }
+  if (/mmproj|projector|clip model|clip_model/i.test(text)) {
+    return 'This is a vision model and its projector file (mmproj-*.gguf) is missing next to the model. Fetch it from the model row, or re-download the model so the companion files come with it.';
+  }
+  if (/chat.?template|template.*not.*(supported|found)/i.test(text)) {
+    return 'The model needs a chat template file and none was found. Re-download it (the template downloads with the model now) or pick a different build.';
+  }
+  if (/missing (required )?tensor|tensor .*missing|wrong number of tensors|check_tensor|unexpected tensor/i.test(text)) {
+    return "The file doesn't match what llama.cpp expects (a tensor is missing or unexpected). Re-download it, or pick a different build of the model.";
+  }
+  if (/out of memory|failed to allocate|insufficient|bad_alloc|CUDA_ERROR_OUT_OF_MEMORY|not enough (free )?memory/i.test(text)) {
+    return 'Not enough memory to load it. Lower the context size or GPU layers in the model\'s settings, or unload something else first.';
+  }
+  const missing =
+    text.match(/(?:failed|unable|cannot|could not|error)[^\n]*(?:open|read|load|missing)[^\n'"`]*['"`]([^'"`\n]+\.(?:gguf|jinja|json|model|txt))['"`]/i)?.[1] ??
+    text.match(/(?:llama_model_load|error)[^\n]*(?:open|file)[^\n'"`]*['"`]([^'"`\n]+)['"`]/i)?.[1];
+  const name = missing ? basename(missing.trim()) : '';
+  if (name && name !== '.') {
+    return `A file the model needs is missing or unreadable: ${name}. Re-download the model so its companion files come with it.`;
+  }
+  // A specific error line, cleaned of its log prefix, beats the generic tail.
+  const errLine = log.find(
+    (l) => /error loading model|failed to load|unable to load|missing tensor|create_model/i.test(l) && !/cleaning up|exiting due to/i.test(l),
+  );
+  if (errLine) {
+    const cleaned = errLine
+      .replace(/^[\d.\s]*(?:I|W|E)\s+\S+:\s*/i, '')
+      .replace(/^llama_model_load[^:]*:\s*/i, '')
+      .replace(/^error loading model[:\s]*/i, '')
+      .trim();
+    if (cleaned.length > 8) return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  // Nothing recognized: the last substantive lines (shutdown noise removed)
+  // are still a better answer than the exit banner.
+  const noise = /cleaning up before exit|exiting due to|operator\(\)/i;
+  const substantive = log.filter((l) => !noise.test(l) && l.trim());
+  return (substantive.length ? substantive : log).slice(-2).join(' ');
+}
+
+async function exists(path: string): Promise<boolean> {
+  return stat(path)
+    .then(() => true)
+    .catch(() => false);
 }
