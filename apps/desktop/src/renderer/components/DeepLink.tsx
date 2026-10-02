@@ -30,6 +30,10 @@ export function DeepLinkListener() {
 
   useEffect(() => {
     const off = window.nekko.onDeepLink((url) => {
+      if (url === 'agent-nekko://chat/new') {
+        void useStore.getState().newChat().catch(e => useStore.getState().pushToast('error', e.message));
+        return;
+      }
       const port = hypergateConnectPort(url);
       const { pushToast, refreshHypergate, settings } = useStore.getState();
       if (port === null) {

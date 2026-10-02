@@ -1,0 +1,33 @@
+import { describe, expect, it } from 'vitest';
+import type { CatalogModel } from '@agent-nekko/shared';
+import { groupModelFamilies, gpuGuidance, modelFamilyName, type LibraryModel } from './modelFamilies.js';
+
+const local = (name: string, extra: Partial<LibraryModel> = {}): LibraryModel => ({ id: name, name, path: name, sizeBytes: 100, addedAt: 0, loaded: false, ...extra });
+const catalog = (name: string, extra: Partial<CatalogModel> = {}): CatalogModel => ({ id: `publisher/${name}`, name, owner: 'publisher', tags: [], quants: [], ...extra });
+
+describe('model families', () => {
+  it('combines quantizations and publishers with local copies', () => {
+    const groups = groupModelFamilies([local('Qwen3-8B-Q4_K_M.gguf', { folderProvider: 'lmstudio' }), local('Qwen3-8B-Q8_0.gguf')], [catalog('Qwen3-8B-GGUF'), catalog('Qwen3-8B-4bit', { id: 'mlx/Qwen3-8B-4bit' })]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].local).toHaveLength(2);
+    expect(groups[0].catalog).toHaveLength(2);
+  });
+  it('keeps sizes and fine tunes distinct', () => {
+    expect(groupModelFamilies([], [catalog('Qwen3-8B'), catalog('Qwen3-32B'), catalog('Qwen3-8B-Coder')])).toHaveLength(3);
+  });
+  it('uses explicit base model metadata to match conversion repos', () => {
+    expect(groupModelFamilies([local('weights', { sourceRepo: 'publisher/conversion' })], [catalog('conversion', { id: 'publisher/conversion', baseModel: 'Qwen/Qwen3-8B' })])[0].local).toHaveLength(1);
+  });
+  it('normalizes filename suffixes without stripping parameter counts', () => {
+    expect(modelFamilyName('owner/Qwen3-8B-Q4_K_M.gguf')).toBe('Qwen3-8B');
+  });
+});
+
+describe('GPU guidance', () => {
+  it('does not call system RAM a GPU', () => expect(gpuGuidance(10, { kind: 'ram', budgetBytes: 100 })).toBe('CPU only'));
+  it('keeps missing hardware unknown', () => expect(gpuGuidance(10)).toBe('GPU fit unknown'));
+  it('shows measured reduced context and partial offload honestly', () => {
+    expect(gpuGuidance(10, undefined, local('m', { gpuFit: 'full', maxContext: 32000, preset: { contextTokens: 4096 } }))).toBe('Fits on GPU, but limited context size');
+    expect(gpuGuidance(10, undefined, local('m', { gpuFit: 'partial' }))).toBe('Too big');
+  });
+});

@@ -1042,8 +1042,10 @@
     --line: #e8dfc8;
   }
 
-  /* Belt-and-suspenders for the native <select> popup list. */
-  select.input option {
+  /* Belt-and-suspenders for the native <select> popup list. The OS draws that
+     list, and it ignores the select's own color unless each option says its
+     colors — so the rule covers every select, not only `.input` ones. */
+  select option {
     background: var(--surface);
     color: var(--ink);
   }
@@ -1449,6 +1451,19 @@
   to {
     background-position: 0 7px;
   }
+}
+
+/*
+  The title strip's "/" introduces where the window is working (its project,
+  its git worktree), not what it is, so it only appears when one of the two
+  slots after it has actually filled in.
+*/
+.pane-strip-sep {
+  display: none;
+}
+.pane-strip-sep:has(~ .pane-strip-badge:not(:empty)),
+.pane-strip-sep:has(~ .pane-strip-meta:not(:empty)) {
+  display: inline;
 }
 
 /* The drop bands a dragged window lights up along each edge of another. */

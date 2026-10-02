@@ -167,6 +167,47 @@ describe('OAuth core', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('reclaims port 1455 from an abandoned ChatGPT session instead of going manual', async () => {
+      const first = await beginOAuth('chatgpt');
+      expect(first.mode).toBe('loopback');
+
+      const second = await beginOAuth('chatgpt');
+      try {
+        expect(second.mode).toBe('loopback');
+        // The first session was closed to free the port; it can no longer finish.
+        await expect(finishOAuth(first.id, 'code')).rejects.toThrow('not found');
+        // And the new listener actually answers.
+        const state = new URL(second.authUrl).searchParams.get('state');
+        const res = await requestStatus(`/auth/callback?code=x&state=${state}-wrong`);
+        expect(res).toBe(400);
+      } finally {
+        cancelOAuth(second.id);
+      }
+    });
+
+    it('degrades ChatGPT to manual when something else holds port 1455', async () => {
+      const holder = await holdPort1455();
+      if (!holder) {
+        // Port not bindable in this environment at all; nothing to assert.
+        return;
+      }
+      try {
+        const session = await beginOAuth('chatgpt');
+        try {
+          expect(session.mode).toBe('manual');
+          // The redirect URI cannot change (OpenAI registered exactly one), so
+          // the auth URL still points at the dead port and the UI's paste box
+          // is how the code comes home.
+          const url = new URL(session.authUrl);
+          expect(url.searchParams.get('redirect_uri')).toBe('http://localhost:1455/auth/callback');
+        } finally {
+          cancelOAuth(session.id);
+        }
+      } finally {
+        await new Promise<void>((resolve) => holder.close(() => resolve()));
+      }
+    });
+
     it('builds an OpenRouter URL with callback_url and no client_id or state', async () => {
       const session = await beginOAuth('openrouter');
       const url = new URL(session.authUrl);
@@ -400,6 +441,24 @@ async function occupyClaudeLoopbackPorts(): Promise<http.Server[]> {
     }
   }
   return servers;
+}
+
+/** Sit on ChatGPT's fixed callback port to force the manual fallback. */
+async function holdPort1455(): Promise<http.Server | undefined> {
+  const server = http.createServer(() => {});
+  try {
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(1455, () => {
+        server.removeListener('error', reject);
+        resolve();
+      });
+    });
+    return server;
+  } catch {
+    server.close();
+    return undefined;
+  }
 }
 
 function makeFakeIdToken(accountId: string): string {

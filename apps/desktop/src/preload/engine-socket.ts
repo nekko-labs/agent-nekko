@@ -71,7 +71,13 @@ export function createEngineSocket(getEndpoint: () => Promise<EngineEndpoint>): 
   const connect = async () => {
     try {
       endpoint = await getEndpoint();
-    } catch {
+    } catch (e) {
+      endpoint = null;
+      queued = [];
+      for (const [id, p] of pending) {
+        pending.delete(id);
+        p.reject(e instanceof Error ? e : new Error('Nekko service is unavailable. Start it from the tray.'));
+      }
       setTimeout(connect, retry);
       retry = Math.min(retry * 2, 2000);
       return;
@@ -90,6 +96,8 @@ export function createEngineSocket(getEndpoint: () => Promise<EngineEndpoint>): 
       if (socket !== ws) return;
       open = false;
       socket = null;
+      endpoint = null;
+      queued = [];
       // A call in flight when the engine went away cannot be known to have
       // run or not; fail it plainly rather than replay it.
       for (const [id, p] of pending) {

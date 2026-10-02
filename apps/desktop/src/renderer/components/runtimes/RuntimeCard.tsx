@@ -247,7 +247,7 @@ function StatusDot({ running, busy, error }: { running: boolean; busy: boolean; 
 }
 
 /** Drawn here rather than pulled from the icon set, which has no power glyph. */
-function PowerIcon({ className }: { className?: string }) {
+export function PowerIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className={className}>
       <path d="M12 3v9" />

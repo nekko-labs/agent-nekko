@@ -127,6 +127,9 @@ export function ModelPicker({
     const availability = availabilityOf(p, m);
     const blocked = availability.status === 'blocked';
     const why = availability.detail ?? blockLabel(availability);
+    // The engine sends the file's path as a detail, so a local model's subtext
+    // is where it lives rather than a price it does not have.
+    const sub = m.details?.path;
     return (
       <div
         key={key}
@@ -139,10 +142,17 @@ export function ModelPicker({
           disabled={blocked}
           className={`flex min-w-0 flex-1 flex-col px-2.5 py-1.5 text-left ${blocked ? 'cursor-not-allowed' : ''}`}
           onClick={() => pick(p.id, m.id)}
-          title={blocked ? `${m.name} · ${why}` : m.name}
+          title={blocked ? `${m.name} · ${why}` : sub ? `${m.name} · ${sub}` : m.name}
         >
           <div className="flex w-full items-center gap-2">
-            <span className={`text-[12.5px] font-medium leading-tight ${blocked ? 'text-ink-faint' : ''}`}>{m.name}</span>
+            {m.loaded && (
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full"
+                style={{ background: 'var(--success)' }}
+                title="Loaded in memory"
+              />
+            )}
+            <span className={`min-w-0 truncate text-[12.5px] font-medium leading-tight ${blocked ? 'text-ink-faint' : ''}`}>{m.name}</span>
             {blocked && (
               <span
                 className="shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-semibold leading-none"
@@ -156,8 +166,11 @@ export function ModelPicker({
             )}
             {showProvider && <span className="ml-auto shrink-0 text-[10px] text-ink-faint">{p.label}</span>}
           </div>
-          <span className="truncate text-[10px] text-ink-faint" title={blocked ? why : 'Estimated list price per 1M tokens'}>
-            {blocked ? why : price}
+          <span
+            className={`truncate text-[10px] text-ink-faint ${sub ? 'font-mono' : ''}`}
+            title={blocked ? why : sub ?? 'Estimated list price per 1M tokens'}
+          >
+            {blocked ? why : sub ?? price}
           </span>
         </button>
         <button
@@ -220,7 +233,9 @@ export function ModelPicker({
           the leftmost control of its row and the menu is wider than the chip, so
           anchoring it right hung it outside the pane, over the sidebar. */}
       {open && (
-        <div className="card absolute bottom-full left-0 z-40 mb-2 flex max-h-96 w-80 max-w-[calc(100vw-2rem)] flex-col p-1.5 shadow-lg">
+        <div className="card absolute bottom-full left-0 z-40 mb-2 flex max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] flex-col p-1.5 shadow-lg">
+          {/* Wide enough for a local model's path to read under its name; still
+              capped so it never runs off a narrow pane. */}
           {total > 8 && (
             <input
               className="input mb-1 rounded-lg px-2.5 py-1 text-[12px]"
@@ -253,12 +268,30 @@ export function ModelPicker({
                 {starred.map((s) => row(s.provider, s.model, true))}
               </>
             )}
-            {groups.map((g) => (
-              <React.Fragment key={g.provider.id}>
-                {header(g.provider.label)}
-                {g.models.map((m) => row(g.provider, m, false))}
-              </React.Fragment>
-            ))}
+            {groups.map((g) => {
+              // A local provider can serve models out of several folders; when
+              // the rows say where they live, group them under that heading.
+              const locs = [...new Set(g.models.map((m) => m.details?.location ?? ''))];
+              const byLoc =
+                locs.length > 1
+                  ? locs.map((loc) => ({ loc, models: g.models.filter((m) => (m.details?.location ?? '') === loc) }))
+                  : [{ loc: '', models: g.models }];
+              return (
+                <React.Fragment key={g.provider.id}>
+                  {header(g.provider.label)}
+                  {byLoc.map(({ loc, models: ms }) => (
+                    <React.Fragment key={loc || '_'}>
+                      {loc && (
+                        <p className="truncate px-4 pb-0.5 pt-1 text-[10px] italic text-ink-faint" title={loc}>
+                          {loc}
+                        </p>
+                      )}
+                      {ms.map((m) => row(g.provider, m, false))}
+                    </React.Fragment>
+                  ))}
+                </React.Fragment>
+              );
+            })}
           </div>
         </div>
       )}

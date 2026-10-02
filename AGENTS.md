@@ -2,6 +2,22 @@
 
 Conventions for any AI agent or human opening PRs in this repo.
 
+## Always land work as a PR
+
+The default for every change is: commit it to a branch, push, open a PR, and merge it.
+Do not leave finished work sitting uncommitted in a working tree. When several
+in-flight batches share the tree (parallel agents), land them together in one PR
+rather than letting the tree drift further from `main`.
+
+```
+git checkout -b <branch>
+git add -A   # or a scoped add; never commit .shots/ or other evidence dirs
+git commit -m "..."
+git push -u origin <branch>
+gh pr create --title "..." --body "..."
+gh pr merge --squash --admin --delete-branch
+```
+
 ## UI changes need visual evidence
 
 Any PR that changes what the app looks like ships the proof in its description:

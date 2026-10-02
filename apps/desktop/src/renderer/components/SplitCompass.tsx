@@ -163,7 +163,6 @@ export function SplitCompass({
         aria-expanded={open}
         onClick={() => {
           window.clearTimeout(closeTimer.current);
-          if (pinned) return close();
           setOpen(true);
           setPinned(true);
         }}

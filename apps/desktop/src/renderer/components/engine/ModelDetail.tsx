@@ -6,6 +6,7 @@ import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { CheckIcon, ChevronIcon, DownloadIcon, ExternalIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
+import { gpuGuidance } from './modelFamilies.js';
 
 /**
  * One model's own page.
@@ -30,6 +31,7 @@ export function ModelDetail({
   memory,
   onBack,
   onQueued,
+  embedded = false,
 }: {
   modelId: string;
   /** Library rows that came from this repo, so the page can say "you have this". */
@@ -38,6 +40,7 @@ export function ModelDetail({
   memory?: EngineMemory;
   onBack: () => void;
   onQueued: () => void;
+  embedded?: boolean;
 }) {
   const pushToast = useStore((s) => s.pushToast);
   const [model, setModel] = useState<CatalogModelDetail | null>(null);
@@ -97,11 +100,11 @@ export function ModelDetail({
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-8 py-8">
-      <button className="text-[12px] text-ink-faint hover:text-ink" onClick={onBack}>
+    <div className={embedded ? 'min-w-0 pt-2' : 'mx-auto max-w-4xl px-8 py-8'}>
+      {!embedded && <button className="text-[12px] text-ink-faint hover:text-ink" onClick={onBack}>
         <ChevronIcon className="mr-1 inline h-3 w-3 rotate-180" />
         Back to models
-      </button>
+      </button>}
 
       {state === 'loading' && <p className="mt-6 text-[13px] text-ink-faint">Reading the model page…</p>}
 
@@ -115,7 +118,7 @@ export function ModelDetail({
         </div>
       )}
 
-      {recommendRuntime && <div className="mt-4 border-b border-line pb-4"><p className="text-[13px]">This is an image model. Install the optional image runtime to generate here, or press Download again to get only the model.</p><DiffusionInstallCard install={imageInstall} onChanged={() => void refreshImageRuntime()} /></div>}
+      {recommendRuntime && <div className="mt-4 border-b border-line pb-4"><p className="text-[13px]">This is an image model. Install the optional image generation runtime to generate here, or press Download again to get only the model.</p><DiffusionInstallCard install={imageInstall} onChanged={() => void refreshImageRuntime()} /></div>}
 
       {model && (
         <>
@@ -154,7 +157,7 @@ export function ModelDetail({
           </section>
 
           <section className="mt-5">
-            <h2 className="text-[15px] font-semibold">Builds</h2>
+            <h2 className="text-[15px] font-semibold">Variants</h2>
             <p className="mt-0.5 text-[12px] text-ink-faint">
               Same model, compressed differently. Lower numbers are smaller files that need less memory and answer a
               little worse; higher numbers keep more of the model and cost disk and RAM. <strong>Q4_K_M</strong> is the
@@ -196,7 +199,7 @@ export function ModelDetail({
                               : 'Bigger than this machine can hold'
                         }
                       >
-                        {fit === 'fits' ? 'fits here' : fit === 'tight' ? 'tight fit' : 'needs more memory'}
+                        {gpuGuidance(q.sizeBytes, memory)}{memory?.kind !== 'ram' ? ' (estimated)' : ''}
                       </span>
                     )}
                     {have ? (

@@ -106,6 +106,7 @@ export function createDownloads(deps: DownloadsDeps = {}) {
       kind: req.kind,
       label: req.label,
       target: req.target,
+      dest: req.dest,
       state: 'queued',
       receivedBytes: 0,
       startedAt: Date.now(),

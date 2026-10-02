@@ -231,6 +231,7 @@ interface UiState {
 
   refreshTerminals: () => Promise<void>;
   newTerminal: (workspaceId?: string, shell?: string) => Promise<void>;
+  newTerminalWorkspace: (workspaceId?: string, shell?: string) => Promise<void>;
   openChatPane: (sessionId: string) => void;
   openTerminalPane: (terminalId: string) => void;
   openFilePane: (path: string) => void;
@@ -575,6 +576,12 @@ export const useStore = create<UiState>((set, get) => ({
     } catch {
       /* terminals unsupported on this transport */
     }
+  },
+
+  newTerminalWorkspace: async (workspaceId, shell) => {
+    const t = await window.nekko.createTerminal({ workspaceId: workspaceId ?? get().activeProjectId ?? undefined, shell });
+    await get().refreshTerminals();
+    set((s) => ({ ...addWorkspace(s, { id: newPaneId(), kind: 'terminal', refId: t.id }), view: 'chat' }));
   },
 
   newTerminal: async (workspaceId, shell) => {

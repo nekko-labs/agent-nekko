@@ -11,6 +11,18 @@ import { checkForUpdates } from './update.js';
 import { loadWindowBounds, saveWindowBounds, setWindowStateDir } from './windowState.js';
 import { preservePackagedProfile } from './appIdentity.js';
 import { EngineProcess } from './engine-process.js';
+import { createDesktopTray } from './tray.js';
+
+let desktopTray: ReturnType<typeof createDesktopTray> | null = null;
+let quitting = false;
+
+function showWindow(): void {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (!win) { createWindow(); return; }
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+}
 
 /** The engine (nekkod, or the TS backend alone); set once the app is ready. */
 let engine: EngineProcess | null = null;
@@ -124,6 +136,12 @@ function createWindow(): void {
   });
 
   win.on('ready-to-show', () => win.show());
+  win.on('close', event => {
+    if (quitting || !desktopTray) return;
+    event.preventDefault();
+    saveWindowBounds(win.getBounds());
+    win.hide();
+  });
 
   // A link that arrived before the page could listen (a cold launch from
   // Hypergate's Connect button) is replayed the moment it can.
@@ -263,6 +281,7 @@ function claimSingleInstance(): boolean {
     const win = BrowserWindow.getAllWindows()[0];
     if (win) {
       if (win.isMinimized()) win.restore();
+      win.show();
       win.focus();
     } else {
       createWindow();
@@ -335,6 +354,18 @@ app.whenReady().then(() => {
   // (Windows/Linux); park it so the first load replays it.
   pendingLink = linkFromArgv(process.argv);
   createWindow();
+  const iconPath = resolveWindowIcon();
+  if (iconPath) {
+    desktopTray = createDesktopTray({
+      iconPath,
+      engine,
+      showUi: showWindow,
+      newChat: () => deliverLink('agent-nekko://chat/new'),
+      serviceStarted: () => { for (const win of BrowserWindow.getAllWindows()) win.webContents.reload(); },
+      quit: () => app.quit(),
+      onError: message => dialog.showErrorBox('Agent Nekko', message),
+    });
+  }
 
   // Auto-check for updates a few seconds after launch, if the user opted in.
   void engine.call<AppSettings>('settings:get').then((settings) => {
@@ -342,7 +373,7 @@ app.whenReady().then(() => {
   }).catch(() => {});
 
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    showWindow();
   });
 });
 
@@ -351,13 +382,14 @@ app.on('window-all-closed', () => {
   // the app is still running with no window open, and a CLI or MCP client
   // pointed at it should not lose its connection because someone closed the
   // last window. Quitting takes it down, below.
-  if (process.platform !== 'darwin') app.quit();
+  if (process.platform !== 'darwin' && !desktopTray) app.quit();
 });
 
 // Quitting waits for the engine to shut down cleanly (it marks the CLI link as
 // not serving and stops model servers it started), then quits for real.
 app.on('before-quit', (event) => {
-  if (engineStopped || !engine) return;
+  quitting = true;
+  if (engineStopped || !engine) { desktopTray?.dispose(); desktopTray = null; return; }
   event.preventDefault();
   const stopping = engine;
   engine = null;

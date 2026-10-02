@@ -281,22 +281,30 @@ function relTime(ms: number): string {
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s}s ago`;
   const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return `${m} min${m === 1 ? '' : 's'} ago`;
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.round(h / 24)}d ago`;
+  if (h < 24) return `${h} hr${h === 1 ? '' : 's'} ago`;
+  const d = Math.round(h / 24);
+  if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
+  const mo = Math.round(d / 30);
+  if (mo < 12) return `${mo} month${mo === 1 ? '' : 's'} ago`;
+  const y = Math.round(mo / 12);
+  return `${y} yr${y === 1 ? '' : 's'} ago`;
 }
 
-/** "in 45s" / "in 12m" / "in 3h" / "in 2d" — for automation countdowns. */
+/** "in 45s" / "in 12 mins" / "in 3 hrs" / "in 2 days" — for automation countdowns. */
 function inTime(ms: number): string {
   if (ms <= 0) return 'due now';
   const s = Math.round(ms / 1000);
   if (s < 60) return `in ${s}s`;
   const m = Math.round(s / 60);
-  if (m < 60) return `in ${m}m`;
+  if (m < 60) return `in ${m} min${m === 1 ? '' : 's'}`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `in ${h}h${m % 60 ? ` ${m % 60}m` : ''}`;
-  return `in ${Math.round(h / 24)}d`;
+  if (h < 24) return `in ${h} hr${h === 1 ? '' : 's'}${m % 60 ? ` ${m % 60} min` : ''}`;
+  const d = Math.round(h / 24);
+  if (d < 30) return `in ${d} day${d === 1 ? '' : 's'}`;
+  const mo = Math.round(d / 30);
+  return `in ${mo} month${mo === 1 ? '' : 's'}`;
 }
 
 /** "38s" / "4m 12s" / "1h 08m" — elapsed time on a working run. */

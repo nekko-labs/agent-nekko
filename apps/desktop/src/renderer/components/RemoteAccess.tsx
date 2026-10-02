@@ -264,9 +264,14 @@ function platformIcon(platform: string): string {
 function ago(ts: number, now: number): string {
   const s = Math.max(0, Math.floor((now - ts) / 1000));
   if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  const m = Math.floor(s / 60);
+  if (s < 3600) return `${m} min${m === 1 ? '' : 's'} ago`;
+  const h = Math.floor(s / 3600);
+  if (s < 86400) return `${h} hr${h === 1 ? '' : 's'} ago`;
+  const d = Math.floor(s / 86400);
+  if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
+  const mo = Math.floor(d / 30);
+  return `${mo} month${mo === 1 ? '' : 's'} ago`;
 }
 
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {

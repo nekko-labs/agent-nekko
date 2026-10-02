@@ -729,10 +729,13 @@ function relTime(ms: number): string {
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s}s`;
   const m = Math.round(s / 60);
-  if (m < 60) return `${m}m`;
+  if (m < 60) return `${m} min${m === 1 ? '' : 's'}`;
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h`;
-  return `${Math.round(h / 24)}d`;
+  if (h < 24) return `${h} hr${h === 1 ? '' : 's'}`;
+  const d = Math.round(h / 24);
+  if (d < 30) return `${d} day${d === 1 ? '' : 's'}`;
+  const mo = Math.round(d / 30);
+  return `${mo} month${mo === 1 ? '' : 's'}`;
 }
 
 function elapsed(ms: number): string {

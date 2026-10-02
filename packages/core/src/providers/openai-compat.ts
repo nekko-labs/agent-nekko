@@ -56,6 +56,11 @@ export class OpenAICompatProvider implements Provider {
         top_provider?: { context_length?: number };
         pricing?: { prompt?: string; completion?: string };
         supported_parameters?: string[];
+        /** The Nekko engine's extras: where the file lives and its load state. */
+        max_context_length?: number;
+        path?: string;
+        location?: string;
+        state?: string;
       }>;
     };
     const openrouter = this.config.kind === 'openrouter';
@@ -63,17 +68,31 @@ export class OpenAICompatProvider implements Provider {
       const input = Number(m.pricing?.prompt);
       const output = Number(m.pricing?.completion);
       const priced = openrouter && Number.isFinite(input) && Number.isFinite(output);
+      const details: Record<string, string> = {
+        ...(openrouter && m.supported_parameters?.includes('tools') ? { tools: 'yes' } : {}),
+        // The Nekko engine sends the file path and the folder it lives in, so
+        // pickers can lead with the name and group by where the model lives.
+        ...(typeof m.path === 'string' ? { path: m.path } : {}),
+        ...(typeof m.location === 'string' ? { location: m.location } : {}),
+      };
       return {
         id: m.id,
         providerId: this.config.id,
-        // OpenRouter supplies a display name ("OpenAI: GPT-5"); everyone else
-        // only has the id.
-        name: openrouter && m.name ? m.name : m.id,
-        contextLength: m.context_length ?? m.top_provider?.context_length,
+        // A display name only from the servers that send a meaningful one:
+        // OpenRouter's "OpenAI: GPT-5" and the local engines' friendly model
+        // names. OpenAI's own list carries none, so a stray field there stays
+        // the id it always was.
+        name: serverNamesModels(this.config.kind) && m.name ? m.name : m.id,
+        contextLength: m.context_length ?? m.top_provider?.context_length ?? m.max_context_length,
         ...(priced ? { inputPricePerM: input * 1e6, outputPricePerM: output * 1e6 } : {}),
-        ...(openrouter && m.supported_parameters?.includes('tools') ? { details: { tools: 'yes' } } : {}),
-        // vLLM serves exactly the model(s) it was launched with — always resident.
-        ...(this.config.kind === 'vllm' ? { loaded: true } : {}),
+        ...(Object.keys(details).length ? { details } : {}),
+        // vLLM serves exactly the model(s) it was launched with — always
+        // resident. The engine reports residency per row instead.
+        ...(this.config.kind === 'vllm'
+          ? { loaded: true }
+          : m.state === 'loaded' || m.state === 'not-loaded'
+            ? { loaded: m.state === 'loaded' }
+            : {}),
       };
     });
   }
@@ -263,6 +282,17 @@ export class OpenAICompatProvider implements Provider {
     }
     return out;
   }
+}
+
+/** Kinds whose /models rows carry a display name worth showing. */
+function serverNamesModels(kind: ProviderConfig['kind']): boolean {
+  return (
+    kind === 'openrouter' ||
+    kind === 'llamacpp' ||
+    kind === 'openai-compat' ||
+    kind === 'lmstudio' ||
+    kind === 'vllm'
+  );
 }
 
 function toOpenAITool(t: ToolSpec) {

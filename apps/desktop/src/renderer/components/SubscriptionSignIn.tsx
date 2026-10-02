@@ -174,7 +174,9 @@ export function SubscriptionSignIn({
             ? oauthProvider === 'openrouter'
               ? 'Approve the key request in the browser tab that opened; the key lands here automatically.'
               : 'Finish signing in in the browser tab that opened; this window updates automatically.'
-            : 'Your browser could not reach back to the app, so sign-in finishes manually: after you authorize, copy the code the page shows and paste it below.'}
+            : oauthProvider === 'chatgpt'
+              ? 'Your browser could not reach back to the app, so sign-in finishes manually: after you authorize, the tab lands on a page that cannot connect. Copy that tab\'s whole address (it carries your sign-in code) and paste it below.'
+              : 'Your browser could not reach back to the app, so sign-in finishes manually: after you authorize, copy the code the page shows and paste it below.'}
         </p>
         <p className="text-[11.5px] text-ink-faint">{consentNote}</p>
         <button
@@ -188,7 +190,7 @@ export function SubscriptionSignIn({
             <input
               className="input py-1.5 text-[12px]"
               aria-label="Paste the sign-in code"
-              placeholder="Paste the code (code#state)"
+              placeholder={oauthProvider === 'chatgpt' ? 'Paste the redirect URL (or code)' : 'Paste the code (code#state)'}
               value={pasted}
               onChange={(e) => setPasted(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && !finishing && void finish()}

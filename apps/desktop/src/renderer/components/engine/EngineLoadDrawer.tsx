@@ -4,11 +4,13 @@ import {
   type AutoFitSummary,
   type EngineLoadPreset,
   type FitPlan,
+  type GpuFit,
   type KvCacheDtype,
   type LoadParams,
   type LocalModel,
 } from '@agent-nekko/shared';
 import { FitBar } from '../runtimes/FitBar.js';
+import { Toggle } from '../primitives/index.js';
 import { formatBytes, formatTokens, verdictColor, verdictLabel, verdictNotes, verdictSentence } from '../runtimes/verdict.js';
 import { useStore } from '../../store.js';
 
@@ -124,9 +126,13 @@ export function EngineLoadDrawer({
 
   const load = async () => {
     setLoading(true);
-    const res = await window.nekko
+    const req = window.nekko
       .runtimeLoad(providerId, model.id, params)
       .catch((e: Error) => ({ ok: false, message: e.message }));
+    // Refresh now so the "In memory" block gains its loading row while the
+    // file is still streaming in, not when it has already landed.
+    onDone();
+    const res = await req;
     setLoading(false);
     pushToast(res.ok ? 'success' : 'error', res.message ?? (res.ok ? 'Loaded.' : "Couldn't load the model."));
     if (res.ok) {
@@ -170,58 +176,69 @@ export function EngineLoadDrawer({
         </div>
       </div>
 
-      {surface === 'simple' ? (
-        <SimpleSurface budget={budget} onBudget={setBudget} auto={auto} solving={solving} />
-      ) : (
-        <AdvancedSurface
-          model={model}
-          params={params}
-          stops={stops}
-          ctxIndex={ctxIndex}
-          onChange={patch}
-        />
-      )}
+      {/* "Model settings" is its own named, foldable group: the ask is to
+          adjust here and reload, not to read past a wall of controls to find
+          out whether it fits. The performance readout sits below it. */}
+      <details open className="mt-3 rounded-lg border" style={{ borderColor: 'var(--line)' }}>
+        <summary className="cursor-pointer select-none px-3 py-2 text-[12px] font-medium">
+          Model settings
+        </summary>
+        <div className="border-t px-3 pb-3" style={{ borderColor: 'var(--line)' }}>
+          {surface === 'simple' ? (
+            <SimpleSurface budget={budget} onBudget={setBudget} auto={auto} solving={solving} />
+          ) : (
+            <AdvancedSurface
+              model={model}
+              params={params}
+              stops={stops}
+              ctxIndex={ctxIndex}
+              onChange={patch}
+            />
+          )}
 
-      {/* Residency and startup are one question — "how does this model behave
-          when I am not looking at it" — so they sit together rather than being
-          a load flag and a server setting. */}
-      <div className="mt-3 space-y-2 rounded-lg border px-3 py-2.5" style={{ borderColor: 'var(--line)' }}>
-        {onToggleAutoload && (
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[12px]">Load when the engine starts</p>
-              <p className="text-[11px] text-ink-faint">Comes up with these saved settings every time the engine does.</p>
+          {/* Residency and startup are one question — "how does this model
+              behave when I am not looking at it" — so they sit together rather
+              than being a load flag and a server setting. */}
+          <div className="mt-3 space-y-2 rounded-lg border px-3 py-2.5" style={{ borderColor: 'var(--line)' }}>
+            {onToggleAutoload && (
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[12px]">Load when the engine starts</p>
+                  <p className="text-[11px] text-ink-faint">Comes up with these saved settings every time the engine does.</p>
+                </div>
+                <Toggle value={autoloaded} onChange={onToggleAutoload} />
+              </div>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[12px]">Keep it loaded</p>
+                <p className="text-[11px] text-ink-faint">
+                  Never evict it for sitting idle. Off means the server's idle limit applies.
+                </p>
+              </div>
+              <Toggle
+                value={params.ttlSeconds === 0}
+                onChange={(v) => patch({ ttlSeconds: v ? 0 : undefined })}
+              />
             </div>
-            <Toggle value={autoloaded} onChange={onToggleAutoload} />
+            {model.modality === 'vision' && !model.hasProjector && onFetchCompanions && (
+              <div className="flex items-center justify-between gap-3 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
+                <div>
+                  <p className="text-[12px]">Projector file missing</p>
+                  <p className="text-[11px] text-ink-faint">
+                    This model can read images only with its mmproj-*.gguf beside it. Text works either way.
+                  </p>
+                </div>
+                <button className="btn btn-outline shrink-0 py-1 text-[11.5px]" onClick={onFetchCompanions}>
+                  Fetch it
+                </button>
+              </div>
+            )}
           </div>
-        )}
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[12px]">Keep it loaded</p>
-            <p className="text-[11px] text-ink-faint">
-              Never evict it for sitting idle. Off means the server's idle limit applies.
-            </p>
-          </div>
-          <Toggle
-            value={params.ttlSeconds === 0}
-            onChange={(v) => patch({ ttlSeconds: v ? 0 : undefined })}
-          />
         </div>
-        {model.modality === 'vision' && !model.hasProjector && onFetchCompanions && (
-          <div className="flex items-center justify-between gap-3 border-t pt-2" style={{ borderColor: 'var(--line)' }}>
-            <div>
-              <p className="text-[12px]">Projector file missing</p>
-              <p className="text-[11px] text-ink-faint">
-                This model can read images only with its mmproj-*.gguf beside it. Text works either way.
-              </p>
-            </div>
-            <button className="btn btn-outline shrink-0 py-1 text-[11.5px]" onClick={onFetchCompanions}>
-              Fetch it
-            </button>
-          </div>
-        )}
-      </div>
+      </details>
 
+      <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Performance</p>
       {plan ? (
         <FitBar plan={plan} />
       ) : (
@@ -250,25 +267,64 @@ export function EngineLoadDrawer({
   );
 }
 
-function SurfaceToggle({ value, onChange }: { value: Surface; onChange: (s: Surface) => void }) {
+/** The small horizontal tab strip: one pick out of a few, accent on the live one. */
+function SegTabs<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ id: T; label: string; disabled?: boolean; title?: string }>;
+  value: T;
+  onChange: (v: T) => void;
+}) {
   return (
     <div className="flex rounded-full border p-0.5 text-[11px]" style={{ borderColor: 'var(--line)' }}>
-      {(['simple', 'advanced'] as const).map((s) => (
+      {options.map((o) => (
         <button
-          key={s}
-          className="rounded-full px-2.5 py-0.5 capitalize"
+          key={o.id}
+          className="rounded-full px-2.5 py-0.5 disabled:opacity-40"
+          disabled={o.disabled}
+          title={o.title}
           style={
-            value === s
+            value === o.id
               ? { background: 'var(--accent)', color: 'var(--on-accent, #fff)' }
               : { color: 'var(--ink-faint)' }
           }
-          onClick={() => onChange(s)}
+          onClick={() => onChange(o.id)}
         >
-          {s}
+          {o.label}
         </button>
       ))}
     </div>
   );
+}
+
+function SurfaceToggle({ value, onChange }: { value: Surface; onChange: (s: Surface) => void }) {
+  return (
+    <SegTabs
+      options={[
+        { id: 'simple', label: 'Simple' },
+        { id: 'advanced', label: 'Advanced' },
+      ]}
+      value={value}
+      onChange={onChange}
+    />
+  );
+}
+
+/**
+ * Where the layers run, read off `gpuLayers`: 0 is all-CPU, everything (or an
+ * unset "let the engine offload it all") is GPU-only, anything in between is
+ * the hybrid split. GPU-only writes the layer count explicitly rather than
+ * leaving it unset, so "all of it" survives engines whose default would
+ * split to fit.
+ */
+type Placement = 'gpu' | 'hybrid' | 'cpu';
+
+function placementOf(params: LoadParams, layers?: number): Placement {
+  if (params.gpuLayers === 0) return 'cpu';
+  if (params.gpuLayers === undefined || (layers !== undefined && params.gpuLayers >= layers)) return 'gpu';
+  return 'hybrid';
 }
 
 /**
@@ -338,12 +394,25 @@ function AdvancedSurface({
   ctxIndex,
   onChange,
 }: {
-  model: LocalModel;
+  model: LocalModel & { gpuFit?: GpuFit };
   params: LoadParams;
   stops: number[];
   ctxIndex: number;
   onChange: (p: Partial<LoadParams>) => void;
 }) {
+  const placement = placementOf(params, model.layers);
+  // The planner's verdict doubles as hardware knowledge: 'cpu' means it looked
+  // and found no GPU, so GPU-only is a choice that could never do anything.
+  const noGpu = model.gpuFit === 'cpu';
+  const setPlacement = (p: Placement) =>
+    onChange({
+      gpuLayers:
+        p === 'gpu'
+          ? (model.layers ?? 999)
+          : p === 'cpu'
+            ? 0
+            : Math.max(1, Math.floor((model.layers ?? 40) / 2)),
+    });
   return (
     <div className="mt-3 space-y-3">
       <div>
@@ -363,26 +432,75 @@ function AdvancedSurface({
         />
       </div>
 
-      {model.layers ? (
-        <Row
-          label="GPU offload"
-          hint={`How many of the model's ${model.layers} layers run on the GPU. The rest run on the CPU.`}
-        >
-          <div className="flex items-center gap-2">
-            <input
-              type="range"
-              min={0}
-              max={model.layers}
-              value={params.gpuLayers ?? model.layers}
-              onChange={(e) => onChange({ gpuLayers: Number(e.target.value) })}
-              className="w-28"
-            />
-            <span className="w-14 text-right font-mono text-[11px] text-ink-faint">
-              {params.gpuLayers ?? model.layers}/{model.layers}
-            </span>
-          </div>
+      {model.format === 'mlx' ? (
+        <Row label="Runs on" hint="MLX models live on the GPU; a Mac shares one memory pool between it and the CPU.">
+          <span className="text-[11px] text-ink-faint">GPU only</span>
         </Row>
-      ) : null}
+      ) : (
+        <Row
+          label="Runs on"
+          hint={
+            placement === 'gpu'
+              ? 'Every layer lives in VRAM. Fastest, when the model fits.'
+              : placement === 'cpu'
+                ? 'Everything runs in system memory. Slower, but it always fits.'
+                : 'Split it: the layers you choose run on the GPU, the rest on the CPU.'
+          }
+        >
+          <SegTabs
+            options={[
+              { id: 'gpu', label: 'GPU only', disabled: noGpu, title: noGpu ? 'No GPU on this machine' : undefined },
+              { id: 'hybrid', label: 'Hybrid', disabled: noGpu, title: noGpu ? 'No GPU on this machine' : undefined },
+              { id: 'cpu', label: 'CPU only' },
+            ]}
+            value={placement}
+            onChange={setPlacement}
+          />
+        </Row>
+      )}
+
+      {placement === 'hybrid' && model.format !== 'mlx' && (
+        <>
+          {model.layers ? (
+            <Row
+              label="GPU offload"
+              hint={`How many of the model's ${model.layers} layers run on the GPU. The rest run on the CPU.`}
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={model.layers}
+                  value={params.gpuLayers ?? model.layers}
+                  onChange={(e) => onChange({ gpuLayers: Number(e.target.value) })}
+                  className="w-28"
+                />
+                <span className="w-14 text-right font-mono text-[11px] text-ink-faint">
+                  {params.gpuLayers ?? model.layers}/{model.layers}
+                </span>
+              </div>
+            </Row>
+          ) : (
+            <Row label="GPU offload" hint="This file does not say how many layers it has, so set the count directly.">
+              <NumberInput
+                value={params.gpuLayers}
+                min={1}
+                max={999}
+                placeholder="layers"
+                onChange={(n) => onChange({ gpuLayers: n })}
+              />
+            </Row>
+          )}
+          <Row label="CPU threads" hint="Threads for the layers that run on the CPU. Empty lets the engine choose.">
+            <NumberInput value={params.threads} min={1} max={256} placeholder="auto" onChange={(n) => onChange({ threads: n })} />
+          </Row>
+        </>
+      )}
+      {placement === 'cpu' && model.format !== 'mlx' && (
+        <Row label="CPU threads" hint="Threads for the layers that run on the CPU. Empty lets the engine choose.">
+          <NumberInput value={params.threads} min={1} max={256} placeholder="auto" onChange={(n) => onChange({ threads: n })} />
+        </Row>
+      )}
 
       <Row label="KV cache type" hint="A smaller element halves or quarters the cache, at a small quality cost.">
         <select
@@ -439,9 +557,6 @@ function AdvancedSurface({
           </Row>
           <Row label="Physical batch" hint="The micro-batch the GPU actually runs. Lower it when a large batch runs out of memory.">
             <NumberInput value={params.ubatchSize} min={16} max={4096} placeholder="auto" onChange={(n) => onChange({ ubatchSize: n })} />
-          </Row>
-          <Row label="CPU threads" hint="Threads for the layers that run on the CPU. Empty lets the engine choose.">
-            <NumberInput value={params.threads} min={1} max={256} placeholder="auto" onChange={(n) => onChange({ threads: n })} />
           </Row>
           <Row label="Keep weights in RAM" hint="Stops the OS paging the model out. Uses more RAM and avoids a stall after idle.">
             <Toggle value={params.mlock ?? false} onChange={(v) => onChange({ mlock: v })} />
@@ -577,23 +692,6 @@ function DraftModelRow({
         ))}
       </select>
     </Row>
-  );
-}
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={value}
-      className="relative h-5 w-9 shrink-0 rounded-full transition-colors"
-      style={{ background: value ? 'var(--accent)' : 'color-mix(in srgb, var(--ink-faint) 30%, transparent)' }}
-      onClick={() => onChange(!value)}
-    >
-      <span
-        className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all"
-        style={{ left: value ? 18 : 2 }}
-      />
-    </button>
   );
 }
 

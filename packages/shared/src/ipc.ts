@@ -365,8 +365,10 @@ export interface NekkoApi {
   engineSettingsSave(
     patch: Partial<import('./engine.js').EngineSettings>,
   ): Promise<import('./engine.js').EngineSettings>;
-  /** The local model library, with load state folded in. */
-  engineModels(): Promise<Array<import('./engine.js').LocalModel & { loaded: boolean }>>;
+  /** The local model library, with load state and the planner's residency verdict folded in. */
+  engineModels(): Promise<
+    Array<import('./engine.js').LocalModel & { loaded: boolean; gpuFit?: import('./engine.js').GpuFit }>
+  >;
   /** Adopt a GGUF that lives elsewhere on disk, without copying it. */
   engineImportModel(
     path: string,

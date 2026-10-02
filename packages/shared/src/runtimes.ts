@@ -132,6 +132,17 @@ export interface ResidentModel {
   sizeBytes?: number;
   vramBytes?: number;
   contextLength?: number;
+  /**
+   * Transformer layers the load put on the GPU, and the model's total, when
+   * known. `gpuLayers === totalLayers` is a full offload.
+   */
+  gpuLayers?: number;
+  totalLayers?: number;
+  /**
+   * Where it runs, in one token: `gpu` every layer offloaded, `cpu` none,
+   * `gpu+cpu` split. Absent means the runtime cannot say.
+   */
+  loadedOn?: 'gpu' | 'gpu+cpu' | 'cpu';
   /** When it last served a request: the field LRU eviction reads. */
   lastUsedAt?: number;
   /** When it was loaded. */
