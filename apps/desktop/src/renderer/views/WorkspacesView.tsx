@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
-import { archiveDaysLeft, archiveDeletesAt, isArchived, parsePrUrl } from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, archiveDaysLeft, archiveDeletesAt, isArchived, parsePrUrl } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, type Workspace } from '../store.js';
 import { PaneVisibleContext } from '../paneVisibility.js';
@@ -21,6 +21,9 @@ import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, Exte
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 import { celebrateCompletion } from '../completionCelebration.js';
+import { ContextMenu, ContextAction } from '../components/ContextMenu.js';
+import { ModelPicker } from '../components/agent-console/ModelPicker.js';
+import { selectWorkspaceRows } from './workspaceSelection.js';
 import { unopenedChats } from './unopenedChats.js';
 
 /** Short label for a window's title strip. */
@@ -220,6 +223,31 @@ export function WorkspacesView() {
       setArchivedView: s.setArchivedView,
     })),
   );
+  const [selected, setSelected] = useState<string[]>([]);
+  const anchor = useRef<string | null>(null);
+  const [menu, setMenu] = useState<{x: number; y: number; ids: string[]; model?: boolean} | null>(null);
+  const selectRow = (e: React.MouseEvent, id: string) => {
+    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { setSelected([]); anchor.current = id; return false; }
+    e.preventDefault(); e.stopPropagation();
+    const order = buckets.filter(b => !collapsed.has(b.key)).flatMap(b => [...bucketWorkspaces(b.key).flatMap(w => sessionOf(w)?.id ? [sessionOf(w)!.id] : []), ...savedChats.filter(s => (settings?.workspaces.some(p => p.id === s.workspaceId) ? s.workspaceId : '__none') === b.key).map(s => s.id)]);
+    setSelected(prev => selectWorkspaceRows(prev, order, id, anchor.current, e.shiftKey));
+    if (!e.shiftKey) anchor.current = id;
+    return true;
+  };
+  const contextRow = (e: React.MouseEvent, id: string) => { e.preventDefault(); e.stopPropagation(); const ids = selected.includes(id) ? selected.filter(x => sessions.some(s => s.id === x)) : [id]; setSelected(ids); setMenu({x:e.clientX,y:e.clientY,ids}); };
+  const runAction = async (action: 'complete' | 'delete' | 'stop' | 'continue', ids: string[]) => {
+    setMenu(null);
+    if (action === 'delete' && !window.confirm('Permanently delete ' + ids.length + ' chat(s)? This cannot be undone.')) return;
+    for (const id of ids) {
+      try {
+        if (action === 'complete') await archiveChat(id);
+        if (action === 'delete') { await window.nekko.abortChat(id); await window.nekko.deleteSession(id); const state = useStore.getState(); const w = state.workspaces.find(w => w.anchor.kind === 'chat' && w.anchor.refId === id); if (w) state.closeWorkspace(w.id); }
+        if (action === 'stop' && statuses.has(id)) await window.nekko.abortChat(id);
+        if (action === 'continue' && !statuses.has(id)) { const s = await window.nekko.getSession(id); if (!s?.providerId || !s.modelId || s.autoModel) throw new Error('Choose a specific model before continuing this chat.'); if (!s.messages.some(m => m.role === 'user')) throw new Error('This chat has no prompt to continue.'); await window.nekko.sendChat({sessionId:id,providerId:s.providerId,modelId:s.modelId,text:'',resume:true}); }
+      } catch(e) { useStore.getState().pushToast('error', id + ': ' + String(e)); }
+    }
+    await refreshSessions(); setSelected([]);
+  };
   const archivedCount = useMemo(() => sessions.filter(isArchived).length, [sessions]);
 
   // Archived chats past the 60-day window are deleted when the workspaces
@@ -590,6 +618,9 @@ export function WorkspacesView() {
                     return (
                       <div
                         key={w.id}
+                        onContextMenu={s ? (e) => contextRow(e, s.id) : undefined}
+                        onClickCapture={s ? (e) => { if (selectRow(e, s.id)) e.stopPropagation(); } : undefined}
+                        style={s && selected.includes(s.id) ? {background:'var(--accent-soft)', borderRadius:8, boxShadow:'inset 0 0 0 1px var(--accent)'} : undefined}
                         draggable
                         onDragStart={(e) => startDrag(e, { kind: 'workspace', id: w.id, ws: b.ws?.id })}
                         onDragEnd={endDrag}
@@ -626,7 +657,7 @@ export function WorkspacesView() {
                     <div className="pt-2">
                       <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Saved chats</p>
                       {saved.map((s) => (
-                        <div key={s.id} className="group flex items-center rounded-lg hover:bg-surface-2">
+                        <div key={s.id} onContextMenu={(e) => contextRow(e,s.id)} onClickCapture={(e) => { if (selectRow(e,s.id)) e.stopPropagation(); }} style={selected.includes(s.id) ? {background:"var(--accent-soft)", boxShadow:"inset 0 0 0 1px var(--accent)"} : undefined} className="group flex items-center rounded-lg hover:bg-surface-2">
                           <button
                             className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[12px] text-ink-soft"
                             title={`Open ${s.title}`}
@@ -683,6 +714,17 @@ export function WorkspacesView() {
       className="flex h-full min-w-0 overflow-hidden"
       style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
     >
+      {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+        <div className="select-text break-all px-2.5 py-2 font-mono text-[10px] text-ink-faint">{menu.ids.length === 1 ? menu.ids[0] : menu.ids.length + ' sessions selected'}</div>
+        {menu.model ? <div className="h-72"><ModelPicker expanded open providers={useStore.getState().providers} providerId={null} modelId={null} models={[]} onOpenChange={() => {}} onProvider={() => {}} onModel={(pid, mid) => { const ids = menu.ids; setMenu(null); void Promise.allSettled(ids.map(async id => { const s = await window.nekko.setSessionOptions(id,{providerId:pid,modelId:mid,autoModel:mid===AUTO_MODEL_ID}); if (!s) throw new Error('Chat no longer exists'); window.dispatchEvent(new CustomEvent('nekko-session-brain', {detail:{id,session:s}})); })).then(results => { results.forEach((r,i) => { if(r.status==='rejected') useStore.getState().pushToast('error',ids[i]+': '+String(r.reason)); }); void refreshSessions(); }); }} /></div> : <>
+          <ContextAction onClick={() => { menu.ids.forEach(id => openChatPane(id)); setMenu(null); }}>Open{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
+          <ContextAction onClick={() => void runAction('complete',menu.ids)}>Mark as completed</ContextAction>
+          <ContextAction onClick={() => setMenu({...menu, model:true})}>Change model</ContextAction>
+          <ContextAction disabled={!menu.ids.some(id => statuses.has(id))} onClick={() => void runAction('stop',menu.ids)}>Stop{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
+          <ContextAction disabled={menu.ids.every(id => statuses.has(id))} onClick={() => void runAction('continue',menu.ids)}>Continue{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
+          <ContextAction onClick={() => void runAction('delete',menu.ids)}>Delete permanently</ContextAction>
+        </>}
+      </ContextMenu>}
       {mobileNav && <div className="absolute inset-0 z-20 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} />}
       <aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
       {/* The handle sits inside the gap itself (negative margins) so the list
