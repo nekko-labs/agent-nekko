@@ -240,6 +240,12 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### Completed-session PR follow-up (2026-10-02)
+
+- [x] Correct fallback shell process-group launching and preserve Windows quoted arguments; format loop-detector Rust sources to satisfy CI. Host routing tests and typecheck plus Rust formatting check verified locally. · Done: 2026-10-02
+- [ ] Publish completion screenshots/recording to the PR and verify native iOS/Android visuals before marking the completion PR ready.
+
+
 ### Server browser, chat chrome and tray (added 2026-10-01)
 
 - [ ] **UX40**, Server cards share a row above models and use the existing power icon. [Spec](SPEC.md#server-model-browser-and-desktop-tray)
