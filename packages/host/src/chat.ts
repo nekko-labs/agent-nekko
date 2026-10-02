@@ -868,6 +868,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
                 mode,
                 allowBrowserControl,
                 sessionId: opts.sessionId,
+                signal: abort.signal,
               });
         },
         temperature: EFFORT_TEMPERATURE[effectiveEffort(settings.effort, opts.modelId)],

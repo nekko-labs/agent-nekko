@@ -116,6 +116,26 @@ function children(parent: Session) {
 }
 
 describe('agent command terminal', () => {
+  it('cancels a running fallback shell instead of waiting for its command', async () => {
+    const controller = new AbortController();
+    const started = Date.now();
+    const call = { id: 'slow', name: 'bash', input: { command: 'node -e "setTimeout(() => {}, 30000)"' } };
+    const result = executeTool(call, { settings: getSettings(), sessionId: 'test-cancel', mode: 'yolo', signal: controller.signal, requestApproval: async () => false });
+    setTimeout(() => controller.abort(), 100);
+    expect(await result).toMatchObject({ isError: true, output: expect.stringContaining('Command cancelled.') });
+    expect(Date.now() - started).toBeLessThan(5000);
+    closeTerminal('agent_test-cancel');
+  });
+
+  it('does not start a shell after its turn was cancelled', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const result = await executeTool({ id: 'cancelled', name: 'bash', input: { command: 'node -p 42' } },
+      { settings: getSettings(), sessionId: 'test-cancelled', mode: 'yolo', signal: controller.signal, requestApproval: async () => false });
+    expect(result).toMatchObject({ isError: true, output: 'Command cancelled.' });
+    expect(await terminalSnapshot('agent_test-cancelled')).toBeNull();
+  });
+
   it('shows a guarded command once in a read-only terminal', async () => {
     const sessionId = 'test-command';
     const call = { id: 'cmd', name: 'bash', input: { command: 'node -p 42' } };
