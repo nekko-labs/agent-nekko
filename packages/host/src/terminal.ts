@@ -150,6 +150,14 @@ function resolveCwd(workspaceId?: string, cwd?: string): string {
   return first && existsSync(first) ? first : process.cwd();
 }
 
+export function finishAgentTerminal(sessionId: string): void {
+  const state = terms.get(`agent_${sessionId}`);
+  if (!state || !state.info.running) return;
+  state.info.running = false;
+  state.info.exitCode = 0;
+  emit({ type: 'exit', terminalId: state.info.id, code: 0 });
+}
+
 export function appendAgentTerminal(sessionId: string, workspaceId: string | undefined, data: string): string {
   const id = `agent_${sessionId}`;
   let state = terms.get(id);

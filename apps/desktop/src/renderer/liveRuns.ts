@@ -138,6 +138,18 @@ function markDirty(sessionId: string): void {
   });
 }
 
+/** Events that mean a turn is actually producing something, so may open a run. */
+const STARTS_RUN = new Set<AgentEvent['type']>([
+  'text',
+  'reasoning',
+  'tool_call',
+  'tool_result',
+  'tool_approval_required',
+  'question',
+  'image_status',
+  'usage',
+]);
+
 /**
  * Fold one event into its session's run.
  *
@@ -162,6 +174,12 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
     markDirty(id);
     return;
   }
+
+  // Bookkeeping events never start a run. `session_meta` in particular lands
+  // *after* `done` (the auto-title is generated once the first turn is over),
+  // and folding it in used to resurrect an empty run that nothing would ever
+  // end: the chat sat on "Starting" with its clock climbing for hours.
+  if (!runs.has(id) && !STARTS_RUN.has(event.type)) return;
 
   const prev = runs.get(id) ?? emptyRun(id, now);
   if (!runs.has(id)) finished.delete(id);

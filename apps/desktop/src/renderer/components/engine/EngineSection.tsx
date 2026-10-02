@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DownloadJob, EngineStatus, LocalModel } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
-import { Badge, Toggle } from '../primitives/index.js';
+import { Toggle } from '../primitives/index.js';
 import { CheckIcon, CopyIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
 import { EngineInstallCard } from './EngineInstallCard.js';
@@ -13,7 +13,7 @@ import { DiffusionInstallCard } from './DiffusionInstallCard.js';
 import { MlxInstallCard } from './MlxInstallCard.js';
 import { DecisionModels } from './DecisionModels.js';
 import { LocalServerSection } from '../server/LocalServerSection.js';
-import { PowerIcon } from '../runtimes/RuntimeCard.js';
+import { ServerPowerPill } from '../server/ServerPowerPill.js';
 
 /**
  * The engine Agent Nekko runs itself, and the models it serves.
@@ -134,31 +134,18 @@ export function EngineSection({
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--accent)' }} />
         <h2 className="text-[15px] font-semibold">Model server</h2>
         <div className="ml-auto flex items-center gap-3">
-          <button
-            className="btn btn-ghost p-1.5 disabled:opacity-50"
-            style={{ color: running ? 'var(--success)' : 'var(--ink-faint)' }}
-            onClick={() => void toggle()}
-            disabled={busy !== null || !installed}
-            aria-label={running ? 'Stop model server' : 'Start model server'}
-            aria-pressed={running}
-            title={running ? 'Stop model server' : 'Start model server'}
-          >
-            <PowerIcon className="h-4 w-4" />
-          </button>
-          {running ? (
-            <Badge tone="success" variant="solid" className="px-2 py-0.5">
-              <CheckIcon className="h-3 w-3" /> {busy ? 'Working…' : 'Serving'}
-            </Badge>
-          ) : installed ? (
-            <span className="chip">{busy ? 'working…' : 'stopped'}</span>
-          ) : (
-            <span className="chip">not installed</span>
-          )}
+          <ServerPowerPill
+            running={running}
+            busy={busy !== null}
+            unavailable={installed ? undefined : 'Not installed'}
+            onToggle={() => void toggle()}
+            labelWhat="model server"
+          />
           <label
             className="flex items-center gap-1.5 text-[12px] text-ink-soft"
             title="Bring the engine up when the app opens"
           >
-            Start with Nekko
+            Start Server on Nekko Launch
             <Toggle
               value={status.settings.autoStart}
               onChange={(v) => void saveAutoStart(v)}
@@ -209,6 +196,18 @@ export function EngineSection({
         </details>
         <DiffusionInstallCard install={status.diffusionInstall} onChanged={refresh} />
         <MlxInstallCard install={status.mlxInstall} onChanged={refresh} />
+
+        {/* The engine's own output, under the server it came from rather than
+            the model library: when a start fails this is where you look, and
+            it opens itself (showLog) so you do not have to. */}
+        {status.log.length > 0 && (
+          <details className="mt-3" open={showLog}>
+            <summary className="cursor-pointer text-[11px] text-ink-faint">Server logs</summary>
+            <pre className="mt-1 max-h-40 overflow-auto rounded bg-[color-mix(in_srgb,var(--ink-faint)_8%,transparent)] p-2 font-mono text-[10px]">
+              {status.log.join('\n')}
+            </pre>
+          </details>
+        )}
       </div>
       </div>
       <LocalServerSection />
@@ -252,15 +251,6 @@ export function EngineSection({
           {tab === 'folders' && <ModelFolders onChanged={refresh} />}
           {tab === 'decisions' && <DecisionModels />}
         </div>
-
-        {status.log.length > 0 && (
-          <details className="mt-3" open={showLog}>
-            <summary className="cursor-pointer text-[11px] text-ink-faint">Engine output</summary>
-            <pre className="mt-1 max-h-40 overflow-auto rounded bg-[color-mix(in_srgb,var(--ink-faint)_8%,transparent)] p-2 font-mono text-[10px]">
-              {status.log.join('\n')}
-            </pre>
-          </details>
-        )}
       </div>
       </div>
     </section>

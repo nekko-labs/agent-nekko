@@ -325,6 +325,7 @@ export interface Host {
   cancelSessionCompaction(sessionId: string): void;
   queuePrompt(sessionId: string, text: string): Session | null;
   dequeuePrompt(sessionId: string, index: number): Session | null;
+  interruptQueuedPrompt(sessionId: string, index: number): Promise<void>;
   /**
    * Model-written next-step ideas for a chat's last reply: one-click follow-up
    * chips plus the ghost-text draft. Sideband, unpersisted; null when there's
@@ -365,10 +366,12 @@ export interface Host {
   specPath(sessionId: string): string | null;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
   ): Session | null;
   truncateSession(id: string, messageId: string): Session | null;
   clearSessions(scope: 'today' | 'month' | 'all'): number;
+  /** Delete archived chats past the retention window; returns how many went. */
+  purgeExpiredArchives(): number;
   resetSettings(): AppSettings;
   wipeAllData(): AppSettings;
   listTools(): Array<{ name: string; description: string }>;
@@ -528,6 +531,8 @@ export interface Host {
 export function createHost(opts: { dataDir: string; allowBrowserControl?: boolean }): Host {
   setDataDir(opts.dataDir);
   const events = new EventEmitter();
+  const activeChats = new Map<string, Promise<void>>();
+  const interrupting = new Set<string>();
   initOAuth(events);
   initLimits(events);
   const onIndexProgress = (s: IndexStatus) => events.emit('indexProgress', s);
@@ -815,6 +820,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     setSessionOptions: sessions.setSessionOptions,
     truncateSession: sessions.truncateSession,
     clearSessions: sessions.clearSessions,
+    purgeExpiredArchives: () => sessions.purgeExpiredArchives(),
     resetSettings,
     wipeAllData: () => {
       sessions.clearSessions('all');
@@ -825,11 +831,15 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     },
     listTools: () => [...BUILTIN_TOOLS.map((t) => ({ name: t.name, description: t.description })), ...mcpToolList()],
     sendChat: (o) => {
+      if (interrupting.has(o.sessionId)) throw new Error('A queued prompt is already starting.');
       if (isSessionCompacting(o.sessionId)) {
         events.emit('agentEvent', { type: 'error', sessionId: o.sessionId, message: 'This chat is being compacted. Wait or move to a new chat.' });
         return Promise.resolve();
       }
-      return sendChat(o, (e) => events.emit('agentEvent', e), !!opts.allowBrowserControl);
+      const run = sendChat(o, (e) => events.emit('agentEvent', e), !!opts.allowBrowserControl);
+      activeChats.set(o.sessionId, run);
+      void run.finally(() => { if (activeChats.get(o.sessionId) === run) activeChats.delete(o.sessionId); }).catch(() => {});
+      return run;
     },
     abortChat: (sessionId) => {
       if (!abortImageTurn(sessionId)) abortChat(sessionId);
@@ -840,6 +850,31 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     cancelSessionCompaction,
     queuePrompt: sessions.queuePrompt,
     dequeuePrompt: sessions.dequeuePrompt,
+    interruptQueuedPrompt: async (sessionId, index) => {
+      const session = sessions.getSession(sessionId);
+      if (!session) throw new Error('Session not found.');
+      if (!Number.isSafeInteger(index) || index < 0 || index >= (session.queue?.length ?? 0)) throw new Error('Queued prompt not found.');
+      if (interrupting.has(sessionId)) throw new Error('A queued prompt is already starting.');
+      if (isSessionCompacting(sessionId)) throw new Error('This chat is being compacted.');
+      const providerId = session.providerId ?? getSettings().defaultProviderId;
+      const modelId = session.modelId ?? getSettings().defaultModelId;
+      if (!providerId || !modelId) throw new Error('Choose a provider and model before starting the queued prompt.');
+      const text = session.queue![index];
+      interrupting.add(sessionId);
+      try {
+        const active = activeChats.get(sessionId);
+        if (active) {
+          abortChat(sessionId);
+          await active.catch(() => {});
+        } else if (abortImageTurn(sessionId)) {
+          throw new Error('Image turn is still stopping. Try again when it finishes.');
+        }
+        if (isSessionCompacting(sessionId)) throw new Error('This chat is being compacted.');
+        await sendChat({ sessionId, providerId, modelId, text }, (e) => events.emit('agentEvent', e), !!opts.allowBrowserControl, { index, text });
+      } finally {
+        interrupting.delete(sessionId);
+      }
+    },
     suggestReplies,
     fillPromptPart,
     approveTool: (sessionId, toolCallId, approved) => resolveApproval(sessionId, toolCallId, approved),

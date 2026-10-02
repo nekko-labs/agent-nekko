@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { setDataDir } from './paths.js';
-import { appendAgentTerminal, createTerminal, listTerminals, terminalSnapshot, useTerminalDaemon, writeTerminal } from './terminal.js';
+import { appendAgentTerminal, createTerminal, finishAgentTerminal, listTerminals, terminalSnapshot, useTerminalDaemon, writeTerminal } from './terminal.js';
 
 /**
  * Under the engine daemon the host keeps only the agent command logs and
@@ -65,6 +65,14 @@ describe('terminals under the engine daemon', () => {
     const ids = (await listTerminals()).map((t) => t.id);
     expect(ids).toContain('term_daemon_1');
     expect(ids).toContain('agent_s-daemon-test');
+  });
+
+  it('marks a finished agent log as stopped without losing its output', async () => {
+    appendAgentTerminal('s-finished', undefined, 'command output');
+    finishAgentTerminal('s-finished');
+    const snapshot = await terminalSnapshot('agent_s-finished');
+    expect(snapshot?.info.running).toBe(false);
+    expect(snapshot?.buffer).toContain('command output');
   });
 
   it('keeps agent logs local and forwards everything else', async () => {

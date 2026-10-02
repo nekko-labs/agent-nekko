@@ -167,6 +167,7 @@ describe('ChatGptProvider requests', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('teapot', { status: 418 }));
     const models = await new ChatGptProvider({ ...cfg, customModelId: 'my-codex-model' }).listModels();
     expect(models.at(-1)).toMatchObject({ id: 'my-codex-model', name: 'my-codex-model (custom)' });
+    expect(models.at(-1)?.contextLength).toBeUndefined();
   });
 
   it('listModels serves the curated set without a network call when signed out', async () => {

@@ -22,8 +22,19 @@ export type ApiServerBind = 'local' | 'lan' | 'custom';
 
 /** What the local API server is configured to do. */
 export interface ApiServerSettings {
-  /** Serve on start-up and keep serving. */
+  /** Serve now and keep serving: the live on/off switch. */
   enabled: boolean;
+  /**
+   * Whether the server comes up when the app launches.
+   *
+   * Separate from `enabled` because the two answer different questions:
+   * `enabled` is "is it on right now", this is "should it be on when I open
+   * the app". Off means every launch starts with the server stopped (and the
+   * CLI link saying so) however it was left at quit, and the power button
+   * still switches it on for the session. Missing reads as on, which is what
+   * every install did before the setting existed.
+   */
+  startOnLaunch?: boolean;
   port: number;
   /**
    * `local` = 127.0.0.1 only. `lan` exposes it to the whole network. `custom`
@@ -89,6 +100,7 @@ export const DEFAULT_API_SERVER_SETTINGS: ApiServerSettings = {
   // the app, and a CLI that only works once you have found a checkbox in
   // Settings is a CLI that does not work. Loopback and token-only, as before.
   enabled: true,
+  startOnLaunch: true,
   port: API_SERVER_PORT_DEFAULT,
   bind: 'local',
   host: '',

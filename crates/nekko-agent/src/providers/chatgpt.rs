@@ -29,7 +29,7 @@ const CHATGPT_MODELS: &[(&str, &str, u64)] = &[
 /// The backend filters the catalog by the Codex CLI version a client reports;
 /// unversioned and stale versions get a truncated or empty list. Raise this
 /// when the backend starts gating newer entries behind a higher line.
-const CODEX_CLIENT_VERSION: &str = "0.157.0";
+const CODEX_CLIENT_VERSION: &str = "0.160.0";
 
 /// Required for Responses-API streaming on the Codex backend.
 const RESPONSES_BETA: &str = "responses=experimental";

@@ -112,6 +112,7 @@ export const IpcChannels = {
   chatCancelCompaction: 'chat:cancelCompaction',
   chatQueue: 'chat:queue',
   chatDequeue: 'chat:dequeue',
+  chatInterruptQueued: 'chat:interruptQueued',
   chatSuggest: 'chat:suggest',
   chatFillPrompt: 'chat:fillPrompt',
   toolApprove: 'tool:approve',
@@ -143,6 +144,7 @@ export const IpcChannels = {
   sessionSetOptions: 'session:setOptions',
   sessionTruncate: 'session:truncate',
   sessionsClear: 'sessions:clear',
+  sessionsPurgeArchived: 'sessions:purgeArchived',
   settingsReset: 'settings:reset',
   dataWipe: 'data:wipe',
   toolsList: 'tools:list',
@@ -491,6 +493,8 @@ export interface NekkoApi {
   queuePrompt(sessionId: string, text: string): Promise<Session | null>;
   /** Remove a queued prompt by index. */
   dequeuePrompt(sessionId: string, index: number): Promise<Session | null>;
+  /** Stop active work, then start the selected queued prompt. Resolves when its turn ends. */
+  interruptQueuedPrompt(sessionId: string, index: number): Promise<void>;
   /**
    * Model-written next-step ideas for a chat that just answered: a few short
    * follow-ups for one-click chips plus the single most likely next message
@@ -563,11 +567,13 @@ export interface NekkoApi {
   specPath(sessionId: string): Promise<string | null>;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
   ): Promise<Session | null>;
   truncateSession(id: string, messageId: string): Promise<Session | null>;
   /** Delete chats within a window; returns how many were removed. */
   clearSessions(scope: import('./chat.js').ChatClearScope): Promise<number>;
+  /** Delete archived chats past the retention window; returns how many were removed. */
+  purgeExpiredArchives(): Promise<number>;
   /** Reset all settings to defaults (keeps chats). */
   resetSettings(): Promise<AppSettings>;
   /** Delete everything: chats, settings, memory, and usage. */

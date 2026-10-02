@@ -3,6 +3,7 @@ import { estimateTranscriptTokens, estimateTokens } from './context.js';
 import {
   claudeContextWindow,
   effectiveEffort,
+  guessContextWindow,
   modelDefaultEffort,
   modelEffortLevels,
   parseClaudeModel,
@@ -39,6 +40,18 @@ describe('claudeContextWindow', () => {
   });
 });
 
+describe('GPT context guesses', () => {
+  it('distinguishes published API windows from Codex subscription fallbacks', () => {
+    expect(guessContextWindow('openai/gpt-5')).toBe(400_000);
+    expect(guessContextWindow('gpt-5-mini')).toBe(400_000);
+    expect(guessContextWindow('gpt-5-codex')).toBe(400_000);
+    expect(guessContextWindow('gpt-4.1-mini')).toBe(1_047_576);
+    expect(guessContextWindow('gpt-5.6-sol')).toBe(272_000);
+    expect(guessContextWindow('gpt-6-sol')).toBe(128_000);
+    expect(guessContextWindow('unknown')).toBe(128_000);
+  });
+});
+
 describe('effort capability', () => {
   it('offers the five Anthropic rungs only where the model takes an effort level', () => {
     expect(modelEffortLevels('claude-opus-5-5')).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
@@ -46,7 +59,8 @@ describe('effort capability', () => {
     // 4.6 and Haiku still sample, so they get the temperature scale.
     expect(usesNativeEffort('claude-sonnet-4-6')).toBe(false);
     expect(modelEffortLevels('claude-haiku-4-5')).toEqual(['low', 'normal', 'high']);
-    expect(modelEffortLevels('gpt-5')).toEqual(['low', 'normal', 'high']);
+    expect(modelEffortLevels('gpt-5')).toEqual(['low', 'medium', 'normal', 'high']);
+    expect(modelEffortLevels('openai/gpt-6-sol')).toEqual(['low', 'medium', 'normal', 'high']);
   });
 
   it('knows Opus 5.5 defaults to medium, not high', () => {
@@ -58,7 +72,8 @@ describe('effort capability', () => {
 
   it('maps a saved rung the model lacks to the nearest one it has', () => {
     expect(effectiveEffort('xhigh', 'gpt-5')).toBe('high');
-    expect(effectiveEffort('medium', 'gpt-5')).toBe('normal');
+    expect(effectiveEffort('medium', 'gpt-5')).toBe('medium');
+    expect(effectiveEffort('medium', 'llama3')).toBe('normal');
     expect(effectiveEffort('xhigh', 'claude-opus-5')).toBe('xhigh');
   });
 });

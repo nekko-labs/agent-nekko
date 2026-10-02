@@ -67,6 +67,12 @@ export function usesNativeEffort(modelId: string | undefined): boolean {
 const TEMPERATURE_LEVELS: EffortLevel[] = ['low', 'normal', 'high'];
 /** Anthropic's full ladder, as the 4.7 generation onwards takes it. */
 const CLAUDE_LEVELS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
+/** OpenAI reasoning rungs supported by the request adapters; normal omits the rung. */
+const OPENAI_LEVELS: EffortLevel[] = ['low', 'medium', 'normal', 'high'];
+
+function isOpenAIReasoning(modelId: string | undefined): boolean {
+  return /(?:^|[-_/ .])(?:o[134](?:-|$)|gpt-?(?:[5-9]|\d{2,})(?:[.\-]|$)|gpt-oss|codex)/i.test(modelId ?? '');
+}
 
 /**
  * The effort levels worth offering for a model, lowest first.
@@ -75,7 +81,8 @@ const CLAUDE_LEVELS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max'];
  * which the menu offers separately so the user can see which rung that is.
  */
 export function modelEffortLevels(modelId: string | undefined): EffortLevel[] {
-  return usesNativeEffort(modelId) ? CLAUDE_LEVELS : TEMPERATURE_LEVELS;
+  if (usesNativeEffort(modelId)) return CLAUDE_LEVELS;
+  return isOpenAIReasoning(modelId) ? OPENAI_LEVELS : TEMPERATURE_LEVELS;
 }
 
 /**
@@ -100,6 +107,7 @@ export function modelDefaultEffort(modelId: string | undefined): EffortLevel {
 export function effectiveEffort(setting: EffortLevel | undefined, modelId: string | undefined): EffortLevel {
   const level = setting ?? 'normal';
   if (usesNativeEffort(modelId)) return level === 'normal' ? modelDefaultEffort(modelId) : level;
+  if (isOpenAIReasoning(modelId)) return level === 'xhigh' || level === 'max' ? 'high' : level;
   if (level === 'medium') return 'normal';
   if (level === 'xhigh' || level === 'max') return 'high';
   return level;
@@ -118,6 +126,11 @@ export function guessContextWindow(modelId: string | undefined): number {
   if (claude) return claude;
   if (id.includes('claude')) return 200_000;
   if (id.includes('gemini')) return 1_000_000;
-  if (id.includes('gpt-4.1') || id.includes('o3') || id.includes('o4')) return 200_000;
+  // Codex subscription generations have a smaller window than the API's
+  // GPT-5 family. Live catalog values still take precedence over this guess.
+  if (/(?:^|\/)gpt-5\.6-(?:sol|terra|luna)(?:$|[-/])/.test(id)) return 272_000;
+  if (/(?:^|\/)gpt-5(?:-(?:mini|nano|codex))?(?:$|-\d{4}-\d{2}-\d{2}$)/.test(id)) return 400_000;
+  if (id.includes('gpt-4.1')) return 1_047_576;
+  if (/(?:^|\/)o[34](?:$|[-/])/.test(id)) return 200_000;
   return 128_000;
 }

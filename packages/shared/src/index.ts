@@ -19,6 +19,7 @@ export * from './chat.js';
 export * from './ask.js';
 export * from './session-board.js';
 export * from './session-summary.js';
+export * from './archive.js';
 export * from './live-activity.js';
 export * from './pr.js';
 export * from './terminal.js';

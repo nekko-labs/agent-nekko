@@ -91,6 +91,11 @@ export const MODEL_PRICING: ModelPricing[] = [
   { match: 'claude-sonnet', input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 },
   { match: 'claude-fable', input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 },
   { match: 'claude-haiku', input: 1, output: 5, cacheWrite: 1.25, cacheRead: 0.10 },
+  // OpenAI API list prices; ChatGPT subscription requests remain included in
+  // the plan. Do not assign API prices to unpublished subscription-only ids.
+  { match: 'gpt-5-mini', input: 0.25, output: 2 },
+  { match: 'gpt-5-nano', input: 0.05, output: 0.4 },
+  { match: 'gpt-5', input: 1.25, output: 10 },
   { match: 'gpt-4o-mini', input: 0.15, output: 0.6 },
   { match: 'gpt-4o', input: 2.5, output: 10 },
   { match: 'gpt-4.1-nano', input: 0.10, output: 0.40 },
@@ -107,6 +112,10 @@ export const MODEL_PRICING: ModelPricing[] = [
 export function getModelPrice(modelId: string | undefined): ModelPricing | undefined {
   if (!modelId) return undefined;
   const id = modelId.toLowerCase();
+  // Only the published GPT-5 API ids have these prices. Subscription-only
+  // Codex variants and later generations must not inherit the base price.
+  if (/(?:^|\/)gpt-[5-9](?:[.\-]|$)/.test(id) &&
+      !/(?:^|\/)gpt-5(?:-(?:mini|nano))?(?:$|-\d{4}-\d{2}-\d{2}$)/.test(id)) return undefined;
   return [...MODEL_PRICING]
     .sort((a, b) => b.match.length - a.match.length)
     .find((p) => id.includes(p.match));

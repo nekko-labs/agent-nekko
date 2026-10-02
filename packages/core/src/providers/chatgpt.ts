@@ -26,7 +26,7 @@ const CHATGPT_MODELS: Array<{ id: string; name: string; ctx?: number }> = [
  * pins a recent CLI release; raise it when the backend starts gating newer
  * entries behind a higher line.
  */
-const CODEX_CLIENT_VERSION = '0.157.0';
+const CODEX_CLIENT_VERSION = '0.160.0';
 
 /**
  * The Codex backend requires this beta header for Responses-API streaming and
@@ -147,7 +147,7 @@ export class ChatGptProvider implements Provider {
         id: custom,
         providerId: this.config.id,
         name: `${custom} (custom)`,
-        contextLength: 128_000,
+        // An arbitrary custom id has no known window; do not invent 128k.
       });
     }
     return all;

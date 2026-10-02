@@ -24,6 +24,8 @@ export function ModelPicker({
   hint,
   onProvider,
   onModel,
+  expanded = false,
+  recent = [],
 }: {
   providers: ProviderConfig[];
   providerId: string | null;
@@ -38,6 +40,9 @@ export function ModelPicker({
   hint?: string | null;
   onProvider: (id: string) => void;
   onModel: (providerId: string, id: string) => void;
+  /** Render the list inline in an empty conversation instead of in a popover. */
+  expanded?: boolean;
+  recent?: string[];
 }) {
   const settings = useStore((s) => s.settings);
   const refreshSettings = useStore((s) => s.refreshSettings);
@@ -53,7 +58,7 @@ export function ModelPicker({
   const hintId = React.useId();
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || expanded) return;
     const onDoc = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
@@ -61,10 +66,10 @@ export function ModelPicker({
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
-  }, [open]);
+  }, [open, expanded]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open && !expanded) return;
     let live = true;
     Promise.all(
       providers.map((p) =>
@@ -74,7 +79,7 @@ export function ModelPicker({
       ),
     ).then((entries) => { if (live) setByProvider(Object.fromEntries(entries)); });
     return () => { live = false; };
-  }, [open, providers]);
+  }, [open, expanded, providers]);
 
   const favSet = new Set(settings?.favoriteModels ?? []);
   const toggleFavorite = async (key: string) => {
@@ -94,10 +99,16 @@ export function ModelPicker({
     .filter((g) => g.models.length > 0);
   const starred = groups.flatMap((g) =>
     g.models
-      .filter((m) => favSet.has(`${g.provider.id}::${m.id}`))
+      .filter((m) => favSet.has(`${g.provider.id}::${m.id}`) && !recent.includes(`${g.provider.id}::${m.id}`))
       .map((m) => ({ provider: g.provider, model: m })),
   );
+  const recentModels = recent.map((key) => {
+    const group = groups.find((g) => key.startsWith(`${g.provider.id}::`));
+    const model = group?.models.find((m) => key === `${group.provider.id}::${m.id}`);
+    return group && model ? { provider: group.provider, model } : null;
+  }).filter((entry): entry is { provider: ProviderConfig; model: ModelInfo } => !!entry).slice(0, 5);
   const total = providers.reduce((n, p) => n + modelsOf(p.id).length, 0);
+  const pinnedKeys = new Set([...recentModels, ...starred].map((s) => `${s.provider.id}::${s.model.id}`));
 
   const providerLabel = providers.find((p) => p.id === providerId)?.label ?? 'No provider';
   const currentName =
@@ -106,7 +117,7 @@ export function ModelPicker({
   const pick = (pid: string, mid: string) => {
     if (pid !== providerId) onProvider(pid);
     onModel(pid, mid);
-    setOpen(false);
+    if (!expanded) setOpen(false);
   };
 
   /**
@@ -191,7 +202,7 @@ export function ModelPicker({
   );
 
   return (
-    <div ref={ref} className="relative min-w-0 max-w-[240px]">
+    <div ref={ref} className={expanded ? 'h-full min-h-0 w-full min-w-0' : 'relative min-w-0 max-w-[240px]'}>
       {/* The nudge rides above the chip as a tooltip rather than a strip in the
           composer: it says its piece without pushing the composer down, and the
           menu it asks for opens into the same space, replacing it. */}
@@ -216,7 +227,7 @@ export function ModelPicker({
           />
         </div>
       )}
-      <button
+      {!expanded && <button
         className="ctl-menu max-w-full"
         style={needsChoice ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
         onClick={() => setOpen(!open)}
@@ -228,20 +239,20 @@ export function ModelPicker({
         <span className="min-w-0 truncate">{needsChoice ? 'Choose a model' : currentName}</span>
         <span className="ctl-menu-label hidden min-w-0 truncate md:inline">· {providerLabel}</span>
         <span className="ctl-caret">▾</span>
-      </button>
+      </button>}
       {/* The menu opens rightwards from the chip's own left edge: the picker is
           the leftmost control of its row and the menu is wider than the chip, so
           anchoring it right hung it outside the pane, over the sidebar. */}
-      {open && (
-        <div className="card absolute bottom-full left-0 z-40 mb-2 flex max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] flex-col p-1.5 shadow-lg">
+      {(open || expanded) && (
+        <div className={expanded ? 'card flex h-full min-h-0 w-full flex-col p-2 text-left' : 'card absolute bottom-full left-0 z-40 mb-2 flex max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] flex-col p-1.5 shadow-lg'}>
           {/* Wide enough for a local model's path to read under its name; still
               capped so it never runs off a narrow pane. */}
-          {total > 8 && (
+          {(expanded || total > 8) && (
             <input
               className="input mb-1 rounded-lg px-2.5 py-1 text-[12px]"
               placeholder="Filter models…"
               value={query}
-              autoFocus
+              autoFocus={!expanded}
               aria-label="Filter models"
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -262,6 +273,7 @@ export function ModelPicker({
                 ✨ Auto <span className="text-[11px] text-ink-faint">(pick best)</span>
               </button>
             )}
+            {recentModels.length > 0 && !q && <>{header('Recent')}{recentModels.map((s) => row(s.provider, s.model, true))}</>}
             {starred.length > 0 && !q && (
               <>
                 {header('★ Starred')}
@@ -269,13 +281,15 @@ export function ModelPicker({
               </>
             )}
             {groups.map((g) => {
+              const remaining = q ? g.models : g.models.filter((m) => !pinnedKeys.has(`${g.provider.id}::${m.id}`));
+              if (!remaining.length) return null;
               // A local provider can serve models out of several folders; when
               // the rows say where they live, group them under that heading.
-              const locs = [...new Set(g.models.map((m) => m.details?.location ?? ''))];
+              const locs = [...new Set(remaining.map((m) => m.details?.location ?? ''))];
               const byLoc =
                 locs.length > 1
-                  ? locs.map((loc) => ({ loc, models: g.models.filter((m) => (m.details?.location ?? '') === loc) }))
-                  : [{ loc: '', models: g.models }];
+                  ? locs.map((loc) => ({ loc, models: remaining.filter((m) => (m.details?.location ?? '') === loc) }))
+                  : [{ loc: '', models: remaining }];
               return (
                 <React.Fragment key={g.provider.id}>
                   {header(g.provider.label)}

@@ -13,6 +13,7 @@ import {
   syncApiServer,
   tokenMatches,
 } from './api-server.js';
+import { applyStartOnLaunch } from './local-access.js';
 
 const TOKEN = 'test-token-0123456789';
 
@@ -179,5 +180,33 @@ describe('serving', () => {
         socket.onerror = () => reject(new Error('refused'));
       }),
     ).rejects.toThrow(/refused/);
+  });
+});
+
+describe('start on launch', () => {
+  const settled = () => new Promise((r) => setTimeout(r, 120));
+
+  it('leaves the server stopped at launch when it is switched off', async () => {
+    const host = fakeHost({
+      apiServer: { enabled: true, startOnLaunch: false, port: freePort(), bind: 'local', token: TOKEN },
+    });
+    applyStartOnLaunch(host);
+    syncApiServer(host);
+    await settled();
+
+    // Persisted off, so the panel and the CLI link agree it is not serving.
+    expect(host.settings.apiServer?.enabled).toBe(false);
+    expect(apiServerStatus(host).running).toBe(false);
+    expect(apiServerStatus(host).error).toBeUndefined();
+  });
+
+  it('changes nothing when it is on, or predates the setting', () => {
+    const on = fakeHost({ apiServer: { enabled: true, startOnLaunch: true, port: 1439, bind: 'local', token: TOKEN } });
+    applyStartOnLaunch(on);
+    expect(on.settings.apiServer?.enabled).toBe(true);
+
+    const legacy = fakeHost({ apiServer: { enabled: true, port: 1439, bind: 'local', token: TOKEN } });
+    applyStartOnLaunch(legacy);
+    expect(legacy.settings.apiServer?.enabled).toBe(true);
   });
 });
