@@ -979,3 +979,16 @@ Observation: the fixed per-reply step budget (`DEFAULT_MAX_STEPS`, was 80) was h
 - [x] Suppress unmeasurable token-speed samples, keep token/time totals paired, and clear stale speed on new turns. Buffered and missing timing regression tests pass.
 - [x] Route dedicated browser actions through a private bearer-authenticated loopback bridge to an Electron-owned sandboxed window, without external browser launch or app-wide CDP exposure. Keep approval per action and explicit existing mode. Host routing tests and desktop/host typechecks pass.
 - [ ] Capture desktop before/after evidence and manually verify navigation, click, fill, close and approval waits in the rebuilt desktop app before merging.
+
+### App-control permissions and isolated sessions (2026-10-03)
+
+Technical approach: independent approval policy and session environment; default-deny capability broker at execution time, inherited without expansion by children. Container adapter discovery is read-only. Runtime provisioning is consent-gated. Isolated filesystem copies and conflict-aware apply require verification before enabling sandbox selection. Route or disable daemon-native execution until it honors the same policy. Do not expose a UI-only sandbox.
+
+- [x] Record product choices and add unit-tested default-deny capability evaluation plus read-only runtime discovery helpers. No runtime integration or visual change. Done: 2026-10-03
+- [ ] Add consent-gated runtime setup/lifecycle for supported Apple container, Docker, Podman and OrbStack backends, including pinned managed assets and verified platform requirements.
+- [ ] Implement network-denied container execution, copy-in workspace handling, resource limits, cancellation and verified teardown without host fallback.
+- [ ] Broker selected provider/connector requests without exposing host credentials; scope MCP, browser, context, previews and sub-agents, and block daemon bypass paths.
+- [ ] Implement permission-scoped Windows app and Agent Nekko self-control with semantic targeting, sensitive-action approval, revocation and Stop.
+- [ ] Add Permissions settings, two-column Mode menu, first-use setup and per-session Connectors dropdown after MCP. Capture base/after evidence.
+- [ ] Add reviewed diff export/apply with conflict detection, path validation and rollback of failed applies.
+- [ ] Verify real container host/private-network/filesystem escapes, symlinks, indirect tool paths, policy changes, revocation and cleanup; test each supported runtime before advertising availability.
