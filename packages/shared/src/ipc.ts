@@ -145,6 +145,7 @@ export const IpcChannels = {
   sessionTruncate: 'session:truncate',
   sessionsClear: 'sessions:clear',
   sessionsPurgeArchived: 'sessions:purgeArchived',
+  sessionFork: 'session:fork',
   settingsReset: 'settings:reset',
   dataWipe: 'data:wipe',
   toolsList: 'tools:list',
@@ -493,8 +494,8 @@ export interface NekkoApi {
   queuePrompt(sessionId: string, text: string): Promise<Session | null>;
   /** Remove a queued prompt by index. */
   dequeuePrompt(sessionId: string, index: number): Promise<Session | null>;
-  /** Stop active work, then start the selected queued prompt. Resolves when its turn ends. */
-  interruptQueuedPrompt(sessionId: string, index: number): Promise<void>;
+  /** Stop active work, then start the selected queued prompt on the chosen model. Resolves when its turn ends. */
+  interruptQueuedPrompt(sessionId: string, index: number, brain?: { providerId: string; modelId: string }): Promise<void>;
   /**
    * Model-written next-step ideas for a chat that just answered: a few short
    * follow-ups for one-click chips plus the single most likely next message
@@ -574,6 +575,8 @@ export interface NekkoApi {
   clearSessions(scope: import('./chat.js').ChatClearScope): Promise<number>;
   /** Delete archived chats past the retention window; returns how many were removed. */
   purgeExpiredArchives(): Promise<number>;
+  /** A new chat with this one's conversation before `beforeMessageId` (all of it when omitted). */
+  forkSession(id: string, beforeMessageId?: string): Promise<Session | null>;
   /** Reset all settings to defaults (keeps chats). */
   resetSettings(): Promise<AppSettings>;
   /** Delete everything: chats, settings, memory, and usage. */

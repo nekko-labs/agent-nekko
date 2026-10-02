@@ -212,8 +212,14 @@ export interface AppSettings {
  * (explore, edit, verify) routinely runs dozens of tool calls, so this is a
  * runaway-loop backstop rather than a work limit: reaching it makes the agent
  * answer with what it has instead of failing the reply.
+ *
+ * Raised from 80 to 250 after real coding turns hit 80 several times while
+ * still making progress. A blunt count is an interim backstop: the plan is to
+ * replace it with detection of a loop that has stopped making progress (see
+ * TASKS.md, "Progress-based runaway detection"). Keep in sync with
+ * `crates/nekko-loop/src/run.rs`.
  */
-export const DEFAULT_MAX_STEPS = 80;
+export const DEFAULT_MAX_STEPS = 250;
 
 /** Bounds for the per-reply tool-step budget (Settings → Agent loop). */
 export const MAX_STEPS_RANGE = { min: 5, max: 400 } as const;
@@ -253,7 +259,38 @@ export interface UsageRecord {
   auth?: 'apikey' | 'subscription';
 }
 
+/**
+ * How one reply ended, appended to a JSONL log so the step budget and the loop
+ * detector can be tuned from real runs. Counts only: never message or tool text.
+ */
+export interface ReplyRecord {
+  ts: number;
+  sessionId: string;
+  providerId: string;
+  modelId: string;
+  /** Tool round trips the reply took. */
+  steps: number;
+  stop: import('./chat.js').ReplyStop;
+  /** The step budget in force for this reply. */
+  maxSteps: number;
+}
+
+/** What the reply log says about how replies end. */
+export interface ReplyStats {
+  total: number;
+  /** Replies per way of ending. */
+  byStop: Record<import('./chat.js').ReplyStop, number>;
+  /** Step percentiles over all replies that used at least one tool. */
+  p50Steps: number;
+  p90Steps: number;
+  maxSteps: number;
+  /** The latest replies that hit the budget or the loop detector, newest first. */
+  recentStops: Array<{ ts: number; sessionId: string; modelId: string; steps: number; stop: import('./chat.js').ReplyStop; maxSteps: number }>;
+}
+
 export interface UsageSummary {
+  /** Reply endings (step budget / loop detector observation). Absent with no log. */
+  replies?: ReplyStats;
   totalInput: number;
   totalOutput: number;
   /** Estimated total spend (USD) over all recorded usage. */

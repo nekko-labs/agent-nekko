@@ -49,9 +49,11 @@ function readAll(): DraftMap {
 }
 
 /**
- * Write the map, evicting other chats' oldest drafts until it fits. If the chat
- * being saved is on its own and still too big, keep the words and drop the
- * pictures: losing what you typed is the worse failure.
+ * Write the map, making room in the order that loses the least: first the
+ * pictures in other chats' drafts (oldest first), then other chats' words
+ * (oldest first). If the chat being saved is on its own and still too big,
+ * keep its words and drop its pictures. Typed text is the one thing a draft
+ * cannot get back, so it is always the last to go.
  */
 function writeAll(map: DraftMap, keepId: string): void {
   if (typeof window === 'undefined') return;
@@ -65,9 +67,17 @@ function writeAll(map: DraftMap, keepId: string): void {
         // Quota: fall through and evict.
       }
     }
-    const oldest = Object.entries(map)
+    const others = Object.entries(map)
       .filter(([id]) => id !== keepId)
-      .sort((a, b) => a[1].savedAt - b[1].savedAt)[0];
+      .sort((a, b) => a[1].savedAt - b[1].savedAt);
+    const withImages = others.find(([, d]) => d.images.length > 0);
+    if (withImages) {
+      const [id, d] = withImages;
+      if (d.text.trim()) map[id] = { ...d, images: [] };
+      else delete map[id];
+      continue;
+    }
+    const oldest = others[0];
     if (oldest) {
       delete map[oldest[0]];
       continue;

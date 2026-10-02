@@ -14,6 +14,8 @@ export const MessageBubble = memo(function MessageBubble({
   message,
   onResend,
   onReset,
+  onCopyToComposer,
+  onSplit,
   onImageClick,
   onImageContextMenu,
   chronological,
@@ -22,6 +24,10 @@ export const MessageBubble = memo(function MessageBubble({
   onResend?: (id: string, text: string) => void;
   /** Rewind the chat to this message and re-run it (replaces the old Regenerate). */
   onReset?: (id: string, text: string) => void;
+  /** Put this message's text and images into the composer, to reuse them. */
+  onCopyToComposer?: (id: string) => void;
+  /** Start a new chat from the conversation before this message, with it in the new composer. */
+  onSplit?: (id: string) => void;
   onImageClick?: (src: string) => void;
   onImageContextMenu?: (e: React.MouseEvent, src: string) => void;
   chronological?: boolean;
@@ -46,6 +52,14 @@ export const MessageBubble = memo(function MessageBubble({
     return (
       <div className="flex justify-end">
         <div className="w-full max-w-[85%]">
+          {/* The pictures ride along with the edit: Save & send re-sends them. */}
+          {message.images?.length ? (
+            <div className="mb-1.5 flex flex-wrap justify-end gap-1.5" title="These images are sent again with your edit">
+              {message.images.map((image, i) => (
+                <img key={`${image.slice(0, 24)}-${i}`} src={image} alt={`Attached image ${i + 1}`} className="h-12 w-12 rounded-md object-cover" />
+              ))}
+            </div>
+          ) : null}
           <textarea className="input max-h-48 min-h-[60px] resize-none text-[14px]" value={draft} autoFocus onChange={(e) => setDraft(e.target.value)} />
           <div className="mt-1.5 flex justify-end gap-2">
             <button className="btn btn-ghost py-1 text-[12px]" onClick={() => { setEditing(false); setDraft(displayText); }}>Cancel</button>
@@ -71,6 +85,9 @@ export const MessageBubble = memo(function MessageBubble({
             {displayText && message.content && (
               <div className="mt-1 flex gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
                 <button onClick={copy} title="Copy message" className="hover:text-ink">{copied ? '✓ copied' : 'Copy'}</button>
+                {onCopyToComposer && (
+                  <button onClick={() => onCopyToComposer(message.id)} title="Put this reply into the message box" className="hover:text-ink">To composer</button>
+                )}
               </div>
             )}
           </div>
@@ -114,7 +131,7 @@ export const MessageBubble = memo(function MessageBubble({
             `code` in the composer and expect them to come out formatted. */}
         {displayText && <Markdown text={isUser ? displayText : message.content} />}
         {message.toolCalls?.map((c) => <ToolCard key={c.id} call={c} />)}
-        {displayText && message.content && (
+        {(displayText && message.content || (isUser && message.images?.length)) && (
           <div className={`mt-1.5 flex items-center gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${isUser ? 'justify-end' : ''}`}>
             {isUser && message.createdAt > 0 && (
               <span className="text-ink-faint/70" title={fmtDateTime(message.createdAt)}>{fmtTime(message.createdAt)}</span>
@@ -124,10 +141,28 @@ export const MessageBubble = memo(function MessageBubble({
             {onReset && (
               <button
                 onClick={() => onReset(message.id, displayText)}
-                title="Rewind the chat to this message and re-run it"
+                title="Rewind the chat to this message and re-run it (its images are sent again)"
                 className="hover:text-ink"
               >
                 Reset here
+              </button>
+            )}
+            {onCopyToComposer && (
+              <button
+                onClick={() => onCopyToComposer(message.id)}
+                title="Put this message and its images into the message box"
+                className="hover:text-ink"
+              >
+                To composer
+              </button>
+            )}
+            {onSplit && (
+              <button
+                onClick={() => onSplit(message.id)}
+                title="Start a new chat with the conversation before this message, and this message (with its images) waiting in its message box"
+                className="hover:text-ink"
+              >
+                Split here
               </button>
             )}
           </div>

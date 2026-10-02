@@ -216,6 +216,9 @@ export function getSessionWorkspaceIds(
 /** Time window for bulk chat deletion. */
 export type ChatClearScope = 'today' | 'month' | 'all';
 
+/** How a reply ended (see the `done` event). */
+export type ReplyStop = 'complete' | 'step_limit' | 'loop' | 'runaway';
+
 /** Streaming events emitted by the agent loop. */
 export type AgentEvent =
   | { type: 'text'; sessionId: string; delta: string }
@@ -243,7 +246,19 @@ export type AgentEvent =
     }
   /** An image-generation turn moved on: loading the model, then generating. */
   | { type: 'image_status'; sessionId: string; stage: 'loading' | 'generating'; label: string }
-  | { type: 'done'; sessionId: string; messageId: string }
+  | {
+      type: 'done';
+      sessionId: string;
+      messageId: string;
+      /**
+       * Why the reply ended: it finished, it spent the step budget, the loop
+       * detector stopped it (progress.ts), or a stream collapsed into
+       * repetition. Absent from older engines.
+       */
+      stop?: ReplyStop;
+      /** Tool round trips the reply took. */
+      steps?: number;
+    }
   | { type: 'error'; sessionId: string; message: string }
   /**
    * The session record changed outside the event stream (its plan, its title),

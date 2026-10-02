@@ -22,7 +22,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 0
    }
   ],
   "history": [
@@ -99,7 +101,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 1
    }
   ],
   "history": [
@@ -255,7 +259,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 1
    }
   ],
   "history": [
@@ -422,7 +428,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 1
    }
   ],
   "history": [
@@ -533,7 +541,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 0
    }
   ],
   "history": [
@@ -597,7 +607,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 0
    }
   ],
   "history": [
@@ -851,7 +863,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "runaway",
+    "steps": 0
    }
   ],
   "history": [
@@ -1106,7 +1120,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "step_limit",
+    "steps": 2
    }
   ],
   "history": [
@@ -1315,7 +1331,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 0
    }
   ],
   "history": [
@@ -1430,7 +1448,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 0
    }
   ],
   "history": [
@@ -1523,7 +1543,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 0
    }
   ],
   "history": [
@@ -1650,7 +1672,9 @@
    {
     "type": "done",
     "sessionId": "s1",
-    "messageId": "msg_ID"
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 1
    }
   ],
   "history": [
@@ -1792,6 +1816,1737 @@
        "output": "Error: no script for read",
        "isError": true
       },
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "loop detector nudge then wrap-up",
+  "events": [
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c1",
+     "name": "bash",
+     "input": {
+      "command": "gh pr list"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c1",
+     "output": "HTTP 401",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c2",
+     "name": "bash",
+     "input": {
+      "command": "gh pr list"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c2",
+     "output": "HTTP 401",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c3",
+     "name": "bash",
+     "input": {
+      "command": "gh pr list"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c3",
+     "output": "HTTP 401",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c4",
+     "name": "bash",
+     "input": {
+      "command": "gh pr list"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c4",
+     "output": "HTTP 401",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c5",
+     "name": "bash",
+     "input": {
+      "command": "gh pr list"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c5",
+     "output": "HTTP 401",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "c6",
+     "name": "bash",
+     "input": {
+      "command": "gh pr list"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "c6",
+     "output": "HTTP 401",
+     "isError": true
+    }
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "gh is not authenticated."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID",
+    "stop": "loop",
+    "steps": 6
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c1",
+      "name": "bash",
+      "input": {
+       "command": "gh pr list"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c1",
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c2",
+      "name": "bash",
+      "input": {
+       "command": "gh pr list"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c2",
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c3",
+      "name": "bash",
+      "input": {
+       "command": "gh pr list"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c3",
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c4",
+      "name": "bash",
+      "input": {
+       "command": "gh pr list"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c4",
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c5",
+      "name": "bash",
+      "input": {
+       "command": "gh pr list"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c5",
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "c6",
+      "name": "bash",
+      "input": {
+       "command": "gh pr list"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "c6",
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "gh is not authenticated.\n\n_Stopped early: the agent kept repeating itself (bash with the same input and the same result 3 times). Ask me to continue and I'll try a different approach._",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c2",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c2",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c2",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c2",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c3",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c3",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "You appear to be stuck in a loop: bash with the same input and the same result 3 times. Repeating it will not change the result. Try a different approach, or if you are blocked, stop calling tools and explain what is blocking you.",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c2",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c2",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c3",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c3",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c4",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c4",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c2",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c2",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c3",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c3",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c4",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c4",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c5",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c5",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c1",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c1",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c2",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c2",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c3",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c3",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c4",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c4",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c5",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c5",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "c6",
+        "name": "bash",
+        "input": {
+         "command": "gh pr list"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "c6",
+       "output": "HTTP 401",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "You kept repeating tool calls without making progress, so no further tool calls are possible. Answer now with what you already know: what you did, what you found, what is blocking you, and the concrete next steps. Do not ask to run more tools.",
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "loop detector error streak nudges once",
+  "events": [
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "e1",
+     "name": "bash",
+     "input": {
+      "command": "try 1"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "e1",
+     "output": "fail 1",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "e2",
+     "name": "bash",
+     "input": {
+      "command": "try 2"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "e2",
+     "output": "fail 2",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "e3",
+     "name": "bash",
+     "input": {
+      "command": "try 3"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "e3",
+     "output": "fail 3",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "e4",
+     "name": "bash",
+     "input": {
+      "command": "try 4"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "e4",
+     "output": "fail 4",
+     "isError": true
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "e5",
+     "name": "bash",
+     "input": {
+      "command": "try 5"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "e5",
+     "output": "fail 5",
+     "isError": true
+    }
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Trying another way."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 5
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "e1",
+      "name": "bash",
+      "input": {
+       "command": "try 1"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "e1",
+     "output": "fail 1",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "e2",
+      "name": "bash",
+      "input": {
+       "command": "try 2"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "e2",
+     "output": "fail 2",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "e3",
+      "name": "bash",
+      "input": {
+       "command": "try 3"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "e3",
+     "output": "fail 3",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "e4",
+      "name": "bash",
+      "input": {
+       "command": "try 4"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "e4",
+     "output": "fail 4",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "e5",
+      "name": "bash",
+      "input": {
+       "command": "try 5"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "e5",
+     "output": "fail 5",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Trying another way.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e1",
+        "name": "bash",
+        "input": {
+         "command": "try 1"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e1",
+       "output": "fail 1",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e1",
+        "name": "bash",
+        "input": {
+         "command": "try 1"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e1",
+       "output": "fail 1",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e2",
+        "name": "bash",
+        "input": {
+         "command": "try 2"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e2",
+       "output": "fail 2",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e1",
+        "name": "bash",
+        "input": {
+         "command": "try 1"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e1",
+       "output": "fail 1",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e2",
+        "name": "bash",
+        "input": {
+         "command": "try 2"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e2",
+       "output": "fail 2",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e3",
+        "name": "bash",
+        "input": {
+         "command": "try 3"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e3",
+       "output": "fail 3",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e1",
+        "name": "bash",
+        "input": {
+         "command": "try 1"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e1",
+       "output": "fail 1",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e2",
+        "name": "bash",
+        "input": {
+         "command": "try 2"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e2",
+       "output": "fail 2",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e3",
+        "name": "bash",
+        "input": {
+         "command": "try 3"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e3",
+       "output": "fail 3",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e4",
+        "name": "bash",
+        "input": {
+         "command": "try 4"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e4",
+       "output": "fail 4",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e1",
+        "name": "bash",
+        "input": {
+         "command": "try 1"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e1",
+       "output": "fail 1",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e2",
+        "name": "bash",
+        "input": {
+         "command": "try 2"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e2",
+       "output": "fail 2",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e3",
+        "name": "bash",
+        "input": {
+         "command": "try 3"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e3",
+       "output": "fail 3",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e4",
+        "name": "bash",
+        "input": {
+         "command": "try 4"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e4",
+       "output": "fail 4",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "e5",
+        "name": "bash",
+        "input": {
+         "command": "try 5"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "e5",
+       "output": "fail 5",
+       "isError": true
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "You appear to be stuck in a loop: bash failing 5 times in a row. Repeating it will not change the result. Try a different approach, or if you are blocked, stop calling tools and explain what is blocking you.",
       "createdAt": 0
      }
     ]

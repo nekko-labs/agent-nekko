@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, PendingInput, ProviderConfig, SessionSummary, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
+import type { AgentEvent, PendingInput, ProviderConfig, ReplyStop, SessionSummary, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
 import type { RemoteStatus } from '@agent-nekko/shared';
 import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider, reduceLiveActivity } from '@agent-nekko/shared';
 import type { OptimizationTip, AgentType, LiveActivity } from '@agent-nekko/shared';
@@ -468,6 +468,7 @@ function InsightsSection({
         {tab === 'optimize' && <OptimizePanel tips={tips} onOpenModels={onOpenModels} />}
         {tab === 'cost' && <CostPanel usage={usage} sessions={sessions} providers={providers} />}
         {tab === 'usage' && <UsagePanel usage={usage} />}
+        {tab === 'usage' && <RepliesPanel usage={usage} sessions={sessions} />}
         {tab === 'services' && <ServicesPanel providers={providers} usage={usage} />}
       </div>
     </section>
@@ -553,6 +554,57 @@ function UsagePanel({ usage }: { usage: UsageSummary | null }) {
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const STOP_LABEL: Record<ReplyStop, string> = {
+  complete: 'Finished',
+  step_limit: 'Hit step limit',
+  loop: 'Stopped looping',
+  runaway: 'Runaway output',
+};
+
+/**
+ * How agent replies end and how many tool steps they take, so the step budget
+ * (Settings → Agent loop) can be tuned from real runs. Counts only.
+ */
+function RepliesPanel({ usage, sessions }: { usage: UsageSummary | null; sessions: SessionSummary[] }) {
+  const r = usage?.replies;
+  if (!r) return null;
+  const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
+  const stops = (Object.keys(STOP_LABEL) as ReplyStop[]).filter((k) => r.byStop[k] > 0);
+  return (
+    <div className="card mt-3 p-5">
+      <div className="flex items-baseline gap-2">
+        <h3 className="text-[13px] font-semibold">Agent replies</h3>
+        <span className="text-[11.5px] text-ink-faint">tool steps per reply, for tuning the step limit</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[13px]">
+        <div><span className="text-ink-faint">Replies</span> <span className="font-semibold tabular-nums">{r.total.toLocaleString()}</span></div>
+        <div><span className="text-ink-faint">Median steps</span> <span className="font-semibold tabular-nums">{r.p50Steps}</span></div>
+        <div><span className="text-ink-faint">90th pct</span> <span className="font-semibold tabular-nums">{r.p90Steps}</span></div>
+        <div><span className="text-ink-faint">Most</span> <span className="font-semibold tabular-nums">{r.maxSteps}</span></div>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+        {stops.map((k) => (
+          <span key={k} className={k === 'complete' ? 'text-ink-faint' : 'text-ink-soft'}>
+            {STOP_LABEL[k]} <span className="tabular-nums text-ink">{r.byStop[k]}</span>
+          </span>
+        ))}
+      </div>
+      {r.recentStops.length > 0 && (
+        <div className="mt-4 space-y-1">
+          {r.recentStops.map((s) => (
+            <div key={`${s.ts}_${s.sessionId}`} className="flex justify-between gap-3 text-[12px]">
+              <span className="min-w-0 truncate text-ink-soft">{titleOf(s.sessionId)}</span>
+              <span className="shrink-0 tabular-nums text-ink-faint">
+                {STOP_LABEL[s.stop]} · {s.steps}/{s.maxSteps} steps · <span className="font-mono">{s.modelId}</span>
+              </span>
+            </div>
+          ))}
         </div>
       )}
     </div>
