@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, spawn, type ChildProcess, type ExecOptions } from 'child_process';
 import {
   existsSync,
   mkdirSync,
@@ -15,6 +15,19 @@ import { appendAgentTerminal } from './terminal.js';
 
 const browsers = new Map<string, { client: import('@browserbasehq/stagehand').Stagehand; mode: string; port?: number }>();
 
+/** Kill the command's shell and descendants, not just the shell holding its pipes. */
+function stopCommandTree(child: ChildProcess): void {
+  if (!child.pid) return;
+  if (process.platform === 'win32') {
+    const killer = spawn('taskkill', ['/T', '/F', '/PID', String(child.pid)], { windowsHide: true, stdio: 'ignore' });
+    killer.on('error', () => child.kill());
+    killer.on('exit', (code) => { if (code !== 0 && child.exitCode === null) child.kill(); });
+  } else {
+    try { process.kill(-child.pid, 'SIGKILL'); }
+    catch { child.kill(); }
+  }
+}
+
 export interface ToolHostOptions {
   settings: AppSettings;
   /** Resolve relative paths against the first workspace root. */
@@ -29,6 +42,8 @@ export interface ToolHostOptions {
   /** Chat this tool runs for, used to track file changes for diff/approve. */
   sessionId?: string;
   allowBrowserControl?: boolean;
+  /** Stop this turn's shell command and its descendants when the user stops the agent. */
+  signal?: AbortSignal;
 }
 
 /** Whether a mutating tool needs an up-front confirm in this mode. */
@@ -209,13 +224,29 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
         const mirror = (text: string) => {
           if (opts.sessionId) appendAgentTerminal(opts.sessionId, opts.settings.workspaces.find((w) => w.path === cwd)?.id, text.replace(/[^\x09\x0a\x20-\x7e\u0080-\uffff]/g, '').replace(/\n/g, '\r\n'));
         };
+        if (opts.signal?.aborted) return err(call, 'Command cancelled.');
         mirror(`$ ${a.command}\n`);
         try {
           const { stdout, stderr } = await new Promise<{ stdout: string; stderr: string }>((resolveP, reject) => {
-            const child = exec(a.command, { cwd, timeout: 120000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
-              if (error) reject(Object.assign(error, { stdout, stderr }));
+            let stopped: 'cancelled' | 'timed out' | null = null;
+            let timer: ReturnType<typeof setTimeout>;
+            const onAbort = () => {
+              stopped = 'cancelled';
+              stopCommandTree(child);
+            };
+            // A separate process group on Unix lets Stop and timeout kill all
+            // descendants. On Windows taskkill /T does the same for cmd.exe.
+            const options: ExecOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, encoding: 'utf8' };
+            const child = exec(a.command, options, (error: Error | null, stdout: string, stderr: string) => {
+              clearTimeout(timer);
+              opts.signal?.removeEventListener('abort', onAbort);
+              if (stopped) reject(Object.assign(new Error(`Command ${stopped}.`), { stdout, stderr }));
+              else if (error) reject(Object.assign(error, { stdout, stderr }));
               else resolveP({ stdout, stderr });
             });
+            timer = setTimeout(() => { stopped = 'timed out'; stopCommandTree(child); }, 120_000);
+            opts.signal?.addEventListener('abort', onAbort, { once: true });
+            if (opts.signal?.aborted) onAbort();
             child.stdout?.on('data', (chunk: Buffer | string) => mirror(String(chunk)));
             child.stderr?.on('data', (chunk: Buffer | string) => mirror(String(chunk)));
           });
