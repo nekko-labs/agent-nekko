@@ -3,12 +3,14 @@ import { join } from 'path';
 import type { UsageRecord, UsageSummary } from '@agent-nekko/shared';
 import { estimateCostUSD } from '@agent-nekko/shared';
 import { dataDir } from './store.js';
+import { clearReplies, replyStats } from './replies.js';
 
 const LOG = () => join(dataDir(), 'usage.jsonl');
 
 /** Delete the usage analytics log. */
 export function clearUsage(): void {
   if (existsSync(LOG())) rmSync(LOG());
+  clearReplies();
 }
 
 export function recordUsage(rec: UsageRecord): void {
@@ -21,6 +23,8 @@ export function recordUsage(rec: UsageRecord): void {
 
 export function usageSummary(): UsageSummary {
   const summary: UsageSummary = { totalInput: 0, totalOutput: 0, totalCost: 0, byModel: {}, byProvider: {}, bySession: {}, bySessionCost: {}, daily: [] };
+  const replies = replyStats();
+  if (replies) summary.replies = replies;
   if (!existsSync(LOG())) return summary;
 
   const dailyMap = new Map<string, { input: number; output: number; cost: number }>();

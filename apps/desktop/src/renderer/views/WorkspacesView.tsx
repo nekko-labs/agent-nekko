@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
-import { parsePrUrl } from '@agent-nekko/shared';
+import { archiveDaysLeft, archiveDeletesAt, isArchived, parsePrUrl } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, type Workspace } from '../store.js';
 import { PaneVisibleContext } from '../paneVisibility.js';
@@ -17,7 +17,7 @@ import { ContextInspector } from '../components/ContextInspector.js';
 import { ExplorerPane } from '../components/ExplorerPane.js';
 import { PaneFrame } from '../components/PaneFrame.js';
 import { StatusDot, WorkspaceCard, type AgentStatus } from '../components/WorkspaceCard.js';
-import { ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
+import { ArchiveIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 import { unopenedChats } from './unopenedChats.js';
@@ -187,8 +187,9 @@ export function WorkspacesView() {
   const {
     sessions, terminals, workspaces, activeWorkspaceId, settings, activeSessionId,
     refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal, newTerminalWorkspace,
-    setActiveWorkspace, closeWorkspace, newChat, setActiveProject,
+    setActiveWorkspace, newChat, setActiveProject,
     reorderWorkspaces, layoutChats, layoutTerminals, contextPanelOpen,
+    archiveWorkspace, archiveChat, archiveOpen, setArchiveOpen, archivedViewId, setArchivedView,
   } = useStore(
     useShallow((s) => ({
       sessions: s.sessions,
@@ -204,15 +205,29 @@ export function WorkspacesView() {
       newTerminal: s.newTerminal,
       newTerminalWorkspace: s.newTerminalWorkspace,
       setActiveWorkspace: s.setActiveWorkspace,
-      closeWorkspace: s.closeWorkspace,
       newChat: s.newChat,
       setActiveProject: s.setActiveProject,
       reorderWorkspaces: s.reorderWorkspaces,
       layoutChats: s.layoutChats,
       layoutTerminals: s.layoutTerminals,
       contextPanelOpen: s.contextPanelOpen,
+      archiveWorkspace: s.archiveWorkspace,
+      archiveChat: s.archiveChat,
+      archiveOpen: s.archiveOpen,
+      setArchiveOpen: s.setArchiveOpen,
+      archivedViewId: s.archivedViewId,
+      setArchivedView: s.setArchivedView,
     })),
   );
+  const archivedCount = useMemo(() => sessions.filter(isArchived).length, [sessions]);
+
+  // Archived chats past the 60-day window are deleted when the workspaces
+  // open (and so at every launch, which lands here), then the list is re-read.
+  useEffect(() => {
+    void window.nekko.purgeExpiredArchives?.()
+      .then((n) => { if (n > 0) void refreshSessions(); })
+      .catch(() => { /* an older host without the channel */ });
+  }, [refreshSessions]);
 
   const [statuses, setStatuses] = useState<Map<string, AgentStatus>>(new Map());
   const [now, setNow] = useState(Date.now());
@@ -513,6 +528,14 @@ export function WorkspacesView() {
           )}
         </div>
       </div>
+      {archiveOpen ? (
+        <ArchivedList
+          sessions={sessions}
+          now={now}
+          activeId={archivedViewId}
+          onOpen={(id) => { setArchivedView(id); setMobileNav(false); }}
+        />
+      ) : (
       <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
         {buckets.map((b) => {
           const items = bucketWorkspaces(b.key);
@@ -583,7 +606,7 @@ export function WorkspacesView() {
                           projects={settings?.workspaces ?? []}
                           subAgentCount={kids.length}
                           onOpen={() => setActiveWorkspace(w.id)}
-                          onClose={() => closeWorkspace(w.id)}
+                          onClose={() => void archiveWorkspace(w.id)}
                         />
                         {/* Sub-agents this chat spawned, one line each. */}
                         {kids.map((kid) => (
@@ -602,15 +625,24 @@ export function WorkspacesView() {
                     <div className="pt-2">
                       <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Saved chats</p>
                       {saved.map((s) => (
-                        <button
-                          key={s.id}
-                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-ink-soft hover:bg-surface-2"
-                          title={`Open ${s.title}`}
-                          onClick={() => openChatPane(s.id)}
-                        >
-                          <ChatIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                          <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                        </button>
+                        <div key={s.id} className="group flex items-center rounded-lg hover:bg-surface-2">
+                          <button
+                            className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[12px] text-ink-soft"
+                            title={`Open ${s.title}`}
+                            onClick={() => openChatPane(s.id)}
+                          >
+                            <ChatIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+                            <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                          </button>
+                          <button
+                            className="mr-1.5 shrink-0 rounded-sm p-0.5 text-ink-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                            title="Archive this chat (kept for 60 days)"
+                            aria-label={`Archive ${s.title}`}
+                            onClick={() => void archiveChat(s.id)}
+                          >
+                            <ArchiveIcon className="h-3 w-3" />
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -619,6 +651,20 @@ export function WorkspacesView() {
             </div>
           );
         })}
+      </div>
+      )}
+      {/* The archive's way in sits at the foot of the list, out of the path of
+          everyday work but always in the same place. */}
+      <div className="flex shrink-0 items-center justify-end border-t border-line px-2 py-1.5">
+        <button
+          className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] ${archiveOpen ? 'bg-accent-soft text-accent' : 'text-ink-faint hover:bg-surface-2 hover:text-ink'}`}
+          title={archiveOpen ? 'Back to the workspaces' : 'Show archived chats'}
+          aria-pressed={archiveOpen}
+          onClick={() => setArchiveOpen(!archiveOpen)}
+        >
+          <ArchiveIcon className="h-3.5 w-3.5" />
+          Archived{archivedCount > 0 ? ` (${archivedCount})` : ''}
+        </button>
       </div>
     </div>
   );
@@ -693,11 +739,27 @@ export function WorkspacesView() {
           <span className="text-[13px] font-semibold">Workspaces</span>
         </div>
 
-        {!active?.root && <EmptyState onNewChat={newChat} onNewTerminal={() => newTerminal()} />}
+        {/* An archived chat being read takes the middle, over the workspaces,
+            which stay mounted underneath so closing it is instant. */}
+        {archiveOpen && archivedViewId && (
+          <div className="panel panel-ring flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ChatPane key={`archived:${archivedViewId}`} sessionId={archivedViewId} readOnly />
+          </div>
+        )}
+        {archiveOpen && !archivedViewId && (
+          <div className="panel panel-ring flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+            <ArchiveIcon className="h-6 w-6 text-ink-faint" />
+            <p className="text-[13px] text-ink-soft">Pick an archived chat to read it.</p>
+            <p className="max-w-sm text-[12px] text-ink-faint">
+              Archived chats are read-only. Restore one to keep working in it; anything left here is deleted 60 days after it was archived.
+            </p>
+          </div>
+        )}
+        {!archiveOpen && !active?.root && <EmptyState onNewChat={newChat} onNewTerminal={() => newTerminal()} />}
         {mounted.length > 0 && (
           // The mounted workspaces share one box, stacked; the one on screen is
           // on top. See WorkspaceCanvas for how the others are kept.
-          <div className="relative min-h-0 flex-1" style={active?.root ? undefined : { display: 'none' }}>
+          <div className="relative min-h-0 flex-1" style={active?.root && !archiveOpen ? undefined : { display: 'none' }}>
             {mounted.map((w) => (
               <WorkspaceCanvas
                 key={w.id}
@@ -722,6 +784,57 @@ export function WorkspacesView() {
           <ContextInspector sessionId={activeSessionId} />
         </aside>
       )}
+    </div>
+  );
+}
+
+/**
+ * The Archived list, in the sidebar's place while it is open: newest archive
+ * first, each saying how long it has before it is deleted. The count turns to
+ * the warning hue in the last week, so nothing goes without notice.
+ */
+function ArchivedList({
+  sessions, now, activeId, onOpen,
+}: {
+  sessions: SessionSummary[]; now: number; activeId: string | null; onOpen: (id: string) => void;
+}) {
+  const archived = useMemo(
+    () => sessions.filter(isArchived).sort((a, b) => (b.archivedAt as number) - (a.archivedAt as number)),
+    [sessions],
+  );
+  return (
+    <div className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
+      <p className="px-1.5 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Archived</p>
+      {archived.length === 0 && (
+        <p className="px-1.5 py-1 text-[11px] text-ink-faint">Nothing archived. Archive a chat from its card to tidy the list without losing it.</p>
+      )}
+      {archived.map((s) => {
+        const days = archiveDaysLeft(s.archivedAt as number, now);
+        const isActive = s.id === activeId;
+        return (
+          <button
+            key={s.id}
+            onClick={() => onOpen(s.id)}
+            className={`w-full rounded-lg py-1.5 pl-2 pr-2 text-left transition-colors duration-150 ${isActive ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}
+            title={`${s.title}\nArchived ${new Date(s.archivedAt as number).toLocaleString()}`}
+          >
+            <div className="flex items-center gap-1.5">
+              <ArchiveIcon className="h-3 w-3 shrink-0 text-ink-faint" />
+              <span className={`min-w-0 flex-1 truncate text-[13px] ${isActive ? 'font-medium text-ink' : 'text-ink-soft'}`}>{s.title}</span>
+            </div>
+            <div className="flex items-center gap-1 pl-[18px] text-[10px] leading-[15px] text-ink-faint">
+              <span className="min-w-0 flex-1 truncate">{s.exchangeCount} message{s.exchangeCount === 1 ? '' : 's'}</span>
+              <span
+                className="shrink-0 tabular-nums"
+                style={{ color: days <= 7 ? 'var(--warning)' : undefined }}
+                title={`Deleted on ${new Date(archiveDeletesAt(s.archivedAt as number)).toLocaleDateString()} unless restored`}
+              >
+                {days === 0 ? 'deleting today' : `${days} day${days === 1 ? '' : 's'} left`}
+              </span>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

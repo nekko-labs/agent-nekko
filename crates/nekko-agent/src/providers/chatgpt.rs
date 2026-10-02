@@ -319,7 +319,8 @@ impl ChatGptProvider {
                 id: custom.to_string(),
                 provider_id: self.config.id.clone(),
                 name: format!("{custom} (custom)"),
-                context_length: Some(128_000),
+                // An arbitrary custom id has no known window; do not invent 128k.
+                context_length: None,
                 ..Default::default()
             });
         }

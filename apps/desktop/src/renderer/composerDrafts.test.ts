@@ -53,6 +53,16 @@ describe('composerDrafts', () => {
     expect(loadDraft('old')).toBeNull();
   });
 
+  it("drops other chats' pictures before anyone's words", () => {
+    storage.limit = 600;
+    saveDraft('older', { text: 'typed words', images: ['p'.repeat(300)] });
+    saveDraft('newer', { text: 'n'.repeat(250), images: [] });
+    // The older chat lost its picture, not its text.
+    expect(loadDraft('older')?.text).toBe('typed words');
+    expect(loadDraft('older')?.images).toEqual([]);
+    expect(loadDraft('newer')?.text).toBe('n'.repeat(250));
+  });
+
   it('keeps the text and drops the images when a lone draft cannot fit', () => {
     storage.limit = 200;
     saveDraft('a', { text: 'precious words', images: ['x'.repeat(5000)] });

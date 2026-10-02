@@ -213,6 +213,28 @@ export function truncateSession(id: string, messageId: string): Session | null {
 }
 
 /**
+ * A new chat holding `id`'s conversation before `beforeMessageId` (the whole
+ * transcript when that id is absent), with the same project, folders and brain.
+ * The source chat is not touched. Used to split a conversation at a message:
+ * the message itself is handed to the new chat's composer by the caller, so
+ * the user can edit it before it runs.
+ */
+export function forkSession(id: string, beforeMessageId?: string): Session | null {
+  const src = getSession(id);
+  if (!src) return null;
+  const idx = beforeMessageId ? src.messages.findIndex((m) => m.id === beforeMessageId) : -1;
+  const fork = createSession(src.workspaceId, undefined, src.supportingWorkspaceIds);
+  fork.title = `${src.title} (split)`;
+  fork.titleAuto = false;
+  fork.messages = structuredClone(idx >= 0 ? src.messages.slice(0, idx) : src.messages);
+  for (const key of ['providerId', 'modelId', 'autoModel', 'autoQuality', 'mode', 'thinking', 'chatType', 'imageParams', 'attachedPaths', 'disabledTools'] as const) {
+    if (src[key] !== undefined) (fork as unknown as Record<string, unknown>)[key] = structuredClone(src[key]);
+  }
+  saveSession(fork);
+  return fork;
+}
+
+/**
  * Delete archived chats that have outlived the retention window. Returns how
  * many went. Run at startup and now and then after, so a chat archived on a
  * machine that is rarely restarted is still gone on time.

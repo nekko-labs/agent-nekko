@@ -9,6 +9,7 @@ export * from './capacity/index.js';
 export * from './readiness/index.js';
 export * from './agent/loop.js';
 export * from './agent/runaway.js';
+export * from './agent/progress.js';
 export * from './agent/resume.js';
 export * from './agent/tools.js';
 export * from './agent/prompt.js';

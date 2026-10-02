@@ -59,6 +59,30 @@ describe('interrupt queued prompt', () => {
     expect(getSession(s.id)?.messages).toEqual([]);
   });
 
+  it('uses the concrete model selected for an Auto queued message', async () => {
+    const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-queue-')) });
+    host.saveProvider({ id: 'p', kind: 'openai-compat', label: 'Test', baseUrl: 'http://localhost:1/v1', enabled: true });
+    const s = host.createSession();
+    host.setSessionOptions(s.id, { providerId: 'p', modelId: 'old', autoModel: true });
+    host.queuePrompt(s.id, 'selected');
+    calls = 1; // the mock only parks its first provider call
+    const events: string[] = [];
+    host.events.on('agentEvent', (event) => { if (event.sessionId === s.id) events.push(event.type); });
+    await createDispatcher(host)(IpcChannels.chatInterruptQueued, [s.id, 0, { providerId: 'p', modelId: 'new' }]);
+    expect(events).toContain('session_meta');
+    expect(getSession(s.id)?.modelId).toBe('new');
+    expect(getSession(s.id)?.queue).toEqual([]);
+  });
+
+  it('does not consume a queued item when Auto has no concrete model', async () => {
+    const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-queue-')) });
+    const s = host.createSession();
+    host.setSessionOptions(s.id, { autoModel: true });
+    host.queuePrompt(s.id, 'selected');
+    await expect(host.interruptQueuedPrompt(s.id, 0, { providerId: 'p', modelId: '__auto__' })).rejects.toThrow('Choose a provider');
+    expect(getSession(s.id)?.queue).toEqual(['selected']);
+  });
+
   it('stops the old turn then starts only the selected item, retaining the others', async () => {
     const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-queue-')) });
     host.saveProvider({ id: 'p', kind: 'openai-compat', label: 'Test', baseUrl: 'http://localhost:1/v1', enabled: true });

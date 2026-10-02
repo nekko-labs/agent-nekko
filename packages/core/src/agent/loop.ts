@@ -4,6 +4,7 @@ import type { Provider, ToolSpec } from '../providers/types.js';
 import { BUILTIN_TOOLS } from './tools.js';
 import { RUNAWAY_NOTE, createRunawayGuard } from './runaway.js';
 import { INTERRUPTED_NOTE, RESUME_PROMPT, repairInterruptedHistory } from './resume.js';
+import { LOOP_WRAP_UP_PROMPT, createLoopDetector, loopNote, loopNudge } from './progress.js';
 
 export interface RunAgentOptions {
   sessionId: string;
@@ -264,6 +265,16 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     createdAt: Date.now(),
   };
 
+  // Loop detection (progress.ts): the first trip nudges the model to change
+  // course, the second ends the reply early through the same wrap-up pass the
+  // step budget uses.
+  const loops = createLoopDetector();
+  let loopExtra: ChatMessage[] = [];
+  let nudged = false;
+  let loopReason: string | undefined;
+  /** Tool round trips actually taken this reply (reported on `done`). */
+  let steps = 0;
+
   for (let iter = 0; iter < maxIterations; iter++) {
     if (opts.signal?.aborted) {
       yield { type: 'error', sessionId: opts.sessionId, message: 'Aborted' };
@@ -272,7 +283,8 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
 
     const turn: Turn = { text: '', reasoning: '', calls: [] };
     try {
-      yield* stream(turn, iter === 0 ? resumeExtra : []);
+      yield* stream(turn, iter === 0 ? resumeExtra : loopExtra);
+      loopExtra = [];
       // Empty response: retry once with a nudge before giving up so the turn
       // doesn't silently stall (common with some local models mid-loop).
       if (isEmptyTurn(turn) && !opts.signal?.aborted) {
@@ -317,17 +329,19 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     // A looping model does not recover by being asked again, so end the reply
     // here instead of spending the rest of the step budget on the same cycle.
     if (turn.runaway) {
-      yield { type: 'done', sessionId: opts.sessionId, messageId: assistantMsg.id };
+      yield { type: 'done', sessionId: opts.sessionId, messageId: assistantMsg.id, stop: 'runaway', steps };
       return;
     }
 
     // No tool calls → the turn is complete.
     if (calls.length === 0 && turn.phase !== 'commentary') {
-      yield { type: 'done', sessionId: opts.sessionId, messageId: assistantMsg.id };
+      yield { type: 'done', sessionId: opts.sessionId, messageId: assistantMsg.id, stop: 'complete', steps };
       return;
     }
 
+    if (calls.length) steps++;
     // Execute tool calls sequentially (the host applies guardrails/approval).
+    let tripped: string | undefined;
     for (const call of calls) {
       let result: ToolResult;
       try {
@@ -343,12 +357,24 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         createdAt: Date.now(),
       });
       yield { type: 'tool_result', sessionId: opts.sessionId, result };
+      tripped ??= loops.push(call, result);
+    }
+
+    if (tripped) {
+      if (nudged) {
+        loopReason = tripped;
+        break;
+      }
+      nudged = true;
+      loops.reset();
+      loopExtra = [{ id: id('nudge'), role: 'user', content: loopNudge(tripped), createdAt: Date.now() }];
     }
   }
 
-  // Budget spent. Instead of discarding everything the model just did (which is
-  // what surfacing an error here used to do), take one last pass with the tools
-  // withheld so the work comes back as a real answer the user can act on.
+  // Budget spent, or the loop detector tripped twice. Instead of discarding
+  // everything the model just did (which is what surfacing an error here used
+  // to do), take one last pass with the tools withheld so the work comes back
+  // as a real answer the user can act on.
   if (opts.signal?.aborted) {
     yield { type: 'error', sessionId: opts.sessionId, message: 'Aborted' };
     return;
@@ -357,7 +383,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   try {
     yield* stream(
       wrapUp,
-      [{ id: id('nudge'), role: 'user', content: WRAP_UP_PROMPT, createdAt: Date.now() }],
+      [{ id: id('nudge'), role: 'user', content: loopReason ? LOOP_WRAP_UP_PROMPT : WRAP_UP_PROMPT, createdAt: Date.now() }],
       [],
     );
   } catch (e) {
@@ -367,7 +393,9 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
 
   const note = wrapUp.runaway
     ? RUNAWAY_NOTE
-    : `_Stopped at this reply's ${maxIterations}-step tool limit. Ask me to continue and I'll pick up from here (or raise the limit in Settings → Agent loop)._`;
+    : loopReason
+      ? loopNote(loopReason)
+      : `_Stopped at this reply's ${maxIterations}-step tool limit. Ask me to continue and I'll pick up from here (or raise the limit in Settings → Agent loop)._`;
   const wrapText = (wrapUp.runaway ? trimRunaway(wrapUp.text) : wrapUp.text).trim();
   const wrapMsg: ChatMessage = {
     id: id('msg'),
@@ -383,5 +411,5 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   };
   if (wrapUp.phase) wrapMsg.phase = wrapUp.phase;
   opts.history.push(wrapMsg);
-  yield { type: 'done', sessionId: opts.sessionId, messageId: wrapMsg.id };
+  yield { type: 'done', sessionId: opts.sessionId, messageId: wrapMsg.id, stop: loopReason ? 'loop' : 'step_limit', steps };
 }

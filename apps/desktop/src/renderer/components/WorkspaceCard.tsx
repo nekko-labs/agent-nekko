@@ -4,7 +4,7 @@ import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@ag
 import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
 import { useGitStatus } from '../useGitStatus.js';
-import { BranchIcon, CloseIcon, FolderIcon, RobotIcon, TerminalIcon, WorktreeIcon } from '../icons.js';
+import { ArchiveIcon, BranchIcon, CloseIcon, FolderIcon, RobotIcon, TerminalIcon, WorktreeIcon } from '../icons.js';
 import { PrBadge } from './PrCard.js';
 
 /**
@@ -253,16 +253,19 @@ function WorkspaceCardImpl({
           </time>
         )}
         {prs.length ? <PrBadge prs={prs} compact /> : null}
+        {/* A chat card archives rather than closes: closing used to look like
+            deleting and then the chat was nowhere to be found. Archived chats
+            stay readable for 60 days. A shell has nothing to keep, so it closes. */}
         <button
           className="shrink-0 rounded-sm p-0.5 text-ink-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
-          title="Close this workspace"
-          aria-label={`Close ${title}`}
+          title={isChat ? 'Archive this chat (kept for 60 days)' : 'Close this workspace'}
+          aria-label={isChat ? `Archive ${title}` : `Close ${title}`}
           onClick={(e) => {
             e.stopPropagation();
             onClose();
           }}
         >
-          <CloseIcon className="h-3 w-3" />
+          {isChat ? <ArchiveIcon className="h-3 w-3" /> : <CloseIcon className="h-3 w-3" />}
         </button>
       </div>
 
