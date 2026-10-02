@@ -509,10 +509,8 @@ fn replacement_param(text: &str, field: &str) -> Option<String> {
 /// field the server asked for instead.
 fn apply_learned(body: &mut Map<String, Value>, learned: &HashMap<String, Option<String>>) {
     for (field, to) in learned {
-        if let Some(v) = body.shift_remove(field) {
-            if let Some(to) = to {
-                body.insert(to.clone(), v);
-            }
+        if let (Some(v), Some(to)) = (body.shift_remove(field), to) {
+            body.insert(to.clone(), v);
         }
     }
 }
