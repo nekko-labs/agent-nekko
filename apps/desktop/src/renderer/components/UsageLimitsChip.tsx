@@ -18,6 +18,15 @@ function timeUntil(ms: number): string {
   return `in ${mo} month${mo === 1 ? '' : 's'}`;
 }
 
+function resetTime(resetAt: number, now: number): string {
+  const relative = timeUntil(resetAt - now);
+  if (!Number.isFinite(resetAt) || resetAt <= now) return 'resets soon';
+  const date = new Intl.DateTimeFormat(undefined, {
+    weekday: 'long', hour: 'numeric', minute: '2-digit', hour12: true,
+  }).format(new Date(resetAt));
+  return `${relative} on ${date}`;
+}
+
 function relTime(ms: number): string {
   if (ms < 1000) return 'just now';
   const s = Math.round(ms / 1000);
@@ -137,7 +146,7 @@ export function UsageLimitsChip({
     if (subscription) {
       if (!provider.tokenKey) return 'Sign in to see subscription limits';
       if (!binding) return 'Waiting for the first usage response';
-      return `${binding.label} window is ${Math.round(binding.usedPercent)}% used · resets ${timeUntil(binding.resetAt - now)}`;
+      return `${binding.label} window is ${Math.round(binding.usedPercent)}% used · resets ${resetTime(binding.resetAt, now)}`;
     }
     return `Estimated session cost at published list prices; your bill may differ`;
   };
@@ -166,7 +175,7 @@ export function UsageLimitsChip({
 
       {/* Hover/focus popover: every window, plus plan + credits. */}
       <div
-        className="pointer-events-none absolute bottom-full left-0 z-40 mb-2 hidden w-72 rounded-xl border border-line p-3 text-[11px] shadow-lg group-hover:block group-focus-within:block"
+        className="pointer-events-none absolute bottom-full left-0 z-40 mb-2 hidden w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-line p-3 text-[11px] shadow-lg group-hover:block group-focus-within:block"
         style={{ background: 'var(--surface)' }}
         role="tooltip"
       >
@@ -198,7 +207,7 @@ export function UsageLimitsChip({
                   const tone = w.status === 'rate_limited' ? 'danger' : w.status === 'warning' ? 'warning' : 'success';
                   const statusLabel = w.status === 'rate_limited' ? 'Limited' : w.status === 'warning' ? 'Warning' : 'OK';
                   return (
-                    <div key={w.id} className="flex items-center gap-2">
+                    <div key={w.id} className="grid grid-cols-[8px_minmax(0,1fr)_36px_auto] items-center gap-2" title={`Resets ${resetTime(w.resetAt, now)} (local time)`}>
                       <span
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ background: `var(--${tone})` }}
@@ -206,12 +215,13 @@ export function UsageLimitsChip({
                       />
                       <span className="min-w-0 flex-1 truncate text-ink-soft">{w.label}</span>
                       <span className="shrink-0 tabular-nums font-medium">{Math.round(w.usedPercent)}%</span>
-                      <span className="w-16 shrink-0 text-right tabular-nums text-ink-faint">
+                      <span className="whitespace-nowrap text-right tabular-nums text-ink-faint">
                         {w.resetAt > now ? timeUntil(w.resetAt - now) : 'resets soon'}
                       </span>
                     </div>
                   );
                 })}
+                {binding && <p className="pt-1 text-ink-faint">Resets {resetTime(binding.resetAt, now)} (local time)</p>}
               </div>
             )}
 

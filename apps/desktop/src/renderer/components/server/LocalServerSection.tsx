@@ -15,8 +15,9 @@ import {
   apiServerUrl,
 } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
-import { Badge } from '../primitives/index.js';
+import { Badge, Toggle } from '../primitives/index.js';
 import { CheckIcon, CopyIcon, TerminalIcon } from '../../icons.js';
+import { ServerPowerPill } from './ServerPowerPill.js';
 
 /**
  * Agent Nekko as something other programs can drive, as one block on the Models
@@ -83,22 +84,42 @@ export function LocalServerSection() {
 
   return (
     <section className="min-w-0">
-      <div className="flex items-center gap-2">
+      {/* Same header shape as the model server's: the power pill and the
+          launch toggle, so the two servers on this page switch the same way.
+          The pill reads `running` (is it listening) but flips `enabled` (should
+          it be), which is the setting the backend acts on. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--accent-2)' }} />
         <h2 className="text-[15px] font-semibold">Agent server</h2>
-        {running ? (
-          <Badge tone="success" variant="solid" className="px-2 py-0.5">
-            <CheckIcon className="h-3 w-3" /> Serving
-          </Badge>
-        ) : (
-          <span className="chip">off</span>
-        )}
-        {status.available === false && <span className="chip">this edition</span>}
+        <div className="ml-auto flex items-center gap-3">
+          {status.available === false && <span className="chip">this edition</span>}
+          {canToggle && (
+            <>
+              <ServerPowerPill
+                running={running}
+                busy={busy}
+                onToggle={() => void save({ enabled: !settings.enabled })}
+                labelWhat="agent server"
+              />
+              <label
+                className="flex items-center gap-1.5 text-[12px] text-ink-soft"
+                title="Bring the agent server up when the app opens"
+              >
+                Start Server on Nekko Launch
+                <Toggle
+                  value={settings.startOnLaunch !== false}
+                  onChange={(v) => void save({ startOnLaunch: v })}
+                  disabled={busy}
+                  label="Start the agent server with Nekko"
+                />
+              </label>
+            </>
+          )}
+        </div>
       </div>
       <p className="mt-0.5 text-[12px] text-ink-faint">
-        Drive this app from somewhere else: a local API other programs can call, the{' '}
-        <span className="font-mono">agent-nekko</span> command line, and an MCP server other agents can use as a
-        subagent.
+        Drive this app from other programs, the <span className="font-mono">agent-nekko</span> CLI, or other agents
+        over MCP.
       </p>
 
       <div className="card mt-3 p-5">
@@ -113,18 +134,6 @@ export function LocalServerSection() {
           )}
           <div className="ml-auto flex items-center gap-2">
             {running && <CopyPill value={`${url}/api`} title="Copy the address other tools should point at" />}
-            {canToggle && (
-              <button
-                className="btn btn-outline py-1 text-[12px]"
-                disabled={busy}
-                role="switch"
-                aria-label="Agent server"
-                aria-checked={settings.enabled}
-                onClick={() => save({ enabled: !settings.enabled })}
-              >
-                {busy ? 'Working…' : settings.enabled ? 'Stop' : 'Start'}
-              </button>
-            )}
           </div>
         </div>
 
@@ -140,26 +149,32 @@ export function LocalServerSection() {
           </p>
         )}
 
-        <div className="mt-3 flex flex-wrap gap-1.5 border-b pb-2" style={{ borderColor: 'var(--line)' }}>
-          <TabButton active={tab === 'server'} onClick={() => setTab('server')}>Server</TabButton>
-          <TabButton active={tab === 'cli'} onClick={() => setTab('cli')}>CLI</TabButton>
-          <TabButton active={tab === 'mcp'} onClick={() => setTab('mcp')}>MCP</TabButton>
-        </div>
+        {/* Everything past "is it on and where is it" is configuration you set
+            once: folded away like the model server's settings, so the panel
+            stays as short as the question most people arrive with. */}
+        <details className="mt-4 border-t border-line pt-4">
+          <summary className="cursor-pointer text-[12px] font-medium">Agent server settings</summary>
+          <div className="mt-3 flex flex-wrap gap-1.5 border-b pb-2" style={{ borderColor: 'var(--line)' }}>
+            <TabButton active={tab === 'server'} onClick={() => setTab('server')}>Server</TabButton>
+            <TabButton active={tab === 'cli'} onClick={() => setTab('cli')}>CLI</TabButton>
+            <TabButton active={tab === 'mcp'} onClick={() => setTab('mcp')}>MCP</TabButton>
+          </div>
 
-        <div className="mt-3">
-          {tab === 'server' &&
-            (canToggle ? (
-              <ServerTab status={status} busy={busy} onSave={save} />
-            ) : (
-              <p className="text-[12px] text-ink-soft">
-                This edition already is the Agent Nekko server — it is serving this page. Point the CLI and MCP
-                clients at <span className="font-mono">{url}</span> with the token that server was started with
-                (<span className="font-mono">NEKKO_TOKEN</span>).
-              </p>
-            ))}
-          {tab === 'cli' && <CliTab running={running} />}
-          {tab === 'mcp' && <McpTab url={url} token={settings.token} running={running} />}
-        </div>
+          <div className="mt-3">
+            {tab === 'server' &&
+              (canToggle ? (
+                <ServerTab status={status} busy={busy} onSave={save} />
+              ) : (
+                <p className="text-[12px] text-ink-soft">
+                  This edition already is the Agent Nekko server — it is serving this page. Point the CLI and MCP
+                  clients at <span className="font-mono">{url}</span> with the token that server was started with
+                  (<span className="font-mono">NEKKO_TOKEN</span>).
+                </p>
+              ))}
+            {tab === 'cli' && <CliTab running={running} />}
+            {tab === 'mcp' && <McpTab url={url} token={settings.token} running={running} />}
+          </div>
+        </details>
       </div>
     </section>
   );

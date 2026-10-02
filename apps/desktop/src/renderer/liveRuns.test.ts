@@ -32,6 +32,17 @@ describe('liveRuns', () => {
     expect(takeFinishedRun('a')!.blocks).toEqual(blocks);
   });
 
+  it('does not reopen a finished turn for a late session_meta', () => {
+    // The auto-title lands after `done`; it used to resurrect an empty run that
+    // nothing would ever end, leaving the chat on "Starting" indefinitely.
+    applyEvent(text('a', 'reply'));
+    applyEvent({ type: 'done', sessionId: 'a', messageId: 'm' });
+    applyEvent({ type: 'session_meta', sessionId: 'a' });
+    applyEvent({ type: 'question_resolved', sessionId: 'a', callId: 'c' });
+    expect(getLiveRun('a')).toBeUndefined();
+    expect(runningSessionIds()).toEqual([]);
+  });
+
   it('accumulates a reply across events', () => {
     applyEvent(text('a', 'Hello'));
     applyEvent(text('a', ' world'));

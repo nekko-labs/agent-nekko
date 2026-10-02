@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React from 'react';
 import type { ContextBundle, ContextItem, EffortLevel } from '@agent-nekko/shared';
 import { effectiveEffort, modelDefaultEffort, modelEffortLevels, usesNativeEffort } from '@agent-nekko/shared';
 import { formatUSD } from '@agent-nekko/shared';
@@ -30,6 +30,7 @@ export function ContextGauge({
   draftTokens = 0,
   liveTokens = 0,
   contextWindow,
+  windowReported = false,
 }: {
   bundle: ContextBundle | null;
   cost?: number;
@@ -50,6 +51,8 @@ export function ContextGauge({
    * updates the instant the model changes rather than on the next reply.
    */
   contextWindow?: number;
+  /** True only when the provider catalog reported this exact window. */
+  windowReported?: boolean;
 }) {
   const included = (bundle?.items ?? []).filter((i: ContextItem) => i.included);
   const used = included.reduce((s, i) => s + i.tokens, 0) + (skill?.tokens ?? 0) + draftTokens + liveTokens;
@@ -84,7 +87,7 @@ export function ContextGauge({
         tabIndex={0}
         aria-label={`Context: ${num(used)}${windowTokens ? ` of ${num(windowTokens)}` : ''} tokens in use`}
       >
-        <span className="font-medium text-ink-soft">Context</span>
+        <span className="font-medium text-ink-soft">Context{!windowReported && windowTokens ? ' ~' : ''}</span>
         <span className="tabular-nums">
           {fmt(used)}{windowTokens ? ` / ${fmt(windowTokens)}` : ''}
         </span>
@@ -121,6 +124,7 @@ export function ContextGauge({
             {windowTokens ? <span className="ml-1 text-ink-soft">({Math.round(pct)}%)</span> : null}
           </span>
         </div>
+        <p className="mb-2 text-ink-faint">{windowReported ? 'Window reported by the model catalog. Usage is estimated.' : 'Window estimated from model family; the provider has not reported its exact limit.'}</p>
         {/* Segmented usage bar */}
         {windowTokens > 0 && (
           <div className="mb-2.5 flex h-2 w-full overflow-hidden rounded-full" style={{ background: FREE_COLOR }}>
@@ -155,15 +159,6 @@ export function ContextGauge({
   );
 }
 
-const EFFORT_DESC: Record<EffortLevel, string> = {
-  low: 'Quick answers, lighter reasoning.',
-  medium: 'Lighter than the usual default, still careful.',
-  normal: 'The balanced default.',
-  high: 'Thorough. The default on most Claude models.',
-  xhigh: 'Deeper still. Best for most coding and agent work.',
-  max: 'Everything it has. Slowest and most tokens.',
-};
-
 const EFFORT_LABEL: Record<EffortLevel, string> = {
   low: 'Low',
   medium: 'Medium',
@@ -173,15 +168,8 @@ const EFFORT_LABEL: Record<EffortLevel, string> = {
   max: 'Max',
 };
 
-/**
- * Effort as an explicit menu (not a blind cycle), offering the rungs the chat's
- * model actually has: Anthropic's five on Claude models that take an effort
- * level, the three temperature steps everywhere else. "Default" sends the
- * model's own default and names the rung it resolves to, because that rung is
- * not the same on every model (Opus 5.5 defaults to medium, Opus 5 to high).
- * The setting itself is still global, which the menu says.
- */
-export function EffortMenu({ modelId }: { modelId?: string }) {
+/** Model-specific effort rungs on a compact slider beside the model picker. */
+export function EffortSlider({ modelId }: { modelId?: string }) {
   const settings = useStore((s) => s.settings);
   const saved = settings?.effort ?? 'normal';
   const levels = modelEffortLevels(modelId);
@@ -190,73 +178,29 @@ export function EffortMenu({ modelId }: { modelId?: string }) {
   // What this model will actually be sent, which is what the button shows: a
   // saved `xhigh` on a temperature model runs as `high`, and says so.
   const effective = effectiveEffort(saved, modelId);
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
-    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
-  }, [open]);
-
   const pick = (level: EffortLevel) => {
-    window.nekko.updateSettings({ effort: level });
-    useStore.getState().refreshSettings();
-    setOpen(false);
+    void window.nekko.updateSettings({ effort: level }).then(() => useStore.getState().refreshSettings());
   };
 
-  // On Claude, "Default" is its own row that follows the model; on the
-  // temperature scale `normal` already is the default and sits in the middle.
-  const rows: Array<{ level: EffortLevel; label: string; desc: string }> = [
-    ...(native
-      ? [{ level: 'normal' as const, label: `Default (${EFFORT_LABEL[fallback].toLowerCase()})`, desc: "Whatever this model runs at when you don't choose." }]
-      : []),
-    ...levels.map((level) => ({ level, label: EFFORT_LABEL[level], desc: EFFORT_DESC[level] })),
-  ];
-  const checked = (level: EffortLevel) => (native && saved === 'normal' ? level === 'normal' : level === effective);
+  const options: EffortLevel[] = native ? ['normal', ...levels] : levels;
+  const index = native && saved === 'normal' ? 0 : Math.max(0, options.indexOf(effective));
   const shown = native && saved === 'normal' ? `Default · ${EFFORT_LABEL[fallback]}` : EFFORT_LABEL[effective];
-
   return (
-    <div ref={ref} className="relative shrink-0">
-      <button
-        className="ctl-menu whitespace-nowrap"
-        onClick={() => setOpen((o) => !o)}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        title={
-          effective !== saved && !(native && saved === 'normal')
-            ? `Saved as ${EFFORT_LABEL[saved]}, which this model runs as ${EFFORT_LABEL[effective]} (applies to all chats)`
-            : 'How much reasoning effort the model spends per reply (applies to all chats)'
-        }
-      >
-        <span className="ctl-menu-label">Effort</span>
-        <span>{shown}</span>
-        <span className="ctl-caret">▾</span>
-      </button>
-      {open && (
-        <div className="card absolute bottom-8 right-0 z-40 w-60 p-1.5 shadow-lg" role="menu">
-          {rows.map((row) => (
-            <button
-              key={row.level}
-              role="menuitemradio"
-              aria-checked={checked(row.level)}
-              className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2 ${checked(row.level) ? 'text-accent' : ''}`}
-              onClick={() => pick(row.level)}
-            >
-              <span className="text-[13px] font-medium">{row.label}</span>
-              <span className="text-[11px] text-ink-faint">{row.desc}</span>
-            </button>
-          ))}
-          <p className="border-t border-line px-2.5 pb-0.5 pt-1.5 text-[10px] text-ink-faint">
-            {native ? 'Levels this model offers. ' : 'This model is steered by temperature. '}Applies to all chats.
-          </p>
-        </div>
-      )}
+    <div className="effort-slider flex shrink-0 items-center gap-1 rounded-r-lg border border-l-0 border-line px-2 py-1 text-[11px]" title="Reasoning effort (applies to all chats)">
+      <label htmlFor="composer-effort" className="text-ink-faint">Effort</label>
+      <input
+        id="composer-effort"
+        type="range"
+        min={0}
+        max={options.length - 1}
+        step={1}
+        value={Math.max(0, index)}
+        onChange={(event) => pick(options[Number(event.target.value)])}
+        aria-label="Reasoning effort"
+        aria-valuetext={shown}
+        style={{ '--effort-fill': `${options.length > 1 ? Math.max(0, index) / (options.length - 1) * 100 : 0}%` } as React.CSSProperties}
+      />
+      <span className="min-w-12 text-right text-ink-soft">{shown}</span>
     </div>
   );
 }

@@ -34,6 +34,18 @@ describe('getModelPrice', () => {
     expect(getModelPrice('Claude-Sonnet-4-6')?.match).toBe('claude-sonnet');
   });
 
+  it('prices published GPT-5 API variants without inventing subscription-only prices', () => {
+    expect(getModelPrice('openai/gpt-5')?.input).toBe(1.25);
+    expect(getModelPrice('gpt-5-mini')?.output).toBe(2);
+    expect(getModelPrice('gpt-5-nano')?.input).toBe(0.05);
+    expect(getModelPrice('gpt-5-codex')).toBeUndefined();
+    expect(getModelPrice('gpt-5.6-sol')).toBeUndefined();
+    expect(getModelPrice('gpt-6-sol')).toBeUndefined();
+    expect(formatModelPriceLabel({ modelId: 'gpt-5', auth: 'apikey' })).toBe('$1.25/$10.00 per MTok');
+    expect(formatModelPriceLabel({ modelId: 'gpt-6-sol', auth: 'subscription' })).toBe('Included in plan');
+    expect(estimateCost('gpt-5', { inputTokens: 1_000_000, outputTokens: 1_000_000 })).toBe(11.25);
+  });
+
   it('returns undefined for unknown or local models', () => {
     expect(getModelPrice('llama3.1:8b')).toBeUndefined();
     expect(getModelPrice('qwen2.5-coder-7b')).toBeUndefined();

@@ -34,6 +34,7 @@ const OPTION_KEYS: &[&str] = &[
     "plan",
     "chatType",
     "imageParams",
+    "archivedAt",
 ];
 
 fn now_ms() -> u64 {

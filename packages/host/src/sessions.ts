@@ -3,7 +3,7 @@ import { readFile, readdir, stat } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { join } from 'path';
 import type { Session, SessionSummary } from '@agent-nekko/shared';
-import { summarizeSession } from '@agent-nekko/shared';
+import { archiveExpired, summarizeSession } from '@agent-nekko/shared';
 import { dataDir } from './store.js';
 
 function sessionsDir(): string {
@@ -119,14 +119,14 @@ function writeAtomic(file: string, text: string): void {
  * The UI changes these while a turn is running, through the engine daemon or
  * this host; a turn's save must not put back the values it read at its start.
  */
-const USER_FIELDS = ['pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'chatType', 'imageParams', 'workspaceId', 'supportingWorkspaceIds', 'attachedPaths', 'specLinked', 'queue'] as const;
+const USER_FIELDS = ['pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'chatType', 'imageParams', 'workspaceId', 'supportingWorkspaceIds', 'attachedPaths', 'specLinked', 'queue', 'archivedAt'] as const;
 
 /**
  * Save a chat a running turn has held in memory, keeping whatever the user
  * changed on disk since: the fields above as they are on disk, and the title
  * when the user has named the chat themselves (`titleAuto === false`).
  */
-export function saveTurnSession(s: Session): void {
+export function saveTurnSession(s: Session, queued?: { index: number; text: string }): void {
   const disk = getSession(s.id);
   if (disk) {
     const target = s as unknown as Record<string, unknown>;
@@ -139,6 +139,15 @@ export function saveTurnSession(s: Session): void {
       s.title = disk.title;
       s.titleAuto = false;
     }
+    // Claim the selected queue entry in the same atomic write as its user
+    // message. If the queue changed while startup was awaiting IO, leave it
+    // intact rather than removing a different prompt.
+    if (queued) {
+      if (disk.queue?.[queued.index] !== queued.text) throw new Error('Queued prompt changed before it could start.');
+      s.queue = disk.queue.filter((_, i) => i !== queued.index);
+    }
+  } else if (queued) {
+    throw new Error('Session not found.');
   }
   saveSession(s);
 }
@@ -203,6 +212,22 @@ export function truncateSession(id: string, messageId: string): Session | null {
   return s;
 }
 
+/**
+ * Delete archived chats that have outlived the retention window. Returns how
+ * many went. Run at startup and now and then after, so a chat archived on a
+ * machine that is rarely restarted is still gone on time.
+ */
+export function purgeExpiredArchives(now = Date.now()): number {
+  let n = 0;
+  for (const s of listSessions()) {
+    if (archiveExpired(s, now)) {
+      deleteSession(s.id);
+      n++;
+    }
+  }
+  return n;
+}
+
 /** Delete chats within a time window (today / this month / all). Returns count. */
 export function clearSessions(scope: 'today' | 'month' | 'all'): number {
   let cutoff = 0;
@@ -223,12 +248,12 @@ export function clearSessions(scope: 'today' | 'month' | 'all'): number {
 }
 
 /** The fields `setSessionOptions` may change (crates/nekko-store/src/write.rs keeps the same list). */
-const OPTION_KEYS = ['title', 'pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'providerId', 'modelId', 'plan', 'chatType', 'imageParams'] as const;
+const OPTION_KEYS = ['title', 'pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'providerId', 'modelId', 'plan', 'chatType', 'imageParams', 'archivedAt'] as const;
 
-/** Patch per-chat options (title, pin, mode, disabled tools, offline, incognito, brain). */
+/** Patch per-chat options (title, pin, mode, disabled tools, offline, incognito, brain, archive). */
 export function setSessionOptions(
   id: string,
-  patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams'>>,
+  patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
 ): Session | null {
   const s = getSession(id);
   if (!s) return null;

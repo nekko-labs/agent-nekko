@@ -20,6 +20,7 @@ import { StatusDot, WorkspaceCard, type AgentStatus } from '../components/Worksp
 import { ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
+import { unopenedChats } from './unopenedChats.js';
 
 /** Short label for a window's title strip. */
 function paneTitle(pane: WbPane, sessions: SessionSummary[], terminals: TerminalInfo[]): string {
@@ -308,13 +309,17 @@ export function WorkspacesView() {
 
   const childrenOf = useMemo(() => {
     const m = new Map<string, SessionSummary[]>();
-    for (const s of sessions) if (s.parentSessionId) {
+    for (const s of sessions) if (s.parentSessionId && (statuses.has(s.id) || !s.lastReplyText)) {
       const arr = m.get(s.parentSessionId) ?? [];
       arr.push(s);
       m.set(s.parentSessionId, arr);
     }
     return m;
-  }, [sessions]);
+  }, [sessions, statuses]);
+
+  // Closing a workspace only closes its windows, not the saved conversation.
+  // Keep those chats reachable without reopening every transcript at startup.
+  const savedChats = useMemo(() => unopenedChats(sessions, workspaces), [sessions, workspaces]);
 
   const toggleCollapse = (id: string) =>
     setCollapsed((c) => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -511,7 +516,9 @@ export function WorkspacesView() {
       <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
         {buckets.map((b) => {
           const items = bucketWorkspaces(b.key);
-          if (b.key === '__none' && items.length === 0) return null;
+          const saved = savedChats.filter((s) =>
+            (settings?.workspaces.some((p) => p.id === s.workspaceId) ? s.workspaceId : '__none') === b.key);
+          if (b.key === '__none' && items.length === 0 && saved.length === 0) return null;
           const isCollapsed = collapsed.has(b.key);
           const bucketActive = dropTarget === 'bucket:' + b.key;
           return (
@@ -535,9 +542,9 @@ export function WorkspacesView() {
                     viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
                   ><path d="M9 6l6 6-6 6" /></svg>
                   <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{b.name}</span>
-                  {isCollapsed && items.length > 0 && (
+                  {isCollapsed && items.length + saved.length > 0 && (
                     <span className="ml-1 shrink-0 rounded-full bg-surface-2 px-1.5 text-[10px] tabular-nums text-ink-faint">
-                      {items.length}
+                      {items.length + saved.length}
                     </span>
                   )}
                 </button>
@@ -550,7 +557,7 @@ export function WorkspacesView() {
               </div>
               <div className={`collapse-wrap ${isCollapsed ? 'collapsed' : ''}`}>
                 <div className="min-h-0 space-y-0.5 overflow-hidden pb-1">
-                  {items.length === 0 && (
+                  {items.length === 0 && saved.length === 0 && (
                     <p className="px-3.5 py-1 text-[11px] text-ink-faint">No workspaces yet</p>
                   )}
                   {items.map((w) => {
@@ -591,6 +598,22 @@ export function WorkspacesView() {
                       </div>
                     );
                   })}
+                  {saved.length > 0 && (
+                    <div className="pt-2">
+                      <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Saved chats</p>
+                      {saved.map((s) => (
+                        <button
+                          key={s.id}
+                          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-ink-soft hover:bg-surface-2"
+                          title={`Open ${s.title}`}
+                          onClick={() => openChatPane(s.id)}
+                        >
+                          <ChatIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+                          <span className="min-w-0 flex-1 truncate">{s.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

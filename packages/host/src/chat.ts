@@ -47,6 +47,7 @@ import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
 import { daemonCall } from './engine/daemon.js';
 import { daemonOwns, runAgentViaDaemon } from './daemon-loop.js';
 import { completeText } from './sideband.js';
+import { finishAgentTerminal } from './terminal.js';
 
 /**
  * Retrieve code snippets from the session's workspace index relevant to the
@@ -613,7 +614,7 @@ async function runSubAgent(
 }
 
 /** Run a chat turn end to end. */
-export async function sendChat(opts: SendOptions, send: Sender, allowBrowserControl = false): Promise<void> {
+export async function sendChat(opts: SendOptions, send: Sender, allowBrowserControl = false, queued?: { index: number; text: string }): Promise<void> {
   const settings = getSettings();
   const provider = settings.providers.find((p) => p.id === opts.providerId);
   if (!provider?.enabled) {
@@ -638,6 +639,8 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     send({ type: 'error', sessionId: opts.sessionId, message: 'Provider requires a valid HTTP(S) endpoint.' });
     return;
   }
+  const abort = new AbortController();
+  abortControllers.set(opts.sessionId, abort);
   // Offline disables tool calls entirely; otherwise combine builtins + connected
   // MCP tools, then drop any the user turned off for this chat.
   // Orchestration: the strategy decides whether sub-agents are even offered.
@@ -702,6 +705,10 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       : '',
   });
 
+  if (abort.signal.aborted) {
+    if (abortControllers.get(opts.sessionId) === abort) abortControllers.delete(opts.sessionId);
+    return;
+  }
   if (opts.resume) {
     // Carrying on from a run that stopped part-way: keep every step already taken
     // and only make the transcript valid to send again, by answering any tool call
@@ -732,22 +739,28 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   }
   session.providerId = opts.providerId;
   session.modelId = opts.modelId;
-  persist();
+  if (queued) {
+    try {
+      saveTurnSession(session, queued);
+    } catch (e) {
+      if (abortControllers.get(opts.sessionId) === abort) abortControllers.delete(opts.sessionId);
+      send({ type: 'error', sessionId: opts.sessionId, message: (e as Error).message });
+      return;
+    }
+  } else persist();
 
   let resolvedProvider: ProviderConfig;
   try {
     resolvedProvider = await resolveSubscriptionProvider(provider);
   } catch (e) {
+    if (abortControllers.get(opts.sessionId) === abort) abortControllers.delete(opts.sessionId);
     send({ type: 'error', sessionId: opts.sessionId, message: (e as Error).message });
     return;
   }
   let attempts = 0;
   let eventsSeen = false;
   let lastError: Error | undefined;
-  let abort = new AbortController();
-
-  while (attempts < 2) {
-    abort = new AbortController();
+  while (attempts < 2 && !abort.signal.aborted) {
     abortControllers.set(opts.sessionId, abort);
     eventsSeen = false;
 
@@ -941,7 +954,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       lastError = e as Error;
       break;
     } finally {
-      abortControllers.delete(opts.sessionId);
+      if (abortControllers.get(opts.sessionId) === abort) abortControllers.delete(opts.sessionId);
       // The turn is over, so nothing it was waiting on can still be answered.
       // Leaving the entry behind would park the session in the board's "needs
       // you" lane over a question that no longer has a run behind it.
@@ -950,6 +963,8 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     }
   }
 
+  if (abortControllers.get(opts.sessionId) === abort) abortControllers.delete(opts.sessionId);
+  finishAgentTerminal(opts.sessionId);
   if (lastError) {
     send({ type: 'error', sessionId: opts.sessionId, message: lastError.message });
   }
@@ -971,9 +986,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     const fresh = getSession(opts.sessionId);
     const next = fresh?.queue?.[0];
     if (fresh && next) {
-      fresh.queue = fresh.queue!.slice(1);
-      saveSession(fresh);
-      await sendChat({ sessionId: opts.sessionId, providerId: opts.providerId, modelId: opts.modelId, text: next }, send);
+      await sendChat({ sessionId: opts.sessionId, providerId: opts.providerId, modelId: opts.modelId, text: next }, send, allowBrowserControl, { index: 0, text: next });
     }
   }
 }

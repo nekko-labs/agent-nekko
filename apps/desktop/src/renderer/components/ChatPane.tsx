@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, PromptPlan } from '@agent-nekko/shared';
-import { DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, planAsPromptBlock, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -23,7 +23,7 @@ import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
 import { ComposerHighlight } from './agent-console/ComposerHighlight.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
-import { ContextGauge, EffortMenu } from './ChatMetrics.js';
+import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
 import { QuestionCard } from './QuestionCard.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
@@ -458,8 +458,8 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
   // Seed the composer from whatever was parked for this chat, so an unsent
   // message survives a tab switch or a restart.
   const [draft, setDraft] = useState(() => loadDraft(sessionId)?.text ?? '');
-  // What the draft implies (the analyzer, the plan rail, Auto's pick, the
-  // gauge's draft count) renders from this, one step behind the keystroke, so
+  // What the draft implies (the analyzer, Auto's pick, the gauge's draft
+  // count) renders from this, one step behind the keystroke, so
   // a keypress paints the textarea before any of that work runs.
   const deferredDraft = useDeferredValue(draft);
   const [streaming, setStreaming] = useState(false);
@@ -561,6 +561,11 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
   // The "choose a model" tooltip is a one-shot nudge: opening the picker means
   // the point landed, so it retires for this chat instead of hanging around.
   const [modelHintDone, setModelHintDone] = useState(false);
+  const recentModels = useStore((s) => s.sessions)
+    .filter((s) => s.modelId && s.providerId)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .map((s) => `${s.providerId}::${s.modelId}`)
+    .filter((key, i, all) => all.indexOf(key) === i);
   // Live telemetry for the subtext under the chat: output tokens, elapsed
   // seconds, and a summary of the last completed reply.
   const [turnOut, setTurnOut] = useState(0);
@@ -1185,16 +1190,23 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
       return;
     }
     const skill = activeSkill;
-    // A plan only reaches the agent when the rail's checkbox says so, so the
-    // panel stays a scratchpad by default and becomes an instruction on request.
-    const planBlock = session?.plan?.send ? planAsPromptBlock(session.plan) : '';
-    const text = [
-      skill ? skill.template.trimEnd() : '',
-      input.trim(),
-      planBlock,
-    ].filter(Boolean).join('\n\n');
+    const text = [skill ? skill.template.trimEnd() : '', input.trim()].filter(Boolean).join('\n\n');
     const images = pendingImages;
     if (!text.trim() && images.length === 0 && !skill) return;
+    // A follow-up never interrupts work by accident. Image/skill prompts
+    // cannot be represented by the text-only queue, so keep those in the draft.
+    if (streamingRef.current && !imageMode) {
+      if (images.length || skill) {
+        useStore.getState().pushToast('info', 'Wait for this reply to finish before sending attachments or skills.');
+        return;
+      }
+      if (override === undefined) await queueDraft();
+      else {
+        const updated = await window.nekko.queuePrompt(sessionId, input.trim());
+        if (updated) { setSession(updated); refreshSessions(); }
+      }
+      return;
+    }
 
     // The `goal` skill: `/goal <condition>` starts a long-running background
     // agent that keeps working until the condition is met (not a one-off turn).
@@ -1275,20 +1287,23 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
     const text = draft.trim();
     if (!text) return;
     const updated = await window.nekko.queuePrompt(sessionId, text);
+    if (!updated) return;
     setDraft('');
     clearDraft(sessionId);
-    if (updated) setSession(updated);
+    setSession(updated);
     refreshSessions();
   };
 
-  /**
-   * Park the plan on the session. The rail edits it constantly (every keystroke
-   * re-decodes an untouched plan), so this writes through rather than holding a
-   * second copy in renderer state that could drift from what a reload sees.
-   */
-  const savePlan = (plan: PromptPlan | undefined) => {
-    setSession((prev) => (prev ? { ...prev, plan } : prev));
-    window.nekko.setSessionOptions(sessionId, { plan }).catch(() => {});
+  const sendQueuedNow = (index: number) => {
+    // The IPC promise covers the entire turn, so update the queue immediately
+    // rather than leaving the selected item visible until the reply completes.
+    setSession((prev) => prev ? { ...prev, queue: prev.queue?.filter((_, i) => i !== index) } : prev);
+    void window.nekko.interruptQueuedPrompt(sessionId, index)
+      .catch(() => useStore.getState().pushToast('error', 'Could not send that queued message. It is still in the queue.'))
+      .finally(() => {
+        void loadSession(sessionId).then((fresh) => { if (fresh) setSession(fresh); });
+        void refreshSessions();
+      });
   };
 
   const removeQueued = async (index: number) => {
@@ -1303,7 +1318,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
   const composerInbox = useStore((s) => s.composerInbox);
   useEffect(() => {
     if (!composerInbox || composerInbox.sessionId !== sessionId) return;
-    if (composerInbox.run && (!providerId || streaming)) return;
+    if (composerInbox.run && !providerId) return;
     const { text, run } = composerInbox;
     useStore.setState({ composerInbox: null });
     if (run) void send(text);
@@ -1797,38 +1812,38 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
             className={`${contentWidth} space-y-5`}
             onPinnedChange={onPinnedChange}
             onGrowWhileUnpinned={onGrowWhileUnpinned}
-            header={!session?.messages.length && !hasLive ? (imageMode ? (
-              <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl text-[24px]" style={{ background: 'var(--accent-soft)' }} aria-hidden>🎨</div>
-                <div>
-                  <h2 className="text-[15px] font-semibold">What should Agent Nekko draw?</h2>
-                  <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
-                    Describe the picture below. It is made on this machine by the image model you pick, and every image stays in this chat with the settings that made it.
-                  </p>
-                </div>
-              </div>
-            ) : (
+            header={!session?.messages.length && !hasLive ? (
+
               <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
                 <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
                 <div>
                   <h2 className="text-[15px] font-semibold">
-                    {!hasProvider ? 'Connect a model to get started' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
+                    {!hasProvider ? 'Connect a model to get started' : imageMode ? 'What should Agent Nekko draw?' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
                   </h2>
                   <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
                     {!hasProvider
                       ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Model Providers.'
                       : needsModel
-                        ? 'This chat has no model yet. Choose one below the composer, or let ✨ Auto pick per message.'
+                        ? 'Choose a model here, or let Auto pick per message.'
                         : 'Ask a question or hand over a task. Use / for skills and prompts, @ to attach files, + for photos and folders.'}
                   </p>
                 </div>
                 {!hasProvider ? (
                   <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
-                ) : needsModel ? (
-                  <button className="btn btn-primary" onClick={() => openModelMenu(true)}>Choose a model</button>
                 ) : null}
+                {hasProvider && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
+                  <div className="flex items-center justify-between gap-2 px-2">
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Choose a model</span>
+                    {session && <ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
+                  </div>
+                  {imageMode && session ? <ImageModeControls session={session} onChange={setSession} busy={streaming} /> :
+                    <ModelPicker providers={providers} providerId={providerId} models={models} modelId={modelId}
+                      open={false} onOpenChange={openModelMenu} expanded
+                      recent={recentModels}
+                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) setSession(s); }); }} />}
+                </div>}
               </div>
-            )) : undefined}
+            ) : undefined}
             footer={
               <>
                 {/* The reply being written: repaints once a frame on its own. */}
@@ -1949,12 +1964,10 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
           <div className={contentWidth}>
-            {/* The instrument strip, two rows so a long model name has room and
-                nothing wraps: how this agent RUNS on top (mode + tools, with the
-                privacy switches on the right), which BRAIN it uses underneath
-                (model, reasoning, effort) plus the Automate action. The model
-                chip is the flexible member of its row and truncates first. */}
-            <div className="flex items-center gap-1.5 pb-1">
+            <div className={streaming ? 'composer composer-beam' : 'composer'}>
+            {/* Controls live at the top of the input surface. Separate rows keep
+                the model and its effort slider together when a pane is narrow. */}
+            <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
               <ChatControls
                 session={session}
                 isCloudModel={isCloudModel}
@@ -1962,10 +1975,11 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                 leading={<ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
               />
             </div>
-            <div className={`flex items-center gap-1.5 pb-1.5 ${imageMode ? 'flex-wrap' : ''}`}>
+            <div className={`flex min-w-0 flex-wrap items-center gap-1 border-b border-line px-2 py-1.5 ${imageMode ? 'flex-wrap' : ''}`}>
               {imageMode && session ? (
                 <ImageModeControls session={session} onChange={setSession} busy={streaming} />
               ) : (<>
+              <div className="flex min-w-0 items-center rounded-lg">
               <ModelPicker
                 providers={providers}
                 providerId={providerId}
@@ -1994,6 +2008,8 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                     .catch(() => {});
                 }}
               />
+              <EffortSlider modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
+              </div>
               {modelId === AUTO_MODEL_ID && (
                 <AutoQualityMenu
                   quality={autoQuality}
@@ -2039,9 +2055,6 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                   <ThoughtIcon className="h-3 w-3" /> Thinking
                 </span>
               ) : null}
-              {/* Tied to the model this message will run on, so the rungs offered
-                  are the ones that model actually has. */}
-              <EffortMenu modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
               <button
                 className="ctl-toggle ml-auto shrink-0 whitespace-nowrap"
                 onClick={() => setScheduleOpen(true)}
@@ -2053,10 +2066,10 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
               </>)}
             </div>
 
-            {/* Queued follow-ups (animated in/out so the composer never jumps). */}
+            {/* Queued follow-ups expand inside the same surface as the input. */}
             <div className={`collapse-wrap ${queued.length > 0 ? '' : 'collapsed'}`} aria-hidden={queued.length === 0}>
               <div className="min-h-0 overflow-hidden">
-                <div className="mb-2 rounded-xl border border-line bg-surface-2 px-3 py-2">
+                <div className="border-b border-line bg-surface-2 px-3 py-2">
                   <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-ink-faint">
                     <ListIcon className="h-3 w-3" /> Queued · {queued.length} to run after this
                   </div>
@@ -2065,6 +2078,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                       <div key={i} className="flex items-center gap-2 text-[12px]">
                         <span className="shrink-0 text-[10px] tabular-nums text-ink-faint">{i + 1}</span>
                         <span className="min-w-0 flex-1 truncate text-ink-soft" title={q}>{q}</span>
+                        {streaming && <button className="shrink-0 rounded-md px-2 py-0.5 text-accent hover:bg-surface" title="Interrupt the current reply and send this message now" onClick={() => void sendQueuedNow(i)}>Send now</button>}
                         <button
                           className="shrink-0 rounded-sm px-1 text-ink-faint hover:text-(--danger)"
                           title="Remove from queue"
@@ -2173,7 +2187,6 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                   )}
                 </div>
               )}
-              <div className={streaming ? 'composer composer-beam' : 'composer'}>
             {/* Model-written follow-ups to the reply above: one click sends it
                 outright, and starting any turn clears them. */}
             {!imageMode && liveSuggestions && liveSuggestions.options.length > 0 && !streaming && (
@@ -2409,6 +2422,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                     skill={skillTokens}
                     draftTokens={deferredDraft.trim() ? estimateTokens(deferredDraft) : 0}
                     contextWindow={selectedModelInfo?.contextLength}
+                    windowReported={!!selectedModelInfo?.contextLength}
                   />
                   <LiveUsageChip
                     sessionId={sessionId}
@@ -2423,28 +2437,16 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                   />
                   </>)}
                   <div className="flex-1" />
-                  {draft.trim() && hasProvider && !imageMode && (
-                    <button
-                      className="btn btn-ghost h-8 px-2.5 py-0 text-[12px]"
-                      onClick={queueDraft}
-                      title={streaming ? 'Queue this to run after the current reply' : 'Queue this to run after any queued items'}
-                    >
-                      Queue
-                    </button>
-                  )}
-                  {streaming ? (
-                    <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>
-                  ) : (
+                  {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
-                      onClick={() => send()}
-                      disabled={imageMode ? !draft.trim() : (!draft.trim() && pendingImages.length === 0 && !activeSkill) || !hasProvider}
-                      title="Send"
-                      aria-label="Send"
+                      onClick={() => void send()}
+                      disabled={imageMode ? streaming || !draft.trim() : (!draft.trim() && pendingImages.length === 0 && !activeSkill) || !hasProvider}
+                      title={streaming ? 'Add to queue after this reply' : 'Send'}
+                      aria-label={streaming ? 'Add to queue' : 'Send'}
                     >
                       <NekkoAvatar size={24} />
                     </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -2460,9 +2462,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
           <PlanRail
             sessionId={sessionId}
             session={session}
-            draft={deferredDraft}
             streaming={streaming}
-            onPlanChange={savePlan}
             onClose={() => useStore.getState().togglePlanRail()}
           />
         </div>

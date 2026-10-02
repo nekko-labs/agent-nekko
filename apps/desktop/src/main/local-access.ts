@@ -2,7 +2,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { App } from 'electron';
 import { defaultUserDataDir, type Host } from '@agent-nekko/host';
-import { brandEnv, type SubagentTarget } from '@agent-nekko/shared';
+import { brandEnv, withApiServerDefaults, type SubagentTarget } from '@agent-nekko/shared';
 import { apiServerStatus, ensureApiServerToken, syncApiServer } from './api-server.js';
 import { cliInstallStatus, installCli, writeCliLink } from './cli-install.js';
 
@@ -74,6 +74,24 @@ export function refreshLocalAccess(app: AppLike, host: Host): void {
 }
 
 /**
+ * Honour "Start Server on Nekko Launch" being off: the server stays down for
+ * this launch.
+ *
+ * Done by writing `enabled: false` rather than by skipping the sync, so every
+ * reader agrees it is stopped: the Agent server panel shows the power pill off,
+ * the CLI link says nothing is serving (a terminal falls back to the data
+ * directory instead of dialling a closed port), and the MCP entries fall back
+ * to their portable form. Switching it on from the pill is then an ordinary
+ * save, for this session only.
+ */
+export function applyStartOnLaunch(host: Host): void {
+  const settings = withApiServerDefaults(host.getSettings().apiServer);
+  if (settings.startOnLaunch === false && settings.enabled) {
+    host.updateSettings({ apiServer: { ...settings, enabled: false } });
+  }
+}
+
+/**
  * Startup: a token if there is none, the server up, the launcher linked, and
  * everything that points at the server refreshed.
  *
@@ -82,6 +100,7 @@ export function refreshLocalAccess(app: AppLike, host: Host): void {
  * time the app started; there the Server tab's Install button does it on ask.
  */
 export function startLocalAccess(app: AppLike, host: Host): void {
+  applyStartOnLaunch(host);
   ensureApiServerToken(host);
   syncApiServer(host);
   if (app.isPackaged) installCli(app);
