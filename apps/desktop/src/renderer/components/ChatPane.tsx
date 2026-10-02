@@ -21,12 +21,13 @@ import { LiveTurn, producedTokens, useProducedTokens } from './agent-console/Liv
 import { ChatTypeToggle, ImageModeControls } from './agent-console/ImageModeControls.js';
 import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
+import { ComposerHighlight } from './agent-console/ComposerHighlight.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortMenu } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
 import { QuestionCard } from './QuestionCard.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
-import { PaneActions, useInPaneFrame } from './PaneFrame.js';
+import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
 import { ChatControls } from './ChatControls.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
@@ -255,25 +256,35 @@ function initialBrain(s: Session | null | undefined): { providerId: string | nul
 function ChatHeader({
   title,
   subAgent,
+  metadata,
   children,
 }: {
   title: string;
   subAgent: boolean;
+  metadata?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const framed = useInPaneFrame();
   if (framed) {
     return (
-      <PaneActions>
-        {subAgent && <span className="chip shrink-0 text-[10px]">sub-agent</span>}
-        {children}
-      </PaneActions>
+      <>
+        <PaneMetadata>{metadata}</PaneMetadata>
+        <PaneActions>
+          {subAgent && <span className="chip shrink-0 text-[10px]">sub-agent</span>}
+          {children}
+        </PaneActions>
+      </>
     );
   }
   return (
     <header className="flex items-center justify-between gap-2 border-b border-line px-3 py-2">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="truncate text-[13px] font-medium">{title}</span>
+        {/* The "/" names the boundary between what this is (the title) and
+            where it lives (the project and git context), so it leads that
+            context rather than trailing it. */}
+        {metadata && <span aria-hidden="true" className="text-ink-faint opacity-40">/</span>}
+        {metadata}
         {subAgent && <span className="chip shrink-0 text-[10px]">sub-agent</span>}
       </div>
       <div className="flex shrink-0 items-center gap-1">{children}</div>
@@ -578,6 +589,8 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
   const [showJump, setShowJump] = useState(false);
   const transcriptRef = useRef<VirtualTranscriptHandle>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  // The markdown highlight under the composer; its scroll chases the textarea's.
+  const composerHighlightRef = useRef<HTMLDivElement>(null);
   // A dragged composer height, or null to size to the draft. See COMPOSER_H_KEY.
   const [composerH, setComposerH] = useState<number | null>(readComposerHeight);
   const composerSectionRef = useRef<HTMLDivElement>(null);
@@ -1703,8 +1716,8 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
         {/* One bar per window. Inside a workspace these ride in the frame's
             title strip, which already shows the chat's name; standalone, the
             chat still needs a header of its own. */}
-        <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)}>
-            {git && (
+        <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} metadata={
+            git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
                 {git.worktree && (
                   <span
@@ -1725,7 +1738,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                   <span className="max-w-[16ch] truncate">{git.branch ?? git.head ?? 'detached'}</span>
                 </span>
               </span>
-            )}
+            )}>
             {headerPrs.length > 0 && (
               <button
                 className="btn btn-ghost px-2 py-1"
@@ -2235,9 +2248,14 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                       →
                     </span>
                   )}
+                  {/* Markdown cues live on an overlay behind the textarea: the
+                      glyphs here are transparent so the caret, the selection
+                      and IME composition stay the browser's own. The gutter is
+                      stable on both so a scrollbar never shifts the wrap. */}
+                  <ComposerHighlight ref={composerHighlightRef} text={imageMode ? '' : draft} />
                   <textarea
                     ref={composerRef}
-                    className={`${composerH != null ? '' : 'max-h-60 '}min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-ink outline-hidden placeholder:text-ink-faint`}
+                    className={`${composerH != null ? '' : 'max-h-60 '}relative min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-transparent caret-ink outline-hidden [scrollbar-gutter:stable] placeholder:text-ink-faint`}
                     rows={2}
                     placeholder={imageMode ? 'Describe the image you want…' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
                     value={draft}
@@ -2248,6 +2266,13 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                     onChange={(e) => { setDraft(e.target.value); setMenuClosed(false); }}
                     onPaste={imageMode ? undefined : onPaste}
                     onKeyDown={onComposerKeyDown}
+                    onScroll={(e) => {
+                      const h = composerHighlightRef.current;
+                      if (h) {
+                        h.scrollTop = e.currentTarget.scrollTop;
+                        h.scrollLeft = e.currentTarget.scrollLeft;
+                      }
+                    }}
                     disabled={!canCompose}
                   />
                   <ComposerFocus target={composerRef} sessionId={sessionId} ready={providers.length} />

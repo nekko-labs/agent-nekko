@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { SettingsAutosave } from './settingsAutosave.js';
 import type { EngineInstall, EngineSettings } from '@agent-nekko/shared';
 import { ENGINE_BACKEND_LABELS, ENGINE_PORT_DEFAULT, engineBaseUrl } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
+import { Toggle } from '../primitives/index.js';
 
 /**
  * The server tab: what every other local model server puts in its own app.
@@ -25,22 +27,13 @@ export function EngineServerSettings({
   onChanged: () => void;
 }) {
   const pushToast = useStore((s) => s.pushToast);
-  const [draft, setDraft] = useState<EngineSettings>(settings);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => setDraft(settings), [settings]);
-
-  const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
-
-  const save = async () => {
-    setSaving(true);
-    try {
-      await window.nekko.engineSettingsSave(draft);
-      pushToast('success', running ? 'Saved. Address changes restart the model server.' : 'Saved.');
-      onChanged();
-    } catch (e) { pushToast('error', (e as Error).message); }
-    finally { setSaving(false); }
-  };
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
+  const [autosave] = useState(() => new SettingsAutosave(settings, patch => window.nekko.engineSettingsSave(patch), () => changed.current()));
+  const { draft, status: saveStatus, error } = useSyncExternalStore(autosave.subscribe, autosave.getSnapshot);
+  const setDraft = (next: EngineSettings) => autosave.edit(next);
+  useEffect(() => { autosave.reconcile(settings); }, [autosave, settings]);
+  useEffect(() => () => autosave.dispose(), [autosave]);
 
   const removeEngine = async () => {
     if (!window.confirm('Remove the downloaded engine? Your models are not touched.')) return;
@@ -50,7 +43,7 @@ export function EngineServerSettings({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" onBlurCapture={() => { void autosave.flush(); }}>
       {/* The endpoint, always legible: running or not, this is what apps point
           at — the server simply is not listening until a model loads. */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-3 py-2" style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}>
@@ -86,7 +79,7 @@ export function EngineServerSettings({
           }
         >
           <select
-            className="input w-40 py-1 text-[12px]"
+            className="input w-64 py-1 text-[12px]"
             value={draft.bind}
             onChange={(e) => setDraft({ ...draft, bind: e.target.value as EngineSettings['bind'] })}
           >
@@ -98,7 +91,7 @@ export function EngineServerSettings({
         <Field label="API key" hint="Required as a Bearer token when set. Leave empty on a loopback-only server.">
           <input
             type="password"
-            className="input w-40 py-1 font-mono text-[12px]"
+            className="input w-64 py-1 font-mono text-[12px]"
             value={draft.apiKey ?? ''}
             placeholder="none"
             onChange={(e) => setDraft({ ...draft, apiKey: e.target.value })}
@@ -107,7 +100,7 @@ export function EngineServerSettings({
 
         <Field label="Browser origins (CORS)" hint="Comma-separated origins allowed to call it from a web page. Empty blocks browsers.">
           <input
-            className="input w-40 py-1 font-mono text-[12px]"
+            className="input w-64 py-1 font-mono text-[12px]"
             value={draft.corsOrigins ?? ''}
             placeholder="none"
             onChange={(e) => setDraft({ ...draft, corsOrigins: e.target.value })}
@@ -140,18 +133,13 @@ export function EngineServerSettings({
         <Field label="Load on demand" hint="A request for a model that is not loaded loads it, the way LM Studio does.">
           <Toggle value={draft.jitLoad} onChange={(v) => setDraft({ ...draft, jitLoad: v })} />
         </Field>
-
-        <Field
-          label="Start with Agent Nekko"
-          hint={`Bring the engine up when the app opens. ${
-            (settings.autoload?.length ?? 0) > 0
-              ? `${settings.autoload!.length} model${settings.autoload!.length === 1 ? '' : 's'} marked "on start" load with it.`
-              : 'No models are marked "on start"; mark them in the Models tab.'
-          }`}
-        >
-          <Toggle value={draft.autoStart} onChange={(v) => setDraft({ ...draft, autoStart: v })} />
-        </Field>
       </div>
+
+      <p className="text-[11px] text-ink-faint">
+        {(settings.autoload?.length ?? 0) > 0
+          ? `${settings.autoload!.length} model${settings.autoload!.length === 1 ? '' : 's'} marked "on start" load with the engine.`
+          : 'No models are marked "on start"; mark them in the Models tab.'}
+      </p>
 
       <div>
         <label className="text-[12px]">Where downloads are kept</label>
@@ -168,16 +156,10 @@ export function EngineServerSettings({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button className="btn btn-primary py-1.5 text-[12px]" onClick={save} disabled={!dirty || saving}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-        {dirty && (
-          <button className="btn btn-ghost py-1.5 text-[12px]" onClick={() => setDraft(settings)}>
-            Discard
-          </button>
-        )}
-      </div>
+      <p role="status" className="text-[11px] text-ink-faint">
+        {error ?? (saveStatus === 'saving' ? 'Saving…' : saveStatus === 'pending' ? 'Changes save automatically.' : 'All changes saved.')}
+        {saveStatus === 'error' && <button className="ml-2 underline" onClick={() => void autosave.flush()}>Retry</button>}
+      </p>
 
       <div className="border-t pt-3" style={{ borderColor: 'var(--line)' }}>
         <p className="text-[11.5px] text-ink-faint">
@@ -205,19 +187,5 @@ function Field({ label, hint, children }: { label: string; hint: string; childre
       </div>
       <p className="mt-0.5 text-[11px] text-ink-faint">{hint}</p>
     </div>
-  );
-}
-
-function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <button
-      role="switch"
-      aria-checked={value}
-      className="relative h-5 w-9 shrink-0 rounded-full transition-colors"
-      style={{ background: value ? 'var(--accent)' : 'color-mix(in srgb, var(--ink-faint) 30%, transparent)' }}
-      onClick={() => onChange(!value)}
-    >
-      <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all" style={{ left: value ? 18 : 2 }} />
-    </button>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DownloadJob, EngineStatus, LocalModel } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
-import { Badge } from '../primitives/index.js';
+import { Badge, Toggle } from '../primitives/index.js';
 import { CheckIcon, CopyIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
 import { EngineInstallCard } from './EngineInstallCard.js';
@@ -13,6 +13,7 @@ import { DiffusionInstallCard } from './DiffusionInstallCard.js';
 import { MlxInstallCard } from './MlxInstallCard.js';
 import { DecisionModels } from './DecisionModels.js';
 import { LocalServerSection } from '../server/LocalServerSection.js';
+import { PowerIcon } from '../runtimes/RuntimeCard.js';
 
 /**
  * The engine Agent Nekko runs itself, and the models it serves.
@@ -76,6 +77,15 @@ export function EngineSection({
     });
   }, [refresh]);
 
+  // A load in flight moves faster than the quiet poll: while any are, tick
+  // quickly so the progress bar and the in-memory row feel live.
+  const loadingCount = status?.loading?.length ?? 0;
+  useEffect(() => {
+    if (!loadingCount) return;
+    const t = setInterval(refresh, 1500);
+    return () => clearInterval(t);
+  }, [loadingCount, refresh]);
+
   if (!status) return null;
 
   const { install, running } = status;
@@ -102,24 +112,60 @@ export function EngineSection({
     onProvidersChanged();
   };
 
+  // Lives outside the settings accordion on purpose: it is part of "is the
+  // server on", not part of its configuration, and a finished download flips
+  // it on automatically.
+  const saveAutoStart = async (on: boolean) => {
+    try {
+      await window.nekko.engineSettingsSave({ autoStart: on });
+      await refresh();
+    } catch (e) {
+      pushToast('error', (e as Error).message);
+    }
+  };
+
   const address = `http://127.0.0.1:${status.settings.port}/v1`;
 
   return (
-    <section className="grid min-w-0 grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(340px,0.85fr)_minmax(0,1.4fr)]">
+    <section className="min-w-0 space-y-8">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-2">
       <div className="min-w-0">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--accent)' }} />
         <h2 className="text-[15px] font-semibold">Model server</h2>
-        <button className="btn btn-outline ml-auto py-1 text-[12px]" role="switch" aria-label="Model server" aria-checked={running} disabled={busy !== null || !installed} onClick={() => void toggle()}>{busy ? 'Working…' : running ? 'On' : 'Off'}</button>
-        {running ? (
-          <Badge tone="success" variant="solid" className="px-2 py-0.5">
-            <CheckIcon className="h-3 w-3" /> Serving
-          </Badge>
-        ) : installed ? (
-          <span className="chip">stopped</span>
-        ) : (
-          <span className="chip">not installed</span>
-        )}
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            className="btn btn-ghost p-1.5 disabled:opacity-50"
+            style={{ color: running ? 'var(--success)' : 'var(--ink-faint)' }}
+            onClick={() => void toggle()}
+            disabled={busy !== null || !installed}
+            aria-label={running ? 'Stop model server' : 'Start model server'}
+            aria-pressed={running}
+            title={running ? 'Stop model server' : 'Start model server'}
+          >
+            <PowerIcon className="h-4 w-4" />
+          </button>
+          {running ? (
+            <Badge tone="success" variant="solid" className="px-2 py-0.5">
+              <CheckIcon className="h-3 w-3" /> {busy ? 'Working…' : 'Serving'}
+            </Badge>
+          ) : installed ? (
+            <span className="chip">{busy ? 'working…' : 'stopped'}</span>
+          ) : (
+            <span className="chip">not installed</span>
+          )}
+          <label
+            className="flex items-center gap-1.5 text-[12px] text-ink-soft"
+            title="Bring the engine up when the app opens"
+          >
+            Start with Nekko
+            <Toggle
+              value={status.settings.autoStart}
+              onChange={(v) => void saveAutoStart(v)}
+              label="Start the model server with Nekko"
+            />
+          </label>
+        </div>
       </div>
       <p className="mt-0.5 text-[12px] text-ink-faint">
         Serve text and image models on one address, using managed runtimes or models already on this machine.
@@ -164,6 +210,7 @@ export function EngineSection({
         <DiffusionInstallCard install={status.diffusionInstall} onChanged={refresh} />
         <MlxInstallCard install={status.mlxInstall} onChanged={refresh} />
       </div>
+      </div>
       <LocalServerSection />
       </div>
       <div className="min-w-0">
@@ -193,6 +240,7 @@ export function EngineSection({
               canLoad={installed}
               memory={status.memory}
               resident={status.resident}
+              loading={status.loading}
               settings={status.settings}
               running={running}
               onChanged={refresh}

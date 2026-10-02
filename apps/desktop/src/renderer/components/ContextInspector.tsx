@@ -7,6 +7,7 @@ import { afterPaint } from '../afterPaint.js';
 import { SpecPanel } from './SpecPanel.js';
 import { ResourceDock } from './ResourceMonitor.js';
 import { ProviderLimitsDock } from './ProviderLimitsDock.js';
+import { ModelDock } from './engine/ModelDock.js';
 import { DirTree } from './FileTree.js';
 import { sourceMeta } from '../contextSources.js';
 
@@ -455,6 +456,11 @@ export const ContextInspector = memo(function ContextInspector({ sessionId: show
           meters: the two answer the same question (what is about to run out)
           about the two different resources a run actually spends. */}
       <ProviderLimitsDock />
+
+      {/* What is loaded and where it runs, directly above the machine's own
+          meters: GPU placement explains the tokens-per-second the meter below
+          is about to report. */}
+      <ModelDock />
 
       {/* Resource monitors: pinned at the foot of the panel so they stay visible
           while the sources/breakdown above scroll. The floating chip warps into

@@ -179,6 +179,22 @@ export function engineBaseUrl(settings: Pick<EngineSettings, 'port'>): string {
   return `http://127.0.0.1:${settings.port}/v1`;
 }
 
+/**
+ * A model on its way into memory.
+ *
+ * Loads are serialized, so one that is not first in line sits at `queued`
+ * until the one ahead of it lands. `progress` is measured rather than
+ * estimated: the drop in free VRAM against the share of the file headed to
+ * the GPU. Absent means the load leaves no signal we can read (a CPU load,
+ * or no GPU probe), which the bar shows as indeterminate rather than fake.
+ */
+export interface LoadingModel {
+  id: string;
+  phase: 'queued' | 'loading';
+  startedAt: number;
+  progress?: number;
+}
+
 /** Everything the engine card needs in one read. */
 export interface EngineStatus {
   install: EngineInstall;
@@ -188,6 +204,8 @@ export interface EngineStatus {
   running: boolean;
   startedAt?: number;
   resident: ResidentModel[];
+  /** Models being loaded right now, in queue order. */
+  loading?: LoadingModel[];
   /** Recent router and child-process output, newest last. */
   log: string[];
   port: number;
@@ -328,6 +346,8 @@ export interface DownloadJob {
   label: string;
   /** Model id for a model job; build id for an engine job. */
   target: string;
+  /** Where the file lands, so a completion hook can find it without reparsing the id. */
+  dest?: string;
   state: DownloadState;
   receivedBytes: number;
   totalBytes?: number;
@@ -340,6 +360,16 @@ export interface DownloadJob {
 
 /** What a local model file is for. This decides whether llama-server can run it at all. */
 export type ModelModality = 'chat' | 'vision' | 'embedding' | 'audio' | 'image' | 'draft' | 'unknown';
+
+/**
+ * Where the planner expects a model to live under its current settings.
+ *
+ * `full` = every layer fits in VRAM; `partial` = some layers spill to CPU/RAM;
+ * `cpu` = this machine has no GPU to offload to; `wont` = it does not fit
+ * anywhere; `unknown` = the file does not publish enough geometry to tell.
+ * The library row uses it to flag the models that will not run at full speed.
+ */
+export type GpuFit = 'full' | 'partial' | 'cpu' | 'wont' | 'unknown';
 
 /** Short labels for the modality chips in the library. */
 export const MODALITY_LABELS: Record<ModelModality, string> = {

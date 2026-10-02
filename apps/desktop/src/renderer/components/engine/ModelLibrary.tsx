@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
-import type { LocalModel, ModelModality } from '@agent-nekko/shared';
+import type { GpuFit, LocalModel, ModelModality, ResidentModel } from '@agent-nekko/shared';
 import { MODALITY_LABELS, MODEL_FOLDER_PROVIDERS, unsupportedLoadReason } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { CheckIcon, TrashIcon, WarningIcon } from '../../icons.js';
-import { formatBytes, formatTokens } from '../runtimes/verdict.js';
+import { formatBytes, formatTokens, placementLabel, placementTitle } from '../runtimes/verdict.js';
 import { EngineLoadDrawer } from './EngineLoadDrawer.js';
 import { ImageGeneration } from './ImageGeneration.js';
+import { gpuGuidance } from './modelFamilies.js';
 
 /**
  * The models on this machine.
@@ -73,9 +74,12 @@ export function ModelLibrary({
   query = '',
   autoloadIds,
   running,
+  resident,
 }: {
   providerId: string;
-  models: Array<LocalModel & { loaded: boolean }>;
+  models: Array<LocalModel & { loaded: boolean; gpuFit?: GpuFit }>;
+  /** The engine's resident list, for where each loaded model actually sits. */
+  resident?: ResidentModel[];
   /** False until the engine binary exists: the list is real, running it is not. */
   canLoad: boolean;
   onChanged: () => void;
@@ -109,9 +113,17 @@ export function ModelLibrary({
     // own answer when it has never been configured. Opening the drawer is for
     // changing that, not for performing it.
     const params = model.preset ? { ...model.preset, budgetFraction: undefined } : null;
-    const res = await (params || model.modality === 'image'
+    const req = (params || model.modality === 'image'
       ? window.nekko.runtimeLoad(providerId, model.id, params ?? {})
       : autoLoad(providerId, model.id)).catch((e: Error) => ({ ok: false, message: e.message }));
+    // The load is registered the moment the host picks the call up. Refreshing
+    // now (and once a beat later, in case this read raced the registration)
+    // puts the model in the "In memory" block while it is still streaming in,
+    // instead of at whatever the next poll happens to see.
+    onChanged();
+    const tick = setTimeout(onChanged, 1000);
+    const res = await req;
+    clearTimeout(tick);
     setBusy(null);
     pushToast(res.ok ? 'success' : 'error', res.message ?? (res.ok ? 'Loaded.' : "Couldn't load it."));
     onChanged();
@@ -171,6 +183,27 @@ export function ModelLibrary({
     () => (filter === 'all' ? searched : searched.filter((m) => bucketOf(m.modality) === filter)),
     [searched, filter],
   );
+
+  /**
+   * The list groups by where each model lives: our own downloads first, then
+   * the other apps' folders alphabetically. Headers only print when there is
+   * more than one group to name.
+   */
+  const groups = useMemo(() => {
+    const byLoc = new Map<string, typeof visible>();
+    for (const m of visible) {
+      const loc = locationOf(m);
+      const list = byLoc.get(loc) ?? [];
+      list.push(m);
+      byLoc.set(loc, list);
+    }
+    return [...byLoc.entries()].sort(([a], [b]) =>
+      a === b ? 0 : a === 'Agent Nekko' ? -1 : b === 'Agent Nekko' ? 1 : a.localeCompare(b),
+    );
+  }, [visible]);
+
+  /** Residency, by model id: where a loaded model actually sits. */
+  const residentById = useMemo(() => new Map((resident ?? []).map((r) => [r.id, r])), [resident]);
 
   const runImport = async () => {
     const path = importPath.trim();
@@ -251,20 +284,43 @@ export function ModelLibrary({
           Nothing on this machine matches {filter !== 'all' ? `${FILTER_LABELS[filter].toLowerCase()} models` : `"${query.trim()}"`}.
         </p>
       ) : (
-        <div className="mt-2 space-y-1.5">
-          {visible.map((m) => {
-            const unsupported = m.modality === 'image' ? undefined : unsupportedLoadReason(m);
-            const missingProjector = m.modality === 'vision' && !m.hasProjector;
-            return (
-              <div key={m.id}>
-                <div
-                  className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px]"
-                  style={{ background: 'var(--surface-2)', opacity: unsupported ? 0.85 : 1 }}
-                >
-                  <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="min-w-0 max-w-full truncate font-medium">{m.name}</span>
-                      {m.modality && m.modality !== 'chat' && (
+        <div>
+          {groups.map(([loc, ms]) => (
+            <div key={loc} className="mt-2">
+              {groups.length > 1 && (
+                <p className="px-1 pb-1 pt-1 text-[10.5px] font-semibold uppercase tracking-wide text-ink-faint">{loc}</p>
+              )}
+              <div className="space-y-1.5">{ms.map(renderRow)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  function renderRow(m: (typeof models)[number]) {
+    const unsupported = m.modality === 'image' ? undefined : unsupportedLoadReason(m);
+    const missingProjector = m.modality === 'vision' && !m.hasProjector;
+    const live = residentById.get(m.id);
+    // A model that cannot fill the GPU wears the warning on its row: it will
+    // run, but not at the speed the card implies.
+    const fitWarn = m.gpuFit === 'partial' || m.gpuFit === 'wont';
+    return (
+      <div key={m.id}>
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-lg px-2.5 py-2 text-[12.5px]"
+          style={{
+            background: 'var(--surface-2)',
+            opacity: unsupported ? 0.85 : 1,
+            boxShadow: fitWarn ? 'inset 2px 0 0 var(--warning, #d1a054)' : undefined,
+          }}
+        >
+          <div className="min-w-0 basis-full sm:basis-auto sm:flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <CheckIcon className="h-3 w-3 shrink-0 text-success" />
+              <span className="min-w-0 max-w-full truncate font-medium">{m.name}</span>
+              <span className="text-[11px] text-ink-faint">{gpuGuidance(m.sizeBytes, undefined, m)}</span>
+              {m.modality && m.modality !== 'chat' && (
                         <span
                           className="chip shrink-0"
                           style={{ color: modalityTone(m.modality) }}
@@ -296,6 +352,29 @@ export function ModelLibrary({
                           on start
                         </span>
                       )}
+                      {m.gpuFit === 'partial' && !unsupported && (
+                        <span
+                          className="chip shrink-0"
+                          style={{ color: 'var(--warning, #d1a054)' }}
+                          title="Under its saved settings, part of it runs on the CPU rather than fully in VRAM. Open Settings to change that."
+                        >
+                          part on CPU
+                        </span>
+                      )}
+                      {m.gpuFit === 'wont' && !unsupported && (
+                        <span
+                          className="chip shrink-0"
+                          style={{ color: 'var(--warning, #d1a054)' }}
+                          title="The planner says it will not fit on this machine, even partly offloaded to the CPU."
+                        >
+                          won't fit
+                        </span>
+                      )}
+                      {m.gpuFit === 'cpu' && !unsupported && (
+                        <span className="chip shrink-0" title="No GPU to offload to, so it runs on the CPU">
+                          CPU only
+                        </span>
+                      )}
                       {m.managed === false && (
                         <span className="chip shrink-0" title={`Read from ${m.path}`}>
                           {m.folderProvider ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label : 'other folder'}
@@ -312,9 +391,17 @@ export function ModelLibrary({
                         .filter(Boolean)
                         .join(' · ')}
                     </p>
+                    <p className="truncate font-mono text-[10.5px] text-ink-faint" title={m.path}>
+                      {m.path}
+                    </p>
                   </div>
 
                   <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
+                    {m.loaded && live?.loadedOn && (
+                      <span className="text-[10.5px] text-ink-faint" title={placementTitle(live)}>
+                        {placementLabel(live)}
+                      </span>
+                    )}
                     {!unsupported && !m.loaded && (
                       <button
                         className="rounded-full border px-2 py-1 text-[11px]"
@@ -425,12 +512,17 @@ export function ModelLibrary({
                   />
                 )}
               </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+    );
+  }
+}
+
+/** The group a model's folder belongs to, named for the app that fills it. */
+function locationOf(m: LocalModel): string {
+  return m.folderProvider
+    ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label
+    : !m.folderId || m.folderId === 'primary'
+      ? 'Agent Nekko'
+      : 'Another folder';
 }
 
 /** One sentence for the badge tooltip: what the kind means for running it. */

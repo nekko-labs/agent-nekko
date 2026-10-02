@@ -1,7 +1,7 @@
 import { createMlxRuntime, mlxSupported } from './mlx.js';
 import { engineDaemon } from './daemon.js';
 import type { GpuAdapter } from '../gpu-adapters.js';
-import { totalmem } from 'os';
+import { freemem, totalmem } from 'os';
 import { dirname, join, resolve } from 'path';
 import { stat } from 'fs/promises';
 import type {
@@ -11,17 +11,22 @@ import type {
   EngineInstall,
   EngineLoadPreset,
   EngineSettings,
+  GpuFit,
   GpuStats,
+  HardwareFacts,
   ImageCompanionStatus,
   LoadParams,
   LoadResult,
   LocalModel,
+  ModelFacts,
   ModelFolder,
   ModelFolderReport,
   ModelFolderSuggestion,
   StopResult,
 } from '@agent-nekko/shared';
-import { DEFAULT_ENGINE_SETTINGS, engineBaseUrl, modelModality } from '@agent-nekko/shared';
+import { DEFAULT_ENGINE_SETTINGS, defaultContextTokens, engineBaseUrl, modelModality } from '@agent-nekko/shared';
+import { autoFit, computeFit } from '@agent-nekko/core';
+import { overheadFloorFor } from '../runtimes/calibration.js';
 import { createCatalog, hfFileUrl } from './catalog.js';
 import { companionsDir } from './companions.js';
 import { companionsBeside, imageCompanionsDir, imageCompanionSetFor, imageCompanionStatus } from './image-companions.js';
@@ -77,7 +82,12 @@ export function createEngine(deps: EngineDeps) {
   const modelsDir = () => deps.settings().modelsDir || join(deps.dataDir(), 'models');
   const engineDir = () => join(deps.dataDir(), 'engine');
 
-  const downloads = createDownloads({ onChange: deps.onDownloadsChanged });
+  const downloads = createDownloads({
+    onChange: (jobs) => {
+      deps.onDownloadsChanged?.(jobs);
+      void onDownloadsChanged(jobs).catch(() => {});
+    },
+  });
   const library = createLibrary({ modelsDir, folders: () => deps.settings().modelFolders ?? [] });
   const catalog = createCatalog({ token: deps.hfToken, mlx: () => mlxSupported() });
   const installer = createEngineInstaller({
@@ -102,6 +112,10 @@ export function createEngine(deps: EngineDeps) {
     workDir: () => join(engineDir(), 'templates'),
     companionsDir: (modelId) => companionsDir(modelsDir(), modelId),
     imageCompanionsDir: () => imageCompanionsDir(modelsDir()),
+    gpuCapable: async () => {
+      const install = await installer.detect();
+      return install.backend !== undefined && install.backend !== 'cpu';
+    },
     daemon: engineDaemon(),
   });
   const decisions = createDecisions({
@@ -115,6 +129,89 @@ export function createEngine(deps: EngineDeps) {
 
   // A backend restarted under a daemon that kept serving picks its models up.
   void server.reattach();
+
+  /* ----------------------------------------------------- download follow-up */
+
+  /**
+   * What finishing a model download sets up for free.
+   *
+   * Two things the user would otherwise have to discover: the engine should
+   * start with the app now that there is something to serve (`autoStart`), and
+   * the model deserves settings planned for this machine rather than the
+   * engine's blanket defaults. Only main model jobs fire this; companion files
+   * (projectors, extra shards) share the target but change nothing.
+   */
+  const seenJobStates = new Map<string, DownloadJob['state']>();
+
+  async function onDownloadsChanged(jobs: DownloadJob[]): Promise<void> {
+    const present = new Set(jobs.map((j) => j.id));
+    for (const id of [...seenJobStates.keys()]) if (!present.has(id)) seenJobStates.delete(id);
+    const finished = jobs.filter(
+      (j) =>
+        j.kind === 'model' &&
+        j.state === 'done' &&
+        seenJobStates.get(j.id) !== 'done' &&
+        // `model:<repo>:<quant>` is three segments; a companion's id appends
+        // the file (`model:<repo>:<quant>:<file>`) and does not count.
+        j.id.split(':').length === 3 &&
+        j.dest,
+    );
+    for (const j of jobs) seenJobStates.set(j.id, j.state);
+    for (const job of finished) await onModelDownloaded(job);
+  }
+
+  async function onModelDownloaded(job: DownloadJob): Promise<void> {
+    // A model on disk makes the engine worth starting on its own.
+    if (!deps.settings().autoStart) await deps.saveSettings({ autoStart: true });
+    const model = await findDownloadedModel(job);
+    // An existing preset is a choice somebody made; do not overwrite it.
+    if (!model || model.format === 'mlx' || model.preset) return;
+    const preset = await gpuFirstPreset(model);
+    if (preset) await library.savePreset(model.id, preset);
+  }
+
+  /** The library row a finished download created, matched on where it landed. */
+  async function findDownloadedModel(job: DownloadJob): Promise<LocalModel | undefined> {
+    const dest = resolve(job.dest as string);
+    const list = await library.list();
+    return list.find((m) => {
+      const p = resolve(m.path);
+      // A GGUF job lands on the model file itself; an MLX job lands on a file
+      // inside the model folder, whose path is what the library lists.
+      return p === dest || p === resolve(dirname(dest));
+    });
+  }
+
+  /**
+   * The preset a fresh download starts with: the planner's best full-GPU
+   * answer, falling back to the honest partial one. Nothing is written when
+   * the planner cannot read the model or says it cannot run at all — a saved
+   * wrong setting is worse than the engine's default.
+   */
+  async function gpuFirstPreset(model: LocalModel): Promise<EngineLoadPreset | undefined> {
+    const hw = await hardware().catch(() => undefined);
+    // No GPU to fill: the engine defaults already mean CPU.
+    if (!hw || hw.devices.length === 0) return undefined;
+    const install = await installer.detect();
+    const result = autoFit({
+      facts: modelFactsFor(model),
+      hardware: hw,
+      budgetFraction: 0.9,
+      // The engine caps unnamed context at 64k on purpose (see
+      // defaultContextTokens); the preset gets the same ceiling.
+      maxContextTokens: defaultContextTokens(model),
+      options: { overheadFloorBytes: overheadFloorFor('llamacpp', install.version) },
+    });
+    if (result.plan.verdict === 'unknown' || result.plan.verdict === 'wont-load') return undefined;
+    const layers = model.layers ?? result.plan.totalLayers;
+    return {
+      contextTokens: result.request.contextTokens,
+      kvCacheDtype: result.request.kvCacheDtype,
+      parallelSlots: result.request.parallelSlots,
+      gpuLayers: layers !== undefined ? Math.round(layers * result.request.gpuLayerFraction) : undefined,
+      budgetFraction: 0.9,
+    };
+  }
 
   /* ------------------------------------------------------------ acquisition */
 
@@ -390,6 +487,7 @@ export function createEngine(deps: EngineDeps) {
       running: state.running,
       startedAt: state.startedAt,
       resident: state.resident,
+      loading: state.loading,
       log: state.log,
       port: state.port,
       settings: deps.settings(),
@@ -397,13 +495,84 @@ export function createEngine(deps: EngineDeps) {
     };
   }
 
-  /** Every model in the library, with load state and the last failure folded in. */
-  async function models(): Promise<Array<LocalModel & { loaded: boolean }>> {
+  /** The machine's memory pools, in the shape the fit planner reads. */
+  async function hardware(): Promise<HardwareFacts> {
+    const gpu = await deps.getGpuStats().catch(() => null);
+    return {
+      devices: (gpu?.devices ?? []).map((d) => ({
+        name: d.name,
+        totalBytes: d.memoryTotalMB * 1024 * 1024,
+        freeBytes: d.memoryFreeMB * 1024 * 1024,
+      })),
+      unified: Boolean(gpu?.unified),
+      systemRamTotalBytes: totalmem(),
+      systemRamFreeBytes: freemem(),
+    };
+  }
+
+  function modelFactsFor(m: LocalModel): ModelFacts {
+    return {
+      id: m.id,
+      providerId: 'nekko-engine',
+      weightsBytes: m.sizeBytes,
+      layers: m.layers,
+      kvHeads: m.kvHeads,
+      headDim: m.headDim,
+      maxContext: m.maxContext,
+      quantization: m.quantization,
+      parameterSize: m.parameterSize,
+    };
+  }
+
+  /**
+   * Where the planner expects this model to run under the settings it would be
+   * loaded with (its preset, else the engine defaults). Only the loadable
+   * text-family modalities get a verdict: for the rest "where it runs" is not
+   * a GPU-layers question.
+   */
+  function gpuFitFor(model: LocalModel, hw: HardwareFacts, overheadFloorBytes?: number): GpuFit {
+    if (model.format === 'mlx') return 'unknown';
+    const modality = model.modality ?? modelModality(model);
+    if (modality !== 'chat' && modality !== 'vision' && modality !== 'embedding') return 'unknown';
+    const gpuLayerFraction =
+      model.preset?.gpuLayers !== undefined && model.layers
+        ? Math.min(1, Math.max(0, model.preset.gpuLayers / model.layers))
+        : 1;
+    const plan = computeFit(
+      modelFactsFor(model),
+      {
+        contextTokens: model.preset?.contextTokens ?? defaultContextTokens(model),
+        parallelSlots: model.preset?.parallelSlots ?? 1,
+        kvCacheDtype: model.preset?.kvCacheDtype ?? 'f16',
+        gpuLayerFraction,
+      },
+      hw,
+      { overheadFloorBytes },
+    );
+    if (plan.verdict === 'unknown') return 'unknown';
+    if (plan.verdict === 'wont-load') return 'wont';
+    if (hw.devices.length === 0) return 'cpu';
+    return plan.verdict === 'spills' || gpuLayerFraction < 1 ? 'partial' : 'full';
+  }
+
+  /**
+   * Every model in the library, with load state, the last failure and the
+   * planner's residency verdict folded in.
+   *
+   * `gpuFit` is one `computeFit` per row against a single hardware read — pure
+   * math, no I/O per model — and stays undefined when no GPU probe answered,
+   * because a verdict built on no hardware facts is a guess wearing one.
+   */
+  async function models(): Promise<Array<LocalModel & { loaded: boolean; gpuFit?: GpuFit }>> {
     const loaded = new Set(server.loadedIds());
-    return (await library.list()).map((m) => ({
+    const list = await library.list();
+    const hw = await hardware().catch(() => undefined);
+    const overheadFloor = hw ? overheadFloorFor('llamacpp', (await installer.detect()).version) : undefined;
+    return list.map((m) => ({
       ...m,
       loaded: loaded.has(m.id),
       lastLoadError: server.loadErrorFor(m.id),
+      gpuFit: hw ? gpuFitFor(m, hw, overheadFloor) : undefined,
     }));
   }
 

@@ -1,4 +1,4 @@
-import type { FitPlan, FitReason } from '@agent-nekko/shared';
+import type { FitPlan, FitReason, ResidentModel } from '@agent-nekko/shared';
 
 /**
  * Turning a projection into one sentence a person can act on.
@@ -123,6 +123,41 @@ export function verdictLabel(verdict: FitPlan['verdict']): string {
       return 'Will not load';
     case 'unknown':
       return 'Unknown';
+  }
+}
+
+/**
+ * Where a resident model actually sits: all in VRAM, split across GPU and CPU,
+ * or entirely on the CPU. Layer counts come along when the engine reported
+ * them, because "40/61 layers" says more than "GPU + CPU" alone.
+ */
+export function placementLabel(r: ResidentModel): string {
+  const layers =
+    r.gpuLayers !== undefined && r.totalLayers !== undefined
+      ? ` · ${r.gpuLayers}/${r.totalLayers} layers`
+      : '';
+  switch (r.loadedOn) {
+    case 'gpu':
+      return `on GPU${layers}`;
+    case 'gpu+cpu':
+      return `GPU + CPU${layers}`;
+    case 'cpu':
+      return 'on CPU';
+    default:
+      return '';
+  }
+}
+
+export function placementTitle(r: ResidentModel): string {
+  switch (r.loadedOn) {
+    case 'gpu':
+      return 'Every layer is resident in VRAM.';
+    case 'gpu+cpu':
+      return 'Some layers run on the CPU, which is slower than a full GPU offload.';
+    case 'cpu':
+      return 'It runs entirely in system RAM on the CPU.';
+    default:
+      return '';
   }
 }
 

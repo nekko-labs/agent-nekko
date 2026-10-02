@@ -82,7 +82,7 @@ export function LocalServerSection() {
   const url = status.clientUrl;
 
   return (
-    <section className="mt-7">
+    <section className="min-w-0">
       <div className="flex items-center gap-2">
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: 'var(--accent-2)' }} />
         <h2 className="text-[15px] font-semibold">Agent server</h2>

@@ -73,6 +73,7 @@ function make(
   settings: Partial<EngineSettings> = {},
   models: LocalModel[] = MODELS,
   spawnFn?: typeof spawn,
+  extraDeps: Partial<Parameters<typeof createEngineServer>[0]> = {},
 ) {
   const current: EngineSettings = { ...DEFAULT_ENGINE_SETTINGS, ...settings };
   const server = createEngineServer({
@@ -89,6 +90,7 @@ function make(
         spawn(process.execPath, [stubPath, ...args], {
           stdio: ['ignore', 'pipe', 'pipe'],
         })) as unknown as typeof spawn),
+    ...extraDeps,
   });
   return { server, settings: current };
 }
@@ -323,6 +325,56 @@ describe('engine router', () => {
     expect((await server.load('qwen3-8b', {})).ok).toBe(true);
     expect(server.loadErrorFor('qwen3-8b')).toBeUndefined();
   });
+
+  it('reports a load while it is in flight, then clears it', async () => {
+    // A child that starts listening late, so the load has an observable middle.
+    const slow = join(stubDir, 'stub-slow.cjs');
+    await writeFile(
+      slow,
+      `
+      const port = Number(process.argv[process.argv.indexOf('--port') + 1]);
+      setTimeout(() => {
+        require('http').createServer((req, res) => {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ status: 'ok' }));
+        }).listen(port, '127.0.0.1');
+      }, 2000);
+    `,
+    );
+    let freeMB = 6000;
+    const port = await freePort();
+    const { server } = make(
+      { port },
+      MODELS,
+      ((_bin: string, args: readonly string[]) =>
+        spawn(process.execPath, [slow, ...args], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })) as unknown as typeof spawn,
+      {
+        getGpuStats: async () => ({
+          source: 'nvidia-smi',
+          devices: [{ name: 'fake', memoryTotalMB: 8192, memoryUsedMB: 8192 - freeMB, memoryFreeMB: freeMB }],
+          totalMB: 8192,
+          usedMB: 8192 - freeMB,
+          freeMB,
+        }),
+      },
+    );
+    open = server;
+    await server.start();
+
+    const p = server.load('qwen3-8b', {});
+    // The entry exists the moment the load is asked for, queued behind the chain.
+    expect(server.status().loading?.[0]?.phase).toBe('queued');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(server.status().loading?.[0]?.phase).toBe('loading');
+    // Free VRAM sinking against the file's size is the progress number.
+    freeMB -= 500;
+    await new Promise((r) => setTimeout(r, 900));
+    expect(server.status().loading?.[0]?.progress).toBeGreaterThan(0);
+    expect((await p).ok).toBe(true);
+    expect(server.status().loading ?? []).toEqual([]);
+  });
 });
 
 describe('buildArgs', () => {
@@ -416,10 +468,27 @@ describe('buildArgs', () => {
     expect(buildArgs(m, 9000, { flashAttention: false })).toContain('off');
   });
 
-  it('only passes --no-mmap when mmap was explicitly turned off', () => {
+  it('writes mmap and mlock as --load-mode on builds that know it', () => {
+    const supports = (f: string) => f === '--load-mode';
+    const off = buildArgs(m, 9000, { mmap: false }, undefined, supports);
+    expect(off[off.indexOf('--load-mode') + 1]).toBe('none');
+    expect(off).not.toContain('--no-mmap');
+    const locked = buildArgs(m, 9000, { mlock: true }, undefined, supports);
+    expect(locked[locked.indexOf('--load-mode') + 1]).toBe('mmap+mlock');
+    // Unset means the engine default: no flag at all.
+    expect(buildArgs(m, 9000, {}, undefined, supports)).not.toContain('--load-mode');
+    expect(buildArgs(m, 9000, { mmap: true }, undefined, supports)).not.toContain('--load-mode');
+    // Pinning without a map is not a load-mode, so mmap-off wins.
+    const both = buildArgs(m, 9000, { mmap: false, mlock: true }, undefined, supports);
+    expect(both[both.indexOf('--load-mode') + 1]).toBe('none');
+  });
+
+  it('keeps --no-mmap and --mlock for builds without --load-mode', () => {
     expect(buildArgs(m, 9000, { mmap: true })).not.toContain('--no-mmap');
     expect(buildArgs(m, 9000, {})).not.toContain('--no-mmap');
     expect(buildArgs(m, 9000, { mmap: false })).toContain('--no-mmap');
+    expect(buildArgs(m, 9000, { mlock: true })).toContain('--mlock');
+    expect(buildArgs(m, 9000, { mmap: false })).not.toContain('--load-mode');
   });
 
   it('puts an embedding model into embedding mode', () => {

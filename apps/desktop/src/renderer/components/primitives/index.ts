@@ -7,3 +7,4 @@ export { Badge, StatusDot } from './Badge.js';
 export { EmptyHint, FieldLabel, PanelList, Section, StatTile } from './Panel.js';
 export { Modal, useDialog } from './Modal.js';
 export { LogSurface } from './LogSurface.js';
+export { Toggle } from './Toggle.js';

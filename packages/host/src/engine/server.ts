@@ -6,13 +6,14 @@ import { basename, dirname, join } from 'path';
 import type {
   EngineSettings,
   GpuStats,
+  LoadingModel,
   LoadParams,
   LoadResult,
   LocalModel,
   ResidentModel,
   StopResult,
 } from '@agent-nekko/shared';
-import { defaultContextTokens, unsupportedLoadReason } from '@agent-nekko/shared';
+import { defaultContextTokens, MODEL_FOLDER_PROVIDERS, unsupportedLoadReason } from '@agent-nekko/shared';
 import { DAEMON_PORT, type EngineDaemon } from './daemon.js';
 import { mlxArgs } from './mlx.js';
 import { diffusionArgs } from './diffusion.js';
@@ -55,6 +56,8 @@ const SWEEP_INTERVAL_MS = 30_000;
  */
 const MEASURE_SETTLE_MS = 1500;
 const LOG_LINES = 200;
+/** How often the free-VRAM reading is taken while a load runs, for progress. */
+const LOAD_PROGRESS_MS = 800;
 
 interface Child {
   modelId: string;
@@ -71,6 +74,11 @@ interface Child {
   vramBytes?: number;
   sizeBytes: number;
   contextTokens?: number;
+  /** The model's layer count, and how many of them the load put on the GPU. */
+  totalLayers?: number;
+  gpuLayers?: number;
+  /** Where it runs: `gpu` fully offloaded, `cpu` not at all, `gpu+cpu` split. */
+  loadedOn?: 'gpu' | 'gpu+cpu' | 'cpu';
   activeRequests: number;
 }
 
@@ -114,6 +122,12 @@ export interface EngineServerDeps {
   /** Which flags the binary accepts; defaults to asking it (`probeFlags`). */
   flagSupport?: (bin: string) => Promise<FlagSupport>;
   /**
+   * Whether the installed engine can put layers on a GPU at all. Undefined
+   * means "assume it can": the row then reports placement from the requested
+   * offload rather than claiming CPU from ignorance.
+   */
+  gpuCapable?: () => Promise<boolean>;
+  /**
    * The engine daemon, when this host runs under one. It then owns the model
    * server processes and the OpenAI-compatible port; this module keeps the
    * policy (what to load, with which arguments, when to evict) and asks it.
@@ -133,6 +147,14 @@ export function createEngineServer(deps: EngineServerDeps) {
    * history, not state.
    */
   const lastLoadErrors = new Map<string, string>();
+  /**
+   * Loads in flight, queued ones included, so the UI can answer "is it coming"
+   * the moment a load is asked for rather than when the file has landed.
+   * Progress is the free-VRAM drop measured against the share of the file
+   * headed to the GPU; where nothing can be measured it stays absent and the
+   * bar runs indeterminate.
+   */
+  const loading = new Map<string, { phase: LoadingModel['phase']; startedAt: number; progress?: number }>();
   const log: string[] = [];
   let server: Server | null = null;
   /** Under the daemon: its router is listening on our behalf. */
@@ -275,18 +297,21 @@ export function createEngineServer(deps: EngineServerDeps) {
   async function adopt(): Promise<void> {
     if (!deps.daemon) return;
     const live = await deps.daemon.list().catch(() => [] as Awaited<ReturnType<EngineDaemon['list']>>);
+    const gpuCapable = (await deps.gpuCapable?.().catch(() => undefined)) ?? true;
     for (const c of live) {
       if (children.has(c.modelId)) continue;
       const model = await deps.findModel(c.modelId).catch(() => undefined);
+      const params = model?.preset ?? {};
       children.set(c.modelId, {
         modelId: c.modelId,
         pid: c.pid,
         port: c.port,
-        params: model?.preset ?? {},
+        params,
         startedAt: c.startedAt,
         lastUsedAt: c.lastUsedAt,
         log: [],
         sizeBytes: model?.sizeBytes ?? 0,
+        ...(model ? placementFor(model, params, gpuCapable) : {}),
         activeRequests: c.activeRequests,
       });
       push(`${c.modelId} was still loaded; carrying on with it.`);
@@ -346,12 +371,15 @@ export function createEngineServer(deps: EngineServerDeps) {
    * is not polluted by another one landing halfway through.
    */
   function load(modelId: string, params: LoadParams = {}): Promise<LoadResult> {
-    const run = loadChain.then(() => doLoad(modelId, params));
+    loading.set(modelId, { phase: 'queued', startedAt: Date.now() });
+    const run = loadChain.then(() => doLoad(modelId, params)).finally(() => loading.delete(modelId));
     loadChain = run.catch(() => {});
     return run;
   }
 
   async function doLoad(modelId: string, params: LoadParams): Promise<LoadResult> {
+    const inflight = loading.get(modelId);
+    if (inflight) inflight.phase = 'loading';
     const existing = children.get(modelId);
     if (existing) {
       // A load with different settings is a reload, which is what the drawer's
@@ -392,6 +420,7 @@ export function createEngineServer(deps: EngineServerDeps) {
     }
 
     const settings = deps.settings();
+    const gpuCapable = (await deps.gpuCapable?.().catch(() => undefined)) ?? true;
     await sync();
     // Make room before spending minutes on a load that would immediately push
     // something else out anyway.
@@ -435,6 +464,41 @@ export function createEngineServer(deps: EngineServerDeps) {
       return { ok: false, message };
     }
     const before = await freeVramBytes();
+    // Progress the row can show while the file lands: the free-VRAM figure
+    // sinks as tensors arrive, measured against the share of the file headed
+    // there. A CPU load or a machine with no GPU probe reports nothing, which
+    // the bar shows as indeterminate rather than a number we invented. The
+    // sampler stops itself the moment the load leaves `loading`.
+    const gpuShare =
+      model.modality === 'image'
+        ? params.diffusion?.offloadToCpu
+          ? 0
+          : 1
+        : params.gpuLayers !== undefined && model.layers
+          ? Math.min(1, Math.max(0, params.gpuLayers / model.layers))
+          : gpuCapable
+            ? 1
+            : 0;
+    if (before !== null && gpuShare > 0 && model.sizeBytes > 0) {
+      const expected = model.sizeBytes * gpuShare;
+      const t = setInterval(() => {
+        if (!loading.has(modelId)) {
+          clearInterval(t);
+          return;
+        }
+        void freeVramBytes()
+          .then((free) => {
+            const entry = loading.get(modelId);
+            // Capped under full until health agrees it is done: the reading is
+            // a ramp, not a finish line, and KV cache lands after the weights.
+            if (entry && free !== null) {
+              entry.progress = Math.max(0, Math.min(0.95, (before - free) / expected));
+            }
+          })
+          .catch(() => {});
+      }, LOAD_PROGRESS_MS);
+      t.unref?.();
+    }
 
     if (deps.daemon) {
       const outcome = await deps.daemon
@@ -470,6 +534,7 @@ export function createEngineServer(deps: EngineServerDeps) {
         vramBytes: measured,
         sizeBytes: measured ?? model.sizeBytes,
         contextTokens,
+        ...placementFor(model, params, gpuCapable),
         activeRequests: 0,
       });
       lastLoadErrors.delete(modelId);
@@ -536,6 +601,7 @@ export function createEngineServer(deps: EngineServerDeps) {
           // when nothing could be measured.
           sizeBytes: measured ?? model.sizeBytes,
           contextTokens,
+          ...placementFor(model, params, gpuCapable),
           activeRequests: 0,
         };
         children.set(modelId, entry);
@@ -625,6 +691,9 @@ export function createEngineServer(deps: EngineServerDeps) {
         sizeBytes: c.sizeBytes,
         vramBytes: c.vramBytes,
         contextLength: c.contextTokens,
+        gpuLayers: c.gpuLayers,
+        totalLayers: c.totalLayers,
+        loadedOn: c.loadedOn,
         lastUsedAt: c.lastUsedAt,
         startedAt: c.startedAt,
         expiresAt: ttl > 0 ? c.lastUsedAt + ttl : undefined,
@@ -798,6 +867,12 @@ export function createEngineServer(deps: EngineServerDeps) {
       running: server !== null || serving,
       startedAt,
       resident: resident(),
+      loading: [...loading.entries()].map(([id, l]) => ({
+        id,
+        phase: l.phase,
+        startedAt: l.startedAt,
+        progress: l.progress,
+      })),
       log: log.slice(-40),
       port: deps.settings().port,
     };
@@ -928,8 +1003,18 @@ export function buildArgs(
     args.push('--cache-type-k', params.kvCacheDtype, '--cache-type-v', params.kvCacheDtype);
   }
   if (params.flashAttention !== undefined) args.push('--flash-attn', params.flashAttention ? 'on' : 'off');
-  if (params.mmap === false) args.push('--no-mmap');
-  if (params.mlock) args.push('--mlock');
+  // llama.cpp folded mmap/mlock/direct-io into one `--load-mode` enum, and on
+  // builds that have it the old flags hard-fail the launch ("invalid
+  // argument"). Builds from before that change still take the pair, so the
+  // probe decides which dialect this binary speaks. `none` is what no-mmap
+  // meant; pinning without a map no longer exists, so mmap-off wins.
+  if (supports('--load-mode')) {
+    const loadMode = params.mmap === false ? 'none' : params.mlock ? 'mmap+mlock' : undefined;
+    if (loadMode) args.push('--load-mode', loadMode);
+  } else {
+    if (params.mmap === false) args.push('--no-mmap');
+    if (params.mlock) args.push('--mlock');
+  }
   if (params.ropeFreqBase) args.push('--rope-freq-base', String(params.ropeFreqBase));
   if (params.ropeFreqScale) args.push('--rope-freq-scale', String(params.ropeFreqScale));
   if (params.seed !== undefined) args.push('--seed', String(params.seed));
@@ -975,11 +1060,47 @@ function modelRow(model: LocalModel, loaded: boolean) {
     // Extras beyond the OpenAI schema, which compatible clients ignore and ours
     // uses to show state without a second request.
     state: loaded ? 'loaded' : 'not-loaded',
+    // The picker leads with the name and the file beneath it; the id is a path
+    // in itself and reads badly as a label.
+    name: model.name,
+    path: model.path,
+    location: model.folderProvider ? MODEL_FOLDER_PROVIDERS[model.folderProvider].label : undefined,
     modality: model.modality ?? 'chat',
     max_context_length: model.maxContext,
     quantization: model.quantization,
     size_bytes: model.sizeBytes,
   };
+}
+
+/**
+ * Where a load actually lives. `params.gpuLayers` is what was asked; when it is
+ * absent llama.cpp offloads what it can on a GPU-capable build (its `--fit`
+ * default) and nothing on a CPU-only one, so the installed backend decides the
+ * default. MLX models live on the GPU by definition (unified memory); an image
+ * model's diffusion flags say the same thing in their own words.
+ */
+function placementFor(
+  model: LocalModel,
+  params: LoadParams,
+  gpuCapable: boolean,
+): Pick<Child, 'gpuLayers' | 'totalLayers' | 'loadedOn'> {
+  const totalLayers = model.layers;
+  if (model.format === 'mlx') return { totalLayers, gpuLayers: totalLayers, loadedOn: 'gpu' };
+  if (model.modality === 'image') {
+    const split = Boolean(params.diffusion?.clipOnCpu);
+    return { loadedOn: params.diffusion?.offloadToCpu ? 'cpu' : split ? 'gpu+cpu' : 'gpu' };
+  }
+  if (!gpuCapable) return { totalLayers, gpuLayers: 0, loadedOn: 'cpu' };
+  const gpuLayers = params.gpuLayers ?? totalLayers;
+  const loadedOn =
+    gpuLayers === undefined
+      ? 'gpu'
+      : gpuLayers <= 0
+        ? 'cpu'
+        : totalLayers !== undefined && gpuLayers < totalLayers
+          ? 'gpu+cpu'
+          : 'gpu';
+  return { totalLayers, gpuLayers, loadedOn };
 }
 
 function sameParams(a: LoadParams, b: LoadParams): boolean {

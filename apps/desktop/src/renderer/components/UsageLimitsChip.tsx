@@ -9,11 +9,13 @@ function timeUntil(ms: number): string {
   const s = Math.round(ms / 1000);
   if (s < 60) return `in ${s}s`;
   const m = Math.floor(s / 60);
-  if (m < 60) return `in ${m}m`;
+  if (m < 60) return `in ${m} min`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `in ${h}h ${m % 60 ? `${m % 60}m` : ''}`;
+  if (h < 24) return `in ${h} hr${h === 1 ? '' : 's'} ${m % 60 ? `${m % 60} min` : ''}`.trim();
   const d = Math.floor(h / 24);
-  return `in ${d}d`;
+  if (d < 30) return `in ${d} day${d === 1 ? '' : 's'}`;
+  const mo = Math.floor(d / 30);
+  return `in ${mo} month${mo === 1 ? '' : 's'}`;
 }
 
 function relTime(ms: number): string {
@@ -21,10 +23,13 @@ function relTime(ms: number): string {
   const s = Math.round(ms / 1000);
   if (s < 60) return `${s}s ago`;
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return `${m} min${m === 1 ? '' : 's'} ago`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return `${h} hr${h === 1 ? '' : 's'} ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d} day${d === 1 ? '' : 's'} ago`;
+  const mo = Math.floor(d / 30);
+  return `${mo} month${mo === 1 ? '' : 's'} ago`;
 }
 
 /**

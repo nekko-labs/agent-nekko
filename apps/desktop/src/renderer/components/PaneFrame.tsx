@@ -28,6 +28,12 @@ export const PANE_DRAG_TYPE = 'application/x-nekko-pane';
  * chrome it draws for itself.
  */
 const PaneChrome = createContext<HTMLElement | typeof SLOT_PENDING | null>(null);
+const MetadataChrome = createContext<HTMLElement | null>(null);
+
+export function PaneMetadata({ children }: { children: React.ReactNode }) {
+  const slot = useContext(MetadataChrome);
+  return slot ? createPortal(children, slot) : null;
+}
 
 /**
  * Inside a frame whose strip has not mounted yet (its first render). A pane
@@ -141,6 +147,7 @@ export function PaneFrame({
   const [over, setOver] = useState<DropTarget | null>(null);
   // Set once the strip is on screen, which is what lets the portal find it.
   const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null);
+  const [metadataSlot, setMetadataSlot] = useState<HTMLElement | null>(null);
   // A window can't be dropped on itself, so it shows no target for its own drag.
   const targeting = dragging !== null && dragging !== pane.id;
 
@@ -177,10 +184,16 @@ export function PaneFrame({
         title="Drag to move this window"
       >
         {icon}
-        <span className="min-w-0 flex-1 truncate text-[12px]" style={{ fontWeight: isActive ? 500 : 400 }}>
+        <span className="min-w-0 max-w-[35%] truncate text-[12px]" style={{ fontWeight: isActive ? 500 : 400 }}>
           {title}
         </span>
-        {badge}
+        {/* The "/" leads the window's location: the project it belongs to, the
+            git branch it is on. It hides when neither has anything to say, and
+            it sits between the name and that context, never trailing after. */}
+        <span aria-hidden="true" className="pane-strip-sep text-[14px] text-ink-faint opacity-40">/</span>
+        <span className="pane-strip-badge flex min-w-0 items-center gap-1">{badge}</span>
+        <div ref={setMetadataSlot} className="pane-strip-meta flex min-w-0 items-center gap-1" />
+        <div className="min-w-0 flex-1" />
         {/* The pane's own actions, portalled in, so there is one bar per window
             rather than the frame's and the pane's stacked on each other. */}
         <div ref={setActionSlot} className="flex shrink-0 items-center gap-0.5" />
@@ -202,7 +215,7 @@ export function PaneFrame({
           className="pane-body absolute inset-0"
           style={over ? { transform: MAKE_WAY[over], opacity: 0.55 } : undefined}
         >
-          <PaneChrome.Provider value={actionSlot ?? SLOT_PENDING}>{children}</PaneChrome.Provider>
+          <PaneChrome.Provider value={actionSlot ?? SLOT_PENDING}><MetadataChrome.Provider value={metadataSlot}>{children}</MetadataChrome.Provider></PaneChrome.Provider>
         </div>
         {targeting && (
           <div

@@ -245,22 +245,56 @@ async function startLoopback(
     session.redirectUri = `http://localhost:${port}/callback`;
     return true;
   }
-  const server = createServer(handler);
-  session.server = server;
-  try {
-    await listenOnce(server, 1455);
-    session.redirectUri = CHATGPT_REDIRECT_URI;
-    return true;
-  } catch (e: any) {
+  // ChatGPT registered exactly one redirect URI, so the listener has to take
+  // port 1455.
+  const tryListen = async (): Promise<boolean> => {
+    const server = createServer(handler);
+    session.server = server;
     try {
-      server.close();
-    } catch {
-      /* best effort */
+      await listenOnce(server, 1455);
+      session.redirectUri = CHATGPT_REDIRECT_URI;
+      return true;
+    } catch (e: any) {
+      try {
+        server.close();
+      } catch {
+        /* best effort */
+      }
+      session.server = undefined;
+      if (e?.code === 'EADDRINUSE') return false;
+      throw e;
     }
-    session.server = undefined;
-    if (e?.code === 'EADDRINUSE') return false;
-    throw e;
-  }
+  };
+  if (await tryListen()) return true;
+  // The port's most common squatter is an earlier sign-in session of ours that
+  // never finished (the window closed mid-flow, Connect was clicked twice).
+  // Taking it back is safe; anything else holding 1455 is not ours to close,
+  // and the flow degrades to manual: the redirect still lands on the dead
+  // port, so the user pastes the address-bar URL back to finish.
+  if ((await reclaimChatgptLoopback(session.id)) && (await tryListen())) return true;
+  return false;
+}
+
+/**
+ * Close another pending ChatGPT session's listener and wait for the port to
+ * free. Returns whether such a session existed.
+ */
+async function reclaimChatgptLoopback(currentId: string): Promise<boolean> {
+  const stale = [...sessions.values()].find(
+    (s) => s.id !== currentId && s.provider === 'chatgpt' && s.server,
+  );
+  if (!stale?.server) return false;
+  const server = stale.server;
+  closeSession(stale);
+  await new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, 500);
+    t.unref?.();
+    server.once('close', () => {
+      clearTimeout(t);
+      resolve();
+    });
+  });
+  return true;
 }
 
 function scheduleSessionExpiry(session: OAuthSession): void {

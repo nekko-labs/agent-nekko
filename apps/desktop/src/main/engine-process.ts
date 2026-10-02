@@ -58,8 +58,13 @@ export function findDaemon(opts: Pick<EngineOptions, 'app'>): string | null {
 export class EngineProcess {
   private child: ChildProcess | null = null;
   private current: EngineEndpoint | null = null;
-  private waiters: ((e: EngineEndpoint) => void)[] = [];
+  private waiters: { resolve: (e: EngineEndpoint) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }[] = [];
   private stopping = false;
+  private requested = false;
+  private restartTimer: ReturnType<typeof setTimeout> | undefined;
+  private stopPromise: Promise<void> | null = null;
+
+  get running(): boolean { return this.requested && !this.stopping; }
   private backoff = 500;
   private readonly token = randomBytes(24).toString('base64url');
 
@@ -67,12 +72,22 @@ export class EngineProcess {
 
   /** Resolves with the live endpoint, waiting for a (re)start if needed. */
   endpoint(): Promise<EngineEndpoint> {
+    if (!this.running) return Promise.reject(new Error('Nekko service is stopped. Start it from the tray menu.'));
     if (this.current) return Promise.resolve(this.current);
-    return new Promise((r) => this.waiters.push(r));
+    return new Promise((resolve, reject) => {
+      const waiter = { resolve, reject, timer: setTimeout(() => {
+        this.waiters = this.waiters.filter(w => w !== waiter);
+        reject(new Error('Nekko service did not become ready. Try restarting it from the tray.'));
+      }, 15000) };
+      this.waiters.push(waiter);
+    });
   }
 
   start(): void {
-    if (this.stopping) return;
+    if (this.child || this.stopPromise) return;
+    this.requested = true;
+    this.stopping = false;
+    clearTimeout(this.restartTimer);
     const daemon = findDaemon(this.opts);
     const backendEnv: Record<string, string> = {
       ELECTRON_RUN_AS_NODE: '1',
@@ -109,6 +124,7 @@ export class EngineProcess {
 
     const lines = createInterface({ input: child.stdout! });
     lines.on('line', (line) => {
+      if (this.stopping || this.child !== child) return;
       const at = line.indexOf(marker);
       if (at < 0) {
         console.log(line);
@@ -119,7 +135,7 @@ export class EngineProcess {
         this.current = { url: `http://127.0.0.1:${port}`, token: this.token, mode };
         const waiting = this.waiters;
         this.waiters = [];
-        waiting.forEach((r) => r(this.current!));
+        waiting.forEach(w => { clearTimeout(w.timer); w.resolve(this.current!); });
       } catch {
         console.error(`engine: unreadable ready line: ${line}`);
       }
@@ -132,27 +148,35 @@ export class EngineProcess {
       if (this.stopping) return;
       if (Date.now() - startedAt > 30_000) this.backoff = 500;
       console.error(`engine: ${mode} exited (${signal ?? code}); restarting in ${this.backoff}ms`);
-      setTimeout(() => this.start(), this.backoff);
+      this.restartTimer = setTimeout(() => { if (this.requested && !this.stopping) this.start(); }, this.backoff);
       this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF_MS);
     });
   }
 
   /** Close its stdin (the shutdown signal), then kill it if it lingers. */
   stop(graceMs = 6000): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
     this.stopping = true;
+    this.requested = false;
+    this.current = null;
+    clearTimeout(this.restartTimer);
+    for (const waiter of this.waiters) { clearTimeout(waiter.timer); waiter.reject(new Error('Nekko service was stopped.')); }
+    this.waiters = [];
     const child = this.child;
     if (!child || child.exitCode !== null) return Promise.resolve();
-    return new Promise((resolveStop) => {
+    this.stopPromise = new Promise<void>((resolveStop, reject) => {
       const timer = setTimeout(() => {
         child.kill();
-        resolveStop();
       }, graceMs);
+      const deadline = setTimeout(() => reject(new Error('Nekko service did not stop. Restart was cancelled to avoid duplicate processes.')), graceMs + 5000);
       child.once('exit', () => {
         clearTimeout(timer);
+        clearTimeout(deadline);
         resolveStop();
       });
       child.stdin?.end();
-    });
+    }).finally(() => { this.stopPromise = null; });
+    return this.stopPromise;
   }
 
   /** One call on the engine's HTTP route, for the few things main still asks it. */
@@ -162,6 +186,7 @@ export class EngineProcess {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ args }),
+      signal: AbortSignal.timeout(15000),
     });
     const text = await res.text();
     const body = text ? JSON.parse(text) : null;

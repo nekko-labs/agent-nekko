@@ -144,7 +144,7 @@ export function ImageModeControls({ session, onChange, busy }: { session: Sessio
       )}
       {!runtime ? (
         <button className="ctl-toggle ml-auto shrink-0 whitespace-nowrap text-[var(--warning,#d1a054)]" onClick={() => setView('modelserver')} title="Image models run in stable-diffusion.cpp">
-          Install the image runtime
+          Install the image generation runtime
         </button>
       ) : companions && !companions.ready ? (
         <button

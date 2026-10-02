@@ -97,6 +97,28 @@ const MOUNTED_WORKSPACES = 3;
 type DragItem = { kind: 'project' | 'workspace'; id: string; ws: string | undefined };
 
 /**
+ * The workspace list's width, drag-resizable between a card's minimum and the
+ * point where the list would crowd the windows it sits beside. Remembered like
+ * the plan rail's open state: a per-window preference, not a setting.
+ */
+const SIDEBAR_MIN_W = 200;
+const SIDEBAR_MAX_W = 480;
+const SIDEBAR_DEFAULT_W = 256;
+const SIDEBAR_W_KEY = 'nekko.wsSidebarWidth';
+
+function clampSidebarWidth(px: number): number {
+  return Math.min(SIDEBAR_MAX_W, Math.max(SIDEBAR_MIN_W, Math.round(px)));
+}
+
+function readSidebarWidth(): number {
+  try {
+    const saved = Number(localStorage.getItem(SIDEBAR_W_KEY));
+    if (Number.isFinite(saved) && saved > 0) return clampSidebarWidth(saved);
+  } catch { /* private mode */ }
+  return SIDEBAR_DEFAULT_W;
+}
+
+/**
  * Hues the shell rows cycle through, so a machine with PowerShell, Git Bash and
  * WSL reads as three things rather than one repeated three times. Semantic
  * tokens only: a theme change moves them with everything else.
@@ -163,7 +185,7 @@ function statusFromEvent(type: AgentEvent['type']): AgentStatus | null {
 export function WorkspacesView() {
   const {
     sessions, terminals, workspaces, activeWorkspaceId, settings, activeSessionId,
-    refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal,
+    refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal, newTerminalWorkspace,
     setActiveWorkspace, closeWorkspace, newChat, setActiveProject,
     reorderWorkspaces, layoutChats, layoutTerminals, contextPanelOpen,
   } = useStore(
@@ -179,6 +201,7 @@ export function WorkspacesView() {
       openChatPane: s.openChatPane,
       openTerminalPane: s.openTerminalPane,
       newTerminal: s.newTerminal,
+      newTerminalWorkspace: s.newTerminalWorkspace,
       setActiveWorkspace: s.setActiveWorkspace,
       closeWorkspace: s.closeWorkspace,
       newChat: s.newChat,
@@ -197,6 +220,12 @@ export function WorkspacesView() {
     return () => window.clearInterval(timer);
   }, []);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [sidebarW, setSidebarW] = useState(readSidebarWidth);
+  const saveSidebarW = (px: number) => {
+    const w = clampSidebarWidth(px);
+    setSidebarW(w);
+    try { localStorage.setItem(SIDEBAR_W_KEY, String(w)); } catch { /* private mode */ }
+  };
   const [mobileNav, setMobileNav] = useState(false);
   const [newMenuOpen, setNewMenuOpen] = useState(false);
   const [shells, setShells] = useState<ShellOption[]>([]);
@@ -403,7 +432,9 @@ export function WorkspacesView() {
   const mounted = workspaces.filter((w) => w.root && (recent.current.includes(w.id) || leaving.current.includes(w.id)));
 
   const Sidebar = (
-    <div className="panel panel-ring flex h-full w-64 flex-col">
+    // `min()` guards the mobile overlay, where the chosen width could be wider
+    // than the screen it slides over.
+    <div className="panel panel-ring flex h-full flex-col" style={{ width: `min(${sidebarW}px, 82vw)` }}>
       <div className="flex items-center justify-between px-3 py-2.5">
         <span className="text-sm font-semibold">Workspaces</span>
         <div className="relative" ref={newMenuRef}>
@@ -418,11 +449,11 @@ export function WorkspacesView() {
           </button>
           <button
             className={`btn btn-ghost px-2 py-1 ${newMenuOpen ? 'text-accent' : ''}`}
-            title="New workspace or terminal"
+            title="New workspace with terminal"
             aria-expanded={newMenuOpen}
             onMouseEnter={openNewMenu}
             onFocus={openNewMenu}
-            onClick={() => (newMenuOpen ? closeNewMenu() : openNewMenu())}
+            onClick={() => { closeNewMenu(); void newTerminalWorkspace().catch(e => useStore.getState().pushToast('error', e.message)); }}
           >
             <PlusIcon />
           </button>
@@ -459,7 +490,7 @@ export function WorkspacesView() {
                   tone="var(--success)"
                   icon={<TerminalIcon className="h-4 w-4" />}
                   label="New terminal"
-                  onClick={() => { closeNewMenu(); newTerminal(); }}
+                  onClick={() => { closeNewMenu(); void newTerminalWorkspace(); }}
                 />
               ) : (
                 shells.map((sh, i) => (
@@ -469,7 +500,7 @@ export function WorkspacesView() {
                     icon={<TerminalIcon className="h-4 w-4" />}
                     label={sh.label}
                     title={sh.path}
-                    onClick={() => { closeNewMenu(); newTerminal(undefined, sh.path); }}
+                    onClick={() => { closeNewMenu(); void newTerminalWorkspace(undefined, sh.path); }}
                   />
                 ))
               )}
@@ -512,7 +543,7 @@ export function WorkspacesView() {
                 </button>
                 <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                   <button className="rounded-md p-1 text-ink-faint hover:bg-paper hover:text-ink" title="New workspace in project"
-                    onClick={() => { if (b.ws) setActiveProject(b.ws.id); newChat(); }}><PlusIcon className="h-3.5 w-3.5" /></button>
+                    onClick={() => { setActiveProject(b.ws?.id ?? null); void newTerminalWorkspace(b.ws?.id); }}><PlusIcon className="h-3.5 w-3.5" /></button>
                   <button className="rounded-md p-1 text-ink-faint hover:bg-paper hover:text-ink" title="New terminal in project"
                     onClick={() => newTerminal(b.ws?.id)}><TerminalIcon className="h-3.5 w-3.5" /></button>
                 </span>
@@ -580,6 +611,56 @@ export function WorkspacesView() {
     >
       {mobileNav && <div className="absolute inset-0 z-20 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} />}
       <aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
+      {/* The handle sits inside the gap itself (negative margins) so the list
+          and the windows keep their one-gap rhythm, grabbed like the window
+          dividers: pointer capture, arrow keys, double-click resets. */}
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize the workspace list"
+        aria-valuemin={SIDEBAR_MIN_W}
+        aria-valuemax={SIDEBAR_MAX_W}
+        aria-valuenow={sidebarW}
+        tabIndex={0}
+        className="group relative hidden shrink-0 cursor-col-resize md:block"
+        style={{ width: 'var(--pane-gap)', marginInline: 'calc(-1 * var(--pane-gap))' }}
+        onPointerDown={(e) => {
+          e.preventDefault();
+          const handle = e.currentTarget;
+          const startX = e.clientX;
+          const startW = sidebarW;
+          handle.setPointerCapture(e.pointerId);
+          const onMove = (ev: PointerEvent) => setSidebarW(clampSidebarWidth(startW + ev.clientX - startX));
+          const onUp = (ev: PointerEvent) => {
+            handle.releasePointerCapture(e.pointerId);
+            handle.removeEventListener('pointermove', onMove);
+            handle.removeEventListener('pointerup', onUp);
+            saveSidebarW(startW + ev.clientX - startX);
+          };
+          handle.addEventListener('pointermove', onMove);
+          handle.addEventListener('pointerup', onUp);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            e.preventDefault();
+            saveSidebarW(sidebarW + (e.key === 'ArrowRight' ? 16 : -16));
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            saveSidebarW(SIDEBAR_MIN_W);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            saveSidebarW(SIDEBAR_MAX_W);
+          }
+        }}
+        onDoubleClick={() => saveSidebarW(SIDEBAR_DEFAULT_W)}
+        title="Drag to resize the workspace list · double-click resets"
+      >
+        <span className="absolute inset-y-0 -left-1 -right-1" />
+        <span
+          aria-hidden
+          className="pane-grip absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        />
+      </div>
 
       <main className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-line px-2 py-1.5 md:hidden">
@@ -761,15 +842,20 @@ function WorkspaceCanvas({
       );
     }
     return (
+      // No `gap` here: the Divider between two windows is itself --pane-gap
+      // wide, so it is the space they keep. Each child's share is a flex-grow
+      // weight rather than a percentage of the box, since bases that summed to
+      // 100% pushed the last window's width past the edge once the dividers
+      // took theirs, which is how a row's rightmost window could slide under
+      // the inspector.
       <div
         key={node.id}
         className={`flex min-h-0 min-w-0 flex-1 ${node.dir === 'row' ? 'flex-row' : 'flex-col'}`}
-        style={{ gap: 'var(--pane-gap)' }}
       >
         {node.children.map((child, i) => (
           <React.Fragment key={child.id}>
             {i > 0 && <Divider splitId={node.id} index={i - 1} dir={node.dir} onResize={resizePanes} />}
-            <div className="flex min-h-0 min-w-0" style={{ flex: `0 0 ${node.sizes[i] * 100}%` }}>
+            <div className="flex min-h-0 min-w-0" style={{ flex: `${node.sizes[i]} 1 0` }}>
               {renderNode(child)}
             </div>
           </React.Fragment>

@@ -264,7 +264,7 @@ export interface Host {
   engineGenerateImage(request: import('@agent-nekko/shared').ImageGenerationRequest): Promise<import('@agent-nekko/shared').ImageGenerationResult>;
   engineUninstall(runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string }>;
   engineSettingsSave(patch: Partial<EngineSettings>): Promise<EngineSettings>;
-  engineModels(): Promise<Array<LocalModel & { loaded: boolean }>>;
+  engineModels(): Promise<Array<LocalModel & { loaded: boolean; gpuFit?: import('@agent-nekko/shared').GpuFit }>>;
   engineImportModel(path: string): Promise<{ ok: boolean; message: string; model?: LocalModel }>;
   engineDeleteModel(id: string): Promise<{ ok: boolean; message: string }>;
   engineSaveModelPreset(id: string, preset: EngineLoadPreset): Promise<void>;
