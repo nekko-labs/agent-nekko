@@ -6742,9 +6742,7 @@
           }
         ],
         "stream": true,
-        "store": false,
-        "temperature": 0.2,
-        "max_output_tokens": 2048
+        "store": false
       }
     },
     "wrap-up-no-tools": {
@@ -7069,7 +7067,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 0.7
+        "reasoning": {
+          "effort": "high"
+        }
       }
     },
     "opus-5-5-normal": {
@@ -7099,7 +7099,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 0.7
+        "reasoning": {
+          "effort": "medium"
+        }
       }
     },
     "opus-5-5-unset": {
@@ -7128,7 +7130,10 @@
           }
         ],
         "stream": true,
-        "store": false
+        "store": false,
+        "reasoning": {
+          "effort": "medium"
+        }
       }
     },
     "opus-5-low": {
@@ -7158,7 +7163,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 0.2
+        "reasoning": {
+          "effort": "low"
+        }
       }
     },
     "opus-5-medium": {
@@ -7188,7 +7195,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 0.5
+        "reasoning": {
+          "effort": "medium"
+        }
       }
     },
     "opus-5-xhigh": {
@@ -7218,7 +7227,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 1
+        "reasoning": {
+          "effort": "high"
+        }
       }
     },
     "opus-5-max": {
@@ -7248,7 +7259,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 1
+        "reasoning": {
+          "effort": "high"
+        }
       }
     },
     "sonnet-4-6-high": {
@@ -7278,7 +7291,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 1
+        "reasoning": {
+          "effort": "high"
+        }
       }
     },
     "haiku-4-5-max": {
@@ -7308,7 +7323,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 1
+        "reasoning": {
+          "effort": "high"
+        }
       }
     },
     "fable-normal": {
@@ -7337,7 +7354,10 @@
           }
         ],
         "stream": true,
-        "store": false
+        "store": false,
+        "reasoning": {
+          "effort": "high"
+        }
       }
     },
     "opus-4-dated": {
@@ -7367,7 +7387,9 @@
         ],
         "stream": true,
         "store": false,
-        "temperature": 1
+        "reasoning": {
+          "effort": "high"
+        }
       }
     },
     "vendor-prefixed": {
@@ -7396,7 +7418,10 @@
           }
         ],
         "stream": true,
-        "store": false
+        "store": false,
+        "reasoning": {
+          "effort": "high"
+        }
       }
     },
     "zero-temperature-zero-cap": {
@@ -7425,8 +7450,7 @@
           }
         ],
         "stream": true,
-        "store": false,
-        "temperature": 0
+        "store": false
       }
     },
     "empty-system": {
@@ -7526,8 +7550,7 @@
           }
         ],
         "stream": true,
-        "store": false,
-        "max_output_tokens": 32
+        "store": false
       }
     }
   }
