@@ -1,4 +1,5 @@
 import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import { effectiveEffort } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk, ToolSpec } from './types.js';
 import { parseSSE } from './sse.js';
 import { DecodeClock } from './decode-clock.js';
@@ -156,36 +157,66 @@ export class OpenAICompatProvider implements Provider {
       this.config.kind === 'vllm' ||
       this.config.kind === 'llamacpp' ||
       this.config.kind === 'openai-compat';
-    const body = {
-      model: req.model,
-      stream: true,
-      stream_options: { include_usage: true },
-      temperature: req.temperature ?? 0.7,
-      // Output cap: without it a looping local model streams until its context
-      // window fills. `max_tokens` is honoured by every openai-compat server we
-      // target (newer OpenAI models also accept it as a deprecated alias).
-      ...(req.maxOutputTokens ? { max_tokens: req.maxOutputTokens } : {}),
-      messages: this.toOpenAIMessages(req),
-      tools: req.tools?.map(toOpenAITool),
-      ...(req.think !== undefined && localKind ? { chat_template_kwargs: { enable_thinking: req.think } } : {}),
+    // OpenAI's reasoning families (o-series, gpt-5 and newer, codex, gpt-oss)
+    // refuse `temperature` and `max_tokens` outright, so the request leaves
+    // without them rather than retrying after a 400. On OpenRouter the rung
+    // rides the normalized `reasoning.effort` field.
+    const effortField = effortKnob(this.config.kind, req.model);
+    const learned = learnedParams(this.config.id, req.model);
+    const buildBody = (): Record<string, unknown> => {
+      const body: Record<string, unknown> = {
+        model: req.model,
+        stream: true,
+        stream_options: { include_usage: true },
+        ...(effortField ? {} : { temperature: req.temperature ?? 0.7 }),
+        // Output cap: without it a looping local model streams until its
+        // context window fills. `max_tokens` is honoured by every
+        // openai-compat server we target; on the OpenAI API reasoning models
+        // take `max_completion_tokens` instead.
+        ...(req.maxOutputTokens
+          ? { [effortField === 'reasoning_effort' ? 'max_completion_tokens' : 'max_tokens']: req.maxOutputTokens }
+          : {}),
+        messages: this.toOpenAIMessages(req),
+        tools: req.tools?.map(toOpenAITool),
+        ...(req.think !== undefined && localKind ? { chat_template_kwargs: { enable_thinking: req.think } } : {}),
+      };
+      const rung = effortField ? openAiEffort(req) : null;
+      if (effortField === 'reasoning_effort' && rung) body.reasoning_effort = rung;
+      if (effortField === 'reasoning' && rung) body.reasoning = { effort: rung };
+      applyLearned(body, learned);
+      return body;
     };
 
-    let res: Response;
-    try {
-      res = await fetch(`${this.base()}/chat/completions`, {
-        method: 'POST',
-        headers: this.headers(),
-        body: JSON.stringify(body),
-        signal: req.signal,
-      });
-    } catch (e) {
-      throw new Error(friendlyError(e, this.base()));
-    }
-    if (!res.ok) {
+    // A validator that still refuses the shape gets its way: drop or rename
+    // the blamed field and send again, once per rejection, then remember it.
+    let res: Response | undefined;
+    let lastError = '';
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const body = buildBody();
+      try {
+        res = await fetch(`${this.base()}/chat/completions`, {
+          method: 'POST',
+          headers: this.headers(),
+          body: JSON.stringify(body),
+          signal: req.signal,
+        });
+      } catch (e) {
+        throw new Error(friendlyError(e, this.base()));
+      }
+      if (res.ok) break;
       const text = await res.text().catch(() => '');
-      // OpenAI-style bodies carry { error: { message } } — surface that message
-      // instead of raw JSON so 401/402/429 replies read like sentences.
-      throw new Error(`Model request failed (HTTP ${res.status})${text ? `: ${extractApiError(text)}` : ''}`);
+      lastError = text;
+      const blame = attempt < 4 ? blamedParam(res.status, text, body) : null;
+      if (!blame) {
+        // OpenAI-style bodies carry { error: { message } } — surface that message
+        // instead of raw JSON so 401/402/429 replies read like sentences.
+        throw new Error(`Model request failed (HTTP ${res.status})${text ? `: ${extractApiError(text)}` : ''}`);
+      }
+      learned.set(blame.field, blame.renameTo ?? null);
+      res = undefined;
+    }
+    if (!res) {
+      throw new Error(`Model request failed (HTTP 400)${lastError ? `: ${extractApiError(lastError)}` : ''}`);
     }
 
     // Accumulate streamed tool-call fragments by index.
@@ -322,4 +353,202 @@ export function friendlyError(e: unknown, url: string): string {
     return `Can't reach the model server at ${url}. Is it running and reachable on the network?`;
   }
   return msg;
+}
+
+/**
+ * OpenAI's reasoning generation: o-series, gpt-5 and newer, codex, gpt-oss.
+ * These ids reject the sampling fields on api.openai.com, and OpenRouter
+ * proxies the same rejection for the ids it fronts.
+ */
+const OPENAI_REASONING_RE = /(?:^|[-_/ .])(?:o\d+|gpt-?(?:[5-9]|\d{2,})|gpt-oss|codex)/i;
+
+/** The body field that carries the effort rung for this provider and model. */
+function effortKnob(kind: ProviderConfig['kind'], model: string): 'reasoning_effort' | 'reasoning' | null {
+  if (!OPENAI_REASONING_RE.test(model)) return null;
+  if (kind === 'openai') return 'reasoning_effort';
+  if (kind === 'openrouter') return 'reasoning';
+  return null;
+}
+
+/** The rung as OpenAI's ladder speaks it; `normal` leaves the model's default. */
+function openAiEffort(req: ChatRequest): string | null {
+  switch (effectiveEffort(req.effort, req.model)) {
+    case 'low':
+      return 'low';
+    case 'medium':
+      return 'medium';
+    case 'normal':
+      return null;
+    default:
+      return 'high';
+  }
+}
+
+/**
+ * Body fields a server has refused, per provider and model: the field to its
+ * replacement, or null when it was dropped. A rejection is information: the
+ * request goes out again without the blamed field (or carrying the one the
+ * server asked for instead), and the adjustment sticks for every later
+ * request to that model. The same contract the Anthropic provider keeps for
+ * sampling shapes, covering every OpenAI-compatible server whose validator is
+ * stricter than the wire format suggests.
+ */
+const LEARNED_PARAMS = new Map<string, Map<string, string | null>>();
+
+/** Test seam: the golden tests replay cases in order, each starting clean. */
+export function resetLearnedParams(): void {
+  LEARNED_PARAMS.clear();
+}
+
+function learnedParams(providerId: string, model: string): Map<string, string | null> {
+  const key = `${providerId}:${model}`;
+  let m = LEARNED_PARAMS.get(key);
+  if (!m) LEARNED_PARAMS.set(key, (m = new Map()));
+  return m;
+}
+
+/**
+ * Optional body fields a request can survive losing. `model`, `messages` and
+ * `stream` are never dropped: a server that refuses those cannot serve the
+ * request at all, and its error belongs on screen.
+ */
+const DROPPABLE = new Set([
+  'temperature',
+  'top_p',
+  'top_k',
+  'presence_penalty',
+  'frequency_penalty',
+  'max_tokens',
+  'max_completion_tokens',
+  'reasoning_effort',
+  'reasoning',
+  'stream_options',
+  'chat_template_kwargs',
+  'tools',
+  'tool_choice',
+  'parallel_tool_calls',
+  'logit_bias',
+  'seed',
+  'stop',
+  'store',
+  'n',
+  'logprobs',
+  'top_logprobs',
+  'response_format',
+  'user',
+  'metadata',
+]);
+
+/** How close a rejection word must sit to a field name to blame it. */
+const NEAR = 80;
+const REJECT_WORDS = [
+  'unsupported',
+  'not supported',
+  'does not support',
+  'unexpected',
+  'unknown',
+  'unrecogni',
+  'extra',
+  'is not allowed',
+  'deprecated',
+];
+
+function isWordChar(c: string | undefined): boolean {
+  return c !== undefined && /[a-z0-9_]/.test(c);
+}
+
+/**
+ * The body field a rejection blames, plus the field it suggests instead. An
+ * explicit name (`error.param`) that lands on a required field ends the
+ * search: there is nothing to adjust. The looser near-match only ever returns
+ * droppable fields, so "for this model" cannot blame `model`.
+ */
+function blamedParam(
+  status: number,
+  text: string,
+  body: Record<string, unknown>,
+): { field: string; renameTo?: string } | null {
+  if (status !== 400 && status !== 422) return null;
+  const named = namedParam(text, body);
+  if (named && !DROPPABLE.has(named)) return null;
+  const field = named ?? nearRejection(text, body);
+  if (!field) return null;
+  const rename = replacementParam(text, field);
+  return rename ? { field, renameTo: rename } : { field };
+}
+
+/**
+ * The field the error body names explicitly: OpenAI's `error.param`, a bare
+ * `param`, or a FastAPI `detail[].loc[]` entry ("extra fields not permitted").
+ */
+function namedParam(text: string, body: Record<string, unknown>): string | null {
+  const parsed = safeParse(text);
+  for (const v of [(parsed.error as { param?: unknown } | undefined)?.param, parsed.param]) {
+    if (typeof v === 'string' && v in body) return v;
+  }
+  const detail = parsed.detail;
+  if (Array.isArray(detail)) {
+    for (const d of detail) {
+      const loc = (d as { loc?: unknown }).loc;
+      if (!Array.isArray(loc)) continue;
+      for (const l of loc) {
+        if (typeof l === 'string' && l in body) return l;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * The sent field whose name appears within `NEAR` chars of a rejection word,
+ * in either order ("Unsupported parameter: temperature", "'max_tokens' is not
+ * supported"). Word-bounded, so `tool` inside `tool_calls` never counts.
+ */
+function nearRejection(text: string, body: Record<string, unknown>): string | null {
+  const t = text.toLowerCase();
+  for (const key of Object.keys(body)) {
+    if (!DROPPABLE.has(key)) continue;
+    let at = 0;
+    for (;;) {
+      const i = t.indexOf(key, at);
+      if (i < 0) break;
+      at = i + 1;
+      if (isWordChar(t[i - 1]) || isWordChar(t[i + key.length])) continue;
+      const before = t.slice(Math.max(0, i - NEAR), i);
+      const after = t.slice(i + key.length, i + key.length + NEAR);
+      if (REJECT_WORDS.some((w) => before.includes(w) || after.includes(w))) return key;
+    }
+  }
+  return null;
+}
+
+/** The field named in a "use X instead" hint, when it is one we may send. */
+function replacementParam(text: string, field: string): string | undefined {
+  const t = text.toLowerCase();
+  let i = 0;
+  for (;;) {
+    const at = t.indexOf(' instead', i);
+    if (at < 0) return undefined;
+    i = at + 8;
+    let end = at;
+    while (end > 0 && /[\s"'`]/.test(t[end - 1])) end--;
+    let start = end;
+    while (start > 0 && isWordChar(t[start - 1])) start--;
+    const word = t.slice(start, end);
+    if (!word) continue;
+    let q = start;
+    while (q > 0 && /["'`]/.test(t[q - 1])) q--;
+    const head = t.slice(0, q).trimEnd();
+    if (!head.endsWith('use') || isWordChar(head[head.length - 4])) continue;
+    if (word !== field && DROPPABLE.has(word)) return word;
+  }
+}
+
+/** Apply the remembered adjustments: drop the field, or move its value. */
+function applyLearned(body: Record<string, unknown>, learned: Map<string, string | null>): void {
+  for (const [field, to] of learned) {
+    if (!(field in body)) continue;
+    if (to) body[to] = body[field];
+    delete body[field];
+  }
 }

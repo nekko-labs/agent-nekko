@@ -135,6 +135,11 @@ const requests = {
   // The sampling rule reads the date as a minor version; the effort rule does not.
   'opus-4-dated': { model: 'claude-opus-4-20250514', effort: 'xhigh', temperature: 1, messages: [user('hi')] },
   'vendor-prefixed': { model: 'anthropic/Claude-Opus-5', effort: 'normal', messages: [user('hi')] },
+  // OpenAI's reasoning ids: on the openai/openrouter providers these drop the
+  // sampling fields and carry effort natively; the local kinds keep them.
+  'gpt-6-effort': { model: 'gpt-6-sol', effort: 'high', temperature: 1, maxOutputTokens: 1000, think: true, messages: [user('hi')] },
+  'gpt-6-normal': { model: 'gpt-6-sol', effort: 'normal', temperature: 0.7, maxOutputTokens: 512, messages: [user('hi')] },
+  'o3-via-openrouter': { model: 'openai/o3', effort: 'low', temperature: 0.2, messages: [user('hi')] },
   'zero-temperature-zero-cap': { model: 'm', temperature: 0, maxOutputTokens: 0, messages: [user('hi')] },
   'empty-system': { model: 'm', system: '', messages: [user('hi')] },
   unicode: {
@@ -323,6 +328,71 @@ const streams = [
   { name: 'oa-http-500-empty', provider: 'openai-compat', responses: [{ status: 500, body: '' }] },
   { name: 'oa-http-429-long-text', provider: 'openrouter', responses: [{ status: 429, body: `Too many requests 😀 ${'x'.repeat(300)}` }] },
   { name: 'oa-http-400-message-not-string', provider: 'openai', responses: [{ status: 400, body: '{"error":{"message":{"nested":true}}}' }] },
+  {
+    // The blamed field is dropped and the next chat opens on the learned shape.
+    name: 'oa-retry-drops-temperature',
+    provider: 'openai-compat',
+    request: 'system-and-tools',
+    chats: 2,
+    responses: [
+      { status: 400, body: JSON.stringify({ error: { message: "Unsupported parameter: 'temperature'", param: 'temperature' } }) },
+      { chunks: [oa({ content: 'ok' }), finish('stop'), sse('[DONE]')] },
+      { chunks: [oa({ content: 'again' }), finish('stop'), sse('[DONE]')] },
+    ],
+  },
+  {
+    // The server names the field it wants instead, so the value moves.
+    name: 'oa-retry-renames-max-tokens',
+    provider: 'openai',
+    request: 'system-and-tools',
+    responses: [
+      {
+        status: 400,
+        body: JSON.stringify({
+          error: {
+            message: "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+            param: 'max_tokens',
+          },
+        }),
+      },
+      { chunks: [finish('stop'), sse('[DONE]')] },
+    ],
+  },
+  {
+    // FastAPI-style validation: the field is named in detail[].loc.
+    name: 'oa-retry-detail-loc',
+    provider: 'vllm',
+    responses: [
+      {
+        status: 422,
+        body: JSON.stringify({ detail: [{ loc: ['body', 'stream_options'], msg: 'extra fields not permitted', type: 'extra_forbidden' }] }),
+      },
+      { chunks: [oa({ content: 'ok' }), finish('stop'), sse('[DONE]')] },
+    ],
+  },
+  {
+    // A plain-text rejection still names the field near a rejection word.
+    name: 'oa-retry-text-only',
+    provider: 'lmstudio',
+    request: 'system-and-tools',
+    responses: [
+      { status: 400, body: '{"detail":"Unsupported parameter: temperature"}' },
+      { chunks: [oa({ content: 'ok' }), finish('stop'), sse('[DONE]')] },
+    ],
+  },
+  {
+    // Two dropped fields in one chat: temperature, then stream_options.
+    name: 'oa-retry-two-params',
+    provider: 'openai-compat',
+    request: 'system-and-tools',
+    responses: [
+      { status: 400, body: '{"error":{"message":"temperature is not supported for this model"}}' },
+      { status: 400, body: '{"error":{"message":"unexpected field `stream_options`","param":"stream_options"}}' },
+      { chunks: [finish('stop'), sse('[DONE]')] },
+    ],
+  },
+  // A 400 that blames no sent field is not retried.
+  { name: 'oa-http-400-no-param-blame', provider: 'openai-compat', responses: [{ status: 400, body: '{"error":{"message":"credit balance is too low"}}' }] },
   { name: 'oa-network-error', provider: 'openai-compat', responses: [{ networkError: 'fetch failed' }] },
   { name: 'oa-network-econnrefused', provider: 'llamacpp', responses: [{ networkError: 'connect ECONNREFUSED 127.0.0.1:11500' }] },
   { name: 'oa-network-other', provider: 'openai', responses: [{ networkError: 'weird thing' }] },

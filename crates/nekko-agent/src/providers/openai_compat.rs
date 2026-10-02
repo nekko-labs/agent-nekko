@@ -10,16 +10,50 @@ use crate::sse::SseParser;
 use crate::stream::{ChunkStream, DecodeClock, Sink, Stop, spawn};
 use crate::types::*;
 use serde_json::{Map, Value, json};
+use std::collections::HashMap;
+use std::sync::{Arc, LazyLock, Mutex};
+
+/// Body fields a server has refused, per provider and model: the field to its
+/// replacement (None = dropped). The same "a rejection is information"
+/// contract the Anthropic provider keeps for sampling shapes, covering every
+/// OpenAI-compatible server whose validator is stricter than the wire format
+/// suggests.
+#[derive(Debug, Default)]
+pub struct ParamMemory(Mutex<HashMap<String, HashMap<String, Option<String>>>>);
+
+impl ParamMemory {
+    /// The process-wide store; tests hold their own so a case can never teach
+    /// the next.
+    pub fn global() -> Arc<ParamMemory> {
+        static GLOBAL: LazyLock<Arc<ParamMemory>> = LazyLock::new(|| Arc::new(ParamMemory::default()));
+        GLOBAL.clone()
+    }
+
+    fn get(&self, provider: &str, model: &str) -> HashMap<String, Option<String>> {
+        self.0.lock().unwrap().get(&format!("{provider}:{model}")).cloned().unwrap_or_default()
+    }
+
+    fn learn(&self, provider: &str, model: &str, field: &str, rename: Option<String>) {
+        self.0.lock().unwrap().entry(format!("{provider}:{model}")).or_default().insert(field.to_string(), rename);
+    }
+}
 
 #[derive(Clone)]
 pub struct OpenAiCompatProvider {
     config: ProviderConfig,
     io: Io,
+    params: Arc<ParamMemory>,
 }
 
 impl OpenAiCompatProvider {
     pub fn new(config: ProviderConfig, io: Io) -> Self {
-        Self { config, io }
+        Self { config, io, params: ParamMemory::global() }
+    }
+
+    /// With its own field memory: the golden tests, where a case's learned
+    /// adjustments must not leak into the next.
+    pub fn with_memory(config: ProviderConfig, io: Io, params: Arc<ParamMemory>) -> Self {
+        Self { config, io, params }
     }
 
     pub fn config(&self) -> &ProviderConfig {
@@ -49,23 +83,39 @@ impl OpenAiCompatProvider {
         h
     }
 
-    /// The request `chat` sends.
+    /// The request `chat` sends, with the fields this model's server has
+    /// refused removed or renamed.
     pub fn chat_request(&self, req: &ChatRequest) -> HttpRequest {
+        let mut body = self.body(req);
+        apply_learned(&mut body, &self.params.get(&self.config.id, &req.model));
+        HttpRequest::post(format!("{}/chat/completions", self.base()), self.headers(), Value::Object(body))
+    }
+
+    fn body(&self, req: &ChatRequest) -> Map<String, Value> {
         // `chat_template_kwargs.enable_thinking` (Qwen3 and friends) only goes
         // to local kinds: cloud endpoints reject unknown body fields.
         let local = matches!(
             self.config.kind,
             ProviderKind::Lmstudio | ProviderKind::Vllm | ProviderKind::Llamacpp | ProviderKind::OpenaiCompat
         );
+        // OpenAI's reasoning families (o-series, gpt-5 and newer, codex,
+        // gpt-oss) refuse `temperature` and `max_tokens` outright, so the
+        // request leaves without them rather than retrying after a 400.
+        let knob = effort_knob(&self.config.kind, &req.model);
         let mut body = Map::new();
         body.insert("model".into(), json!(req.model));
         body.insert("stream".into(), json!(true));
         body.insert("stream_options".into(), json!({ "include_usage": true }));
-        body.insert("temperature".into(), json!(req.temperature.unwrap_or(0.7)));
+        if knob.is_none() {
+            body.insert("temperature".into(), json!(req.temperature.unwrap_or(0.7)));
+        }
         // Output cap: without it a looping local model streams until its
-        // context window fills. Zero means unset, as the TS truthiness test reads it.
+        // context window fills. Zero means unset, as the TS truthiness test
+        // reads it. On the OpenAI API reasoning models take
+        // `max_completion_tokens` instead.
         if let Some(max) = req.max_output_tokens.filter(|m| *m > 0) {
-            body.insert("max_tokens".into(), json!(max));
+            let field = if knob == Some(EffortKnob::ReasoningEffort) { "max_completion_tokens" } else { "max_tokens" };
+            body.insert(field.into(), json!(max));
         }
         body.insert("messages".into(), Value::Array(to_openai_messages(req)));
         if let Some(tools) = &req.tools {
@@ -74,7 +124,17 @@ impl OpenAiCompatProvider {
         if let (Some(think), true) = (req.think, local) {
             body.insert("chat_template_kwargs".into(), json!({ "enable_thinking": think }));
         }
-        HttpRequest::post(format!("{}/chat/completions", self.base()), self.headers(), Value::Object(body))
+        if let Some(rung) = knob.and_then(|_| openai_effort(req)) {
+            match knob.unwrap() {
+                EffortKnob::ReasoningEffort => {
+                    body.insert("reasoning_effort".into(), json!(rung));
+                }
+                EffortKnob::Reasoning => {
+                    body.insert("reasoning".into(), json!({ "effort": rung }));
+                }
+            }
+        }
+        body
     }
 
     pub fn chat(&self, req: ChatRequest) -> ChunkStream {
@@ -83,20 +143,44 @@ impl OpenAiCompatProvider {
     }
 
     async fn run(self, req: ChatRequest, sink: Sink) -> Result<(), Stop> {
-        let http = self.chat_request(&req);
-        let mut res = match sink.send(&*self.io.transport, &http).await? {
-            Ok(res) => res,
-            Err(e) => return Err(ProviderError::new(friendly_error(&e.message, || self.unreachable())).into()),
-        };
-        if !res.ok() {
+        let mut attempts = 0;
+        // A validator that still refuses the shape gets its way: drop or
+        // rename the blamed field and send again, once per rejection, then
+        // remember it.
+        let mut res = loop {
+            let http = self.chat_request(&req);
+            let mut res = match sink.send(&*self.io.transport, &http).await? {
+                Ok(res) => res,
+                Err(e) => return Err(ProviderError::new(friendly_error(&e.message, || self.unreachable())).into()),
+            };
+            if res.ok() {
+                break res;
+            }
             let text = sink.text(&mut res).await?;
-            // OpenAI-style bodies carry { error: { message } }: surface that
-            // instead of raw JSON, so 401/402/429 replies read like sentences.
-            let detail = if text.is_empty() { String::new() } else { format!(": {}", extract_api_error(&text)) };
-            return Err(
-                ProviderError::http(res.status, format!("Model request failed (HTTP {}){detail}", res.status)).into()
-            );
-        }
+            let blame = if attempts < 4 {
+                http.body.as_ref().and_then(Value::as_object).and_then(|body| blamed_param(res.status, &text, body))
+            } else {
+                None
+            };
+            match blame {
+                Some((field, rename)) => {
+                    self.params.learn(&self.config.id, &req.model, &field, rename);
+                    attempts += 1;
+                    continue;
+                }
+                // OpenAI-style bodies carry { error: { message } }: surface that
+                // instead of raw JSON, so 401/402/429 replies read like sentences.
+                None => {
+                    let detail =
+                        if text.is_empty() { String::new() } else { format!(": {}", extract_api_error(&text)) };
+                    return Err(ProviderError::http(
+                        res.status,
+                        format!("Model request failed (HTTP {}){detail}", res.status),
+                    )
+                    .into());
+                }
+            }
+        };
         let mut parser = ChatParser::new(DecodeClock::new(self.io.clock.clone()));
         let mut sse = SseParser::default();
         while let Some(bytes) = sink.read(&mut res).await? {
@@ -200,6 +284,234 @@ impl OpenAiCompatProvider {
                 })
                 .collect(),
         )
+    }
+}
+
+/// The body field that carries the effort rung for this provider and model.
+/// On the OpenAI API it is `reasoning_effort` (with `max_completion_tokens`
+/// for the cap); OpenRouter normalizes the same rung as `reasoning.effort`.
+/// Local servers keep the sampling fields whatever the id says.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EffortKnob {
+    ReasoningEffort,
+    Reasoning,
+}
+
+fn effort_knob(kind: &ProviderKind, model: &str) -> Option<EffortKnob> {
+    if !openai_reasoning_model(model) {
+        return None;
+    }
+    match kind {
+        ProviderKind::Openai => Some(EffortKnob::ReasoningEffort),
+        ProviderKind::Openrouter => Some(EffortKnob::Reasoning),
+        _ => None,
+    }
+}
+
+/// `/(?:^|[-_/ .])(?:o\d+|gpt-?(?:[5-9]|\d{2,})|gpt-oss|codex)/i`, hand-rolled:
+/// a boundary, then o + digits, gpt + a number of two digits or 5 and up,
+/// gpt-oss, or codex.
+fn openai_reasoning_model(model: &str) -> bool {
+    let id = model.to_lowercase();
+    let b = id.as_bytes();
+    for i in 0..b.len() {
+        if i > 0 && !matches!(b[i - 1], b'-' | b'_' | b'/' | b' ' | b'.') {
+            continue;
+        }
+        let rest = &id[i..];
+        if rest.starts_with("codex") || rest.starts_with("gpt-oss") {
+            return true;
+        }
+        if let Some(d) = rest.strip_prefix('o')
+            && d.bytes().next().is_some_and(|c| c.is_ascii_digit())
+        {
+            return true;
+        }
+        if let Some(r) = rest.strip_prefix("gpt") {
+            let r = r.strip_prefix('-').unwrap_or(r);
+            let digits = r.bytes().take_while(|c| c.is_ascii_digit()).count();
+            if digits >= 2 || (digits == 1 && r.as_bytes()[0] >= b'5') {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// The rung as OpenAI's ladder speaks it; `normal` leaves the model's default.
+fn openai_effort(req: &ChatRequest) -> Option<&'static str> {
+    match crate::claude::effective_effort(req.effort, &req.model) {
+        EffortLevel::Low => Some("low"),
+        EffortLevel::Medium => Some("medium"),
+        EffortLevel::Normal => None,
+        _ => Some("high"),
+    }
+}
+
+/// Optional body fields a request can survive losing. `model`, `messages` and
+/// `stream` are never dropped: a server that refuses those cannot serve the
+/// request at all, and its error belongs on screen.
+const DROPPABLE: &[&str] = &[
+    "temperature",
+    "top_p",
+    "top_k",
+    "presence_penalty",
+    "frequency_penalty",
+    "max_tokens",
+    "max_completion_tokens",
+    "reasoning_effort",
+    "reasoning",
+    "stream_options",
+    "chat_template_kwargs",
+    "tools",
+    "tool_choice",
+    "parallel_tool_calls",
+    "logit_bias",
+    "seed",
+    "stop",
+    "store",
+    "n",
+    "logprobs",
+    "top_logprobs",
+    "response_format",
+    "user",
+    "metadata",
+];
+
+/// How close a rejection word must sit to a field name to blame it.
+const NEAR: usize = 80;
+const REJECT_WORDS: &[&str] = &[
+    "unsupported",
+    "not supported",
+    "does not support",
+    "unexpected",
+    "unknown",
+    "unrecogni",
+    "extra",
+    "is not allowed",
+    "deprecated",
+];
+
+fn is_word_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || b == b'_'
+}
+
+/// The body field a rejection blames, plus the field it suggests instead. An
+/// explicit name (`error.param`) that lands on a required field ends the
+/// search: there is nothing to adjust. The looser near-match only ever
+/// returns droppable fields, so "for this model" cannot blame `model`.
+fn blamed_param(status: u16, text: &str, body: &Map<String, Value>) -> Option<(String, Option<String>)> {
+    if status != 400 && status != 422 {
+        return None;
+    }
+    if let Some(named) = named_param(text, body) {
+        if !DROPPABLE.contains(&named.as_str()) {
+            return None;
+        }
+        let rename = replacement_param(text, &named);
+        return Some((named, rename));
+    }
+    let field = near_rejection(text, body)?;
+    Some((field.clone(), replacement_param(text, &field)))
+}
+
+/// The field the error body names explicitly: OpenAI's `error.param`, a bare
+/// `param`, or a FastAPI `detail[].loc[]` entry ("extra fields not permitted").
+fn named_param(text: &str, body: &Map<String, Value>) -> Option<String> {
+    let parsed = js::safe_parse(text);
+    for v in [parsed.pointer("/error/param"), parsed.get("param")].into_iter().flatten() {
+        if let Value::String(s) = v
+            && body.contains_key(s)
+        {
+            return Some(s.clone());
+        }
+    }
+    if let Some(detail) = parsed.get("detail").and_then(Value::as_array) {
+        for d in detail {
+            if let Some(loc) = d.get("loc").and_then(Value::as_array) {
+                for l in loc {
+                    if let Value::String(s) = l
+                        && body.contains_key(s)
+                    {
+                        return Some(s.clone());
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// The sent field whose name appears within `NEAR` chars of a rejection word,
+/// in either order ("Unsupported parameter: temperature", "'max_tokens' is
+/// not supported"). Word-bounded, so `tool` inside `tool_calls` never counts.
+fn near_rejection(text: &str, body: &Map<String, Value>) -> Option<String> {
+    let t = text.to_lowercase();
+    for key in body.keys() {
+        if !DROPPABLE.contains(&key.as_str()) {
+            continue;
+        }
+        let mut at = 0;
+        while let Some(i) = t[at..].find(key.as_str()).map(|x| at + x) {
+            at = i + 1;
+            let b = t.as_bytes();
+            if (i > 0 && is_word_byte(b[i - 1])) || (i + key.len() < b.len() && is_word_byte(b[i + key.len()])) {
+                continue;
+            }
+            let before: String = t[..i].chars().rev().take(NEAR).collect::<Vec<_>>().into_iter().rev().collect();
+            let after: String = t[i + key.len()..].chars().take(NEAR).collect();
+            if REJECT_WORDS.iter().any(|w| before.contains(w) || after.contains(w)) {
+                return Some(key.clone());
+            }
+        }
+    }
+    None
+}
+
+/// The field named in a "use X instead" hint, when it is one we may send.
+fn replacement_param(text: &str, field: &str) -> Option<String> {
+    let t = text.to_lowercase();
+    let b = t.as_bytes();
+    let mut i = 0;
+    while let Some(at) = t[i..].find(" instead").map(|x| i + x) {
+        i = at + 8;
+        let mut end = at;
+        while end > 0 && (b[end - 1].is_ascii_whitespace() || matches!(b[end - 1], b'"' | b'\'' | b'`')) {
+            end -= 1;
+        }
+        let mut start = end;
+        while start > 0 && is_word_byte(b[start - 1]) {
+            start -= 1;
+        }
+        let word = &t[start..end];
+        if word.is_empty() {
+            continue;
+        }
+        let mut q = start;
+        while q > 0 && matches!(b[q - 1], b'"' | b'\'' | b'`') {
+            q -= 1;
+        }
+        let head = t[..q].trim_end();
+        let Some(before) = head.strip_suffix("use") else {
+            continue;
+        };
+        if before.as_bytes().last().is_some_and(|c| is_word_byte(*c)) {
+            continue;
+        }
+        if word != field && DROPPABLE.contains(&word) {
+            return Some(word.to_string());
+        }
+    }
+    None
+}
+
+/// Apply the remembered adjustments: drop the field, or move its value to the
+/// field the server asked for instead.
+fn apply_learned(body: &mut Map<String, Value>, learned: &HashMap<String, Option<String>>) {
+    for (field, to) in learned {
+        if let (Some(v), Some(to)) = (body.shift_remove(field), to) {
+            body.insert(to.clone(), v);
+        }
     }
 }
 

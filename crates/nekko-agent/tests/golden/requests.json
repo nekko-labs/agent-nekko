@@ -618,6 +618,73 @@
         ]
       }
     },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "max_completion_tokens": 1000,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "reasoning_effort": "high"
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "max_completion_tokens": 512,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "https://api.openai.com/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-test-openai"
+      },
+      "body": {
+        "model": "openai/o3",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "reasoning_effort": "low"
+      }
+    },
     "zero-temperature-zero-cap": {
       "method": "POST",
       "url": "https://api.openai.com/v1/chat/completions",
@@ -1388,6 +1455,83 @@
         ]
       }
     },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "max_tokens": 1000,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "reasoning": {
+          "effort": "high"
+        }
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "max_tokens": 512,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "https://openrouter.ai/api/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer sk-or-test",
+        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
+        "X-Title": "Agent Nekko"
+      },
+      "body": {
+        "model": "openai/o3",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "reasoning": {
+          "effort": "low"
+        }
+      }
+    },
     "zero-temperature-zero-cap": {
       "method": "POST",
       "url": "https://openrouter.ai/api/v1/chat/completions",
@@ -2115,6 +2259,74 @@
         ]
       }
     },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "max_tokens": 1000,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 512,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "http://localhost:1234/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "openai/o3",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
     "zero-temperature-zero-cap": {
       "method": "POST",
       "url": "http://localhost:1234/v1/chat/completions",
@@ -2822,6 +3034,74 @@
           "include_usage": true
         },
         "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "max_tokens": 1000,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 512,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "http://localhost:8000/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "openai/o3",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
         "messages": [
           {
             "role": "user",
@@ -3564,6 +3844,77 @@
         ]
       }
     },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "max_tokens": 1000,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 512,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "http://127.0.0.1:11500/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer engine-token"
+      },
+      "body": {
+        "model": "openai/o3",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
     "zero-temperature-zero-cap": {
       "method": "POST",
       "url": "http://127.0.0.1:11500/v1/chat/completions",
@@ -4283,6 +4634,74 @@
         ]
       }
     },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 1,
+        "max_tokens": 1000,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ],
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.7,
+        "max_tokens": 512,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "http://10.5.0.2:1338/v1/chat/completions",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "model": "openai/o3",
+        "stream": true,
+        "stream_options": {
+          "include_usage": true
+        },
+        "temperature": 0.2,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
     "zero-temperature-zero-cap": {
       "method": "POST",
       "url": "http://10.5.0.2:1338/v1/chat/completions",
@@ -4908,6 +5327,63 @@
         "stream": true,
         "options": {
           "temperature": 0.7
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "options": {
+          "temperature": 1,
+          "num_predict": 1000
+        },
+        "think": true,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "gpt-6-sol",
+        "stream": true,
+        "options": {
+          "temperature": 0.7,
+          "num_predict": 512
+        },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "http://localhost:11434/api/chat",
+      "headers": {},
+      "body": {
+        "model": "openai/o3",
+        "stream": true,
+        "options": {
+          "temperature": 0.2
         },
         "messages": [
           {
@@ -5627,6 +6103,69 @@
         "output_config": {
           "effort": "high"
         },
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "max_tokens": 1000,
+        "stream": true,
+        "temperature": 1,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "max_tokens": 512,
+        "stream": true,
+        "temperature": 0.7,
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "x-api-key": "sk-ant-test",
+        "anthropic-version": "2023-06-01"
+      },
+      "body": {
+        "model": "openai/o3",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.2,
         "messages": [
           {
             "role": "user",
@@ -6495,6 +7034,90 @@
         "output_config": {
           "effort": "high"
         },
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "max_tokens": 1000,
+        "stream": true,
+        "temperature": 1,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "max_tokens": 512,
+        "stream": true,
+        "temperature": 0.7,
+        "system": [
+          {
+            "type": "text",
+            "text": "You are Claude Code, Anthropic's official CLI for Claude."
+          }
+        ],
+        "messages": [
+          {
+            "role": "user",
+            "content": "hi"
+          }
+        ]
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "https://api.anthropic.com/v1/messages",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-access-token",
+        "anthropic-version": "2023-06-01",
+        "anthropic-beta": "oauth-2025-04-20"
+      },
+      "body": {
+        "model": "openai/o3",
+        "max_tokens": 4096,
+        "stream": true,
+        "temperature": 0.2,
         "system": [
           {
             "type": "text",
@@ -7421,6 +8044,100 @@
         "store": false,
         "reasoning": {
           "effort": "high"
+        }
+      }
+    },
+    "gpt-6-effort": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "reasoning": {
+          "effort": "high",
+          "summary": "auto"
+        }
+      }
+    },
+    "gpt-6-normal": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "gpt-6-sol",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false
+      }
+    },
+    "o3-via-openrouter": {
+      "method": "POST",
+      "url": "https://chatgpt.com/backend-api/codex/responses",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer oauth-chatgpt-token",
+        "chatgpt-account-id": "acct-1",
+        "OpenAI-Beta": "responses=experimental",
+        "originator": "codex_cli_rs",
+        "session_id": "<session>"
+      },
+      "body": {
+        "model": "openai/o3",
+        "input": [
+          {
+            "type": "message",
+            "role": "user",
+            "content": [
+              {
+                "type": "input_text",
+                "text": "hi"
+              }
+            ]
+          }
+        ],
+        "stream": true,
+        "store": false,
+        "reasoning": {
+          "effort": "low"
         }
       }
     },

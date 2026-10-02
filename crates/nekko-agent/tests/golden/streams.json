@@ -801,6 +801,804 @@
     ],
     "onHeaders": []
   },
+  "oa-retry-drops-temperature": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.2,
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "ok"
+        },
+        {
+          "type": "done"
+        }
+      ],
+      [
+        {
+          "type": "text",
+          "delta": "again"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-retry-renames-max-tokens": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-test-openai"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.2,
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer sk-test-openai"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.2,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "max_completion_tokens": 2048
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-retry-detail-loc": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:8000/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "http://localhost:8000/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "ok"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-retry-text-only": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:1234/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.2,
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "http://localhost:1234/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "ok"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-retry-two-params": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.2,
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "qwen3-coder-30b",
+          "stream": true,
+          "max_tokens": 2048,
+          "messages": [
+            {
+              "role": "system",
+              "content": "You are a coding agent.\nBe terse."
+            },
+            {
+              "role": "user",
+              "content": "List the files."
+            }
+          ],
+          "tools": [
+            {
+              "type": "function",
+              "function": {
+                "name": "read_file",
+                "description": "Read a file from the workspace.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "function",
+              "function": {
+                "name": "bash",
+                "description": "Run a shell command.",
+                "parameters": {
+                  "type": "object",
+                  "properties": {
+                    "command": {
+                      "type": "string"
+                    },
+                    "timeout": {
+                      "type": "number",
+                      "default": 120
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-http-400-no-param-blame": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Model request failed (HTTP 400): credit balance is too low"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
   "oa-network-error": {
     "requests": [
       {

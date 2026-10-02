@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { OpenAICompatProvider, friendlyError } from './openai-compat.js';
+import { OpenAICompatProvider, friendlyError, resetLearnedParams } from './openai-compat.js';
 import type { ProviderConfig } from '@agent-nekko/shared';
 
 const cfg: ProviderConfig = {
@@ -22,7 +22,15 @@ function sseResponse(lines: string[]): Response {
   return new Response(body, { status: 200, headers: { 'Content-Type': 'text/event-stream' } });
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  resetLearnedParams();
+});
+
+/** Read the JSON body of the spy's nth call. */
+function sentBody(spy: ReturnType<typeof vi.spyOn>, call = 0): Record<string, unknown> {
+  return JSON.parse((spy.mock.calls[call][1] as RequestInit).body as string);
+}
 
 describe('OpenAICompatProvider decode timing', () => {
   /** Stream chunks with a real pause between them, so the clock has something to measure. */
@@ -183,6 +191,120 @@ describe('OpenAICompatProvider.chat', () => {
     expect(r.ok).toBe(false);
     expect(r.message).toMatch(/can't reach the model server/i);
     expect(r.message).toContain('10.5.0.2:1338');
+  });
+});
+
+describe('OpenAICompatProvider request shape', () => {
+  it('sends reasoning_effort instead of temperature for a gpt-6 model on openai', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(['data: [DONE]\n\n']));
+    const openai: ProviderConfig = { ...cfg, id: 'oa', kind: 'openai' };
+    for await (const _ of new OpenAICompatProvider(openai).chat({
+      model: 'gpt-6-sol',
+      effort: 'high',
+      temperature: 1,
+      maxOutputTokens: 100,
+      messages: [],
+    })) {
+    }
+    const body = sentBody(spy);
+    expect(body.temperature).toBeUndefined();
+    expect(body.max_tokens).toBeUndefined();
+    expect(body.max_completion_tokens).toBe(100);
+    expect(body.reasoning_effort).toBe('high');
+  });
+
+  it('sends reasoning.effort for an o-series model id through openrouter', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(['data: [DONE]\n\n']));
+    const or: ProviderConfig = { ...cfg, id: 'or', kind: 'openrouter' };
+    for await (const _ of new OpenAICompatProvider(or).chat({ model: 'openai/o3', effort: 'low', messages: [] })) {
+    }
+    const body = sentBody(spy);
+    expect(body.temperature).toBeUndefined();
+    expect(body.reasoning).toEqual({ effort: 'low' });
+    expect(body.reasoning_effort).toBeUndefined();
+  });
+
+  it('keeps temperature and enable_thinking for a reasoning-named model on a local server', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(['data: [DONE]\n\n']));
+    for await (const _ of new OpenAICompatProvider(cfg).chat({ model: 'gpt-oss-120b', think: true, messages: [] })) {
+    }
+    const body = sentBody(spy);
+    expect(body.temperature).toBe(0.7);
+    expect(body.chat_template_kwargs).toEqual({ enable_thinking: true });
+    expect(body.reasoning_effort).toBeUndefined();
+  });
+
+  it('drops a parameter the server blames, retries, and remembers for next time', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch');
+    spy.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: { message: "Unsupported parameter: 'temperature'", param: 'temperature' } }), {
+        status: 400,
+      }),
+    );
+    spy.mockResolvedValue(sseResponse(['data: [DONE]\n\n']));
+
+    const out: string[] = [];
+    for await (const c of new OpenAICompatProvider(cfg).chat({ model: 'm', temperature: 0.5, messages: [] })) {
+      if (c.type === 'text') out.push(c.delta);
+    }
+    expect(spy).toHaveBeenCalledTimes(2);
+    expect(sentBody(spy, 0).temperature).toBe(0.5);
+    expect(sentBody(spy, 1).temperature).toBeUndefined();
+
+    // A new provider for the same model opens on the learned shape.
+    spy.mockClear();
+    for await (const _ of new OpenAICompatProvider(cfg).chat({ model: 'm', temperature: 0.5, messages: [] })) {
+    }
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(sentBody(spy).temperature).toBeUndefined();
+  });
+
+  it('renames the parameter the server asks for instead', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch');
+    spy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            message: "'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+            param: 'max_tokens',
+          },
+        }),
+        { status: 400 },
+      ),
+    );
+    spy.mockResolvedValue(sseResponse(['data: [DONE]\n\n']));
+    for await (const _ of new OpenAICompatProvider(cfg).chat({ model: 'm', maxOutputTokens: 10, messages: [] })) {
+    }
+    const retry = sentBody(spy, 1);
+    expect(retry.max_tokens).toBeUndefined();
+    expect(retry.max_completion_tokens).toBe(10);
+  });
+
+  it('drops a field named by a FastAPI detail.loc entry', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch');
+    spy.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ detail: [{ loc: ['body', 'stream_options'], msg: 'extra fields not permitted' }] }),
+        { status: 422 },
+      ),
+    );
+    spy.mockResolvedValue(sseResponse(['data: [DONE]\n\n']));
+    for await (const _ of new OpenAICompatProvider(cfg).chat({ model: 'm', messages: [] })) {
+    }
+    expect(sentBody(spy, 1).stream_options).toBeUndefined();
+  });
+
+  it('does not retry a 400 that blames no sent parameter', async () => {
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{"error":{"message":"credit balance is too low"}}', { status: 400 }));
+    await expect(
+      (async () => {
+        for await (const _ of new OpenAICompatProvider(cfg).chat({ model: 'm', messages: [] })) {
+        }
+      })(),
+    ).rejects.toThrow('credit balance is too low');
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 });
 
