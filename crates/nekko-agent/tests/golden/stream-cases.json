@@ -865,5 +865,18 @@
         "networkError": "fetch failed"
       }
     ]
+  },
+  {
+    "name": "cg-assistant-phases",
+    "provider": "chatgpt",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\": \"response.output_text.delta\", \"delta\": \"Reading the file.\"}\n\n",
+          "data: {\"type\": \"response.output_item.done\", \"item\": {\"type\": \"message\", \"phase\": \"commentary\"}}\n\n",
+          "data: {\"type\": \"response.completed\", \"response\": {}}\n\n"
+        ]
+      }
+    ]
   }
 ]

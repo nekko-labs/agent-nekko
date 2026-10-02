@@ -1606,5 +1606,196 @@
     ]
    }
   ]
+ },
+ {
+  "name": "commentary-continues-to-final",
+  "events": [
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "I will inspect the file."
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Found the JSX."
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "read",
+     "name": "read_file",
+     "input": {
+      "path": "ChatPane.tsx",
+      "start_line": 2100,
+      "end_line": 2150
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "read",
+     "output": "Error: no script for read",
+     "isError": true
+    }
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Moved the suggestions."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "I will inspect the file.",
+    "createdAt": 0,
+    "phase": "commentary"
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Found the JSX.",
+    "toolCalls": [
+     {
+      "id": "read",
+      "name": "read_file",
+      "input": {
+       "path": "ChatPane.tsx",
+       "start_line": 2100,
+       "end_line": 2150
+      }
+     }
+    ],
+    "createdAt": 0,
+    "phase": "commentary"
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "read",
+     "output": "Error: no script for read",
+     "isError": true
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Moved the suggestions.",
+    "createdAt": 0,
+    "phase": "final_answer"
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "I will inspect the file.",
+      "createdAt": 0,
+      "phase": "commentary"
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "I will inspect the file.",
+      "createdAt": 0,
+      "phase": "commentary"
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "Found the JSX.",
+      "toolCalls": [
+       {
+        "id": "read",
+        "name": "read_file",
+        "input": {
+         "path": "ChatPane.tsx",
+         "start_line": 2100,
+         "end_line": 2150
+        }
+       }
+      ],
+      "createdAt": 0,
+      "phase": "commentary"
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "read",
+       "output": "Error: no script for read",
+       "isError": true
+      },
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
  }
 ]

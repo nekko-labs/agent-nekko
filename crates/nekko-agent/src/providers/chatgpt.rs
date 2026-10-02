@@ -171,6 +171,12 @@ impl ChatGptProvider {
                     }
                     Some("response.output_item.done") => {
                         let item = ev.get("item");
+                        if item.and_then(|i| i.get("type")).and_then(Value::as_str) == Some("message")
+                            && let Some(phase @ ("commentary" | "final_answer")) =
+                                item.and_then(|i| i.get("phase")).and_then(Value::as_str)
+                        {
+                            sink.emit(ProviderChunk::Phase { phase: phase.to_string() }).await?;
+                        }
                         if item.and_then(|i| i.get("type")).and_then(Value::as_str) == Some("function_call") {
                             decode.mark();
                             let item = item.unwrap_or(&Value::Null);
@@ -333,6 +339,7 @@ fn to_response_items(req: &ChatRequest) -> Vec<Value> {
                 out.push(json!({
                     "type": "message",
                     "role": "assistant",
+                    "phase": m.extra.get("phase").and_then(Value::as_str).unwrap_or(if m.tool_calls.as_ref().is_some_and(|c| !c.is_empty()) { "commentary" } else { "final_answer" }),
                     "content": [{ "type": "output_text", "text": m.content }],
                 }));
             }

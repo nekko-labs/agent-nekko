@@ -248,6 +248,9 @@ export class ChatGptProvider implements Provider {
           break;
         case 'response.output_item.done': {
           const item = ev.item;
+          if (item?.type === 'message' && (item.phase === 'commentary' || item.phase === 'final_answer')) {
+            yield { type: 'phase', phase: item.phase };
+          }
           if (item?.type === 'function_call') {
             decode.mark();
             const call: ToolCall = {
@@ -318,6 +321,7 @@ function toResponseItems(req: ChatRequest) {
         out.push({
           type: 'message',
           role: 'assistant',
+          phase: m.phase ?? (m.toolCalls?.length ? 'commentary' : 'final_answer'),
           content: [{ type: 'output_text', text: m.content }],
         });
       }

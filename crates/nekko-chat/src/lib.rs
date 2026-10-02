@@ -33,6 +33,7 @@ impl ChunkStream for ProviderStream {
     async fn next(&mut self) -> Option<Result<Chunk, String>> {
         let item = self.0.next().await?;
         Some(item.map_err(|e| e.message).map(|chunk| match chunk {
+            ProviderChunk::Phase { phase } => Chunk::Phase(phase),
             ProviderChunk::Text { delta } => Chunk::Text(delta),
             ProviderChunk::Reasoning { delta } => Chunk::Reasoning(delta),
             ProviderChunk::ToolCall { call } => Chunk::ToolCall(serde_json::to_value(call).unwrap_or(Value::Null)),

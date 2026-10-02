@@ -1635,6 +1635,60 @@
      }
     ]
    ]
+  },
+  {
+   "name": "commentary-continues-to-final",
+   "responses": [
+    [
+     {
+      "text": "I will inspect the file."
+     },
+     {
+      "phase": "commentary"
+     },
+     {
+      "done": true
+     }
+    ],
+    [
+     {
+      "text": "Found the JSX."
+     },
+     {
+      "phase": "commentary"
+     },
+     {
+      "call": {
+       "id": "read",
+       "name": "read_file",
+       "input": {
+        "path": "ChatPane.tsx",
+        "start_line": 2100,
+        "end_line": 2150
+       }
+      }
+     },
+     {
+      "done": true
+     }
+    ],
+    [
+     {
+      "text": "Moved the suggestions."
+     },
+     {
+      "phase": "final_answer"
+     },
+     {
+      "done": true
+     }
+    ]
+   ],
+   "tools": {
+    "read_file": {
+     "output": "2100: <div>suggestions</div>"
+    }
+   }
   }
  ]
 }

@@ -66,10 +66,46 @@ fn read_file(call: &ToolCall, ctx: &ToolContext) -> Outcome {
         return Ok(ToolResult::err(call, format!("File not found: {p}")));
     }
     let content = nodefs::read_utf8(&p)?;
+    if arg(call, "start_line").is_some_and(|v| !v.is_null()) || arg(call, "end_line").is_some_and(|v| !v.is_null()) {
+        let line_arg = |key: &str, default: u64| -> Option<u64> {
+            match arg(call, key).filter(|v| !v.is_null()) {
+                None => Some(default),
+                Some(v) => v.as_u64().filter(|n| *n > 0 && *n <= 9_007_199_254_740_991),
+            }
+        };
+        let range =
+            line_arg("start_line", 1).and_then(|start| line_arg("end_line", start + 199).map(|end| (start, end)));
+        let Some((start, end)) = range.filter(|(start, end)| end >= start) else {
+            return Ok(ToolResult::err(
+                call,
+                "start_line and end_line must be positive integers, with end_line >= start_line.",
+            ));
+        };
+        let lines: Vec<&str> = content.split('\n').collect();
+        let selected = lines
+            .iter()
+            .enumerate()
+            .skip((start - 1) as usize)
+            .take((end - start + 1) as usize)
+            .map(|(i, line)| format!("{}: {line}", i + 1))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let output = if js::len16(&selected) > READ_CAP {
+            format!("{}\n…(truncated; request a smaller line range)", js::slice16(&selected, READ_CAP))
+        } else if selected.is_empty() {
+            format!("(no lines at or after {start}; {} total lines)", lines.len())
+        } else {
+            selected
+        };
+        return Ok(ToolResult::ok(call, output));
+    }
     Ok(ToolResult::ok(
         call,
         if js::len16(&content) > READ_CAP {
-            format!("{}\n\u{2026}(truncated)", js::slice16(&content, READ_CAP))
+            format!(
+                "{}\n\u{2026}(truncated; use start_line and end_line to read later lines)",
+                js::slice16(&content, READ_CAP)
+            )
         } else {
             content
         },
@@ -138,8 +174,15 @@ fn list_dir(call: &ToolCall, ctx: &ToolContext) -> Outcome {
 }
 
 fn glob(call: &ToolCall, ctx: &ToolContext) -> Outcome {
-    // Note the order: the first workspace wins over the chat's directory.
-    let root = first_workspace(ctx).map(str::to_string).or_else(|| ctx.default_cwd.clone()).unwrap_or_else(process_cwd);
+    let root = if js::truthy(arg(call, "path")) {
+        resolve_path(arg(call, "path"), ctx)?
+    } else {
+        ctx.default_cwd.clone().or_else(|| first_workspace(ctx).map(str::to_string)).unwrap_or_else(process_cwd)
+    };
+    assert_in_jail(&root, ctx)?;
+    if !nodefs::exists(&root) {
+        return Ok(ToolResult::err(call, format!("Directory not found: {root}")));
+    }
     let matches = glob_files(&root, arg(call, "pattern"), GLOB_LIMIT)?;
     Ok(ToolResult::ok(call, if matches.is_empty() { "(no matches)".to_string() } else { matches.join("\n") }))
 }
@@ -148,9 +191,12 @@ fn grep(call: &ToolCall, ctx: &ToolContext) -> Outcome {
     let root = if js::truthy(arg(call, "path")) {
         resolve_path(arg(call, "path"), ctx)?
     } else {
-        first_workspace(ctx).map(str::to_string).unwrap_or_else(process_cwd)
+        ctx.default_cwd.clone().or_else(|| first_workspace(ctx).map(str::to_string)).unwrap_or_else(process_cwd)
     };
     assert_in_jail(&root, ctx)?;
+    if !nodefs::exists(&root) {
+        return Ok(ToolResult::err(call, format!("Path not found: {root}")));
+    }
     let lines = grep_files(&root, arg(call, "pattern"), GREP_LIMIT);
     Ok(ToolResult::ok(call, if lines.is_empty() { "(no matches)".to_string() } else { lines.join("\n") }))
 }
@@ -198,7 +244,7 @@ async fn bash(call: &ToolCall, ctx: &ToolContext) -> Outcome {
     let cwd = if js::truthy(arg(call, "cwd")) {
         resolve_path(arg(call, "cwd"), ctx)?
     } else {
-        first_workspace(ctx).map(str::to_string).unwrap_or_else(process_cwd)
+        ctx.default_cwd.clone().or_else(|| first_workspace(ctx).map(str::to_string)).unwrap_or_else(process_cwd)
     };
 
     let workspace_id = ctx.workspaces.iter().find(|w| w.path == cwd).map(|w| w.id.clone());

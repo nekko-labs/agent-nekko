@@ -7,7 +7,7 @@ import {
   statSync,
   writeFileSync,
 } from 'fs';
-import { dirname, isAbsolute, join, relative, resolve } from 'path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'path';
 import type { ToolCall, ToolResult, AppSettings, ChatMode } from '@agent-nekko/shared';
 import { classifyCommand } from '@agent-nekko/core';
 import { recordOriginal } from './changes.js';
@@ -126,7 +126,17 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
         assertInJail(p, opts);
         if (!existsSync(p)) return err(call, `File not found: ${p}`);
         const content = readFileSync(p, 'utf8');
-        return ok(call, content.length > 60000 ? content.slice(0, 60000) + '\n…(truncated)' : content);
+        if (a.start_line != null || a.end_line != null) {
+          const start = a.start_line ?? 1;
+          const end = a.end_line ?? start + 199;
+          if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < start) {
+            return err(call, 'start_line and end_line must be positive integers, with end_line >= start_line.');
+          }
+          const lines = content.split('\n');
+          const selected = lines.slice(start - 1, end).map((line, i) => `${start + i}: ${line}`).join('\n');
+          return ok(call, selected.length > 60000 ? selected.slice(0, 60000) + '\n…(truncated; request a smaller line range)' : selected || `(no lines at or after ${start}; ${lines.length} total lines)`);
+        }
+        return ok(call, content.length > 60000 ? content.slice(0, 60000) + '\n…(truncated; use start_line and end_line to read later lines)' : content);
       }
       case 'write_file': {
         const p = resolvePath(a.path, opts);
@@ -164,13 +174,16 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
         return ok(call, entries.join('\n') || '(empty)');
       }
       case 'glob': {
-        const root = opts.settings.workspaces[0]?.path ?? opts.defaultCwd ?? process.cwd();
+        const root = a.path ? resolvePath(a.path, opts) : opts.defaultCwd ?? opts.settings.workspaces[0]?.path ?? process.cwd();
+        assertInJail(root, opts);
+        if (!existsSync(root)) return err(call, `Directory not found: ${root}`);
         const matches = globFiles(root, a.pattern);
         return ok(call, matches.slice(0, 200).join('\n') || '(no matches)');
       }
       case 'grep': {
-        const root = a.path ? resolvePath(a.path, opts) : opts.settings.workspaces[0]?.path ?? process.cwd();
+        const root = a.path ? resolvePath(a.path, opts) : opts.defaultCwd ?? opts.settings.workspaces[0]?.path ?? process.cwd();
         assertInJail(root, opts);
+        if (!existsSync(root)) return err(call, `Path not found: ${root}`);
         return ok(call, grepFiles(root, a.pattern).slice(0, 100).join('\n') || '(no matches)');
       }
       case 'bash': {
@@ -192,7 +205,7 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
           );
           if (!approved) return err(call, 'Command not approved by user.');
         }
-        const cwd = a.cwd ? resolvePath(a.cwd, opts) : opts.settings.workspaces[0]?.path ?? process.cwd();
+        const cwd = a.cwd ? resolvePath(a.cwd, opts) : opts.defaultCwd ?? opts.settings.workspaces[0]?.path ?? process.cwd();
         const mirror = (text: string) => {
           if (opts.sessionId) appendAgentTerminal(opts.sessionId, opts.settings.workspaces.find((w) => w.path === cwd)?.id, text.replace(/[^\x09\x0a\x20-\x7e\u0080-\uffff]/g, '').replace(/\n/g, '\r\n'));
         };
@@ -275,6 +288,20 @@ function grepFiles(root: string, pattern: string): string[] {
     return [`Invalid regex: ${pattern}`];
   }
   const out: string[] = [];
+  const fileRoot = statSync(root).isFile();
+  const scan = (full: string) => {
+    try {
+      if (statSync(full).size > 1_000_000) return;
+      const lines = readFileSync(full, 'utf8').split('\n');
+      lines.forEach((line, idx) => {
+        if (re.test(line)) {
+          out.push(`${(fileRoot ? basename(full) : relative(root, full)).replace(/\\/g, '/')}:${idx + 1}: ${line.trim().slice(0, 200)}`);
+        }
+      });
+    } catch {
+      /* binary or unreadable */
+    }
+  };
   const walk = (dir: string) => {
     let entries;
     try {
@@ -287,20 +314,11 @@ function grepFiles(root: string, pattern: string): string[] {
       const full = join(dir, e.name);
       if (e.isDirectory()) walk(full);
       else {
-        try {
-          if (statSync(full).size > 1_000_000) continue;
-          const lines = readFileSync(full, 'utf8').split('\n');
-          lines.forEach((line, idx) => {
-            if (re.test(line)) {
-              out.push(`${relative(root, full).replace(/\\/g, '/')}:${idx + 1}: ${line.trim().slice(0, 200)}`);
-            }
-          });
-        } catch {
-          /* binary or unreadable */
-        }
+        scan(full);
       }
     }
   };
-  walk(root);
+  if (fileRoot) scan(root);
+  else walk(root);
   return out;
 }

@@ -22,6 +22,7 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 #[derive(Clone, Debug, PartialEq)]
 pub enum Chunk {
     Text(String),
+    Phase(String),
     Reasoning(String),
     /// A complete `ToolCall` (`{ id, name, input }`).
     ToolCall(Value),
@@ -172,6 +173,7 @@ fn trim_runaway(s: &str) -> String {
 /// What one streamed response accumulated (`Turn`).
 #[derive(Default)]
 struct Turn {
+    phase: Option<String>,
     text: String,
     reasoning: String,
     reasoning_seconds: Option<u64>,
@@ -251,6 +253,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
                 Err(e) => return Err(e),
             };
             match chunk {
+                Chunk::Phase(phase) => turn.phase = Some(phase),
                 Chunk::Text(delta) => {
                     settle(turn, reasoning_started);
                     turn.text.push_str(&delta);
@@ -306,6 +309,9 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
             let mut m = Map::new();
             m.insert("id".into(), json!(id("msg")));
             m.insert("role".into(), json!("assistant"));
+            if let Some(phase) = &turn.phase {
+                m.insert("phase".into(), json!(phase));
+            }
             m.insert("content".into(), json!(content));
             if !reasoning.is_empty() {
                 put_reasoning(&mut m, reasoning, turn.reasoning_seconds);
@@ -351,6 +357,9 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
             let mut m = Map::new();
             m.insert("id".into(), json!(id("msg")));
             m.insert("role".into(), json!("assistant"));
+            if let Some(phase) = &turn.phase {
+                m.insert("phase".into(), json!(phase));
+            }
             if turn.runaway {
                 let content = [js::trim(&trim_runaway(&turn.text)), RUNAWAY_NOTE]
                     .iter()
@@ -377,7 +386,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
 
             // A looping model does not recover by being asked again; and no tool
             // calls means the turn is complete.
-            if turn.runaway || turn.calls.is_empty() {
+            if turn.runaway || (turn.calls.is_empty() && turn.phase.as_deref() != Some("commentary")) {
                 self.event("done", json!({ "messageId": message_id }));
                 return;
             }
@@ -417,6 +426,9 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
         let mut m = Map::new();
         m.insert("id".into(), json!(id("msg")));
         m.insert("role".into(), json!("assistant"));
+        if let Some(phase) = &wrap.phase {
+            m.insert("phase".into(), json!(phase));
+        }
         m.insert("content".into(), json!(if wrap_text.is_empty() { note } else { format!("{wrap_text}\n\n{note}") }));
         if !wrap.reasoning.is_empty() {
             let r = if wrap.runaway { trim_runaway(&wrap.reasoning) } else { wrap.reasoning.clone() };

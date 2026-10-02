@@ -263,12 +263,9 @@ export function shortLiveStatus(a: LiveActivity | undefined): string {
   if (a.thinking.trim()) return 'Thinking';
   if (a.tail.trim()) return 'Writing reply';
 
-  // Between steps: name what just finished, so the line never goes blank
-  // mid-turn and then reappears.
-  if (last?.kind === 'tool') {
-    const verb = TOOL_VERBS[last.label] ?? last.label;
-    return last.status === 'error' ? `${verb} failed` : `${verb} done`;
-  }
+  // After a tool returns the model is deciding its next action. Completed
+  // steps and failures belong in the tool log, not in a present-tense label.
+  if (last?.kind === 'tool') return 'Thinking';
   if (last) return 'Working';
   return 'Starting';
 }

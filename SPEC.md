@@ -79,6 +79,14 @@ Agent Nekko ships the **same engine + same React UI** in several runtimes; from 
 - **Docker**: `docker compose up`, workspaces as mounted volumes, local models reachable via `host.docker.internal`.
 - **Agent Nekko Cloud** (paid), managed hosting with subscriptions, an always-available **Zero-Data-Retention** mode, cloud chat-history + file management, and **phone connectivity to your locally-running model** via a secure relay.
 
+### Chat suggestions, progress and code access
+
+Updated 2026-10-02. Suggested follow-up replies sit inside the top of the message box, above attachments and the draft. They keep their one-click send behavior and the Right Arrow draft suggestion. Image chats do not show reply suggestions.
+
+Nekko gives a concise progress message before starting tool work and between meaningful action batches. Live updates remain visible in their original order between tool groups; tools and private reasoning stay in their own disclosures. Active status labels describe current work (Reading, Searching, Editing, Thinking, Writing reply), without appending "done" to an ongoing activity.
+
+File tools work within the chat's project by default. Searches can target a single file or directory, missing paths produce an explicit error, and large source files can be read by inclusive line ranges instead of becoming inaccessible after a character cutoff. Shell guidance names the platform's actual shell. ChatGPT conversations preserve assistant commentary/final-answer phases so a progress-only response continues the task rather than prematurely ending it.
+
 ### Server, model browser and desktop tray
 
 Requested 2026-10-01. The Model server and Agent server cards share a row above the model library on wide screens and stack on narrow screens. The model server uses the same power icon as existing runtime controls. Server settings save automatically after two seconds without edits or when a field loses focus; invalid values and failed saves remain visible without discarding the draft.
