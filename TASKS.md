@@ -240,6 +240,10 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### In-chat PR identity and styling (2026-10-02)
+
+- [x] Show the actual GitHub head branch on open PR cards, retain repository/number/target context, and use neutral banner styling with slim borderless actions. Ignore file-read and code-search example URLs during session PR discovery. Core PR and transcript regression tests pass (18 tests), desktop typecheck passes, and before/after card evidence is captured at desktop/mobile widths in both themes. · Done: 2026-10-02
+
 ### Server browser, chat chrome and tray (added 2026-10-01)
 
 - [ ] **UX40**, Server cards share a row above models and use the existing power icon. [Spec](SPEC.md#server-model-browser-and-desktop-tray)
