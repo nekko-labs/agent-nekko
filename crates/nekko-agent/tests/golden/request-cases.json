@@ -442,10 +442,12 @@
         }
       ]
     },
-    "zero-temperature-zero-cap": {
-      "model": "m",
-      "temperature": 0,
-      "maxOutputTokens": 0,
+    "gpt-6-effort": {
+      "model": "gpt-6-sol",
+      "effort": "high",
+      "temperature": 1,
+      "maxOutputTokens": 1000,
+      "think": true,
       "messages": [
         {
           "id": "m1790000000031",
@@ -455,9 +457,11 @@
         }
       ]
     },
-    "empty-system": {
-      "model": "m",
-      "system": "",
+    "gpt-6-normal": {
+      "model": "gpt-6-sol",
+      "effort": "normal",
+      "temperature": 0.7,
+      "maxOutputTokens": 512,
       "messages": [
         {
           "id": "m1790000000032",
@@ -467,21 +471,59 @@
         }
       ]
     },
+    "o3-via-openrouter": {
+      "model": "openai/o3",
+      "effort": "low",
+      "temperature": 0.2,
+      "messages": [
+        {
+          "id": "m1790000000033",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000033
+        }
+      ]
+    },
+    "zero-temperature-zero-cap": {
+      "model": "m",
+      "temperature": 0,
+      "maxOutputTokens": 0,
+      "messages": [
+        {
+          "id": "m1790000000034",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000034
+        }
+      ]
+    },
+    "empty-system": {
+      "model": "m",
+      "system": "",
+      "messages": [
+        {
+          "id": "m1790000000035",
+          "role": "user",
+          "content": "hi",
+          "createdAt": 1790000000035
+        }
+      ]
+    },
     "unicode": {
       "model": "m",
       "system": "Réponds en français 🐱",
       "messages": [
         {
-          "id": "m1790000000033",
+          "id": "m1790000000036",
           "role": "user",
           "content": "Quote \"this\" and \\ that, then   a line separator, 日本語, and 😀",
-          "createdAt": 1790000000033
+          "createdAt": 1790000000036
         },
         {
-          "id": "m1790000000034",
+          "id": "m1790000000037",
           "role": "assistant",
           "content": "",
-          "createdAt": 1790000000034,
+          "createdAt": 1790000000037,
           "toolCalls": [
             {
               "id": "c1",
@@ -494,10 +536,10 @@
           ]
         },
         {
-          "id": "m1790000000035",
+          "id": "m1790000000038",
           "role": "tool",
           "content": "",
-          "createdAt": 1790000000035,
+          "createdAt": 1790000000038,
           "toolResult": {
             "toolCallId": "c1",
             "output": "wrote 😀"
@@ -511,10 +553,10 @@
       "maxOutputTokens": 32,
       "messages": [
         {
-          "id": "m1790000000036",
+          "id": "m1790000000039",
           "role": "user",
           "content": "Name this chat",
-          "createdAt": 1790000000036
+          "createdAt": 1790000000039
         }
       ]
     }

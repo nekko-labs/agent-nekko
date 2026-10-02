@@ -257,6 +257,115 @@
     ]
   },
   {
+    "name": "oa-retry-drops-temperature",
+    "provider": "openai-compat",
+    "request": "system-and-tools",
+    "chats": 2,
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"Unsupported parameter: 'temperature'\",\"param\":\"temperature\"}}"
+      },
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      },
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"again\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-retry-renames-max-tokens",
+    "provider": "openai",
+    "request": "system-and-tools",
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.\",\"param\":\"max_tokens\"}}"
+      },
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-retry-detail-loc",
+    "provider": "vllm",
+    "responses": [
+      {
+        "status": 422,
+        "body": "{\"detail\":[{\"loc\":[\"body\",\"stream_options\"],\"msg\":\"extra fields not permitted\",\"type\":\"extra_forbidden\"}]}"
+      },
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-retry-text-only",
+    "provider": "lmstudio",
+    "request": "system-and-tools",
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"detail\":\"Unsupported parameter: temperature\"}"
+      },
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{\"content\":\"ok\"}}]}\n\n",
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-retry-two-params",
+    "provider": "openai-compat",
+    "request": "system-and-tools",
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"temperature is not supported for this model\"}}"
+      },
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"unexpected field `stream_options`\",\"param\":\"stream_options\"}}"
+      },
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "oa-http-400-no-param-blame",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "status": 400,
+        "body": "{\"error\":{\"message\":\"credit balance is too low\"}}"
+      }
+    ]
+  },
+  {
     "name": "oa-network-error",
     "provider": "openai-compat",
     "responses": [

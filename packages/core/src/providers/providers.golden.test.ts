@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderConfig } from '@agent-nekko/shared';
 import { createProvider } from './index.js';
 import { resetLearnedSampling } from './anthropic.js';
+import { resetLearnedParams } from './openai-compat.js';
 import type { ChatRequest, ProviderChunk } from './types.js';
 
 /**
@@ -119,6 +120,7 @@ describe('provider golden set', () => {
       actual[p] = {};
       for (const [name, req] of Object.entries(cases.requests)) {
         resetLearnedSampling();
+        resetLearnedParams();
         freezeTime();
         const requests = fakeFetch(() => ({ chunks: [] }));
         const chunks = await drain(createProvider(providers[p]).chat(req));
@@ -139,6 +141,7 @@ describe('provider golden set', () => {
     const actual: Record<string, unknown> = {};
     for (const c of cases) {
       resetLearnedSampling();
+      resetLearnedParams();
       freezeTime();
       const queue = [...c.responses];
       const requests = fakeFetch(() => queue.shift());

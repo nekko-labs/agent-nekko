@@ -22,6 +22,7 @@
 use nekko_agent::claude::SamplingMemory;
 use nekko_agent::http::{BoxFuture, HttpRequest, HttpResponse, ResponseBody, Transport, TransportError};
 use nekko_agent::js::stringify;
+use nekko_agent::providers::openai_compat::{OpenAiCompatProvider, ParamMemory};
 use nekko_agent::stream::Clock;
 use nekko_agent::*;
 use serde_json::{Map, Value, json};
@@ -141,14 +142,22 @@ fn frozen() -> Clock {
     Arc::new(|| 1_790_000_000_000)
 }
 
-/// A provider on the fake wire, with its own sampling memory (the TS test
-/// resets the module-level one before every case).
+/// A provider on the fake wire, with its own learned-request memory (the TS
+/// test resets the module-level ones before every case).
 fn provider(config: &Value, transport: Arc<FakeTransport>) -> AnyProvider {
     let config: ProviderConfig = serde_json::from_value(config.clone()).unwrap();
     let io = Io { transport, clock: frozen() };
     match config.kind {
         ProviderKind::Anthropic => {
             AnyProvider::Anthropic(AnthropicProvider::with_memory(config, io, Arc::new(SamplingMemory::default())))
+        }
+        ProviderKind::Openai
+        | ProviderKind::Openrouter
+        | ProviderKind::Lmstudio
+        | ProviderKind::Vllm
+        | ProviderKind::Llamacpp
+        | ProviderKind::OpenaiCompat => {
+            AnyProvider::OpenAiCompat(OpenAiCompatProvider::with_memory(config, io, Arc::new(ParamMemory::default())))
         }
         _ => create_provider_with(config, io),
     }
