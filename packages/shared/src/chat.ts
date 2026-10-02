@@ -298,8 +298,15 @@ export interface PendingInput {
  * show" rather than printing a zero.
  */
 export function decodeRate(outputTokens: number, decodeMs: number): number {
-  if (outputTokens <= 0 || decodeMs <= 0) return 0;
+  if (!Number.isFinite(outputTokens) || !Number.isFinite(decodeMs) || outputTokens <= 0 || decodeMs < 100) return 0;
   return outputTokens / (decodeMs / 1000);
+}
+
+/** -1 marks an unmeasurable turn; never pair untimed tokens with another step's time. */
+export function accumulateDecodeMs(total: number, outputTokens: number, outputMs?: number): number {
+  if (outputTokens <= 0) return total;
+  if (total < 0 || outputMs === undefined || !Number.isFinite(outputMs) || outputMs < 100) return -1;
+  return total + outputMs;
 }
 
 /**

@@ -27,6 +27,7 @@ export interface EngineEndpoint {
 }
 
 export interface EngineOptions {
+  browserBridge?: { url: string; token: string };
   dataDir: string;
   /** Plain facts about the app the backend needs (see `backend/index.ts`). */
   app: { isPackaged: boolean; appPath: string; userData: string; version: string; resourcesPath?: string };
@@ -94,6 +95,10 @@ export class EngineProcess {
       NEKKO_BACKEND_DATA_DIR: this.opts.dataDir,
       NEKKO_BACKEND_APP: JSON.stringify(this.opts.app),
       NEKKO_BACKEND_ORIGINS: JSON.stringify(this.opts.origins),
+      ...(this.opts.browserBridge ? {
+        NEKKO_BROWSER_URL: this.opts.browserBridge.url,
+        NEKKO_BROWSER_TOKEN: this.opts.browserBridge.token,
+      } : {}),
     };
     const backend = { exe: process.execPath, args: [join(this.opts.mainDir, 'backend.js')], env: backendEnv };
 

@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo } from '@agent-nekko/shared';
-import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
+import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -839,7 +839,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
           // the rate is tokens over the time spent generating them: the same
           // figure the runtime reports, rather than tokens over the whole wait.
           turnOutRef.current += e.outputTokens;
-          turnDecodeMsRef.current += e.outputMs ?? 0;
+          turnDecodeMsRef.current = accumulateDecodeMs(turnDecodeMsRef.current, e.outputTokens, e.outputMs);
           setTurnOut(turnOutRef.current);
           setTps(decodeRate(turnOutRef.current, turnDecodeMsRef.current));
           // Each step is priced as it lands, because the input tokens of a
@@ -1126,6 +1126,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     setPendingIn((ctx?.items ?? []).filter((i) => i.included).reduce((n, i) => n + i.tokens, 0));
     setMarks({ ctxMark: 0, ctxTail: 0, outMark: 0 });
     setTurnOut(0);
+    setTps(0);
     setMascotMood('thinking');
     // Sending pins the reader to the bottom for the reply.
     setShowJump(false);

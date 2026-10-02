@@ -972,3 +972,10 @@ Observation: the fixed per-reply step budget (`DEFAULT_MAX_STEPS`, was 80) was h
 ### Session completion terminology
 
 - [x] Rename session archive controls and read-only surfaces to Completed with checkmark icons. Preserve archivedAt compatibility and 60-day retention. Add a non-blocking check, circle and tiny confetti success effect capped at 800 ms, skipped for reduced motion. Cover effect cleanup and reduced motion in tests. Done: 2026-10-02
+
+
+### Browser approval and throughput fixes
+
+- [x] Suppress unmeasurable token-speed samples, keep token/time totals paired, and clear stale speed on new turns. Buffered and missing timing regression tests pass.
+- [x] Route dedicated browser actions through a private bearer-authenticated loopback bridge to an Electron-owned sandboxed window, without external browser launch or app-wide CDP exposure. Keep approval per action and explicit existing mode. Host routing tests and desktop/host typechecks pass.
+- [ ] Capture desktop before/after evidence and manually verify navigation, click, fill, close and approval waits in the rebuilt desktop app before merging.

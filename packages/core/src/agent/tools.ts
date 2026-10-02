@@ -89,7 +89,7 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
   },
   {
     name: 'browser',
-    description: 'Control a visible local Chromium browser using Stagehand. Every action requires user approval. Dedicated mode opens a separate browser; existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
+    description: 'Control a visible local Chromium browser. Every action requires user approval. Dedicated mode opens an isolated in-app Nekko browser window (use this by default); existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
     parameters: {
       type: 'object',
       properties: {
