@@ -50,6 +50,7 @@ export interface ChatRequest {
 /** Streamed chunk from a provider, normalized. */
 export type ProviderChunk =
   | { type: 'text'; delta: string }
+  | { type: 'phase'; phase: 'commentary' | 'final_answer' }
   | { type: 'reasoning'; delta: string }
   | { type: 'tool_call'; call: ToolCall }
   | {

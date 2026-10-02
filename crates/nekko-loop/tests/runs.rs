@@ -81,7 +81,9 @@ impl ChunkStream for Script {
         if let Some(e) = step.get("throw").and_then(Value::as_str) {
             return Some(Err(e.into()));
         }
-        let chunk = if let Some(t) = step.get("text").and_then(Value::as_str) {
+        let chunk = if let Some(p) = step.get("phase").and_then(Value::as_str) {
+            Chunk::Phase(p.into())
+        } else if let Some(t) = step.get("text").and_then(Value::as_str) {
             Chunk::Text(t.into())
         } else if let Some(t) = step.get("reasoning").and_then(Value::as_str) {
             Chunk::Reasoning(t.into())

@@ -16,6 +16,11 @@ const SKIP: &[&str] = &["node_modules", ".git", "dist", "out", "build", ".next",
 /// as soon as it is met, like the recursive TS walkers. An unreadable
 /// directory is skipped. `visit` returns false to stop the walk.
 fn walk(root: &str, mut visit: impl FnMut(&str, &DirEntry) -> bool) {
+    if std::fs::metadata(root).is_ok_and(|m| m.is_file()) {
+        let name = std::path::Path::new(root).file_name().unwrap_or_default().to_string_lossy().into_owned();
+        visit(root, &DirEntry { name, is_dir: false });
+        return;
+    }
     let Ok(first) = nodefs::read_dir(root) else { return };
     let mut stack: Vec<(String, std::vec::IntoIter<DirEntry>)> = vec![(root.to_string(), first.into_iter())];
     while let Some((dir, entries)) = stack.last_mut() {
@@ -208,7 +213,11 @@ pub fn grep_files(root: &str, pattern: Option<&Value>, limit: usize) -> Vec<Stri
         // `\n` is one unit either way, so the lines split in step.
         let units: Vec<u16> = if finder.is_some() { Vec::new() } else { content.encode_utf16().collect() };
         let mut unit_lines = units.split(|&u| u == u16::from(b'\n'));
-        let r = rel(root, full);
+        let r = if root == full {
+            std::path::Path::new(full).file_name().unwrap_or_default().to_string_lossy().into_owned()
+        } else {
+            rel(root, full)
+        };
         for (idx, line) in content.split('\n').enumerate() {
             let hit = match &finder {
                 Some(f) => f.find(&line.to_ascii_lowercase().into_bytes()).is_some(),

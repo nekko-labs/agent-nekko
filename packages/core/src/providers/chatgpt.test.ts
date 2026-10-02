@@ -80,7 +80,7 @@ describe('ChatGptProvider requests', () => {
     });
     expect(body.input).toEqual([
       { type: 'message', role: 'user', content: [{ type: 'input_text', text: 'hi' }] },
-      { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'checking' }] },
+      { type: 'message', role: 'assistant', phase: 'commentary', content: [{ type: 'output_text', text: 'checking' }] },
       { type: 'function_call', call_id: 'call_1', name: 'read_file', arguments: '{"path":"a.ts"}' },
       { type: 'function_call_output', call_id: 'call_1', output: 'file body' },
     ]);

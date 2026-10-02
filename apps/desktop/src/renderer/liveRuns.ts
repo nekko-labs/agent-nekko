@@ -29,11 +29,16 @@
 
 import { useCallback, useSyncExternalStore } from 'react';
 import type { AgentEvent, ToolCall } from '@agent-nekko/shared';
+import type { Activity } from './components/agent-console/transcript.js';
 import { describeLiveActivity, emptyLiveActivity, reduceLiveActivity, type LiveActivity } from '@agent-nekko/shared';
+
+export type LiveBlock = { kind: 'text'; text: string } | { kind: 'activity'; items: Activity[] };
 
 /** One session's in-flight turn, as much of it as a pane needs to redraw. */
 export interface LiveRun {
   sessionId: string;
+  /** Progress text and working steps in the order they arrive. */
+  blocks: LiveBlock[];
   /** The assistant text streamed so far this turn. */
   text: string;
   /** Reasoning streamed so far this turn. */
@@ -95,6 +100,7 @@ let version = 0;
 function emptyRun(sessionId: string, now: number): LiveRun {
   return {
     sessionId,
+    blocks: [],
     text: '',
     reasoning: '',
     tools: [],
@@ -160,6 +166,20 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
   const prev = runs.get(id) ?? emptyRun(id, now);
   if (!runs.has(id)) finished.delete(id);
   const next: LiveRun = { ...prev, activity: folded ?? prev.activity };
+  const last = prev.blocks[prev.blocks.length - 1];
+  if (event.type === 'text') {
+    const block: LiveBlock = { kind: 'text', text: clampLive((last?.kind === 'text' ? last.text : '') + event.delta) };
+    next.blocks = last?.kind === 'text' ? [...prev.blocks.slice(0, -1), block] : [...prev.blocks, block];
+  } else if (event.type === 'reasoning' || event.type === 'tool_call') {
+    const items = last?.kind === 'activity' ? last.items : [];
+    const tail = items[items.length - 1];
+    const item: Activity = event.type === 'tool_call'
+      ? { kind: 'tool', call: event.call }
+      : { kind: 'reasoning', text: clampLive((tail?.kind === 'reasoning' ? tail.text : '') + event.delta), duration: null };
+    const merged = event.type === 'reasoning' && tail?.kind === 'reasoning' ? [...items.slice(0, -1), item] : [...items, item];
+    const block: LiveBlock = { kind: 'activity', items: merged };
+    next.blocks = last?.kind === 'activity' ? [...prev.blocks.slice(0, -1), block] : [...prev.blocks, block];
+  }
 
   switch (event.type) {
     case 'text':

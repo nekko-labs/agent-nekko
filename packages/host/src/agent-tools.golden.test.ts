@@ -372,6 +372,7 @@ describe('agent tools golden sets', () => {
       'ws/app/a.md': 'a\n',
       ...many,
       'ws/lib/index.ts': 'lib main\n',
+      'ws/app/paged.txt': 'x'.repeat(60010) + '\nlater composer JSX\nlast line\n',
       'ws/outside.txt': 'outside\n',
     };
     type Step = { call: Record<string, unknown>; approve?: boolean } | { changes: true } | { accept: string } | { acceptAll: true };
@@ -386,6 +387,22 @@ describe('agent tools golden sets', () => {
         read('src/main.ts'), read('src/util.ts'), read('bom.txt'), read('unicode.txt'), read('invalid.bin'), read('binary.png'),
         read('empty.txt'), read('big.txt'), read('exact.txt'), read('wide.txt'), read('src'), read('missing.txt'), read('../outside.txt'),
         read('<ROOT>/ws/lib/index.ts'), read(42), read(undefined), read('space dir/file one.txt'), read('café/menu.txt'),
+      ] },
+      { name: 'paged-reads', policy: { setup: 'two', mode: 'guardrails', sandboxMode: 'workspace-jail', rules: 'default' }, steps: [
+        { call: { name: 'read_file', input: { path: 'paged.txt', start_line: 2, end_line: 3 } } },
+        { call: { name: 'read_file', input: { path: 'paged.txt', start_line: 3 } } },
+        { call: { name: 'read_file', input: { path: 'paged.txt', end_line: 1 } } },
+        { call: { name: 'read_file', input: { path: 'paged.txt', start_line: 10 } } },
+        { call: { name: 'read_file', input: { path: 'paged.txt', start_line: 0 } } },
+        { call: { name: 'read_file', input: { path: 'paged.txt', start_line: 2, end_line: 1 } } },
+        { call: { name: 'read_file', input: { path: 'paged.txt', start_line: 1.5 } } },
+        { call: { name: 'read_file', input: { path: 'paged.txt', start_line: '2' } } },
+        { call: { name: 'read_file', input: { path: 'paged.txt', start_line: null, end_line: 3 } } },
+        grep('composer', 'paged.txt'), grep('main', 'src/main.ts'), grep('main', 'missing.txt'),
+        { call: { name: 'glob', input: { pattern: '*.ts', path: '../lib' } } },
+      ] },
+      { name: 'chat-project', policy: { setup: 'twoFromLib', mode: 'guardrails', sandboxMode: 'workspace-jail', rules: 'default' }, steps: [
+        read('index.ts'), grep('lib'), glob('*.ts'),
       ] },
       { name: 'writes', policy: { setup: 'two', mode: 'guardrails', sandboxMode: 'workspace-jail', rules: 'default', sessionId: 's_writes' }, steps: [
         write('new.txt', 'hello'), write('deep/new/dir/file.txt', 'nested\n'), write('src/main.ts', 'replaced\n'),

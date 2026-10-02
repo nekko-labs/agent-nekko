@@ -2096,23 +2096,6 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
             />
             )}
 
-            {/* Model-written follow-ups to the reply above: one click sends it
-                outright, and starting any turn clears them. */}
-            {!imageMode && liveSuggestions && liveSuggestions.options.length > 0 && !streaming && (
-              <div className="mb-2 flex flex-wrap items-center gap-1.5" role="group" aria-label="Suggested replies">
-                {liveSuggestions.options.map((opt) => (
-                  <button
-                    key={opt}
-                    className="max-w-full truncate rounded-full border border-line bg-surface px-3 py-1.5 text-left text-[12px] text-ink-soft transition-colors hover:border-accent/50 hover:bg-surface-2 hover:text-ink"
-                    title={`Send: ${opt}`}
-                    onClick={() => { setSuggestions(null); void send(opt); }}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            )}
-
             <div className="relative w-full">
               {atMenuOpen && (
                 <div
@@ -2191,6 +2174,23 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
                 </div>
               )}
               <div className={streaming ? 'composer composer-beam' : 'composer'}>
+            {/* Model-written follow-ups to the reply above: one click sends it
+                outright, and starting any turn clears them. */}
+            {!imageMode && liveSuggestions && liveSuggestions.options.length > 0 && !streaming && (
+              <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2.5" role="group" aria-label="Suggested replies">
+                {liveSuggestions.options.map((opt) => (
+                  <button
+                    key={opt}
+                    className="max-w-full truncate rounded-full border border-line bg-surface px-3 py-1.5 text-left text-[12px] text-ink-soft transition-colors hover:border-accent/50 hover:bg-surface-2 hover:text-ink"
+                    title={`Send: ${opt}`}
+                    onClick={() => { setSuggestions(null); void send(opt); }}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            )}
+
                 {/* Attachments ride inside the composer, at the top, separated by
                     a hairline. Floated above it they covered the instrument
                     strip. */}

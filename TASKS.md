@@ -548,6 +548,8 @@ Planned by Philip for later; not started. See [SPEC roadmap](SPEC.md#roadmap-bey
 
 ## Shipped
 
+- [x] **T180** (2026-10-02) [Chat suggestions, progress and code access](SPEC.md#chat-suggestions-progress-and-code-access): move reply chips inside the composer; preserve chronological live progress blocks; replace completed-action status grammar with Thinking between tools; add start_line/end_line to read_file, file-scoped grep and explicit glob paths; default search/shell work to the chat project in TS and Rust; preserve GPT assistant phases and continue commentary-only turns. Tool, provider, context and loop parity goldens cover the changes.
+
 > Append as work lands; bug fixes folded into the feature they harden. Verified throughout against a live LM Studio gemma reasoning model (streaming reasoning, single + multi-step tool loops, index-grounded context).
 
 ### Reconnect a failing cloud provider in place (2026-10-01)

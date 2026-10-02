@@ -13,7 +13,7 @@ import { runAgent } from '@agent-nekko/core';
  */
 const golden = join(__dirname, '..', '..', '..', 'crates', 'nekko-loop', 'tests', 'golden');
 
-type Step = { text?: string; reasoning?: string; call?: ToolCall; usage?: number[]; done?: boolean; throw?: string };
+type Step = { phase?: 'commentary' | 'final_answer'; text?: string; reasoning?: string; call?: ToolCall; usage?: number[]; done?: boolean; throw?: string };
 interface Scenario {
   name: string;
   responses: Step[][];
@@ -52,7 +52,8 @@ async function play(s: Scenario, defaults: { defaultHistory: ChatMessage[]; tool
         if (req.signal?.aborted) throw new Error('This operation was aborted');
         const step = script[i];
         if (step.throw) throw new Error(step.throw);
-        if (step.text !== undefined) yield { type: 'text' as const, delta: step.text };
+        if (step.phase) yield { type: 'phase' as const, phase: step.phase };
+        else if (step.text !== undefined) yield { type: 'text' as const, delta: step.text };
         else if (step.reasoning !== undefined) yield { type: 'reasoning' as const, delta: step.reasoning };
         else if (step.call) yield { type: 'tool_call' as const, call: step.call };
         else if (step.usage) yield { type: 'usage' as const, inputTokens: step.usage[0], outputTokens: step.usage[1], ...(step.usage[2] !== undefined ? { outputMs: step.usage[2] } : {}) };

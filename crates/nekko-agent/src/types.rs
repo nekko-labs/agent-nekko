@@ -278,6 +278,9 @@ impl fmt::Debug for ChatRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ProviderChunk {
+    Phase {
+        phase: String,
+    },
     Text {
         delta: String,
     },

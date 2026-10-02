@@ -87,6 +87,7 @@ export function windowHistory(history: ChatMessage[], turns?: number): ChatMessa
  */
 /** What one streamed provider response accumulated. */
 interface Turn {
+  phase?: ChatMessage['phase'];
   text: string;
   reasoning: string;
   reasoningSeconds?: number;
@@ -161,6 +162,9 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         onHeaders: opts.onHeaders,
       })) {
         switch (chunk.type) {
+          case 'phase':
+            turn.phase = chunk.phase;
+            break;
           case 'text':
             if (reasoningStartedAt && turn.reasoningSeconds == null) {
               turn.reasoningSeconds = Math.round((Date.now() - reasoningStartedAt) / 1000);
@@ -228,6 +232,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         role: 'assistant',
         content: [partial, INTERRUPTED_NOTE].filter(Boolean).join('\n\n'),
         ...(reasoning ? { reasoning, reasoningSeconds: turn.reasoningSeconds } : {}),
+        ...(turn.phase ? { phase: turn.phase } : {}),
         interrupted: true,
         createdAt: Date.now(),
       });
@@ -306,6 +311,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
           toolCalls: calls.length ? calls : undefined,
           createdAt: Date.now(),
         };
+    if (turn.phase) assistantMsg.phase = turn.phase;
     opts.history.push(assistantMsg);
 
     // A looping model does not recover by being asked again, so end the reply
@@ -316,7 +322,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     }
 
     // No tool calls → the turn is complete.
-    if (calls.length === 0) {
+    if (calls.length === 0 && turn.phase !== 'commentary') {
       yield { type: 'done', sessionId: opts.sessionId, messageId: assistantMsg.id };
       return;
     }
@@ -375,6 +381,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
       : {}),
     createdAt: Date.now(),
   };
+  if (wrapUp.phase) wrapMsg.phase = wrapUp.phase;
   opts.history.push(wrapMsg);
   yield { type: 'done', sessionId: opts.sessionId, messageId: wrapMsg.id };
 }

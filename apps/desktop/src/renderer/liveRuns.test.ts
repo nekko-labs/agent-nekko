@@ -17,6 +17,21 @@ const call = (sessionId: string, name: string): AgentEvent => ({
 describe('liveRuns', () => {
   beforeEach(() => __resetLiveRuns());
 
+  it('keeps progress messages between their tools while a turn is still running', () => {
+    applyEvent(text('a', 'I will read the source.'));
+    const first = getLiveRun('a')!.blocks[0];
+    applyEvent(call('a', 'read_file'));
+    applyEvent(text('a', 'I found the problem. '));
+    applyEvent(text('a', 'Updating the composer.'));
+    applyEvent(call('a', 'edit_file'));
+    const blocks = getLiveRun('a')!.blocks;
+    expect(blocks.map((b) => b.kind)).toEqual(['text', 'activity', 'text', 'activity']);
+    expect(blocks[0]).toBe(first);
+    expect(blocks[2]).toEqual({ kind: 'text', text: 'I found the problem. Updating the composer.' });
+    applyEvent({ type: 'done', sessionId: 'a', messageId: 'reply' });
+    expect(takeFinishedRun('a')!.blocks).toEqual(blocks);
+  });
+
   it('accumulates a reply across events', () => {
     applyEvent(text('a', 'Hello'));
     applyEvent(text('a', ' world'));

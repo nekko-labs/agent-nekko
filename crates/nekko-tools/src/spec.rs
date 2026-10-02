@@ -35,10 +35,12 @@ pub fn builtin_tools() -> Vec<ToolSpec> {
     vec![
         spec(
             "read_file",
-            "Read the contents of a file at an absolute or workspace-relative path.",
+            "Read a file at an absolute or chat-project-relative path. Large files are truncated; use start_line and end_line (1-based, inclusive) to read later sections with line numbers.",
             json!({
                 "type": "object",
-                "properties": { "path": { "type": "string", "description": "Path to the file." } },
+                "properties": { "path": { "type": "string", "description": "Path to the file." },
+                    "start_line": { "type": "integer", "minimum": 1, "description": "First line to read (1-based). Omit to read from the beginning." },
+                    "end_line": { "type": "integer", "minimum": 1, "description": "Last line to read (inclusive). Defaults to 200 lines from start_line." } },
                 "required": ["path"],
             }),
         ),
@@ -66,10 +68,10 @@ pub fn builtin_tools() -> Vec<ToolSpec> {
         ),
         spec(
             "glob",
-            "Find files matching a glob pattern within the workspace.",
+            "Find files matching a glob pattern within the chat project or an explicit directory.",
             json!({
                 "type": "object",
-                "properties": { "pattern": { "type": "string", "description": "e.g. src/**/*.ts" } },
+                "properties": { "pattern": { "type": "string", "description": "e.g. src/**/*.ts" }, "path": { "type": "string", "description": "Optional directory. Defaults to the chat project." } },
                 "required": ["pattern"],
             }),
         ),
@@ -80,7 +82,7 @@ pub fn builtin_tools() -> Vec<ToolSpec> {
                 "type": "object",
                 "properties": {
                     "pattern": { "type": "string" },
-                    "path": { "type": "string", "description": "Optional directory to scope the search." },
+                    "path": { "type": "string", "description": "Optional file or directory to scope the search. Defaults to the chat project." },
                 },
                 "required": ["pattern"],
             }),
@@ -96,7 +98,7 @@ pub fn builtin_tools() -> Vec<ToolSpec> {
         ),
         spec(
             "bash",
-            "Run a shell command in the workspace. Subject to guardrails, risky commands require user approval.",
+            "Run a command in the chat project. Windows uses cmd.exe, not Bash or PowerShell; wrap PowerShell commands with powershell -NoProfile -Command. Unix uses /bin/sh. Subject to guardrails, risky commands require user approval.",
             json!({
                 "type": "object",
                 "properties": {

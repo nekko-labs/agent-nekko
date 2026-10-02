@@ -62,16 +62,16 @@ describe('shortLiveStatus', () => {
     expect(shortLiveStatus(a)).toBe('Writing reply');
   });
 
-  it('names the finished step between tools rather than going blank', () => {
+  it('reports the next reasoning phase between tools rather than a completed action', () => {
     // A gap between a result and the next call used to leave the line empty,
     // which reads as the run having stopped.
     const a = fold([call('grep', { pattern: 'foo' }), result('grep')]);
-    expect(shortLiveStatus(a)).toBe('Searching done');
+    expect(shortLiveStatus(a)).toBe('Thinking');
   });
 
-  it('says so when a tool came back an error', () => {
+  it('keeps the live label in present tense while recovering from a tool error', () => {
     const a = fold([call('bash', { command: 'npm test' }), result('bash', 'boom', true)]);
-    expect(shortLiveStatus(a)).toBe('Running failed');
+    expect(shortLiveStatus(a)).toBe('Thinking');
   });
 
   it('prefers the running tool over the thought that preceded it', () => {

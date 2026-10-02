@@ -7452,6 +7452,7 @@
           {
             "type": "message",
             "role": "assistant",
+            "phase": "final_answer",
             "content": [
               {
                 "type": "output_text",
@@ -7502,6 +7503,7 @@
           {
             "type": "message",
             "role": "assistant",
+            "phase": "commentary",
             "content": [
               {
                 "type": "output_text",
@@ -7545,6 +7547,7 @@
           {
             "type": "message",
             "role": "assistant",
+            "phase": "final_answer",
             "content": [
               {
                 "type": "output_text",

@@ -3424,5 +3424,56 @@
       ]
     ],
     "onHeaders": []
+  },
+  "cg-assistant-phases": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "https://chatgpt.com/backend-api/codex/responses",
+        "headers": {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer oauth-chatgpt-token",
+          "chatgpt-account-id": "acct-1",
+          "OpenAI-Beta": "responses=experimental",
+          "originator": "codex_cli_rs",
+          "session_id": "<session>"
+        },
+        "body": {
+          "model": "m",
+          "input": [
+            {
+              "type": "message",
+              "role": "user",
+              "content": [
+                {
+                  "type": "input_text",
+                  "text": "hi"
+                }
+              ]
+            }
+          ],
+          "stream": true,
+          "store": false
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "text",
+          "delta": "Reading the file."
+        },
+        {
+          "type": "phase",
+          "phase": "commentary"
+        },
+        {
+          "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": [
+      {}
+    ]
   }
 }

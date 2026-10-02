@@ -19,6 +19,8 @@ export interface ChatMessage {
   id: string;
   role: Role;
   content: string;
+  /** Responses API distinction between working commentary and the final answer. */
+  phase?: 'commentary' | 'final_answer';
   /**
    * Image data URLs: attached by the user on a user message, or produced by an
    * image model on an assistant message in an image-generation chat.
