@@ -50,7 +50,7 @@ const providers = {
   }),
   'chatgpt-custom-dup': cfg('chatgpt-custom-dup', 'chatgpt', 'https://chatgpt.com/backend-api', {
     accountId: 'acct-1',
-    customModelId: 'gpt-5',
+    customModelId: 'gpt-6.1-sol',
   }),
 };
 
@@ -657,8 +657,55 @@ const models = [
   },
   { name: 'ollama-unreachable', provider: 'ollama', responses: {} },
   { name: 'anthropic', provider: 'anthropic', responses: {} },
-  { name: 'chatgpt', provider: 'chatgpt', responses: {} },
+  // The live picker catalog, as the Codex backend serves it: priority order,
+  // slug preferred over id, display_name over name, hidden/unpicked dropped.
+  {
+    name: 'chatgpt',
+    provider: 'chatgpt',
+    responses: {
+      'https://chatgpt.com/backend-api/codex/models?client_version=0.157.0': json({
+        models: [
+          { slug: 'gpt-6-sol', display_name: 'GPT-6 Sol', context_window: 400000, priority: 2, visibility: 'list' },
+          { slug: 'gpt-6-astra', display_name: 'GPT-6 Astra', context_window: 400000, priority: 1, visibility: 'list', show_in_picker: true },
+          { id: 'gpt-id-only', name: 'Id Only', max_context_window: 200000 },
+          { slug: 'gpt-6-luna' },
+          { slug: 'gpt-hidden', visibility: 'hide' },
+          { slug: 'gpt-unpicked', show_in_picker: false },
+          { display_name: 'no usable id' },
+        ],
+      }),
+    },
+  },
+  {
+    name: 'chatgpt-catalog-404-falls-back',
+    provider: 'chatgpt',
+    responses: { 'https://chatgpt.com/backend-api/codex/models?client_version=0.157.0': { status: 404, body: '{"detail":"Not Found"}' } },
+  },
+  {
+    name: 'chatgpt-catalog-empty-falls-back',
+    provider: 'chatgpt',
+    responses: { 'https://chatgpt.com/backend-api/codex/models?client_version=0.157.0': json({ models: [] }) },
+  },
+  {
+    name: 'chatgpt-catalog-wrong-shape-falls-back',
+    provider: 'chatgpt',
+    responses: { 'https://chatgpt.com/backend-api/codex/models?client_version=0.157.0': json({ models: 'nope' }) },
+  },
+  // No account id: the catalog GET is skipped entirely, curated list answers.
+  { name: 'chatgpt-no-account', provider: 'chatgpt-no-account', responses: {} },
+  // Catalog unreachable: curated list plus the trimmed custom model.
   { name: 'chatgpt-custom', provider: 'chatgpt-custom', responses: {} },
+  // Live catalog plus a custom id, appended after the catalog entries.
+  {
+    name: 'chatgpt-custom-live',
+    provider: 'chatgpt-custom',
+    responses: {
+      'https://chatgpt.com/backend-api/codex/models?client_version=0.157.0': json({
+        models: [{ slug: 'gpt-6.1-sol', display_name: 'GPT-6.1 Sol' }],
+      }),
+    },
+  },
+  // The custom id is already in the curated fallback: not appended twice.
   { name: 'chatgpt-custom-duplicate', provider: 'chatgpt-custom-dup', responses: {} },
 ];
 

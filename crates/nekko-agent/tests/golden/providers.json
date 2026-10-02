@@ -106,6 +106,6 @@
     "baseUrl": "https://chatgpt.com/backend-api",
     "enabled": true,
     "accountId": "acct-1",
-    "customModelId": "gpt-5"
+    "customModelId": "gpt-6.1-sol"
   }
 }

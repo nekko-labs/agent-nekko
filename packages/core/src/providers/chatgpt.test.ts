@@ -96,21 +96,61 @@ describe('ChatGptProvider requests', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('listModels returns the curated ChatGPT-plan set without a network call', async () => {
-    const spy = vi.spyOn(globalThis, 'fetch');
+  it('listModels serves the live catalog when the backend answers', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          models: [
+            { slug: 'gpt-6-sol', display_name: 'GPT-6 Sol', context_window: 272000, priority: 2, visibility: 'list' },
+            { slug: 'gpt-6-astra', display_name: 'GPT-6 Astra', context_window: 400000, priority: 1, visibility: 'list' },
+            { slug: 'gpt-hidden', visibility: 'hide' },
+            { slug: 'gpt-unpicked', show_in_picker: false },
+          ],
+        }),
+        { status: 200 },
+      ),
+    );
+    const models = await new ChatGptProvider(cfg).listModels();
+    expect(models.map((m) => m.id)).toEqual(['gpt-6-astra', 'gpt-6-sol']);
+    expect(models[0]).toMatchObject({ providerId: 'p1', name: 'GPT-6 Astra', contextLength: 400000 });
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toMatch(/^https:\/\/chatgpt\.com\/backend-api\/codex\/models\?client_version=\d/);
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer oauth-access-token');
+    expect(headers['chatgpt-account-id']).toBe('acct-1');
+    expect(headers.originator).toBeTruthy();
+  });
+
+  it('listModels falls back to the curated set when the catalog is unreachable', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
     const models = await new ChatGptProvider(cfg).listModels();
     expect(models.length).toBeGreaterThan(0);
     expect(models.every((m) => m.providerId === 'p1')).toBe(true);
+  });
+
+  it('listModels falls back on a non-OK catalog response and still appends a custom model', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('teapot', { status: 418 }));
+    const models = await new ChatGptProvider({ ...cfg, customModelId: 'my-codex-model' }).listModels();
+    expect(models.at(-1)).toMatchObject({ id: 'my-codex-model', name: 'my-codex-model (custom)' });
+  });
+
+  it('listModels serves the curated set without a network call when signed out', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch');
+    const models = await new ChatGptProvider({ ...cfg, apiKey: undefined }).listModels();
+    expect(models.length).toBeGreaterThan(0);
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('test() reports sign-in state', async () => {
+  it('test() reports sign-in state and verifies against the catalog', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{"models":[]}', { status: 200 }));
     expect(await new ChatGptProvider(cfg).test()).toEqual({
       ok: true,
       message: 'Signed in with a ChatGPT subscription',
     });
     expect((await new ChatGptProvider({ ...cfg, apiKey: undefined }).test()).ok).toBe(false);
     expect((await new ChatGptProvider({ ...cfg, accountId: undefined }).test()).message).toMatch(/sign in again/i);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('expired', { status: 401 }));
+    expect(await new ChatGptProvider(cfg).test()).toEqual({ ok: false, message: 'chatgpt 401: expired' });
   });
 });
 

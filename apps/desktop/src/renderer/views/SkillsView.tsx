@@ -256,6 +256,10 @@ function MarketplaceTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A background skills-catalog check (Settings → Updates) lands here as a
+  // live catalog the shelf can swap in.
+  useEffect(() => window.nekko.onSkillsUpdated(setVaizer), []);
+
   const refreshVaizer = async () => {
     setVaizerBusy(true);
     try {

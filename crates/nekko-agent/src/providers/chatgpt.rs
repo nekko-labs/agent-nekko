@@ -13,13 +13,23 @@ use crate::stream::{ChunkStream, DecodeClock, Sink, Stop, spawn};
 use crate::types::*;
 use serde_json::{Map, Value, json};
 
-/// The Codex backend has no public /models route, so the subscription model
-/// set ships as a curated list.
+/// Last-known subscription model set, used only when the live catalog cannot
+/// be fetched (offline, unsigned, backend down). The Codex backend retired the
+/// gpt-5/codex ids in 2026, so this mirrors the current picker generation.
 const CHATGPT_MODELS: &[(&str, &str, u64)] = &[
-    ("gpt-5-codex", "GPT-5 Codex", 400_000),
-    ("gpt-5", "GPT-5", 400_000),
-    ("codex-mini-latest", "Codex Mini", 200_000),
+    ("gpt-6.1-sol", "GPT-6.1 Sol", 0),
+    ("gpt-6-sol", "GPT-6 Sol", 0),
+    ("gpt-6-luna", "GPT-6 Luna", 0),
+    ("gpt-6-astra", "GPT-6 Astra", 0),
+    ("gpt-5.6-sol", "GPT-5.6 Sol", 272_000),
+    ("gpt-5.6-terra", "GPT-5.6 Terra", 272_000),
+    ("gpt-5.6-luna", "GPT-5.6 Luna", 272_000),
 ];
+
+/// The backend filters the catalog by the Codex CLI version a client reports;
+/// unversioned and stale versions get a truncated or empty list. Raise this
+/// when the backend starts gating newer entries behind a higher line.
+const CODEX_CLIENT_VERSION: &str = "0.157.0";
 
 /// Required for Responses-API streaming on the Codex backend.
 const RESPONSES_BETA: &str = "responses=experimental";
@@ -192,17 +202,93 @@ impl ChatGptProvider {
         sink.emit(ProviderChunk::Done).await
     }
 
-    pub async fn list_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
-        let mut all: Vec<ModelInfo> = CHATGPT_MODELS
+    /// Headers for the catalog GET: same subscription auth as chat, but no
+    /// `OpenAI-Beta`/`session_id`, which are Responses-API concerns. None when
+    /// the sign-in is incomplete, so the caller falls back to the curated list.
+    fn catalog_headers(&self) -> Option<Vec<(String, String)>> {
+        let key = self.config.api_key.as_deref().filter(|k| !k.is_empty())?;
+        let account = self.config.account_id.as_deref().filter(|a| !a.is_empty())?;
+        Some(vec![
+            ("Accept".into(), "application/json".into()),
+            ("Authorization".into(), format!("Bearer {key}")),
+            ("chatgpt-account-id".into(), account.into()),
+            ("originator".into(), ORIGINATOR.into()),
+        ])
+    }
+
+    /// The request `fetch_catalog` sends: `GET {base}/codex/models`, the same
+    /// route the Codex CLI's models manager reads.
+    fn catalog_request(&self) -> Option<HttpRequest> {
+        Some(HttpRequest::get(
+            format!("{}/codex/models?client_version={CODEX_CLIENT_VERSION}", self.base()),
+            self.catalog_headers()?,
+        ))
+    }
+
+    /// The live subscription catalog. The backend filters it by the
+    /// `client_version` we report, the account's plan, and active rollouts, so
+    /// the answer is exactly the set this sign-in can run — including models
+    /// that did not exist when this build shipped. None on any failure so the
+    /// caller falls back to the curated list.
+    async fn fetch_catalog(&self) -> Option<Vec<ModelInfo>> {
+        let req = self.catalog_request()?;
+        let mut res = self.io.transport.send(&req).await.ok()?;
+        if !res.ok() {
+            return None;
+        }
+        let text = res.text().await;
+        let json: Value = serde_json::from_str(&text).ok()?;
+        let rows = json.get("models").and_then(Value::as_array)?;
+        let mut scored: Vec<(i64, usize, ModelInfo)> = rows
             .iter()
-            .map(|(id, name, ctx)| ModelInfo {
-                id: id.to_string(),
-                provider_id: self.config.id.clone(),
-                name: name.to_string(),
-                context_length: Some(*ctx),
-                ..Default::default()
+            .enumerate()
+            .filter_map(|(order, m)| {
+                let id = js::coalesce(m.get("slug"), m.get("id")).filter(|v| js::truthy(Some(v))).map(js::display)?;
+                // The picker list is authoritative for what this account may
+                // run; hidden or unpicked entries stay out of ours.
+                if m.get("visibility").and_then(Value::as_str).is_some_and(|v| v != "list") {
+                    return None;
+                }
+                if m.get("show_in_picker").and_then(Value::as_bool) == Some(false) {
+                    return None;
+                }
+                let name = js::coalesce(m.get("display_name"), m.get("name"))
+                    .filter(|v| js::truthy(Some(v)))
+                    .map(js::display)
+                    .unwrap_or_else(|| id.clone());
+                let ctx = js::coalesce(m.get("context_window"), m.get("max_context_window")).and_then(Value::as_u64);
+                let priority = m.get("priority").and_then(Value::as_i64).unwrap_or(i64::MAX);
+                Some((
+                    priority,
+                    order,
+                    ModelInfo {
+                        id,
+                        provider_id: self.config.id.clone(),
+                        name,
+                        context_length: ctx,
+                        ..Default::default()
+                    },
+                ))
             })
             .collect();
+        scored.sort_by_key(|(priority, order, _)| (*priority, *order));
+        let models: Vec<ModelInfo> = scored.into_iter().map(|(_, _, m)| m).collect();
+        (!models.is_empty()).then_some(models)
+    }
+
+    pub async fn list_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
+        let mut all = self.fetch_catalog().await.unwrap_or_else(|| {
+            CHATGPT_MODELS
+                .iter()
+                .map(|(id, name, ctx)| ModelInfo {
+                    id: id.to_string(),
+                    provider_id: self.config.id.clone(),
+                    name: name.to_string(),
+                    context_length: (*ctx > 0).then_some(*ctx),
+                    ..Default::default()
+                })
+                .collect()
+        });
         let custom = self.config.custom_model_id.as_deref().map(js::trim).filter(|c| !c.is_empty());
         if let Some(custom) = custom
             && !all.iter().any(|m| m.id == custom)

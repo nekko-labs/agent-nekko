@@ -224,6 +224,8 @@ interface UiState {
   setActiveSession: (id: string | null) => void;
   refreshProviders: () => Promise<void>;
   selectProvider: (id: string) => Promise<void>;
+  /** Re-list a provider's models after a background catalog refresh. */
+  reloadModels: (providerId: string) => Promise<void>;
   selectModel: (id: string) => void;
   toggleContextPanel: () => void;
   togglePlanRail: () => void;
@@ -524,6 +526,15 @@ export const useStore = create<UiState>((set, get) => ({
     // Remember as the default for new chats and next launch.
     const activeModelId = get().activeModelId;
     window.nekko.updateSettings({ defaultProviderId: id, ...(activeModelId ? { defaultModelId: activeModelId } : {}) });
+  },
+
+  reloadModels: async (providerId) => {
+    if (get().activeProviderId !== providerId) return;
+    const models = await window.nekko.listModels(providerId);
+    set({ models });
+    // Same rule as selectProvider: a model the refreshed catalog dropped is
+    // unset rather than left pointing at an id that will 400.
+    if (!models.some((m) => m.id === get().activeModelId)) set({ activeModelId: null });
   },
 
   selectModel: (id) => {
