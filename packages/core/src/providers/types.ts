@@ -16,10 +16,11 @@ export interface ChatRequest {
   temperature?: number;
   /**
    * The same "how hard should it work" setting `temperature` carries, in the
-   * form the newer Claude models want. They removed the sampling parameters
-   * outright — sending `temperature` to Opus 5 is a 400 — and replaced them
-   * with a coarse effort level, so both travel on the request and each provider
-   * sends whichever of the two its model accepts.
+   * form the providers that dropped sampling want. The newer Claude models
+   * removed the sampling parameters outright (sending `temperature` to Opus 5
+   * is a 400) and replaced them with a coarse effort level, and the ChatGPT
+   * subscription backend never had them, so both travel on the request and
+   * each provider sends whichever its model accepts.
    */
   effort?: EffortLevel;
   /**

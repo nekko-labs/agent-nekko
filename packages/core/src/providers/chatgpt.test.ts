@@ -37,7 +37,7 @@ async function collect(provider: ChatGptProvider, req: Parameters<ChatGptProvide
 async function runChat(provider: ChatGptProvider, req: Parameters<ChatGptProvider['chat']>[0]) {
   const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(DONE_STREAM));
   await collect(provider, req);
-  const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+  const [url, init] = spy.mock.calls.at(-1) as unknown as [string, RequestInit];
   return { url, headers: init.headers as Record<string, string>, body: JSON.parse(init.body as string) };
 }
 
@@ -87,6 +87,41 @@ describe('ChatGptProvider requests', () => {
     expect(body.tools).toEqual([
       { type: 'function', name: 'read_file', description: 'Read a file', parameters: { type: 'object' } },
     ]);
+  });
+
+  it('never sends sampling or cap params; effort goes out as reasoning.effort', async () => {
+    // The Codex backend 400s on `temperature` and `max_output_tokens`.
+    const { body } = await runChat(new ChatGptProvider(cfg), {
+      model: 'gpt-6-sol',
+      messages: [],
+      temperature: 0.2,
+      maxOutputTokens: 2048,
+      effort: 'high',
+    });
+    expect(body.temperature).toBeUndefined();
+    expect(body.max_output_tokens).toBeUndefined();
+    expect(body.reasoning).toEqual({ effort: 'high' });
+  });
+
+  it('clamps rungs above Codex\'s ladder and maps low through', async () => {
+    const { body } = await runChat(new ChatGptProvider(cfg), {
+      model: 'gpt-6-sol',
+      messages: [],
+      effort: 'xhigh',
+    });
+    expect(body.reasoning).toEqual({ effort: 'high' });
+    const low = await runChat(new ChatGptProvider(cfg), { model: 'gpt-6-sol', messages: [], effort: 'low' });
+    expect(low.body.reasoning).toEqual({ effort: 'low' });
+  });
+
+  it('sends no rung at the default effort and still maps the think toggle', async () => {
+    const { body } = await runChat(new ChatGptProvider(cfg), {
+      model: 'gpt-6-sol',
+      messages: [],
+      effort: 'normal',
+      think: true,
+    });
+    expect(body.reasoning).toEqual({ summary: 'auto' });
   });
 
   it('throws a sign-in-again error when the account id is missing', async () => {

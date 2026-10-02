@@ -97,14 +97,30 @@ impl ChatGptProvider {
         }
         body.insert("stream".into(), json!(true));
         body.insert("store".into(), json!(false));
-        if let Some(t) = req.temperature {
-            body.insert("temperature".into(), json!(t));
-        }
-        if let Some(max) = req.max_output_tokens.filter(|m| *m > 0) {
-            body.insert("max_output_tokens".into(), json!(max));
+        // The Codex backend accepts only the Codex CLI's request shape:
+        // `temperature` and `max_output_tokens` are not in it and fail the
+        // whole request with a 400 ("Unsupported parameter"), so the effort
+        // setting goes out as `reasoning.effort` instead and this provider
+        // sends no output cap. `normal` means the model's own default, so no
+        // rung is sent for it; the rungs above Codex's ladder clamp to high.
+        let mut reasoning = Map::new();
+        match crate::claude::effective_effort(req.effort, &req.model) {
+            EffortLevel::Low => {
+                reasoning.insert("effort".into(), json!("low"));
+            }
+            EffortLevel::Medium => {
+                reasoning.insert("effort".into(), json!("medium"));
+            }
+            EffortLevel::High | EffortLevel::Xhigh | EffortLevel::Max => {
+                reasoning.insert("effort".into(), json!("high"));
+            }
+            EffortLevel::Normal => {}
         }
         if req.think == Some(true) {
-            body.insert("reasoning".into(), json!({ "summary": "auto" }));
+            reasoning.insert("summary".into(), json!("auto"));
+        }
+        if !reasoning.is_empty() {
+            body.insert("reasoning".into(), Value::Object(reasoning));
         }
         Ok(HttpRequest::post(format!("{}/codex/responses", self.base()), self.headers()?, Value::Object(body)))
     }

@@ -240,7 +240,9 @@ pub struct ChatRequest {
     pub tools: Option<Vec<ToolSpec>>,
     #[serde(default)]
     pub temperature: Option<f64>,
-    /// The effort setting, for the Claude models that take it instead of a temperature.
+    /// The effort setting, for the providers that take a rung instead of a
+    /// temperature (the newer Claude models, and the ChatGPT subscription
+    /// backend, which never had sampling parameters at all).
     #[serde(default)]
     pub effort: Option<EffortLevel>,
     /// Reasoning toggle: `Some(true)` asks for thinking, `Some(false)`

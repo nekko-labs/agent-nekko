@@ -1,4 +1,5 @@
 import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import { effectiveEffort } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { randomUUID } from 'node:crypto';
 import { parseSSE } from './sse.js';
@@ -190,9 +191,17 @@ export class ChatGptProvider implements Provider {
       stream: true,
       store: false,
     };
-    if (req.temperature !== undefined) body.temperature = req.temperature;
-    if (req.maxOutputTokens) body.max_output_tokens = req.maxOutputTokens;
-    if (req.think === true) body.reasoning = { summary: 'auto' };
+    // The Codex backend accepts only the Codex CLI's request shape: `temperature`
+    // and `max_output_tokens` are not in it and fail the whole request with a
+    // 400 ("Unsupported parameter"), so the effort setting goes out as
+    // `reasoning.effort` instead and this provider sends no output cap.
+    // `normal` means the model's own default, so no rung is sent for it.
+    const reasoning: Record<string, unknown> = {};
+    const effort = effectiveEffort(req.effort, req.model);
+    if (effort === 'low' || effort === 'medium') reasoning.effort = effort;
+    else if (effort !== 'normal') reasoning.effort = 'high';
+    if (req.think === true) reasoning.summary = 'auto';
+    if (Object.keys(reasoning).length) body.reasoning = reasoning;
 
     let res: Response;
     try {
