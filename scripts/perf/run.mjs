@@ -93,6 +93,15 @@ const cleanup = async () => {
 };
 process.on('SIGINT', async () => { await cleanup(); process.exit(130); });
 
+/**
+ * The chats the Command Center's wall should show, set once the data dir is
+ * seeded. The wall remembers itself in localStorage and seeds a fresh profile
+ * with at most a handful of recent chats, so the harness writes every seeded
+ * chat onto it before the page loads and opens them from there.
+ */
+let WALL_IDS = [];
+const wallState = (ids) => JSON.stringify({ cells: ids.map((id) => ({ kind: 'chat', refId: id })), layout: { mode: 'auto' }, autoAdd: false, filter: 'all', colSizes: {}, rowSizes: {}, insights: { show: false, position: 'bottom', panels: {} }, watermark: Date.now() });
+
 /** One browser on the app, with the handful of gestures the scenarios need. */
 async function openApp({ appUrl, cdpPort, vsync }) {
   const browser = await launchBrowser({ port: cdpPort, ...CFG.viewport, vsync, gpu: !flag('no-gpu') });
@@ -106,6 +115,7 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     cdp.on('Runtime.consoleAPICalled', (p) => console.log('[page]', p.args.map((a) => a.value ?? a.description ?? JSON.stringify(a.preview?.properties?.map((x) => `${x.name}=${x.value}`))).join(' ')));
   }
   await cdp.send('Emulation.setDeviceMetricsOverride', { ...CFG.viewport, deviceScaleFactor: 1, mobile: false });
+  await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('nekko.commandGrid', ${JSON.stringify(wallState(WALL_IDS))}); } catch {}` });
   await cdp.send('Page.navigate', { url: appUrl });
 
   const waitFor = async (expr, what, timeoutMs = 30000) => {
@@ -140,12 +150,9 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     await clickEl('nav button[aria-label="Command Center"]', null, 'the Command Center nav');
     const title = chatTitle(i);
     const openSel = `button[title="Open ${title}"]`;
-    await waitFor(`!!document.querySelector('button[title^="Open Perf chat"]')`, 'session cards');
-    if (!(await cdp.call((sel) => !!document.querySelector(sel), openSel))) {
-      await cdp.evaluate(`[...document.querySelectorAll('button')].filter((b) => /^Show all/.test(b.textContent.trim())).forEach((b) => b.click())`);
-      await sleep(200);
-    }
-    await clickEl(openSel, null, `the card for ${title}`);
+    // Each chat is a live window on the wall; its strip's "Open" button takes it to the Agent tab.
+    await waitFor(`!!document.querySelector('button[title^="Open Perf chat"]')`, 'the wall');
+    await clickEl(openSel, null, `the window for ${title}`);
     const ok = await cdp.call((t, m) => window.__perf.waitForChat(t, m, 30000), title, marker);
     if (!ok) {
       const seen = await cdp.call((t) => {
@@ -387,6 +394,7 @@ async function main() {
   cleanups.push(() => mock.close());
 
   const { dir: dataDir, ids } = seedDataDir({ mockPort: CFG.mockPort, chats: CFG.chats });
+  WALL_IDS = ids;
   cleanups.push(() => rmSync(dataDir, { recursive: true, force: true }));
   log(`scratch data dir ${dataDir}`);
 

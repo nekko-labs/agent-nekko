@@ -95,6 +95,71 @@ pub fn claude_context_window(model: &str) -> Option<u64> {
     })
 }
 
+/// `claudeMaxOutputTokens`: the most output tokens one reply from a Claude
+/// model may hold, by family and generation. `max_tokens` is required on every
+/// request, so a chat with no cap of its own is sent the model's own ceiling.
+/// An id that is not Claude's gets a generous middle value; a model that holds
+/// less says so in a 400 (see `output_limit_error`).
+pub fn claude_max_output_tokens(model: &str) -> u64 {
+    let Some(c) = parse_claude_model(model) else { return 32_000 };
+    if matches!(c.family, Family::Fable | Family::Mythos) || c.major >= 5.0 {
+        return 64_000;
+    }
+    match c.family {
+        Family::Haiku => {
+            if c.major >= 4.0 {
+                64_000
+            } else if c.minor >= 5.0 {
+                8_192
+            } else {
+                4_096
+            }
+        }
+        Family::Sonnet => {
+            if c.major >= 4.0 || at_least(&c, 3.0, 7.0) {
+                64_000
+            } else {
+                8_192
+            }
+        }
+        // Opus: 3 held 4k, 4 and 4.1 hold 32k, 4.5 onwards 64k.
+        _ => {
+            if c.major < 4.0 {
+                4_096
+            } else if at_least(&c, 4.0, 5.0) {
+                64_000
+            } else {
+                32_000
+            }
+        }
+    }
+}
+
+/// `outputLimitError`: the ceiling a 400 about `max_tokens` names, as in
+/// "max_tokens: 64000 > 32000, which is the maximum allowed number of output
+/// tokens for claude-opus-4-1". `/max_tokens[^.]*?>\s*(\d[\d,_]*)/i`.
+pub fn output_limit_error(status: u16, body: &str) -> Option<u64> {
+    if status != 400 {
+        return None;
+    }
+    let lower = body.to_lowercase();
+    let start = lower.find("max_tokens")?;
+    let tail = &body[start..];
+    // `[^.]*?>`: the first `>` before the next full stop.
+    let gt = tail.find('>')?;
+    if tail[..gt].contains('.') {
+        return None;
+    }
+    let digits: String = tail[gt + 1..]
+        .trim_start()
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit() || *ch == ',' || *ch == '_')
+        .filter(|ch| ch.is_ascii_digit())
+        .collect();
+    let limit = digits.parse::<u64>().ok()?;
+    (limit > 0).then_some(limit)
+}
+
 /// Steered by `output_config.effort` rather than a temperature.
 pub fn uses_native_effort(model: &str) -> bool {
     match parse_claude_model(model) {
@@ -168,7 +233,12 @@ pub enum SamplingShape {
 /// way and the shape that worked is remembered for the model, process-wide as
 /// in TS (`LEARNED_SHAPE`). Tests use their own memory.
 #[derive(Debug, Default)]
-pub struct SamplingMemory(Mutex<HashMap<String, SamplingShape>>);
+pub struct SamplingMemory {
+    shapes: Mutex<HashMap<String, SamplingShape>>,
+    /// `LEARNED_OUTPUT_LIMIT`: the output ceiling the API reported for a model
+    /// when the table below was too generous.
+    output_limits: Mutex<HashMap<String, u64>>,
+}
 
 impl SamplingMemory {
     pub fn global() -> Arc<SamplingMemory> {
@@ -177,16 +247,35 @@ impl SamplingMemory {
     }
 
     fn get(&self, model: &str) -> Option<SamplingShape> {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).get(&normalize_model_id(model)).copied()
+        self.shapes.lock().unwrap_or_else(|e| e.into_inner()).get(&normalize_model_id(model)).copied()
     }
 
     /// Remember the shape a request actually succeeded with.
     pub fn learn(&self, model: &str, shape: SamplingShape) {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).insert(normalize_model_id(model), shape);
+        self.shapes.lock().unwrap_or_else(|e| e.into_inner()).insert(normalize_model_id(model), shape);
     }
 
     pub fn reset(&self) {
-        self.0.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.shapes.lock().unwrap_or_else(|e| e.into_inner()).clear();
+        self.output_limits.lock().unwrap_or_else(|e| e.into_inner()).clear();
+    }
+
+    /// `learnOutputLimit`: keep the ceiling a 400 named for this model.
+    pub fn learn_output_limit(&self, model: &str, limit: u64) {
+        self.output_limits.lock().unwrap_or_else(|e| e.into_inner()).insert(normalize_model_id(model), limit);
+    }
+
+    /// `outputCapFor`: the `max_tokens` to send. The request's own cap when it
+    /// has one (a sideband call's explicit budget), else the model's ceiling,
+    /// never above what the API has told us.
+    pub fn output_cap_for(&self, model: &str, requested: Option<u64>) -> u64 {
+        let learned =
+            self.output_limits.lock().unwrap_or_else(|e| e.into_inner()).get(&normalize_model_id(model)).copied();
+        let ceiling = learned.unwrap_or_else(|| claude_max_output_tokens(model));
+        match requested {
+            Some(n) if n > 0 => n.min(ceiling),
+            _ => ceiling,
+        }
     }
 
     /// `rejectsSampling`: what we learned, else the version rule, which is
@@ -368,5 +457,39 @@ mod tests {
         assert_eq!(anthropic_effort("claude-opus-4-6", Some(Xhigh)), High);
         assert_eq!(anthropic_effort("claude-opus-4-6", Some(Low)), Low);
         assert_eq!(anthropic_effort("claude-opus-4-6", None), High);
+    }
+
+    #[test]
+    fn reads_the_output_ceiling_off_the_id() {
+        assert_eq!(claude_max_output_tokens("claude-opus-5-5"), 64_000);
+        assert_eq!(claude_max_output_tokens("anthropic/claude-opus-4-1"), 32_000);
+        assert_eq!(claude_max_output_tokens("claude-opus-4-5"), 64_000);
+        assert_eq!(claude_max_output_tokens("claude-sonnet-4-6"), 64_000);
+        assert_eq!(claude_max_output_tokens("claude-sonnet-3-5"), 8_192);
+        assert_eq!(claude_max_output_tokens("claude-haiku-4-5-20251001"), 64_000);
+        assert_eq!(claude_max_output_tokens("claude-fable-5-1"), 64_000);
+        assert_eq!(claude_max_output_tokens("my-proxy-model"), 32_000);
+    }
+
+    #[test]
+    fn learns_a_lower_output_ceiling() {
+        let m = SamplingMemory::default();
+        assert_eq!(m.output_cap_for("claude-opus-5-5", None), 64_000);
+        assert_eq!(m.output_cap_for("claude-opus-5-5", Some(220)), 220);
+        assert_eq!(m.output_cap_for("claude-opus-4-1", Some(100_000)), 32_000);
+        m.learn_output_limit("anthropic/claude-opus-5-5", 16_000);
+        assert_eq!(m.output_cap_for("claude-opus-5-5", None), 16_000);
+        m.reset();
+        assert_eq!(m.output_cap_for("claude-opus-5-5", None), 64_000);
+    }
+
+    #[test]
+    fn reads_the_ceiling_out_of_a_max_tokens_400() {
+        let body = r#"{"error":{"message":"max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens for claude-opus-4-1"}}"#;
+        assert_eq!(output_limit_error(400, body), Some(32_000));
+        assert_eq!(output_limit_error(400, "max_tokens: must be greater than 0"), None);
+        assert_eq!(output_limit_error(429, "max_tokens: 64000 > 32000"), None);
+        assert_eq!(output_limit_error(400, "prompt is too long. max_tokens: 64000 > 32000"), Some(32_000));
+        assert_eq!(output_limit_error(400, "max_tokens is required. 1 > 0"), None);
     }
 }

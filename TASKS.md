@@ -19,7 +19,7 @@ owner:
 ## Stack (decided, do not relitigate)
 
 - **Monorepo**: npm workspaces. **No pnpm** (broken on this machine by a corepack/yarn override up the directory tree).
-- **Desktop**: Electron **43.3.0** (exact-pinned under workspaces) + Vite 7 + React 19 + TypeScript 7 + Tailwind CSS v4 + Zustand 5. `electron-vite` v5 drives the build; `electron-builder` v26 creates installers. These versions reflect the dependency upgrade already present on `main`; keep the lockfile and package manifests aligned and verify packaged main/preload bundling when upgrading again.
+- **Desktop**: Electron **43.7.7** (exact-pinned under workspaces) + Vite 7 + React 19 + TypeScript 7 + Tailwind CSS v4 + Zustand 5. `electron-vite` v5 drives the build; `electron-builder` v26 creates installers. These versions reflect the dependency upgrade already present on `main`; keep the lockfile and package manifests aligned and verify packaged main/preload bundling when upgrading again.
 - **Core engine**: `packages/core`, pure TS, no Electron imports, unit-testable with Vitest.
 - **Host services**: `packages/host` (`@agent-nekko/host`), transport-agnostic Node services + a `createHost()` facade (Phase-2 extraction; see Architecture).
 - **Shared types/IPC contracts**: `packages/shared` (`@agent-nekko/shared`).
@@ -229,7 +229,7 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 > **What v1.0 means**: the polished, installable **OSS product** (Desktop + self-hosted web + Docker), every differentiator and IDE surface working and verified, the two new visual/editing features landed, and clean signed installs + npm publish. **Agent Nekko Cloud (paid)** runs as a *parallel track* (T31/T32/T34) and does **not** gate the OSS v1.0 launch.
 
-**Done toward v1.0**: core engine + agent loop, all providers + local auto-discovery, the differentiators (Context Inspector, guardrails, memory), workbench + terminals + sub-agents + Command Center, spec-driven dev + orchestration + optimize + auto-mode + refined design system, the **IDE-surfaces wave** (file viewer/editor, browser pane, file explorer, diff/approval, hoverable inspector, prompt analyzer, T66), **inline editor comments (T72)** and the **Design board (T73)**, and all distribution editions (desktop release through **v0.7.1** (Windows/Linux; macOS pending notary creds), web/npx, Docker, mobile shells, relay-mediated push).
+**Done toward v1.0**: core engine + agent loop, all providers + local auto-discovery, the differentiators (Context Inspector, guardrails, memory), workbench + terminals + sub-agents + Command Center, spec-driven dev + orchestration + optimize + auto-mode + refined design system, the **IDE-surfaces wave** (file viewer/editor, browser pane, file explorer, diff/approval, hoverable inspector, prompt analyzer, T66), **inline editor comments (T72)** and the **Design board (T73)**, and all distribution editions (desktop release through **v0.8.0** (Windows/Linux/macOS, signed and notarized), web/npx, Docker, mobile shells, relay-mediated push).
 
 **Remaining for v1.0:**
 
@@ -239,6 +239,25 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 - [ ] Cut the **v1.0 release** once the above land (bump versions + tag). *Status 2026-09-30: PR #203 (`chore/release-v0.8.0`) sits open and mergeable as the next version bump, a pure 5-file version change; merging it fires the public release workflow, so it waits on the same credentials below (npm publish cred, remaining Windows signing, macOS notary trio) plus an explicit go. The GUI pass above is the only functional gate left on the list.*
 
 ## Now / In Progress
+
+### CC: Command Center as a live grid, and six fixes (added 2026-10-03)
+
+Philip's 2026-10-03 batch: a Command Center that is a wall of live windows instead of a card board, plus the cloud output cap, worktree names, first-launch size, rail order, composer Tab and the workspaces → agents rename. · [spec](SPEC.md#chat--cowork-unified-surface)
+
+- [x] **CC1, Cloud providers are not capped.** The Settings output cap (default 8,192) was sent to every provider as `max_tokens`, so long cloud replies stopped mid-sentence. The host now passes it only for local kinds (`isLocalProvider`); OpenAI-compatible and Codex requests omit the field, and Anthropic (where it is required) sends the model's own ceiling from `claudeMaxOutputTokens` (64k for Opus 4.5+, Sonnet 3.7+, Haiku 4.5+, Fable/Mythos; 32k for Opus 4/4.1 and unknown ids) and learns a lower one from a `max_tokens: X > Y` 400, retrying once. TS and Rust providers both; goldens re-recorded. Settings label says "local models". · Done: 2026-10-03
+- [x] **CC2, Worktrees named in words.** `chat-worktrees.ts` names a checkout `adjective-colour-animal` (or a slug of a chosen title), unique per repository; the Git management list maps a folder to its chat through `session.gitWorktrees` instead of the folder name (old id-named folders still resolve). · Done: 2026-10-03
+- [x] **CC3, First launch at 70% × 80%.** `initialWindowBounds(workArea)` sizes and centres the window before `BrowserWindow` is created (`show: false` until ready-to-show), so there is no visible resize; saved bounds still win on later launches. · Done: 2026-10-03
+- [x] **CC4, Agent above Command Center** in the rail and the phone tab bar; a saved `navOrder` still wins. · Done: 2026-10-03
+- [x] **CC5, Tab indents list lines in the composer**, Shift+Tab outdents (`composerLists.ts`, two spaces, any `-`/`*`/`+`/`1.`/`1)`/task line; off a list line Tab moves focus as before). · Done: 2026-10-03
+- [x] **CC6, Workspaces are called agents** in the Agent tab's UI strings (sidebar header, create menu, empty state, card close, split compass). Code identifiers unchanged. · Done: 2026-10-03
+- [x] **CC7, The grid.** `commandGrid.ts` (pure, tested: auto shape, tracks, rects, seeding, reconcile, persistence) + `CommandGrid.tsx` (absolute-positioned cells from computed rects, draggable column/row dividers with pointer capture, drag-to-swap, plus cell with new agent / new terminal / already-running lists, `PaneSlots` so the chat's header actions land in the cell strip) + `InsightsBox.tsx` (gear menu, top/bottom, auto-fit panel columns, vitals strip) + `EmptyIllustrations.tsx` (agents / automations / insights line art). `SessionBoard.tsx` removed. State in `localStorage` under `nekko.commandGrid`. · Done: 2026-10-03
+- [ ] **CC8, Follow-ups.** Make the grid state a setting (so phone and web share it); a "fit to window" option for the fixed picker that shrinks cells instead of scrolling; drag a cell out of the grid into the Agent tab; keyboard resizing of dividers.
+- [ ] **CC9, perf harness on CI.** `scripts/perf/run.mjs` now pre-seeds the wall through `localStorage` and opens chats from the cells' "Open" buttons (the wall steps pass locally and on CI). The job still fails on the shared runner, as it did on main before this change: once on the cold-switch budget by 0.1 ms (20.9 vs 20.8 ms) and once on "could not find the sidebar card for Perf chat 11" (the Agent-tab sidebar lookup, 10 s). The full harness passes locally apart from one flaky frames start in a long combined run. Worth a look at the sidebar lookup's wait and the runner budgets.
+
+### Release: notary key pre-flight (added 2026-10-03)
+
+- [x] Fail the macOS release leg in seconds, not after a full signed build, when Apple rejects the App Store Connect key: a read-only `xcrun notarytool history` pre-flight step in `release.yml`, plus a rotation runbook in `docs/signing.md`. Root cause of every failed release since v0.7.1 (2026-09-11): the org-wide `APPLE_API_KEY_ID`/`APPLE_API_KEY_P8` still point at the ASC key revoked on 2026-09-06, so signing succeeded and notarization returned `401 Unauthenticated`. The runner-image keychain failure seen on v0.7.0 cleared itself with image 20260907. Verified locally: the revoked key id reproduces the exact 401, the live key lists submission history. · Done: 2026-10-03
+- [x] Rotate `APPLE_API_KEY_ID` + `APPLE_API_KEY_P8` on the `nekko-labs` org to the live ASC key and re-run Release at `v0.8.0`. Rotated 2026-10-03 13:22Z; the first re-run notarized but could not upload because the release had been published by hand on 2026-10-01 (electron-builder only uploads into a draft), so the release was set back to draft and re-run. v0.8.0 now carries `AgentNekko-0.8.0-arm64.dmg`/`.zip` + `latest-mac.yml`, verified `source=Notarized Developer ID`. Same rotation repairs hypergate and lightwrite. Follow-up for the automation PR: flip an already-published release back to draft before building. · Done: 2026-10-03
 
 ### MA: Native phone app, remote client + on-device models (added 2026-10-03)
 

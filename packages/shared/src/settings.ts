@@ -117,6 +117,7 @@ export function updateChecks(s: AppSettings): Required<UpdateCheckSettings> {
 
 export const DEFAULT_TURN_WRAPPER = `For each user request:
 - On a new chat, use set_chat_title to give it a concise, specific 3-6 word title when that tool is available. Never overwrite a user-chosen title.
+- When the user explicitly asks to mark this session completed, use complete_session if available after finishing the requested work. Never complete a session automatically or report completion unless the action succeeded.
 - For multi-step work, inspect first, then publish concrete, verifiable steps with update_plan when available. Keep the plan current; skip it for simple conversation.
 - State important assumptions, constraints, and blockers. Ask only when the answer materially changes the work.
 - Define how you will verify the result, run relevant checks, and distinguish verified outcomes from untested claims.
@@ -176,7 +177,8 @@ export interface AppSettings {
   /** Sub-agent orchestration strategy + bounds. */
   orchestration?: import('./orchestration.js').OrchestrationSettings;
   /**
-   * Tokens one model response may generate before the server cuts it off.
+   * Tokens one response from a local model server may generate before it is cut
+   * off. Cloud providers are not capped.
    * Undefined = MAX_OUTPUT_TOKENS_DEFAULT. See MAX_OUTPUT_TOKENS_RANGE.
    */
   maxOutputTokens?: number;
@@ -210,6 +212,8 @@ export interface AppSettings {
   engineBinPath?: string;
   /** Experimental feature toggles (Settings → Experimental). Off = surface hidden. */
   experimental?: ExperimentalFlags;
+  /** Desktop developer controls; absent means disabled. */
+  developer?: { serverControls?: boolean };
   /** First-run setup wizard progress (undefined on installs that predate it). */
   onboarding?: OnboardingState;
   /**
@@ -223,7 +227,7 @@ export interface AppSettings {
  * Tokens one model response may generate. Generous enough for a long answer or
  * a big file edit, low enough that a model which collapses into a loop stops on
  * its own within seconds rather than streaming until its context window fills.
- * Sent to every provider as its native output cap.
+ * Sent to local providers as their native output cap; cloud providers run to their own limits.
  */
 export const MAX_OUTPUT_TOKENS_DEFAULT = 8_192;
 

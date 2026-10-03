@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import {
   AnthropicProvider,
+  learnOutputLimit,
+  outputCapFor,
+  outputLimitError,
   firstSamplingShape,
   isSamplingParamError,
   nextSamplingShape,
@@ -336,5 +339,48 @@ describe('nextSamplingShape', () => {
 
   it('has nothing left after neither', () => {
     expect(nextSamplingShape('neither', new Set(['temperature', 'effort', 'neither'] as const))).toBeNull();
+  });
+});
+
+describe('output cap', () => {
+  beforeEach(() => resetLearnedSampling());
+  afterEach(() => vi.restoreAllMocks());
+  const samplingError = (message: string) =>
+    new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message } }), { status: 400 });
+  const drain = async (it: AsyncIterable<unknown>) => { for await (const _ of it) { /* drain */ } };
+
+  it('sends the model ceiling when the request carries no cap, and the smaller of the two when it does', () => {
+    expect(outputCapFor('claude-opus-5-5', undefined)).toBe(64_000);
+    expect(outputCapFor('claude-opus-4-1', undefined)).toBe(32_000);
+    expect(outputCapFor('claude-opus-5-5', 220)).toBe(220);
+    expect(outputCapFor('claude-opus-4-1', 100_000)).toBe(32_000);
+  });
+
+  it('keeps a lower ceiling the API reported', () => {
+    learnOutputLimit('anthropic/claude-opus-5-5', 16_000);
+    expect(outputCapFor('claude-opus-5-5', undefined)).toBe(16_000);
+    resetLearnedSampling();
+    expect(outputCapFor('claude-opus-5-5', undefined)).toBe(64_000);
+  });
+
+  it('reads the ceiling out of a max_tokens 400 and nothing else', () => {
+    expect(outputLimitError(400, '{"error":{"message":"max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens for claude-opus-4-1"}}')).toBe(32_000);
+    expect(outputLimitError(400, 'max_tokens: must be greater than 0')).toBeNull();
+    expect(outputLimitError(429, 'max_tokens: 64000 > 32000')).toBeNull();
+    expect(outputLimitError(400, 'prompt is too long. max_tokens: 64000 > 32000')).toBe(32_000);
+  });
+
+  it('retries once with the reported ceiling and remembers it', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(samplingError('max_tokens: 64000 > 32000, which is the maximum allowed number of output tokens for claude-opus-5'))
+      .mockResolvedValue(sseResponse(DONE_STREAM));
+    const provider = new AnthropicProvider(apiKeyCfg);
+    await drain(provider.chat({ model: 'claude-opus-5', messages: [], system: '' } as never));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string));
+    expect(bodies[0].max_tokens).toBe(64_000);
+    expect(bodies[1].max_tokens).toBe(32_000);
+    expect(outputCapFor('claude-opus-5', undefined)).toBe(32_000);
   });
 });

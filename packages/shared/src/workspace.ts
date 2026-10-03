@@ -22,7 +22,7 @@ export interface ChatWorktreeInfo {
   /** The repository's main checkout, which owns the worktree. */
   sourceRoot: string;
   branch?: string;
-  /** The chat that owns it (the worktree folder is named after it). */
+  /** The chat that owns it, read from the chat's own record of its checkout (older folders were named after the chat's id). */
   sessionId: string;
   /** Undefined when the chat has been deleted. */
   sessionTitle?: string;

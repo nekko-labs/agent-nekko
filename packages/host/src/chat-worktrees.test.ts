@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { AppSettings, Session } from '@agent-nekko/shared';
-import { chatWorkspaces, listChatWorktrees, prepareChatWorktrees, removeChatWorktree, runWorktreeSetup } from './chat-worktrees.js';
+import { chatWorkspaces, listChatWorktrees, prepareChatWorktrees, removeChatWorktree, runWorktreeSetup, slugifyTitle, worktreeName } from './chat-worktrees.js';
 
 let root: string;
 let settings: AppSettings;
@@ -71,15 +71,17 @@ it('lists, removes, and restores chat worktrees without losing work', () => {
   const a = session('s_life');
   expect(prepareChatWorktrees(a, settings)).toHaveLength(1);
   const wt = a.gitWorktrees!.repo.root;
-  const owner = (id: string) => (id === 's_life' ? { title: 'Life', running: false } : null);
+  const branch = a.gitWorktrees!.repo.branch;
+  expect(branch).toMatch(/^nekko\/[a-z]+-[a-z]+-[a-z]+$/);
+  const owner = (root: string) => (root === wt ? { id: 's_life', title: 'Life', running: false } : null);
   let [info] = listChatWorktrees(settings, owner);
-  expect(info).toMatchObject({ sessionId: 's_life', sessionTitle: 'Life', branch: 'nekko/s_life', dirtyCount: 0, unmergedCount: 0 });
+  expect(info).toMatchObject({ sessionId: 's_life', sessionTitle: 'Life', branch, dirtyCount: 0, unmergedCount: 0 });
 
   // Uncommitted work and a running chat both block removal.
   writeFileSync(join(wt, 'file.txt'), 'work in progress\n');
   expect(() => removeChatWorktree(settings, wt, owner)).toThrow(/uncommitted/);
   execFileSync('git', ['commit', '-am', 'Chat work'], { cwd: wt });
-  expect(() => removeChatWorktree(settings, wt, () => ({ title: 'Life', running: true }))).toThrow(/running/);
+  expect(() => removeChatWorktree(settings, wt, () => ({ id: 's_life', title: 'Life', running: true }))).toThrow(/running/);
   [info] = listChatWorktrees(settings, owner);
   expect(info.unmergedCount).toBe(1);
 
@@ -93,7 +95,7 @@ it('lists, removes, and restores chat worktrees without losing work', () => {
   expect(a.gitWorktrees!.repo.notice).toContain('restored from its branch');
 
   // Once merged, the branch goes with the folder.
-  git('merge', '--ff-only', 'nekko/s_life');
+  git('merge', '--ff-only', branch!);
   expect(removeChatWorktree(settings, wt, owner)).toEqual({ branchDeleted: true });
   expect(() => removeChatWorktree(settings, root, owner)).toThrow(/not a chat worktree/);
 });
@@ -104,4 +106,25 @@ it('runs setup commands and reports failures without throwing', async () => {
   expect(out).toContain('setup-ran');
   const bad = await runWorktreeSetup('exit 3', root, () => {});
   expect(bad).toEqual({ ok: false, detail: 'exit code 3' });
+});
+it('names checkouts after a chosen title, else with three words, never colliding', () => {
+  expect(slugifyTitle('Fix the  Login/Bug! (round 2)')).toBe('fix-the-login-bug-round-2');
+  expect(slugifyTitle('x'.repeat(60)).length).toBeLessThanOrEqual(40);
+  const titled = { title: 'Fix login bug', titleAuto: false };
+  expect(worktreeName(titled, () => false)).toBe('fix-login-bug');
+  expect(worktreeName(titled, (n) => n === 'fix-login-bug')).toBe('fix-login-bug-2');
+  // An app-written placeholder title is not a name worth keeping.
+  const auto = { title: 'write me a test for the login flow', titleAuto: true };
+  expect(worktreeName(auto, () => false, () => 0)).toBe('brisk-amber-otter');
+  expect(worktreeName({ title: 'New chat' }, () => false, () => 0.999)).toBe('tidy-cobalt-cat');
+  // A taken draw is redrawn.
+  let draws = 0;
+  const rolling = () => (draws++ < 3 ? 0 : 0.5);
+  expect(worktreeName({ title: 'New chat' }, (n) => n === 'brisk-amber-otter', rolling)).not.toBe('brisk-amber-otter');
+  // Two chats on one repository never share a folder.
+  const a = session('s_one'), b = session('s_two');
+  prepareChatWorktrees(a, settings);
+  prepareChatWorktrees(b, settings);
+  expect(a.gitWorktrees!.repo.root).not.toBe(b.gitWorktrees!.repo.root);
+  expect(a.gitWorktrees!.repo.branch).not.toBe(b.gitWorktrees!.repo.branch);
 });

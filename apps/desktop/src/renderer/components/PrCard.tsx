@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { PrInfo, PrAction, PrDiff, PrChecks } from '@agent-nekko/shared';
 import { parsePrUrl } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
+import { subscribePrPolling } from '../prPolling.js';
 import { BranchIcon, CheckIcon, CloseIcon } from '../icons.js';
 
 /** Summarise a chat's PRs for the sidebar/header badges. */
@@ -47,26 +48,33 @@ function Stars() {
   );
 }
 
-/**
- * A PR surfaced inline in the chat. When the PR is still open it offers the
- * primary actions (approve / decline / review) plus a subtle merge; once merged
- * it turns into a purple, star-dusted "successfully merged" banner.
- */
-export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; sessionId?: string }) {
+/** A historical milestone, never an action surface or a live status card. */
+export function PrCard({ url, info, event = 'created' }: { url: string; info?: PrInfo; event?: 'created' | 'open' | 'closed' | 'merged' }) {
+  const parsed = parsePrUrl(url);
+  const label = info ? info.owner + '/' + info.repo + '#' + info.number : parsed ? parsed.owner + '/' + parsed.repo + '#' + parsed.number : url;
+  const merged = event === 'merged';
+  return (
+    <div className="relative my-2 overflow-hidden rounded-xl border px-4 py-3" data-pr-event={event}
+      style={merged ? { borderColor: 'rgba(168,85,247,0.45)', background: 'linear-gradient(270deg, rgba(147,51,234,0.38), rgba(88,28,135,0.14) 70%, transparent)' } : { borderColor: 'var(--line)', background: 'var(--surface)' }}>
+      {merged && <Stars />}
+      <div className="relative flex flex-wrap items-center gap-x-2 gap-y-1">
+        <a href={url} className="min-w-0 truncate font-mono text-[12px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
+        {info?.title && <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-soft">{info.title}</span>}
+        <span className="ml-auto text-[12px] font-semibold" style={{ color: merged ? 'var(--accent)' : event === 'closed' ? 'var(--danger)' : 'var(--success)' }}>
+          {merged ? 'PR merged' : event === 'closed' ? 'PR closed' : 'PR created'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/** Live actions stay above the composer and disappear when the PR is resolved. */
+export function PrActionCard({ url, info, sessionId, onDismiss }: { url: string; info?: PrInfo; sessionId: string; onDismiss: () => void }) {
   const parsed = parsePrUrl(url);
   const openPrPane = useStore((s) => s.openPrPane);
   const [busy, setBusy] = useState<PrAction | null>(null);
   const [confirm, setConfirm] = useState<PrAction | null>(null);
-
-  const label = info
-    ? `${info.owner}/${info.repo}#${info.number}`
-    : parsed
-      ? `${parsed.owner}/${parsed.repo}#${parsed.number}`
-      : url;
-  const state = info?.state ?? 'open';
-  const merged = state === 'merged';
-  const closed = state === 'closed';
-
+  const label = parsed ? parsed.owner + '/' + parsed.repo + '#' + parsed.number : url;
   const act = async (action: PrAction) => {
     if (confirm !== action) { setConfirm(action); return; }
     setConfirm(null);
@@ -74,131 +82,61 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
     try {
       const res = await window.nekko.prAction(url, action);
       useStore.getState().pushToast(res.ok ? 'success' : 'error', res.message);
-      if (sessionId) await useStore.getState().refreshSessionPrs(sessionId);
+      if (res.pr) {
+        useStore.setState((s) => ({ prsBySession: { ...s.prsBySession, [sessionId]: [...(s.prsBySession[sessionId] ?? []).filter((p) => p.url !== url), res.pr!] } }));
+      }
+      await useStore.getState().refreshSessionPrs(sessionId);
     } catch (e) {
       useStore.getState().pushToast('error', (e as Error).message);
-    } finally {
-      setBusy(null);
-    }
+    } finally { setBusy(null); }
   };
-  const cta = (action: PrAction, fallback: string) => (busy === action ? '…' : confirm === action ? 'Confirm?' : fallback);
-
-  if (merged) {
-    return (
-      <div
-        className="fade-in relative my-2 overflow-hidden rounded-xl border px-4 py-3"
-        style={{ borderColor: 'rgba(168,85,247,0.45)', background: 'linear-gradient(270deg, rgba(147,51,234,0.38) 0%, rgba(88,28,135,0.14) 70%, transparent 100%)' }}
-      >
-        <Stars />
-        <div className="relative flex flex-wrap items-center gap-x-2 gap-y-1">
-          <button className="font-mono text-[12px] font-medium text-violet-100 hover:underline" onClick={() => openExternally(url)} title="Open on GitHub">
-            {label}
-          </button>
-          {info?.title && <span className="min-w-0 flex-1 truncate text-[12.5px] text-violet-50/90">{info.title}</span>}
-          <span className="ml-auto flex items-center gap-1.5 text-[12.5px] font-semibold text-violet-100">
-            Successfully merged <span>🎉</span>
-          </span>
-        </div>
-      </div>
-    );
-  }
-
   const check = info ? CHECK_META[info.checks] : CHECK_META.none;
-  const actionClass = 'inline-flex h-6 items-center rounded-md px-2 text-[11px] font-medium transition-colors enabled:hover:bg-surface disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
+  const actionClass = 'rounded-md px-2 py-1 text-[11px] font-medium hover:bg-surface-2 disabled:opacity-50';
   return (
-    <div className="fade-in relative my-2 overflow-hidden rounded-xl px-4 py-3" style={{ background: 'linear-gradient(270deg, color-mix(in srgb, var(--ink) 5%, transparent), transparent)' }}>
-      {/* Info on the left, actions parked on the right so the card stays slim. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className={`shrink-0 text-[13px] ${closed ? 'text-red-400' : 'text-green-400'}`}>⑂</span>
-            <button className="min-w-0 truncate font-mono text-[12px] font-medium hover:underline" onClick={() => openExternally(url)} title={`${label}${info?.headRefName ? ` · ${info.headRefName} → ${info.baseRefName ?? 'main'}` : ''} · Open on GitHub`}>
-              {info?.headRefName ?? label}
-            </button>
-            <span
-              className="shrink-0 text-[10px] font-medium"
-              style={{ color: closed ? 'var(--ink-faint)' : info?.isDraft ? 'var(--neutral)' : 'var(--success)' }}
-            >
-              {closed ? 'closed' : info?.isDraft ? 'draft' : 'open'}
-            </span>
-            {info && (info.additions > 0 || info.deletions > 0) && (
-              <span className="shrink-0 text-[11px]">
-                <span className="text-green-500">+{info.additions}</span> <span className="text-red-400">-{info.deletions}</span>
-              </span>
-            )}
-            {check.dot && (
-              <span className="shrink-0 text-[11px]" style={{ color: check.color }} title={check.label}>{check.dot} {check.label}</span>
-            )}
-            {info?.reviewDecision === 'APPROVED' && <span className="shrink-0 text-[11px] text-green-400" title="Approved">✓ approved</span>}
-          </div>
-          {info?.title && <div className="truncate pt-1 text-[13px]">{info.title}</div>}
-          {info?.headRefName && (
-            <div className="truncate pt-0.5 font-mono text-[10.5px] text-ink-faint">{label} · → {info.baseRefName ?? 'main'}</div>
-          )}
+    <div className="mb-2 flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2" data-pr-actions={url}>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <a href={url} className="truncate font-mono text-[11px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
+          <span className="text-[10px] text-ink-faint">{info ? info.isDraft ? 'Draft' : 'Open' : 'Status unavailable'}</span>
+          {check.dot && <span className="text-[10px]" style={{ color: check.color }}>{check.dot} {check.label}</span>}
         </div>
-
-        {/* Modern action cluster, right-aligned. */}
-        <div className="ml-auto flex shrink-0 items-center gap-1">
-          {!closed && (
-            <button
-              className={actionClass}
-              style={{ color: 'var(--success)' }}
-              onClick={() => act('approve')}
-              disabled={!!busy}
-              title="Approve this PR (with auto-merge on, this lands it once checks pass)"
-            >
-              {cta('approve', 'Approve')}
+        {info?.title && <p className="truncate text-[12px]">{info.title}</p>}
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          {(['approve', 'close', 'merge'] as const).map((action) => (
+            <button key={action} className={actionClass} disabled={!!busy || !info} onClick={() => void act(action)}
+              title={action === 'close' ? 'Close this PR without merging' : action === 'approve' ? 'Approve this PR' : 'Merge this PR'}>
+              {busy === action ? 'Working…' : confirm === action ? 'Confirm?' : action === 'approve' ? 'Approve' : action === 'close' ? 'Decline' : 'Merge'}
             </button>
-          )}
-          {!closed && (
-            <button
-              className={actionClass}
-              style={{ color: 'color-mix(in srgb, var(--danger) 85%, transparent)' }}
-              onClick={() => act('close')}
-              disabled={!!busy}
-              title="Close this PR without merging"
-            >
-              {cta('close', 'Decline')}
-            </button>
-          )}
-          {closed && (
-            <button
-              className={actionClass}
-              onClick={() => act('reopen')}
-              disabled={!!busy}
-            >
-              {cta('reopen', 'Reopen')}
-            </button>
-          )}
-          <button
-            className={actionClass}
-            onClick={() => openPrPane(url)}
-            title="Review the diff in a side pane"
-          >
-            Review
-          </button>
-          {!closed && (
-            <button
-              className={`${actionClass} text-ink-soft`}
-              onClick={() => act('merge')}
-              disabled={!!busy}
-              title="Merge this PR now (merge commit)"
-            >
-              {cta('merge', 'Merge')}
-            </button>
-          )}
-          <button
-            className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint transition hover:bg-surface hover:text-ink"
-            onClick={() => openExternally(url)}
-            title="Open on GitHub"
-            aria-label="Open on GitHub"
-          >
-            ↗
-          </button>
+          ))}
+          <button className={actionClass} onClick={() => openPrPane(url)}>Review</button>
+          <button className={actionClass} onClick={() => openExternally(url)} aria-label="Open on GitHub">↗</button>
+          {confirm && <button className={actionClass} onClick={() => setConfirm(null)}>Cancel</button>}
         </div>
       </div>
+      <button className="ml-auto grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint hover:bg-surface-2 hover:text-ink"
+        onClick={onDismiss} aria-label={'Hide PR ' + label} title="Hide this PR panel (does not close the PR)"><CloseIcon className="h-3.5 w-3.5" /></button>
     </div>
   );
+}
+
+export function PrActionDock({ sessionId, prs, urls }: { sessionId: string; prs: PrInfo[]; urls: string[] }) {
+  const storageKey = 'nekko.pr-dismissed.' + sessionId;
+  const load = () => {
+    try { const value = JSON.parse(localStorage.getItem(storageKey) ?? '[]'); return new Set<string>(Array.isArray(value) ? value.filter((x) => typeof x === 'string') : []); }
+    catch { return new Set<string>(); }
+  };
+  const [dismissed, setDismissed] = useState(load);
+  useEffect(() => { setDismissed(load()); }, [storageKey]);
+  useEffect(() => subscribePrPolling(sessionId, () => useStore.getState().refreshSessionPrs(sessionId)), [sessionId]);
+  const byUrl = new Map(prs.map((p) => [p.url, p]));
+  const active = [...new Set([...urls, ...prs.map((p) => p.url)])].filter((url) => !dismissed.has(url) && (!byUrl.has(url) || byUrl.get(url)?.state === 'open'));
+  if (!active.length) return null;
+  const dismiss = (url: string) => {
+    const next = new Set(dismissed).add(url);
+    setDismissed(next);
+    try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* memory-only dismissal */ }
+  };
+  return <section aria-label="Pending pull requests" className="max-h-60 overflow-y-auto">{active.map((url) => <PrActionCard key={url} url={url} info={byUrl.get(url)} sessionId={sessionId} onDismiss={() => dismiss(url)} />)}</section>;
 }
 
 /** One line of a unified-diff hunk. */

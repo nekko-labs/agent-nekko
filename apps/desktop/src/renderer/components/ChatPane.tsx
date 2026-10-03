@@ -12,6 +12,7 @@ import { usePaneVisible } from '../paneVisibility.js';
 import { afterPaint } from '../afterPaint.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
+import { indentListSelection } from '../composerLists.js';
 import {
   ActivityGroup, ApprovalBar, AutoQualityMenu, MessageBubble, ModelPicker,
   ReplyStatus, useElementWidth,
@@ -24,6 +25,7 @@ import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console
 import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
+import { describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
@@ -34,7 +36,7 @@ import { ContextWarning } from './ContextWarning.js';
 import { ChatControls } from './ChatControls.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
-import { PrCard, PrBadge } from './PrCard.js';
+import { PrCard, PrBadge, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
@@ -317,9 +319,8 @@ const TranscriptRowView = memo(function TranscriptRowView({
   if (row.kind === 'activity') return <ActivityGroup items={row.items} />;
   if (row.kind === 'compaction') return <CompactionSummary message={row.message} latest={row.latest} />;
   if (row.kind === 'prs') {
-    // PRs mentioned only in tool output (never in assistant text) still get a
-    // card, appended after the transcript.
-    return <>{row.urls.map((u) => <PrCard key={`orphan_${u}`} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}</>;
+    // Historical milestones stay anchored to their original transcript positions.
+    return <>{row.urls.map((u) => <PrCard key={`${row.event}_${u}`} url={u} info={prByUrl.get(u)} event={row.event} />)}</>;
   }
   const persisted = row.message.id !== 'tmp' && row.message.id !== 'live';
   const editable = !readOnly && !streaming && row.message.role === 'user' && persisted;
@@ -336,7 +337,7 @@ const TranscriptRowView = memo(function TranscriptRowView({
         chronological
       />
       {/* A PR card right after the message that first names it. */}
-      {row.prUrls.map((u) => <PrCard key={u} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}
+      {row.prUrls.map((u) => <PrCard key={u} url={u} info={prByUrl.get(u)} event="created" />)}
     </>
   );
 });
@@ -885,7 +886,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
           refreshCtxThrottled();
           break;
         case 'error':
-          useStore.getState().pushToast('error', e.message || 'Something went wrong.');
+          if (e.message !== 'Stopped') {
+            useStore.getState().pushToast('error', describeInterruption(e.message || 'Something went wrong.', false).reason);
+          }
           setErrorNotice(e.message || 'Something went wrong.');
           endTurn();
           break;
@@ -1567,9 +1570,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // latest word; anything newer retires them.
   const lastMsgId = session?.messages[session.messages.length - 1]?.id;
   const liveSuggestions = suggestions && suggestions.forId === lastMsgId ? suggestions : null;
+  const canContinueReply = !!errorNotice && !streaming && hasResumableProgress(session?.messages ?? []);
+  // An interrupted turn needs a recovery action, not model-written follow-ups
+  // that may have been generated before the failure.
+  const suggestedOptions = errorNotice ? [] : liveSuggestions?.options ?? [];
   // The model's single most likely next message, shown as the composer's
   // placeholder while the box is empty; ArrowRight types it in.
-  const ghostSuggestion = !draft && liveSuggestions?.next ? liveSuggestions.next : null;
+  const ghostSuggestion = !draft && !errorNotice && liveSuggestions?.next ? liveSuggestions.next : null;
 
   const onComposerKeyDown = (e: React.KeyboardEvent<MarkdownEditorElement>) => {
     if (e.nativeEvent.isComposing) return;
@@ -1617,6 +1624,18 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
       setDraft(ghostSuggestion);
       requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length));
       return;
+    }
+    // Tab on a list line indents it (Shift+Tab outdents); anywhere else the
+    // key keeps moving focus, as it does in any form.
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const el = e.currentTarget;
+      const edit = indentListSelection(el.value, el.selectionStart, el.selectionEnd, e.shiftKey);
+      if (edit) {
+        e.preventDefault();
+        setDraft(edit.text);
+        requestAnimationFrame(() => el.setSelectionRange(edit.selectionStart, edit.selectionEnd));
+        return;
+      }
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -1784,8 +1803,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // --- The transcript, as windowed rows ---
   const messages = session?.messages;
   const rows = useMemo(
-    () => (messages ? toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls) : []),
-    [messages],
+    () => (messages ? toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls, prs) : []),
+    [messages, prs],
   );
   const prByUrl = useMemo(() => new Map(prs.map((p) => [p.url, p])), [prs]);
   // Handlers handed to rows go through refs, so a row never re-renders because
@@ -1958,9 +1977,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                   // the failure colour. Either way the run is resumable whenever it
                   // left something behind: the steps it finished are on disk, so
                   // Resume carries on rather than starting the work again.
-                  const stopped = errorNotice === 'Stopped';
-                  const canResume = hasResumableProgress(session?.messages ?? []);
-                  const tone = stopped ? 'var(--warning)' : 'var(--danger)';
+                  const canResume = canContinueReply;
+                  const interruption = describeInterruption(errorNotice, canResume);
+                  const tone = interruption.paused ? 'var(--warning)' : 'var(--danger)';
                   return (
                   <div
                     className="fade-in flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[12px]"
@@ -1971,12 +1990,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                     role="alert"
                   >
                     <span className="shrink-0 font-medium" style={{ color: tone }}>
-                      {stopped ? 'Reply stopped' : 'Reply failed'}
+                      {interruption.title}
                     </span>
                     <span className="min-w-0 flex-1 text-ink-soft">
-                      {stopped
-                        ? canResume ? 'The work so far is saved.' : 'Nothing had started yet.'
-                        : errorNotice}
+                      {interruption.detail}
                     </span>
                     {canResume && (
                       <button
@@ -1984,7 +2001,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                         title="Carry on from here, keeping every step already done"
                         onClick={() => void resumeRun()}
                       >
-                        Resume
+                        Continue
                       </button>
                     )}
                     {session?.messages.some((m) => m.role === 'user') && (
@@ -2055,6 +2072,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
           <div className="composer-column mx-auto w-[90%]">
+            <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={messages ? collectSessionPrUrls(messages) : []} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
             {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
               <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>
@@ -2288,12 +2306,21 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               )}
             {/* Model-written follow-ups to the reply above: one click sends it
                 outright, and starting any turn clears them. */}
-            {!imageMode && liveSuggestions && liveSuggestions.options.length > 0 && !streaming && (
+            {!imageMode && (canContinueReply || suggestedOptions.length > 0) && !streaming && (
               <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2.5" role="group" aria-label="Suggested replies">
-                {liveSuggestions.options.map((opt) => (
+                {canContinueReply && (
+                  <button
+                    className={suggestedReplyClassName}
+                    title="Continue this reply, keeping the work already done"
+                    onClick={() => void resumeRun()}
+                  >
+                    Continue
+                  </button>
+                )}
+                {suggestedOptions.map((opt) => (
                   <button
                     key={opt}
-                    className="max-w-full truncate rounded-full border border-line bg-surface px-3 py-1.5 text-left text-[12px] text-ink-soft transition-colors hover:border-accent/50 hover:bg-surface-2 hover:text-ink"
+                    className={suggestedReplyClassName}
                     title={`Send: ${opt}`}
                     onClick={() => { setSuggestions(null); void send(opt); }}
                   >

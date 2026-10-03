@@ -85,7 +85,10 @@ impl AnthropicProvider {
     pub fn chat_request(&self, req: &ChatRequest, shape: SamplingShape) -> HttpRequest {
         let mut body = Map::new();
         body.insert("model".into(), json!(req.model));
-        body.insert("max_tokens".into(), json!(req.max_output_tokens.unwrap_or(4096)));
+        // Required here, so a chat with no cap of its own runs to the model's
+        // ceiling; a 400 naming a lower one is learned in `run` and the
+        // request goes again.
+        body.insert("max_tokens".into(), json!(self.sampling.output_cap_for(&req.model, req.max_output_tokens)));
         body.insert("stream".into(), json!(true));
         match shape {
             SamplingShape::Effort => {
@@ -140,6 +143,15 @@ impl AnthropicProvider {
                 break res;
             }
             let text = sink.text(&mut res).await?;
+            // Our ceiling for this model was too high: the API names the real
+            // one. Keep it and go again with the same shape.
+            if let Some(limit) = crate::claude::output_limit_error(res.status, &text)
+                && limit < self.sampling.output_cap_for(&req.model, req.max_output_tokens)
+            {
+                self.sampling.learn_output_limit(&req.model, limit);
+                tried.pop();
+                continue;
+            }
             let next =
                 crate::claude::sampling_param_error(res.status, &text).and_then(|_| next_sampling_shape(shape, &tried));
             match next {

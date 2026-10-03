@@ -16,7 +16,7 @@ import type {
   SubscriptionLimits,
 } from '@agent-nekko/shared';
 import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
-import { ENGINE_ENDPOINT_CHANNEL, PICK_FOLDER_CHANNEL } from '../engineChannels.js';
+import { ENGINE_ENDPOINT_CHANNEL, PICK_FOLDER_CHANNEL, SERVICE_CONTROL_CHANNEL } from '../engineChannels.js';
 import { createEngineSocket, type Listener } from './engine-socket.js';
 import {
   TITLEBAR_HEIGHT,
@@ -42,7 +42,7 @@ const SHELL_CHANNELS = new Set<string>([
 ]);
 const SHELL_EVENTS = new Set<string>([IpcEvents.updateEvent, IpcEvents.deepLink]);
 
-const engine = createEngineSocket(() => ipcRenderer.invoke(ENGINE_ENDPOINT_CHANNEL));
+const engine = createEngineSocket((operation) => ipcRenderer.invoke(ENGINE_ENDPOINT_CHANNEL, operation));
 
 const inv = (channel: string, ...args: unknown[]): Promise<any> =>
   SHELL_CHANNELS.has(channel) ? ipcRenderer.invoke(channel, ...args) : engine.call(channel, args);
@@ -389,6 +389,7 @@ contextBridge.exposeInMainWorld('nekko', api);
  * desktop shell.
  */
 const chrome: WindowChromeBridge = {
+  serviceControl: (action) => ipcRenderer.invoke(SERVICE_CONTROL_CHANNEL, action),
   platform: process.platform,
   titleBarHeight: TITLEBAR_HEIGHT,
   setTitleBarOverlay: (theme: TitleBarOverlayTheme) => ipcRenderer.send(TITLEBAR_OVERLAY_CHANNEL, theme),
