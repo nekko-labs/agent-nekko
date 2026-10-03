@@ -39,6 +39,7 @@ export function setDecisionRunner(runner: DecisionRunner | null): void {
 }
 import { getSession, saveSession, saveTurnSession, createSession } from './sessions.js';
 import { executeTool } from './tools.js';
+import { AGENT_WATCH_TOOL, agentWatchTool } from './agent-watches.js';
 import { recordUsage } from './usage.js';
 import { recordReply } from './replies.js';
 import * as LimitsService from './limits.js';
@@ -693,7 +694,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     const disabled = new Set(session.disabledTools ?? []);
     if (!allowSpawn) disabled.add('spawn_agent');
     if (!allowBrowserControl || !canAsk) disabled.add('browser');
-    tools = [...BUILTIN_TOOLS, ...mcpToolSpecs()].filter((t) => !disabled.has(t.name));
+    tools = [...BUILTIN_TOOLS, ...mcpToolSpecs(), ...(!session.incognito && !session.trainingRunId ? [AGENT_WATCH_TOOL] : [])].filter((t) => !disabled.has(t.name));
     // update_plan goes to every session: goal runs treat it as the execution
     // contract; ordinary chats publish it to the plan rail so the user sees the
     // plan the agent derived, not a re-listing of their own prompt.
@@ -740,7 +741,9 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
 
   const system = buildSystemPrompt({
     workspaces,
-    systemInstructions: settings.systemInstructions,
+    systemInstructions: [settings.systemInstructions, tools.some((t) => t.name === 'agent_watch')
+      ? 'When work must wait for PR checks or another background task, register agent_watch before ending the turn. State its id and wake condition; do not claim to be watching unless registration succeeded. Use a deadline so waiting cannot silently last forever. On wake, verify current status and re-arm if necessary. Do not register automatic continuations when waiting for a user decision, missing permission, credentials, or visual evidence that requires human action.'
+      : ''].filter(Boolean).join('\n\n'),
     turnWrapper: settings.turnWrapper ?? DEFAULT_TURN_WRAPPER,
     aboutUser: settings.aboutUser,
     checkoutNotice: session.messages.length === 0 ? Object.values(session.gitWorktrees ?? {}).map((w) => w.notice).join('\n') : undefined,
@@ -915,6 +918,19 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
               return Promise.resolve({ toolCallId: call.id, output });
             } catch (e) {
               return Promise.resolve({ toolCallId: call.id, output: `Failed to update the plan: ${(e as Error).message}`, isError: true });
+            }
+          }
+          if (call.name === 'agent_watch') {
+            try {
+              if (session.incognito || session.trainingRunId || session.offline) throw new Error('Durable watches are unavailable in incognito, goal runs, or offline chats');
+              const input = call.input as Record<string, unknown>;
+              if (input.action === 'create' && (mode === 'ask' || settings.sandboxMode === 'ask-everything') && !await requestApproval(call, 'Schedule an automatic continuation of this chat', 'medium')) {
+                throw new Error('Watch registration not approved');
+              }
+              const output = await agentWatchTool(opts.sessionId, input);
+              return { toolCallId: call.id, output };
+            } catch (e) {
+              return { toolCallId: call.id, output: `Agent watch failed: ${(e as Error).message}`, isError: true };
             }
           }
           if (call.name === 'spawn_agent') {

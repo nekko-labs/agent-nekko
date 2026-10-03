@@ -80,7 +80,7 @@ const GH_FIELDS =
   'number,title,state,url,isDraft,mergedAt,additions,deletions,changedFiles,headRefName,baseRefName,reviewDecision,statusCheckRollup,updatedAt';
 
 /** Fetch one PR's live state via gh, falling back to the REST API. */
-async function fetchPrInfo(url: string): Promise<PrInfo | null> {
+export async function fetchPrInfo(url: string): Promise<PrInfo | null> {
   const parsed = parsePrUrl(url);
   if (!parsed) return null;
   const { owner, repo, number } = parsed;
