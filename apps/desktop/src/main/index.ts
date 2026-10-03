@@ -351,7 +351,7 @@ app.whenReady().then(async () => {
     mainDir: __dirname,
   });
   engine.start();
-  registerIpc(engine);
+  registerIpc(engine, dataDir);
   setWindowStateDir(dataDir);
   registerTitleBarOverlaySync();
   // A link that launched the app is already on this process's command line

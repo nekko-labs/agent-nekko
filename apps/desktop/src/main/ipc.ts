@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
 import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import { initUpdater, checkForUpdates, downloadUpdate, quitAndInstall } from './update.js';
 import type { EngineProcess } from './engine-process.js';
+import { setSessionOptionsCompat } from './session-options-compat.js';
 import { ENGINE_ENDPOINT_CHANNEL, PICK_FOLDER_CHANNEL } from '../engineChannels.js';
 
 function broadcast(channel: string, payload: unknown): void {
@@ -14,7 +15,7 @@ function broadcast(channel: string, payload: unknown): void {
  * `preload/index.ts`), so this list is short on purpose: native dialogs, the
  * OS shell, the app's own version, the updater, and where the engine is.
  */
-export function registerIpc(engine: EngineProcess): void {
+export function registerIpc(engine: EngineProcess, dataDir: string): void {
   ipcMain.handle(ENGINE_ENDPOINT_CHANNEL, () => engine.endpoint());
 
   // Native folder picker. The preload adds the chosen path through the engine.
@@ -43,6 +44,12 @@ export function registerIpc(engine: EngineProcess): void {
     platform: process.platform,
     edition: 'desktop' as const,
   }));
+
+  // Session options usually belong to the engine; main only mediates this one
+  // route so it can patch archivedAt for older daemons that ignore that field.
+  ipcMain.handle(IpcChannels.sessionSetOptions, async (_e, sessionId: string, patch: Record<string, unknown>) =>
+    setSessionOptionsCompat(engine, dataDir, sessionId, patch),
+  );
 
   // Auto-update controls (electron-updater).
   initUpdater((u) => broadcast(IpcEvents.updateEvent, u));
