@@ -200,3 +200,54 @@ async fn every_scripted_run_matches_the_ts_loop() {
         }
     }
 }
+
+#[tokio::test]
+async fn default_budget_continues_beyond_one_thousand_steps() {
+    struct Progressing(Mutex<usize>);
+    impl ModelClient for Progressing {
+        type Stream = Script;
+        async fn chat(&self, _req: ChatRequest, cancel: Cancel) -> Result<Script, String> {
+            let mut n = self.0.lock().unwrap();
+            let step = if *n < 1001 {
+                json!({ "call": { "id": format!("c{}", *n), "name": "read_file", "input": { "path": format!("file{}", *n) } } })
+            } else {
+                json!({ "text": "finished" })
+            };
+            *n += 1;
+            Ok(Script { steps: vec![step].into(), cancel, abort_at: None, index: 0 })
+        }
+    }
+    struct ProgressTools;
+    impl ToolRunner for ProgressTools {
+        async fn run(&self, call: &Value) -> Result<Value, String> {
+            Ok(json!({ "toolCallId": call["id"], "output": call["id"] }))
+        }
+    }
+    let mut history = vec![json!({ "id": "u", "role": "user", "content": "go", "createdAt": 0 })];
+    let client = Progressing(Mutex::new(0));
+    let mut last = Value::Null;
+    run_agent(
+        RunOptions {
+            session_id: "s".into(),
+            model: "m".into(),
+            system: "sys".into(),
+            history: &mut history,
+            tools: vec![],
+            max_iterations: nekko_loop::DEFAULT_MAX_STEPS,
+            temperature: None,
+            effort: None,
+            think: None,
+            max_history_turns: None,
+            max_output_tokens: None,
+            resume: false,
+            cancel: Cancel::default(),
+        },
+        &client,
+        &ProgressTools,
+        &mut |e, _| last = e,
+    )
+    .await;
+    assert_eq!(last["stop"], "complete");
+    assert_eq!(last["steps"], 1001);
+    assert_eq!(*client.0.lock().unwrap(), 1002);
+}

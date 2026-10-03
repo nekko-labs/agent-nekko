@@ -1878,6 +1878,87 @@
      "isError": true
     }
    }
+  },
+  {
+   "name": "unlimited default completes tool work",
+   "responses": [
+    [
+     {
+      "call": {
+       "id": "unlimited-1",
+       "name": "read_file",
+       "input": {
+        "path": "one"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "unlimited-2",
+       "name": "read_file",
+       "input": {
+        "path": "two"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "text": "Finished without a step cap."
+     }
+    ]
+   ],
+   "tools": {
+    "unlimited-1": {
+     "output": "one"
+    },
+    "unlimited-2": {
+     "output": "two"
+    }
+   }
+  },
+  {
+   "name": "explicit zero budget is unlimited",
+   "responses": [
+    [
+     {
+      "call": {
+       "id": "unlimited-1",
+       "name": "read_file",
+       "input": {
+        "path": "one"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "unlimited-2",
+       "name": "read_file",
+       "input": {
+        "path": "two"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "text": "Finished without a step cap."
+     }
+    ]
+   ],
+   "tools": {
+    "unlimited-1": {
+     "output": "one"
+    },
+    "unlimited-2": {
+     "output": "two"
+    }
+   },
+   "maxIterations": 0
   }
  ]
 }

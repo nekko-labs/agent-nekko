@@ -110,7 +110,7 @@ pub struct RunOptions<'a> {
     /// The transcript so far; the loop appends its messages to it.
     pub history: &'a mut Vec<Value>,
     pub tools: Vec<Value>,
-    /// Tool-use round trips before the wrap-up pass (`DEFAULT_MAX_STEPS`, 1000).
+    /// Optional internal round-trip budget; 0 (default) means unlimited.
     pub max_iterations: usize,
     pub temperature: Option<f64>,
     pub effort: Option<String>,
@@ -122,7 +122,7 @@ pub struct RunOptions<'a> {
 }
 
 /// `DEFAULT_MAX_STEPS`.
-pub const DEFAULT_MAX_STEPS: usize = 1000;
+pub const DEFAULT_MAX_STEPS: usize = 0;
 
 /// How much of a looping stream is kept (`RUNAWAY_KEEP_CHARS`, UTF-16 units).
 const RUNAWAY_KEEP_CHARS: usize = 4_000;
@@ -342,7 +342,10 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
         let mut loop_reason: Option<String> = None;
         let mut steps: usize = 0;
 
-        for iter in 0..self.opts.max_iterations {
+        for iter in 0.. {
+            if self.opts.max_iterations != 0 && iter >= self.opts.max_iterations {
+                break;
+            }
             if self.opts.cancel.is_cancelled() {
                 self.event("error", json!({ "message": "Aborted" }));
                 return;

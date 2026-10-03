@@ -601,7 +601,7 @@ function RepliesPanel({ usage, sessions }: { usage: UsageSummary | null; session
             <div key={`${s.ts}_${s.sessionId}`} className="flex justify-between gap-3 text-[12px]">
               <span className="min-w-0 truncate text-ink-soft">{titleOf(s.sessionId)}</span>
               <span className="shrink-0 tabular-nums text-ink-faint">
-                {STOP_LABEL[s.stop]} · {s.steps}/{s.maxSteps} steps · <span className="font-mono">{s.modelId}</span>
+                {STOP_LABEL[s.stop]} · {s.steps}/{s.maxSteps === 0 ? 'unlimited' : s.maxSteps} steps · <span className="font-mono">{s.modelId}</span>
               </span>
             </div>
           ))}

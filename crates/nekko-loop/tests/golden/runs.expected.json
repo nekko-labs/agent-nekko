@@ -3552,5 +3552,493 @@
     ]
    }
   ]
+ },
+ {
+  "name": "unlimited default completes tool work",
+  "events": [
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "unlimited-1",
+     "name": "read_file",
+     "input": {
+      "path": "one"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "unlimited-1",
+     "output": "one"
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "unlimited-2",
+     "name": "read_file",
+     "input": {
+      "path": "two"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "unlimited-2",
+     "output": "two"
+    }
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Finished without a step cap."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 2
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "unlimited-1",
+      "name": "read_file",
+      "input": {
+       "path": "one"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "unlimited-1",
+     "output": "one"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "unlimited-2",
+      "name": "read_file",
+      "input": {
+       "path": "two"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "unlimited-2",
+     "output": "two"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Finished without a step cap.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "unlimited-1",
+        "name": "read_file",
+        "input": {
+         "path": "one"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "unlimited-1",
+       "output": "one"
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "unlimited-1",
+        "name": "read_file",
+        "input": {
+         "path": "one"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "unlimited-1",
+       "output": "one"
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "unlimited-2",
+        "name": "read_file",
+        "input": {
+         "path": "two"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "unlimited-2",
+       "output": "two"
+      },
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "name": "explicit zero budget is unlimited",
+  "events": [
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "unlimited-1",
+     "name": "read_file",
+     "input": {
+      "path": "one"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "unlimited-1",
+     "output": "one"
+    }
+   },
+   {
+    "type": "tool_call",
+    "sessionId": "s1",
+    "call": {
+     "id": "unlimited-2",
+     "name": "read_file",
+     "input": {
+      "path": "two"
+     }
+    }
+   },
+   {
+    "type": "tool_result",
+    "sessionId": "s1",
+    "result": {
+     "toolCallId": "unlimited-2",
+     "output": "two"
+    }
+   },
+   {
+    "type": "text",
+    "sessionId": "s1",
+    "delta": "Finished without a step cap."
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 2
+   }
+  ],
+  "history": [
+   {
+    "id": "u0",
+    "role": "user",
+    "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "unlimited-1",
+      "name": "read_file",
+      "input": {
+       "path": "one"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "unlimited-1",
+     "output": "one"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "unlimited-2",
+      "name": "read_file",
+      "input": {
+       "path": "two"
+      }
+     }
+    ],
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "tool",
+    "content": "",
+    "toolResult": {
+     "toolCallId": "unlimited-2",
+     "output": "two"
+    },
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "Finished without a step cap.",
+    "createdAt": 0
+   }
+  ],
+  "requests": [
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "unlimited-1",
+        "name": "read_file",
+        "input": {
+         "path": "one"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "unlimited-1",
+       "output": "one"
+      },
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "unlimited-1",
+        "name": "read_file",
+        "input": {
+         "path": "one"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "unlimited-1",
+       "output": "one"
+      },
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "assistant",
+      "content": "",
+      "toolCalls": [
+       {
+        "id": "unlimited-2",
+        "name": "read_file",
+        "input": {
+         "path": "two"
+        }
+       }
+      ],
+      "createdAt": 0
+     },
+     {
+      "id": "msg_ID",
+      "role": "tool",
+      "content": "",
+      "toolResult": {
+       "toolCallId": "unlimited-2",
+       "output": "two"
+      },
+      "createdAt": 0
+     }
+    ]
+   }
+  ]
  }
 ]
