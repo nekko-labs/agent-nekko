@@ -29,6 +29,27 @@ function stopCommandTree(child: ChildProcess): void {
   }
 }
 
+/** execFile does not forward detached; spawn is needed for Unix group cancellation. */
+function runShell(file: string, args: string[], options: ExecFileOptions & { detached: boolean; encoding: 'utf8' }, callback: (error: Error | null, stdout: string, stderr: string) => void): ChildProcess {
+  if (process.platform === 'win32') return execFile(file, args, options, callback);
+  const child = spawn(file, args, { cwd: options.cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '', stderr = '';
+  let failure: Error | null = null;
+  const collect = (chunk: Buffer, stream: 'stdout' | 'stderr') => {
+    if (failure) return;
+    if (stream === 'stdout') stdout += chunk.toString(); else stderr += chunk.toString();
+    if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > (options.maxBuffer ?? 1024 * 1024)) {
+      failure = new Error('Command output exceeded maxBuffer');
+      stopCommandTree(child);
+    }
+  };
+  child.stdout!.on('data', chunk => collect(chunk, 'stdout'));
+  child.stderr!.on('data', chunk => collect(chunk, 'stderr'));
+  child.on('error', error => { failure = error; });
+  child.on('close', (code, signal) => callback(failure ?? (code === 0 ? null : new Error(`Command failed: ${file}\n${stderr}`)), stdout, stderr));
+  return child;
+}
+
 export interface ToolHostOptions {
   settings: AppSettings;
   /** Resolve relative paths against the first workspace root. */
@@ -249,7 +270,7 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
             // descendants. On Windows taskkill /T does the same for cmd.exe.
             const options: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: process.platform === 'win32', encoding: 'utf8' };
             if (typeof a.command !== 'string') throw new TypeError(`The "command" argument must be of type string. Received ${typeof a.command === 'number' ? `type number (${a.command})` : String(a.command)}`);
-            const child = execFile(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], options, (error: Error | null, stdout: string, stderr: string) => {
+            const child = runShell(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], options, (error: Error | null, stdout: string, stderr: string) => {
               // Keep the previous exec error format (without the explicit shell).
               if (error) error.message = error.message.replace(/^Command failed: .*?\r?\n/, `Command failed: ${a.command}\n`);
               clearTimeout(timer);

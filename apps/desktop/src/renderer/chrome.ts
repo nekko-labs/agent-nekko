@@ -14,6 +14,7 @@
  */
 
 interface WindowChrome {
+  serviceControl: (action: import('../engineChannels.js').ServiceAction) => Promise<import('../engineChannels.js').ServiceStatus>;
   platform: string;
   titleBarHeight: number;
   setTitleBarOverlay: (theme: { color: string; symbolColor: string }) => void;
