@@ -39,6 +39,7 @@ import { ScheduleTaskModal } from './ScheduleTaskModal.js';
 import { PrCard, PrBadge, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
+import { WorktreeChip } from './WorktreeChip.js';
 import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
@@ -549,7 +550,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // Where this chat is working in git: the worktree, the branch, and the PR
   // that branch is going into. The same read the sidebar card makes (the host
   // caches it), so the header and the card never disagree.
-  const git = useGitStatus(session ? `session:${session.id}` : undefined);
+  const git = useGitStatus(session ? `session:${session.id}` : undefined, session?.gitIsolation);
   const headerPrs = git?.pr && !prs.some((p) => p.url === git.pr!.url) ? [git.pr, ...prs] : prs;
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
@@ -1856,16 +1857,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
         <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} metadata={
             git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
-                {git.worktree && (
-                  <span
-                    className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
-                    style={{ background: 'color-mix(in srgb, var(--accent-2) 13%, transparent)', color: 'var(--accent-2)' }}
-                    title={`Linked git worktree: ${git.worktree.path}`}
-                  >
-                    <WorktreeIcon className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{git.worktree.name}</span>
-                  </span>
-                )}
+                {session && <WorktreeChip session={session} git={git} disabled={hasLive} onChange={setSession} />}
                 <span
                   className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
                   style={{ background: 'color-mix(in srgb, var(--accent) 13%, transparent)', color: 'var(--accent)' }}

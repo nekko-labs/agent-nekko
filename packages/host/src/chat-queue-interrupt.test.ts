@@ -39,6 +39,25 @@ const { createDispatcher } = await import('./dispatch.js');
 
 beforeEach(() => { calls = 0; started = undefined; process.env.NEKKO_AGENT_LOOP = 'ts'; });
 
+describe('session options', () => {
+  it('rejects git isolation switches while a chat is running', async () => {
+    const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-options-')) });
+    host.saveProvider({ id: 'p', kind: 'openai-compat', label: 'Test', baseUrl: 'http://localhost:1/v1', enabled: true });
+    const s = host.createSession();
+    host.setSessionOptions(s.id, { providerId: 'p', modelId: 'm' });
+    let ready!: () => void;
+    const entered = new Promise<void>((resolve) => { ready = resolve; });
+    started = ready;
+    const running = host.sendChat({ sessionId: s.id, providerId: 'p', modelId: 'm', text: 'old' });
+    await entered;
+    expect(() => host.setSessionOptions(s.id, { gitIsolation: false })).toThrow(/Git isolation/);
+    expect(() => host.setSessionOptions(s.id, { title: 'Still allowed' })).not.toThrow();
+    host.abortChat(s.id);
+    await running;
+    expect(host.setSessionOptions(s.id, { gitIsolation: false })?.gitIsolation).toBe(false);
+  });
+});
+
 describe('interrupt queued prompt', () => {
   it('rejects invalid indices without stopping the active turn', async () => {
     const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-queue-')) });

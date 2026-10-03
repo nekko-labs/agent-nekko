@@ -25,6 +25,7 @@ const OPTION_KEYS: &[&str] = &[
     "disabledTools",
     "offline",
     "incognito",
+    "gitIsolation",
     "autoModel",
     "autoQuality",
     "autoProviderSwitch",

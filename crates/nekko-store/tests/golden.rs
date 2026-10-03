@@ -95,6 +95,17 @@ fn every_write_leaves_the_file_the_ts_host_would() {
 }
 
 #[test]
+fn set_options_accepts_git_isolation() {
+    let data = std::env::temp_dir().join(format!("nekko-options-{}", std::process::id()));
+    let store = SessionStore::new(&data);
+    let s = store.create(Some("w1")).unwrap();
+    let id = s["id"].as_str().unwrap();
+    let saved = store.set_options(id, &serde_json::json!({ "gitIsolation": false })).unwrap().unwrap();
+    assert_eq!(saved["gitIsolation"], false);
+    std::fs::remove_dir_all(&data).ok();
+}
+
+#[test]
 fn creates_and_deletes_chats_the_way_the_ts_host_does() {
     let data = std::env::temp_dir().join(format!("nekko-create-{}", std::process::id()));
     let store = SessionStore::new(&data);

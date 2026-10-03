@@ -369,7 +369,7 @@ export interface Host {
   specPath(sessionId: string): string | null;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
   ): Session | null;
   truncateSession(id: string, messageId: string): Session | null;
   clearSessions(scope: 'today' | 'month' | 'all'): number;
@@ -852,7 +852,12 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     toggleSpecTask,
     setSpecLinked: sessions.setSpecLinked,
     specPath: specPathForSession,
-    setSessionOptions: sessions.setSessionOptions,
+    setSessionOptions: (id, patch) => {
+      if (Object.prototype.hasOwnProperty.call(patch, 'gitIsolation') && isChatRunning(id)) {
+        throw new Error('Wait for the current reply to finish before changing this chat\'s Git isolation.');
+      }
+      return sessions.setSessionOptions(id, patch);
+    },
     truncateSession: sessions.truncateSession,
     clearSessions: sessions.clearSessions,
     purgeExpiredArchives: () => sessions.purgeExpiredArchives(),

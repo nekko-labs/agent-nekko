@@ -16,7 +16,7 @@ const POLL_MS = 15_000;
  * Returns null while the first read is in flight and for a folder that is not a
  * repository, so a caller can render nothing without special-casing either.
  */
-export function useGitStatus(workspaceId: string | undefined): GitStatus | null {
+export function useGitStatus(workspaceId: string | undefined, checkoutMode?: boolean): GitStatus | null {
   const [status, setStatus] = useState<GitStatus | null>(null);
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export function useGitStatus(workspaceId: string | undefined): GitStatus | null 
     const cancel = afterPaint(read);
     const t = setInterval(read, POLL_MS);
     return () => { live = false; cancel(); clearInterval(t); };
-  }, [workspaceId]);
+  }, [workspaceId, checkoutMode]);
 
   return status;
 }

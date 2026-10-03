@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { Session } from '@agent-nekko/shared';
 import { summarizeSession } from '@agent-nekko/shared';
 import { setDataDir } from './paths.js';
-import { createSession, deleteSession, getSession, listSessionSummaries, saveSession } from './sessions.js';
+import { createSession, deleteSession, getSession, listSessionSummaries, saveSession, setSessionOptions } from './sessions.js';
 
 let dir = '';
 
@@ -77,6 +77,17 @@ describe('listSessionSummaries', () => {
     createSession();
     writeFileSync(join(dir, 'sessions', 'broken.json'), '{ not json');
     expect(await listSessionSummaries()).toHaveLength(1);
+  });
+});
+
+describe('setSessionOptions', () => {
+  it('persists per-session git isolation without dropping saved worktrees', () => {
+    const s = createSession('w1');
+    s.gitWorktrees = { w1: { sourceRoot: '/repo', root: '/wt', path: '/wt', branch: 'nekko/test', notice: 'notice' } };
+    saveSession(s);
+    const saved = setSessionOptions(s.id, { gitIsolation: false });
+    expect(saved?.gitIsolation).toBe(false);
+    expect(saved?.gitWorktrees?.w1.path).toBe('/wt');
   });
 });
 

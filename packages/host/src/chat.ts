@@ -751,7 +751,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       : ''].filter(Boolean).join('\n\n'),
     turnWrapper: settings.turnWrapper ?? DEFAULT_TURN_WRAPPER,
     aboutUser: settings.aboutUser,
-    checkoutNotice: session.messages.length === 0 ? Object.values(session.gitWorktrees ?? {}).map((w) => w.notice).join('\n') : undefined,
+    checkoutNotice: session.gitIsolation === false ? 'This chat uses the project’s current Git branch, including local changes.' : Object.values(session.gitWorktrees ?? {}).map((w) => w.notice).join('\n'),
     contextBlock,
     platform: process.platform,
     canAsk: tools.some((t) => t.name === ASK_USER_TOOL.name),
