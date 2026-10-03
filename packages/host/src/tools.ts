@@ -248,7 +248,10 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
             // A separate process group on Unix lets Stop and timeout kill all
             // descendants. On Windows taskkill /T does the same for cmd.exe.
             const options: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: process.platform === 'win32', encoding: 'utf8' };
+            if (typeof a.command !== 'string') throw new TypeError(`The "command" argument must be of type string. Received ${typeof a.command === 'number' ? `type number (${a.command})` : String(a.command)}`);
             const child = execFile(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], options, (error: Error | null, stdout: string, stderr: string) => {
+              // Keep the previous exec error format (without the explicit shell).
+              if (error) error.message = error.message.replace(/^Command failed: .*?\r?\n/, `Command failed: ${a.command}\n`);
               clearTimeout(timer);
               opts.signal?.removeEventListener('abort', onAbort);
               if (stopped) reject(Object.assign(new Error(`Command ${stopped}.`), { stdout, stderr }));
