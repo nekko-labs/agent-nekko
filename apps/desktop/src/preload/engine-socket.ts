@@ -37,7 +37,7 @@ export interface EngineSocket {
   openTerminal(id: string, handlers: TerminalStreamHandlers): Promise<TerminalStream | null>;
 }
 
-export function createEngineSocket(getEndpoint: () => Promise<EngineEndpoint>): EngineSocket {
+export function createEngineSocket(getEndpoint: (operation?: string) => Promise<EngineEndpoint | null>): EngineSocket {
   const listeners = new Map<string, Set<Listener>>();
   const pending = new Map<number, Pending>();
   let nextId = 1;
@@ -70,7 +70,8 @@ export function createEngineSocket(getEndpoint: () => Promise<EngineEndpoint>): 
 
   const connect = async () => {
     try {
-      endpoint = await getEndpoint();
+      endpoint = await getEndpoint([...pending.values()].map(p => p.channel).join(', ') || 'connection retry');
+      if (!endpoint) throw new Error('Nekko service is stopped. Start it from the tray or developer controls.');
     } catch (e) {
       endpoint = null;
       queued = [];
@@ -132,7 +133,8 @@ export function createEngineSocket(getEndpoint: () => Promise<EngineEndpoint>): 
       listeners.get(channel)?.delete(listener);
     },
     async openTerminal(id, h) {
-      const e = endpoint ?? (await getEndpoint());
+      const e = endpoint ?? (await getEndpoint(`terminal:${id}`));
+      if (!e) return null;
       // Only the daemon streams terminals; without it the caller falls back
       // to the event bus.
       if (e.mode !== 'daemon') return null;

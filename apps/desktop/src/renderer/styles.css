@@ -626,6 +626,17 @@
   color: var(--ink-soft);
 }
 
+.developer-server-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  margin-right: 138px;
+  padding-right: 10px;
+  white-space: nowrap;
+}
+.titlebar-mac .developer-server-controls { margin-right: 10px; }
+
 .titlebar-updater {
   position: relative;
   display: inline-flex;

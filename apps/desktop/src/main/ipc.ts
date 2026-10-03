@@ -1,9 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
-import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
+import { type EngineStatus, IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import { initUpdater, checkForUpdates, downloadUpdate, quitAndInstall } from './update.js';
 import type { EngineProcess } from './engine-process.js';
 import { setSessionOptionsCompat } from './session-options-compat.js';
-import { ENGINE_ENDPOINT_CHANNEL, PICK_FOLDER_CHANNEL } from '../engineChannels.js';
+import { ENGINE_ENDPOINT_CHANNEL, PICK_FOLDER_CHANNEL, SERVICE_CONTROL_CHANNEL, type ServiceAction } from '../engineChannels.js';
 
 function broadcast(channel: string, payload: unknown): void {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send(channel, payload);
@@ -16,7 +16,42 @@ function broadcast(channel: string, payload: unknown): void {
  * OS shell, the app's own version, the updater, and where the engine is.
  */
 export function registerIpc(engine: EngineProcess, dataDir: string): void {
-  ipcMain.handle(ENGINE_ENDPOINT_CHANNEL, () => engine.endpoint());
+  ipcMain.handle(ENGINE_ENDPOINT_CHANNEL, async (event, operation = 'connection retry') => {
+    const requester = `renderer ${event.sender.id} (${event.sender.getURL()})`;
+    if (!engine.running) {
+      console.info(`Nekko service is stopped; requested by ${requester}: ${operation}`);
+      return null;
+    }
+    try { return await engine.endpoint(); }
+    catch (error) {
+      if (engine.running) throw error;
+      console.info(`Nekko service is stopped; requested by ${requester}: ${operation}`);
+      return null;
+    }
+  });
+  let controlling = false;
+  ipcMain.handle(SERVICE_CONTROL_CHANNEL, async (_event, action: ServiceAction) => {
+    if (!['status', 'start', 'stop', 'restart', 'model-start', 'model-stop'].includes(action)) throw new Error('Unknown service action');
+    if (action !== 'status') {
+      if (controlling) throw new Error('A service action is already in progress');
+      controlling = true;
+      try {
+        if (action === 'stop' || action === 'restart') await engine.stop();
+        if (action === 'start' || action === 'restart') { engine.start(); await engine.endpoint(); }
+        if (action === 'model-start' || action === 'model-stop') {
+          if (!engine.running) throw new Error('Start the agent server first');
+          const result = action === 'model-start'
+            ? await engine.call<{ error?: string }>(IpcChannels.runtimeStart, 'nekko-engine')
+            : await engine.call<{ ok: boolean; message?: string }>(IpcChannels.runtimeStop, 'nekko-engine', true);
+          if ('error' in result && result.error) throw new Error(result.error);
+          if ('ok' in result && !result.ok) throw new Error(result.message || 'Could not stop model server');
+        }
+      } finally { controlling = false; }
+    }
+    const model = engine.running ? await engine.call<EngineStatus>(IpcChannels.engineStatus) : null;
+    return { agentRunning: engine.running, modelRunning: model?.running ?? false,
+      modelAvailable: Boolean(model?.install.binPath || model?.diffusionInstall?.binPath || model?.mlxInstall?.binPath) };
+  });
 
   // Native folder picker. The preload adds the chosen path through the engine.
   ipcMain.handle(PICK_FOLDER_CHANNEL, async () => {
