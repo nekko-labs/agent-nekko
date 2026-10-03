@@ -25,6 +25,7 @@ const OPTION_KEYS: &[&str] = &[
     "disabledTools",
     "offline",
     "incognito",
+    "gitIsolation",
     "autoModel",
     "autoQuality",
     "autoProviderSwitch",
@@ -240,14 +241,38 @@ impl SessionStore {
     }
 
     /// `queuePrompt`: a blank prompt changes nothing and is not saved.
-    pub fn queue(&self, id: &str, text: &str) -> Result<Option<Value>, String> {
-        let text = js::trim(text).to_string();
-        self.patch(id, |s| {
-            if text.is_empty() {
-                return false;
+    pub fn queue(&self, id: &str, input: &Value) -> Result<Option<Value>, String> {
+        let item = match input {
+            Value::String(text) => {
+                let text = js::trim(text).to_string();
+                if text.is_empty() { None } else { Some(json!(text)) }
             }
+            Value::Object(obj) => {
+                let text = obj.get("text").and_then(Value::as_str).map(js::trim).unwrap_or_default().to_string();
+                let images: Vec<Value> = obj
+                    .get("images")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter(|v| matches!(v.as_str(), Some(s) if !s.is_empty())).cloned().collect())
+                    .unwrap_or_default();
+                let skill = obj.get("skill").cloned();
+                if text.is_empty() && images.is_empty() && skill.is_none() {
+                    None
+                } else if images.is_empty() && skill.is_none() {
+                    Some(json!(text))
+                } else {
+                    let mut out = serde_json::Map::new();
+                    out.insert("text".into(), json!(text));
+                    if !images.is_empty() { out.insert("images".into(), Value::Array(images)); }
+                    if let Some(skill) = skill { out.insert("skill".into(), skill); }
+                    Some(Value::Object(out))
+                }
+            }
+            _ => None,
+        };
+        self.patch(id, |s| {
+            let Some(item) = item.clone() else { return false };
             let mut q = s.get("queue").and_then(Value::as_array).cloned().unwrap_or_default();
-            q.push(json!(text));
+            q.push(item);
             s.insert("queue".into(), Value::Array(q));
             true
         })

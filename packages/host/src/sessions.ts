@@ -2,8 +2,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, s
 import { readFile, readdir, stat } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { join } from 'path';
-import type { Session, SessionSummary } from '@agent-nekko/shared';
-import { archiveExpired, summarizeSession } from '@agent-nekko/shared';
+import type { QueuePayload, QueuedPrompt, Session, SessionSummary } from '@agent-nekko/shared';
+import { archiveExpired, queueItemsEqual, summarizeSession } from '@agent-nekko/shared';
 import { dataDir, getSettings } from './store.js';
 
 function sessionsDir(): string {
@@ -126,7 +126,7 @@ const USER_FIELDS = ['pinned', 'tags', 'order', 'mode', 'disabledTools', 'offlin
  * changed on disk since: the fields above as they are on disk, and the title
  * when the user has named the chat themselves (`titleAuto === false`).
  */
-export function saveTurnSession(s: Session, queued?: { index: number; text: string }): void {
+export function saveTurnSession(s: Session, queued?: { index: number; item: QueuedPrompt }): void {
   const disk = getSession(s.id);
   if (disk) {
     const target = s as unknown as Record<string, unknown>;
@@ -143,8 +143,9 @@ export function saveTurnSession(s: Session, queued?: { index: number; text: stri
     // message. If the queue changed while startup was awaiting IO, leave it
     // intact rather than removing a different prompt.
     if (queued) {
-      if (disk.queue?.[queued.index] !== queued.text) throw new Error('Queued prompt changed before it could start.');
-      s.queue = disk.queue.filter((_, i) => i !== queued.index);
+      const item = disk.queue?.[queued.index];
+      if (item === undefined || !queueItemsEqual(item, queued.item)) throw new Error('Queued prompt changed before it could start.');
+      s.queue = disk.queue!.filter((_, i) => i !== queued.index);
     }
   } else if (queued) {
     throw new Error('Session not found.');
@@ -270,12 +271,12 @@ export function clearSessions(scope: 'today' | 'month' | 'all'): number {
 }
 
 /** The fields `setSessionOptions` may change (crates/nekko-store/src/write.rs keeps the same list). */
-const OPTION_KEYS = ['title', 'pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'providerId', 'modelId', 'plan', 'chatType', 'imageParams', 'archivedAt'] as const;
+const OPTION_KEYS = ['title', 'pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'gitIsolation', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'providerId', 'modelId', 'plan', 'chatType', 'imageParams', 'archivedAt'] as const;
 
 /** Patch per-chat options (title, pin, mode, disabled tools, offline, incognito, brain, archive). */
 export function setSessionOptions(
   id: string,
-  patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
+  patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
 ): Session | null {
   const s = getSession(id);
   if (!s) return null;
@@ -291,10 +292,15 @@ export function setSessionOptions(
 }
 
 /** Append a prompt to a chat's run-queue (executed when the current turn ends). */
-export function queuePrompt(id: string, text: string): Session | null {
+export function queuePrompt(id: string, input: string | QueuePayload): Session | null {
   const s = getSession(id);
-  if (!s || !text.trim()) return s;
-  s.queue = [...(s.queue ?? []), text.trim()];
+  const payload: QueuePayload = typeof input === 'string' ? { text: input } : input;
+  const text = payload.text.trim();
+  const images = payload.images?.filter(Boolean) ?? [];
+  const skill = payload.skill;
+  if (!s || (!text && images.length === 0 && !skill)) return s;
+  const item: QueuedPrompt = images.length || skill ? { text, ...(images.length ? { images } : {}), ...(skill ? { skill } : {}) } : text;
+  s.queue = [...(s.queue ?? []), item];
   saveSession(s);
   return s;
 }
@@ -318,7 +324,7 @@ export function createSession(workspaceId?: string, parentSessionId?: string, su
     id: `s_${now.toString(36)}_${randomBytes(6).toString('base64url')}`,
     title: parentSessionId ? 'Sub-agent' : 'New chat',
     workspaceId,
-    gitIsolation: parentSessionId ? false : getSettings().gitManagement?.mode !== 'shared',
+    gitIsolation: parentSessionId ? getSession(parentSessionId)?.gitIsolation ?? false : getSettings().gitManagement?.mode !== 'shared',
     gitWorktrees: parentSessionId ? getSession(parentSessionId)?.gitWorktrees : undefined,
     supportingWorkspaceIds: supportingWorkspaceIds?.length ? supportingWorkspaceIds : undefined,
     parentSessionId,

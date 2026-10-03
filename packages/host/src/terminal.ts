@@ -145,7 +145,8 @@ function resolveCwd(workspaceId?: string, cwd?: string, sessionId?: string): str
   if (cwd && existsSync(cwd)) return cwd;
   // A chat's terminals belong in the chat's own checkout, not the shared project.
   if (sessionId) {
-    const worktrees = getSession(sessionId)?.gitWorktrees ?? {};
+    const session = getSession(sessionId);
+    const worktrees = session?.gitIsolation === false ? {} : session?.gitWorktrees ?? {};
     const path = (workspaceId ? worktrees[workspaceId] : undefined)?.path ?? Object.values(worktrees)[0]?.path;
     if (path && existsSync(path)) return path;
   }

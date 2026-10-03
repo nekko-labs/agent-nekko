@@ -70,7 +70,7 @@ export function worktreeName(session: Pick<Session, 'title' | 'titleAuto'>, take
  * so the caller can run each project's setup command in them.
  */
 export function prepareChatWorktrees(session: Session, settings: AppSettings): Array<{ id: string; checkout: Checkout }> {
-  if (!session.gitIsolation || settings.gitManagement?.mode === 'shared') return [];
+  if (!session.gitIsolation) return [];
   session.gitWorktrees ??= {};
   const created = restoreRemovedWorktrees(session);
   for (const id of getSessionWorkspaceIds(session)) {
@@ -116,7 +116,7 @@ export function prepareChatWorktrees(session: Session, settings: AppSettings): A
     const base = dirty
       ? settings.gitManagement?.baseline === 'local-changes'
         ? 'This chat uses an isolated worktree with tracked local edits copied in. Untracked files were not copied.'
-        : 'This chat starts in an isolated worktree from committed HEAD. Existing local changes are not included. Interrupt if you want this chat based on those local changes instead; change Git management settings before starting a new chat.'
+        : 'This chat starts in an isolated worktree from committed HEAD. Existing local changes are not included.'
       : 'This chat uses an isolated Git worktree from committed HEAD.';
     const checkout: Checkout = {
       sourceRoot: root, root: target, path: join(target, relative(root, folder.path)), branch,
@@ -226,7 +226,7 @@ export function chatWorkspaces(session: Session | null, settings: AppSettings): 
   if (!session) return settings.workspaces;
   return getSessionWorkspaceIds(session).flatMap((id) => {
     const folder = settings.workspaces.find((w) => w.id === id);
-    return folder ? [{ ...folder, path: session.gitWorktrees?.[id]?.path ?? folder.path }] : [];
+    return folder ? [{ ...folder, path: session.gitIsolation === false ? folder.path : session.gitWorktrees?.[id]?.path ?? folder.path }] : [];
   });
 }
 

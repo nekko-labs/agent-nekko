@@ -1,10 +1,12 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, mkdirSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { setDataDir } from './paths.js';
+import { saveSettings } from './store.js';
+import { saveSession } from './sessions.js';
 import { appendAgentTerminal, createTerminal, finishAgentTerminal, listTerminals, terminalSnapshot, useTerminalDaemon, writeTerminal } from './terminal.js';
 
 /**
@@ -57,6 +59,19 @@ describe('terminals under the engine daemon', () => {
     const t = await createTerminal({ cols: 90 });
     expect(t.id).toBe('term_daemon_1');
     expect(calls[0]).toMatchObject({ channel: 'terminal:create', args: [{ cols: 90 }], auth: `Bearer ${TOKEN}` });
+  });
+
+  it('resolves chat terminals to shared folders when git isolation is off', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'nekko-term-cwd-'));
+    const repo = join(dir, 'repo');
+    const wt = join(dir, 'wt');
+    mkdirSync(repo);
+    mkdirSync(wt);
+    saveSettings({ workspaces: [{ id: 'repo', name: 'Repo', path: repo }] });
+    saveSession({ id: 's_terminal_shared', title: 'Shared', workspaceId: 'repo', gitIsolation: false, gitWorktrees: { repo: { sourceRoot: repo, root: wt, path: wt, branch: 'nekko/test', notice: '' } }, messages: [], createdAt: 1, updatedAt: 1 });
+    useTerminalDaemon({ url: await fakeDaemon(), token: TOKEN });
+    await createTerminal({ sessionId: 's_terminal_shared', workspaceId: 'repo' });
+    expect(calls[0]).toMatchObject({ channel: 'terminal:create', args: [{ workspaceId: 'repo', cwd: repo }] });
   });
 
   it('lists the daemon ptys beside its own agent logs', async () => {

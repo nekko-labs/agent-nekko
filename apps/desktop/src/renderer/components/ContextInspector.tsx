@@ -87,7 +87,7 @@ export const ContextInspector = memo(function ContextInspector({ sessionId: show
   const splitRef = useRef<HTMLDivElement>(null);
 
   const session = sessions.find((s) => s.id === sessionId) ?? null;
-  const workspaces = (settings?.workspaces ?? []).map((w) => ({ ...w, path: session?.gitWorktrees?.[w.id]?.path ?? w.path }));
+  const workspaces = (settings?.workspaces ?? []).map((w) => ({ ...w, path: session?.gitIsolation === false ? w.path : session?.gitWorktrees?.[w.id]?.path ?? w.path }));
   const attached = session?.attachedPaths ?? [];
   // The skill armed in this chat's composer (renderer-only until sent), so we can
   // show it in the window and count its tokens live.

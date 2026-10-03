@@ -341,7 +341,7 @@ async fn session_op(store: Arc<nekko_store::SessionStore>, channel: &str, args: 
             "session:setAttachments" => or_null(store.set_attachments(id, arg(&args, 1))),
             "session:truncate" => or_null(store.truncate(id, arg(&args, 1))),
             "spec:setLinked" => or_null(store.set_spec_linked(id, arg(&args, 1))),
-            "chat:queue" => or_null(store.queue(id, str_arg(&args, 1).unwrap_or_default())),
+            "chat:queue" => or_null(store.queue(id, arg(&args, 1))),
             "chat:dequeue" => or_null(store.dequeue(id, arg(&args, 1))),
             other => Err(format!("{other} is not a session channel")),
         }
