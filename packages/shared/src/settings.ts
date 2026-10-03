@@ -176,11 +176,6 @@ export interface AppSettings {
   /** Sub-agent orchestration strategy + bounds. */
   orchestration?: import('./orchestration.js').OrchestrationSettings;
   /**
-   * Legacy tool-step setting, retained for settings-file compatibility only.
-   * Ignored: all prompts run without a tool-step cap.
-   */
-  maxSteps?: number;
-  /**
    * Tokens one model response may generate before the server cuts it off.
    * Undefined = MAX_OUTPUT_TOKENS_DEFAULT. See MAX_OUTPUT_TOKENS_RANGE.
    */
@@ -224,19 +219,6 @@ export interface AppSettings {
   messaging?: import('./messaging.js').MessagingSettings;
 }
 
-/** Prompts have no tool-step cap. Zero is the wire-safe unlimited sentinel.
- * Keep in sync with `crates/nekko-loop/src/run.rs`. */
-export const DEFAULT_MAX_STEPS = 0;
-
-/** Bounds for the per-reply tool-step budget (Settings → Agent loop). */
-export const MAX_STEPS_RANGE = { min: 5, max: 5000 } as const;
-
-/** Clamp a user-entered step budget into MAX_STEPS_RANGE (undefined = default). */
-export function clampMaxSteps(n: number | undefined): number | undefined {
-  if (n == null || !Number.isFinite(n)) return undefined;
-  return Math.min(MAX_STEPS_RANGE.max, Math.max(MAX_STEPS_RANGE.min, Math.round(n)));
-}
-
 /**
  * Tokens one model response may generate. Generous enough for a long answer or
  * a big file edit, low enough that a model which collapses into a loop stops on
@@ -267,8 +249,10 @@ export interface UsageRecord {
 }
 
 /**
- * How one reply ended, appended to a JSONL log so the step budget and the loop
- * detector can be tuned from real runs. Counts only: never message or tool text.
+ * How one reply ended, appended to a JSONL log so the loop detector can be
+ * tuned from real runs. Counts only: never message or tool text. Replies have
+ * no tool-step limit; records written by older builds may still carry a
+ * `maxSteps` field and a `step_limit` stop, which are read and ignored.
  */
 export interface ReplyRecord {
   ts: number;
@@ -278,25 +262,27 @@ export interface ReplyRecord {
   /** Tool round trips the reply took. */
   steps: number;
   stop: import('./chat.js').ReplyStop;
-  /** The step budget in force for this reply; 0 means unlimited. */
-  maxSteps: number;
 }
 
 /** What the reply log says about how replies end. */
 export interface ReplyStats {
   total: number;
-  /** Replies per way of ending. */
-  byStop: Record<import('./chat.js').ReplyStop, number>;
+  /**
+   * Replies per way of ending. `other` counts endings this build no longer
+   * produces (records from older builds).
+   */
+  byStop: Record<import('./chat.js').ReplyStop | 'other', number>;
   /** Step percentiles over all replies that used at least one tool. */
   p50Steps: number;
   p90Steps: number;
-  maxSteps: number;
-  /** The latest replies that hit the budget or the loop detector, newest first. */
-  recentStops: Array<{ ts: number; sessionId: string; modelId: string; steps: number; stop: import('./chat.js').ReplyStop; maxSteps: number }>;
+  /** The most tool steps any one reply took. */
+  mostSteps: number;
+  /** The latest replies the loop detector stopped, newest first. */
+  recentStops: Array<{ ts: number; sessionId: string; modelId: string; steps: number; stop: import('./chat.js').ReplyStop }>;
 }
 
 export interface UsageSummary {
-  /** Reply endings (step budget / loop detector observation). Absent with no log. */
+  /** Reply endings (loop detector observation). Absent with no log. */
   replies?: ReplyStats;
   totalInput: number;
   totalOutput: number;

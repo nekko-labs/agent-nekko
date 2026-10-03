@@ -1445,50 +1445,6 @@
    ]
   },
   {
-   "name": "step limit wrap-up",
-   "maxIterations": 2,
-   "responses": [
-    [
-     {
-      "call": {
-       "id": "c1",
-       "name": "read_file",
-       "input": {
-        "path": "src/app.ts"
-       }
-      }
-     }
-    ],
-    [
-     {
-      "call": {
-       "id": "c2",
-       "name": "read_file",
-       "input": {
-        "path": "src/app.ts"
-       }
-      }
-     }
-    ],
-    [
-     {
-      "reasoning": "wrapping"
-     },
-     {
-      "text": "Here is what I did."
-     }
-    ]
-   ],
-   "tools": {
-    "c1": {
-     "output": "one"
-    },
-    "c2": {
-     "output": "two"
-    }
-   }
-  },
-  {
    "name": "resume after a cut-off reply",
    "resume": true,
    "history": [
@@ -1880,7 +1836,7 @@
    }
   },
   {
-   "name": "unlimited default completes tool work",
+   "name": "tool rounds run until the model answers",
    "responses": [
     [
      {
@@ -1918,47 +1874,6 @@
      "output": "two"
     }
    }
-  },
-  {
-   "name": "explicit zero budget is unlimited",
-   "responses": [
-    [
-     {
-      "call": {
-       "id": "unlimited-1",
-       "name": "read_file",
-       "input": {
-        "path": "one"
-       }
-      }
-     }
-    ],
-    [
-     {
-      "call": {
-       "id": "unlimited-2",
-       "name": "read_file",
-       "input": {
-        "path": "two"
-       }
-      }
-     }
-    ],
-    [
-     {
-      "text": "Finished without a step cap."
-     }
-    ]
-   ],
-   "tools": {
-    "unlimited-1": {
-     "output": "one"
-    },
-    "unlimited-2": {
-     "output": "two"
-    }
-   },
-   "maxIterations": 0
   }
  ]
 }

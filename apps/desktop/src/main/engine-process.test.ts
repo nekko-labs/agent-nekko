@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -33,6 +33,34 @@ describe('finding the engine daemon', () => {
     writeFileSync(join(bin, exe), '');
     expect(findDaemon(app({ isPackaged: true, resourcesPath: res }))).toBe(join(bin, exe));
     rmSync(res, { recursive: true, force: true });
+  });
+
+  it('picks the newer of the release and debug builds in a development checkout', () => {
+    delete process.env.NEKKOD_PATH;
+    const root = mkdtempSync(join(tmpdir(), 'nekkod-dev-'));
+    const exe = process.platform === 'win32' ? 'nekkod.exe' : 'nekkod';
+    const appPath = join(root, 'apps', 'desktop');
+    const release = join(root, 'target', 'release', exe);
+    const debug = join(root, 'target', 'debug', exe);
+    for (const p of [appPath, join(root, 'target', 'release'), join(root, 'target', 'debug')]) mkdirSync(p, { recursive: true });
+    writeFileSync(release, '');
+    writeFileSync(debug, '');
+    const older = new Date('2026-10-02T00:00:00Z');
+    const newer = new Date('2026-10-03T00:00:00Z');
+
+    // A stale release build must not shadow a fresh debug build.
+    utimesSync(release, older, older);
+    utimesSync(debug, newer, newer);
+    expect(findDaemon(app({ appPath }))).toBe(debug);
+
+    utimesSync(release, newer, newer);
+    utimesSync(debug, older, older);
+    expect(findDaemon(app({ appPath }))).toBe(release);
+
+    // Only one build present: that one.
+    rmSync(release);
+    expect(findDaemon(app({ appPath }))).toBe(debug);
+    rmSync(root, { recursive: true, force: true });
   });
 
   it('reports none rather than guessing, so the app falls back to the TS backend', () => {

@@ -38,7 +38,6 @@ async fn main() {
             system: "You are a helpful assistant. Use tools when they help.".into(),
             history: &mut history,
             tools: vec![json!({ "name": "clock", "description": "The current time, as ISO 8601.", "parameters": { "type": "object", "properties": {} } })],
-            max_iterations: 4,
             temperature: Some(0.0),
             effort: None,
             think: Some(false),

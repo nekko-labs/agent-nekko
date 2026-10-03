@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 
@@ -41,19 +41,33 @@ const DAEMON_READY = 'NEKKOD_READY ';
 const BACKEND_READY = 'NEKKO_BACKEND_READY ';
 const MAX_BACKOFF_MS = 5000;
 
-/** The daemon binary: packaged resources, an explicit override, or a local cargo build. */
+/**
+ * The daemon binary: packaged resources, an explicit override, or a local cargo
+ * build. In a development checkout the newer of the release and debug builds
+ * wins: always preferring release once ran a days-old release daemon against a
+ * fresh host, and the two disagreed about what the host was asking for.
+ */
 export function findDaemon(opts: Pick<EngineOptions, 'app'>): string | null {
   const exe = process.platform === 'win32' ? 'nekkod.exe' : 'nekkod';
   const override = process.env.NEKKOD_PATH;
-  const candidates = override
-    ? [override]
-    : opts.app.isPackaged
-      ? [join(opts.app.resourcesPath ?? process.resourcesPath, 'bin', exe)]
-      : [
-          resolve(opts.app.appPath, '../../target/release', exe),
-          resolve(opts.app.appPath, '../../target/debug', exe),
-        ];
-  return candidates.find((p) => existsSync(p)) ?? null;
+  if (override) return existsSync(override) ? override : null;
+  if (opts.app.isPackaged) {
+    const bin = join(opts.app.resourcesPath ?? process.resourcesPath, 'bin', exe);
+    return existsSync(bin) ? bin : null;
+  }
+  const builds = [
+    resolve(opts.app.appPath, '../../target/release', exe),
+    resolve(opts.app.appPath, '../../target/debug', exe),
+  ].flatMap((p) => {
+    try {
+      return [{ p, mtime: statSync(p).mtimeMs }];
+    } catch {
+      return [];
+    }
+  });
+  // Newest first; on a tie, release (listed first) stays ahead.
+  builds.sort((a, b) => b.mtime - a.mtime);
+  return builds[0]?.p ?? null;
 }
 
 export class EngineProcess {

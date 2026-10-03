@@ -1,5 +1,4 @@
 import type { AgentEvent, ChatMessage, EffortLevel, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { DEFAULT_MAX_STEPS } from '@agent-nekko/shared';
 import type { Provider, ToolSpec } from '../providers/types.js';
 import { BUILTIN_TOOLS } from './tools.js';
 import { RUNAWAY_NOTE, createRunawayGuard } from './runaway.js';
@@ -17,8 +16,6 @@ export interface RunAgentOptions {
   /** Executes a tool call in the host and returns its result. */
   executeTool: (call: ToolCall) => Promise<ToolResult>;
   signal?: AbortSignal;
-  /** Optional internal round-trip budget; 0 (default) means unlimited. Prompts do not set a budget. */
-  maxIterations?: number;
   /** Sampling temperature (from the effort setting). */
   temperature?: number;
   /** The effort setting itself, for models that take it instead of a temperature. */
@@ -119,15 +116,8 @@ function isEmptyTurn(t: Turn): boolean {
   return !t.text.trim() && !t.reasoning.trim() && t.calls.length === 0;
 }
 
-/** Nudge for the wrap-up pass once the step budget is spent. */
-const WRAP_UP_PROMPT =
-  'You have reached this reply\'s tool-step limit, so no further tool calls are possible. ' +
-  'Answer now with what you already know: what you did, what you found, and the concrete next steps you would take. ' +
-  'Do not ask to run more tools.';
-
 export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEvent> {
   const tools = opts.tools ?? BUILTIN_TOOLS;
-  const maxIterations = opts.maxIterations ?? DEFAULT_MAX_STEPS;
 
   // Stream one provider response, yielding its events and accumulating the
   // result into `turn`. `extraMessages` are appended to the sent history only
@@ -266,16 +256,17 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   };
 
   // Loop detection (progress.ts): the first trip nudges the model to change
-  // course, the second ends the reply early through the same wrap-up pass the
-  // step budget uses.
+  // course, the second ends the reply early through a wrap-up pass. There is no
+  // tool-step limit: the loop runs until the model stops calling tools, a
+  // safeguard trips, a stream fails, or the user stops it.
   const loops = createLoopDetector();
   let loopExtra: ChatMessage[] = [];
   let nudged = false;
-  let loopReason: string | undefined;
+  let loopReason = '';
   /** Tool round trips actually taken this reply (reported on `done`). */
   let steps = 0;
 
-  for (let iter = 0; maxIterations === 0 || iter < maxIterations; iter++) {
+  for (let iter = 0; ; iter++) {
     if (opts.signal?.aborted) {
       yield { type: 'error', sessionId: opts.sessionId, message: 'Aborted' };
       return;
@@ -327,7 +318,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     opts.history.push(assistantMsg);
 
     // A looping model does not recover by being asked again, so end the reply
-    // here instead of spending the rest of the step budget on the same cycle.
+    // here instead of spending more rounds on the same cycle.
     if (turn.runaway) {
       yield { type: 'done', sessionId: opts.sessionId, messageId: assistantMsg.id, stop: 'runaway', steps };
       return;
@@ -371,7 +362,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     }
   }
 
-  // Budget spent, or the loop detector tripped twice. Instead of discarding
+  // The loop detector tripped twice. Instead of discarding
   // everything the model just did (which is what surfacing an error here used
   // to do), take one last pass with the tools withheld so the work comes back
   // as a real answer the user can act on.
@@ -383,7 +374,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   try {
     yield* stream(
       wrapUp,
-      [{ id: id('nudge'), role: 'user', content: loopReason ? LOOP_WRAP_UP_PROMPT : WRAP_UP_PROMPT, createdAt: Date.now() }],
+      [{ id: id('nudge'), role: 'user', content: LOOP_WRAP_UP_PROMPT, createdAt: Date.now() }],
       [],
     );
   } catch (e) {
@@ -391,11 +382,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     return;
   }
 
-  const note = wrapUp.runaway
-    ? RUNAWAY_NOTE
-    : loopReason
-      ? loopNote(loopReason)
-      : `_Stopped at this reply's ${maxIterations}-step tool limit. Ask me to continue and I'll pick up from here (or raise the limit in Settings → Agent loop)._`;
+  const note = wrapUp.runaway ? RUNAWAY_NOTE : loopNote(loopReason);
   const wrapText = (wrapUp.runaway ? trimRunaway(wrapUp.text) : wrapUp.text).trim();
   const wrapMsg: ChatMessage = {
     id: id('msg'),
@@ -411,5 +398,5 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   };
   if (wrapUp.phase) wrapMsg.phase = wrapUp.phase;
   opts.history.push(wrapMsg);
-  yield { type: 'done', sessionId: opts.sessionId, messageId: wrapMsg.id, stop: loopReason ? 'loop' : 'step_limit', steps };
+  yield { type: 'done', sessionId: opts.sessionId, messageId: wrapMsg.id, stop: 'loop', steps };
 }

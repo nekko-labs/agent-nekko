@@ -17,7 +17,5 @@ pub mod runaway;
 pub use history::{as_seen_by_chat_model, window_history};
 pub use progress::LoopDetector;
 pub use resume::{INTERRUPTED_NOTE, INTERRUPTED_TOOL_OUTPUT, RESUME_PROMPT, repair_interrupted_history};
-pub use run::{
-    Cancel, ChatRequest, Chunk, ChunkStream, DEFAULT_MAX_STEPS, ModelClient, RunOptions, ToolRunner, run_agent,
-};
+pub use run::{Cancel, ChatRequest, Chunk, ChunkStream, ModelClient, RunOptions, ToolRunner, run_agent};
 pub use runaway::{RUNAWAY_NOTE, RunawayGuard, RunawayOptions};

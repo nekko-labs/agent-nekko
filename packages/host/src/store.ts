@@ -51,6 +51,9 @@ export function getSettings(): AppSettings {
       if (!Array.isArray(settings.prompts)) settings.prompts = DEFAULT_PROMPTS;
       if (!Array.isArray(settings.favoriteModels)) settings.favoriteModels = [];
       if (!Array.isArray(settings.mcpServers)) settings.mcpServers = [];
+      // Replies no longer have a tool-step limit; drop the old setting so the
+      // next save stops carrying it.
+      delete (settings as { maxSteps?: unknown }).maxSteps;
       // Migrate users off a prior default accent (e.g. the old orange) so the
       // refreshed color applies unless they picked their own.
       if (settings.accent && LEGACY_ACCENTS.includes(settings.accent.toLowerCase())) {

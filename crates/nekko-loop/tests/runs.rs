@@ -174,10 +174,6 @@ async fn every_scripted_run_matches_the_ts_loop() {
                 system: "SYSTEM".into(),
                 history: &mut history,
                 tools: runs["tools"].as_array().unwrap().clone(),
-                max_iterations: s
-                    .get("maxIterations")
-                    .and_then(Value::as_u64)
-                    .map_or(nekko_loop::DEFAULT_MAX_STEPS, |n| n as usize),
                 temperature: None,
                 effort: None,
                 think: None,
@@ -202,7 +198,7 @@ async fn every_scripted_run_matches_the_ts_loop() {
 }
 
 #[tokio::test]
-async fn default_budget_continues_beyond_one_thousand_steps() {
+async fn a_progressing_run_has_no_step_limit() {
     struct Progressing(Mutex<usize>);
     impl ModelClient for Progressing {
         type Stream = Script;
@@ -233,7 +229,6 @@ async fn default_budget_continues_beyond_one_thousand_steps() {
             system: "sys".into(),
             history: &mut history,
             tools: vec![],
-            max_iterations: nekko_loop::DEFAULT_MAX_STEPS,
             temperature: None,
             effort: None,
             think: None,

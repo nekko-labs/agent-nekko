@@ -19,7 +19,6 @@ interface Scenario {
   responses: Step[][];
   tools?: Record<string, { output?: string; isError?: boolean; throw?: string }>;
   history?: ChatMessage[];
-  maxIterations?: number;
   maxHistoryTurns?: number;
   resume?: boolean;
   abortBefore?: boolean;
@@ -78,7 +77,6 @@ async function play(s: Scenario, defaults: { defaultHistory: ChatMessage[]; tool
       return { toolCallId: c.id, output: t.output ?? '', ...(t.isError ? { isError: true } : {}) };
     },
     signal: controller.signal,
-    maxIterations: s.maxIterations,
     maxHistoryTurns: s.maxHistoryTurns,
     resume: s.resume,
   })) events.push(e);

@@ -47,6 +47,20 @@ export async function daemonOwns(call: Call, channel: string): Promise<boolean> 
   return (await owned).includes(channel);
 }
 
+/**
+ * What a daemon advertises (in `daemon:info` `owned`) when its `loop:run`
+ * has no tool-step limit. Daemons built before the limit was removed read the
+ * budget a host sends (or leaves out) as a real cap, which once turned
+ * "unlimited" into "zero steps"; a daemon that does not advertise this never
+ * gets a run, and the turn runs in this process instead.
+ */
+export const UNBOUNDED_LOOP = 'loop:unbounded';
+
+/** Whether the daemon can drive a chat turn: it serves `loop:run` with no step limit. */
+export async function daemonRunsLoops(call: Call): Promise<boolean> {
+  return (await daemonOwns(call, 'loop:run')) && (await daemonOwns(call, UNBOUNDED_LOOP));
+}
+
 /** `loop:tool`: run one tool call of a daemon-driven run. */
 export async function loopTool(runId: string, call: ToolCall): Promise<ToolResult> {
   const run = runs.get(runId);
@@ -101,7 +115,6 @@ export interface DaemonRunOptions {
   /** What the daemon needs to run the built-in tools in `native` itself; left out, every tool runs here. */
   toolContext?: DaemonToolContext;
   signal?: AbortSignal;
-  maxIterations?: number;
   temperature?: number;
   effort?: EffortLevel;
   think?: boolean;
@@ -153,7 +166,6 @@ export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): As
       history: opts.history,
       tools: opts.tools,
       toolContext: opts.toolContext,
-      maxIterations: opts.maxIterations,
       temperature: opts.temperature,
       effort: opts.effort,
       think: opts.think,

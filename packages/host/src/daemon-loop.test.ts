@@ -113,3 +113,40 @@ describe('runAgentViaDaemon', () => {
     expect(await loopApprove(spec!.runId, { id: 'c2', name: 'bash', input: {} }, 'x', 'low')).toBe(false);
   });
 });
+
+describe('daemonRunsLoops', () => {
+  // daemonOwns caches daemon:info per module, so each case loads a fresh copy.
+  async function owns(owned: string[] | Error) {
+    vi.resetModules();
+    const mod = await import('./daemon-loop.js');
+    const call = vi.fn(async () => {
+      if (owned instanceof Error) throw owned;
+      return { owned } as never;
+    });
+    return mod.daemonRunsLoops(call as never);
+  }
+
+  it('hands runs only to a daemon that runs with no tool-step limit', async () => {
+    expect(await owns(['loop:run', 'loop:unbounded'])).toBe(true);
+  });
+
+  it('keeps the run in process for a daemon that predates the removed step limit', async () => {
+    // Such a daemon read the host's budget literally, and once ran zero steps.
+    expect(await owns(['loop:run'])).toBe(false);
+    expect(await owns([])).toBe(false);
+    expect(await owns(new Error('no daemon'))).toBe(false);
+  });
+});
+
+describe('loop:run payload', () => {
+  it('carries no step budget', async () => {
+    const { call, calls } = scriptedDaemon([]);
+    for await (const _ of runAgentViaDaemon(call as never, {
+      sessionId: 's', provider: { id: 'p', kind: 'llamacpp', label: 'P', baseUrl: 'http://x', enabled: true } as never,
+      model: 'm', system: 'SYS', history: [{ id: 'u1', role: 'user', content: 'hi', createdAt: 1 }], tools: [],
+      executeTool: async (c: ToolCall) => ({ toolCallId: c.id, output: '' }),
+    })) { /* drain */ }
+    const spec = calls.find((c) => c.channel === 'loop:run')!.args[0] as Record<string, unknown>;
+    expect(Object.keys(spec).some((k) => /iteration|step/i.test(k))).toBe(false);
+  });
+});

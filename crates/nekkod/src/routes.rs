@@ -129,6 +129,10 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
 pub const OWNED: &[&str] = &[
     "daemon:info",
     "loop:run",
+    // Not a channel: a capability. `loop:run` has no tool-step limit. The host
+    // hands runs only to a daemon that says so, because daemons built before
+    // the limit was removed read the host's budget as a real cap.
+    "loop:unbounded",
     "loop:abort",
     "provider:complete",
     "changes:list",
@@ -358,6 +362,14 @@ mod tests {
         assert_eq!(resolve_cwd(&settings, None, Some(&t)), tmp);
         assert_eq!(resolve_cwd(&settings, Some("w1"), Some("/no/such/dir")), tmp);
         assert_eq!(resolve_cwd(&settings, Some("missing"), None), tmp);
+    }
+
+    #[test]
+    fn info_says_the_loop_has_no_step_limit() {
+        // packages/host/src/daemon-loop.ts daemonRunsLoops needs both, or the
+        // host keeps every run in process.
+        assert!(OWNED.contains(&"loop:run"));
+        assert!(OWNED.contains(&"loop:unbounded"));
     }
 
     #[test]
