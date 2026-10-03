@@ -38,7 +38,7 @@ vi.mock('@agent-nekko/core', async () => {
 
 const { setDataDir } = await import('./paths.js');
 const { saveSettings } = await import('./store.js');
-const { createSession, getSession } = await import('./sessions.js');
+const { createSession, getSession, setSessionOptions, queuePrompt, saveSession } = await import('./sessions.js');
 const { sendChat } = await import('./chat.js');
 
 let dir: string;
@@ -144,5 +144,53 @@ describe('resuming a cut-off run', () => {
     const lastUser = getSession(session.id)!.messages.find((m) => m.role === 'user')!;
     const truncated = truncateSession(session.id, lastUser.id)!;
     expect(truncated.messages.some((m) => m.toolResult?.output.includes(EXPENSIVE))).toBe(false);
+  });
+});
+
+describe('complete_session', () => {
+  const completeTool = (input = {}): ProviderChunk => ({ type: 'tool_call', call: { id: 'complete1', name: 'complete_session', input } });
+
+  it('archives the current session and preserves its final transcript and queue', async () => {
+    const session = createSession('w1');
+    setSessionOptions(session.id, { title: 'Completion test' });
+    queuePrompt(session.id, 'later task');
+    rounds = [[completeTool(), { type: 'done' }], [{ type: 'text', delta: 'Completed as requested.' }, { type: 'done' }]];
+    const events = await run(session);
+    const saved = getSession(session.id)!;
+    expect(saved.archivedAt).toBeGreaterThan(0);
+    expect(saved.messages.some(m => m.content === 'Completed as requested.')).toBe(true);
+    expect(saved.queue).toEqual(['later task']);
+    expect(round).toBe(2);
+    expect(events.some(e => e.type === 'session_meta')).toBe(true);
+    expect(saved.messages.find(m => m.toolResult?.toolCallId === 'complete1')?.toolResult?.isError).not.toBe(true);
+  });
+
+  it('rejects arguments rather than completing another chat', async () => {
+    const session = createSession('w1');
+    rounds = [[completeTool({ sessionId: 'other' }), { type: 'done' }]];
+    await run(session);
+    expect(getSession(session.id)!.archivedAt).toBeFalsy();
+    expect(getSession(session.id)!.messages.find(m => m.toolResult)?.toolResult?.isError).toBe(true);
+  });
+
+  it.each(['incognito', 'sub-agent', 'goal run'])('is unavailable to a %s session', async (kind) => {
+    const session = createSession('w1');
+    if (kind === 'incognito') session.incognito = true;
+    if (kind === 'sub-agent') session.parentSessionId = 'parent';
+    if (kind === 'goal run') session.trainingRunId = 'run';
+    saveSession(session);
+    rounds = [[completeTool(), { type: 'done' }]];
+    const events = await run(session);
+    expect(getSession(session.id)!.archivedAt).toBeFalsy();
+    expect(events.some(e => e.type === 'tool_result' && e.result.isError)).toBe(true);
+  });
+
+  it('respects disabled tools', async () => {
+    const session = createSession('w1');
+    setSessionOptions(session.id, { disabledTools: ['complete_session'] });
+    rounds = [[completeTool(), { type: 'done' }]];
+    await run(session);
+    expect(getSession(session.id)!.archivedAt).toBeFalsy();
+    expect(getSession(session.id)!.messages.find(m => m.toolResult)?.toolResult?.isError).toBe(true);
   });
 });

@@ -117,6 +117,7 @@ export function updateChecks(s: AppSettings): Required<UpdateCheckSettings> {
 
 export const DEFAULT_TURN_WRAPPER = `For each user request:
 - On a new chat, use set_chat_title to give it a concise, specific 3-6 word title when that tool is available. Never overwrite a user-chosen title.
+- When the user explicitly asks to mark this session completed, use complete_session if available after finishing the requested work. Never complete a session automatically or report completion unless the action succeeded.
 - For multi-step work, inspect first, then publish concrete, verifiable steps with update_plan when available. Keep the plan current; skip it for simple conversation.
 - State important assumptions, constraints, and blockers. Ask only when the answer materially changes the work.
 - Define how you will verify the result, run relevant checks, and distinguish verified outcomes from untested claims.
