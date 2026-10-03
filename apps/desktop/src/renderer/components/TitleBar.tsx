@@ -1,5 +1,6 @@
 import { hasAppChrome, isMacChrome } from '../chrome.js';
 import { UpdateControl } from './UpdateBanner.js';
+import { DeveloperServerControls } from './DeveloperServerControls.js';
 
 /**
  * The window's title bar, drawn by the app.
@@ -21,6 +22,7 @@ export function TitleBar() {
     <div className={`titlebar ${isMacChrome ? 'titlebar-mac' : ''}`}>
       <span className="titlebar-word">Agent Nekko</span>
       <UpdateControl />
+      <DeveloperServerControls />
     </div>
   );
 }

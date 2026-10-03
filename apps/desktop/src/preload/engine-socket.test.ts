@@ -9,6 +9,19 @@ describe('stopped service transport', () => {
     await expect(api.call('settings:get', [])).rejects.toThrow('stopped');
     vi.clearAllTimers();
   });
+  it('handles a stopped endpoint response and reports queued request channels', async () => {
+    vi.useFakeTimers();
+    const endpoint = vi.fn().mockResolvedValue(null);
+    const api = createEngineSocket(endpoint);
+    await expect(api.call('settings:get', [])).rejects.toThrow('stopped');
+    const call = expect(api.call('models:list', [])).rejects.toThrow('stopped');
+    await vi.advanceTimersByTimeAsync(100);
+    await call;
+    expect(endpoint).toHaveBeenLastCalledWith('models:list');
+    expect(await api.openTerminal('term1', { onData: vi.fn() })).toBeNull();
+    expect(endpoint).toHaveBeenLastCalledWith('terminal:term1');
+    vi.clearAllTimers();
+  });
   it('never replays calls that failed when a connection closed', async () => {
     vi.useFakeTimers();
     const sockets: any[] = [];

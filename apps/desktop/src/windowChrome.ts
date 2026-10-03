@@ -34,6 +34,7 @@ export interface TitleBarOverlayTheme {
 /** What the preload bridge exposes as `window.nekkoChrome`. */
 export interface WindowChromeBridge {
   /** `process.platform`; the renderer only cares whether it is `'darwin'`. */
+  serviceControl: (action: import('./engineChannels.js').ServiceAction) => Promise<import('./engineChannels.js').ServiceStatus>;
   platform: string;
   titleBarHeight: number;
   setTitleBarOverlay: (theme: TitleBarOverlayTheme) => void;
