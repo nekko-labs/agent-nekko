@@ -580,7 +580,7 @@ export function WorkspacesView() {
                 onDragEnd={endDrag}
                 title={b.ws ? 'Drag to reorder project' : undefined}
               >
-                <button className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left" onClick={() => toggleCollapse(b.key)}>
+                <button className="flex min-w-0 flex-1 items-center gap-1 py-0.5 text-left" aria-expanded={!isCollapsed} data-sidebar-group onClick={() => toggleCollapse(b.key)}>
                   <svg
                     className={`h-3 w-3 shrink-0 text-ink-faint transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`}
                     viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"

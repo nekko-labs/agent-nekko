@@ -131,15 +131,39 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     await cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', buttons: 1, clickCount: 1 });
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', buttons: 0, clickCount: 1 });
   };
-  const clickEl = async (selector, text, what) => {
+  /** Where a visible element is, polling for up to `tries` × 100 ms; null when it never shows. */
+  const find = async (selector, text, tries = 100) => {
     let at = null;
-    for (let i = 0; i < 100 && !at; i++) {
+    for (let i = 0; i < tries && !at; i++) {
       at = await cdp.call(locate, selector, text ?? null);
       if (!at) await sleep(100);
     }
+    return at;
+  };
+  const clickEl = async (selector, text, what) => {
+    const at = await find(selector, text);
     if (!at) throw new Error(`could not find ${what ?? `${selector} "${text}"`}`);
     await clickAt(at);
   };
+
+  /**
+   * Put the sidebar in the state where every chat's card can be seen: the
+   * agents list rather than the completed-chats archive, with every project
+   * group expanded. A stray click on a group header or the archive button
+   * during a run otherwise hides cards for the rest of it.
+   */
+  const showAllCards = () => cdp.evaluate(`(() => {
+    document.querySelector('button[title="Back to the agents"]')?.click();
+    for (const h of document.querySelectorAll('button[aria-expanded="false"][data-sidebar-group]')) h.click();
+    return true;
+  })()`);
+  /** What the sidebar is showing, for the error when a card cannot be found. */
+  const sidebarState = () => cdp.evaluate(`(() => ({
+    archive: !!document.querySelector('button[title="Back to the agents"]'),
+    groups: [...document.querySelectorAll('button[data-sidebar-group]')].map((h) => h.textContent.trim() + ':' + h.getAttribute('aria-expanded')),
+    cards: [...document.querySelectorAll('div[role="button"]')].map((c) => c.getAttribute('title')).filter(Boolean),
+    saved: [...document.querySelectorAll('button[title^="Open "]')].length,
+  }))()`);
 
   await waitFor(`!!document.querySelector('nav button[aria-label="Command Center"]')`, 'the app shell');
   await cdp.evaluate(INSTALL);
@@ -168,7 +192,23 @@ async function openApp({ appUrl, cdpPort, vsync }) {
   /** Click a chat's sidebar card and report when its frame and newest reply painted. */
   const switchTo = async (i) => {
     await cdp.call((t, m) => window.__perf.armSwitch(t, m), chatTitle(i), lastMarker(i));
-    await clickEl('div[role="button"]', chatTitle(i), `the sidebar card for ${chatTitle(i)}`);
+    const title = chatTitle(i);
+    let at = await find('div[role="button"]', title, 30);
+    if (!at) {
+      // The card is there but hidden (a collapsed group, the archive view).
+      await showAllCards();
+      at = await find('div[role="button"]', title, 20);
+    }
+    if (!at) {
+      // Not open as an agent at all: its saved-chat row opens it as one.
+      const row = await find('button[title^="Open "]', `Open ${title}`, 10);
+      if (row) {
+        await clickAt(row);
+        at = await find('div[role="button"]', title, 50);
+      }
+    }
+    if (!at) throw new Error(`could not find the sidebar card for ${title}: ${JSON.stringify(await sidebarState())}`);
+    await clickAt(at);
     let res = null;
     for (let k = 0; k < 800 && !res; k++) {
       res = await cdp.evaluate('window.__perf.switchResult');
