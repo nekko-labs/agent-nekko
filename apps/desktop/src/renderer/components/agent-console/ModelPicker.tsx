@@ -52,7 +52,7 @@ export function ModelPicker({
   const [query, setQuery] = useState('');
   // Models per provider, fetched when the menu opens so the list covers every
   // provider (the `models` prop only holds the active provider's).
-  const [byProvider, setByProvider] = useState<Record<string, ModelInfo[]>>({});
+  const [byProvider, setByProvider] = useState<Record<string, ModelInfo[] | null>>({});
   // Live usage limits for every signed-in provider, so a model that can't run
   // right now can say so instead of quietly failing on send.
   const limitsByToken = useAllProviderLimits(providers, open);
@@ -79,7 +79,7 @@ export function ModelPicker({
       providers.map((p) =>
         window.nekko.listModels(p.id)
           .then((m) => [p.id, m] as const)
-          .catch(() => [p.id, [] as ModelInfo[]] as const),
+          .catch(() => [p.id, null] as const),
       ),
     ).then((entries) => { if (live) setByProvider(Object.fromEntries(entries)); });
     return () => { live = false; };
@@ -115,6 +115,11 @@ export function ModelPicker({
   const defaultProvider = providers.find(p => p.id === settings?.defaultProviderId);
   const defaultModel = defaultProvider ? modelsOf(defaultProvider.id).find(m => m.id === settings?.defaultModelId) : undefined;
   const defaultKey = settings?.defaultProviderId && settings?.defaultModelId ? settings.defaultProviderId + '::' + settings.defaultModelId : null;
+  // Absence is only authoritative after this provider's catalog has loaded.
+  const defaultStatus = !defaultProvider ? 'unavailable'
+    : byProvider[defaultProvider.id] === null ? 'catalog could not load'
+    : byProvider[defaultProvider.id] === undefined && defaultProvider.id !== providerId ? 'loading…'
+    : 'unavailable';
   const pinnedKeys = new Set([...recentModels, ...starred].map((s) => `${s.provider.id}::${s.model.id}`));
 
   if (defaultKey) pinnedKeys.add(defaultKey);
@@ -269,7 +274,7 @@ export function ModelPicker({
             />
           )}
           <div className="min-h-0 flex-1 overflow-y-auto" role="listbox" aria-label="Model">
-            {defaultKey && !q && (defaultProvider && defaultModel ? row(defaultProvider, defaultModel, true) : <button role="option" disabled aria-disabled="true" className="w-full px-2.5 py-2 text-left text-[12px] text-ink-faint">{settings?.defaultModelId} <span className="text-[10px]">Default · unavailable</span></button>)}
+            {defaultKey && !q && (defaultProvider && defaultModel ? row(defaultProvider, defaultModel, true) : <button role="option" disabled aria-disabled="true" className="w-full px-2.5 py-2 text-left text-[12px] text-ink-faint">{settings?.defaultModelId} <span className="text-[10px]">Default · {defaultStatus}</span></button>)}
             {providers.length === 0 && <p className="px-2.5 py-1.5 text-[11px] text-ink-faint">No provider configured.</p>}
             {providers.length > 0 && groups.length === 0 && (
               <p className="px-2.5 py-1.5 text-[11px] text-ink-faint">{q ? 'No models match.' : 'No models available.'}</p>

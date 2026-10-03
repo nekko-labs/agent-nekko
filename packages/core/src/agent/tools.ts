@@ -104,6 +104,20 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: 'capture',
+    description: 'Capture an actual local app window, including apps launched by terminal commands in any project. Desktop only; every action requires approval. First list windows, then select its window_id for a PNG screenshot or a 1–15 second silent WebM recording. No browser substitution or whole-screen capture. Restore minimized windows before capture. Output files must be new paths inside the chat project; report the path and inspect the evidence before claiming visual verification.',
+    parameters: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', enum: ['list', 'screenshot', 'record'] },
+        window_id: { type: 'string', description: 'Exact id returned by list for the desired app window.' },
+        path: { type: 'string', description: 'New workspace-relative output path ending in .png or .webm.' },
+        seconds: { type: 'number', description: 'Recording duration, 1–15 seconds; default 5.' },
+      },
+      required: ['action'],
+    },
+  },
+  {
     name: 'spawn_agent',
     description:
       'Delegate a self-contained sub-task to a fresh sub-agent that works in the same project with its own context, then returns its final answer. Use for parallelizable or well-scoped work (e.g. "investigate X", "implement Y in file Z"). The sub-agent appears as a nested tab in the workbench.',

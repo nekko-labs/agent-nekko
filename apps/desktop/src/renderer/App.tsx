@@ -8,6 +8,7 @@ import { useT } from './i18n.js';
 import { SHORTCUTS } from './shortcuts.js';
 import { hasAppChrome } from './chrome.js';
 import { TitleBar } from './components/TitleBar.js';
+import { AutumnBackground } from './components/AutumnBackground.js';
 import { Mascot, NekkoAvatar } from './components/Mascot.js';
 import { ResourceHud } from './components/ResourceMonitor.js';
 import { Toasts } from './components/Toasts.js';
@@ -322,6 +323,7 @@ export function App() {
 
       {/* Global overlays stay mounted even while settings load, so deep links,
           toasts, and update banners keep working on any settings failure. */}
+      {settings?.themePreset === 'autumn' && <AutumnBackground />}
       <UpdateBanner />
       <RelayPairing />
       <ResourceHud />

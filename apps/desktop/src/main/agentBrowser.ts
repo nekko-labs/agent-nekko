@@ -1,16 +1,25 @@
 import { BrowserWindow } from 'electron';
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { captureWindow } from './windowCapture.js';
 
 /** Private tool bridge. Only the backend receives its capability token, never page content. */
 export async function startAgentBrowser(): Promise<{ url: string; token: string; close: () => void }> {
   const token = randomBytes(32).toString('hex');
   const windows = new Map<string, BrowserWindow>();
+  let recorderUrl: string | undefined;
+  const recorderPath = `/recorder-${randomBytes(24).toString('hex')}`;
   const server = createServer(async (req, res) => {
     const reply = (status: number, body: unknown) => {
       res.writeHead(status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(body));
     };
+    // Loopback is a secure context for getDisplayMedia. The random route is
+    // only an empty recorder page, never a capability-bearing API endpoint.
+    if (req.method === 'GET' && req.url === recorderPath && !req.headers.origin) {
+      res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store', 'Content-Security-Policy': "default-src 'none'; script-src 'none'; frame-ancestors 'none'" });
+      res.end('<html><body>Window recorder</body></html>'); return;
+    }
     if (req.method !== 'POST' || req.url !== '/' || req.headers.authorization !== `Bearer ${token}` || req.headers.origin) {
       reply(403, { error: 'Browser bridge access denied.' }); return;
     }
@@ -22,7 +31,12 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
         if (size > 64_000) throw new Error('Browser request too large.');
         chunks.push(chunk);
       }
-      const { sessionId, action, url, selector, value } = JSON.parse(Buffer.concat(chunks).toString());
+      const input = JSON.parse(Buffer.concat(chunks).toString());
+      const { sessionId, action, url, selector, value } = input;
+      if (input.tool === 'capture') {
+        if (typeof sessionId !== 'string' || !sessionId || sessionId.length > 200) throw new Error('Invalid capture session');
+        reply(200, await captureWindow(sessionId, input, recorderUrl)); return;
+      }
       if (typeof sessionId !== 'string' || !sessionId || !['navigate', 'inspect', 'click', 'fill', 'close'].includes(action)) throw new Error('Invalid browser request.');
       let win = windows.get(sessionId);
       if (action === 'close') {
@@ -72,5 +86,6 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
   await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Browser bridge did not start.');
+  recorderUrl = `http://127.0.0.1:${address.port}${recorderPath}`;
   return { url: `http://127.0.0.1:${address.port}/`, token, close: () => { for (const win of windows.values()) win.destroy(); server.close(); } };
 }

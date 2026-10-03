@@ -107,7 +107,8 @@ import { indexWorkspace, getIndexStatus, searchWorkspace, listIndexedFiles } fro
 import { readFile, writeFile, listDir } from './files.js';
 import { getGitStatus } from './git.js';
 import { listChanges, acceptChange, acceptAllChanges, notifyChanges, setChangeNotifier } from './changes.js';
-import { listSessionPrs, getPrDiff, prAction } from './pr.js';
+import { listSessionPrs, getPrDiff, prAction, fetchPrInfo } from './pr.js';
+import { configureAgentWatches } from './agent-watches.js';
 import { listComments, addComment, resolveComment } from './comments.js';
 import {
   getDesignBoard,
@@ -566,6 +567,26 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
   });
   setTasksNotifier((tasks) => events.emit('tasksUpdated', tasks));
   startTaskScheduler();
+  configureAgentWatches({
+    busy: isChatRunning,
+    exists: (id) => { const s = sessions.getSession(id); return !!s && !s.archivedAt; },
+    snapshot: async (url) => {
+      const pr = await fetchPrInfo(url);
+      if (!pr) throw new Error('PR catalog unavailable: check GitHub authentication, repository access, or network');
+      return JSON.stringify({ state: pr.state, checks: pr.checks, reviewDecision: pr.reviewDecision, isDraft: pr.isDraft, updatedAt: pr.updatedAt });
+    },
+    resume: async (sessionId, text) => {
+      const s = sessions.getSession(sessionId);
+      if (!s || s.archivedAt || s.incognito || s.offline) throw new Error('Chat cannot be resumed by a watch');
+      if (!s.providerId || !s.modelId) throw new Error('Chat has no selected provider/model; no fallback was used');
+      let failure: string | undefined;
+      await sendChat({ sessionId, providerId: s.providerId, modelId: s.modelId, text }, (e) => {
+        if (e.type === 'error') failure = e.message;
+        events.emit('agentEvent', e);
+      }, !!opts.allowBrowserControl);
+      if (failure) throw new Error(failure);
+    },
+  });
   // Training/goal runs: agent events ride the shared bus; run changes get their
   // own event. Resume any runs that were mid-flight when the host went down.
   setTrainingSender((e) => events.emit('agentEvent', e));

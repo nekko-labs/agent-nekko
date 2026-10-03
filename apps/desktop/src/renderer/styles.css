@@ -1,5 +1,39 @@
 @import 'tailwindcss';
 
+/* Faint seasonal decoration; never intercepts app input. */
+.autumn-background {
+  position: fixed;
+  inset: 44px 0 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+  color: var(--accent);
+}
+.autumn-leaf {
+  position: absolute;
+  top: -48px;
+  width: 18px;
+  height: 24px;
+  opacity: 0;
+  animation: autumn-fall 32s linear infinite;
+}
+.autumn-pumpkin {
+  position: absolute;
+  bottom: 64px;
+  width: 42px;
+  opacity: 0.07;
+}
+@keyframes autumn-fall {
+  0% { transform: translate3d(-15px, -40px, 0) rotate(-25deg); opacity: 0; }
+  10%, 85% { opacity: 0.09; }
+  50% { transform: translate3d(22px, 50vh, 0) rotate(65deg); }
+  100% { transform: translate3d(-8px, 105vh, 0) rotate(150deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .autumn-leaf { animation: none; top: 18%; opacity: 0.06; }
+}
+
+
 @custom-variant dark (&:is([data-theme="dark"] *));
 
 @theme {
@@ -1064,16 +1098,6 @@
     --ink-soft: #9ca6b6;
     --ink-faint: #6b7787;
     --line: #3b4252;
-  }
-
-  [data-theme='dark'][data-preset='ember'] {
-    --paper: #150f0b;
-    --surface: #1c140e;
-    --surface-2: #261b14;
-    --ink: #f7ece5;
-    --ink-soft: #c7a998;
-    --ink-faint: #8a6e5e;
-    --line: #3d2a1f;
   }
 
   [data-theme='light'][data-preset='solar'] {
