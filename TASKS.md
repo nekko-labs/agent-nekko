@@ -240,6 +240,11 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### Release: notary key pre-flight (added 2026-10-03)
+
+- [x] Fail the macOS release leg in seconds, not after a full signed build, when Apple rejects the App Store Connect key: a read-only `xcrun notarytool history` pre-flight step in `release.yml`, plus a rotation runbook in `docs/signing.md`. Root cause of every failed release since v0.7.1 (2026-09-11): the org-wide `APPLE_API_KEY_ID`/`APPLE_API_KEY_P8` still point at the ASC key revoked on 2026-09-06, so signing succeeded and notarization returned `401 Unauthenticated`. The runner-image keychain failure seen on v0.7.0 cleared itself with image 20260907. Verified locally: the revoked key id reproduces the exact 401, the live key lists submission history. · Done: 2026-10-03
+- [ ] Rotate `APPLE_API_KEY_ID` + `APPLE_API_KEY_P8` on the `nekko-labs` org to the live ASC key and re-run Release at `v0.8.0` (org-admin action). The same rotation repairs hypergate and lightwrite, which share the secrets.
+
 ### MA: Native phone app, remote client + on-device models (added 2026-10-03)
 
 Philip asked (2026-10-03) to continue the phone app as a native iOS/Android client that runs Agent Nekko from remote and also runs local models. That merges PF21 and PF22 into one app (PF22 had planned on-device models as a separate product; the user's call overrides that). · [spec](SPEC.md#your-agent-in-your-pocket-the-ios-and-android-app)
