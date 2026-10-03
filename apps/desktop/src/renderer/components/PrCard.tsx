@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { PrInfo, PrAction, PrDiff, PrChecks } from '@agent-nekko/shared';
 import { parsePrUrl } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
+import { subscribePrPolling } from '../prPolling.js';
 import { BranchIcon, CheckIcon, CloseIcon } from '../icons.js';
 
 /** Summarise a chat's PRs for the sidebar/header badges. */
@@ -57,6 +58,10 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
   const openPrPane = useStore((s) => s.openPrPane);
   const [busy, setBusy] = useState<PrAction | null>(null);
   const [confirm, setConfirm] = useState<PrAction | null>(null);
+  useEffect(() => {
+    if (!sessionId) return;
+    return subscribePrPolling(sessionId, () => useStore.getState().refreshSessionPrs(sessionId));
+  }, [sessionId]);
 
   const label = info
     ? `${info.owner}/${info.repo}#${info.number}`
