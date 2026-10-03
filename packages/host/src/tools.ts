@@ -1,4 +1,4 @@
-import { execFile, spawn, type ChildProcess } from 'child_process';
+import { execFile, spawn, type ChildProcess, type ExecFileOptions } from 'child_process';
 import {
   existsSync,
   mkdirSync,
