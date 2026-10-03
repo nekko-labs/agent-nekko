@@ -11,6 +11,7 @@ import {
   saveGridState,
   seedGrid,
   swapCells,
+  moveCell,
   tracksFor,
 } from './commandGrid.js';
 
@@ -118,5 +119,24 @@ describe('grid contents', () => {
     expect(loadGridState(storage)).toMatchObject({ cells: [], layout: { mode: 'fixed', cols: 6, rows: 1 } });
     store.set('nekko.commandGrid', 'not json');
     expect(loadGridState(storage)).toEqual(DEFAULT_GRID_STATE);
+  });
+});
+
+describe('moveCell', () => {
+  const a = { kind: 'chat' as const, refId: 'a' };
+  const b = { kind: 'chat' as const, refId: 'b' };
+  const c = { kind: 'chat' as const, refId: 'c' };
+  it('inserts in either direction, shifting intervening windows', () => {
+    const state = { ...DEFAULT_GRID_STATE, cells: [a, b, c] };
+    expect(moveCell(state, c, a).cells).toEqual([c, a, b]);
+    expect(moveCell(state, a, c).cells).toEqual([b, c, a]);
+    expect(state.cells).toEqual([a, b, c]);
+    expect(moveCell(state, a, a)).toBe(state);
+  });
+  it('keeps hidden windows in place in a filtered grid', () => {
+    const terminal = { kind: 'terminal' as const, refId: 't' };
+    const state = { ...DEFAULT_GRID_STATE, cells: [a, terminal, b, c] };
+    expect(moveCell(state, c, a, 'chat').cells).toEqual([c, terminal, a, b]);
+    expect(moveCell(state, terminal, a, 'chat')).toBe(state);
   });
 });
