@@ -123,6 +123,9 @@ impl SessionStore {
         let mut s = Map::new();
         s.insert("id".into(), json!(format!("s_{}_{}", base36(now), base64url(&rand))));
         s.insert("title".into(), json!("New chat"));
+        // Provisioning lives in the host at first send, after project selection.
+        // Absent on existing chats, so their checkouts never change implicitly.
+        s.insert("gitIsolation".into(), json!(true));
         if let Some(w) = workspace_id {
             s.insert("workspaceId".into(), json!(w));
         }

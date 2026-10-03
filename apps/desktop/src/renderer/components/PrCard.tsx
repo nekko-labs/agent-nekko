@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { PrInfo, PrAction, PrDiff, PrChecks } from '@agent-nekko/shared';
 import { parsePrUrl } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
+import { BranchIcon, CheckIcon, CloseIcon } from '../icons.js';
 
 /** Summarise a chat's PRs for the sidebar/header badges. */
 export function prSummary(prs: PrInfo[]) {
@@ -292,7 +293,18 @@ function PrFileDiff({ file }: { file: PrDiff['files'][number] }) {
 /** Compact PR status badge for chat rows and the chat header. */
 export function PrBadge({ prs, compact = false }: { prs: PrInfo[]; compact?: boolean }) {
   if (!prs.length) return null;
-  const { open, merged, ready } = prSummary(prs);
+  const { open, merged, closed, ready } = prSummary(prs);
+  if (compact) {
+    const label = `${merged} merged, ${open} open, ${closed} closed PRs`;
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 text-[10px] tabular-nums text-ink-faint" aria-label={label} title={label}>
+        <BranchIcon className="h-3 w-3" />
+        {merged > 0 && <span className="inline-flex items-center gap-0.5" style={{ color: 'var(--success)' }}>{merged}<CheckIcon className="h-3 w-3" /></span>}
+        {open > 0 && <span className="inline-flex items-center gap-0.5" style={{ color: 'var(--warning)' }}>{open}<svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg></span>}
+        {closed > 0 && <span className="inline-flex items-center gap-0.5">{closed}<CloseIcon className="h-3 w-3" /></span>}
+      </span>
+    );
+  }
   const chips: React.ReactNode[] = [];
   if (open > 0) {
     chips.push(

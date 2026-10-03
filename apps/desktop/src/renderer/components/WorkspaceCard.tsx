@@ -178,7 +178,7 @@ function WorkspaceCardImpl({
 
   // Git follows the workspace's primary folder: a chat grounded in several
   // repos still *works* in one at a time, and a card has room for one branch.
-  const git = useGitStatus(folders[0]?.id);
+  const git = useGitStatus(session ? `session:${session.id}` : folders[0]?.id);
   const prs = mergePrs(git?.pr, mentionedPrs);
   const worktreeIsFolder = !!git?.worktree && folders.length === 1 && folders[0].name === git.worktree.name;
 

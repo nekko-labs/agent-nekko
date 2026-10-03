@@ -140,6 +140,7 @@ export function EngineSection({
             unavailable={installed ? undefined : 'Not installed'}
             onToggle={() => void toggle()}
             labelWhat="model server"
+            color="var(--accent)"
           />
           <label
             className="flex items-center gap-1.5 text-[12px] text-ink-soft"
@@ -316,7 +317,7 @@ function AddressPill({ address }: { address: string }) {
 }
 
 function StatusDot({ running, busy }: { running: boolean; busy: boolean }) {
-  const color = busy ? 'var(--warning, #d1a054)' : running ? 'var(--success)' : 'var(--ink-faint)';
+  const color = busy ? 'var(--warning, #d1a054)' : running ? 'var(--accent)' : 'var(--ink-faint)';
   return (
     <span
       className="inline-block h-2 w-2 shrink-0 rounded-full"

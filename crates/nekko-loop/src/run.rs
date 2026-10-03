@@ -110,7 +110,7 @@ pub struct RunOptions<'a> {
     /// The transcript so far; the loop appends its messages to it.
     pub history: &'a mut Vec<Value>,
     pub tools: Vec<Value>,
-    /// Tool-use round trips before the wrap-up pass (`DEFAULT_MAX_STEPS`, 250).
+    /// Tool-use round trips before the wrap-up pass (`DEFAULT_MAX_STEPS`, 1000).
     pub max_iterations: usize,
     pub temperature: Option<f64>,
     pub effort: Option<String>,
@@ -122,7 +122,7 @@ pub struct RunOptions<'a> {
 }
 
 /// `DEFAULT_MAX_STEPS`.
-pub const DEFAULT_MAX_STEPS: usize = 250;
+pub const DEFAULT_MAX_STEPS: usize = 1000;
 
 /// How much of a looping stream is kept (`RUNAWAY_KEEP_CHARS`, UTF-16 units).
 const RUNAWAY_KEEP_CHARS: usize = 4_000;

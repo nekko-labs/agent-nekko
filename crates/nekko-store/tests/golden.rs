@@ -102,7 +102,8 @@ fn creates_and_deletes_chats_the_way_the_ts_host_does() {
     let id = s["id"].as_str().unwrap().to_string();
     assert!(id.starts_with("s_") && id.len() > 12, "{id}");
     let keys: Vec<&String> = s.as_object().unwrap().keys().collect();
-    assert_eq!(keys, ["id", "title", "workspaceId", "messages", "createdAt", "updatedAt"]);
+    assert_eq!(keys, ["id", "title", "gitIsolation", "workspaceId", "messages", "createdAt", "updatedAt"]);
+    assert_eq!(s["gitIsolation"], true);
     assert_eq!(store.get(&id).unwrap()["title"], "New chat");
     assert!(store.create(None).unwrap().get("workspaceId").is_none());
     store.delete(&id).unwrap();

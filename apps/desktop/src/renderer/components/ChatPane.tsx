@@ -542,7 +542,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // Where this chat is working in git: the worktree, the branch, and the PR
   // that branch is going into. The same read the sidebar card makes (the host
   // caches it), so the header and the card never disagree.
-  const git = useGitStatus(session ? getSessionWorkspaceIds(session)[0] : undefined);
+  const git = useGitStatus(session ? `session:${session.id}` : undefined);
   const headerPrs = git?.pr && !prs.some((p) => p.url === git.pr!.url) ? [git.pr, ...prs] : prs;
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
@@ -2035,16 +2035,31 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
           </div>
           <div className="composer-column mx-auto w-[90%]">
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
+            {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
+              <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>
+            ))}
             <div className={streaming ? 'composer composer-beam' : 'composer'}>
             {/* Controls live at the top of the input surface. Separate rows keep
                 the model and its effort slider together when a pane is narrow. */}
-            <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
+            <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
+              <div className="min-w-0 flex-1">
               <ChatControls
                 session={session}
                 isCloudModel={isCloudModel}
                 onChange={setSession}
                 leading={<ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
               />
+              </div>
+              {!imageMode && (
+                <button
+                  className="ctl-toggle ml-auto shrink-0 whitespace-nowrap"
+                  onClick={() => setScheduleOpen(true)}
+                  aria-label="Automate: schedule, repeat, or run in the background"
+                  title="Automate: schedule, repeat, or run in the background"
+                >
+                  <span style={{ color: 'var(--warning)' }}><BoltIcon className="h-3 w-3" /></span> Automate
+                </button>
+              )}
             </div>
             <div className={`flex min-w-0 flex-wrap items-center gap-1 border-b border-line px-2 py-1.5 ${imageMode ? 'flex-wrap' : ''}`}>
               {imageMode && session ? (
@@ -2126,14 +2141,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                   <ThoughtIcon className="h-3 w-3" /> Thinking
                 </span>
               ) : null}
-              <button
-                className="ctl-toggle ml-auto shrink-0 whitespace-nowrap"
-                onClick={() => setScheduleOpen(true)}
-                aria-label="Automate: schedule, repeat, or run in the background"
-                title="Automate: schedule, repeat, or run in the background"
-              >
-                <BoltIcon className="h-3 w-3" /> Automate
-              </button>
               </>)}
             </div>
 
@@ -2556,13 +2563,23 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
           scrim="rgba(0,0,0,0.5)"
           overlayClassName="p-4"
         >
-          <img
-            src={lightbox}
-            alt="Full-size attachment"
-            className="max-h-[90vh] max-w-[90vw] object-contain"
-            onContextMenu={(e) => openImageMenu(e, lightbox)}
-            title="Right-click to copy or save"
-          />
+          <div className="flex max-h-[calc(100vh-2rem)] max-w-[90vw] flex-col items-center gap-3" onClick={() => setLightbox(null)}>
+            <button
+              className="flex min-h-11 items-center gap-2 self-end rounded-full bg-surface px-4 py-2 text-[14px] font-medium text-ink shadow-lg hover:bg-surface-2"
+              aria-label="Close image"
+              onClick={() => setLightbox(null)}
+            >
+              <CloseIcon className="h-5 w-5" /> Close
+            </button>
+            <img
+              src={lightbox}
+              alt="Full-size attachment"
+              className="block max-h-[calc(100vh-6rem)] max-w-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+              onContextMenu={(e) => openImageMenu(e, lightbox)}
+              title="Right-click to copy or save"
+            />
+          </div>
         </Modal>
       )}
       {imageMenu && (

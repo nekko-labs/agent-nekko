@@ -100,6 +100,7 @@ export function LocalServerSection() {
                 busy={busy}
                 onToggle={() => void save({ enabled: !settings.enabled })}
                 labelWhat="agent server"
+                color="var(--accent-2)"
               />
               <label
                 className="flex items-center gap-1.5 text-[12px] text-ink-soft"
@@ -676,7 +677,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
 }
 
 function StatusDot({ running, busy }: { running: boolean; busy: boolean }) {
-  const color = busy ? 'var(--warning)' : running ? 'var(--success)' : 'var(--ink-faint)';
+  const color = busy ? 'var(--warning)' : running ? 'var(--accent-2)' : 'var(--ink-faint)';
   return (
     <span
       className="inline-block h-2 w-2 shrink-0 rounded-full"

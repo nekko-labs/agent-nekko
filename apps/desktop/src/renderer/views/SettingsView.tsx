@@ -5,7 +5,7 @@ import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
 import { ThemePresetPicker } from '../components/ThemePresetPicker.js';
-import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION, updateChecks } from '@agent-nekko/shared';
+import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION, updateChecks, DEFAULT_TURN_WRAPPER } from '@agent-nekko/shared';
 import { ShieldIcon, SunIcon, TrashIcon, RobotIcon, WandIcon } from '../icons.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
 import { useT, LANGUAGES } from '../i18n.js';
@@ -104,6 +104,27 @@ export function SettingsView() {
               Replay setup
             </button>
           </div>
+        </section>
+
+        <CustomizationSection settings={settings} update={update} />
+        <section className="card mt-5 p-5">
+          <h2 className="font-semibold">Git management</h2>
+          <p className="mt-1 text-[12px] text-ink-faint">New chats get their own branch and worktree. Existing chats and delegated sub-agents keep their current checkout. Worktrees are retained when a chat is completed or deleted; merge your work before removing them with Git.</p>
+          <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">
+            New chat checkout
+            <select className="input max-w-[230px]" value={settings.gitManagement?.mode ?? 'worktree'} onChange={(e) => update({ gitManagement: { ...settings.gitManagement, mode: e.target.value as 'worktree' | 'shared' } })}>
+              <option value="worktree">Isolated worktree (recommended)</option>
+              <option value="shared">Shared project checkout</option>
+            </select>
+          </label>
+          <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">
+            Worktree baseline
+            <select className="input max-w-[230px]" value={settings.gitManagement?.baseline ?? 'head'} onChange={(e) => update({ gitManagement: { ...settings.gitManagement, baseline: e.target.value as 'head' | 'local-changes' } })}>
+              <option value="head">Committed HEAD (recommended)</option>
+              <option value="local-changes">HEAD plus tracked local edits</option>
+            </select>
+          </label>
+          <p className="mt-2 text-[11px] text-ink-faint">Committed HEAD excludes local edits and shows a notice at startup. Copying local edits includes tracked changes only, not untracked files, secrets, or build artifacts.</p>
         </section>
 
         {/* Updates */}
@@ -656,6 +677,28 @@ function McpSection({
           );
         })}
       </div>
+    </section>
+  );
+}
+
+function CustomizationSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {
+  return (
+    <section id="customization" className="card mt-5 p-5">
+      <h2 className="font-semibold">Customization</h2>
+      <p className="mt-1 text-[12px] text-ink-faint">These preferences are sent to the selected provider on every chat turn. Avoid including secrets. Built-in safety and tool policies still apply.</p>
+      {([
+        { key: 'aboutUser', label: 'About you', hint: 'Your name, role, experience, goals, language, and communication preferences.', fallback: '' },
+        { key: 'systemInstructions', label: 'System prompt', hint: 'Additional standing instructions for how Nekko should work with you.', fallback: '' },
+        { key: 'turnWrapper', label: 'Server prompt wrapper', hint: 'Applied server-side to each user turn without altering the saved user message. Titles and plans use app tools when available.', fallback: DEFAULT_TURN_WRAPPER },
+      ] as const).map((field) => (
+        <label key={field.key} className="mt-4 block text-[13px]">
+          <span className="font-medium">{field.label}</span>
+          <p className="mt-0.5 text-[11px] text-ink-faint">{field.hint}</p>
+          <textarea key={settings[field.key] ?? field.fallback} aria-label={field.label} className="input mt-2 min-h-[100px] resize-y text-[12px] leading-relaxed" defaultValue={settings[field.key] ?? field.fallback} onBlur={(e) => { if (e.target.value !== (settings[field.key] ?? field.fallback)) update({ [field.key]: e.target.value }); }} />
+        </label>
+      ))}
+      <p className="mt-2 text-[11px] text-ink-faint">Edits save when you leave a field. An empty wrapper disables the extra per-turn instructions.</p>
+      <button className="btn btn-outline mt-3 py-1.5 text-[12px]" onClick={() => update({ turnWrapper: DEFAULT_TURN_WRAPPER })}>Reset wrapper to recommended points</button>
     </section>
   );
 }

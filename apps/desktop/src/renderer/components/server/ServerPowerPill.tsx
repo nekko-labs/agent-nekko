@@ -25,6 +25,7 @@ export function ServerPowerPill({
   unavailable,
   onToggle,
   labelWhat,
+  color = STATUS.success,
 }: {
   running: boolean;
   busy: boolean;
@@ -34,6 +35,8 @@ export function ServerPowerPill({
   onToggle: () => void;
   /** What it powers, for the accessible label: "model server", "agent server". */
   labelWhat: string;
+  /** Matches the identifying dot for this server. */
+  color?: string;
 }) {
   const action = running ? `Stop ${labelWhat}` : `Start ${labelWhat}`;
   const label = unavailable ?? (busy ? 'Working…' : running ? 'Serving' : 'Stopped');
@@ -44,7 +47,7 @@ export function ServerPowerPill({
       className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors disabled:cursor-default disabled:opacity-60"
       style={
         on
-          ? { background: STATUS.success, borderColor: STATUS.success, color: '#fff' }
+          ? { background: color, borderColor: color, color: '#fff' }
           : { borderColor: 'var(--line)', color: 'var(--ink-soft)' }
       }
       onClick={onToggle}
