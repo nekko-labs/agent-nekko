@@ -1,12 +1,27 @@
-name: Mobile build
+name: Mobile
 
-# Verifies the Capacitor iOS/Android apps actually compile (they can't be built
-# locally on a Windows dev box). Run manually from the Actions tab.
+# The iOS/Android app (apps/mobile, Expo + llama.rn). Unit tests and the
+# phone ↔ relay ↔ computer integration test run on every mobile/relay change;
+# the native builds prove the app compiles on both platforms (they can't be
+# built on the Windows dev box for iOS).
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - 'apps/relay/**'
+      - 'packages/shared/src/e2e.ts'
+      - 'packages/shared/src/remote.ts'
+      - 'packages/shared/src/ipc.ts'
+      - 'packages/host/src/relay.ts'
+      - '.github/workflows/mobile.yml'
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  android:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -15,19 +30,42 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      # The integration test drives a real relay and a headless agent.
+      - run: npm run build:core && npm run build -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run build -w @agent-nekko/server && npm run build -w @agent-nekko/relay
+      - name: Install app dependencies
+        working-directory: apps/mobile
+        run: npm ci --ignore-scripts
+      - name: Typecheck
+        working-directory: apps/mobile
+        run: npx tsc --noEmit
+      - name: Unit tests
+        working-directory: apps/mobile
+        run: npx vitest run
+      - name: Phone ↔ relay ↔ computer
+        working-directory: apps/mobile
+        run: NEKKO_ITEST=1 npx vitest run src/lib/relay.itest.ts
+
+  android:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
       - uses: android-actions/setup-android@v3
       - name: Build Android debug APK
         working-directory: apps/mobile
         run: |
-          npm install
-          npm run sync-web
-          npx cap add android
-          npx cap sync android
+          npm ci
+          node ./node_modules/llama.rn/install/download-native-artifacts.js
+          CI=1 npx expo prebuild --platform android --no-install
           cd android
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon
@@ -39,26 +77,25 @@ jobs:
 
   ios:
     runs-on: macos-latest
-    # iOS simulator build without signing, best-effort while we finalize the
-    # native project; doesn't block the Android job.
-    continue-on-error: true
+    needs: test
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run build
+          cache-dependency-path: apps/mobile/package-lock.json
       - name: Build iOS (simulator, unsigned)
         working-directory: apps/mobile
         run: |
-          npm install
-          npm run sync-web
-          npx cap add ios
-          npx cap sync ios
-          cd ios/App
+          set -o pipefail
+          npm ci
+          node ./node_modules/llama.rn/install/download-native-artifacts.js
+          CI=1 npx expo prebuild --platform ios --no-install
+          cd ios
           pod install
-          xcodebuild -workspace App.xcworkspace -scheme App \
+          WS=$(ls -d *.xcworkspace | head -1)
+          xcodebuild -workspace "$WS" -scheme "${WS%.xcworkspace}" \
             -sdk iphonesimulator -configuration Debug \
-            CODE_SIGNING_ALLOWED=NO build
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build | tail -n 80

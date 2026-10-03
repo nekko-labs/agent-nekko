@@ -27,7 +27,7 @@ owner:
 - **Cloud**: `apps/cloud`, Fastify, multi-account, file-backed store (Postgres-swappable).
 - **CLI**: `apps/cli` (`agent-nekko`), ESM, Node 22 globals (`fetch`/`WebSocket`), no deps.
 - **Relay**: `apps/relay`, Fastify WS dumb pipe.
-- **Mobile**: `apps/mobile`, Capacitor wrapping the shared renderer (standalone, not a root workspace).
+- **Mobile**: `apps/mobile`, Expo (React Native, Expo Router, new architecture) with llama.rn for on-device models; standalone, not a root workspace (own `package-lock.json`). Types come from `@agent-nekko/shared` as type-only imports (tsconfig path, erased by Babel); runtime protocol code (E2E crypto via `@noble`, relay client) is reimplemented for Hermes and pinned to the shared implementation by tests. Native modules are allowed here (the "no native modules" rule is the desktop/engine's). Changed from Capacitor 2026-10-03, see Key Technical Decisions.
 - **Website**: `apps/website`, static hand-crafted HTML/CSS/JS (no framework, GitHub Pages), download buttons → GitHub Releases.
 - **Storage**: JSON files under the app data dir; usage analytics as JSONL. **No native modules**, spawn `ripgrep`/git via child_process when available, with JS fallbacks.
 - **Engine daemon** (revised 2026-09-30 by Philip): **Rust**, a Cargo workspace at the repo root with crates under `crates/`. `nekkod` (binary: tokio + axum, the `/api` wire, supervision, strangler proxy), `nekko-term` (portable-pty sessions), `nekko-infer` (inference router and runtime adapters), `nekko-bench` (benchmark harness). Shipped as a standalone per-platform binary in the app's resources, never loaded into Node. The UI stays Electron + React (web technology, for maintainability); GPUI or another native shell is deferred (see Backlog).
@@ -55,7 +55,7 @@ apps/server/       Fastify: POST /api/:channel + /api/events WS over createHost(
 apps/cloud/        multi-account hosted edition (accounts, entitlements, per-account Host)
 apps/relay/        dumb E2E pipe + push sender (APNs/FCM)
 apps/cli/          agent-nekko CLI + MCP server (local in-process or remote HTTP+WS)
-apps/mobile/       Capacitor shell over the shared renderer
+apps/mobile/       Expo iOS/Android app: relay client for the computer + llama.rn on the phone
 apps/website/      marketing site (index.html, styles, mascot sprite, downloads)
 ```
 
@@ -118,7 +118,7 @@ A workspace is a **split tree**, not a tab stack. `renderer/layout.ts` owns the 
 - **Desktop**: electron-builder targets win (MSI/NSIS/zip), mac (dmg/zip, arm64 ad-hoc signed), linux (AppImage/deb). Release CI on `v*` tags builds all 3 OSes and publishes a draft. Auto-updates via electron-updater (GitHub feed, NSIS). To cut a release: bump version (root/desktop/server) + `git tag vX.Y.Z && git push` → CI publishes a draft → publish it.
 - **Web/npx**: `npm run web` (in-repo) or `npm run bundle:web` → esbuild-bundled self-contained `agent-nekko` package in `apps/server/cli-dist` (server+engine inlined, fastify external) → `npx agent-nekko`. Publish needs the user's npm login.
 - **Docker**: multi-stage `Dockerfile` (`ELECTRON_SKIP_BINARY_DOWNLOAD=1`, dev deps pruned, non-root node:20-slim) + `docker-compose.yml` (volume workspace + data, `host.docker.internal:host-gateway`, publishes to 127.0.0.1:1440); GHCR publish workflow on `v*` tags.
-- **Mobile**: `.github/workflows/mobile.yml` (manual) builds Android debug APK + iOS simulator. `cap add ios/android` + native toolchains run on cloud runners (not the Windows dev box). Requires a full root `npm run build` first so workspace dists resolve.
+- **Mobile**: `.github/workflows/mobile.yml` runs on mobile/relay changes (and manually): typecheck, unit tests, and the phone ↔ relay ↔ computer integration test (needs the root shared/core/host/cli/server/relay builds), then `expo prebuild` + an Android debug APK and an unsigned iOS simulator build. Locally on Windows: `subst` a short drive letter over the worktree before `gradlew assembleDebug` (CMake path limits), JDK 21 from Android Studio's `jbr`, `-PreactNativeArchitectures=x86_64` for the emulator. llama.rn's postinstall downloads its prebuilt libraries with `tar`; under Git Bash that is GNU tar, which reads `C:` as a remote host, so run installs from PowerShell or run `npm run llama:native` after.
 - **Cloud**: `npm run cloud` (:4318) locally; hosted deploy target TBD (open question).
 - **Local test loop**: `npm run local` builds + launches the built desktop app (electron-vite preview, no installer/Defender); `npm run web` for the browser edition.
 - **Ports**: web 1440, cloud 4318. Kill a stale dev server by port (`Get-NetTCPConnection -LocalPort … | Stop-Process`), npm-wrapped node survives `pkill`.
@@ -211,7 +211,7 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 - **Browser pane uses Electron `<webview>`** for v1 (DOM-flow, simplest inside splittable panes); `WebContentsView` is more robust but needs main-process bounds syncing across split groups, deferred.
 - **Diff/approve snapshots originals** on first agent write, then diffs current-vs-original; writes still happen immediately (tool loop never gated), "reject" reverts, full review/revert UX without blocking the agent.
 - **Prompt analyzer is fully client-side** (regex/structural heuristics), instant, offline, free; the marketable always-on feel. LLM rewrite is a later opt-in.
-- **Capacitor over React Native for mobile**: wraps the existing shared renderer (the web edition already runs over the relay in a phone browser), matching "same UI everywhere" and maximizing reuse.
+- ~~**Capacitor over React Native for mobile**~~ (superseded 2026-10-03): it was chosen to wrap the shared renderer. Once the phone became its own client (PF21) and gained on-device models (PF22), the reuse argument was gone and llama.cpp needed a real native binding, so the app moved to **Expo + llama.rn** (the stack PocketPal ships on both stores). The full app in a phone browser over the relay remains for people who want every surface.
 - **Tags over hierarchical folders** for conversation organization (lighter, less sidebar restructuring).
 - **Hand-rolled MCP & push** (JSON-RPC over stdio; APNs/FCM JWTs via `node:crypto`), dependency-free, in keeping with "no native modules" and a lean tree.
 
@@ -239,6 +239,20 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 - [ ] Cut the **v1.0 release** once the above land (bump versions + tag). *Status 2026-09-30: PR #203 (`chore/release-v0.8.0`) sits open and mergeable as the next version bump, a pure 5-file version change; merging it fires the public release workflow, so it waits on the same credentials below (npm publish cred, remaining Windows signing, macOS notary trio) plus an explicit go. The GUI pass above is the only functional gate left on the list.*
 
 ## Now / In Progress
+
+### MA: Native phone app, remote client + on-device models (added 2026-10-03)
+
+Philip asked (2026-10-03) to continue the phone app as a native iOS/Android client that runs Agent Nekko from remote and also runs local models. That merges PF21 and PF22 into one app (PF22 had planned on-device models as a separate product; the user's call overrides that). · [spec](SPEC.md#your-agent-in-your-pocket-the-ios-and-android-app)
+
+- [x] **MA1, Replace the Capacitor shell with an Expo app.** `apps/mobile` is now Expo SDK 57 (RN 0.86, new architecture, Expo Router, React Compiler) with three native tabs (Chats / On this phone / Computers), Agent Nekko's palette and the outline Nekko head drawn with react-native-svg. `appId` stays `dev.nekkolabs.agentnekko`; schemes `agent-nekko` and `agent-nekko-pair` (a `+native-intent` rewrite turns a scanned `agent-nekko-pair:?…` link into the pairing screen). Android ships `arm64-v8a` + `x86_64` only, the ABIs llama.rn prebuilds. · Done: 2026-10-03
+- [x] **MA2, Relay v2 client for Hermes.** `src/lib/e2e.ts` is the shared PBKDF2 → AES-256-GCM construction in pure JS (`@noble/hashes`, `@noble/ciphers`; Hermes has no `crypto.subtle`), with a UTF-8 decoder for runtimes without `TextDecoder` and an `expo-crypto` RNG polyfill. `src/lib/relayClient.ts` does the sealed HELLO, request/response with per-call timeouts (`chat:send` gets 12 h, since it replies only when the turn ends), event fan-in, backoff reconnect, offline (`room not paired`) polling, denial/kick handling, and push-token registration. The derived key is cached in the Keychain/Keystore so reconnects skip the second of PBKDF2. Tests pin both directions of the crypto against `shared/e2e.ts`, and `relay.itest.ts` runs the client against a real local relay, a headless agent (`apps/server` relay-agent mode) and a fake streaming model: enrollment, provider listing with keys stripped, session create, a streamed turn, and a refused replay of the spent code. · Done: 2026-10-03
+- [x] **MA3, Computer chats.** Chat list from `sessions:summaries` (top-level, unarchived), Working / Needs you badges from the event stream plus `chat:pending` on connect, connection banner with deny-reason copy, pull to refresh. New-chat sheet: provider/model picker seeded from the computer's defaults, folder chips, `session:create` + `session:setOptions`. Chat screen: saved transcript (`session:get`) plus a live overlay folded from `agent:event` (pure `applyEvent`), tool rows with expandable output, reasoning fold, Markdown (own small parser, tested), Allow this? card (`tool:approve`), question card (`chat:answer`, Skip sends none), queue-while-running (`chat:queue`), Stop (`chat:abort`), re-read on reconnect. Verified in the web preview against the harness: pair via link → online banner → new chat → streamed reply → approval card → approve → command ran on the computer → reply with its output. · Done: 2026-10-03
+- [x] **MA4, On-device models.** Curated catalog (`src/lib/catalog.ts`) with exact byte sizes read from the Hugging Face API, RAM fit (`fitFor`: file + ~0.6 GB runtime against 35/50/65% of RAM) and a recommendation (Qwen3.5 2B when it fits comfortably, else 0.8B). Downloads with `File.createDownloadTask` into `<documents>/models` via a `.part` file, size-checked before install, cancellable, keep-awake while running. One llama.rn context at a time (`n_gpu_layers: 99`, mmap, `ctx_shift`), reasoning parsed by llama.cpp (`reasoning_format: auto`), a Think switch for reasoning models, tokens/s from the timings. Local chats persist as JSON with write-then-rename. Web preview reports the engine unavailable (`llama.web.ts`). · Done: 2026-10-03
+- [x] **MA5, Push and relay fixes.** Notification permission asked after pairing only; the native APNs/FCM token is registered with the relay on every connect. The relay rejected every FCM token (they contain `:`), so Android push could never have worked; the token pattern now allows it (new relay test). `connectRelayAgent().stop()` also never removed its `limitsUpdated` listener. · Done: 2026-10-03
+- [x] **MA6, CI.** `mobile.yml` runs typecheck, unit tests and the relay integration test, then builds the Android APK and an unsigned iOS simulator build, on any mobile/relay change. · Done: 2026-10-03
+- [ ] **MA7, Verify on real phones.** Android emulator run of the APK covers the app shell and llama.rn on x86_64; still needed: an iPhone (Metal) and a recent Android phone (OpenCL/Hexagon) for load times, tokens/s and memory pressure with each catalog model, and the camera QR scan.
+- [ ] **MA8, Store release.** EAS project + signing, App Store / Play listings and screenshots, APNs key and FCM service account on the managed relay (see provisioning in the workspace), privacy labels (no data collected; models download from Hugging Face).
+- [ ] **MA9, Follow-ups.** Exclude downloaded models from iOS backup; resume interrupted model downloads (`DownloadTask.savable()`); images in phone chats for vision models; switch a chat's model mid-chat; delete/rename/archive chats from the phone; a "send to my computer" hand-off from a phone chat; remove the Capacitor-only `RelayPairing` and the `window.Capacitor` branches from the desktop renderer now that nothing wraps it.
 
 ### In-chat PR identity and styling (2026-10-02)
 
@@ -512,9 +526,9 @@ Planned by Philip for later; not started. See [SPEC roadmap](SPEC.md#roadmap-bey
 
 - [ ] **PF20**, A native GPU-rendered desktop shell, if the web UI cannot hold the speed contract.
   - GPUI (via the standalone `gpui-box` distribution) or similar, as another client of `nekkod`. Revisit only after PF1-PF7 land and the budgets have data behind them; the terminal would move to `alacritty_terminal` or libghostty drawn in the same GPU pipeline.
-- [ ] **PF21**, The phone app becomes a remote and cloud client of its own.
+- [ ] **PF21**, The phone app becomes a remote and cloud client of its own. *The remote half is being built as MA (2026-10-03); cloud runners remain.*
   - Diverges from the shared renderer: a purpose-built client for the user's own `nekkod` (over the relay) and later for cloud runners, in the spirit of Claude Code on the phone. Start, follow, approve and steer runs; push when a run needs input.
-- [ ] **PF22**, On-device local models on the phone, as a separate product.
+- [ ] **PF22**, On-device local models on the phone, as a separate product. *Superseded 2026-10-03: Philip asked for local models inside the same app; built as MA4 with llama.rn. MLX on iPhone stays open if Metal through llama.cpp falls short.*
   - llama.cpp (Android/iOS) or MLX (iPhone) running models sized to the device; its own app and positioning, not a mode of the remote client. Needs its own SPEC before any build.
 
 ### Workbench resizable splits (86)

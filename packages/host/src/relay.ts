@@ -184,6 +184,7 @@ export function connectRelayAgent(host: Host, opts: RelayAgentOptions): RelayAge
       host.events.off('tasksUpdated', onTasks);
       host.events.off('trainingUpdated', onTraining);
       host.events.off('workflowsUpdated', onWorkflows);
+      host.events.off('limitsUpdated', onLimits);
       try {
         ws?.close();
       } catch {

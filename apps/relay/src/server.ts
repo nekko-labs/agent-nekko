@@ -259,7 +259,8 @@ export function buildRelay(opts: RelayOptions = {}): { app: FastifyInstance; roo
             const token = typeof ctrl.token === 'string' ? ctrl.token : '';
             const platform = ctrl.platform === 'android' ? 'android' : ctrl.platform === 'ios' ? 'ios' : '';
             const validDevice = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(deviceId);
-            const validToken = /^[A-Za-z0-9_-]{20,}$/.test(token);
+            // APNs tokens are hex; FCM registration tokens also carry ':'.
+            const validToken = /^[A-Za-z0-9_:-]{20,4096}$/.test(token);
             const owner = r.pushOwners.get(deviceId);
             if (validDevice && validToken && platform && (!owner || owner === cid)) {
               r.pushOwners.set(deviceId, cid);
