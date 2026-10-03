@@ -272,3 +272,18 @@ function SwapIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * The frame's two slots, for a frame that is not `PaneFrame`: the Command
+ * Center's grid cells draw their own strip and hand its action and metadata
+ * areas to the pane inside, so a chat there shows the same controls it shows
+ * in the Agent tab rather than falling back to its unframed header. Until the
+ * strip is on screen the action slot is pending, as in `PaneFrame`.
+ */
+export function PaneSlots({ actions, metadata, children }: { actions: HTMLElement | null; metadata: HTMLElement | null; children: React.ReactNode }) {
+  return (
+    <PaneChrome.Provider value={actions ?? SLOT_PENDING}>
+      <MetadataChrome.Provider value={metadata}>{children}</MetadataChrome.Provider>
+    </PaneChrome.Provider>
+  );
+}

@@ -1,28 +1,43 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, PendingInput, ProviderConfig, ReplyStop, SessionSummary, TerminalInfo, UsageSummary, AutomationTask } from '@agent-nekko/shared';
-import type { RemoteStatus } from '@agent-nekko/shared';
-import { estimateCostUSD, formatUSD, optimizationTips, MODEL_PRICING, taskCadence, classifySession, classifyAgent, isLocalProvider, reduceLiveActivity } from '@agent-nekko/shared';
-import type { OptimizationTip, AgentType, LiveActivity } from '@agent-nekko/shared';
+import type { AgentEvent, AutomationTask, PendingInput, SessionSummary, UsageSummary } from '@agent-nekko/shared';
+import type { AgentType } from '@agent-nekko/shared';
+import { classifyAgent, classifySession, formatUSD, summarizeSession, taskCadence } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
-import { Badge, EmptyHint, PanelList } from '../components/primitives/index.js';
-import { ServerIcon, PlusIcon, CheckIcon, TerminalIcon, TrashIcon } from '../icons.js';
-import { SessionBoard } from '../components/SessionBoard.js';
+import { PanelList, Toggle } from '../components/primitives/index.js';
+import { GridIcon, TrashIcon } from '../icons.js';
+import { CommandGrid } from '../components/CommandGrid.js';
+import { InsightsBox, type Vitals } from '../components/InsightsBox.js';
+import { AutomationsEmptyArt, EmptyArea } from '../components/EmptyIllustrations.js';
+import {
+  GRID_MAX,
+  addCells,
+  loadGridState,
+  reconcileGrid,
+  saveGridState,
+  type CommandGridState,
+  type GridFilter,
+} from '../commandGrid.js';
 
 const HOUR = 60 * 60_000;
 
+/**
+ * The Command Center: every agent and terminal as a live window on one wall,
+ * in a consistent grid you can reshape, with the automations list and the
+ * insights box around it. The grid is the same chat and terminal panes the
+ * Agent tab shows, so work gets handled here, not just watched.
+ */
 export function CommandCenterView() {
-  const { sessions, terminals, providers, settings, setView, newChat, openChatPane, openTerminalPane, newTerminal, refreshSessions, refreshTerminals } = useStore(
+  const { sessions, terminals, providers, settings, activeProjectId, setView, openChatPane, openTerminalPane, refreshSessions, refreshTerminals } = useStore(
     useShallow((s) => ({
       sessions: s.sessions,
       terminals: s.terminals,
       providers: s.providers,
       settings: s.settings,
+      activeProjectId: s.activeProjectId,
       setView: s.setView,
-      newChat: s.newChat,
       openChatPane: s.openChatPane,
       openTerminalPane: s.openTerminalPane,
-      newTerminal: s.newTerminal,
       refreshSessions: s.refreshSessions,
       refreshTerminals: s.refreshTerminals,
     })),
@@ -31,66 +46,53 @@ export function CommandCenterView() {
   const [running, setRunning] = useState<Set<string>>(new Set());
   const [tasks, setTasks] = useState<AutomationTask[]>([]);
   // What each chat is waiting on a person for, read from the host so a question
-  // asked while this screen was closed is on the board when it opens.
+  // asked while this screen was closed shows on its window when it opens.
   const [pending, setPending] = useState<Record<string, PendingInput>>({});
   const [, setTick] = useState(0);
-  // First-sighting timestamps for in-flight runs, so Now rows can show elapsed.
-  const runStarts = useRef(new Map<string, number>());
-  /**
-   * What each running chat is doing right now, folded from its event stream.
-   *
-   * A ref rather than state on purpose: text arrives a token at a time, and
-   * putting that through `setState` would re-render every card on the board
-   * dozens of times a second. The tick below repaints at a readable rate and
-   * the cards read the latest fold when they do.
-   */
-  const activity = useRef(new Map<string, LiveActivity>());
   const now = Date.now();
+
+  // The wall itself: remembered between runs, kept honest against the chats
+  // and terminals that exist, and grown by every new chat while auto-add is on.
+  const [grid, setGridState] = useState<CommandGridState>(() => loadGridState(typeof localStorage === 'undefined' ? undefined : localStorage));
+  const setGrid = (update: (s: CommandGridState) => CommandGridState) => setGridState((s) => update(s));
+  useEffect(() => { saveGridState(typeof localStorage === 'undefined' ? undefined : localStorage, grid); }, [grid]);
+  // Not before both lists have loaded once: reconciling against the empty
+  // lists the view mounts with would seed an empty wall and watermark every
+  // chat that already exists out of it.
+  const [listsReady, setListsReady] = useState(false);
+  useEffect(() => {
+    if (listsReady) setGridState((g) => reconcileGrid(g, sessions, terminals, Date.now()));
+  }, [listsReady, sessions, terminals]);
 
   useEffect(() => {
     window.nekko.getUsageSummary().then(setUsage);
-    refreshSessions();
-    refreshTerminals();
+    Promise.all([refreshSessions(), refreshTerminals()]).finally(() => setListsReady(true));
     window.nekko.listTasks().then(setTasks).catch(() => setTasks([]));
     window.nekko.pendingInput().then(setPending).catch(() => {});
     const off = window.nekko.onTasksUpdated(setTasks);
     return off;
   }, [refreshSessions, refreshTerminals]);
 
-  // Re-read what is blocked whenever anything might have changed it. The events
-  // say what happened, but the host is the one that knows what is *still*
-  // outstanding, and a card in the wrong lane is worse than a stale timestamp.
   const refreshPending = () => { window.nekko.pendingInput().then(setPending).catch(() => {}); };
 
-  // Map a task-driven session back to its task, so those agents classify by
-  // their task (a recurring "monitor …" task → monitor, not a plain chat).
   const taskBySession = useMemo(() => {
     const m = new Map<string, AutomationTask>();
     for (const t of tasks) if (t.lastSessionId) m.set(t.lastSessionId, t);
     return m;
   }, [tasks]);
 
-  // Track running sessions live; surface freshly spawned sub-agents.
+  // Track running sessions live; a freshly spawned sub-agent re-lists sessions,
+  // which is how it reaches the grid.
   useEffect(() => {
     const known = new Set(sessions.map((s) => s.id));
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
-      // Fold every event into the session's live rail before anything else, so
-      // a card repainted by the tick below is never a step behind.
-      const folded = reduceLiveActivity(activity.current.get(e.sessionId), e, Date.now());
-      if (folded) activity.current.set(e.sessionId, folded);
-      else activity.current.delete(e.sessionId);
-
-      if (e.type === 'question' || e.type === 'tool_approval_required' || e.type === 'question_resolved' || e.type === 'tool_result') {
-        refreshPending();
-      }
+      if (e.type === 'question' || e.type === 'tool_approval_required' || e.type === 'question_resolved' || e.type === 'tool_result') refreshPending();
       if (e.type === 'done' || e.type === 'error') {
-        runStarts.current.delete(e.sessionId);
         setRunning((r) => { const n = new Set(r); n.delete(e.sessionId); return n; });
         window.nekko.getUsageSummary().then(setUsage);
         refreshPending();
-        refreshSessions(); // pick up the dequeued prompt + final message
+        refreshSessions();
       } else {
-        if (!runStarts.current.has(e.sessionId)) runStarts.current.set(e.sessionId, Date.now());
         setRunning((r) => (r.has(e.sessionId) ? r : new Set(r).add(e.sessionId)));
       }
       if (!known.has(e.sessionId)) { known.add(e.sessionId); refreshSessions(); }
@@ -98,15 +100,7 @@ export function CommandCenterView() {
     return off;
   }, [sessions, refreshSessions]);
 
-  // Tick while work is in flight (elapsed timers and the live step rails), and
-  // every 30s regardless (the automation next-run countdowns). Twice a second
-  // is fast enough to read as live and slow enough that a streaming reply does
-  // not repaint the whole board on every token.
-  useEffect(() => {
-    if (running.size === 0) return;
-    const t = setInterval(() => setTick((n) => n + 1), 500);
-    return () => clearInterval(t);
-  }, [running.size]);
+  // The automation countdowns tick every 30s.
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 30_000);
     return () => clearInterval(t);
@@ -117,22 +111,16 @@ export function CommandCenterView() {
     for (const s of sessions) if (s.parentSessionId) m.set(s.parentSessionId, [...(m.get(s.parentSessionId) ?? []), s]);
     return m;
   }, [sessions]);
-
-  // Chats the user started directly, excludes sub-agents and task-driven chats
-  // (those nest under their parent and live on the Automations board).
-  const topLevel = useMemo(() => sessions.filter((s) => !s.parentSessionId && !s.taskId && !s.trainingRunId), [sessions]);
-  const todayKey = new Date().toISOString().slice(0, 10);
-  const todayTokens = usage?.daily.find((d) => d.date === todayKey);
-  const tokensToday = todayTokens ? todayTokens.input + todayTokens.output : 0;
-  const isSubscriptionSpend = !!usage?.hasSubscriptionUsage && (usage?.totalCost ?? 0) === 0;
-
+  const topLevel = useMemo(() => sessions.filter((s) => !s.parentSessionId && !s.taskId && !s.trainingRunId && !s.archivedAt), [sessions]);
   const isRunningSession = useMemo(
     () => (s: SessionSummary) => running.has(s.id) || (childrenOf.get(s.id) ?? []).some((k) => running.has(k.id)),
     [running, childrenOf],
   );
 
-  // Fleet: who's out there, by derived type — running/recent chats + active tasks.
-  const fleet = useMemo(() => {
+  const vitals = useMemo<Vitals>(() => {
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayTokens = usage?.daily.find((d) => d.date === todayKey);
+    const isSubscriptionSpend = !!usage?.hasSubscriptionUsage && (usage?.totalCost ?? 0) === 0;
     type Member = { type: AgentType; running: boolean };
     const members: Member[] = [];
     for (const s of topLevel) {
@@ -141,10 +129,7 @@ export function CommandCenterView() {
     }
     for (const t of tasks) {
       if (t.status !== 'active') continue;
-      members.push({
-        type: classifyAgent({ taskKind: t.kind, taskCondition: t.condition, prompt: t.prompt }),
-        running: !!t.lastSessionId && running.has(t.lastSessionId),
-      });
+      members.push({ type: classifyAgent({ taskKind: t.kind, taskCondition: t.condition, prompt: t.prompt }), running: !!t.lastSessionId && running.has(t.lastSessionId) });
     }
     const byRole = new Map<string, { type: AgentType; count: number; live: number }>();
     for (const m of members) {
@@ -153,126 +138,171 @@ export function CommandCenterView() {
       if (m.running) e.live++;
       byRole.set(m.type.role, e);
     }
-    return [...byRole.values()].sort((a, b) => b.count - a.count);
+    return {
+      working: running.size,
+      waiting: topLevel.filter((s) => !!pending[s.id]).length,
+      automations: tasks.filter((t) => t.status === 'active').length,
+      terminals: terminals.filter((t) => t.running).length,
+      tokensToday: todayTokens ? todayTokens.input + todayTokens.output : 0,
+      spend: isSubscriptionSpend ? 'Included in plan' : formatUSD(usage?.totalCost ?? 0),
+      fleet: [...byRole.values()].sort((a, b) => b.count - a.count),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topLevel, tasks, running, taskBySession, isRunningSession]);
+  }, [usage, topLevel, tasks, running, pending, terminals, taskBySession, isRunningSession]);
 
   const openChat = (id: string) => { openChatPane(id); setView('chat'); };
   const openTerminal = (id: string) => { openTerminalPane(id); setView('chat'); };
 
-  const liveTerminals = terminals.filter((t) => t.running).length;
-  // Chats parked on a question or an approval. The board has a lane for them,
-  // but the strip is what you read first, and "3 waiting on you" is the one
-  // number worth interrupting a glance for.
-  const waitingOnYou = topLevel.filter((s) => !!pending[s.id]).length;
+  // Starting work from the wall keeps you on the wall: the new chat or shell
+  // goes straight into the grid rather than switching to the Agent tab.
+  const newChatHere = async () => {
+    const s = await window.nekko.createSession(activeProjectId ?? undefined);
+    useStore.setState((state) => ({ sessions: [summarizeSession(s), ...state.sessions] }));
+    setGrid((g) => addCells(g, [{ kind: 'chat', refId: s.id }]));
+  };
+  const newTerminalHere = async () => {
+    const t = await window.nekko.createTerminal({ workspaceId: activeProjectId ?? undefined });
+    await refreshTerminals();
+    setGrid((g) => addCells(g, [{ kind: 'terminal', refId: t.id }]));
+  };
+
+  const insights = grid.insights.show && (
+    <InsightsBox
+      prefs={grid.insights}
+      onPrefs={(next) => setGrid((g) => ({ ...g, insights: next }))}
+      usage={usage}
+      sessions={sessions}
+      providers={providers}
+      vitals={vitals}
+      onOpenModels={() => setView('models')}
+    />
+  );
 
   return (
     <div className="h-full overflow-y-auto">
-      {/* Wide on purpose: the board is three lanes of cards that each carry a
-          live step rail and a slice of the conversation, and at the old 72rem
-          every one of them truncated mid-sentence. The cap is high enough to
-          give a lane real width on a big display, and still centres on one. */}
-      <div className="mx-auto w-full max-w-[1760px] px-6 py-8 xl:px-10">
-        <div className="flex items-center justify-between">
-          <h1 className="text-gradient text-2xl font-semibold">Command Center</h1>
-          <div className="flex gap-2">
-            <button className="btn btn-outline" onClick={() => { newTerminal(); }}><TerminalIcon className="h-4 w-4" /> Terminal</button>
-            <button className="btn btn-primary" onClick={() => { newChat(); }}><PlusIcon className="h-4 w-4" /> New chat</button>
-          </div>
-        </div>
-
-        {/* The monitor strip: the whole machine's vitals in one quiet line. */}
-        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-y border-line py-2.5 text-[12px] text-ink-faint">
-          <Stat live={running.size > 0} value={running.size} label={running.size === 1 ? 'agent working' : 'agents working'} />
-          <StatDivider />
-          <Stat value={waitingOnYou} label="waiting on you" tone={waitingOnYou > 0 ? 'var(--warning)' : undefined} />
-          <StatDivider />
-          <Stat value={tasks.filter((t) => t.status === 'active').length} label="automations active" />
-          <StatDivider />
-          <Stat value={liveTerminals} label={liveTerminals === 1 ? 'terminal live' : 'terminals live'} />
-          <StatDivider />
-          <Stat value={tokensToday.toLocaleString()} label="tokens today" />
-          <StatDivider />
-          <Stat value={isSubscriptionSpend ? 'Included in plan' : formatUSD(usage?.totalCost ?? 0)} label="est. spend" />
-          {/* The fleet, by derived role. It used to sit in the "Now" heading;
-              the strip is where the other at-a-glance counts already live. */}
-          {fleet.length > 0 && (
-            <span className="ml-auto flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              {fleet.map((g) => (
-                <span
-                  key={g.type.role}
-                  className="flex items-center gap-1"
-                  title={`${g.count} ${g.type.label}${g.count === 1 ? '' : 's'}${g.live > 0 ? `, ${g.live} working` : ''}`}
-                >
-                  <span>{g.type.icon}</span>
-                  <span className="tabular-nums">{g.live > 0 ? `${g.live}/${g.count}` : g.count}</span>
-                </span>
-              ))}
-            </span>
-          )}
-        </div>
-
-        {/* SESSIONS — every chat as a card, in the lane its state puts it in.
-            This is where the work gets handled: answer, approve, reply, stop.
-            It absorbed the old "Now" list, which only ever said which of these
-            were running and could not say which were waiting on the user. */}
-        <SessionBoard
-          sessions={topLevel}
-          tasks={tasks}
-          providers={providers}
-          usage={usage}
+      <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-4 px-4 py-5 xl:px-8">
+        <GridToolbar grid={grid} setGrid={setGrid} />
+        {grid.insights.position === 'top' && insights}
+        <CommandGrid
+          state={grid}
+          setState={setGrid}
+          sessions={sessions}
+          terminals={terminals}
           running={running}
           pending={pending}
           childrenOf={childrenOf}
-          runStarts={runStarts.current}
-          activity={activity.current}
-          now={now}
-          onOpen={openChat}
-          onRefresh={() => { refreshSessions(); refreshPending(); }}
-          onNewChat={newChat}
+          projects={settings?.workspaces ?? []}
+          onOpenChat={openChat}
+          onOpenTerminal={openTerminal}
+          onNewChat={newChatHere}
+          onNewTerminal={newTerminalHere}
         />
-
-        {/* AUTOMATIONS — running, planned (next up), paused, finished. */}
         <AutomationsBoard tasks={tasks} running={running} now={now} onOpen={openChat} />
-
-        {/* TERMINALS */}
-        {terminals.length > 0 && (
-          <section className="mt-7">
-            <div className="flex items-baseline gap-2">
-              <h2 className="text-[15px] font-semibold">Terminals</h2>
-              <span className="text-[12px] text-ink-faint">{liveTerminals > 0 ? `${liveTerminals} live` : 'none live'}</span>
-            </div>
-            <PanelList className="mt-2.5">
-              {terminals.map((t) => (
-                <TerminalRow key={t.id} term={t} workspaceName={settings?.workspaces?.find((w) => w.id === t.workspaceId)?.name} onOpen={openTerminal} />
-              ))}
-            </PanelList>
-          </section>
-        )}
-
-        {/* INSIGHTS — analytics behind one segmented control, out of the way. */}
-        <InsightsSection usage={usage} sessions={sessions} providers={providers} onOpenModels={() => setView('models')} />
+        {grid.insights.position === 'bottom' && insights}
       </div>
     </div>
   );
 }
 
-/* ---------- monitor strip ---------- */
+/* ---------- toolbar ---------- */
 
-function Stat({ value, label, live, tone }: { value: number | string; label: string; live?: boolean; tone?: string }) {
+const FILTERS: Array<{ key: GridFilter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'chat', label: 'Agents' },
+  { key: 'terminal', label: 'Terminals' },
+];
+
+function GridToolbar({ grid, setGrid }: { grid: CommandGridState; setGrid: (update: (s: CommandGridState) => CommandGridState) => void }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [hover, setHover] = useState<{ cols: number; rows: number } | null>(null);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDown = (e: MouseEvent) => { if (!pickerRef.current?.contains(e.target as Node)) setPickerOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setPickerOpen(false); };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
+  }, [pickerOpen]);
+
+  const fixed = grid.layout.mode === 'fixed' ? grid.layout : null;
+  const shown = hover ?? fixed;
+  const counts = { chat: grid.cells.filter((c) => c.kind === 'chat').length, terminal: grid.cells.filter((c) => c.kind === 'terminal').length };
+
   return (
-    <span className="flex items-center gap-1.5">
-      {live != null && (
-        <span className={`h-1.5 w-1.5 rounded-full ${live ? 'animate-pulse' : ''}`} style={{ background: live ? 'var(--success)' : 'var(--ink-faint)' }} />
-      )}
-      <span className="tabular-nums font-semibold text-ink" style={tone ? { color: tone } : undefined}>{value}</span>
-      <span style={tone ? { color: tone } : undefined}>{label}</span>
-    </span>
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <h1 className="text-gradient text-2xl font-semibold">Command Center</h1>
+      <span className="text-[12px] text-ink-faint">
+        {counts.chat} agent{counts.chat === 1 ? '' : 's'} · {counts.terminal} terminal{counts.terminal === 1 ? '' : 's'} on the wall
+      </span>
+      <div className="ml-auto flex flex-wrap items-center gap-3">
+        <div className="inline-flex rounded-lg border border-line p-0.5" role="tablist" aria-label="Show">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              role="tab"
+              aria-selected={grid.filter === f.key}
+              className={`rounded-md px-2.5 py-1 text-[12px] transition-colors ${grid.filter === f.key ? 'bg-surface-2 font-medium text-ink' : 'text-ink-faint hover:text-ink'}`}
+              onClick={() => setGrid((g) => ({ ...g, filter: f.key }))}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="inline-flex items-center rounded-lg border border-line p-0.5" aria-label="Grid layout">
+          <button
+            className={`rounded-md px-2.5 py-1 text-[12px] transition-colors ${!fixed ? 'bg-surface-2 font-medium text-ink' : 'text-ink-faint hover:text-ink'}`}
+            title="Fit the windows to the space automatically"
+            aria-pressed={!fixed}
+            onClick={() => setGrid((g) => ({ ...g, layout: { mode: 'auto' } }))}
+          >
+            Auto
+          </button>
+          <div className="relative" ref={pickerRef}>
+            <button
+              className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] transition-colors ${fixed ? 'bg-surface-2 font-medium text-ink' : 'text-ink-faint hover:text-ink'}`}
+              title="Pick a fixed number of columns and rows"
+              aria-expanded={pickerOpen}
+              onClick={() => setPickerOpen((o) => !o)}
+            >
+              <GridIcon className="h-3.5 w-3.5" />
+              <span className="tabular-nums">{fixed ? `${fixed.cols} × ${fixed.rows}` : 'Fixed'}</span>
+            </button>
+            {pickerOpen && (
+              <div className="card absolute right-0 top-9 z-30 p-3 shadow-lg" style={{ background: 'var(--paper)' }} onMouseLeave={() => setHover(null)}>
+                <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${GRID_MAX}, 22px)` }} role="grid" aria-label="Columns by rows">
+                  {Array.from({ length: GRID_MAX * GRID_MAX }, (_, i) => {
+                    const cols = (i % GRID_MAX) + 1, rows = Math.floor(i / GRID_MAX) + 1;
+                    const lit = !!shown && cols <= shown.cols && rows <= shown.rows;
+                    return (
+                      <button
+                        key={i}
+                        role="gridcell"
+                        aria-label={`${cols} columns by ${rows} rows`}
+                        className="h-[22px] w-[22px] rounded-[5px] border transition-colors"
+                        style={{ borderColor: lit ? 'var(--accent)' : 'var(--line)', background: lit ? 'color-mix(in srgb, var(--accent) 22%, transparent)' : 'transparent' }}
+                        onMouseEnter={() => setHover({ cols, rows })}
+                        onFocus={() => setHover({ cols, rows })}
+                        onClick={() => { setGrid((g) => ({ ...g, layout: { mode: 'fixed', cols, rows } })); setPickerOpen(false); }}
+                      />
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-center text-[12px] tabular-nums text-ink-soft">{shown ? `${shown.cols} × ${shown.rows}` : 'columns × rows'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-soft" title="Every chat that starts, sub-agents included, joins the wall">
+          <Toggle value={grid.autoAdd} onChange={(v) => setGrid((g) => ({ ...g, autoAdd: v }))} label="Auto-add new agents" />
+          <span>Auto-add new agents</span>
+        </label>
+        {!grid.insights.show && (
+          <button className="btn btn-outline py-1 text-[12px]" onClick={() => setGrid((g) => ({ ...g, insights: { ...g.insights, show: true } }))}>Show insights</button>
+        )}
+      </div>
+    </div>
   );
-}
-
-function StatDivider() {
-  return <span aria-hidden className="h-3 w-px" style={{ background: 'var(--line)' }} />;
 }
 
 /* ---------- shared bits ---------- */
@@ -292,7 +322,7 @@ function relTime(ms: number): string {
   return `${y} yr${y === 1 ? '' : 's'} ago`;
 }
 
-/** "in 45s" / "in 12 mins" / "in 3 hrs" / "in 2 days" — for automation countdowns. */
+/** "in 45s" / "in 12 mins" / "in 3 hrs" / "in 2 days", for automation countdowns. */
 function inTime(ms: number): string {
   if (ms <= 0) return 'due now';
   const s = Math.round(ms / 1000);
@@ -305,15 +335,6 @@ function inTime(ms: number): string {
   if (d < 30) return `in ${d} day${d === 1 ? '' : 's'}`;
   const mo = Math.round(d / 30);
   return `in ${mo} month${mo === 1 ? '' : 's'}`;
-}
-
-/** "38s" / "4m 12s" / "1h 08m" — elapsed time on a working run. */
-function elapsed(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${String(s % 60).padStart(2, '0')}s`;
-  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
 }
 
 /* ---------- Automations ---------- */
@@ -349,15 +370,15 @@ function AutomationsBoard({ tasks, running, now, onOpen }: { tasks: AutomationTa
   const active = tasks.filter((t) => t.status === 'active').length;
 
   return (
-    <section className="mt-7">
+    <section>
       <div className="flex items-baseline gap-2">
         <h2 className="text-[15px] font-semibold">Automations</h2>
         <span className="text-[12px] text-ink-faint">{tasks.length === 0 ? 'scheduled, recurring & background work' : `${active} active of ${tasks.length}`}</span>
       </div>
       {sorted.length === 0 ? (
-        <EmptyHint className="mt-2.5">
-          No automations yet. Open a chat and use the <span className="font-medium text-ink-soft">⚡ Automate</span> menu to schedule a run, repeat it, or keep an agent working in the background.
-        </EmptyHint>
+        <EmptyArea className="mt-2.5" art={<AutomationsEmptyArt />} title="Nothing scheduled">
+          Open a chat and use its <span className="font-medium text-ink-soft">⚡ Automate</span> menu to run a prompt at a time, repeat it on a schedule, or keep an agent working in the background. They line up here.
+        </EmptyArea>
       ) : (
         <PanelList className="mt-2.5">
           {sorted.map((t) => {
@@ -402,425 +423,5 @@ function AutomationsBoard({ tasks, running, now, onOpen }: { tasks: AutomationTa
         </PanelList>
       )}
     </section>
-  );
-}
-
-/* ---------- Terminals ---------- */
-
-function TerminalRow({ term, workspaceName, onOpen }: { term: TerminalInfo; workspaceName?: string; onOpen: (id: string) => void }) {
-  return (
-    <button className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-surface-2" onClick={() => onOpen(term.id)}>
-      <TerminalIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-      <span className="min-w-0 shrink-0 text-[13px] font-medium">{term.title}</span>
-      <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-faint">{term.cwd}</span>
-      {workspaceName && <span className="hidden shrink-0 text-[11.5px] text-ink-faint sm:inline">{workspaceName}</span>}
-      <span className="shrink-0 tabular-nums text-[11.5px] font-medium" style={{ color: term.running ? 'var(--success)' : 'var(--ink-faint)' }}>
-        {term.running ? 'live' : 'exited'}
-      </span>
-    </button>
-  );
-}
-
-/* ---------- Insights (segmented analytics) ---------- */
-
-type InsightTab = 'optimize' | 'cost' | 'usage' | 'services';
-
-function InsightsSection({
-  usage, sessions, providers, onOpenModels,
-}: {
-  usage: UsageSummary | null; sessions: SessionSummary[]; providers: ProviderConfig[]; onOpenModels: () => void;
-}) {
-  const tips = useMemo(() => optimizationTips({ usage, sessions, providers }), [usage, sessions, providers]);
-  const [tab, setTab] = useState<InsightTab>(tips.length > 0 ? 'optimize' : 'cost');
-  const TABS: Array<{ key: InsightTab; label: string }> = [
-    { key: 'optimize', label: 'Optimize' },
-    { key: 'cost', label: 'Cost' },
-    { key: 'usage', label: 'Usage' },
-    { key: 'services', label: 'Services' },
-  ];
-  const DESC: Record<InsightTab, string> = {
-    optimize: 'Ways to cut token spend and run leaner, from your own usage.',
-    cost: 'Spend by agent and model, monthly actuals + projection. Local models are free.',
-    usage: 'Tokens over time and by model.',
-    services: 'Model providers, MCP servers, and the remote relay, with live status.',
-  };
-  return (
-    <section className="mt-9 border-t border-line pt-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 className="text-[15px] font-semibold">Insights</h2>
-        <div className="ml-auto inline-flex rounded-lg border border-line p-0.5" role="tablist" aria-label="Insights">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              role="tab"
-              aria-selected={tab === t.key}
-              className={`rounded-md px-3 py-1 text-[12px] transition-colors ${tab === t.key ? 'bg-surface-2 font-medium text-ink' : 'text-ink-faint hover:text-ink'}`}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-              {t.key === 'optimize' && tips.length > 0 && <span className="ml-1.5 tabular-nums text-[10.5px] text-accent">{tips.length}</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-      <p className="mt-1 text-[12px] text-ink-faint">{DESC[tab]}</p>
-      <div className="mt-3">
-        {tab === 'optimize' && <OptimizePanel tips={tips} onOpenModels={onOpenModels} />}
-        {tab === 'cost' && <CostPanel usage={usage} sessions={sessions} providers={providers} />}
-        {tab === 'usage' && <UsagePanel usage={usage} />}
-        {tab === 'usage' && <RepliesPanel usage={usage} sessions={sessions} />}
-        {tab === 'services' && <ServicesPanel providers={providers} usage={usage} />}
-      </div>
-    </section>
-  );
-}
-
-const TIP_STYLE: Record<OptimizationTip['severity'], { color: string; icon: string; label: string }> = {
-  warn: { color: 'var(--warning)', icon: '!', label: 'Heads up' },
-  suggest: { color: 'var(--success)', icon: '↳', label: 'Suggestion' },
-  info: { color: 'var(--info)', icon: 'i', label: 'Insight' },
-};
-
-function OptimizePanel({ tips, onOpenModels }: { tips: OptimizationTip[]; onOpenModels: () => void }) {
-  const totalSaving = tips.reduce((s, t) => s + (t.saving ?? 0), 0);
-  if (tips.length === 0) {
-    return <EmptyHint>No tips right now, your usage looks lean.</EmptyHint>;
-  }
-  return (
-    <>
-      {totalSaving > 0.01 && <p className="mb-2 text-[12px] text-ink-soft">~{formatUSD(totalSaving)} potential savings</p>}
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        {tips.map((t) => {
-          const st = TIP_STYLE[t.severity];
-          return (
-            <div key={t.id} className="card flex gap-3 p-4">
-              <span
-                className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white"
-                style={{ background: st.color }}
-                title={st.label}
-              >
-                {st.icon}
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-semibold">{t.title}</span>
-                  {t.saving && t.saving > 0.01 && <span className="chip">~{formatUSD(t.saving)}</span>}
-                </div>
-                <p className="mt-0.5 text-[12px] text-ink-soft">{t.detail}</p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <button className="mt-3 text-[12px] text-accent hover:underline" onClick={onOpenModels}>
-        Manage models &amp; providers →
-      </button>
-    </>
-  );
-}
-
-function UsagePanel({ usage }: { usage: UsageSummary | null }) {
-  if (!usage) return null;
-  const max = Math.max(1, ...usage.daily.map((d) => d.input + d.output));
-  return (
-    <div className="card p-5">
-      <div className="flex gap-6 text-[13px]">
-        <div><span className="text-ink-faint">Input</span> <span className="font-semibold tabular-nums">{usage.totalInput.toLocaleString()}</span></div>
-        <div><span className="text-ink-faint">Output</span> <span className="font-semibold tabular-nums">{usage.totalOutput.toLocaleString()}</span></div>
-      </div>
-      {usage.daily.length > 0 ? (
-        <div className="mt-4 flex h-32 items-end gap-1">
-          {usage.daily.slice(-30).map((d) => (
-            <div key={d.date} className="flex flex-1 flex-col justify-end" title={`${d.date}: ${(d.input + d.output).toLocaleString()} tok`}>
-              <div className="rounded-t" style={{ height: `${((d.input + d.output) / max) * 100}%`, background: 'var(--accent)', minHeight: 2 }} />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <ChartEmpty message="No usage recorded yet, start a chat to see token analytics here." />
-      )}
-      {Object.keys(usage.byModel).length > 0 && (
-        <div className="mt-4 space-y-1">
-          {Object.entries(usage.byModel).map(([model, v]) => {
-            const cost = v.cost ?? estimateCostUSD(model, v.input, v.output);
-            const costLabel = cost > 0 ? formatUSD(cost) : v.subscription ? 'Included in plan' : formatUSD(0);
-            return (
-              <div key={model} className="flex justify-between gap-3 text-[12px]">
-                <span className="truncate font-mono text-ink-soft" title={v.subscription ? 'Included in a subscription plan' : undefined}>{model}</span>
-                <span className="shrink-0 tabular-nums text-ink-faint" title={v.subscription ? 'No per-token API cost for subscription usage' : undefined}>
-                  {(v.input + v.output).toLocaleString()} tok
-                  <span className="ml-2 text-ink">{costLabel}</span>
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const STOP_LABEL: Record<ReplyStop | 'other', string> = {
-  complete: 'Finished',
-  loop: 'Stopped looping',
-  runaway: 'Runaway output',
-  other: 'Other',
-};
-
-/**
- * How agent replies end and how many tool steps they take. Replies have no
- * tool-step limit; this shows how long real runs go and how often the loop
- * detector steps in. Counts only.
- */
-function RepliesPanel({ usage, sessions }: { usage: UsageSummary | null; sessions: SessionSummary[] }) {
-  const r = usage?.replies;
-  if (!r) return null;
-  const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
-  const stops = (Object.keys(STOP_LABEL) as Array<ReplyStop | 'other'>).filter((k) => r.byStop[k] > 0);
-  return (
-    <div className="card mt-3 p-5">
-      <div className="flex items-baseline gap-2">
-        <h3 className="text-[13px] font-semibold">Agent replies</h3>
-        <span className="text-[11.5px] text-ink-faint">tool steps per reply</span>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[13px]">
-        <div><span className="text-ink-faint">Replies</span> <span className="font-semibold tabular-nums">{r.total.toLocaleString()}</span></div>
-        <div><span className="text-ink-faint">Median steps</span> <span className="font-semibold tabular-nums">{r.p50Steps}</span></div>
-        <div><span className="text-ink-faint">90th pct</span> <span className="font-semibold tabular-nums">{r.p90Steps}</span></div>
-        <div><span className="text-ink-faint">Most</span> <span className="font-semibold tabular-nums">{r.mostSteps}</span></div>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
-        {stops.map((k) => (
-          <span key={k} className={k === 'complete' ? 'text-ink-faint' : 'text-ink-soft'}>
-            {STOP_LABEL[k]} <span className="tabular-nums text-ink">{r.byStop[k]}</span>
-          </span>
-        ))}
-      </div>
-      {r.recentStops.length > 0 && (
-        <div className="mt-4 space-y-1">
-          {r.recentStops.map((s) => (
-            <div key={`${s.ts}_${s.sessionId}`} className="flex justify-between gap-3 text-[12px]">
-              <span className="min-w-0 truncate text-ink-soft">{titleOf(s.sessionId)}</span>
-              <span className="shrink-0 tabular-nums text-ink-faint">
-                {STOP_LABEL[s.stop]} · {s.steps} steps · <span className="font-mono">{s.modelId}</span>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** A friendly skeleton placeholder for a chart with no data yet. */
-function ChartEmpty({ message, bars = 12 }: { message: string; bars?: number }) {
-  // Deterministic pseudo-random heights so the skeleton looks like a chart.
-  const heights = Array.from({ length: bars }, (_, i) => 30 + ((i * 37) % 60));
-  return (
-    <div className="mt-4 rounded-xl border border-dashed border-line p-4">
-      <div className="flex h-24 items-end gap-1 opacity-40">
-        {heights.map((h, i) => (
-          <div key={i} className="flex-1 rounded-t" style={{ height: `${h}%`, background: 'var(--ink-faint)' }} />
-        ))}
-      </div>
-      <p className="mt-3 text-center text-[12px] text-ink-faint">{message}</p>
-    </div>
-  );
-}
-
-/** Cost breakdowns: monthly actual + projection, per-agent, per-model, and pricing. */
-function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null; sessions: SessionSummary[]; providers: ProviderConfig[] }) {
-  const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
-  const hasData = !!usage && ((usage.totalCost ?? 0) > 0.0000001 || !!usage.hasSubscriptionUsage);
-
-  // This month's actual + a simple linear projection to month-end.
-  const monthKey = new Date().toISOString().slice(0, 7);
-  const monthDaily = (usage?.daily ?? []).filter((d) => d.date.startsWith(monthKey));
-  const monthActual = monthDaily.reduce((s, d) => s + (d.cost ?? 0), 0);
-  const dayOfMonth = new Date().getDate();
-  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  const projected = dayOfMonth > 0 ? (monthActual / dayOfMonth) * daysInMonth : monthActual;
-
-  const topAgents = useMemo(() => {
-    return Object.entries(usage?.bySessionCost ?? {})
-      .filter(([, c]) => c > 0.0000001)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6);
-  }, [usage]);
-  const maxAgent = Math.max(0.0001, ...topAgents.map(([, c]) => c));
-
-  const recentCost = (usage?.daily ?? []).slice(-30);
-  const maxDayCost = Math.max(0.0001, ...recentCost.map((d) => d.cost ?? 0));
-
-  const subscriptionChats = useMemo(() => {
-    if (!usage?.hasSubscriptionUsage) return [] as SessionSummary[];
-    return sessions.filter((s) => {
-      const t = usage.bySession[s.id];
-      const p = providers.find((p) => p.id === s.providerId);
-      return p?.auth === 'subscription' && t && t.input + t.output > 0;
-    });
-  }, [usage, sessions, providers]);
-  const subscriptionTokens = useMemo(() =>
-    subscriptionChats.reduce((n, s) => n + (usage?.bySession[s.id]?.input ?? 0) + (usage?.bySession[s.id]?.output ?? 0), 0),
-  [subscriptionChats, usage]);
-
-  return (
-    <>
-      {!hasData ? (
-        <ChartEmpty message="No spend yet. Once you run a cloud model, monthly spend, projections, and per-agent costs show up here." />
-      ) : (
-        <>
-          {/* Monthly actual + projection, in the monitor strip's language. */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-ink-faint">
-            <Stat value={formatUSD(monthActual)} label={`this month (${dayOfMonth}/${daysInMonth} days)`} />
-            <StatDivider />
-            <Stat value={formatUSD(projected)} label="projected month-end" />
-            <StatDivider />
-            <Stat value={formatUSD(usage!.totalCost ?? 0)} label="all time" />
-            <span className="ml-auto" title="Estimated from published provider list prices; local models are $0.">est. · list prices</span>
-          </div>
-
-          {/* Daily spend chart */}
-          <div className="card mt-3 p-4">
-            <div className="text-[12px] font-medium">Daily spend (last 30 days)</div>
-            <div className="mt-3 flex h-24 items-end gap-1">
-              {recentCost.map((d) => (
-                <div key={d.date} className="flex flex-1 flex-col justify-end" title={`${d.date}: ${formatUSD(d.cost ?? 0)}`}>
-                  <div className="rounded-t" style={{ height: `${((d.cost ?? 0) / maxDayCost) * 100}%`, background: 'var(--warning)', minHeight: (d.cost ?? 0) > 0 ? 2 : 0 }} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Per-agent breakdown */}
-          {topAgents.length > 0 && (
-            <div className="card mt-3 p-4">
-              <div className="text-[12px] font-medium">By agent</div>
-              <div className="mt-2 space-y-2">
-                {topAgents.map(([sid, cost]) => (
-                  <div key={sid}>
-                    <div className="flex justify-between gap-3 text-[12px]">
-                      <span className="truncate text-ink-soft">{titleOf(sid)}</span>
-                      <span className="shrink-0 tabular-nums text-ink">{formatUSD(cost)}</span>
-                    </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface-2)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${(cost / maxAgent) * 100}%`, background: 'var(--accent)' }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {subscriptionChats.length > 0 && topAgents.length === 0 && (
-            <div className="card mt-3 p-4">
-              <div className="text-[12px] font-medium">By agent</div>
-              <div className="mt-2 text-[12px] text-ink-soft">
-                {subscriptionChats.length} chat{subscriptionChats.length === 1 ? '' : 's'} ran on a subscription plan ({subscriptionTokens.toLocaleString()} tok). No API spend to show.
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Pricing reference, token/$ estimates */}
-      <details className="card mt-3 p-4">
-        <summary className="cursor-pointer text-[12px] font-medium">Token pricing reference (USD per 1M tokens)</summary>
-        <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 md:grid-cols-3">
-          {MODEL_PRICING.map((p) => (
-            <div key={p.match} className="flex justify-between gap-2 text-[11.5px]">
-              <span className="font-mono text-ink-soft">{p.match}</span>
-              <span className="tabular-nums text-ink-faint">in ${p.input} · out ${p.output}</span>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-[11px] text-ink-faint">Published list prices, matched by model id. Estimates only, your billed amount may differ. Local models (Ollama / LM Studio / vLLM) and subscription providers (Claude / ChatGPT plans) cost $0.</p>
-      </details>
-    </>
-  );
-}
-
-function ServicesPanel({ providers, usage }: { providers: ProviderConfig[]; usage: UsageSummary | null }) {
-  const [remote, setRemote] = useState<RemoteStatus | null>(null);
-  const [mcp, setMcp] = useState<import('@agent-nekko/shared').McpServerStatus[]>([]);
-  useEffect(() => { window.nekko.getRemoteStatus().then(setRemote).catch(() => setRemote(null)); }, []);
-  useEffect(() => { window.nekko.getMcpStatus().then(setMcp).catch(() => setMcp([])); }, []);
-  return (
-    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-      <RemoteCard remote={remote} />
-      {providers.map((p) => (
-        <WorkerCard key={p.id} provider={p} tokens={usage?.byProvider[p.id]} />
-      ))}
-      {mcp.map((m) => (
-        <div key={m.id} className="card p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-base">🔌</span>
-              <span className="text-[13px] font-medium">{m.name}</span>
-              <span className="chip">MCP</span>
-            </div>
-            <StatusPill state={m.connected ? 'online' : 'offline'} />
-          </div>
-          <p className="mt-2 text-[12px] text-ink-faint">
-            {m.connected ? `${m.tools.length} tool${m.tools.length === 1 ? '' : 's'} available` : m.error ?? 'Not connected'}
-          </p>
-        </div>
-      ))}
-      {providers.length === 0 && mcp.length === 0 && (
-        <div className="card p-4 text-[12px] text-ink-faint">No model providers yet, add one in Model Providers.</div>
-      )}
-    </div>
-  );
-}
-
-function WorkerCard({ provider, tokens }: { provider: ProviderConfig; tokens?: { input: number; output: number } }) {
-  const [state, setState] = useState<'checking' | 'online' | 'offline'>('checking');
-  useEffect(() => {
-    window.nekko.testProvider(provider.id).then((r) => setState(r.ok ? 'online' : 'offline')).catch(() => setState('offline'));
-  }, [provider.id]);
-  const total = tokens ? tokens.input + tokens.output : 0;
-  const isLocal = isLocalProvider(provider.kind);
-  return (
-    <div className="card p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <ServerIcon className="h-4 w-4 text-ink-faint" />
-          <span className="text-[13px] font-medium">{provider.label}</span>
-          <span className="chip">{isLocal ? 'local' : 'cloud'}</span>
-        </div>
-        <StatusPill state={state} />
-      </div>
-      <div className="mt-2 flex items-center justify-between text-[12px] text-ink-faint">
-        <span className="font-mono">{provider.baseUrl}</span>
-        <span className="tabular-nums">{total.toLocaleString()} tok</span>
-      </div>
-    </div>
-  );
-}
-
-function RemoteCard({ remote }: { remote: RemoteStatus | null }) {
-  const online = !!remote?.enabled;
-  return (
-    <div className="card p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-base">📱</span>
-          <span className="text-[13px] font-medium">Remote relay</span>
-        </div>
-        <StatusPill state={online ? 'online' : 'offline'} onlineLabel="enabled" offlineLabel="off" />
-      </div>
-      <p className="mt-2 text-[12px] text-ink-faint">
-        {online ? 'Your phone can reach this machine’s model over an encrypted relay.' : 'Enable in Settings → Remote access to drive your local model from anywhere.'}
-      </p>
-    </div>
-  );
-}
-
-function StatusPill({ state, onlineLabel = 'online', offlineLabel = 'offline' }: { state: 'checking' | 'online' | 'offline'; onlineLabel?: string; offlineLabel?: string }) {
-  if (state === 'checking') return <span className="chip">checking…</span>;
-  const online = state === 'online';
-  return (
-    <Badge tone={online ? 'success' : 'neutral'} variant="solid">
-      {online && <CheckIcon className="h-3 w-3" />} {online ? onlineLabel : offlineLabel}
-    </Badge>
   );
 }

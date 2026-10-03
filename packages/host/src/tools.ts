@@ -30,6 +30,27 @@ function stopCommandTree(child: ChildProcess): void {
   }
 }
 
+/** execFile does not forward detached; spawn is needed for Unix group cancellation. */
+function runShell(file: string, args: string[], options: ExecFileOptions & { detached: boolean; encoding: 'utf8' }, callback: (error: Error | null, stdout: string, stderr: string) => void): ChildProcess {
+  if (process.platform === 'win32') return execFile(file, args, options, callback);
+  const child = spawn(file, args, { cwd: options.cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '', stderr = '';
+  let failure: Error | null = null;
+  const collect = (chunk: Buffer, stream: 'stdout' | 'stderr') => {
+    if (failure) return;
+    if (stream === 'stdout') stdout += chunk.toString(); else stderr += chunk.toString();
+    if (Buffer.byteLength(stdout) + Buffer.byteLength(stderr) > (options.maxBuffer ?? 1024 * 1024)) {
+      failure = new Error('Command output exceeded maxBuffer');
+      stopCommandTree(child);
+    }
+  };
+  child.stdout!.on('data', chunk => collect(chunk, 'stdout'));
+  child.stderr!.on('data', chunk => collect(chunk, 'stderr'));
+  child.on('error', error => { failure = error; });
+  child.on('close', (code, signal) => callback(failure ?? (code === 0 ? null : new Error(`Command failed: ${file}\n${stderr}`)), stdout, stderr));
+  return child;
+}
+
 export interface ToolHostOptions {
   settings: AppSettings;
   /** Resolve relative paths against the first workspace root. */
@@ -296,41 +317,22 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
             };
             // A separate process group on Unix lets Stop and timeout kill all
             // descendants. On Windows taskkill /T does the same for cmd.exe.
-            // execFile does not forward `detached` to spawn. Use spawn directly
-            // so Unix cancellation can kill the shell's entire process group.
+            const options: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: process.platform === 'win32', encoding: 'utf8' };
             if (typeof a.command !== 'string') throw new TypeError(`The "command" argument must be of type string. Received ${typeof a.command === 'number' ? `type number (${a.command})` : String(a.command)}`);
-            const child = spawn(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], {
-              cwd, detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: process.platform === 'win32', stdio: ['ignore', 'pipe', 'pipe'],
-            });
-            let stdout = '';
-            let stderr = '';
-            let failure: Error | undefined;
-            const collect = (stream: 'stdout' | 'stderr', chunk: string) => {
-              if (Buffer.byteLength(stream === 'stdout' ? stdout : stderr) + Buffer.byteLength(chunk) > 10 * 1024 * 1024) {
-                failure = new Error(`${stream} maxBuffer length exceeded`);
-                stopCommandTree(child);
-                return;
-              }
-              if (stream === 'stdout') stdout += chunk;
-              else stderr += chunk;
-              mirror(chunk);
-            };
-            child.stdout?.setEncoding('utf8');
-            child.stderr?.setEncoding('utf8');
-            child.stdout?.on('data', (chunk: string) => collect('stdout', chunk));
-            child.stderr?.on('data', (chunk: string) => collect('stderr', chunk));
-            child.on('error', (error) => { failure = error; });
-            child.on('close', (code, signal) => {
+            const child = runShell(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], options, (error: Error | null, stdout: string, stderr: string) => {
+              // Keep the previous exec error format (without the explicit shell).
+              if (error) error.message = error.message.replace(/^Command failed: .*?\r?\n/, `Command failed: ${a.command}\n`);
               clearTimeout(timer);
               opts.signal?.removeEventListener('abort', onAbort);
               if (stopped) reject(Object.assign(new Error(`Command ${stopped}.`), { stdout, stderr }));
-              else if (failure) reject(Object.assign(failure, { stdout, stderr }));
-              else if (code !== 0) reject(Object.assign(new Error(`Command failed: ${a.command}\n${signal ? `Terminated by ${signal}` : stderr}`), { stdout, stderr }));
+              else if (error) reject(Object.assign(error, { stdout, stderr }));
               else resolveP({ stdout, stderr });
             });
             timer = setTimeout(() => { stopped = 'timed out'; stopCommandTree(child); }, 120_000);
             opts.signal?.addEventListener('abort', onAbort, { once: true });
             if (opts.signal?.aborted) onAbort();
+            child.stdout?.on('data', (chunk: Buffer | string) => mirror(String(chunk)));
+            child.stderr?.on('data', (chunk: Buffer | string) => mirror(String(chunk)));
           });
           const output = (stdout + (stderr ? `\n[stderr]\n${stderr}` : '')).slice(0, 60000) || '(no output)';
           if (!stdout && !stderr) mirror('(no output)\n');

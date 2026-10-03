@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { basename } from 'path';
+import { basename, resolve } from 'path';
 import type {
   AppSettings,
   AskAnswer,
@@ -535,10 +535,11 @@ export interface Host {
   connectHypergate(port?: number): Promise<import('@agent-nekko/shared').HypergateInfo | null>;
 }
 
-/** The chat a worktree folder is named after, for the Git management list. */
-function chatOwner(sessionId: string): { title: string; running: boolean } | null {
-  const session = sessions.getSession(sessionId);
-  return session ? { title: session.title, running: isChatRunning(sessionId) } : null;
+/** The chat whose isolated checkout lives at `worktreeRoot` (see chat-worktrees.ts), or null for a deleted chat's folder. */
+function chatOwner(worktreeRoot: string): { id: string; title: string; running: boolean } | null {
+  const same = (a: string, b: string) => (process.platform === 'win32' ? resolve(a).toLowerCase() === resolve(b).toLowerCase() : resolve(a) === resolve(b));
+  const session = sessions.listSessions().find((s) => Object.values(s.gitWorktrees ?? {}).some((w) => same(w.root, worktreeRoot)));
+  return session ? { id: session.id, title: session.title, running: isChatRunning(session.id) } : null;
 }
 
 export function createHost(opts: { dataDir: string; allowBrowserControl?: boolean }): Host {

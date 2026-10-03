@@ -122,6 +122,49 @@ Look for a **Shrouded Keybag** line, which confirms the private key is in the
 export. macOS `security import` reads the legacy encryption natively, so no
 re-export is needed for CI.
 
+### When the App Store Connect key rotates
+
+The notary key is the one credential here that can die without any secret
+changing: an App Store Connect API key gets revoked or rotated in Apple's
+portal, and `APPLE_API_KEY_ID` / `APPLE_API_KEY_P8` quietly keep pointing at a
+key that no longer exists. That happened on 2026-09-06, when the team's key was
+replaced and the old one revoked. Every release from v0.7.1 on then signed
+fine and died in notarization, five minutes into the job, with:
+
+```
+Failed to notarize via notarytool. ... HTTP status code: 401. Unauthenticated.
+```
+
+The release workflow now checks the key *before* building ("Validate the
+notary credentials"), using the same read-only call you can run locally
+against a candidate `.p8`:
+
+```bash
+xcrun notarytool history --key AuthKey_XXXXXXXX.p8 --key-id XXXXXXXX --issuer <issuer UUID>
+```
+
+A live key lists past submissions (Agent Nekko's and hypergate's, since they
+share the team). A revoked one returns the 401 above. The issuer id is per
+team and does not change when the key does.
+
+To rotate, with a key whose App Store Connect role is Developer or above, and
+after confirming the file really is a private key
+(`openssl pkey -in AuthKey_XXXXXXXX.p8 -noout` exits 0):
+
+```bash
+gh secret set APPLE_API_KEY_P8 --org nekko-labs --visibility all < AuthKey_XXXXXXXX.p8
+gh secret set APPLE_API_KEY_ID --org nekko-labs --visibility all --body XXXXXXXX
+```
+
+Then re-run the Release workflow at the tag that failed:
+
+```bash
+gh workflow run release.yml --repo nekko-labs/agent-nekko --ref vX.Y.Z
+```
+
+The secrets are organization-wide, so one rotation also repairs hypergate and
+lightwrite.
+
 ## Windows
 
 The release workflow passes `WINDOWS_SIGNING_CERTS_P12` and

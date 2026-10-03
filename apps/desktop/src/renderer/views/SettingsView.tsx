@@ -232,6 +232,15 @@ export function SettingsView() {
         {/* Guardrails */}
         <GuardrailsSection settings={settings} update={update} updateGuardrail={updateGuardrail} />
 
+        <section className="card mt-5 p-5">
+          <h2 className="font-semibold">Developer</h2>
+          <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
+            <div><span className="text-[13px]">Show server controls</span>
+              <p className="text-[11px] text-ink-faint">Desktop only. Show agent and model server toggles and Restart server in the top-right title bar. Off by default.</p></div>
+            <Toggle on={settings.developer?.serverControls === true} onChange={(v) => update({ developer: { ...settings.developer, serverControls: v } })} />
+          </div>
+        </section>
+
         {/* Experimental */}
         <section className="card mt-5 p-5">
           <div className="flex items-center gap-2"><WandIcon className="h-4 w-4" /><h2 className="font-semibold">Experimental</h2></div>
@@ -294,11 +303,12 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
       </p>
       <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="text-[13px]">Output cap per response</span>
+          <span className="text-[13px]">Output cap per response, local models</span>
           <p className="text-[11px] text-ink-faint">
-            Tokens one response may generate. Stops a model that gets stuck repeating itself from streaming until
-            its context fills. {MAX_OUTPUT_TOKENS_RANGE.min}–{MAX_OUTPUT_TOKENS_RANGE.max.toLocaleString()}. Default{' '}
-            {MAX_OUTPUT_TOKENS_DEFAULT.toLocaleString()}.
+            Tokens one response from a local server (Ollama, LM Studio, vLLM, llama.cpp) may generate. Stops a model
+            that gets stuck repeating itself from streaming until its context fills. Cloud providers run to their own
+            limits and are not capped. {MAX_OUTPUT_TOKENS_RANGE.min}–{MAX_OUTPUT_TOKENS_RANGE.max.toLocaleString()}.
+            Default {MAX_OUTPUT_TOKENS_DEFAULT.toLocaleString()}.
           </p>
         </div>
         <input

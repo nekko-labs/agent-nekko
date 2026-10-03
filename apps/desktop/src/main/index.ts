@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, screen, shell } from 'electron';
 import { fileURLToPath } from 'url';
 import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
@@ -8,7 +8,7 @@ import { defaultUserDataDir, legacyUserDataDirs, migrateUserData, prepareUserDat
 import { brandEnv, IpcEvents, type AppSettings } from '@agent-nekko/shared';
 import { registerIpc } from './ipc.js';
 import { checkForUpdates } from './update.js';
-import { loadWindowBounds, saveWindowBounds, setWindowStateDir } from './windowState.js';
+import { initialWindowBounds, loadWindowBounds, MIN_WINDOW, saveWindowBounds, setWindowStateDir } from './windowState.js';
 import { preservePackagedProfile } from './appIdentity.js';
 import { EngineProcess } from './engine-process.js';
 import { createDesktopTray } from './tray.js';
@@ -107,11 +107,13 @@ function resolveWindowIcon(): string | undefined {
 }
 
 function createWindow(): void {
-  const bounds = loadWindowBounds();
+  // A first launch is sized to the screen before the window exists, so it
+  // appears at that size rather than visibly growing into it.
+  const bounds = loadWindowBounds() ?? initialWindowBounds(screen.getPrimaryDisplay().workArea);
   const win = new BrowserWindow({
     ...bounds,
-    minWidth: 900,
-    minHeight: 600,
+    minWidth: MIN_WINDOW.width,
+    minHeight: MIN_WINDOW.height,
     show: false,
     backgroundColor: DEFAULT_OVERLAY.color,
     icon: resolveWindowIcon(),

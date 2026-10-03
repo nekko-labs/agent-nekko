@@ -18,6 +18,53 @@ function gitOk(cwd: string, args: string[]): boolean {
 const norm = (p: string) => process.platform === 'win32' ? resolve(p).toLowerCase() : resolve(p);
 
 /**
+ * The words a checkout's folder and branch are made of when the chat has no
+ * name of its own yet (a new chat is provisioned on its first send, before its
+ * title has been written). Two adjectives and an animal, the way container
+ * tools name things: `nekko/brisk-amber-otter` reads in `git branch` and in a
+ * terminal prompt where `nekko/s_musa1d91_vYHqPXOk` did not.
+ */
+const WORD_A = ['brisk', 'calm', 'bold', 'quiet', 'swift', 'keen', 'bright', 'gentle', 'nimble', 'steady', 'lucky', 'merry', 'plucky', 'clever', 'sunny', 'cosy', 'eager', 'witty', 'mellow', 'tidy'];
+const WORD_B = ['amber', 'coral', 'indigo', 'jade', 'olive', 'rose', 'sage', 'teal', 'violet', 'copper', 'silver', 'golden', 'ivory', 'maple', 'ochre', 'pearl', 'plum', 'ruby', 'slate', 'cobalt'];
+const WORD_C = ['otter', 'heron', 'lynx', 'badger', 'falcon', 'marten', 'ibis', 'puffin', 'stoat', 'wren', 'tapir', 'quokka', 'gecko', 'koala', 'finch', 'moth', 'robin', 'seal', 'fox', 'cat'];
+
+/** A random `adjective-colour-animal`, from the lists above. */
+export function randomWorktreeName(random: () => number = Math.random): string {
+  const pick = (list: string[]) => list[Math.min(list.length - 1, Math.floor(random() * list.length))];
+  return `${pick(WORD_A)}-${pick(WORD_B)}-${pick(WORD_C)}`;
+}
+
+/** A title as a folder and branch name: lowercase ASCII words joined by dashes, at most 40 characters. */
+export function slugifyTitle(title: string): string {
+  return title
+    .normalize('NFKD')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+    .replace(/-+$/g, '');
+}
+
+/**
+ * What to call a chat's checkout. A title the user (or the agent, through
+ * `set_chat_title`) chose names it; otherwise it gets three random words.
+ * `taken` says whether a folder or branch of that name already exists, in
+ * which case a numbered suffix (or a fresh draw) keeps it unique.
+ */
+export function worktreeName(session: Pick<Session, 'title' | 'titleAuto'>, taken: (name: string) => boolean, random: () => number = Math.random): string {
+  const chosen = session.titleAuto === false && session.title && session.title !== 'New chat' ? slugifyTitle(session.title) : '';
+  if (chosen) {
+    if (!taken(chosen)) return chosen;
+    for (let n = 2; n < 100; n++) if (!taken(`${chosen}-${n}`)) return `${chosen}-${n}`;
+  }
+  for (let i = 0; i < 50; i++) {
+    const name = randomWorktreeName(random);
+    if (!taken(name)) return name;
+  }
+  return `${randomWorktreeName(random)}-${Date.now().toString(36)}`;
+}
+
+/**
  * Provision lazily: a new chat may select its project after creation. Old chats never opt in implicitly.
  * Returns the checkouts created on this call (new, or restored after removal), one per repository,
  * so the caller can run each project's setup command in them.
@@ -45,9 +92,11 @@ export function prepareChatWorktrees(session: Session, settings: AppSettings): A
     }
     const dirty = !!git(root, ['status', '--porcelain']);
     const common = resolve(root, git(root, ['rev-parse', '--git-common-dir']));
-    const target = join(common, 'nekko-worktrees', session.id);
-    const branch = `nekko/${session.id}`;
-    mkdirSync(join(common, 'nekko-worktrees'), { recursive: true });
+    const home = join(common, 'nekko-worktrees');
+    const name = worktreeName(session, (n) => existsSync(join(home, n)) || gitOk(root, ['rev-parse', '--verify', '--quiet', `refs/heads/nekko/${n}`]));
+    const target = join(home, name);
+    const branch = `nekko/${name}`;
+    mkdirSync(home, { recursive: true });
     let copied: string[] = [];
     try {
       git(root, ['worktree', 'add', '-b', branch, target, 'HEAD']);
@@ -182,7 +231,7 @@ export function chatWorkspaces(session: Session | null, settings: AppSettings): 
 }
 
 /** Every chat worktree in the configured projects' repositories, found through Git rather than chat records, so deleted chats' checkouts show up too. */
-export function listChatWorktrees(settings: AppSettings, lookup: (sessionId: string) => { title: string; running: boolean } | null): ChatWorktreeInfo[] {
+export function listChatWorktrees(settings: AppSettings, lookup: (worktreeRoot: string) => { id: string; title: string; running: boolean } | null): ChatWorktreeInfo[] {
   const repos = new Map<string, string>();
   for (const folder of settings.workspaces) {
     try {
@@ -201,8 +250,10 @@ export function listChatWorktrees(settings: AppSettings, lookup: (sessionId: str
       const root = resolve(b.worktree ?? '');
       if (!norm(root).startsWith(norm(home) + sep) || !existsSync(root)) continue;
       const branch = b.branch?.replace(/^refs\/heads\//, '');
-      const sessionId = basename(root);
-      const chat = lookup(sessionId);
+      // The chat records its checkout's folder; older checkouts were named
+      // after the chat's id, so that is the fallback for ones no chat claims.
+      const chat = lookup(root);
+      const sessionId = chat?.id ?? basename(root);
       let dirtyCount = 0, unmergedCount = 0;
       try { dirtyCount = git(root, ['status', '--porcelain']).split('\n').filter(Boolean).length; } catch { /* keep 0 */ }
       try { if (branch) unmergedCount = Number(git(sourceRoot, ['rev-list', '--count', `HEAD..${branch}`])) || 0; } catch { /* keep 0 */ }
@@ -217,7 +268,7 @@ export function listChatWorktrees(settings: AppSettings, lookup: (sessionId: str
  * or untracked changes, and the branch is deleted only when it is fully merged,
  * so no work is lost; the chat restores its checkout if it is continued later.
  */
-export function removeChatWorktree(settings: AppSettings, root: string, lookup: (sessionId: string) => { title: string; running: boolean } | null): { branchDeleted: boolean } {
+export function removeChatWorktree(settings: AppSettings, root: string, lookup: (worktreeRoot: string) => { id: string; title: string; running: boolean } | null): { branchDeleted: boolean } {
   const entry = listChatWorktrees(settings, lookup).find((w) => norm(w.root) === norm(root));
   if (!entry) throw new Error('That folder is not a chat worktree of a configured project.');
   if (entry.running) throw new Error('This chat is running. Stop it before removing its worktree.');

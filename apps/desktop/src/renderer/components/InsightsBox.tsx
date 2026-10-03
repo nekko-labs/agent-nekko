@@ -1,0 +1,511 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { ProviderConfig, RemoteStatus, ReplyStop, SessionSummary, UsageSummary } from '@agent-nekko/shared';
+import type { AgentType, OptimizationTip } from '@agent-nekko/shared';
+import { estimateCostUSD, formatUSD, isLocalProvider, MODEL_PRICING, optimizationTips } from '@agent-nekko/shared';
+import { INSIGHT_PANELS, type InsightPanel, type InsightsPrefs } from '../commandGrid.js';
+import { Badge, EmptyHint } from './primitives/index.js';
+import { CheckIcon, CloseIcon, GearIcon, ServerIcon } from '../icons.js';
+import { EmptyArea, InsightsEmptyArt } from './EmptyIllustrations.js';
+
+/** The machine's at-a-glance numbers, computed by the view from live state. */
+export interface Vitals {
+  working: number;
+  waiting: number;
+  automations: number;
+  terminals: number;
+  tokensToday: number;
+  spend: string;
+  fleet: Array<{ type: AgentType; count: number; live: number }>;
+}
+
+/**
+ * The Command Center's analytics, as one box: full width, removable, placed
+ * above or below the grid, and made of the panels the user ticked in its gear
+ * menu. The panels flow into as many columns as the box is wide enough for,
+ * so the same box reads as a strip on a laptop and a dashboard on a monitor.
+ */
+export function InsightsBox({
+  prefs,
+  onPrefs,
+  usage,
+  sessions,
+  providers,
+  vitals,
+  onOpenModels,
+}: {
+  prefs: InsightsPrefs;
+  onPrefs: (next: InsightsPrefs) => void;
+  usage: UsageSummary | null;
+  sessions: SessionSummary[];
+  providers: ProviderConfig[];
+  vitals: Vitals;
+  onOpenModels: () => void;
+}) {
+  const tips = useMemo(() => optimizationTips({ usage, sessions, providers }), [usage, sessions, providers]);
+  const [gearOpen, setGearOpen] = useState(false);
+  const gearRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!gearOpen) return;
+    const onDown = (e: MouseEvent) => { if (!gearRef.current?.contains(e.target as Node)) setGearOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setGearOpen(false); };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
+  }, [gearOpen]);
+
+  const on = (key: InsightPanel) => prefs.panels[key];
+  const toggle = (key: InsightPanel) => onPrefs({ ...prefs, panels: { ...prefs.panels, [key]: !prefs.panels[key] } });
+  const hasUsage = !!usage && (usage.totalInput + usage.totalOutput > 0 || !!usage.hasSubscriptionUsage);
+  const shown = INSIGHT_PANELS.filter((p) => on(p.key)).length;
+
+  return (
+    <section className="card relative p-4" data-insights-box>
+      <div className="flex items-center gap-2">
+        <h2 className="text-[14px] font-semibold">Insights</h2>
+        <span className="text-[11.5px] text-ink-faint">{shown === 0 ? 'nothing selected, open the gear' : prefs.position === 'top' ? 'above the grid' : 'below the grid'}</span>
+        <div className="ml-auto flex items-center gap-0.5">
+          <div className="relative" ref={gearRef}>
+            <button
+              className={`rounded-md p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink ${gearOpen ? 'bg-surface-2 text-ink' : ''}`}
+              title="Choose which stats and charts to show"
+              aria-label="Insights settings"
+              aria-expanded={gearOpen}
+              onClick={() => setGearOpen((o) => !o)}
+            >
+              <GearIcon className="h-4 w-4" />
+            </button>
+            {gearOpen && (
+              <div className="card absolute right-0 top-9 z-30 w-72 p-2 shadow-lg" style={{ background: 'var(--paper)' }} role="menu">
+                <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Show</p>
+                {INSIGHT_PANELS.map((p) => (
+                  <label key={p.key} className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-surface-2">
+                    <input type="checkbox" className="mt-0.5" checked={on(p.key)} onChange={() => toggle(p.key)} />
+                    <span className="min-w-0">
+                      <span className="block text-[12.5px] font-medium">{p.label}</span>
+                      <span className="block text-[11px] text-ink-faint">{p.blurb}</span>
+                    </span>
+                  </label>
+                ))}
+                <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Place</p>
+                <div className="flex gap-1 px-2 pb-1">
+                  {(['top', 'bottom'] as const).map((pos) => (
+                    <button
+                      key={pos}
+                      className={`flex-1 rounded-md border px-2 py-1 text-[12px] ${prefs.position === pos ? 'border-accent text-accent' : 'border-line text-ink-soft hover:text-ink'}`}
+                      onClick={() => onPrefs({ ...prefs, position: pos })}
+                    >
+                      {pos === 'top' ? 'Above the grid' : 'Below the grid'}
+                    </button>
+                  ))}
+                </div>
+                <button className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-[12px] text-ink-soft hover:bg-surface-2 hover:text-ink" onClick={() => { setGearOpen(false); onPrefs({ ...prefs, show: false }); }}>
+                  Hide the insights box (bring it back from the toolbar)
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            className="rounded-md p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
+            title="Remove the insights box (bring it back from the toolbar)"
+            aria-label="Remove insights"
+            onClick={() => onPrefs({ ...prefs, show: false })}
+          >
+            <CloseIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+
+      {on('vitals') && <VitalsStrip vitals={vitals} />}
+
+      {!hasUsage && shown > (on('vitals') ? 1 : 0) ? (
+        <EmptyArea className="mt-3" art={<InsightsEmptyArt />} title="No usage to chart yet">
+          Start a chat and the tokens, spend, replies and tips show up here, day by day.
+        </EmptyArea>
+      ) : (
+        <div className="mt-3 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))' }}>
+          {on('optimize') && hasUsage && <div style={{ gridColumn: '1 / -1' }}><OptimizePanel tips={tips} onOpenModels={onOpenModels} /></div>}
+          {on('cost') && hasUsage && <CostPanel usage={usage} sessions={sessions} providers={providers} />}
+          {on('tokens') && hasUsage && <TokensPanel usage={usage} />}
+          {on('models') && hasUsage && <ModelsPanel usage={usage} />}
+          {on('replies') && hasUsage && <RepliesPanel usage={usage} sessions={sessions} />}
+          {on('services') && <div style={{ gridColumn: '1 / -1' }}><ServicesPanel providers={providers} usage={usage} /></div>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+/* ---------- vitals ---------- */
+
+function VitalsStrip({ vitals }: { vitals: Vitals }) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-y border-line py-2.5 text-[12px] text-ink-faint">
+      <Stat live={vitals.working > 0} value={vitals.working} label={vitals.working === 1 ? 'agent working' : 'agents working'} />
+      <StatDivider />
+      <Stat value={vitals.waiting} label="waiting on you" tone={vitals.waiting > 0 ? 'var(--warning)' : undefined} />
+      <StatDivider />
+      <Stat value={vitals.automations} label="automations active" />
+      <StatDivider />
+      <Stat value={vitals.terminals} label={vitals.terminals === 1 ? 'terminal live' : 'terminals live'} />
+      <StatDivider />
+      <Stat value={vitals.tokensToday.toLocaleString()} label="tokens today" />
+      <StatDivider />
+      <Stat value={vitals.spend} label="est. spend" />
+      {vitals.fleet.length > 0 && (
+        <span className="ml-auto flex flex-wrap items-center gap-x-2.5 gap-y-1">
+          {vitals.fleet.map((g) => (
+            <span key={g.type.role} className="flex items-center gap-1" title={`${g.count} ${g.type.label}${g.count === 1 ? '' : 's'}${g.live > 0 ? `, ${g.live} working` : ''}`}>
+              <span>{g.type.icon}</span>
+              <span className="tabular-nums">{g.live > 0 ? `${g.live}/${g.count}` : g.count}</span>
+            </span>
+          ))}
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function Stat({ value, label, live, tone }: { value: number | string; label: string; live?: boolean; tone?: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      {live != null && (
+        <span className={`h-1.5 w-1.5 rounded-full ${live ? 'animate-pulse' : ''}`} style={{ background: live ? 'var(--success)' : 'var(--ink-faint)' }} />
+      )}
+      <span className="tabular-nums font-semibold text-ink" style={tone ? { color: tone } : undefined}>{value}</span>
+      <span style={tone ? { color: tone } : undefined}>{label}</span>
+    </span>
+  );
+}
+
+export function StatDivider() {
+  return <span aria-hidden className="h-3 w-px" style={{ background: 'var(--line)' }} />;
+}
+
+/* ---------- panels ---------- */
+
+const TIP_STYLE: Record<OptimizationTip['severity'], { color: string; icon: string; label: string }> = {
+  warn: { color: 'var(--warning)', icon: '!', label: 'Heads up' },
+  suggest: { color: 'var(--success)', icon: '↳', label: 'Suggestion' },
+  info: { color: 'var(--info)', icon: 'i', label: 'Insight' },
+};
+
+function PanelTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline gap-2">
+      <h3 className="text-[12.5px] font-semibold">{children}</h3>
+      {aside && <span className="text-[11px] text-ink-faint">{aside}</span>}
+    </div>
+  );
+}
+
+function OptimizePanel({ tips, onOpenModels }: { tips: OptimizationTip[]; onOpenModels: () => void }) {
+  const totalSaving = tips.reduce((s, t) => s + (t.saving ?? 0), 0);
+  return (
+    <div>
+      <PanelTitle aside={tips.length === 0 ? 'your usage looks lean' : totalSaving > 0.01 ? `~${formatUSD(totalSaving)} potential savings` : `${tips.length} tip${tips.length === 1 ? '' : 's'}`}>Optimize</PanelTitle>
+      {tips.length === 0 ? (
+        <EmptyHint className="mt-2">No tips right now.</EmptyHint>
+      ) : (
+        <div className="mt-2 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))' }}>
+          {tips.map((t) => {
+            const st = TIP_STYLE[t.severity];
+            return (
+              <div key={t.id} className="flex gap-3 rounded-xl border border-line p-3">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: st.color }} title={st.label}>
+                  {st.icon}
+                </span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-semibold">{t.title}</span>
+                    {t.saving && t.saving > 0.01 && <span className="chip">~{formatUSD(t.saving)}</span>}
+                  </div>
+                  <p className="mt-0.5 text-[12px] text-ink-soft">{t.detail}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <button className="mt-2 text-[12px] text-accent hover:underline" onClick={onOpenModels}>Manage models &amp; providers →</button>
+    </div>
+  );
+}
+
+function TokensPanel({ usage }: { usage: UsageSummary | null }) {
+  if (!usage) return null;
+  const max = Math.max(1, ...usage.daily.map((d) => d.input + d.output));
+  return (
+    <div className="rounded-xl border border-line p-3.5">
+      <PanelTitle aside="last 30 days">Tokens</PanelTitle>
+      <div className="mt-2 flex gap-5 text-[12.5px]">
+        <div><span className="text-ink-faint">Input</span> <span className="font-semibold tabular-nums">{usage.totalInput.toLocaleString()}</span></div>
+        <div><span className="text-ink-faint">Output</span> <span className="font-semibold tabular-nums">{usage.totalOutput.toLocaleString()}</span></div>
+      </div>
+      {usage.daily.length > 0 ? (
+        <div className="mt-3 flex h-24 items-end gap-1">
+          {usage.daily.slice(-30).map((d) => (
+            <div key={d.date} className="flex flex-1 flex-col justify-end" title={`${d.date}: ${(d.input + d.output).toLocaleString()} tok`}>
+              <div className="rounded-t" style={{ height: `${((d.input + d.output) / max) * 100}%`, background: 'var(--accent)', minHeight: 2 }} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <ChartEmpty message="No days recorded yet." />
+      )}
+    </div>
+  );
+}
+
+function ModelsPanel({ usage }: { usage: UsageSummary | null }) {
+  const entries = Object.entries(usage?.byModel ?? {}).sort((a, b) => b[1].input + b[1].output - (a[1].input + a[1].output));
+  return (
+    <div className="rounded-xl border border-line p-3.5">
+      <PanelTitle aside="tokens and cost">By model</PanelTitle>
+      {entries.length === 0 ? (
+        <EmptyHint className="mt-2">No model has answered yet.</EmptyHint>
+      ) : (
+        <div className="mt-2 space-y-1">
+          {entries.map(([model, v]) => {
+            const cost = v.cost ?? estimateCostUSD(model, v.input, v.output);
+            const costLabel = cost > 0 ? formatUSD(cost) : v.subscription ? 'Included in plan' : formatUSD(0);
+            return (
+              <div key={model} className="flex justify-between gap-3 text-[12px]">
+                <span className="truncate font-mono text-ink-soft" title={v.subscription ? 'Included in a subscription plan' : undefined}>{model}</span>
+                <span className="shrink-0 tabular-nums text-ink-faint">
+                  {(v.input + v.output).toLocaleString()} tok
+                  <span className="ml-2 text-ink">{costLabel}</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const STOP_LABEL: Record<ReplyStop | 'other', string> = {
+  complete: 'Finished',
+  loop: 'Stopped looping',
+  runaway: 'Runaway output',
+  other: 'Other',
+};
+
+/** How agent replies end and how many tool steps they take. Replies have no tool-step limit; this shows how long real runs go. */
+function RepliesPanel({ usage, sessions }: { usage: UsageSummary | null; sessions: SessionSummary[] }) {
+  const r = usage?.replies;
+  if (!r) return null;
+  const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
+  const stops = (Object.keys(STOP_LABEL) as Array<ReplyStop | 'other'>).filter((k) => r.byStop[k] > 0);
+  return (
+    <div className="rounded-xl border border-line p-3.5">
+      <PanelTitle aside="tool steps per reply">Replies</PanelTitle>
+      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-[12.5px]">
+        <div><span className="text-ink-faint">Replies</span> <span className="font-semibold tabular-nums">{r.total.toLocaleString()}</span></div>
+        <div><span className="text-ink-faint">Median</span> <span className="font-semibold tabular-nums">{r.p50Steps}</span></div>
+        <div><span className="text-ink-faint">90th pct</span> <span className="font-semibold tabular-nums">{r.p90Steps}</span></div>
+        <div><span className="text-ink-faint">Most</span> <span className="font-semibold tabular-nums">{r.mostSteps}</span></div>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
+        {stops.map((k) => (
+          <span key={k} className={k === 'complete' ? 'text-ink-faint' : 'text-ink-soft'}>
+            {STOP_LABEL[k]} <span className="tabular-nums text-ink">{r.byStop[k]}</span>
+          </span>
+        ))}
+      </div>
+      {r.recentStops.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {r.recentStops.slice(0, 6).map((s) => (
+            <div key={`${s.ts}_${s.sessionId}`} className="flex justify-between gap-3 text-[12px]">
+              <span className="min-w-0 truncate text-ink-soft">{titleOf(s.sessionId)}</span>
+              <span className="shrink-0 tabular-nums text-ink-faint">{STOP_LABEL[s.stop]} · {s.steps} steps · <span className="font-mono">{s.modelId}</span></span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A friendly skeleton placeholder for a chart with no data yet. */
+function ChartEmpty({ message, bars = 12 }: { message: string; bars?: number }) {
+  const heights = Array.from({ length: bars }, (_, i) => 30 + ((i * 37) % 60));
+  return (
+    <div className="mt-3 rounded-xl border border-dashed border-line p-3">
+      <div className="flex h-16 items-end gap-1 opacity-40">
+        {heights.map((h, i) => (
+          <div key={i} className="flex-1 rounded-t" style={{ height: `${h}%`, background: 'var(--ink-faint)' }} />
+        ))}
+      </div>
+      <p className="mt-2 text-center text-[12px] text-ink-faint">{message}</p>
+    </div>
+  );
+}
+
+/** Cost: monthly actual + projection, the daily chart, the top agents, and the pricing reference. */
+function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null; sessions: SessionSummary[]; providers: ProviderConfig[] }) {
+  const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
+  const hasData = !!usage && ((usage.totalCost ?? 0) > 0.0000001 || !!usage.hasSubscriptionUsage);
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const monthDaily = (usage?.daily ?? []).filter((d) => d.date.startsWith(monthKey));
+  const monthActual = monthDaily.reduce((s, d) => s + (d.cost ?? 0), 0);
+  const dayOfMonth = new Date().getDate();
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+  const projected = dayOfMonth > 0 ? (monthActual / dayOfMonth) * daysInMonth : monthActual;
+  const topAgents = useMemo(
+    () => Object.entries(usage?.bySessionCost ?? {}).filter(([, c]) => c > 0.0000001).sort((a, b) => b[1] - a[1]).slice(0, 5),
+    [usage],
+  );
+  const maxAgent = Math.max(0.0001, ...topAgents.map(([, c]) => c));
+  const recentCost = (usage?.daily ?? []).slice(-30);
+  const maxDayCost = Math.max(0.0001, ...recentCost.map((d) => d.cost ?? 0));
+  const subscriptionChats = useMemo(() => {
+    if (!usage?.hasSubscriptionUsage) return [] as SessionSummary[];
+    return sessions.filter((s) => {
+      const t = usage.bySession[s.id];
+      const p = providers.find((p) => p.id === s.providerId);
+      return p?.auth === 'subscription' && t && t.input + t.output > 0;
+    });
+  }, [usage, sessions, providers]);
+
+  return (
+    <div className="rounded-xl border border-line p-3.5">
+      <PanelTitle aside="est. · list prices · local models are free">Cost</PanelTitle>
+      {!hasData ? (
+        <ChartEmpty message="No spend yet. Once a cloud model answers, this month, the projection and the top agents show here." />
+      ) : (
+        <>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] text-ink-faint">
+            <Stat value={formatUSD(monthActual)} label={`this month (${dayOfMonth}/${daysInMonth})`} />
+            <StatDivider />
+            <Stat value={formatUSD(projected)} label="projected" />
+            <StatDivider />
+            <Stat value={formatUSD(usage!.totalCost ?? 0)} label="all time" />
+          </div>
+          <div className="mt-3 flex h-16 items-end gap-1">
+            {recentCost.map((d) => (
+              <div key={d.date} className="flex flex-1 flex-col justify-end" title={`${d.date}: ${formatUSD(d.cost ?? 0)}`}>
+                <div className="rounded-t" style={{ height: `${((d.cost ?? 0) / maxDayCost) * 100}%`, background: 'var(--warning)', minHeight: (d.cost ?? 0) > 0 ? 2 : 0 }} />
+              </div>
+            ))}
+          </div>
+          {topAgents.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              <div className="text-[11px] font-medium text-ink-faint">By agent</div>
+              {topAgents.map(([sid, cost]) => (
+                <div key={sid}>
+                  <div className="flex justify-between gap-3 text-[12px]">
+                    <span className="truncate text-ink-soft">{titleOf(sid)}</span>
+                    <span className="shrink-0 tabular-nums text-ink">{formatUSD(cost)}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full" style={{ background: 'var(--surface-2)' }}>
+                    <div className="h-full rounded-full" style={{ width: `${(cost / maxAgent) * 100}%`, background: 'var(--accent)' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {subscriptionChats.length > 0 && topAgents.length === 0 && (
+            <p className="mt-2 text-[12px] text-ink-soft">{subscriptionChats.length} chat{subscriptionChats.length === 1 ? '' : 's'} ran on a subscription plan. No API spend to show.</p>
+          )}
+        </>
+      )}
+      <details className="mt-3">
+        <summary className="cursor-pointer text-[11.5px] text-ink-faint hover:text-ink">Token pricing reference (USD per 1M tokens)</summary>
+        <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+          {MODEL_PRICING.map((p) => (
+            <div key={p.match} className="flex justify-between gap-2 text-[11.5px]">
+              <span className="font-mono text-ink-soft">{p.match}</span>
+              <span className="tabular-nums text-ink-faint">in ${p.input} · out ${p.output}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-2 text-[11px] text-ink-faint">Published list prices, matched by model id. Estimates only. Local models and subscription plans cost $0.</p>
+      </details>
+    </div>
+  );
+}
+
+function ServicesPanel({ providers, usage }: { providers: ProviderConfig[]; usage: UsageSummary | null }) {
+  const [remote, setRemote] = useState<RemoteStatus | null>(null);
+  const [mcp, setMcp] = useState<import('@agent-nekko/shared').McpServerStatus[]>([]);
+  useEffect(() => { window.nekko.getRemoteStatus().then(setRemote).catch(() => setRemote(null)); }, []);
+  useEffect(() => { window.nekko.getMcpStatus().then(setMcp).catch(() => setMcp([])); }, []);
+  return (
+    <div>
+      <PanelTitle aside="live status">Services</PanelTitle>
+      <div className="mt-2 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))' }}>
+        <RemoteCard remote={remote} />
+        {providers.map((p) => <WorkerCard key={p.id} provider={p} tokens={usage?.byProvider[p.id]} />)}
+        {mcp.map((m) => (
+          <div key={m.id} className="rounded-xl border border-line p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔌</span>
+                <span className="text-[13px] font-medium">{m.name}</span>
+                <span className="chip">MCP</span>
+              </div>
+              <StatusPill state={m.connected ? 'online' : 'offline'} />
+            </div>
+            <p className="mt-2 text-[12px] text-ink-faint">{m.connected ? `${m.tools.length} tool${m.tools.length === 1 ? '' : 's'} available` : m.error ?? 'Not connected'}</p>
+          </div>
+        ))}
+        {providers.length === 0 && mcp.length === 0 && (
+          <div className="rounded-xl border border-line p-3 text-[12px] text-ink-faint">No model providers yet, add one in Model Providers.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WorkerCard({ provider, tokens }: { provider: ProviderConfig; tokens?: { input: number; output: number } }) {
+  const [state, setState] = useState<'checking' | 'online' | 'offline'>('checking');
+  useEffect(() => {
+    window.nekko.testProvider(provider.id).then((r) => setState(r.ok ? 'online' : 'offline')).catch(() => setState('offline'));
+  }, [provider.id]);
+  const total = tokens ? tokens.input + tokens.output : 0;
+  return (
+    <div className="rounded-xl border border-line p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ServerIcon className="h-4 w-4 text-ink-faint" />
+          <span className="text-[13px] font-medium">{provider.label}</span>
+          <span className="chip">{isLocalProvider(provider.kind) ? 'local' : 'cloud'}</span>
+        </div>
+        <StatusPill state={state} />
+      </div>
+      <div className="mt-2 flex items-center justify-between gap-2 text-[12px] text-ink-faint">
+        <span className="truncate font-mono">{provider.baseUrl}</span>
+        <span className="shrink-0 tabular-nums">{total.toLocaleString()} tok</span>
+      </div>
+    </div>
+  );
+}
+
+function RemoteCard({ remote }: { remote: RemoteStatus | null }) {
+  const online = !!remote?.enabled;
+  return (
+    <div className="rounded-xl border border-line p-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-base">📱</span>
+          <span className="text-[13px] font-medium">Remote relay</span>
+        </div>
+        <StatusPill state={online ? 'online' : 'offline'} onlineLabel="enabled" offlineLabel="off" />
+      </div>
+      <p className="mt-2 text-[12px] text-ink-faint">
+        {online ? 'Your phone can reach this machine’s model over an encrypted relay.' : 'Enable in Settings → Remote access to drive your local model from anywhere.'}
+      </p>
+    </div>
+  );
+}
+
+function StatusPill({ state, onlineLabel = 'online', offlineLabel = 'offline' }: { state: 'checking' | 'online' | 'offline'; onlineLabel?: string; offlineLabel?: string }) {
+  if (state === 'checking') return <span className="chip">checking…</span>;
+  const online = state === 'online';
+  return (
+    <Badge tone={online ? 'success' : 'neutral'} variant="solid">
+      {online && <CheckIcon className="h-3 w-3" />} {online ? onlineLabel : offlineLabel}
+    </Badge>
+  );
+}
