@@ -151,7 +151,7 @@ function ShieldSmall() {
   );
 }
 
-const MODE_LABEL: Record<ChatMode, string> = { ask: 'Ask', guardrails: 'Guardrails', yolo: 'YOLO' };
+export const MODE_LABEL: Record<ChatMode, string> = { ask: 'Ask', guardrails: 'Guardrails', yolo: 'YOLO' };
 const MODE_DESC: Record<ChatMode, string> = {
   ask: 'Confirm every file write and command.',
   guardrails: 'Run freely; ask/deny per guardrail rules.',

@@ -1660,3 +1660,49 @@
 .composer-bullet { display: inline-block; position: relative; color: transparent !important; }
 .composer-bullet::after { content: '•'; position: absolute; left: 0; color: var(--accent); }
 [contenteditable][data-placeholder]:has(> br:only-child)::before { content: attr(data-placeholder); color: var(--ink-faint); pointer-events: none; position: absolute; }
+
+/* ---------- Command Center wall ---------- */
+
+/* The brand mark beside the wordmark in the desktop title bar. */
+.titlebar-mark { display: inline-block; vertical-align: -3px; margin-right: 6px; }
+
+/* Everything waiting on a person, in one line above the wall, with a jump to each. */
+.wall-ribbon {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 7px 8px 7px 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--warning) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--line));
+}
+.wall-ribbon-lead { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; font-size: 12.5px; color: var(--warning); }
+.wall-ribbon-item {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+  padding: 4px 6px 4px 10px; border-radius: 9px; font-size: 12px;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.wall-ribbon-go {
+  padding: 3px 9px; border-radius: 7px; font-weight: 600; font-size: 11.5px;
+  background: var(--warning); color: #1b1304;
+}
+.wall-ribbon-go:hover { filter: brightness(1.08); }
+
+/* A window the ribbon just jumped to: one ring of the accent, then gone. */
+.pane-flash { animation: pane-flash 1.1s var(--ease-out); }
+@keyframes pane-flash {
+  0% { box-shadow: 0 0 0 0 var(--ring); }
+  40% { box-shadow: 0 0 0 6px var(--ring); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* A small chat's instrument strip, folded to one line: the model and the
+   settings that matter, as one chip that opens the full controls. */
+.composer-summary { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--ink-soft); }
+.composer-summary-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; white-space: nowrap;
+  padding: 2px 8px 2px 7px; border-radius: 8px; border: 1px solid var(--line);
+  color: var(--ink-soft); font-weight: 500; font-size: 11px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.composer-summary-chip:hover, .composer-summary-chip[aria-expanded='true'] { background: var(--surface-2); color: var(--ink); }
+.composer-summary-model { color: var(--ink); white-space: nowrap; flex: none; }
+.composer-summary-meta { color: var(--ink-faint); font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .pane-flash { animation: none; } }
