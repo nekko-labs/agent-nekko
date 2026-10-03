@@ -15,6 +15,17 @@ describe('THEME_PRESETS', () => {
     expect(ids).toContain('nord');
     expect(ids).toContain('solar');
     expect(ids).toContain('ember');
+    expect(ids).toContain('autumn');
+  });
+
+  it('Ember and Autumn preserve the original dark surfaces', () => {
+    for (const id of ['ember', 'autumn']) {
+      const preset = THEME_PRESETS.find((p) => p.id === id)!;
+      expect(preset.mode).toBe('dark');
+      for (const key of ['paper', 'surface', 'surface2', 'ink', 'inkSoft', 'inkFaint', 'line'] as const) {
+        expect(preset[key]).toBeUndefined();
+      }
+    }
   });
 
   it('every preset declares a mode, a label, and at least 3 swatch colors', () => {

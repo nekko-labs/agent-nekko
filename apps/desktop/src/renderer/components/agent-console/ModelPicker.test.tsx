@@ -20,6 +20,15 @@ describe('default model in the picker', () => {
       expect(out.indexOf('missing')).toBeLessThan(out.indexOf('Other model'));
     } finally { useStore.setState({settings:prev}); }
   });
+  it('does not call a GPT Sol default unavailable before its provider catalog loads', () => {
+    const prev = useStore.getState().settings;
+    useStore.setState({ settings: { ...prev, defaultProviderId: 'chatgpt', defaultModelId: 'gpt-6.1-sol' } as NonNullable<typeof prev> });
+    try {
+      const out = renderToStaticMarkup(<ModelPicker expanded open providers={[{id:'chatgpt',kind:'chatgpt',label:'ChatGPT',enabled:true,baseUrl:'http://localhost'}]} providerId={null} modelId={null} models={[]} onOpenChange={() => {}} onProvider={() => {}} onModel={() => {}} />);
+      expect(out).toContain('Default · loading…');
+      expect(out).not.toContain('Default · unavailable');
+    } finally { useStore.setState({settings:prev}); }
+  });
   it('identifies an available default without duplicating its row', () => {
     const prev = useStore.getState().settings;
     useStore.setState({ settings: { ...prev, defaultProviderId: 'p', defaultModelId: 'other' } as NonNullable<typeof prev> });
