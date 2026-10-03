@@ -1,4 +1,5 @@
 import type { AgentEvent, ChatMessage, EffortLevel, ToolCall, ToolResult } from '@agent-nekko/shared';
+import { COMPACTION_PREAMBLE, latestCompactionIndex } from '@agent-nekko/shared';
 import type { Provider, ToolSpec } from '../providers/types.js';
 import { BUILTIN_TOOLS } from './tools.js';
 import { RUNAWAY_NOTE, createRunawayGuard } from './runaway.js';
@@ -58,6 +59,24 @@ export function asSeenByChatModel(m: ChatMessage): ChatMessage {
   if (m.role !== 'assistant' || !m.generated || m.content.trim()) return m;
   const g = m.generated;
   return { ...m, content: `[Generated a ${g.width}×${g.height} image with ${g.modelId.split('/').pop()}, seed ${g.seed}.]` };
+}
+
+/**
+ * What of a compacted transcript a model is sent: the latest compaction
+ * summary and what follows it. The summary is folded into the user message
+ * after it (or becomes a user message of its own when nothing follows yet), so
+ * the history still opens on a user turn and roles keep alternating, which
+ * strict chat templates require. A transcript never compacted is returned
+ * unchanged.
+ */
+export function fromLatestCompaction(history: ChatMessage[]): ChatMessage[] {
+  const at = latestCompactionIndex(history);
+  if (at < 0) return history;
+  const marker = history[at];
+  const summary = `${COMPACTION_PREAMBLE}\n\n${marker.content}`;
+  const rest = history.slice(at + 1);
+  if (rest[0]?.role === 'user') return [{ ...rest[0], content: `${summary}\n\n---\n\n${rest[0].content}` }, ...rest.slice(1)];
+  return [{ id: marker.id, role: 'user', content: summary, createdAt: marker.createdAt }, ...rest];
 }
 
 /**
@@ -142,7 +161,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     try {
       for await (const chunk of opts.provider.chat({
         model: opts.model,
-        messages: [...windowHistory(opts.history, opts.maxHistoryTurns).map(asSeenByChatModel), ...extraMessages],
+        messages: [...windowHistory(fromLatestCompaction(opts.history), opts.maxHistoryTurns).map(asSeenByChatModel), ...extraMessages],
         system: opts.system,
         tools: sendTools,
         temperature: opts.temperature,

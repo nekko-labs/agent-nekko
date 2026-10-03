@@ -86,3 +86,21 @@ describe('message timestamps', () => {
     expect(fmtTime(0)).toBe('');
   });
 });
+
+describe('compaction rows', () => {
+  const none = () => [];
+  it('puts a divider row where the chat was compacted, after the turns it replaced', () => {
+    const rows = toTranscriptRows([
+      msg('u1', 'user', 'old'),
+      msg('a1', 'assistant', 'old answer'),
+      msg('c1', 'assistant', 'S1', { compaction: { summarized: 2 } }),
+      msg('u2', 'user', 'new'),
+      msg('c2', 'assistant', 'S2', { compaction: { summarized: 4 } }),
+      msg('u3', 'user', 'newest'),
+    ], none, none);
+    expect(rows.map((r) => r.kind)).toEqual(['msg', 'msg', 'compaction', 'msg', 'compaction', 'msg']);
+    const summaries = rows.filter((r) => r.kind === 'compaction');
+    expect(summaries.map((r) => r.kind === 'compaction' && r.latest)).toEqual([false, true]);
+    expect(estimateRowHeight(summaries[1], 600)).toBeGreaterThan(estimateRowHeight(summaries[0], 600));
+  });
+});

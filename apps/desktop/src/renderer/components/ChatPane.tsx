@@ -22,6 +22,7 @@ import { ChatTypeToggle, ImageModeControls } from './agent-console/ImageModeCont
 import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
 import { ComposerHighlight } from './agent-console/ComposerHighlight.js';
+import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
@@ -314,6 +315,7 @@ const TranscriptRowView = memo(function TranscriptRowView({
   onImageContextMenu: (e: React.MouseEvent, src: string) => void;
 }) {
   if (row.kind === 'activity') return <ActivityGroup items={row.items} />;
+  if (row.kind === 'compaction') return <CompactionSummary message={row.message} latest={row.latest} />;
   if (row.kind === 'prs') {
     // PRs mentioned only in tool output (never in assistant text) still get a
     // card, appended after the transcript.

@@ -4,9 +4,9 @@ import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@ag
 import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
 import { useGitStatus } from '../useGitStatus.js';
-import { CheckIcon, BranchIcon, CloseIcon, FolderIcon, RobotIcon, TerminalIcon, WorktreeIcon } from '../icons.js';
+import { CheckIcon, BranchIcon, CloseIcon, RobotIcon, TerminalIcon, WorktreeIcon } from '../icons.js';
 import { celebrateCompletion } from '../completionCelebration.js';
-import { PrBadge } from './PrCard.js';
+import { SessionPrLinks } from './SessionPrLinks.js';
 
 /**
  * One workspace, as a card in the left sidebar.
@@ -19,12 +19,13 @@ import { PrBadge } from './PrCard.js';
  * The card states them in a fixed order, so the same fact is always in the same
  * place and a column of cards can be read down rather than each one decoded:
  *
- * 1. **Who and how it is.** Status dot, title, PR badges.
+ * 1. **Who and how it is.** Status dot, title, when it last replied.
  * 2. **What is running it.** Where the model comes from and which model it is
  *    ("Claude / Opus 5.5"), and how full its context window is.
- * 3. **Where it is working.** The project folder, the git worktree when it is
- *    one, the branch, and how dirty that branch is. The branch's PR joins the
- *    PR badges on line 1.
+ * 3. **What it has shipped from where.** The branch (with the worktree glyph
+ *    when it is a linked worktree), then each PR the chat made as its own
+ *    link (`SessionPrLinks`). The project is not repeated: the card already
+ *    sits under its project's heading.
  * 4. **What it has spun up.** Sub-agents and windows.
  *
  * Colour is load-bearing rather than decorative. Every fact carries the hue of
@@ -180,7 +181,6 @@ function WorkspaceCardImpl({
   // repos still *works* in one at a time, and a card has room for one branch.
   const git = useGitStatus(session ? `session:${session.id}` : folders[0]?.id);
   const prs = mergePrs(git?.pr, mentionedPrs);
-  const worktreeIsFolder = !!git?.worktree && folders.length === 1 && folders[0].name === git.worktree.name;
 
   // How full this chat's context window is: the replayed transcript (text,
   // reasoning, tool traffic) against the model's window. That is the limit a
@@ -253,7 +253,6 @@ function WorkspaceCardImpl({
             {timeAgo(now - lastReply)}
           </time>
         )}
-        {prs.length ? <PrBadge prs={prs} compact /> : null}
         {/* A chat card archives rather than closes: closing used to look like
             deleting and then the chat was nowhere to be found. Archived chats
             stay readable for 60 days. A shell has nothing to keep, so it closes. */}
@@ -268,7 +267,7 @@ function WorkspaceCardImpl({
             if (session && useStore.getState().sessions.some((s) => s.id === session.id && s.archivedAt)) celebrateCompletion(rect);
           }}
         >
-          {isChat ? <CheckIcon className="h-3 w-3" /> : <CloseIcon className="h-3 w-3" />}
+          {isChat ? <CheckIcon className="h-3.5 w-3.5" /> : <CloseIcon className="h-3 w-3" />}
         </button>
       </div>
 
@@ -300,77 +299,46 @@ function WorkspaceCardImpl({
         )}
       </div>
 
-      {/* Line 3: where it is working: the project, and its git position. */}
-      <div className="flex items-center gap-1 pl-3 text-[10px] leading-[15px] text-ink-faint">
-        {folders.length === 0 ? (
-          <span className="min-w-0 flex-1 truncate">No project attached</span>
-        ) : worktreeIsFolder ? (
-          // The project folder *is* the worktree (the usual arrangement), so it
-          // is one fact with the worktree's glyph rather than the same name twice.
-          <Fact
-            grow
-            tone="var(--accent-2)"
-            icon={<WorktreeIcon className="h-2.5 w-2.5 shrink-0" />}
-            title={`Linked git worktree: ${git!.worktree!.path}`}
-          >
-            {folders[0].name}
-          </Fact>
-        ) : (
-          <Fact
-            grow
-            tone="var(--info)"
-            icon={<FolderIcon className="h-2.5 w-2.5 shrink-0" />}
-            title={folders.map((f) => f.path).join('\n')}
-          >
-            {folders.map((f) => f.name).join(', ')}
-          </Fact>
-        )}
-        {git && (
-          <>
-            {git.worktree && !worktreeIsFolder && (
-              <Fact
-                tone="var(--accent-2)"
-                icon={<WorktreeIcon className="h-2.5 w-2.5 shrink-0" />}
-                title={`Linked git worktree: ${git.worktree.path}`}
-              >
-                {git.worktree.name}
-              </Fact>
-            )}
+      {/* Line 3: its git position, then the PRs it made. The project is the
+          group heading the card sits under, so the card does not repeat it. */}
+      {(git || prs.length > 0 || folders.length === 0) && (
+        <div className="flex items-center gap-1 pl-3 text-[10px] leading-[15px] text-ink-faint">
+          {git ? (
             <Fact
               shrink
               tone="var(--accent)"
-              icon={<BranchIcon className="h-2.5 w-2.5 shrink-0" />}
-              title={
-                git.branch
-                  ? `On branch ${git.branch}` +
-                    (git.ahead || git.behind ? ` · ${git.ahead} ahead, ${git.behind} behind upstream` : '')
-                  : `Detached at ${git.head}`
+              icon={
+                git.worktree ? (
+                  <WorktreeIcon className="h-2.5 w-2.5 shrink-0" />
+                ) : (
+                  <BranchIcon className="h-2.5 w-2.5 shrink-0" />
+                )
               }
+              title={[
+                git.branch ? `On branch ${git.branch}` : `Detached at ${git.head}`,
+                git.ahead || git.behind ? `${git.ahead} ahead, ${git.behind} behind upstream` : '',
+                git.worktree ? `Linked git worktree: ${git.worktree.path}` : '',
+              ].filter(Boolean).join('\n')}
             >
               {git.branch ?? git.head ?? 'detached'}
             </Fact>
-            {/* Uncommitted work is the one git fact that is about *risk*, so it
-                gets the warning hue rather than the branch's accent. */}
-            {git.dirtyCount > 0 && (
-              <Fact
-                tone="var(--warning)"
-                title={`${git.dirtyCount} uncommitted file${git.dirtyCount === 1 ? '' : 's'}`}
-              >
-                {git.dirtyCount}●
-              </Fact>
-            )}
-            {(git.ahead > 0 || git.behind > 0) && (
-              <Fact
-                tone="var(--info)"
-                title={`${git.ahead} ahead of, ${git.behind} behind, the upstream branch`}
-              >
-                {git.ahead > 0 ? `↑${git.ahead}` : ''}
-                {git.behind > 0 ? `↓${git.behind}` : ''}
-              </Fact>
-            )}
-          </>
-        )}
-      </div>
+          ) : folders.length === 0 ? (
+            <span className="min-w-0 shrink truncate">No project attached</span>
+          ) : null}
+          {(git?.ahead ?? 0) > 0 || (git?.behind ?? 0) > 0 ? (
+            <Fact tone="var(--info)" title={`${git!.ahead} ahead of, ${git!.behind} behind, the upstream branch`}>
+              {git!.ahead > 0 ? `↑${git!.ahead}` : ''}
+              {git!.behind > 0 ? `↓${git!.behind}` : ''}
+            </Fact>
+          ) : null}
+          {prs.length > 0 && (
+            <>
+              {(git || folders.length === 0) && <span aria-hidden className="mx-0.5 h-2.5 w-px shrink-0 bg-line" />}
+              <SessionPrLinks prs={prs} />
+            </>
+          )}
+        </div>
+      )}
 
       {/* Line 4: what it has spun up. Only when there is something to say: a
           card for a plain one-window chat should not carry an empty row. */}

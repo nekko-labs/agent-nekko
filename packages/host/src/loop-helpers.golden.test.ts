@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 import type { ChatMessage } from '@agent-nekko/shared';
-import { asSeenByChatModel, createRunawayGuard, repairInterruptedHistory, windowHistory } from '@agent-nekko/core';
+import { asSeenByChatModel, createRunawayGuard, fromLatestCompaction, repairInterruptedHistory, windowHistory } from '@agent-nekko/core';
 
 /**
  * What the agent loop's message helpers do, which the engine daemon's port
@@ -33,7 +33,8 @@ describe('agent loop helpers golden set', () => {
       kept: windowHistory(cases.conversation, w.turns ?? undefined).map((m: ChatMessage) => m.id),
     }));
     const seen = cases.seen.map((m: ChatMessage) => asSeenByChatModel(m));
-    const actual = JSON.parse(JSON.stringify({ streams, repairs, windows, seen }));
+    const compacted = cases.compacted.map((c: { name: string; history: ChatMessage[] }) => ({ name: c.name, sent: fromLatestCompaction(c.history) }));
+    const actual = JSON.parse(JSON.stringify({ streams, repairs, windows, seen, compacted }));
     const path = join(golden, 'expected.json');
     if (process.env.UPDATE_GOLDEN) writeFileSync(path, `${JSON.stringify(actual, null, 1)}\n`);
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(actual);

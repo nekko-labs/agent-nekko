@@ -1,4 +1,52 @@
 {
+  "s_compacted": {
+    "id": "s_compacted",
+    "title": "Chat s_compacted",
+    "workspaceId": "w1",
+    "createdAt": 1790000000000,
+    "updatedAt": 1790000100000,
+    "messageCount": 5,
+    "exchangeCount": 5,
+    "firstUserText": "old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old ",
+    "lastReplyText": "Carrying on.",
+    "lastReplyAt": 1790000000002,
+    "transcriptTokens": 12,
+    "stalled": false,
+    "recentTurns": [
+      {
+        "id": "u1",
+        "role": "user",
+        "text": "old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old",
+        "at": 1790000000002
+      },
+      {
+        "id": "a1",
+        "role": "assistant",
+        "text": "old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old ans…",
+        "at": 1790000000002
+      },
+      {
+        "id": "c1",
+        "role": "assistant",
+        "text": "Summary of the old work.",
+        "at": 1790000000002
+      },
+      {
+        "id": "u2",
+        "role": "user",
+        "text": "carry on",
+        "at": 1790000000002
+      },
+      {
+        "id": "a2",
+        "role": "assistant",
+        "text": "Carrying on.",
+        "at": 1790000000002
+      }
+    ],
+    "prUrls": [],
+    "imageCount": 0
+  },
   "s_empty": {
     "id": "s_empty",
     "title": "Chat s_empty",

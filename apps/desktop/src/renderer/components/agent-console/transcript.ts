@@ -90,7 +90,9 @@ const PR_CARD_GAP = 8;
 export type TranscriptRow =
   | { key: string; kind: 'msg'; message: ChatMessage; prUrls: string[]; gapAfter?: number }
   | { key: string; kind: 'activity'; items: Activity[]; gapAfter?: number }
-  | { key: string; kind: 'prs'; urls: string[]; gapAfter?: number };
+  | { key: string; kind: 'prs'; urls: string[]; gapAfter?: number }
+  /** A compaction summary: a divider under the turns it replaced, then the summary. */
+  | { key: string; kind: 'compaction'; message: ChatMessage; latest: boolean; gapAfter?: number };
 
 /**
  * Fold a transcript into rows, the way the console always laid it out: the
@@ -112,12 +114,18 @@ export function toTranscriptRows(
     keys.add(key);
     return key;
   };
+  let latestSummary: string | undefined;
+  for (const m of messages) if (m.compaction) latestSummary = m.id;
   for (const b of toStreamBlocks(messages)) {
     if (b.type !== 'msg') {
       rows.push({ key: unique(b.key), kind: 'activity', items: b.items });
       continue;
     }
     const m = b.message;
+    if (m.compaction) {
+      rows.push({ key: unique(`c_${m.id}`), kind: 'compaction', message: m, latest: m.id === latestSummary });
+      continue;
+    }
     // An assistant message with nothing to show renders nothing, so it must not
     // take a row (and a gap) either.
     if (m.role === 'assistant' && !m.content && !m.reasoning && !m.toolCalls?.length && !m.images?.length) continue;
@@ -140,6 +148,10 @@ export function estimateRowHeight(row: TranscriptRow, width: number): number {
   const gap = row.gapAfter ?? 20;
   if (row.kind === 'activity') return 22 + gap;
   if (row.kind === 'prs') return row.urls.length * 90 + gap;
+  // An older summary folds to its divider; the latest shows its text.
+  if (row.kind === 'compaction') {
+    return (row.latest ? 96 + Math.ceil(row.message.content.length / Math.max(30, width / 7.6)) * 21 : 40) + gap;
+  }
   const m = row.message;
   const user = m.role === 'user';
   const perLine = Math.max(20, Math.floor(((user ? 0.85 : 1) * Math.max(240, width)) / 7.6));

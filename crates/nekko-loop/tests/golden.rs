@@ -4,7 +4,10 @@
 //! (UPDATE_GOLDEN=1) from `golden/cases.json`; this test runs the same cases
 //! through the ports and must match every entry.
 
-use nekko_loop::{RunawayGuard, RunawayOptions, as_seen_by_chat_model, repair_interrupted_history, window_history};
+use nekko_loop::{
+    RunawayGuard, RunawayOptions, as_seen_by_chat_model, from_latest_compaction, repair_interrupted_history,
+    window_history,
+};
 use serde_json::{Value, json};
 use std::path::Path;
 
@@ -82,5 +85,10 @@ fn every_helper_matches_the_ts_loop() {
 
     for (i, m) in cases["seen"].as_array().unwrap().iter().enumerate() {
         assert_eq!(as_seen_by_chat_model(m), expected["seen"][i], "seen {i}");
+    }
+
+    for (i, c) in cases["compacted"].as_array().unwrap().iter().enumerate() {
+        let sent = from_latest_compaction(c["history"].as_array().unwrap());
+        assert_eq!(json!({ "name": c["name"], "sent": sent }), expected["compacted"][i], "compacted {}", c["name"]);
     }
 }

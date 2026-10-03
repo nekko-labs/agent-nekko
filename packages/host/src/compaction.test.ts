@@ -2,12 +2,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { estimateTranscriptTokens, type ProviderConfig } from '@agent-nekko/shared';
+import { estimateTranscriptTokens, type AgentEvent, type CompactionProgress, type ProviderConfig } from '@agent-nekko/shared';
 import type { ChatRequest, Provider } from '@agent-nekko/core';
 
 const providerState = vi.hoisted(() => ({
   mode: 'success',
   started: undefined as (() => void) | undefined,
+  release: undefined as (() => void) | undefined,
+  requests: [] as string[],
 }));
 
 vi.mock('@agent-nekko/core', async () => {
@@ -19,6 +21,11 @@ vi.mock('@agent-nekko/core', async () => {
       listModels: async () => [],
       test: async () => ({ ok: true, message: '' }),
       async *chat(request: ChatRequest) {
+        providerState.requests.push(request.messages.map((m) => m.content).join(' '));
+        if (providerState.mode === 'hold') {
+          providerState.started?.();
+          await new Promise<void>((resolve) => { providerState.release = resolve; });
+        }
         if (providerState.mode === 'cancel') {
           providerState.started?.();
           await new Promise<void>((_resolve, reject) => {
@@ -37,7 +44,11 @@ vi.mock('@agent-nekko/core', async () => {
 const { setDataDir } = await import('./paths.js');
 const { saveSettings } = await import('./store.js');
 const { createSession, getSession, saveSession } = await import('./sessions.js');
-const { cancelSessionCompaction, compactSession } = await import('./compaction.js');
+const { cancelSessionCompaction, compactSession, setCompactionSender } = await import('./compaction.js');
+const { fromLatestCompaction } = await import('@agent-nekko/core');
+
+let progress: CompactionProgress[] = [];
+setCompactionSender((e: AgentEvent) => { if (e.type === 'compaction') progress.push(e.progress); });
 
 let dir: string;
 
@@ -72,22 +83,114 @@ beforeEach(() => {
   saveSettings({ providers: [provider], workspaces: [], defaultChatMode: 'yolo' });
   providerState.mode = 'success';
   providerState.started = undefined;
+  providerState.release = undefined;
+  providerState.requests = [];
+  progress = [];
 });
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 describe('compactSession', () => {
-  it('replaces older turns in the same session and keeps recent turns', async () => {
+  it('keeps the older turns, adds a summary after them, and keeps recent turns', async () => {
     const session = fillSession();
     const original = session.messages;
 
     const compacted = await compactSession(session.id);
 
     expect(compacted.id).toBe(session.id);
-    expect(compacted.messages[0].content).toContain('Conversation summary (compacted)');
-    expect(compacted.messages.slice(1)).toEqual(original.slice(2));
+    // Nothing is deleted: the summary goes in after the two turns it replaces.
+    expect(compacted.messages.slice(0, 2)).toEqual(original.slice(0, 2));
+    expect(compacted.messages[2]).toMatchObject({ role: 'assistant', compaction: { summarized: 2 }, content: 'Summary of decisions and next steps.' });
+    expect(compacted.messages.slice(3)).toEqual(original.slice(2));
     expect(estimateTranscriptTokens(compacted.messages)).toBeLessThan(estimateTranscriptTokens(original));
     expect(getSession(session.id)?.messages).toEqual(compacted.messages);
+  });
+
+  it('sends a model only the summary and what follows it', async () => {
+    const compacted = await compactSession(fillSession().id);
+    const sent = fromLatestCompaction(compacted.messages);
+    expect(sent.map((m) => m.id)).toEqual(['u2', 'a2', 'u3', 'a3']);
+    expect(sent[0].content).toMatch(/^Summary of the earlier conversation[\s\S]*Summary of decisions[\s\S]*Second request$/);
+    expect(sent.some((m) => m.content.includes('First request'))).toBe(false);
+  });
+
+  it('reports progress from start to done', async () => {
+    // An omitted options argument can cross IPC as null.
+    await compactSession(fillSession().id, null);
+    expect(progress[0]).toMatchObject({ state: 'running', done: 0, target: 'here' });
+    expect(progress.at(-1)).toMatchObject({ state: 'done', done: 1, total: 1 });
+  });
+
+  it('can send the summary to a new chat and leave this one as it was', async () => {
+    const session = fillSession();
+    const original = session.messages;
+
+    const landed = await compactSession(session.id, { newChat: true });
+
+    expect(landed.id).not.toBe(session.id);
+    expect(landed.title).toBe(`${session.title} (continued)`);
+    expect(landed.workspaceId).toBe(session.workspaceId);
+    expect(landed.providerId).toBe(session.providerId);
+    expect(landed.messages[0]).toMatchObject({ compaction: { summarized: 2 } });
+    expect(landed.messages.slice(1)).toEqual(original.slice(2));
+    expect(getSession(session.id)?.messages).toEqual(original);
+    expect(progress.at(-1)).toMatchObject({ state: 'done', target: 'new', newSessionId: landed.id });
+  });
+
+  it('redirects a running compaction to a new chat', async () => {
+    const session = fillSession();
+    const original = session.messages;
+    providerState.mode = 'hold';
+    let signalStarted!: () => void;
+    const started = new Promise<void>((resolve) => { signalStarted = resolve; });
+    providerState.started = signalStarted;
+
+    const first = compactSession(session.id);
+    await started;
+    const redirected = compactSession(session.id, { newChat: true });
+    providerState.release!();
+
+    const [a, b] = await Promise.all([first, redirected]);
+    expect(a.id).toBe(b.id);
+    expect(a.id).not.toBe(session.id);
+    expect(getSession(session.id)?.messages).toEqual(original);
+  });
+
+  it('clips long tool output before summarizing it', async () => {
+    const session = fillSession();
+    session.messages.splice(1, 0,
+      { id: 'a0', role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'bash', input: { command: 'cat big.log' } }], createdAt: 1 },
+      { id: 't0', role: 'tool', content: '', toolResult: { toolCallId: 'c1', output: `START${'x'.repeat(50_000)}END` }, createdAt: 1 },
+    );
+    saveSession(session);
+
+    await compactSession(session.id);
+
+    const sent = providerState.requests.join(' ');
+    expect(sent).toContain('START');
+    expect(sent).toContain('END');
+    expect(sent).toContain('characters left out');
+    expect(sent.length).toBeLessThan(10_000);
+  });
+
+  it('summarizes only what came after the previous summary', async () => {
+    const session = fillSession();
+    await compactSession(session.id);
+    const again = getSession(session.id)!;
+    again.messages.push(
+      { id: 'u4', role: 'user', content: 'Fourth request', createdAt: 7 },
+      { id: 'a4', role: 'assistant', content: 'Fourth answer', createdAt: 8 },
+    );
+    saveSession(again);
+    providerState.requests = [];
+
+    const twice = await compactSession(session.id);
+
+    const sent = providerState.requests.join(' ');
+    expect(sent).toContain('SUMMARY OF EVEN EARLIER CONVERSATION');
+    expect(sent).not.toContain('First request');
+    expect(twice.messages.filter((m) => m.compaction)).toHaveLength(2);
+    expect(fromLatestCompaction(twice.messages).map((m) => m.id)).toEqual(['u3', 'a3', 'u4', 'a4']);
   });
 
   it('leaves the stored transcript unchanged when cancelled', async () => {
@@ -104,6 +207,7 @@ describe('compactSession', () => {
 
     await expect(operation).rejects.toThrow();
     expect(getSession(session.id)?.messages).toEqual(original);
+    expect(progress.at(-1)).toMatchObject({ state: 'cancelled' });
   });
 
   it('does not compact incognito or cloud-backed offline chats', async () => {

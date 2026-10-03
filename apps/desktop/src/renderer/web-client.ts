@@ -342,7 +342,7 @@ function makeWebClient(): NekkoApi {
     generateImageTurn: (opts) => call(IpcChannels.chatGenerateImage, opts),
     sessionImages: (sessionId, limit) => call(IpcChannels.sessionImages, sessionId, limit),
     abortChat: (sessionId) => call(IpcChannels.chatAbort, sessionId),
-    compactSession: (sessionId) => call(IpcChannels.chatCompact, sessionId),
+    compactSession: (sessionId, opts) => call(IpcChannels.chatCompact, sessionId, opts),
     cancelSessionCompaction: (sessionId) => call(IpcChannels.chatCancelCompaction, sessionId),
     queuePrompt: (sessionId, text) => call(IpcChannels.chatQueue, sessionId, text),
     dequeuePrompt: (sessionId, index) => call(IpcChannels.chatDequeue, sessionId, index),

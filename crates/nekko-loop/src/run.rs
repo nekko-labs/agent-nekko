@@ -10,7 +10,7 @@
 //! responses the TS test replays. Events and the transcript it appends are the
 //! TS shapes (`AgentEvent`, `ChatMessage`), as JSON.
 
-use crate::history::{as_seen_by_chat_model, window_history};
+use crate::history::{as_seen_by_chat_model, from_latest_compaction, latest_compaction_index, window_history};
 use crate::progress::{LOOP_WRAP_UP_PROMPT, LoopDetector, loop_note, loop_nudge};
 use crate::resume::{INTERRUPTED_NOTE, RESUME_PROMPT, repair_interrupted_history};
 use crate::runaway::{RUNAWAY_NOTE, RunawayGuard};
@@ -220,8 +220,11 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
         let mut reasoning_started: Option<Instant> = None;
         let mut text_guard = RunawayGuard::default();
         let mut reasoning_guard = RunawayGuard::default();
+        // Only a compacted transcript is copied; most are sent as they are.
+        let compacted = latest_compaction_index(self.opts.history).map(|_| from_latest_compaction(self.opts.history));
+        let sent: &[Value] = compacted.as_deref().unwrap_or(self.opts.history);
         let mut messages: Vec<Value> =
-            window_history(self.opts.history, self.opts.max_history_turns).iter().map(as_seen_by_chat_model).collect();
+            window_history(sent, self.opts.max_history_turns).iter().map(as_seen_by_chat_model).collect();
         messages.extend(extra);
         let req = ChatRequest {
             model: self.opts.model.clone(),

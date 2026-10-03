@@ -1,0 +1,42 @@
+{
+  "id": "s_compacted",
+  "title": "Chat s_compacted",
+  "workspaceId": "w1",
+  "messages": [
+    {
+      "id": "u1",
+      "role": "user",
+      "content": "old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old old ",
+      "createdAt": 1790000000002
+    },
+    {
+      "id": "a1",
+      "role": "assistant",
+      "content": "old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer old answer ",
+      "createdAt": 1790000000002
+    },
+    {
+      "id": "c1",
+      "role": "assistant",
+      "content": "Summary of the old work.",
+      "createdAt": 1790000000002,
+      "compaction": {
+        "summarized": 2
+      }
+    },
+    {
+      "id": "u2",
+      "role": "user",
+      "content": "carry on",
+      "createdAt": 1790000000002
+    },
+    {
+      "id": "a2",
+      "role": "assistant",
+      "content": "Carrying on.",
+      "createdAt": 1790000000002
+    }
+  ],
+  "createdAt": 1790000000000,
+  "updatedAt": 1790000100000
+}
