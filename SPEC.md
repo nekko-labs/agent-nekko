@@ -521,3 +521,10 @@ On the desktop, Agent Nekko runs as three processes:
 Dedicated browser tool sessions open an isolated, sandboxed Chromium window owned by Nekko, not Edge or another external browser application. Every action still needs explicit approval. Existing mode remains an explicit attachment to a user-enabled local CDP browser. Browser tool windows deny popups, downloads and device permissions and use ephemeral storage separate from the app and personal browser.
 
 Token speed is shown only for turns with usable timing for every nonempty output step. Sub-100 ms buffered samples and missing timings hide the rate rather than pairing untimed tokens with other steps timings. Approval/tool waits do not enter decode time. Starting a new turn clears the previous speed.
+
+## Workspace context commands and connected composer
+
+- Right-click chat workspace cards and saved-chat rows for a read-only session identifier, Open, Mark as completed, Change model, Stop, Continue, and permanent Delete. Delete bypasses Completed and asks for confirmation.
+- Ctrl (or Command) toggles individual rows; Shift selects an inclusive range in visible sidebar order. Right-click a selected row applies commands to the selected chats. Stop skips idle chats, Continue skips running chats and uses non-destructive resume. Continue currently requires a saved specific model and an existing prompt; Auto chats ask the user to choose a model first. Failures are reported per chat.
+- Composer model pickers and model-provider catalogs offer Set as default on right-click. The default is labeled and pinned first; a missing default remains visible but disabled. Model changes update mounted chat composers immediately.
+- The composer uses 90% of the available pane width on desktop and full usable width on narrow screens. Questions extend from its upper center at 80% of composer width, with curved shoulders and no separate horizontal tray lines. They expand upward and retract on answer, with reduced-motion support.

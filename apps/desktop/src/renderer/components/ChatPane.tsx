@@ -25,7 +25,7 @@ import { ComposerHighlight } from './agent-console/ComposerHighlight.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
-import { QuestionCard } from './QuestionCard.js';
+import { ComposerQuestion } from './ComposerQuestion.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
@@ -567,6 +567,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     const cached = getCachedSession(sessionId);
     return cached ? initialBrain(cached).modelId : null;
   });
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const { id, session: fresh } = (event as CustomEvent<{id: string; session: Session}>).detail;
+      if (id !== sessionId) return;
+      putCachedSession(fresh); setSession(fresh);
+      setProviderId(fresh.providerId ?? null); setModelId(fresh.autoModel ? AUTO_MODEL_ID : fresh.modelId ?? null);
+    };
+    window.addEventListener('nekko-session-brain', changed);
+    return () => window.removeEventListener('nekko-session-brain', changed);
+  }, [sessionId]);
   const [models, setModels] = useState<ModelInfo[]>([]);
   // Whether this pane's model list has come back yet, so the "pick a model"
   // nudge waits for the truth instead of flashing during the fetch.
@@ -2005,25 +2015,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
 
         {approval && <ApprovalBar approval={approval} onDecide={approve} />}
 
-        {question && (
-          <div className="border-t border-line px-4 pt-3">
-            <div className={contentWidth}>
-              {/* Keyed so a second ask starts at its own first step rather
-                  than inheriting where the last one was left. */}
-              <QuestionCard
-                key={question.callId}
-                request={question}
-                onAnswer={(answers) => answerQuestion(answers)}
-                onSkip={() => answerQuestion([])}
-              />
-            </div>
-          </div>
-        )}
-
         {readOnly ? (
           <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
         ) : (
-        <div ref={composerSectionRef} className="relative border-t border-line px-4 pb-4 pt-1.5">
+        <div ref={composerSectionRef} className="relative px-4 pb-4 pt-1.5">
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
           <div
@@ -2038,7 +2033,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute inset-x-0 top-[5px] h-0.5 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
-          <div className={contentWidth}>
+          <div className="composer-column mx-auto w-[90%]">
+            <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
             <div className={streaming ? 'composer composer-beam' : 'composer'}>
             {/* Controls live at the top of the input surface. Separate rows keep
                 the model and its effort slider together when a pane is narrow. */}

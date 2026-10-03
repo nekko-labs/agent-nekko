@@ -6,6 +6,7 @@ import {
 } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { useAllProviderLimits } from '../../useLimits.js';
+import { ContextMenu, ContextAction } from '../ContextMenu.js';
 import { StarIcon } from '../../icons.js';
 
 /**
@@ -44,6 +45,7 @@ export function ModelPicker({
   expanded?: boolean;
   recent?: string[];
 }) {
+  const [menu, setMenu] = useState<{x: number; y: number; pid: string; mid: string} | null>(null);
   const settings = useStore((s) => s.settings);
   const refreshSettings = useStore((s) => s.refreshSettings);
   const setOpen = (next: boolean) => onOpenChange(next);
@@ -60,6 +62,8 @@ export function ModelPicker({
   useEffect(() => {
     if (!open || expanded) return;
     const onDoc = (e: MouseEvent) => {
+      // Context commands render in a portal outside the picker itself.
+      if ((e.target as Element).closest?.('[role="menu"]')) return;
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
@@ -108,8 +112,12 @@ export function ModelPicker({
     return group && model ? { provider: group.provider, model } : null;
   }).filter((entry): entry is { provider: ProviderConfig; model: ModelInfo } => !!entry).slice(0, 5);
   const total = providers.reduce((n, p) => n + modelsOf(p.id).length, 0);
+  const defaultProvider = providers.find(p => p.id === settings?.defaultProviderId);
+  const defaultModel = defaultProvider ? modelsOf(defaultProvider.id).find(m => m.id === settings?.defaultModelId) : undefined;
+  const defaultKey = settings?.defaultProviderId && settings?.defaultModelId ? settings.defaultProviderId + '::' + settings.defaultModelId : null;
   const pinnedKeys = new Set([...recentModels, ...starred].map((s) => `${s.provider.id}::${s.model.id}`));
 
+  if (defaultKey) pinnedKeys.add(defaultKey);
   const providerLabel = providers.find((p) => p.id === providerId)?.label ?? 'No provider';
   const currentName =
     modelId === AUTO_MODEL_ID ? '✨ Auto' : models.find((m) => m.id === modelId)?.name ?? 'No model';
@@ -144,6 +152,7 @@ export function ModelPicker({
     return (
       <div
         key={key}
+        onContextMenu={(e) => { e.preventDefault(); setMenu({x:e.clientX,y:e.clientY,pid:p.id,mid:m.id}); }}
         className={`flex w-full items-center rounded-lg hover:bg-surface-2 ${selected ? 'text-accent' : ''}`}
       >
         <button
@@ -156,6 +165,7 @@ export function ModelPicker({
           title={blocked ? `${m.name} · ${why}` : sub ? `${m.name} · ${sub}` : m.name}
         >
           <div className="flex w-full items-center gap-2">
+            {key === defaultKey && <span className="text-[10px] text-accent">Default</span>}
             {m.loaded && (
               <span
                 className="h-1.5 w-1.5 shrink-0 rounded-full"
@@ -203,6 +213,7 @@ export function ModelPicker({
 
   return (
     <div ref={ref} className={expanded ? 'h-full min-h-0 w-full min-w-0' : 'relative min-w-0 max-w-[240px]'}>
+      {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}><ContextAction onClick={() => { void window.nekko.updateSettings({defaultProviderId:menu.pid,defaultModelId:menu.mid}).then(() => refreshSettings()).catch(e => useStore.getState().pushToast('error', String(e))); setMenu(null); }}>Set as default</ContextAction></ContextMenu>}
       {/* The nudge rides above the chip as a tooltip rather than a strip in the
           composer: it says its piece without pushing the composer down, and the
           menu it asks for opens into the same space, replacing it. */}
@@ -258,6 +269,7 @@ export function ModelPicker({
             />
           )}
           <div className="min-h-0 flex-1 overflow-y-auto" role="listbox" aria-label="Model">
+            {defaultKey && !q && (defaultProvider && defaultModel ? row(defaultProvider, defaultModel, true) : <button role="option" disabled aria-disabled="true" className="w-full px-2.5 py-2 text-left text-[12px] text-ink-faint">{settings?.defaultModelId} <span className="text-[10px]">Default · unavailable</span></button>)}
             {providers.length === 0 && <p className="px-2.5 py-1.5 text-[11px] text-ink-faint">No provider configured.</p>}
             {providers.length > 0 && groups.length === 0 && (
               <p className="px-2.5 py-1.5 text-[11px] text-ink-faint">{q ? 'No models match.' : 'No models available.'}</p>
@@ -273,11 +285,11 @@ export function ModelPicker({
                 ✨ Auto <span className="text-[11px] text-ink-faint">(pick best)</span>
               </button>
             )}
-            {recentModels.length > 0 && !q && <>{header('Recent')}{recentModels.map((s) => row(s.provider, s.model, true))}</>}
+            {recentModels.length > 0 && !q && <>{header('Recent')}{recentModels.filter(s => `${s.provider.id}::${s.model.id}` !== defaultKey).map((s) => row(s.provider, s.model, true))}</>}
             {starred.length > 0 && !q && (
               <>
                 {header('★ Starred')}
-                {starred.map((s) => row(s.provider, s.model, true))}
+                {starred.filter(s => `${s.provider.id}::${s.model.id}` !== defaultKey).map((s) => row(s.provider, s.model, true))}
               </>
             )}
             {groups.map((g) => {

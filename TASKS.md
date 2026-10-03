@@ -985,3 +985,10 @@ Observation: the fixed per-reply step budget (`DEFAULT_MAX_STEPS`, was 80) was h
 - [x] Suppress unmeasurable token-speed samples, keep token/time totals paired, and clear stale speed on new turns. Buffered and missing timing regression tests pass.
 - [x] Route dedicated browser actions through a private bearer-authenticated loopback bridge to an Electron-owned sandboxed window, without external browser launch or app-wide CDP exposure. Keep approval per action and explicit existing mode. Host routing tests and desktop/host typechecks pass.
 - [ ] Capture desktop before/after evidence and manually verify navigation, click, fill, close and approval waits in the rebuilt desktop app before merging.
+
+### Workspace context commands and composer question surface
+
+- [x] Add modifier selection and chat-row menus for single and batch commands. Done: 2026-10-03. Selection helper regression tests pass.
+- [x] Add default-model context actions, pinned labels, and missing-default disabled rows. Done: 2026-10-03. Available/missing default render tests pass.
+- [x] Widen the composer and attach questions with opening/closing motion and reduced-motion support. Done: 2026-10-03. Desktop typecheck/build and question tests pass.
+- [ ] Complete matched base-branch screenshots for every changed surface, native smoke testing, and batch command integration verification before merge.

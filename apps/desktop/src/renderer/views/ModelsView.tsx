@@ -7,6 +7,7 @@ import { Badge } from '../components/primitives/index.js';
 import { SubscriptionSignIn } from '../components/SubscriptionSignIn.js';
 import { AddProvider, SUBSCRIPTION_KINDS, reconnectProviderConfig } from '../components/providers/AddProvider.js';
 import { PlusIcon, TrashIcon, CheckIcon, StarIcon } from '../icons.js';
+import { ContextMenu, ContextAction } from '../components/ContextMenu.js';
 import { RuntimeCard } from '../components/runtimes/RuntimeCard.js';
 
 const isLocal = (k: ProviderKind) => isLocalProvider(k);
@@ -216,6 +217,10 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
   const pushToast = useStore((s) => s.pushToast);
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [conn, setConn] = useState<{ state: 'unknown' | 'testing' | 'ok' | 'fail'; message?: string }>({ state: 'unknown' });
+  const defaultSettings = useStore(s => s.settings);
+  const [defaultMenu, setDefaultMenu] = useState<{x:number; y:number; id:string} | null>(null);
+  const defaultId = defaultSettings?.defaultProviderId === provider.id ? defaultSettings.defaultModelId : undefined;
+  const listedModels = [...models].sort((a,b) => Number(b.id === defaultId) - Number(a.id === defaultId));
   const [pullName, setPullName] = useState('');
   const [busy, setBusy] = useState<string | null>(null); // model id being (un)loaded
   const [stopping, setStopping] = useState(false);
@@ -604,10 +609,12 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
 
       <div className="mt-2 max-h-44 space-y-1 overflow-y-auto">
         {models.length === 0 && <p className="text-[12px] text-ink-faint">No models found.</p>}
-        {models.map((m) => {
+        {defaultMenu && <ContextMenu x={defaultMenu.x} y={defaultMenu.y} onClose={() => setDefaultMenu(null)}><ContextAction onClick={() => { void window.nekko.updateSettings({defaultProviderId:provider.id,defaultModelId:defaultMenu.id}).then(() => useStore.getState().refreshSettings()).catch(e => pushToast("error",String(e))); setDefaultMenu(null); }}>Set as default</ContextAction></ContextMenu>}
+        {defaultId && !models.some(m => m.id === defaultId) && <div aria-disabled="true" className="rounded-lg px-2 py-1.5 text-[12px] text-ink-faint">{defaultId} <span className="text-[10px]">Default · unavailable</span></div>}
+        {listedModels.map((m) => {
           const price = formatModelPriceLabel({ modelId: m.id, auth: provider.auth, isLocal: local, pricing: modelPricing(m) });
           return (
-            <div key={m.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-[12.5px]" style={{ background: 'var(--surface-2)' }}>
+            <div key={m.id} onContextMenu={(e) => { e.preventDefault(); setDefaultMenu({x:e.clientX,y:e.clientY,id:m.id}); }} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-[12.5px]" style={{ background: 'var(--surface-2)' }}>
               <div className="flex min-w-0 items-center gap-1.5">
                 <button
                 title={isFavorite(`${provider.id}::${m.id}`) ? 'Unfavorite' : 'Favorite (pin to top of the model picker)'}
@@ -616,7 +623,7 @@ function ProviderCard({ provider, onChanged }: { provider: ProviderConfig; onCha
               >
                 <StarIcon className="h-3.5 w-3.5" filled={isFavorite(`${provider.id}::${m.id}`)} />
               </button>
-              <span className="truncate font-mono">{m.name}</span>
+              <span className="truncate font-mono">{m.name}</span>{m.id === defaultId && <span className="text-[10px] text-accent">Default</span>}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {price && (

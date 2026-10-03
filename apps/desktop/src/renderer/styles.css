@@ -1600,3 +1600,16 @@
 @media (prefers-reduced-motion: reduce) {
   .completion-celebration { display: none; }
 }
+
+/* The question grows out of the composer rather than occupying a separate tray. */
+.composer-question { width: 80%; margin: 0 auto -1px; position: relative; transform-origin: bottom center; z-index: 1; }
+.composer-question-body > div { border: 0; border-radius: 16px 16px 0 0; background: var(--surface) !important; }
+.composer-question::before, .composer-question::after { content: ''; position: absolute; bottom: 0; width: 16px; height: 16px; pointer-events: none; }
+.composer-question::before { left: -16px; border-radius: 0 0 16px 0; box-shadow: 6px 6px 0 6px var(--surface); }
+.composer-question::after { right: -16px; border-radius: 0 0 0 16px; box-shadow: -6px 6px 0 6px var(--surface); }
+.composer-question.is-open { animation: composer-question-open 220ms ease-out; }
+.composer-question.is-closing { animation: composer-question-close 220ms ease-in forwards; pointer-events: none; }
+@keyframes composer-question-open { from { opacity: 0; transform: scale(.08, 0); } to { opacity: 1; transform: scale(1); } }
+@keyframes composer-question-close { to { opacity: 0; transform: scale(.08, 0); } }
+@media (max-width: 640px) { .composer-column { width: 100%; } .composer-question { width: 94%; } }
+@media (prefers-reduced-motion: reduce) { .composer-question.is-open, .composer-question.is-closing { animation: none; } .composer-question.is-closing { visibility: hidden; } }
