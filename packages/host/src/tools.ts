@@ -4,6 +4,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   statSync,
   writeFileSync,
 } from 'fs';
@@ -141,12 +142,60 @@ async function controlBrowser(call: ToolCall, opts: ToolHostOptions): Promise<To
   return ok(call, action === 'fill' ? 'Field filled.' : `${await page.title()}\n${(await page.locator('body').innerText()).slice(0, 6000)}`);
 }
 
+async function captureApp(call: ToolCall, opts: ToolHostOptions): Promise<ToolResult> {
+  if (!opts.allowBrowserControl || !opts.sessionId) return err(call, 'Window capture is available only in a local desktop chat.');
+  const input = call.input as Record<string, unknown>;
+  if (!['list', 'screenshot', 'record'].includes(String(input.action))) return err(call, 'Choose list, screenshot, or record.');
+  const root = realpathSync(opts.defaultCwd ?? opts.settings.workspaces[0]?.path ?? process.cwd());
+  let outputPath: string | undefined;
+  if (input.action !== 'list') {
+    if (typeof input.window_id !== 'string' || !input.window_id) return err(call, 'List windows and choose a window_id first.');
+    if (typeof input.path !== 'string' || !input.path) return err(call, 'An output path is required.');
+    outputPath = resolvePath(input.path, opts);
+    assertInJail(outputPath, opts);
+    let parent = dirname(outputPath);
+    while (!existsSync(parent)) parent = dirname(parent);
+    const actual = resolve(realpathSync(parent), relative(parent, outputPath));
+    const rel = relative(root, actual);
+    if (!rel || rel.startsWith('..') || isAbsolute(rel)) return err(call, 'Capture output must be inside the chat project, without escaping through links.');
+    if (!outputPath.toLowerCase().endsWith(input.action === 'record' ? '.webm' : '.png')) return err(call, 'Use .png for screenshots or .webm for recordings.');
+    if (existsSync(outputPath)) return err(call, 'Capture output already exists; choose a new path.');
+    if (input.action === 'record' && (!Number.isFinite(Number(input.seconds ?? 5)) || Number(input.seconds ?? 5) < 1 || Number(input.seconds ?? 5) > 15)) return err(call, 'Recording duration must be 1–15 seconds.');
+  }
+  const approved = await opts.requestApproval(call, `Window capture: ${input.action}${input.window_id ? ` ${input.window_id}` : ''}${outputPath ? ` → ${outputPath}` : ''}. Window content may contain private information.`, 'high');
+  if (!approved) return err(call, 'Window capture not approved.');
+  if (opts.signal?.aborted) return err(call, 'Capture cancelled.');
+  const url = process.env.NEKKO_BROWSER_URL;
+  const token = process.env.NEKKO_BROWSER_TOKEN;
+  if (!url || !token) return err(call, 'Desktop capture bridge is unavailable. Restart the desktop app; no browser fallback was used.');
+  const response = await fetch(url, {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ tool: 'capture', sessionId: opts.sessionId, action: input.action, window_id: input.window_id, seconds: input.seconds }),
+    signal: opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000),
+  });
+  const result = await response.json() as { error?: string; data?: string; mime?: string; [key: string]: unknown };
+  if (!response.ok || result.error) return err(call, result.error ?? 'Window capture failed.');
+  if (!outputPath) return ok(call, JSON.stringify(result, null, 2));
+  if (typeof result.data !== 'string' || result.data.length > 30 * 1024 * 1024 || result.mime !== (input.action === 'record' ? 'video/webm' : 'image/png')) return err(call, 'Desktop bridge returned invalid capture media.');
+  const media = Buffer.from(result.data, 'base64');
+  if (!media.length) return err(call, 'Desktop bridge returned empty capture media.');
+  if (opts.signal?.aborted) return err(call, 'Capture cancelled.');
+  mkdirSync(dirname(outputPath), { recursive: true });
+  // Revalidate after approval/capture: a link may have changed while waiting.
+  const finalRelative = relative(root, realpathSync(dirname(outputPath)));
+  if (finalRelative.startsWith('..') || isAbsolute(finalRelative)) return err(call, 'Capture output directory escaped the chat project.');
+  writeFileSync(outputPath, media, { flag: 'wx' });
+  const { data: _data, ...metadata } = result;
+  return ok(call, JSON.stringify({ ...metadata, path: outputPath, bytes: media.length }, null, 2));
+}
+
 /** Execute one tool call, enforcing sandbox + guardrails. */
 export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promise<ToolResult> {
   const a = call.input as Record<string, any>;
   try {
     switch (call.name) {
       case 'browser': return await controlBrowser(call, opts);
+      case 'capture': return await captureApp(call, opts);
       case 'read_file': {
         const p = resolvePath(a.path, opts);
         assertInJail(p, opts);

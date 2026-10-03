@@ -693,7 +693,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     if (settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
     const disabled = new Set(session.disabledTools ?? []);
     if (!allowSpawn) disabled.add('spawn_agent');
-    if (!allowBrowserControl || !canAsk) disabled.add('browser');
+    if (!allowBrowserControl || !canAsk) { disabled.add('browser'); disabled.add('capture'); }
     tools = [...BUILTIN_TOOLS, ...mcpToolSpecs(), ...(!session.incognito && !session.trainingRunId ? [AGENT_WATCH_TOOL] : [])].filter((t) => !disabled.has(t.name));
     // update_plan goes to every session: goal runs treat it as the execution
     // contract; ordinary chats publish it to the plan rail so the user sees the
