@@ -46,7 +46,7 @@ function runShell(file: string, args: string[], options: ExecFileOptions & { det
   child.stdout!.on('data', chunk => collect(chunk, 'stdout'));
   child.stderr!.on('data', chunk => collect(chunk, 'stderr'));
   child.on('error', error => { failure = error; });
-  child.on('close', (code, signal) => callback(failure ?? (code === 0 ? null : new Error(`Command failed: ${file}\n${signal ?? code}`)), stdout, stderr));
+  child.on('close', (code, signal) => callback(failure ?? (code === 0 ? null : new Error(`Command failed: ${file}\n${stderr}`)), stdout, stderr));
   return child;
 }
 
