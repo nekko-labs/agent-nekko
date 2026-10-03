@@ -243,6 +243,10 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 ### In-chat PR identity and styling (2026-10-02)
 
 - [x] Show the actual GitHub head branch on open PR cards, retain repository/number/target context, and use neutral banner styling with slim borderless actions. Ignore file-read and code-search example URLs during session PR discovery. Core PR and transcript regression tests pass (18 tests), desktop typecheck passes, and before/after card evidence is captured at desktop/mobile widths in both themes. · Done: 2026-10-02
+### Completed-session PR follow-up (2026-10-02)
+
+- [x] Correct fallback shell process-group launching and preserve Windows quoted arguments; format loop-detector Rust sources to satisfy CI. Host routing tests and typecheck plus Rust formatting check verified locally. · Done: 2026-10-02
+- [ ] Publish completion screenshots/recording to the PR and verify native iOS/Android visuals before marking the completion PR ready.
 
 
 ### Server browser, chat chrome and tray (added 2026-10-01)
@@ -996,6 +1000,18 @@ Observation: the fixed per-reply step budget (`DEFAULT_MAX_STEPS`, was 80) was h
 - [x] Add a visible photo Close button, dismiss blank space around the image, move Automate to the composer top right with a colored bolt, and show all compact PR state counts. Done: 2026-10-03. Desktop typecheck, 275 tests, and production build pass.
 - [ ] Deferred by user on 2026-10-03: live photo/Close/Escape checks, narrow-layout screenshots and dismissal recording. Automated builds, tests and typechecks pass; manual visual verification remains untested.
 
+### App-control permissions and isolated sessions (2026-10-03)
+
+Technical approach: independent approval policy and session environment; default-deny capability broker at execution time, inherited without expansion by children. Container adapter discovery is read-only. Runtime provisioning is consent-gated. Isolated filesystem copies and conflict-aware apply require verification before enabling sandbox selection. Route or disable daemon-native execution until it honors the same policy. Do not expose a UI-only sandbox.
+
+- [x] Record product choices and add unit-tested default-deny capability evaluation plus read-only runtime discovery helpers. No runtime integration or visual change. Done: 2026-10-03
+- [ ] Add consent-gated runtime setup/lifecycle for supported Apple container, Docker, Podman and OrbStack backends, including pinned managed assets and verified platform requirements.
+- [ ] Implement network-denied container execution, copy-in workspace handling, resource limits, cancellation and verified teardown without host fallback.
+- [ ] Broker selected provider/connector requests without exposing host credentials; scope MCP, browser, context, previews and sub-agents, and block daemon bypass paths.
+- [ ] Implement permission-scoped Windows app and Agent Nekko self-control with semantic targeting, sensitive-action approval, revocation and Stop.
+- [ ] Add Permissions settings, two-column Mode menu, first-use setup and per-session Connectors dropdown after MCP. Capture base/after evidence.
+- [ ] Add reviewed diff export/apply with conflict detection, path validation and rollback of failed applies.
+- [ ] Verify real container host/private-network/filesystem escapes, symlinks, indirect tool paths, policy changes, revocation and cleanup; test each supported runtime before advertising availability.
 ### Workspace context commands and composer question surface
 
 - [x] Add modifier selection and chat-row menus for single and batch commands. Done: 2026-10-03. Selection helper regression tests pass.

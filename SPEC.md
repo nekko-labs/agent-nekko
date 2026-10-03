@@ -190,6 +190,10 @@ Updated 2026-10-02. Open pull-request cards lead with the actual GitHub head bra
 
 Reading files or searching code does not create PR cards from example URLs in tests or documentation. Explicitly discussed PR links and shell output, including `gh pr create`, still surface cards.
 
+### Completion PR verification follow-up
+
+Updated 2026-10-02. Fallback shell commands preserve quoted arguments and stop the shell's descendants on cancellation on both Windows and Unix. Unix launches create a separate process group using a launch API that honors that option. Completion UI verification includes desktop/mobile web screenshots in both themes and a local motion recording; native iOS/Android visual validation and GitHub media upload remain outstanding.
+
 ### Editing, reviewing & previewing, without leaving the app
 
 Files open as windows right in the workspace: a **Files** explorer window lists a project root and opens files as windows of their own beside the chat and terminal, and the app-wide Folders panel does the same from the right-hand side. Markdown is rendered or code opens in a mono editor, with an integrated browser pane for the live preview beside the code. When the agent edits files, a **Changes** panel shows a line diff and the user keeps or reverts at line/file/all granularity. Reviewing AI-made changes, browsing a preview, and writing better prompts (via the always-on prompt analyzer) all happen in one calm window. *(Planned next:)* the user drops a **+ comment** on a line and either queues it for the next prompt or runs it immediately, turning in-place review notes into agent work.
@@ -534,6 +538,17 @@ Dedicated browser tool sessions open an isolated, sandboxed Chromium window owne
 
 Token speed is shown only for turns with usable timing for every nonempty output step. Sub-100 ms buffered samples and missing timings hide the rate rather than pairing untimed tokens with other steps timings. Approval/tool waits do not enter decode time. Starting a new turn clears the previous speed.
 
+### App control and isolated sessions (planned, product decisions 2026-10-03)
+
+Normal is the default execution environment. The composer Mode menu has two independent columns: permission policy (Ask, Guardrails marked Recommended, YOLO) and environment (Normal, Sandboxed). Normal sessions may use already connected capabilities within their permissions; requesting a new app or connection prompts the user before it is connected. Settings groups app-control grants under Permissions, off until enabled and scoped to explicitly selected apps. Agent Nekko itself can be granted control, without an exemption for permission changes or other sensitive actions. Prefer semantic/accessibility control and the built-in browser over blind desktop coordinates. Revocation and Stop prevent subsequent actions.
+
+The first selection of Sandboxed opens a guided setup flow: choose the recommended managed container service or bring an existing runtime, with setup/use options for Docker, Podman, OrbStack and Apple container where supported. Recommend Apple container on supported Macs; do not promise it on unsupported OS/hardware. Installation, service starts, downloads and new grants require consent. A missing or stopped runtime prevents sandbox execution; there is never a silent host fallback.
+
+A new sandbox begins in Ask with no tool, connector, MCP or general network grants. Prompt for each required capability and action; users may choose Guardrails with sandbox settings or YOLO, but neither policy widens the isolation boundary or grants host access. Selected provider requests and connector operations use narrow host brokers rather than exposing credentials or host services inside the container. Sandbox sessions cannot control host apps, including the host Agent Nekko window. A browser used in a sandbox must live inside its isolated environment.
+
+Explicitly provided folders are copied into the isolated session, not mounted read-write. Work stays in the copy. Review diffs and explicitly apply changes back, detecting original-file changes and rejecting traversal, symlink escapes and ambiguous conflicts. All tool paths, MCP processes, delegated sessions, file context, terminal commands, previews and connector retrieval must honor the same session capabilities. No host filesystem, Docker socket, privileged container, host networking or unselected connector access is allowed. Containerization is a bounded isolation mechanism, not a promise against every kernel/runtime vulnerability.
+
+Availability: design and initial policy/discovery helpers only. App-control adapters, container executor, broker enforcement, setup/UI and live escape tests remain unimplemented. Existing workspace-jail/docker labels are not evidence of these guarantees.
 ## Workspace context commands and connected composer
 
 - Right-click chat workspace cards and saved-chat rows for a read-only session identifier, Open, Mark as completed, Change model, Stop, Continue, and permanent Delete. Delete bypasses Completed and asks for confirmation.
