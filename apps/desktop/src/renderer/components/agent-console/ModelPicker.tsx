@@ -62,6 +62,8 @@ export function ModelPicker({
   useEffect(() => {
     if (!open || expanded) return;
     const onDoc = (e: MouseEvent) => {
+      // Context commands render in a portal outside the picker itself.
+      if ((e.target as Element).closest?.('[role="menu"]')) return;
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };

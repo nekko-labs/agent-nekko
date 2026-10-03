@@ -238,14 +238,14 @@ export function WorkspacesView() {
   const runAction = async (action: 'complete' | 'delete' | 'stop' | 'continue', ids: string[]) => {
     setMenu(null);
     if (action === 'delete' && !window.confirm('Permanently delete ' + ids.length + ' chat(s)? This cannot be undone.')) return;
-    for (const id of ids) {
+    await Promise.all(ids.map(async (id) => {
       try {
         if (action === 'complete') await archiveChat(id);
         if (action === 'delete') { await window.nekko.abortChat(id); await window.nekko.deleteSession(id); const state = useStore.getState(); const w = state.workspaces.find(w => w.anchor.kind === 'chat' && w.anchor.refId === id); if (w) state.closeWorkspace(w.id); }
         if (action === 'stop' && statuses.has(id)) await window.nekko.abortChat(id);
         if (action === 'continue' && !statuses.has(id)) { const s = await window.nekko.getSession(id); if (!s?.providerId || !s.modelId || s.autoModel) throw new Error('Choose a specific model before continuing this chat.'); if (!s.messages.some(m => m.role === 'user')) throw new Error('This chat has no prompt to continue.'); await window.nekko.sendChat({sessionId:id,providerId:s.providerId,modelId:s.modelId,text:'',resume:true}); }
       } catch(e) { useStore.getState().pushToast('error', id + ': ' + String(e)); }
-    }
+    }));
     await refreshSessions(); setSelected([]);
   };
   const archivedCount = useMemo(() => sessions.filter(isArchived).length, [sessions]);
