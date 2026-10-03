@@ -20,8 +20,8 @@ import { executeTool } from './tools.js';
  * So one set of files holds on Windows, Linux and macOS, for both sides.
  */
 
-// `bash` in the guardrails set must never run a real `rm -rf`: there `execFile`
-// only reports where it would have run. The bash set uses the real one.
+// Guardrail cases never execute commands: both shell APIs report only where
+// they would have run. The bash set exercises the real runner.
 const execMode = vi.hoisted(() => ({ stub: false }));
 vi.mock('child_process', async (importOriginal) => {
   const real = await importOriginal<typeof import('child_process')>();
@@ -30,7 +30,15 @@ vi.mock('child_process', async (importOriginal) => {
     queueMicrotask(() => cb(null, `RAN ${options.cwd}`, ''));
     return { stdout: null, stderr: null };
   }) as unknown as typeof real.execFile;
-  return { ...real, default: { ...real, execFile }, execFile };
+  const { EventEmitter } = await import('node:events');
+  const { PassThrough } = await import('node:stream');
+  const spawn = ((file: string, args: string[], options: { cwd?: string }) => {
+    if (!execMode.stub) return real.spawn(file, args, options);
+    const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() });
+    queueMicrotask(() => { child.stdout.end(`RAN ${options.cwd}`); child.stderr.end(); child.emit('close', 0, null); });
+    return child;
+  }) as unknown as typeof real.spawn;
+  return { ...real, default: { ...real, execFile, spawn }, execFile, spawn };
 });
 const mirrored = vi.hoisted(() => [] as Array<{ workspaceId: string | undefined; data: string }>);
 vi.mock('./terminal.js', () => ({

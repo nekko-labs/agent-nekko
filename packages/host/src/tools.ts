@@ -1,4 +1,4 @@
-import { execFile, spawn, type ChildProcess, type ExecFileOptions } from 'child_process';
+import { execFile, spawn, type ChildProcess } from 'child_process';
 import {
   existsSync,
   mkdirSync,
@@ -247,22 +247,41 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
             };
             // A separate process group on Unix lets Stop and timeout kill all
             // descendants. On Windows taskkill /T does the same for cmd.exe.
-            const options: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: process.platform === 'win32', encoding: 'utf8' };
+            // execFile does not forward `detached` to spawn. Use spawn directly
+            // so Unix cancellation can kill the shell's entire process group.
             if (typeof a.command !== 'string') throw new TypeError(`The "command" argument must be of type string. Received ${typeof a.command === 'number' ? `type number (${a.command})` : String(a.command)}`);
-            const child = execFile(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], options, (error: Error | null, stdout: string, stderr: string) => {
-              // Keep the previous exec error format (without the explicit shell).
-              if (error) error.message = error.message.replace(/^Command failed: .*?\r?\n/, `Command failed: ${a.command}\n`);
+            const child = spawn(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], {
+              cwd, detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: process.platform === 'win32', stdio: ['ignore', 'pipe', 'pipe'],
+            });
+            let stdout = '';
+            let stderr = '';
+            let failure: Error | undefined;
+            const collect = (stream: 'stdout' | 'stderr', chunk: string) => {
+              if (Buffer.byteLength(stream === 'stdout' ? stdout : stderr) + Buffer.byteLength(chunk) > 10 * 1024 * 1024) {
+                failure = new Error(`${stream} maxBuffer length exceeded`);
+                stopCommandTree(child);
+                return;
+              }
+              if (stream === 'stdout') stdout += chunk;
+              else stderr += chunk;
+              mirror(chunk);
+            };
+            child.stdout?.setEncoding('utf8');
+            child.stderr?.setEncoding('utf8');
+            child.stdout?.on('data', (chunk: string) => collect('stdout', chunk));
+            child.stderr?.on('data', (chunk: string) => collect('stderr', chunk));
+            child.on('error', (error) => { failure = error; });
+            child.on('close', (code, signal) => {
               clearTimeout(timer);
               opts.signal?.removeEventListener('abort', onAbort);
               if (stopped) reject(Object.assign(new Error(`Command ${stopped}.`), { stdout, stderr }));
-              else if (error) reject(Object.assign(error, { stdout, stderr }));
+              else if (failure) reject(Object.assign(failure, { stdout, stderr }));
+              else if (code !== 0) reject(Object.assign(new Error(`Command failed: ${a.command}\n${signal ? `Terminated by ${signal}` : stderr}`), { stdout, stderr }));
               else resolveP({ stdout, stderr });
             });
             timer = setTimeout(() => { stopped = 'timed out'; stopCommandTree(child); }, 120_000);
             opts.signal?.addEventListener('abort', onAbort, { once: true });
             if (opts.signal?.aborted) onAbort();
-            child.stdout?.on('data', (chunk: Buffer | string) => mirror(String(chunk)));
-            child.stderr?.on('data', (chunk: Buffer | string) => mirror(String(chunk)));
           });
           const output = (stdout + (stderr ? `\n[stderr]\n${stderr}` : '')).slice(0, 60000) || '(no output)';
           if (!stdout && !stderr) mirror('(no output)\n');
