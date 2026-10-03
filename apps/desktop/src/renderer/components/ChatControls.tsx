@@ -224,7 +224,7 @@ export function ChatControls({
   };
 
   return (
-    <div ref={ref} className="flex w-full min-w-0 items-center gap-1.5 text-[12px]">
+    <div ref={ref} className="flex w-full min-w-0 flex-wrap items-center gap-1.5 text-[12px]">
       {leading}
       {/* An image chat runs no agent: no tool policy, tools or MCP to set. */}
       {session.chatType !== 'image' && (<>
