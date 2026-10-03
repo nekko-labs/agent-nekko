@@ -22,7 +22,7 @@ import {
 import { reportExperiment, reportArtifact, updateRunPlan, runPlanForSession } from './training.js';
 import { getSettings } from './store.js';
 import { DEFAULT_TURN_WRAPPER } from '@agent-nekko/shared';
-import { chatWorkspaces, prepareChatWorktrees } from './chat-worktrees.js';
+import { chatWorkspaces, prepareChatWorktrees, runWorktreeSetup } from './chat-worktrees.js';
 
 /**
  * Where the `decide` tool sends its questions. Set by the host once the
@@ -50,7 +50,7 @@ import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
 import { daemonCall } from './engine/daemon.js';
 import { daemonOwns, runAgentViaDaemon } from './daemon-loop.js';
 import { completeText } from './sideband.js';
-import { finishAgentTerminal } from './terminal.js';
+import { appendAgentTerminal, finishAgentTerminal } from './terminal.js';
 
 /**
  * Retrieve code snippets from the session's workspace index relevant to the
@@ -633,18 +633,35 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     return;
   }
 
-  try {
-    if (!session.incognito && !session.offline) {
-      const before = JSON.stringify(session.gitWorktrees);
-      prepareChatWorktrees(session, settings);
-      if (JSON.stringify(session.gitWorktrees) !== before) {
-        saveSession(session);
-        send({ type: 'session_meta', sessionId: session.id });
-      }
+  if (!session.incognito && !session.offline) {
+    let created: ReturnType<typeof prepareChatWorktrees>;
+    const before = JSON.stringify(session.gitWorktrees);
+    try {
+      created = prepareChatWorktrees(session, settings);
+    } catch (error) {
+      send({ type: 'error', sessionId: opts.sessionId, message: (error as Error).message });
+      return;
     }
-  } catch (error) {
-    send({ type: 'error', sessionId: opts.sessionId, message: (error as Error).message });
-    return;
+    const announce = () => { saveSession(session); send({ type: 'session_meta', sessionId: session.id }); };
+    if (JSON.stringify(session.gitWorktrees) !== before) announce();
+    // A fresh checkout has no dependencies: run the project's setup command
+    // there before the agent starts, with its output in the Agent commands log.
+    for (const { id, checkout } of created) {
+      const command = settings.workspaces.find((w) => w.id === id)?.worktreeSetup?.trim();
+      if (!command) continue;
+      const notice = checkout.notice;
+      const setNotice = (text: string) => {
+        for (const w of Object.values(session.gitWorktrees ?? {})) if (w.root === checkout.root) w.notice = `${notice} ${text}`;
+      };
+      setNotice(`Running setup: ${command}`);
+      announce();
+      appendAgentTerminal(session.id, id, `\r\n$ ${command}  (worktree setup in ${checkout.path})\r\n`);
+      const result = await runWorktreeSetup(command, checkout.path, (text) => appendAgentTerminal(session.id, id, text.replace(/[^\x09\x0a\x20-\x7e\u0080-￿]/g, '').replace(/\n/g, '\r\n')));
+      setNotice(result.ok
+        ? `Setup ran: ${command}.`
+        : `Setup failed (${result.detail}): ${command}. Dependencies may be missing; see the Agent commands terminal.`);
+      announce();
+    }
   }
   const workspaces = chatWorkspaces(session, settings);
   const toolSettings = { ...settings, workspaces };

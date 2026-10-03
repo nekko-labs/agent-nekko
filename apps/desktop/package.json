@@ -11,10 +11,12 @@
   "desktopName": "Agent Nekko",
   "main": "./out/main/index.js",
   "scripts": {
+    "predev": "node scripts/ensure-electron.mjs",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "prestart": "node scripts/ensure-electron.mjs",
     "start": "electron-vite preview",
     "dist": "npm run build:app --prefix ../cli && electron-vite build && node scripts/stage-daemon.mjs && electron-builder",
     "release": "npm run build:app --prefix ../cli && electron-vite build && node scripts/stage-daemon.mjs && electron-builder --publish always"

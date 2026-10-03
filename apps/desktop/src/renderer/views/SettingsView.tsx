@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { AppSettings, ChatMode, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@agent-nekko/shared';
+import type { AppSettings, ChatMode, ChatWorktreeInfo, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
@@ -107,25 +107,7 @@ export function SettingsView() {
         </section>
 
         <CustomizationSection settings={settings} update={update} />
-        <section className="card mt-5 p-5">
-          <h2 className="font-semibold">Git management</h2>
-          <p className="mt-1 text-[12px] text-ink-faint">New chats get their own branch and worktree. Existing chats and delegated sub-agents keep their current checkout. Worktrees are retained when a chat is completed or deleted; merge your work before removing them with Git.</p>
-          <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">
-            New chat checkout
-            <select className="input max-w-[230px]" value={settings.gitManagement?.mode ?? 'worktree'} onChange={(e) => update({ gitManagement: { ...settings.gitManagement, mode: e.target.value as 'worktree' | 'shared' } })}>
-              <option value="worktree">Isolated worktree (recommended)</option>
-              <option value="shared">Shared project checkout</option>
-            </select>
-          </label>
-          <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">
-            Worktree baseline
-            <select className="input max-w-[230px]" value={settings.gitManagement?.baseline ?? 'head'} onChange={(e) => update({ gitManagement: { ...settings.gitManagement, baseline: e.target.value as 'head' | 'local-changes' } })}>
-              <option value="head">Committed HEAD (recommended)</option>
-              <option value="local-changes">HEAD plus tracked local edits</option>
-            </select>
-          </label>
-          <p className="mt-2 text-[11px] text-ink-faint">Committed HEAD excludes local edits and shows a notice at startup. Copying local edits includes tracked changes only, not untracked files, secrets, or build artifacts.</p>
-        </section>
+        <GitManagementSection settings={settings} update={update} />
 
         {/* Updates */}
         <UpdatesSection settings={settings} update={update} />
@@ -648,6 +630,99 @@ function McpSection({
             </div>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+function GitManagementSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {
+  const [worktrees, setWorktrees] = useState<ChatWorktreeInfo[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const refresh = useCallback(() => {
+    window.nekko.listChatWorktrees().then(setWorktrees).catch((e) => { setWorktrees([]); setMessage(String((e as Error).message ?? e)); });
+  }, []);
+  useEffect(() => { refresh(); }, [refresh]);
+  const remove = async (w: ChatWorktreeInfo) => {
+    setBusy(w.root);
+    setMessage(null);
+    try {
+      const { branchDeleted } = await window.nekko.removeChatWorktree(w.root);
+      setMessage(branchDeleted
+        ? `Removed the worktree and its merged branch ${w.branch}.`
+        : `Removed the worktree. Branch ${w.branch} was kept because it has commits not on the main checkout; the chat picks it back up if continued.`);
+    } catch (e) {
+      setMessage(String((e as Error).message ?? e));
+    } finally {
+      setBusy(null);
+      refresh();
+    }
+  };
+  const setSetup = (id: string, value: string) => {
+    const current = settings.workspaces.find((w) => w.id === id)?.worktreeSetup ?? '';
+    if (value.trim() === current) return;
+    update({ workspaces: settings.workspaces.map((w) => (w.id === id ? { ...w, worktreeSetup: value.trim() || undefined } : w)) });
+  };
+  return (
+    <section className="card mt-5 p-5">
+      <h2 className="font-semibold">Git management</h2>
+      <p className="mt-1 text-[12px] text-ink-faint">New chats get their own branch and worktree, so several agents can work on one repository at once without touching each other's files or your checkout. Existing chats and delegated sub-agents keep their current checkout.</p>
+      <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">
+        New chat checkout
+        <select className="input max-w-[230px]" value={settings.gitManagement?.mode ?? 'worktree'} onChange={(e) => update({ gitManagement: { ...settings.gitManagement, mode: e.target.value as 'worktree' | 'shared' } })}>
+          <option value="worktree">Isolated worktree (recommended)</option>
+          <option value="shared">Shared project checkout</option>
+        </select>
+      </label>
+      <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">
+        Worktree baseline
+        <select className="input max-w-[230px]" value={settings.gitManagement?.baseline ?? 'head'} onChange={(e) => update({ gitManagement: { ...settings.gitManagement, baseline: e.target.value as 'head' | 'local-changes' } })}>
+          <option value="head">Committed HEAD (recommended)</option>
+          <option value="local-changes">HEAD plus tracked local edits</option>
+        </select>
+      </label>
+      <p className="mt-2 text-[11px] text-ink-faint">Committed HEAD excludes local edits and shows a notice at startup. Copying local edits includes tracked changes only, not untracked files, secrets, or build artifacts.</p>
+
+      {settings.workspaces.length > 0 && (
+        <div className="mt-4 border-t border-line pt-3">
+          <span className="text-[13px] font-medium">Worktree setup</span>
+          <p className="mt-0.5 text-[11px] text-ink-faint">A new worktree has only tracked files. Each project can run a command there before the chat's first turn (for example <code>npm install</code>); its output appears in the chat's Agent commands terminal. To copy ignored local files such as <code>.env</code>, list them in a <code>.worktreeinclude</code> file at the repository root (gitignore syntax).</p>
+          <div className="mt-2 space-y-2">
+            {settings.workspaces.map((w) => (
+              <label key={w.id} className="flex items-center justify-between gap-3 text-[12px]">
+                <span className="min-w-0 truncate" title={w.path}>{w.name}</span>
+                <input key={w.worktreeSetup ?? ''} className="input max-w-[260px] font-mono text-[12px]" placeholder="No setup command" aria-label={`Worktree setup command for ${w.name}`} defaultValue={w.worktreeSetup ?? ''} onBlur={(e) => setSetup(w.id, e.target.value)} />
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 border-t border-line pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[13px] font-medium">Chat worktrees</span>
+          <button className="btn btn-outline py-1 text-[12px]" onClick={refresh}>Refresh</button>
+        </div>
+        <p className="mt-0.5 text-[11px] text-ink-faint">Worktrees are kept when a chat is completed or deleted. Removing one frees the folder: Git refuses if it has uncommitted changes, and its branch is deleted only once merged.</p>
+        <div className="mt-2 space-y-1.5">
+          {worktrees === null && <p className="text-[12px] text-ink-faint">Loading...</p>}
+          {worktrees?.length === 0 && <p className="text-[12px] text-ink-faint">No chat worktrees.</p>}
+          {worktrees?.map((w) => {
+            const blocked = w.running ? 'Stop the chat first.' : w.dirtyCount ? 'Has uncommitted changes.' : '';
+            return (
+              <div key={w.root} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2">
+                <div className="min-w-0">
+                  <div className="truncate text-[12px]">{w.sessionTitle ?? <span className="text-ink-faint">Deleted chat</span>}{w.running && <span className="ml-2 text-[11px] text-ink-faint">running</span>}</div>
+                  <div className="truncate font-mono text-[11px] text-ink-faint" title={w.root}>{w.branch ?? 'detached'} · {w.dirtyCount ? `${w.dirtyCount} uncommitted` : 'clean'} · {w.unmergedCount ? `${w.unmergedCount} unmerged commit${w.unmergedCount === 1 ? '' : 's'}` : 'no new commits'}</div>
+                </div>
+                <button className="btn btn-outline shrink-0 py-1 text-[12px] disabled:cursor-not-allowed disabled:opacity-40" disabled={!!blocked || busy === w.root} title={blocked || 'Remove this worktree folder'} onClick={() => void remove(w)}>
+                  {busy === w.root ? 'Removing...' : 'Remove'}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        {message && <p role="status" className="mt-2 text-[11px] text-ink-soft">{message}</p>}
       </div>
     </section>
   );

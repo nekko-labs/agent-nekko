@@ -1,10 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { AppSettings, Session } from '@agent-nekko/shared';
-import { chatWorkspaces, prepareChatWorktrees } from './chat-worktrees.js';
+import { chatWorkspaces, listChatWorktrees, prepareChatWorktrees, removeChatWorktree, runWorktreeSetup } from './chat-worktrees.js';
 
 let root: string;
 let settings: AppSettings;
@@ -49,4 +49,59 @@ it('does not move existing chats or shared checkouts', () => {
   settings.gitManagement = { mode: 'shared' };
   const shared = session('s_shared'); prepareChatWorktrees(shared, settings);
   expect(shared.gitWorktrees).toBeUndefined();
+});
+it('copies only gitignored files listed in .worktreeinclude', () => {
+  writeFileSync(join(root, '.gitignore'), '.env\nbuild/\n');
+  writeFileSync(join(root, '.worktreeinclude'), '.env\nnotes.txt\n');
+  git('add', '.gitignore', '.worktreeinclude');
+  git('commit', '-m', 'Ignore');
+  writeFileSync(join(root, '.env'), 'TOKEN=local\n');
+  writeFileSync(join(root, 'notes.txt'), 'untracked but not ignored');
+  mkdirSync(join(root, 'build'));
+  writeFileSync(join(root, 'build', 'out.js'), 'not listed');
+  const a = session('s_incl');
+  prepareChatWorktrees(a, settings);
+  const wt = a.gitWorktrees!.repo.path;
+  expect(readFileSync(join(wt, '.env'), 'utf8')).toBe('TOKEN=local\n');
+  expect(existsSync(join(wt, 'notes.txt'))).toBe(false);
+  expect(existsSync(join(wt, 'build'))).toBe(false);
+  expect(a.gitWorktrees!.repo.notice).toContain('.worktreeinclude: .env');
+});
+it('lists, removes, and restores chat worktrees without losing work', () => {
+  const a = session('s_life');
+  expect(prepareChatWorktrees(a, settings)).toHaveLength(1);
+  const wt = a.gitWorktrees!.repo.root;
+  const owner = (id: string) => (id === 's_life' ? { title: 'Life', running: false } : null);
+  let [info] = listChatWorktrees(settings, owner);
+  expect(info).toMatchObject({ sessionId: 's_life', sessionTitle: 'Life', branch: 'nekko/s_life', dirtyCount: 0, unmergedCount: 0 });
+
+  // Uncommitted work and a running chat both block removal.
+  writeFileSync(join(wt, 'file.txt'), 'work in progress\n');
+  expect(() => removeChatWorktree(settings, wt, owner)).toThrow(/uncommitted/);
+  execFileSync('git', ['commit', '-am', 'Chat work'], { cwd: wt });
+  expect(() => removeChatWorktree(settings, wt, () => ({ title: 'Life', running: true }))).toThrow(/running/);
+  [info] = listChatWorktrees(settings, owner);
+  expect(info.unmergedCount).toBe(1);
+
+  // An unmerged branch survives removal, and the chat comes back on it.
+  expect(removeChatWorktree(settings, wt, owner)).toEqual({ branchDeleted: false });
+  expect(existsSync(wt)).toBe(false);
+  expect(listChatWorktrees(settings, owner)).toHaveLength(0);
+  mkdirSync(wt); // Windows can leave the emptied folder behind while a terminal has it open
+  expect(prepareChatWorktrees(a, settings)).toHaveLength(1);
+  expect(readFileSync(join(wt, 'file.txt'), 'utf8')).toBe('work in progress\n');
+  expect(a.gitWorktrees!.repo.notice).toContain('restored from its branch');
+
+  // Once merged, the branch goes with the folder.
+  git('merge', '--ff-only', 'nekko/s_life');
+  expect(removeChatWorktree(settings, wt, owner)).toEqual({ branchDeleted: true });
+  expect(() => removeChatWorktree(settings, root, owner)).toThrow(/not a chat worktree/);
+});
+it('runs setup commands and reports failures without throwing', async () => {
+  let out = '';
+  const ok = await runWorktreeSetup('echo setup-ran', root, (t) => { out += t; });
+  expect(ok.ok).toBe(true);
+  expect(out).toContain('setup-ran');
+  const bad = await runWorktreeSetup('exit 3', root, () => {});
+  expect(bad).toEqual({ ok: false, detail: 'exit code 3' });
 });

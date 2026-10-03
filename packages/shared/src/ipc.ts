@@ -167,6 +167,8 @@ export const IpcChannels = {
   workspaceSearch: 'workspace:search',
   workspaceFiles: 'workspace:files',
   workspaceGitStatus: 'workspace:gitStatus',
+  chatWorktreesList: 'chatWorktrees:list',
+  chatWorktreesRemove: 'chatWorktrees:remove',
 
   fileRead: 'file:read',
   fileWrite: 'file:write',
@@ -534,7 +536,7 @@ export interface NekkoApi {
   /** Shells the host detected as available to launch. */
   listShells(): Promise<ShellOption[]>;
   /** Spawn a PTY-backed shell, optionally scoped to a project / cwd / shell. */
-  createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo>;
+  createTerminal(opts?: { workspaceId?: string; sessionId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo>;
   /** Fetch current info + retained raw scrollback (for reattaching a renderer). */
   terminalSnapshot(id: string): Promise<TerminalSnapshot | null>;
   /** Update a terminal's project/order (sidebar drag-and-drop). */
@@ -607,6 +609,13 @@ export interface NekkoApi {
    * sidebar card is cheap; pass `force` to bypass that cache.
    */
   getGitStatus(id: string, force?: boolean): Promise<import('./workspace.js').GitStatus>;
+  /** Every chat's isolated worktree across the configured projects, including deleted chats'. */
+  listChatWorktrees(): Promise<import('./workspace.js').ChatWorktreeInfo[]>;
+  /**
+   * Remove a chat worktree's folder. Refused while the chat runs or the folder
+   * has uncommitted changes; the branch is deleted only when fully merged.
+   */
+  removeChatWorktree(root: string): Promise<{ branchDeleted: boolean }>;
 
   /** Read a file as text (for the in-app viewer/editor). */
   readFile(path: string): Promise<FileContent>;
