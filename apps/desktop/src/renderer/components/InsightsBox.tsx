@@ -2,9 +2,10 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ProviderConfig, RemoteStatus, ReplyStop, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType, OptimizationTip } from '@agent-nekko/shared';
 import { estimateCostUSD, formatUSD, isLocalProvider, MODEL_PRICING, optimizationTips } from '@agent-nekko/shared';
-import { INSIGHT_PANELS, type InsightPanel, type InsightsPrefs } from '../commandGrid.js';
+import { INSIGHT_PANELS, type InsightPanel, type InsightsPrefs } from '../commandWall.js';
+import { PaneActions, useInPaneFrame } from './PaneFrame.js';
 import { Badge, EmptyHint } from './primitives/index.js';
-import { CheckIcon, CloseIcon, GearIcon, ServerIcon } from '../icons.js';
+import { CheckIcon, GearIcon, ServerIcon } from '../icons.js';
 import { EmptyArea, InsightsEmptyArt } from './EmptyIllustrations.js';
 
 /** The machine's at-a-glance numbers, computed by the view from live state. */
@@ -19,10 +20,11 @@ export interface Vitals {
 }
 
 /**
- * The Command Center's analytics, as one box: full width, removable, placed
- * above or below the grid, and made of the panels the user ticked in its gear
- * menu. The panels flow into as many columns as the box is wide enough for,
- * so the same box reads as a strip on a laptop and a dashboard on a monitor.
+ * The Command Center's analytics: the panels the user ticked in the gear menu,
+ * flowing into as many columns as the box is wide enough for, so the same box
+ * reads as a strip in a narrow window and a dashboard in a wide one. On the
+ * wall it is a window like any other (the gear rides in the window's strip);
+ * anywhere else it draws its own header.
  */
 export function InsightsBox({
   prefs,
@@ -58,64 +60,49 @@ export function InsightsBox({
   const hasUsage = !!usage && (usage.totalInput + usage.totalOutput > 0 || !!usage.hasSubscriptionUsage);
   const shown = INSIGHT_PANELS.filter((p) => on(p.key)).length;
 
-  return (
-    <section className="card relative p-4" data-insights-box>
-      <div className="flex items-center gap-2">
-        <h2 className="text-[14px] font-semibold">Insights</h2>
-        <span className="text-[11.5px] text-ink-faint">{shown === 0 ? 'nothing selected, open the gear' : prefs.position === 'top' ? 'above the grid' : 'below the grid'}</span>
-        <div className="ml-auto flex items-center gap-0.5">
-          <div className="relative" ref={gearRef}>
-            <button
-              className={`rounded-md p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink ${gearOpen ? 'bg-surface-2 text-ink' : ''}`}
-              title="Choose which stats and charts to show"
-              aria-label="Insights settings"
-              aria-expanded={gearOpen}
-              onClick={() => setGearOpen((o) => !o)}
-            >
-              <GearIcon className="h-4 w-4" />
-            </button>
-            {gearOpen && (
-              <div className="card absolute right-0 top-9 z-30 w-72 p-2 shadow-lg" style={{ background: 'var(--paper)' }} role="menu">
-                <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Show</p>
-                {INSIGHT_PANELS.map((p) => (
-                  <label key={p.key} className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-surface-2">
-                    <input type="checkbox" className="mt-0.5" checked={on(p.key)} onChange={() => toggle(p.key)} />
-                    <span className="min-w-0">
-                      <span className="block text-[12.5px] font-medium">{p.label}</span>
-                      <span className="block text-[11px] text-ink-faint">{p.blurb}</span>
-                    </span>
-                  </label>
-                ))}
-                <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Place</p>
-                <div className="flex gap-1 px-2 pb-1">
-                  {(['top', 'bottom'] as const).map((pos) => (
-                    <button
-                      key={pos}
-                      className={`flex-1 rounded-md border px-2 py-1 text-[12px] ${prefs.position === pos ? 'border-accent text-accent' : 'border-line text-ink-soft hover:text-ink'}`}
-                      onClick={() => onPrefs({ ...prefs, position: pos })}
-                    >
-                      {pos === 'top' ? 'Above the grid' : 'Below the grid'}
-                    </button>
-                  ))}
-                </div>
-                <button className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-[12px] text-ink-soft hover:bg-surface-2 hover:text-ink" onClick={() => { setGearOpen(false); onPrefs({ ...prefs, show: false }); }}>
-                  Hide the insights box (bring it back from the toolbar)
-                </button>
-              </div>
-            )}
-          </div>
-          <button
-            className="rounded-md p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
-            title="Remove the insights box (bring it back from the toolbar)"
-            aria-label="Remove insights"
-            onClick={() => onPrefs({ ...prefs, show: false })}
-          >
-            <CloseIcon className="h-3.5 w-3.5" />
-          </button>
+  const framed = useInPaneFrame();
+  const gear = (
+    <div className="relative" ref={gearRef}>
+      <button
+        className={`rounded-md p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink ${gearOpen ? 'bg-surface-2 text-ink' : ''}`}
+        title="Choose which stats and charts to show"
+        aria-label="Insights settings"
+        aria-expanded={gearOpen}
+        onClick={() => setGearOpen((o) => !o)}
+      >
+        <GearIcon className="h-4 w-4" />
+      </button>
+      {gearOpen && (
+        <div className="card absolute right-0 top-9 z-30 w-72 p-2 shadow-lg" style={{ background: 'var(--paper)' }} role="menu">
+          <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Show</p>
+          {INSIGHT_PANELS.map((p) => (
+            <label key={p.key} className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-surface-2">
+              <input type="checkbox" className="mt-0.5" checked={on(p.key)} onChange={() => toggle(p.key)} />
+              <span className="min-w-0">
+                <span className="block text-[12.5px] font-medium">{p.label}</span>
+                <span className="block text-[11px] text-ink-faint">{p.blurb}</span>
+              </span>
+            </label>
+          ))}
         </div>
-      </div>
+      )}
+    </div>
+  );
+
+  return (
+    <section className={framed ? 'relative h-full min-h-0 overflow-y-auto p-3' : 'card relative p-4'} data-insights-box>
+      {framed ? (
+        <PaneActions>{gear}</PaneActions>
+      ) : (
+        <div className="flex items-center gap-2">
+          <h2 className="text-[14px] font-semibold">Insights</h2>
+          <span className="text-[11.5px] text-ink-faint">{shown === 0 ? 'nothing selected, open the gear' : ''}</span>
+          <div className="ml-auto flex items-center gap-0.5">{gear}</div>
+        </div>
+      )}
 
       {on('vitals') && <VitalsStrip vitals={vitals} />}
+      {framed && shown === 0 && <p className="text-[12px] text-ink-faint">Nothing selected. Open the gear in this window's strip to pick stats and charts.</p>}
 
       {!hasUsage && shown > (on('vitals') ? 1 : 0) ? (
         <EmptyArea className="mt-3" art={<InsightsEmptyArt />} title="No usage to chart yet">

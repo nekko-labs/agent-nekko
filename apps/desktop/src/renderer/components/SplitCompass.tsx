@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Direction, PaneKind } from '../layout.js';
 import { MAX_ACROSS } from '../layout.js';
-import { ChatIcon, CloseIcon, ExternalIcon, FileIcon, FolderIcon, PlusIcon, TerminalIcon } from '../icons.js';
+import { BoltIcon, ChatIcon, CloseIcon, ExternalIcon, FileIcon, FolderIcon, LayoutIcon, PlusIcon, TerminalIcon } from '../icons.js';
 
 /**
  * Where a new window goes, asked as a picture.
@@ -15,13 +15,18 @@ import { ChatIcon, CloseIcon, ExternalIcon, FileIcon, FolderIcon, PlusIcon, Term
  * used up are visibly spent rather than silently doing nothing.
  */
 
-/** The kinds of window you can add, in the order the picker offers them. */
+/** Every kind of window a compass may offer; a caller picks the subset its surface can hold. */
 const ADDABLE: Array<{ kind: PaneKind; label: string; hint: string; Icon: (p: { className?: string }) => React.JSX.Element }> = [
   { kind: 'chat', label: 'Chat', hint: 'Another agent, working alongside this one', Icon: ChatIcon },
   { kind: 'terminal', label: 'Terminal', hint: 'A shell in this project', Icon: TerminalIcon },
   { kind: 'files', label: 'Files', hint: 'Browse and open files', Icon: FolderIcon },
   { kind: 'browser', label: 'Browser', hint: 'A page, docs, or your running app', Icon: ExternalIcon },
+  { kind: 'automations', label: 'Automations', hint: 'Scheduled, recurring and background work', Icon: BoltIcon },
+  { kind: 'insights', label: 'Insights', hint: 'Vitals, cost, tokens and optimize tips', Icon: LayoutIcon },
 ];
+
+/** What the Agent tab's windows offer: the kinds a workspace can hold. */
+export const WORKSPACE_ADDABLE: PaneKind[] = ['chat', 'terminal', 'files', 'browser'];
 
 /** Panel width, needed up front to right-align it against the trigger. */
 const PANEL_W = 212;
@@ -40,6 +45,8 @@ const CENTRE_ICON: Record<PaneKind, (p: { className?: string }) => React.JSX.Ele
   pr: FileIcon,
   browser: ExternalIcon,
   hypergate: ExternalIcon,
+  automations: BoltIcon,
+  insights: LayoutIcon,
 };
 
 const DIRECTIONS: Direction[] = ['up', 'right', 'down', 'left'];
@@ -68,14 +75,18 @@ export function SplitCompass({
   kind,
   canSplit,
   onSplit,
+  addable = WORKSPACE_ADDABLE,
   className = '',
 }: {
   /** The window being split, drawn in the middle. */
   kind: PaneKind;
   canSplit: (dir: Direction) => boolean;
   onSplit: (dir: Direction, kind: PaneKind) => void;
+  /** The kinds this surface can add, in the order to offer them. */
+  addable?: PaneKind[];
   className?: string;
 }) {
+  const offered = addable.map((k) => ADDABLE.find((a) => a.kind === k)).filter((a): a is (typeof ADDABLE)[number] => !!a);
   const [open, setOpen] = useState(false);
   /**
    * Whether a click put it there. Hovering is a preview that goes away when the
@@ -205,7 +216,7 @@ export function SplitCompass({
                 </button>
                 <span className="text-[11px] text-ink-faint">{DIR_LABEL[dir]} — what goes there?</span>
               </div>
-              {ADDABLE.map(({ kind: k, label, hint, Icon }) => (
+              {offered.map(({ kind: k, label, hint, Icon }) => (
                 <button
                   key={k}
                   className="flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-surface-2"
