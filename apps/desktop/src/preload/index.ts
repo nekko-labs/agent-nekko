@@ -38,6 +38,7 @@ const SHELL_CHANNELS = new Set<string>([
   IpcChannels.updateCheck,
   IpcChannels.updateDownload,
   IpcChannels.updateInstall,
+  IpcChannels.sessionSetOptions,
 ]);
 const SHELL_EVENTS = new Set<string>([IpcEvents.updateEvent, IpcEvents.deepLink]);
 
