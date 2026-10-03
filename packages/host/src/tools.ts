@@ -1,4 +1,4 @@
-import { exec, spawn, type ChildProcess, type ExecOptions } from 'child_process';
+import { execFile, spawn, type ChildProcess, type ExecFileOptions } from 'child_process';
 import {
   existsSync,
   mkdirSync,
@@ -13,6 +13,7 @@ import { classifyCommand } from '@agent-nekko/core';
 import { recordOriginal } from './changes.js';
 import { appendAgentTerminal } from './terminal.js';
 
+const dedicatedBrowsers = new Set<string>();
 const browsers = new Map<string, { client: import('@browserbasehq/stagehand').Stagehand; mode: string; port?: number }>();
 
 /** Kill the command's shell and descendants, not just the shell holding its pipes. */
@@ -93,32 +94,42 @@ async function controlBrowser(call: ToolCall, opts: ToolHostOptions): Promise<To
   const selector = String(input.selector ?? '');
   if (['click', 'fill'].includes(String(action)) && (!selector || selector.length > 500)) return err(call, 'A CSS selector is required.');
   const existing = browsers.get(opts.sessionId);
-  if (existing && (existing.mode !== mode || existing.port !== port)) return err(call, 'Close the current browser session before switching modes or ports.');
+  if ((mode === 'existing' && dedicatedBrowsers.has(opts.sessionId)) || (existing && (existing.mode !== mode || existing.port !== port))) return err(call, 'Close the current browser session before switching modes or ports.');
   const approved = await opts.requestApproval(call, `Browser ${mode}: ${action}${url ? ` ${url}` : ''}${selector ? ` ${selector}` : ''}`, 'high');
   if (!approved) return err(call, 'Browser action not approved.');
+  if (mode === 'dedicated') {
+    const bridgeUrl = process.env.NEKKO_BROWSER_URL;
+    const token = process.env.NEKKO_BROWSER_TOKEN;
+    if (!bridgeUrl || !token) return err(call, 'In-app browser is unavailable. Restart the desktop app to enable it.');
+    const response = await fetch(bridgeUrl, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...input, sessionId: opts.sessionId }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    const result = await response.json() as { output?: string; error?: string };
+    if (response.ok) {
+      if (action === 'close') dedicatedBrowsers.delete(opts.sessionId);
+      else dedicatedBrowsers.add(opts.sessionId);
+    }
+    return response.ok ? ok(call, result.output ?? '') : err(call, result.error ?? 'In-app browser action failed.');
+  }
   if (action === 'close') {
     if (existing) {
       browsers.delete(opts.sessionId);
       await existing.client.close();
-      if (existing.mode === 'dedicated') {
-        try { await existing.client.browser.close(); }
-        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EPERM') throw error; }
-      }
     }
     return ok(call, 'Browser session disconnected.');
   }
   let current = existing;
   if (!current) {
     const { localBrowser, Stagehand } = await import('@browserbasehq/stagehand');
-    const brave = 'C:\\Program Files\\BraveSoftware\\Brave-Browser\\Application\\brave.exe';
-    const browser = mode === 'dedicated'
-      ? await localBrowser.launch({ headless: false, ...(process.platform === 'win32' && existsSync(brave) ? { executablePath: brave } : {}) })
-      : await localBrowser.connect({ cdpUrl: `http://127.0.0.1:${port}` });
+    const browser = await localBrowser.connect({ cdpUrl: `http://127.0.0.1:${port}` });
     try {
       current = { client: await Stagehand.create({ browser }), mode, port };
       browsers.set(opts.sessionId, current);
     } catch (error) {
-      if (mode === 'dedicated') await browser.close();
+      await browser.close();
       throw error;
     }
   }
@@ -236,8 +247,8 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
             };
             // A separate process group on Unix lets Stop and timeout kill all
             // descendants. On Windows taskkill /T does the same for cmd.exe.
-            const options: ExecOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, encoding: 'utf8' };
-            const child = exec(a.command, options, (error: Error | null, stdout: string, stderr: string) => {
+            const options: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: process.platform === 'win32', encoding: 'utf8' };
+            const child = execFile(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], options, (error: Error | null, stdout: string, stderr: string) => {
               clearTimeout(timer);
               opts.signal?.removeEventListener('abort', onAbort);
               if (stopped) reject(Object.assign(new Error(`Command ${stopped}.`), { stdout, stderr }));

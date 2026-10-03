@@ -133,7 +133,7 @@ export class ChatGptProvider implements Provider {
   }
 
   async listModels(): Promise<ModelInfo[]> {
-    const all =
+    const all: ModelInfo[] =
       (await this.fetchCatalog()) ??
       CHATGPT_MODELS.map((m) => ({
         id: m.id,

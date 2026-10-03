@@ -9,6 +9,7 @@
 //! TS shapes (`AgentEvent`, `ChatMessage`), as JSON.
 
 use crate::history::{as_seen_by_chat_model, window_history};
+use crate::progress::{LOOP_WRAP_UP_PROMPT, LoopDetector, loop_note, loop_nudge};
 use crate::resume::{INTERRUPTED_NOTE, RESUME_PROMPT, repair_interrupted_history};
 use crate::runaway::{RUNAWAY_NOTE, RunawayGuard};
 use nekko_js as js;
@@ -109,7 +110,7 @@ pub struct RunOptions<'a> {
     /// The transcript so far; the loop appends its messages to it.
     pub history: &'a mut Vec<Value>,
     pub tools: Vec<Value>,
-    /// Tool-use round trips before the wrap-up pass (`DEFAULT_MAX_STEPS`, 80).
+    /// Tool-use round trips before the wrap-up pass (`DEFAULT_MAX_STEPS`, 250).
     pub max_iterations: usize,
     pub temperature: Option<f64>,
     pub effort: Option<String>,
@@ -121,7 +122,7 @@ pub struct RunOptions<'a> {
 }
 
 /// `DEFAULT_MAX_STEPS`.
-pub const DEFAULT_MAX_STEPS: usize = 80;
+pub const DEFAULT_MAX_STEPS: usize = 250;
 
 /// How much of a looping stream is kept (`RUNAWAY_KEEP_CHARS`, UTF-16 units).
 const RUNAWAY_KEEP_CHARS: usize = 4_000;
@@ -334,6 +335,12 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
             }
         }
         let nudge = user_nudge(EMPTY_NUDGE);
+        // Loop detection (progress.rs): the first trip nudges, the second wraps up.
+        let mut loops = LoopDetector::default();
+        let mut loop_extra: Vec<Value> = Vec::new();
+        let mut nudged = false;
+        let mut loop_reason: Option<String> = None;
+        let mut steps: usize = 0;
 
         for iter in 0..self.opts.max_iterations {
             if self.opts.cancel.is_cancelled() {
@@ -341,7 +348,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
                 return;
             }
             let mut turn = Turn::default();
-            let first = if iter == 0 { std::mem::take(&mut resume_extra) } else { Vec::new() };
+            let first = if iter == 0 { std::mem::take(&mut resume_extra) } else { std::mem::take(&mut loop_extra) };
             let mut result = self.stream(&mut turn, first, true).await;
             // An empty response gets one retry with a nudge, so the turn does not
             // silently stall (common with some local models mid-loop).
@@ -387,10 +394,15 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
             // A looping model does not recover by being asked again; and no tool
             // calls means the turn is complete.
             if turn.runaway || (turn.calls.is_empty() && turn.phase.as_deref() != Some("commentary")) {
-                self.event("done", json!({ "messageId": message_id }));
+                let stop = if turn.runaway { "runaway" } else { "complete" };
+                self.event("done", json!({ "messageId": message_id, "stop": stop, "steps": steps }));
                 return;
             }
 
+            if !turn.calls.is_empty() {
+                steps += 1;
+            }
+            let mut tripped: Option<String> = None;
             for call in &turn.calls {
                 let result = match self.tools.run(call).await {
                     Ok(r) => r,
@@ -400,22 +412,39 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
                 };
                 self.opts.history.push(json!({ "id": id("msg"), "role": "tool", "content": "", "toolResult": result, "createdAt": now_ms() }));
                 self.event("tool_result", json!({ "result": result }));
+                if tripped.is_none() {
+                    tripped = loops.push(call, &result);
+                }
+            }
+
+            if let Some(reason) = tripped {
+                if nudged {
+                    loop_reason = Some(reason);
+                    break;
+                }
+                nudged = true;
+                loops.reset();
+                loop_extra = vec![user_nudge(&loop_nudge(&reason))];
             }
         }
 
-        // Budget spent: one last pass with the tools withheld, so the work comes
-        // back as an answer rather than an error.
+        // Budget spent, or the loop detector tripped twice: one last pass with
+        // the tools withheld, so the work comes back as an answer rather than an
+        // error.
         if self.opts.cancel.is_cancelled() {
             self.event("error", json!({ "message": "Aborted" }));
             return;
         }
         let mut wrap = Turn::default();
-        if let Err(e) = self.stream(&mut wrap, vec![user_nudge(WRAP_UP_PROMPT)], false).await {
+        let prompt = if loop_reason.is_some() { LOOP_WRAP_UP_PROMPT } else { WRAP_UP_PROMPT };
+        if let Err(e) = self.stream(&mut wrap, vec![user_nudge(prompt)], false).await {
             self.end_interrupted(&wrap, e);
             return;
         }
         let note = if wrap.runaway {
             RUNAWAY_NOTE.to_string()
+        } else if let Some(reason) = &loop_reason {
+            loop_note(reason)
         } else {
             format!(
                 "_Stopped at this reply's {}-step tool limit. Ask me to continue and I'll pick up from here (or raise the limit in Settings → Agent loop)._",
@@ -437,7 +466,8 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
         m.insert("createdAt".into(), json!(now_ms()));
         let message_id = m["id"].clone();
         self.opts.history.push(Value::Object(m));
-        self.event("done", json!({ "messageId": message_id }));
+        let stop = if loop_reason.is_some() { "loop" } else { "step_limit" };
+        self.event("done", json!({ "messageId": message_id, "stop": stop, "steps": steps }));
     }
 }
 

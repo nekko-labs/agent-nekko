@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import type { AppSettings, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
+import type { AppSettings, Session, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
 import { DEFAULT_IMAGE_CHAT_PARAMS, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
+import { loadLayout, maxIdSeq, pruneLayout, saveLayout } from './workspacePersist.js';
 import {
   allPanes,
   canSplit,
@@ -12,6 +13,7 @@ import {
   swapPanes as swapInTree,
   newPaneId,
   removePane,
+  reserveIdSeq,
   resizeSplit,
   retargetPane as retargetInTree,
   splitPane as splitInTree,
@@ -109,7 +111,12 @@ function readPlanRailOpen(): boolean {
   return true;
 }
 
-let wsSeq = 0;
+// The open workspaces come back from the last run (see workspacePersist.ts).
+// Both id counters restart at zero each launch, so they skip past every id
+// the restored layout already uses.
+const restored = loadLayout(typeof window === 'undefined' ? undefined : window.localStorage);
+let wsSeq = maxIdSeq(restored.workspaces);
+reserveIdSeq(wsSeq);
 const newWorkspaceId = () => `ws_${(++wsSeq).toString(36)}`;
 
 interface UiState {
@@ -249,6 +256,36 @@ interface UiState {
   setActiveWorkspace: (id: string) => void;
   /** Close a whole workspace and every window in it. */
   closeWorkspace: (id: string) => void;
+  /**
+   * Archive the chat a workspace is about and close the workspace. The chat
+   * keeps its transcript and can be read or restored from the Archived list
+   * until the retention window runs out. A terminal workspace just closes.
+   */
+  archiveWorkspace: (id: string) => Promise<void>;
+  /** Archive one chat by id (and close any workspace showing it). */
+  archiveChat: (sessionId: string) => Promise<void>;
+  /** Bring an archived chat back to the workspace list and open it. */
+  restoreChat: (sessionId: string) => Promise<void>;
+  /** Delete an archived chat for good. */
+  deleteChatForever: (sessionId: string) => Promise<void>;
+  /** Whether the sidebar shows the Archived list instead of the workspaces. */
+  archiveOpen: boolean;
+  setArchiveOpen: (open: boolean) => void;
+  /** The archived chat being read, shown read-only in place of the workspaces. */
+  archivedViewId: string | null;
+  setArchivedView: (sessionId: string | null) => void;
+  /**
+   * Text and images to drop into a chat's composer when it next mounts (Copy
+   * to composer, Split to a new chat). Consumed once by that chat's pane.
+   */
+  composerSeed: { sessionId: string; text: string; images: string[] } | null;
+  seedComposer: (sessionId: string, text: string, images: string[]) => void;
+  /**
+   * Start a new chat holding this chat's conversation up to (not including)
+   * `beforeMessageId`, with that message's text and images waiting in its
+   * composer. "Split here" from a message.
+   */
+  splitChat: (sessionId: string, beforeMessageId: string) => Promise<void>;
   /** Put a new window on one side of an existing one. */
   splitPane: (paneId: string, dir: Direction, kind: PaneKind, refId?: string) => void;
   /** Start a chat and put it beside an existing window, in the same workspace. */
@@ -405,10 +442,13 @@ export const useStore = create<UiState>((set, get) => ({
   paletteOpen: false,
   activeProjectId: null,
   terminals: [],
-  workspaces: [],
-  activeWorkspaceId: null,
+  workspaces: restored.workspaces,
+  activeWorkspaceId: restored.activeWorkspaceId,
   prsBySession: {},
   composerInbox: null,
+  archiveOpen: false,
+  archivedViewId: null,
+  composerSeed: null,
 
   setActiveProject: (id) => set({ activeProjectId: id }),
   pushToast: (kind, message) => {
@@ -469,7 +509,23 @@ export const useStore = create<UiState>((set, get) => ({
   refreshSessions: async () => {
     const sessions = await window.nekko.listSessionSummaries();
     set({ sessions });
-    if (!get().activeSessionId && sessions[0]) set({ activeSessionId: sessions[0].id });
+    // A restored layout can point at chats that were archived or deleted since
+    // (another client, the retention purge). Drop those windows now that the
+    // truth is known; terminals are pruned in refreshTerminals.
+    const live = new Set(sessions.filter((x) => !x.archivedAt).map((x) => x.id));
+    set((s) => {
+      const workspaces = pruneLayout(s.workspaces, live, null, removePane);
+      if (workspaces.length === s.workspaces.length && workspaces.every((w, i) => w === s.workspaces[i])) return s;
+      return {
+        workspaces,
+        activeWorkspaceId: workspaces.some((w) => w.id === s.activeWorkspaceId) ? s.activeWorkspaceId : workspaces[workspaces.length - 1]?.id ?? null,
+      };
+    });
+    // The default chat to report on is the newest live one: an archived chat
+    // is read from the Archived list, never opened as a workspace by default.
+    const firstLive = sessions.find((x) => !x.archivedAt);
+    const current = get().activeSessionId;
+    if ((!current || !live.has(current)) && firstLive && !get().archivedViewId) set({ activeSessionId: firstLive.id });
   },
 
   installedSkills: [],
@@ -583,7 +639,22 @@ export const useStore = create<UiState>((set, get) => ({
 
   refreshTerminals: async () => {
     try {
-      set({ terminals: await window.nekko.listTerminals() });
+      const terminals = await window.nekko.listTerminals();
+      set({ terminals });
+      // Shells do not outlive the app's backend, so a restored terminal window
+      // usually points at nothing; drop it instead of showing a dead pane.
+      const ids = new Set(terminals.map((t) => t.id));
+      set((s) => {
+        // Chats are judged in refreshSessions; here only terminals are, so
+        // every chat the layout mentions counts as alive.
+        const keep = new Set(s.workspaces.flatMap((w) => [w.anchor.refId, ...allPanes(w.root).map((p) => p.refId)]));
+        const workspaces = pruneLayout(s.workspaces, keep, ids, removePane);
+        if (workspaces.length === s.workspaces.length && workspaces.every((w, i) => w === s.workspaces[i])) return s;
+        return {
+          workspaces,
+          activeWorkspaceId: workspaces.some((w) => w.id === s.activeWorkspaceId) ? s.activeWorkspaceId : workspaces[workspaces.length - 1]?.id ?? null,
+        };
+      });
     } catch {
       /* terminals unsupported on this transport */
     }
@@ -608,6 +679,11 @@ export const useStore = create<UiState>((set, get) => ({
   // was on screen.
   openChatPane: (sessionId) => {
     set((s) => {
+      // An archived chat opens read-only in the Archived list instead of as a
+      // workspace, so nothing can be sent into it by accident.
+      if (s.sessions.find((x) => x.id === sessionId)?.archivedAt) {
+        return { view: 'chat' as View, archiveOpen: true, archivedViewId: sessionId };
+      }
       const hit = locatePane(s.workspaces, 'chat', sessionId);
       if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
       return addWorkspace(s, { id: newPaneId(), kind: 'chat', refId: sessionId });
@@ -767,6 +843,88 @@ export const useStore = create<UiState>((set, get) => ({
     });
   },
 
+  archiveChat: async (sessionId) => {
+    // Close first, so the chat leaves the screen at once, then mark it.
+    set((s) => {
+      const workspaces = s.workspaces
+        .filter((w) => !(w.anchor.kind === 'chat' && w.anchor.refId === sessionId))
+        .map((w) => {
+          const pane = findPaneByRef(w.root, 'chat', sessionId);
+          return pane ? { ...w, root: removePane(w.root, pane.id), activePaneId: w.activePaneId === pane.id ? null : w.activePaneId } : w;
+        })
+        .filter((w) => w.root !== null)
+        .map((w) => ({ ...w, activePaneId: w.activePaneId ?? allPanes(w.root)[0]?.id ?? null }));
+      return {
+        workspaces,
+        activeWorkspaceId: workspaces.some((w) => w.id === s.activeWorkspaceId) ? s.activeWorkspaceId : workspaces[workspaces.length - 1]?.id ?? null,
+        activeSessionId: s.activeSessionId === sessionId ? null : s.activeSessionId,
+      };
+    });
+    try {
+      // Stop a run first: an archived chat is read-only, and a turn still
+      // writing to it would contradict that.
+      await window.nekko.abortChat(sessionId);
+    } catch { /* nothing running */ }
+    try {
+      await window.nekko.setSessionOptions(sessionId, { archivedAt: Date.now() });
+      get().pushToast('success', 'Chat completed. Find it under Completed for 60 days.');
+    } catch (e) {
+      get().pushToast('error', `Could not complete the chat: ${(e as Error).message}`);
+    }
+    await get().refreshSessions();
+  },
+
+  archiveWorkspace: async (id) => {
+    const ws = get().workspaces.find((w) => w.id === id);
+    if (!ws) return;
+    if (ws.anchor.kind !== 'chat') return get().closeWorkspace(id);
+    await get().archiveChat(ws.anchor.refId);
+    // Anything else still in the workspace (a terminal, a file) goes with it.
+    get().closeWorkspace(id);
+  },
+
+  restoreChat: async (sessionId) => {
+    try {
+      await window.nekko.setSessionOptions(sessionId, { archivedAt: null });
+    } catch (e) {
+      get().pushToast('error', `Could not restore the chat: ${(e as Error).message}`);
+      return;
+    }
+    await get().refreshSessions();
+    set({ archivedViewId: null, archiveOpen: false });
+    get().openChatPane(sessionId);
+  },
+
+  deleteChatForever: async (sessionId) => {
+    try {
+      await window.nekko.deleteSession(sessionId);
+    } catch (e) {
+      get().pushToast('error', `Could not delete the chat: ${(e as Error).message}`);
+      return;
+    }
+    set((s) => ({ archivedViewId: s.archivedViewId === sessionId ? null : s.archivedViewId }));
+    await get().refreshSessions();
+  },
+
+  setArchiveOpen: (open) => set({ archiveOpen: open, ...(open ? {} : { archivedViewId: null }) }),
+  setArchivedView: (sessionId) => set({ archivedViewId: sessionId, view: 'chat' }),
+
+  seedComposer: (sessionId, text, images) => set({ composerSeed: { sessionId, text, images } }),
+
+  splitChat: async (sessionId, beforeMessageId) => {
+    let source: Session | null = null;
+    try { source = await window.nekko.getSession(sessionId); } catch { /* reported below */ }
+    const msg = source?.messages.find((m) => m.id === beforeMessageId);
+    const fork = await window.nekko.forkSession(sessionId, beforeMessageId).catch(() => null);
+    if (!fork) {
+      get().pushToast('error', 'Could not split this conversation.');
+      return;
+    }
+    await get().refreshSessions();
+    if (msg) get().seedComposer(fork.id, msg.skill ? msg.skill.input : msg.content, msg.images ?? []);
+    get().openChatPane(fork.id);
+  },
+
   splitPane: (paneId, dir, kind, refId) => {
     set((s) => {
       const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
@@ -885,3 +1043,20 @@ export const useStore = create<UiState>((set, get) => ({
     await get().refreshTerminals();
   },
 }));
+
+// Park the layout whenever it changes, trailing a beat so a divider drag (a
+// write per pointer move) costs one write when it settles, plus once on the
+// way out so the last change before a quit is never the one that is lost.
+if (typeof window !== 'undefined') {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const persist = () => {
+    const s = useStore.getState();
+    saveLayout({ workspaces: s.workspaces, activeWorkspaceId: s.activeWorkspaceId }, window.localStorage);
+  };
+  useStore.subscribe((s, prev) => {
+    if (s.workspaces === prev.workspaces && s.activeWorkspaceId === prev.activeWorkspaceId) return;
+    clearTimeout(timer);
+    timer = setTimeout(persist, 300);
+  });
+  window.addEventListener?.('beforeunload', persist);
+}

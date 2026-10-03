@@ -127,6 +127,15 @@ describe('agent command terminal', () => {
     closeTerminal('agent_test-cancel');
   });
 
+  it('preserves quoted shell arguments and stderr', async () => {
+    const result = await executeTool({ id: 'quoted', name: 'bash', input: { command: 'node -e "console.log(\'two words\'); console.error(\'error words\')"' } },
+      { settings: getSettings(), mode: 'yolo', requestApproval: async () => false });
+    expect(result.isError).toBeUndefined();
+    expect(result.output).toContain('two words');
+    expect(result.output).toContain('[stderr]');
+    expect(result.output).toContain('error words');
+  });
+
   it('does not start a shell after its turn was cancelled', async () => {
     const controller = new AbortController();
     controller.abort();

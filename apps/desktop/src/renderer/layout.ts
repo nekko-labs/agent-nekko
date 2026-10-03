@@ -68,6 +68,10 @@ const isBefore = (dir: Direction) => dir === 'left' || dir === 'up';
 let seq = 0;
 export const newPaneId = () => `pane_${(++seq).toString(36)}`;
 export const newSplitId = () => `split_${(++seq).toString(36)}`;
+/** Move the id counter past `n`, so ids restored from a saved layout are never minted again. */
+export function reserveIdSeq(n: number): void {
+  seq = Math.max(seq, n);
+}
 
 /** Every window in the tree, left to right and top to bottom. */
 export function allPanes(node: WbNode | null): WbPane[] {

@@ -1689,6 +1689,195 @@
      "output": "2100: <div>suggestions</div>"
     }
    }
+  },
+  {
+   "name": "loop detector nudge then wrap-up",
+   "responses": [
+    [
+     {
+      "call": {
+       "id": "c1",
+       "name": "bash",
+       "input": {
+        "command": "gh pr list"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "c2",
+       "name": "bash",
+       "input": {
+        "command": "gh pr list"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "c3",
+       "name": "bash",
+       "input": {
+        "command": "gh pr list"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "c4",
+       "name": "bash",
+       "input": {
+        "command": "gh pr list"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "c5",
+       "name": "bash",
+       "input": {
+        "command": "gh pr list"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "c6",
+       "name": "bash",
+       "input": {
+        "command": "gh pr list"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "text": "gh is not authenticated."
+     }
+    ]
+   ],
+   "tools": {
+    "c1": {
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "c2": {
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "c3": {
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "c4": {
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "c5": {
+     "output": "HTTP 401",
+     "isError": true
+    },
+    "c6": {
+     "output": "HTTP 401",
+     "isError": true
+    }
+   }
+  },
+  {
+   "name": "loop detector error streak nudges once",
+   "responses": [
+    [
+     {
+      "call": {
+       "id": "e1",
+       "name": "bash",
+       "input": {
+        "command": "try 1"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "e2",
+       "name": "bash",
+       "input": {
+        "command": "try 2"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "e3",
+       "name": "bash",
+       "input": {
+        "command": "try 3"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "e4",
+       "name": "bash",
+       "input": {
+        "command": "try 4"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "call": {
+       "id": "e5",
+       "name": "bash",
+       "input": {
+        "command": "try 5"
+       }
+      }
+     }
+    ],
+    [
+     {
+      "text": "Trying another way."
+     }
+    ]
+   ],
+   "tools": {
+    "e1": {
+     "output": "fail 1",
+     "isError": true
+    },
+    "e2": {
+     "output": "fail 2",
+     "isError": true
+    },
+    "e3": {
+     "output": "fail 3",
+     "isError": true
+    },
+    "e4": {
+     "output": "fail 4",
+     "isError": true
+    },
+    "e5": {
+     "output": "fail 5",
+     "isError": true
+    }
+   }
   }
  ]
 }

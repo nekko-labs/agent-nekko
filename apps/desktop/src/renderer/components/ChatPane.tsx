@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo } from '@agent-nekko/shared';
-import { DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
+import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -25,7 +25,7 @@ import { ComposerHighlight } from './agent-console/ComposerHighlight.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
-import { QuestionCard } from './QuestionCard.js';
+import { ComposerQuestion } from './ComposerQuestion.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
@@ -35,7 +35,7 @@ import { ScheduleTaskModal } from './ScheduleTaskModal.js';
 import { PrCard, PrBadge } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -298,13 +298,17 @@ function ChatHeader({
  * only when its own data does.
  */
 const TranscriptRowView = memo(function TranscriptRowView({
-  row, streaming, prByUrl, sessionId, onEditResend, onImageClick, onImageContextMenu,
+  row, streaming, readOnly, prByUrl, sessionId, onEditResend, onCopyToComposer, onSplit, onImageClick, onImageContextMenu,
 }: {
   row: TranscriptRow;
   streaming: boolean;
+  /** An archived chat: nothing on a row may change the conversation. */
+  readOnly: boolean;
   prByUrl: Map<string, PrInfo>;
   sessionId: string;
   onEditResend: (id: string, text: string) => void;
+  onCopyToComposer: (id: string) => void;
+  onSplit: (id: string) => void;
   onImageClick: (src: string) => void;
   onImageContextMenu: (e: React.MouseEvent, src: string) => void;
 }) {
@@ -314,13 +318,16 @@ const TranscriptRowView = memo(function TranscriptRowView({
     // card, appended after the transcript.
     return <>{row.urls.map((u) => <PrCard key={`orphan_${u}`} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}</>;
   }
-  const editable = !streaming && row.message.role === 'user' && row.message.id !== 'tmp';
+  const persisted = row.message.id !== 'tmp' && row.message.id !== 'live';
+  const editable = !readOnly && !streaming && row.message.role === 'user' && persisted;
   return (
     <>
       <MessageBubble
         message={row.message}
         onResend={editable ? onEditResend : undefined}
         onReset={editable ? onEditResend : undefined}
+        onCopyToComposer={!readOnly && persisted ? onCopyToComposer : undefined}
+        onSplit={editable ? onSplit : undefined}
         onImageClick={onImageClick}
         onImageContextMenu={onImageContextMenu}
         chronological
@@ -442,7 +449,16 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<H
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRunningChange?: (running: boolean) => void }) {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
+  sessionId: string;
+  onRunningChange?: (running: boolean) => void;
+  /**
+   * An archived chat, opened to be read: the transcript renders as usual, but
+   * nothing can be sent, edited or split, and the composer is replaced by the
+   * two things that make sense for an archived chat, restore it or delete it.
+   */
+  readOnly?: boolean;
+}) {
   const { providers, settings, setMascotMood, refreshSessions } = useStore(
     useShallow((s) => ({
       providers: s.providers,
@@ -551,6 +567,16 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
     const cached = getCachedSession(sessionId);
     return cached ? initialBrain(cached).modelId : null;
   });
+  useEffect(() => {
+    const changed = (event: Event) => {
+      const { id, session: fresh } = (event as CustomEvent<{id: string; session: Session}>).detail;
+      if (id !== sessionId) return;
+      putCachedSession(fresh); setSession(fresh);
+      setProviderId(fresh.providerId ?? null); setModelId(fresh.autoModel ? AUTO_MODEL_ID : fresh.modelId ?? null);
+    };
+    window.addEventListener('nekko-session-brain', changed);
+    return () => window.removeEventListener('nekko-session-brain', changed);
+  }, [sessionId]);
   const [models, setModels] = useState<ModelInfo[]>([]);
   // Whether this pane's model list has come back yet, so the "pick a model"
   // nudge waits for the truth instead of flashing during the fetch.
@@ -823,7 +849,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
           // the rate is tokens over the time spent generating them: the same
           // figure the runtime reports, rather than tokens over the whole wait.
           turnOutRef.current += e.outputTokens;
-          turnDecodeMsRef.current += e.outputMs ?? 0;
+          turnDecodeMsRef.current = accumulateDecodeMs(turnDecodeMsRef.current, e.outputTokens, e.outputMs);
           setTurnOut(turnOutRef.current);
           setTps(decodeRate(turnOutRef.current, turnDecodeMsRef.current));
           // Each step is priced as it lands, because the input tokens of a
@@ -1048,10 +1074,21 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
     setPendingImages(parked?.images ?? []);
   }, [sessionId]);
 
+  // Text and images handed over from another chat (Split here) land in this
+  // composer once, on top of anything already parked for it.
+  const composerSeed = useStore((s) => (s.composerSeed?.sessionId === sessionId ? s.composerSeed : null));
   useEffect(() => {
+    if (!composerSeed || readOnly) return;
+    useStore.setState({ composerSeed: null });
+    setDraft((d) => (d.trim() ? `${d}\n\n${composerSeed.text}` : composerSeed.text));
+    if (composerSeed.images.length) setPendingImages((cur) => [...cur, ...composerSeed.images.filter((i) => !cur.includes(i))]);
+  }, [composerSeed, readOnly]);
+
+  useEffect(() => {
+    if (readOnly) return;
     const t = setTimeout(() => saveDraft(sessionId, latestDraft.current), 400);
     return () => clearTimeout(t);
-  }, [sessionId, draft, pendingImages]);
+  }, [sessionId, draft, pendingImages, readOnly]);
 
   // Mirror the draft into the store so the Context Inspector on the right
   // counts what you're typing. Trailing by DRAFT_MIRROR_MS, so a keystroke
@@ -1099,6 +1136,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
     setPendingIn((ctx?.items ?? []).filter((i) => i.included).reduce((n, i) => n + i.tokens, 0));
     setMarks({ ctxMark: 0, ctxTail: 0, outMark: 0 });
     setTurnOut(0);
+    setTps(0);
     setMascotMood('thinking');
     // Sending pins the reader to the bottom for the reply.
     setShowJump(false);
@@ -1294,16 +1332,26 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
     refreshSessions();
   };
 
-  const sendQueuedNow = (index: number) => {
-    // The IPC promise covers the entire turn, so update the queue immediately
-    // rather than leaving the selected item visible until the reply completes.
-    setSession((prev) => prev ? { ...prev, queue: prev.queue?.filter((_, i) => i !== index) } : prev);
-    void window.nekko.interruptQueuedPrompt(sessionId, index)
-      .catch(() => useStore.getState().pushToast('error', 'Could not send that queued message. It is still in the queue.'))
-      .finally(() => {
-        void loadSession(sessionId).then((fresh) => { if (fresh) setSession(fresh); });
-        void refreshSessions();
-      });
+  const sendQueuedNow = async (index: number) => {
+    const text = session?.queue?.[index];
+    if (!text) return;
+    // Resolve Auto for the queued text, not for the unsent draft. The host
+    // receives a concrete provider and model before it stops the current turn.
+    const cross = modelId === AUTO_MODEL_ID ? await ensureCrossModels() : crossModels;
+    const pick = modelId === AUTO_MODEL_ID ? autoPickFor(text, cross) : null;
+    const brain = requireBrain(text, pick ?? undefined);
+    if (!brain) return;
+    try {
+      // IPC resolves after the turn. The host emits session_meta when it
+      // consumes the queue entry so the pane updates as soon as the turn starts.
+      await window.nekko.interruptQueuedPrompt(sessionId, index, brain);
+    } catch {
+      useStore.getState().pushToast('error', 'Could not send that queued message. Check the queue before retrying.');
+    } finally {
+      const fresh = await loadSession(sessionId);
+      if (fresh) setSession(fresh);
+      void refreshSessions();
+    }
   };
 
   const removeQueued = async (index: number) => {
@@ -1327,7 +1375,12 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
   }, [composerInbox, sessionId, providerId, streaming]);
 
   const editResend = async (messageId: string, newText: string) => {
-    if (!newText.trim()) return;
+    // Rewinding to a message re-sends what you attached to it too: the images
+    // are read off the original before the truncate drops it, so editing the
+    // words never silently costs you the screenshots that went with them.
+    const original = session?.messages.find((m) => m.id === messageId);
+    const images = original?.role === 'user' ? original.images ?? [] : [];
+    if (!newText.trim() && images.length === 0) return;
     const brain = requireBrain(newText);
     if (!brain) return;
     await window.nekko.truncateSession(sessionId, messageId);
@@ -1336,9 +1389,31 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
       if (!prev) return prev;
       const idx = prev.messages.findIndex((m) => m.id === messageId);
       const kept = idx >= 0 ? prev.messages.slice(0, idx) : prev.messages;
-      return { ...prev, messages: [...kept, { id: 'tmp', role: 'user', content: newText, createdAt: Date.now() }] };
+      return {
+        ...prev,
+        messages: [...kept, { id: 'tmp', role: 'user', content: newText, ...(images.length ? { images } : {}), createdAt: Date.now() }],
+      };
     });
-    await window.nekko.sendChat({ sessionId, providerId: brain.providerId, modelId: brain.modelId, text: newText });
+    await window.nekko.sendChat({
+      sessionId,
+      providerId: brain.providerId,
+      modelId: brain.modelId,
+      text: newText,
+      ...(images.length ? { images } : {}),
+    });
+  };
+
+  /**
+   * Copy a message into this chat's composer, text and pictures both, adding
+   * to whatever is already there rather than replacing it.
+   */
+  const copyToComposer = (messageId: string) => {
+    const m = session?.messages.find((x) => x.id === messageId);
+    if (!m) return;
+    const text = m.role === 'user' && m.skill ? m.skill.input : m.content;
+    setDraft((d) => (d.trim() ? `${d}\n\n${text}` : text));
+    if (m.images?.length) setPendingImages((cur) => [...cur, ...m.images!.filter((i) => !cur.includes(i))]);
+    composerRef.current?.focus();
   };
 
   // Carry on from a reply that stopped part-way. The transcript is left exactly
@@ -1697,19 +1772,26 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
   const editResendRef = useRef(editResend);
   editResendRef.current = editResend;
   const onEditResend = useCallback((id: string, text: string) => { void editResendRef.current(id, text); }, []);
+  const copyToComposerRef = useRef(copyToComposer);
+  copyToComposerRef.current = copyToComposer;
+  const onCopyToComposer = useCallback((id: string) => copyToComposerRef.current(id), []);
+  const onSplit = useCallback((id: string) => { void useStore.getState().splitChat(sessionId, id); }, [sessionId]);
   const renderRow = useCallback(
     (row: TranscriptRow) => (
       <TranscriptRowView
         row={row}
         streaming={streaming}
+        readOnly={readOnly}
         prByUrl={prByUrl}
         sessionId={sessionId}
         onEditResend={onEditResend}
+        onCopyToComposer={onCopyToComposer}
+        onSplit={onSplit}
         onImageClick={setLightbox}
         onImageContextMenu={openImageMenu}
       />
     ),
-    [streaming, prByUrl, sessionId, onEditResend, openImageMenu],
+    [streaming, readOnly, prByUrl, sessionId, onEditResend, onCopyToComposer, onSplit, openImageMenu],
   );
   // Width of the text column, for the height estimates of rows not yet measured.
   const columnWidth = Math.max(0, (paneWidth || 800) * (contentWidth.includes('75%') ? 0.75 : 1) - 32);
@@ -1933,22 +2015,10 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
 
         {approval && <ApprovalBar approval={approval} onDecide={approve} />}
 
-        {question && (
-          <div className="border-t border-line px-4 pt-3">
-            <div className={contentWidth}>
-              {/* Keyed so a second ask starts at its own first step rather
-                  than inheriting where the last one was left. */}
-              <QuestionCard
-                key={question.callId}
-                request={question}
-                onAnswer={(answers) => answerQuestion(answers)}
-                onSkip={() => answerQuestion([])}
-              />
-            </div>
-          </div>
-        )}
-
-        <div ref={composerSectionRef} className="relative border-t border-line px-4 pb-4 pt-1.5">
+        {readOnly ? (
+          <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
+        ) : (
+        <div ref={composerSectionRef} className="relative px-4 pb-4 pt-1.5">
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
           <div
@@ -1963,7 +2033,8 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
             <span className="absolute inset-x-0 top-[5px] h-0.5 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
-          <div className={contentWidth}>
+          <div className="composer-column mx-auto w-[90%]">
+            <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
             <div className={streaming ? 'composer composer-beam' : 'composer'}>
             {/* Controls live at the top of the input surface. Separate rows keep
                 the model and its effort slider together when a pane is narrow. */}
@@ -2071,7 +2142,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
               <div className="min-h-0 overflow-hidden">
                 <div className="border-b border-line bg-surface-2 px-3 py-2">
                   <div className="mb-1 flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-ink-faint">
-                    <ListIcon className="h-3 w-3" /> Queued · {queued.length} to run after this
+                    <ListIcon className="h-3 w-3" /> Queued · {queued.length} {streaming ? 'after this reply' : 'waiting to run'}
                   </div>
                   <div className="space-y-1">
                     {queued.map((q, i) => (
@@ -2452,6 +2523,7 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
             </div>
           </div>
         </div>
+        )}
       </section>
 
       {/* The work rail, in the quarter the transcript gives back. Kept inside
@@ -2496,6 +2568,54 @@ function ChatPaneImpl({ sessionId, onRunningChange }: { sessionId: string; onRun
       {imageMenu && (
         <ImageMenu x={imageMenu.x} y={imageMenu.y} src={imageMenu.src} onClose={() => setImageMenu(null)} />
       )}
+    </div>
+  );
+}
+
+/**
+ * What sits where the composer would, in an archived chat: when it goes, and
+ * the two ways out. Delete forever asks first, since it is the one action in
+ * the archive that cannot be taken back.
+ */
+function ArchivedChatBar({ sessionId, contentWidth, archivedAt }: { sessionId: string; contentWidth: string; archivedAt: number | null }) {
+  const restoreChat = useStore((s) => s.restoreChat);
+  const deleteChatForever = useStore((s) => s.deleteChatForever);
+  const [busy, setBusy] = useState(false);
+  const days = archivedAt ? archiveDaysLeft(archivedAt) : null;
+  return (
+    <div className="border-t border-line px-4 py-3">
+      <div className={`${contentWidth} flex flex-wrap items-center gap-2 rounded-xl px-3 py-2.5`} style={{ background: 'var(--surface-2)' }}>
+        <CheckIcon className="h-4 w-4 shrink-0 text-ink-faint" />
+        <p className="min-w-0 flex-1 text-[12px] text-ink-soft">
+          Completed and read-only.
+          {days !== null && (
+            <span className="text-ink-faint"> {days === 0 ? 'Deleted today' : `Deleted in ${days} day${days === 1 ? '' : 's'}`} unless restored.</span>
+          )}
+        </p>
+        <button
+          className="btn btn-outline h-8 px-3 py-0 text-[12px] text-(--danger)"
+          disabled={busy}
+          onClick={async () => {
+            if (!window.confirm('Delete this chat forever? It cannot be recovered.')) return;
+            setBusy(true);
+            await deleteChatForever(sessionId);
+            setBusy(false);
+          }}
+        >
+          <TrashIcon className="h-3.5 w-3.5" /> Delete forever
+        </button>
+        <button
+          className="btn btn-primary h-8 px-3 py-0 text-[12px]"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await restoreChat(sessionId);
+            setBusy(false);
+          }}
+        >
+          <UndoIcon className="h-3.5 w-3.5" /> Restore chat
+        </button>
+      </div>
     </div>
   );
 }

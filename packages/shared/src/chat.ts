@@ -216,6 +216,9 @@ export function getSessionWorkspaceIds(
 /** Time window for bulk chat deletion. */
 export type ChatClearScope = 'today' | 'month' | 'all';
 
+/** How a reply ended (see the `done` event). */
+export type ReplyStop = 'complete' | 'step_limit' | 'loop' | 'runaway';
+
 /** Streaming events emitted by the agent loop. */
 export type AgentEvent =
   | { type: 'text'; sessionId: string; delta: string }
@@ -243,7 +246,19 @@ export type AgentEvent =
     }
   /** An image-generation turn moved on: loading the model, then generating. */
   | { type: 'image_status'; sessionId: string; stage: 'loading' | 'generating'; label: string }
-  | { type: 'done'; sessionId: string; messageId: string }
+  | {
+      type: 'done';
+      sessionId: string;
+      messageId: string;
+      /**
+       * Why the reply ended: it finished, it spent the step budget, the loop
+       * detector stopped it (progress.ts), or a stream collapsed into
+       * repetition. Absent from older engines.
+       */
+      stop?: ReplyStop;
+      /** Tool round trips the reply took. */
+      steps?: number;
+    }
   | { type: 'error'; sessionId: string; message: string }
   /**
    * The session record changed outside the event stream (its plan, its title),
@@ -283,8 +298,15 @@ export interface PendingInput {
  * show" rather than printing a zero.
  */
 export function decodeRate(outputTokens: number, decodeMs: number): number {
-  if (outputTokens <= 0 || decodeMs <= 0) return 0;
+  if (!Number.isFinite(outputTokens) || !Number.isFinite(decodeMs) || outputTokens <= 0 || decodeMs < 100) return 0;
   return outputTokens / (decodeMs / 1000);
+}
+
+/** -1 marks an unmeasurable turn; never pair untimed tokens with another step's time. */
+export function accumulateDecodeMs(total: number, outputTokens: number, outputMs?: number): number {
+  if (outputTokens <= 0) return total;
+  if (total < 0 || outputMs === undefined || !Number.isFinite(outputMs) || outputMs < 100) return -1;
+  return total + outputMs;
 }
 
 /**

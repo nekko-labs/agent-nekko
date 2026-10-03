@@ -4,7 +4,8 @@ import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@ag
 import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
 import { useGitStatus } from '../useGitStatus.js';
-import { BranchIcon, CloseIcon, FolderIcon, RobotIcon, TerminalIcon, WorktreeIcon } from '../icons.js';
+import { CheckIcon, BranchIcon, CloseIcon, FolderIcon, RobotIcon, TerminalIcon, WorktreeIcon } from '../icons.js';
+import { celebrateCompletion } from '../completionCelebration.js';
 import { PrBadge } from './PrCard.js';
 
 /**
@@ -163,7 +164,7 @@ function WorkspaceCardImpl({
   /** How many sub-agents this chat has spawned. */
   subAgentCount?: number;
   onOpen: () => void;
-  onClose: () => void;
+  onClose: () => void | Promise<void>;
 }) {
   const providers = useStore((s) => s.providers);
   const knownModels = useStore((s) => s.models);
@@ -253,16 +254,21 @@ function WorkspaceCardImpl({
           </time>
         )}
         {prs.length ? <PrBadge prs={prs} compact /> : null}
+        {/* A chat card archives rather than closes: closing used to look like
+            deleting and then the chat was nowhere to be found. Archived chats
+            stay readable for 60 days. A shell has nothing to keep, so it closes. */}
         <button
           className="shrink-0 rounded-sm p-0.5 text-ink-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
-          title="Close this workspace"
-          aria-label={`Close ${title}`}
-          onClick={(e) => {
+          title={isChat ? 'Complete this chat (kept for 60 days)' : 'Close this workspace'}
+          aria-label={isChat ? `Complete ${title}` : `Close ${title}`}
+          onClick={async (e) => {
             e.stopPropagation();
-            onClose();
+            const rect = e.currentTarget.getBoundingClientRect();
+            await onClose();
+            if (session && useStore.getState().sessions.some((s) => s.id === session.id && s.archivedAt)) celebrateCompletion(rect);
           }}
         >
-          <CloseIcon className="h-3 w-3" />
+          {isChat ? <CheckIcon className="h-3 w-3" /> : <CloseIcon className="h-3 w-3" />}
         </button>
       </div>
 

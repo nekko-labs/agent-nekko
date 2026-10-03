@@ -83,7 +83,7 @@ import type {
   ModelFolder,
   ModelFolderReport,
 } from '@agent-nekko/shared';
-import { brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind } from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind } from '@agent-nekko/shared';
 import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
 import { createEngine } from './engine/index.js';
@@ -325,7 +325,7 @@ export interface Host {
   cancelSessionCompaction(sessionId: string): void;
   queuePrompt(sessionId: string, text: string): Session | null;
   dequeuePrompt(sessionId: string, index: number): Session | null;
-  interruptQueuedPrompt(sessionId: string, index: number): Promise<void>;
+  interruptQueuedPrompt(sessionId: string, index: number, brain?: { providerId: string; modelId: string }): Promise<void>;
   /**
    * Model-written next-step ideas for a chat's last reply: one-click follow-up
    * chips plus the ghost-text draft. Sideband, unpersisted; null when there's
@@ -372,6 +372,8 @@ export interface Host {
   clearSessions(scope: 'today' | 'month' | 'all'): number;
   /** Delete archived chats past the retention window; returns how many went. */
   purgeExpiredArchives(): number;
+  /** A new chat with this one's conversation before a message (see sessions.forkSession). */
+  forkSession(id: string, beforeMessageId?: string): Session | null;
   resetSettings(): AppSettings;
   wipeAllData(): AppSettings;
   listTools(): Array<{ name: string; description: string }>;
@@ -821,6 +823,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     truncateSession: sessions.truncateSession,
     clearSessions: sessions.clearSessions,
     purgeExpiredArchives: () => sessions.purgeExpiredArchives(),
+    forkSession: (id, beforeMessageId) => sessions.forkSession(id, beforeMessageId),
     resetSettings,
     wipeAllData: () => {
       sessions.clearSessions('all');
@@ -850,15 +853,15 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     cancelSessionCompaction,
     queuePrompt: sessions.queuePrompt,
     dequeuePrompt: sessions.dequeuePrompt,
-    interruptQueuedPrompt: async (sessionId, index) => {
+    interruptQueuedPrompt: async (sessionId, index, brain) => {
       const session = sessions.getSession(sessionId);
       if (!session) throw new Error('Session not found.');
       if (!Number.isSafeInteger(index) || index < 0 || index >= (session.queue?.length ?? 0)) throw new Error('Queued prompt not found.');
       if (interrupting.has(sessionId)) throw new Error('A queued prompt is already starting.');
       if (isSessionCompacting(sessionId)) throw new Error('This chat is being compacted.');
-      const providerId = session.providerId ?? getSettings().defaultProviderId;
-      const modelId = session.modelId ?? getSettings().defaultModelId;
-      if (!providerId || !modelId) throw new Error('Choose a provider and model before starting the queued prompt.');
+      const providerId = brain?.providerId ?? session.providerId ?? getSettings().defaultProviderId;
+      const modelId = brain?.modelId ?? session.modelId ?? getSettings().defaultModelId;
+      if (!providerId || !modelId || modelId === AUTO_MODEL_ID) throw new Error('Choose a provider and model before starting the queued prompt.');
       const text = session.queue![index];
       interrupting.add(sessionId);
       try {

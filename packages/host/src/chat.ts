@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
+import { ASK_CANCELLED, DEFAULT_MAX_STEPS, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -38,6 +38,7 @@ export function setDecisionRunner(runner: DecisionRunner | null): void {
 import { getSession, saveSession, saveTurnSession, createSession } from './sessions.js';
 import { executeTool } from './tools.js';
 import { recordUsage } from './usage.js';
+import { recordReply } from './replies.js';
 import * as LimitsService from './limits.js';
 import { listMemory } from './memory.js';
 import { ensureFreshToken, resolveSubscriptionProvider } from './oauth.js';
@@ -742,6 +743,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   if (queued) {
     try {
       saveTurnSession(session, queued);
+      send({ type: 'session_meta', sessionId: opts.sessionId });
     } catch (e) {
       if (abortControllers.get(opts.sessionId) === abort) abortControllers.delete(opts.sessionId);
       send({ type: 'error', sessionId: opts.sessionId, message: (e as Error).message });
@@ -919,6 +921,19 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             outputTokens: event.outputTokens,
             sessionId: opts.sessionId,
             auth: provider.auth,
+          });
+        }
+        // How the reply ended, for tuning the step budget and loop detector
+        // (counts only). Older engines omit `stop`; nothing is recorded then.
+        if (event.type === 'done' && event.stop && !incognito) {
+          recordReply({
+            ts: Date.now(),
+            sessionId: opts.sessionId,
+            providerId: opts.providerId,
+            modelId: opts.modelId,
+            steps: event.steps ?? 0,
+            stop: event.stop,
+            maxSteps: runOptions.maxIterations ?? DEFAULT_MAX_STEPS,
           });
         }
         if (event.type === 'done' && provider.auth === 'subscription' && provider.tokenKey) {
