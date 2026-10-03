@@ -76,6 +76,34 @@ jobs:
           fi
           echo 'macOS signing fully configured.'
 
+      # The notary key is the credential that actually breaks between
+      # releases: an App Store Connect API key can be revoked or rotated in
+      # Apple's portal without any secret here changing. electron-builder only
+      # finds out after the full build and signing pass, as a bare
+      # `HTTP status code: 401` five minutes in. Ask notarytool for the
+      # submission history first: read-only, a few seconds, and it fails with
+      # the same 401 a dead key would produce later.
+      - name: Validate the notary credentials
+        if: runner.os == 'macOS' && env.MACOS_SIGNING_CERTS_P12 != ''
+        shell: bash
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          set -euo pipefail
+          key="$RUNNER_TEMP/notary-preflight-key.p8"
+          err="$RUNNER_TEMP/notary-preflight.err"
+          (umask 077; printf '%s' "$APPLE_API_KEY_P8" > "$key")
+          if ! xcrun notarytool history --key "$key" --key-id "$APPLE_API_KEY_ID" --issuer "$APPLE_API_ISSUER" >/dev/null 2>"$err"; then
+            cat "$err" >&2
+            echo 'Apple rejected the notary credentials (APPLE_API_KEY_ID / APPLE_API_KEY_P8 / APPLE_API_ISSUER).' >&2
+            echo 'Most likely the App Store Connect API key was revoked or rotated. See docs/signing.md, "When the App Store Connect key rotates".' >&2
+            rm -f "$key"
+            exit 1
+          fi
+          rm -f "$key"
+          echo 'Notary credentials accepted by App Store Connect.'
+
       - name: Validate Windows signing configuration
         if: runner.os == 'Windows'
         shell: bash
