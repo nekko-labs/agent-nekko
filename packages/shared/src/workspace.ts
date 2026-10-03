@@ -7,6 +7,31 @@ export interface WorkspaceFolder {
   name: string;
   path: string;
   addedAt: number;
+  /**
+   * Shell command run in each new chat worktree of this project before the
+   * chat's first turn, e.g. `npm install`. Its output goes to the chat's Agent
+   * commands terminal; a failure is reported to the chat rather than stopping it.
+   */
+  worktreeSetup?: string;
+}
+
+/** One chat's isolated checkout, as Settings > Git management lists it. */
+export interface ChatWorktreeInfo {
+  /** The linked worktree's folder. */
+  root: string;
+  /** The repository's main checkout, which owns the worktree. */
+  sourceRoot: string;
+  branch?: string;
+  /** The chat that owns it (the worktree folder is named after it). */
+  sessionId: string;
+  /** Undefined when the chat has been deleted. */
+  sessionTitle?: string;
+  /** True while the chat is mid-turn; removal is refused then. */
+  running: boolean;
+  /** Changed and untracked files; Git refuses to remove a dirty worktree. */
+  dirtyCount: number;
+  /** Commits on the branch that the main checkout's HEAD does not contain. */
+  unmergedCount: number;
 }
 
 /**

@@ -230,7 +230,11 @@ function makeWebClient(): NekkoApi {
         },
         body: JSON.stringify({ args }),
       });
-      if (!res.ok) throw new Error(`${channel}: HTTP ${res.status}`);
+      if (!res.ok) {
+        // The server sends the host's own error message; show that, not just the status.
+        const detail = await res.json().then((b: { error?: unknown }) => (typeof b?.error === 'string' ? b.error : ''), () => '');
+        throw new Error(detail || `${channel}: HTTP ${res.status}`);
+      }
       const text = await res.text();
       return text ? JSON.parse(text) : null;
     };
@@ -407,6 +411,8 @@ function makeWebClient(): NekkoApi {
     searchWorkspace: (id, query) => call(IpcChannels.workspaceSearch, id, query),
     listFiles: (id) => call(IpcChannels.workspaceFiles, id),
     getGitStatus: (id, force) => call(IpcChannels.workspaceGitStatus, id, force),
+    listChatWorktrees: () => call(IpcChannels.chatWorktreesList),
+    removeChatWorktree: (root) => call(IpcChannels.chatWorktreesRemove, root),
 
     readFile: (path) => call(IpcChannels.fileRead, path),
     writeFile: (path, content) => call(IpcChannels.fileWrite, path, content),

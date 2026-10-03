@@ -2,6 +2,7 @@ import * as nodePty from '@lydell/node-pty';
 import { existsSync } from 'fs';
 import type { TerminalInfo, TerminalEvent, TerminalSnapshot, ShellOption } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
+import { getSession } from './sessions.js';
 
 /**
  * Terminal sessions are real pseudo-terminals (PTYs), one shell per terminal.
@@ -140,8 +141,14 @@ function resolveShell(explicit?: string): ShellOption {
     : { id: 'sh', label: 'sh', path: '/bin/sh' };
 }
 
-function resolveCwd(workspaceId?: string, cwd?: string): string {
+function resolveCwd(workspaceId?: string, cwd?: string, sessionId?: string): string {
   if (cwd && existsSync(cwd)) return cwd;
+  // A chat's terminals belong in the chat's own checkout, not the shared project.
+  if (sessionId) {
+    const worktrees = getSession(sessionId)?.gitWorktrees ?? {};
+    const path = (workspaceId ? worktrees[workspaceId] : undefined)?.path ?? Object.values(worktrees)[0]?.path;
+    if (path && existsSync(path)) return path;
+  }
   if (workspaceId) {
     const w = getSettings().workspaces.find((x) => x.id === workspaceId);
     if (w && existsSync(w.path)) return w.path;
@@ -163,7 +170,7 @@ export function appendAgentTerminal(sessionId: string, workspaceId: string | und
   let state = terms.get(id);
   if (!state) {
     const info: TerminalInfo = {
-      id, title: 'Agent commands', workspaceId, cwd: resolveCwd(workspaceId),
+      id, title: 'Agent commands', workspaceId, cwd: resolveCwd(workspaceId, undefined, sessionId),
       shell: 'agent', agentSessionId: sessionId, createdAt: Date.now(), running: true,
     };
     state = { info, proc: null as unknown as nodePty.IPty, buffer: '', cols: 80, rows: 24 };
@@ -212,10 +219,14 @@ export async function terminalSnapshot(id: string): Promise<TerminalSnapshot | n
   return t ? { info: t.info, buffer: t.buffer, cols: t.cols, rows: t.rows } : null;
 }
 
-export async function createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo> {
-  if (daemon) return daemonCall('terminal:create', opts ?? {});
+export async function createTerminal(opts?: { workspaceId?: string; sessionId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo> {
+  if (daemon) {
+    // The daemon has no chat records, so hand it the resolved folder.
+    const { sessionId, ...rest } = opts ?? {};
+    return daemonCall('terminal:create', sessionId ? { ...rest, cwd: resolveCwd(rest.workspaceId, rest.cwd, sessionId) } : rest);
+  }
   const id = `term_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
-  const cwd = resolveCwd(opts?.workspaceId, opts?.cwd);
+  const cwd = resolveCwd(opts?.workspaceId, opts?.cwd, opts?.sessionId);
   const shell = resolveShell(opts?.shell);
   const cols = opts?.cols ?? 80;
   const rows = opts?.rows ?? 24;

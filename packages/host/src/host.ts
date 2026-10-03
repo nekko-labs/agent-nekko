@@ -27,6 +27,7 @@ import type {
   SearchHit,
   IndexedFile,
   GitStatus,
+  ChatWorktreeInfo,
   DirEntry,
   FileContent,
   FileChange,
@@ -158,7 +159,8 @@ import {
   startWorkflowScheduler,
   reconcileWorkflowRuns,
 } from './workflows.js';
-import { setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { listChatWorktrees, removeChatWorktree } from './chat-worktrees.js';
+import { isChatRunning, setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
 import { loopApprove, loopEnd, loopEvent, loopLog, loopTool } from './daemon-loop.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting } from './compaction.js';
@@ -345,7 +347,7 @@ export interface Host {
 
   listTerminals(): Promise<TerminalInfo[]>;
   listShells(): ShellOption[];
-  createTerminal(opts?: { workspaceId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo>;
+  createTerminal(opts?: { workspaceId?: string; sessionId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo>;
   terminalSnapshot(id: string): Promise<TerminalSnapshot | null>;
   updateTerminal(id: string, patch: { workspaceId?: string | null; order?: number; title?: string }): Promise<void>;
   writeTerminal(id: string, data: string): void;
@@ -391,6 +393,8 @@ export interface Host {
   listFiles(id: string): IndexedFile[];
   /** Branch, dirt, and upstream drift for a workspace folder (see git.ts). */
   getGitStatus(id: string, force?: boolean): Promise<GitStatus>;
+  listChatWorktrees(): ChatWorktreeInfo[];
+  removeChatWorktree(root: string): { branchDeleted: boolean };
 
   readFile(path: string): FileContent;
   writeFile(path: string, content: string): void;
@@ -528,6 +532,12 @@ export interface Host {
    * tools online. Null when no daemon is listening on that port.
    */
   connectHypergate(port?: number): Promise<import('@agent-nekko/shared').HypergateInfo | null>;
+}
+
+/** The chat a worktree folder is named after, for the Git management list. */
+function chatOwner(sessionId: string): { title: string; running: boolean } | null {
+  const session = sessions.getSession(sessionId);
+  return session ? { title: session.title, running: isChatRunning(sessionId) } : null;
 }
 
 export function createHost(opts: { dataDir: string; allowBrowserControl?: boolean }): Host {
@@ -934,6 +944,8 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     },
     listFiles: listIndexedFiles,
     getGitStatus,
+    listChatWorktrees: () => listChatWorktrees(getSettings(), chatOwner),
+    removeChatWorktree: (root) => removeChatWorktree(getSettings(), root, chatOwner),
     readFile,
     writeFile,
     listDir,

@@ -382,6 +382,19 @@ function projectOfPane(s: UiState, paneId: string): string | undefined {
   return undefined;
 }
 
+/**
+ * The chat a pane works for: the pane itself when it is a chat, otherwise the
+ * chat its workspace was started from. A terminal opened beside a chat should
+ * land in that chat's own worktree rather than the shared project checkout.
+ */
+function chatOfPane(s: UiState, paneId: string): string | undefined {
+  const ws = s.workspaces.find((w) => allPanes(w.root).some((p) => p.id === paneId));
+  if (!ws) return undefined;
+  const pane = allPanes(ws.root).find((p) => p.id === paneId);
+  if (pane?.kind === 'chat') return pane.refId;
+  return ws.anchor.kind === 'chat' ? ws.anchor.refId : undefined;
+}
+
 /** Start a new workspace around one window and switch to it. */
 function addWorkspace(s: UiState, pane: WbPane): Partial<UiState> {
   const created: Workspace = {
@@ -955,7 +968,7 @@ export const useStore = create<UiState>((set, get) => ({
 
   newTerminalInPane: async (paneId, dir) => {
     const project = projectOfPane(get(), paneId) ?? get().activeProjectId ?? undefined;
-    const term = await window.nekko.createTerminal({ workspaceId: project });
+    const term = await window.nekko.createTerminal({ workspaceId: project, sessionId: chatOfPane(get(), paneId) });
     await get().refreshTerminals();
     get().splitPane(paneId, dir, 'terminal', term.id);
   },
