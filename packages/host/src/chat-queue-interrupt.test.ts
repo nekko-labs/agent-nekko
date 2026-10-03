@@ -102,6 +102,34 @@ describe('interrupt queued prompt', () => {
     expect(getSession(s.id)?.queue).toEqual(['selected']);
   });
 
+  it('preserves queued images and skill metadata through interrupt send', async () => {
+    const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-queue-')) });
+    host.saveProvider({ id: 'p', kind: 'openai-compat', label: 'Test', baseUrl: 'http://localhost:1/v1', enabled: true });
+    const s = host.createSession();
+    host.setSessionOptions(s.id, { providerId: 'p', modelId: 'm' });
+    calls = 1;
+    host.queuePrompt(s.id, { text: 'with metadata', images: ['data:image/png;base64,abc'], skill: { name: 'review', input: 'with metadata' } });
+    await host.interruptQueuedPrompt(s.id, 0);
+    const user = getSession(s.id)?.messages.find((m) => m.role === 'user');
+    expect(user).toMatchObject({ content: 'with metadata', images: ['data:image/png;base64,abc'], skill: { name: 'review', input: 'with metadata' } });
+    expect(getSession(s.id)?.queue).toEqual([]);
+  });
+
+  it('auto-drains queued images and skill metadata after the current turn', async () => {
+    const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-queue-')) });
+    host.saveProvider({ id: 'p', kind: 'openai-compat', label: 'Test', baseUrl: 'http://localhost:1/v1', enabled: true });
+    const s = host.createSession();
+    host.setSessionOptions(s.id, { providerId: 'p', modelId: 'm' });
+    host.queuePrompt(s.id, { text: 'next', images: ['img'], skill: { name: 'summarize', input: 'next' } });
+    calls = 1;
+    await host.sendChat({ sessionId: s.id, providerId: 'p', modelId: 'm', text: 'first' });
+    expect(getSession(s.id)?.messages.filter((m) => m.role === 'user').map((m) => ({ content: m.content, images: m.images, skill: m.skill }))).toEqual([
+      { content: 'first', images: undefined, skill: undefined },
+      { content: 'next', images: ['img'], skill: { name: 'summarize', input: 'next' } },
+    ]);
+    expect(getSession(s.id)?.queue).toEqual([]);
+  });
+
   it('stops the old turn then starts only the selected item, retaining the others', async () => {
     const host = createHost({ dataDir: mkdtempSync(join(tmpdir(), 'nekko-queue-')) });
     host.saveProvider({ id: 'p', kind: 'openai-compat', label: 'Test', baseUrl: 'http://localhost:1/v1', enabled: true });

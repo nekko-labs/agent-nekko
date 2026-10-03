@@ -493,7 +493,7 @@ export interface NekkoApi {
   compactSession(sessionId: string, opts?: { newChat?: boolean }): Promise<Session>;
   cancelSessionCompaction(sessionId: string): Promise<void>;
   /** Append a prompt to a chat's run-queue (runs when the current turn ends). */
-  queuePrompt(sessionId: string, text: string): Promise<Session | null>;
+  queuePrompt(sessionId: string, input: string | import('./chat.js').QueuePayload): Promise<Session | null>;
   /** Remove a queued prompt by index. */
   dequeuePrompt(sessionId: string, index: number): Promise<Session | null>;
   /** Stop active work, then start the selected queued prompt on the chosen model. Resolves when its turn ends. */

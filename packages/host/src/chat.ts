@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, QueuedPrompt, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
+import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho, queueItemPayload } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -620,8 +620,18 @@ async function runSubAgent(
   return last?.content ?? 'Sub-agent finished without producing a written answer.';
 }
 
+function sendOptionsForQueuedItem(base: SendOptions, item: QueuedPrompt): SendOptions {
+  const payload = queueItemPayload(item);
+  return {
+    ...base,
+    text: payload.text,
+    images: payload.images,
+    skill: payload.skill,
+  };
+}
+
 /** Run a chat turn end to end. */
-export async function sendChat(opts: SendOptions, send: Sender, allowBrowserControl = false, queued?: { index: number; text: string }): Promise<void> {
+export async function sendChat(opts: SendOptions, send: Sender, allowBrowserControl = false, queued?: { index: number; item: QueuedPrompt }): Promise<void> {
   const settings = getSettings();
   const provider = settings.providers.find((p) => p.id === opts.providerId);
   if (!provider?.enabled) {
@@ -1095,7 +1105,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     const fresh = getSession(opts.sessionId);
     const next = fresh?.queue?.[0];
     if (fresh && !fresh.archivedAt && next) {
-      await sendChat({ sessionId: opts.sessionId, providerId: opts.providerId, modelId: opts.modelId, text: next }, send, allowBrowserControl, { index: 0, text: next });
+      await sendChat(sendOptionsForQueuedItem({ sessionId: opts.sessionId, providerId: opts.providerId, modelId: opts.modelId, text: '' }, next), send, allowBrowserControl, { index: 0, item: next });
     }
   }
 }

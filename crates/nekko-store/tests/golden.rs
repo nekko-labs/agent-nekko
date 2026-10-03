@@ -82,7 +82,7 @@ fn every_write_leaves_the_file_the_ts_host_would() {
                 "setAttachments" => store.set_attachments(fixture, &arg),
                 "setSpecLinked" => store.set_spec_linked(fixture, &arg),
                 "truncate" => store.truncate(fixture, &arg),
-                "queue" => store.queue(fixture, arg.as_str().unwrap_or("")),
+                "queue" => store.queue(fixture, &arg),
                 "dequeue" => store.dequeue(fixture, &arg),
                 other => panic!("unknown op {other}"),
             };

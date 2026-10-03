@@ -5,6 +5,7 @@
     ["queue", "  next thing  "],
     ["queue", "   "],
     ["queue", "second"],
+    ["queue", { "text": "  with media  ", "images": ["img1"], "skill": { "name": "review", "input": "with media" } }],
     ["dequeue", 0],
     ["truncate", "t2"]
   ] },
