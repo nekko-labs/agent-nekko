@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AppSettings, Session, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
-import { DEFAULT_IMAGE_CHAT_PARAMS, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 import { loadLayout, maxIdSeq, pruneLayout, saveLayout } from './workspacePersist.js';
@@ -844,29 +844,30 @@ export const useStore = create<UiState>((set, get) => ({
   },
 
   archiveChat: async (sessionId) => {
-    // Close first, so the chat leaves the screen at once, then mark it.
-    set((s) => {
-      const workspaces = s.workspaces
-        .filter((w) => !(w.anchor.kind === 'chat' && w.anchor.refId === sessionId))
-        .map((w) => {
-          const pane = findPaneByRef(w.root, 'chat', sessionId);
-          return pane ? { ...w, root: removePane(w.root, pane.id), activePaneId: w.activePaneId === pane.id ? null : w.activePaneId } : w;
-        })
-        .filter((w) => w.root !== null)
-        .map((w) => ({ ...w, activePaneId: w.activePaneId ?? allPanes(w.root)[0]?.id ?? null }));
-      return {
-        workspaces,
-        activeWorkspaceId: workspaces.some((w) => w.id === s.activeWorkspaceId) ? s.activeWorkspaceId : workspaces[workspaces.length - 1]?.id ?? null,
-        activeSessionId: s.activeSessionId === sessionId ? null : s.activeSessionId,
-      };
-    });
     try {
       // Stop a run first: an archived chat is read-only, and a turn still
       // writing to it would contradict that.
       await window.nekko.abortChat(sessionId);
     } catch { /* nothing running */ }
     try {
-      await window.nekko.setSessionOptions(sessionId, { archivedAt: Date.now() });
+      const saved = await window.nekko.setSessionOptions(sessionId, { archivedAt: Date.now() });
+      if (!saved || !isArchived(saved)) throw new Error('The engine did not save completion. Restart with an updated engine and try again.');
+      // Only close the workspace once the engine confirms completion was saved.
+      set((s) => {
+        const workspaces = s.workspaces
+          .filter((w) => !(w.anchor.kind === 'chat' && w.anchor.refId === sessionId))
+          .map((w) => {
+            const pane = findPaneByRef(w.root, 'chat', sessionId);
+            return pane ? { ...w, root: removePane(w.root, pane.id), activePaneId: w.activePaneId === pane.id ? null : w.activePaneId } : w;
+          })
+          .filter((w) => w.root !== null)
+          .map((w) => ({ ...w, activePaneId: w.activePaneId ?? allPanes(w.root)[0]?.id ?? null }));
+        return {
+          workspaces,
+          activeWorkspaceId: workspaces.some((w) => w.id === s.activeWorkspaceId) ? s.activeWorkspaceId : workspaces[workspaces.length - 1]?.id ?? null,
+          activeSessionId: s.activeSessionId === sessionId ? null : s.activeSessionId,
+        };
+      });
       get().pushToast('success', 'Chat completed. Find it under Completed for 60 days.');
     } catch (e) {
       get().pushToast('error', `Could not complete the chat: ${(e as Error).message}`);
@@ -879,8 +880,7 @@ export const useStore = create<UiState>((set, get) => ({
     if (!ws) return;
     if (ws.anchor.kind !== 'chat') return get().closeWorkspace(id);
     await get().archiveChat(ws.anchor.refId);
-    // Anything else still in the workspace (a terminal, a file) goes with it.
-    get().closeWorkspace(id);
+    // archiveChat closes the whole anchored workspace only after saving.
   },
 
   restoreChat: async (sessionId) => {
