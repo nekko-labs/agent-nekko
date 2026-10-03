@@ -82,7 +82,7 @@ try {
   };
   // Page functions over the big chat's composer and transcript scroller.
   const big = chatTitle(0);
-  const onComposer = (fn) => cdp.call(`(t) => (${fn})(window.__perf.panel(t)?.querySelector('textarea'))`, big);
+  const onComposer = (fn) => cdp.call(`(t) => (${fn})(window.__perf.panel(t)?.querySelector('textarea, .composer [contenteditable]'))`, big);
   const onScroller = (fn) => cdp.call(`(t) => (${fn})(window.__perf.panel(t)?.querySelector('.overflow-y-auto'))`, big);
 
   await load();
@@ -93,7 +93,7 @@ try {
   await shot('chat-bottom.png');
 
   // Drafts: type, switch away and back, then reload.
-  await click('textarea');
+  await click('textarea, .composer [contenteditable]');
   await cdp.send('Input.insertText', { text: 'a draft that should survive' });
   await sleep(300);
   await click('div[role="button"]', chatTitle(1));

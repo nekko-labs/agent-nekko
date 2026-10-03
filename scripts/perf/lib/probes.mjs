@@ -19,7 +19,7 @@ const HELPERS = String.raw`
   // The on-screen window whose title strip reads "title" and whose composer is
   // visible: that is the chat's frame, painted.
   const visiblePanel = (title) => {
-    for (const ta of document.querySelectorAll('textarea')) {
+    for (const ta of document.querySelectorAll('textarea, .composer [contenteditable]')) {
       if (!ta.checkVisibility()) continue;
       const panel = ta.closest('.panel');
       const strip = panel && panel.firstElementChild && panel.firstElementChild.querySelector('span.truncate');
@@ -44,16 +44,17 @@ export const INSTALL = String.raw`(() => {
   ${HELPERS}
   const P = (window.__perf = { keys: [], eventTiming: [] });
 
-  // --- Keypress to paint in a textarea ---
+  // --- Keypress to paint in the composer (a textarea, or the editable markdown surface) ---
   let keyAt = null;
   const isTerminal = (el) => !!(el && el.classList && el.classList.contains('xterm-helper-textarea'));
+  const isComposer = (el) => !!el && ((el.tagName === 'TEXTAREA' && !isTerminal(el)) || el.isContentEditable === true);
   document.addEventListener('keydown', (e) => {
-    if (e.target && e.target.tagName === 'TEXTAREA' && !isTerminal(e.target) && e.key.length === 1) keyAt = e.timeStamp;
+    if (isComposer(e.target) && e.key.length === 1) keyAt = e.timeStamp;
   }, true);
   // Registered from the input event, which is where the value (and React's
   // controlled state) changes, so the frame that follows includes the commit.
   document.addEventListener('input', (e) => {
-    if (keyAt == null || !e.target || e.target.tagName !== 'TEXTAREA') return;
+    if (keyAt == null || !isComposer(e.target)) return;
     const start = keyAt;
     keyAt = null;
     afterFrame((now) => P.keys.push(now - start));
