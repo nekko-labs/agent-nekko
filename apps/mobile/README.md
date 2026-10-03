@@ -1,65 +1,59 @@
-# Agent Nekko, Mobile (iOS & Android)
+# Agent Nekko for iOS and Android
 
-Native phone apps built with **Capacitor**. They run the same React UI as the
-desktop/web editions and connect to the model on your computer over the
-**end-to-end encrypted relay**: your phone never holds your model or keys; it
-drives the agent running on your machine.
+A native app (Expo, React Native) that does two things:
 
-> This is the "drive your local model from your phone" edition. The UI is the
-> shared renderer; only the transport (relay) and a pairing screen differ.
+- **Drives Agent Nekko on your computer** over the end-to-end encrypted relay: chats with Working /
+  Needs you badges, new chats on the computer's models and folders, streamed replies, approvals,
+  the agent's questions, queued follow-ups, Stop. Guide: [docs/REMOTE.md](../../docs/REMOTE.md).
+- **Runs models on the phone** through llama.cpp ([llama.rn](https://github.com/mybigday/llama.rn)):
+  a curated list of small GGUF models sized to the phone's memory, downloaded from Hugging Face,
+  fully offline once downloaded.
 
-## How pairing works
+## Layout
 
-1. On your **computer**: Agent Nekko → *Settings → Remote access → Enable*. It shows
-   a room code, key, a pairing link, and a QR.
-2. In the **phone app**: **Scan QR code** (camera) or paste the pairing link on the
-   first-run screen. The creds are stored locally and the app connects to your
-   computer through the relay.
-
-## Notifications
-
-When a task you started finishes while the app is backgrounded, you get a **local
-notification** ("Agent Nekko finished"), no push server, no APNs/FCM setup needed
-(uses `@capacitor/local-notifications`). True remote/background push (when the app
-is fully closed) would need APNs + FCM + a sender backend, not wired yet.
-
-## Permissions (native projects)
-
-After `cap add`, add these to the generated native projects:
-
-- **iOS**: in `ios/App/App/Info.plist`:
-  - `NSCameraUsageDescription` = "Scan the pairing QR code from your computer." (QR scan)
-- **Android**: `cap add android` already declares camera/notification permissions
-  for the plugins; the QR scanner requests camera at runtime.
-
-## Build & run
-
-Prereqs: **iOS** needs macOS + Xcode + CocoaPods; **Android** needs Android Studio + SDK.
-
-```bash
-# 1. Build the shared web UI (from the repo root)
-npm run build -w @agent-nekko/desktop
-
-# 2. Install + sync the web assets into this Capacitor project
-cd apps/mobile
-npm install
-npm run sync-web          # copies ../desktop/out/renderer → ./www
-
-# 3. Add the native platforms (first time only)
-npx cap add ios           # macOS only
-npx cap add android
-
-# 4. Open in the native IDE to run on a simulator/device
-npx cap open ios          # Xcode
-npx cap open android      # Android Studio
+```
+src/app/            routes (Expo Router): (tabs)/index · models · computers, chat/[id], new, pair
+src/lib/            pure TypeScript, unit tested: e2e crypto, relay client, protocol mirror,
+                    transcript model, markdown, model catalog
+src/services/       app state: computers (pairing + live connection), phone (models + local chats),
+                    llama (engine; .web.ts stub), push, storage (Keychain/Keystore + JSON files)
+src/chat/           chat screen pieces: one ChatModel, two sources (useRemoteChat / useLocalChat)
+src/ui/             theme (desktop palette), kit, icons, Markdown, Nekko
 ```
 
-After changing the web UI, re-run `npm run sync-web && npx cap sync`.
+The relay protocol and its types live in `packages/shared`. The app imports the **types** only
+(tsconfig path, erased at build time); the runtime pieces (crypto, client) are reimplemented here
+for Hermes, and `src/lib/*.test.ts` pins them to the shared implementation.
 
-`appId` is `dev.nekkolabs.agentnekko`, matching the desktop bundle id.
+## Run it
 
-## Next steps (tracked)
+```bash
+npm install            # from apps/mobile; on Windows run it from PowerShell (see below)
+npm run web            # quick UI preview in a browser; on-device models are unavailable there
+npm run android        # dev build on an emulator/device (needs Android Studio + SDK)
+npm run ios            # macOS + Xcode only
+```
 
-- Native **secure storage** (`@capacitor/preferences` is installed) for the relay key.
-- **Remote push** (APNs + FCM + sender) for notifications when the app is closed.
-- App Store / Play Store metadata + signing (needs the developer accounts).
+On-device models need a development build, not Expo Go (llama.rn is a native module).
+
+**Windows notes.** llama.rn's postinstall downloads its prebuilt libraries with `tar`. Under Git
+Bash that resolves to GNU tar, which reads `C:\…` as a remote host and fails; install from
+PowerShell, or run `npm run llama:native` afterwards. For a local Android build, map a short drive
+letter first (`subst N: <repo>`) so CMake stays under the Windows path limit, and point `JAVA_HOME`
+at Android Studio's bundled JDK (`…\Android Studio\jbr`).
+
+## Tests
+
+```bash
+npm test               # unit tests (vitest)
+npm run typecheck
+npm run test:relay     # phone ↔ relay ↔ computer, against a local relay and headless agent
+```
+
+`test:relay` needs the root packages built (`npm run build:core`, then host, cli, server and relay).
+
+## Release (not set up yet)
+
+Store builds need an EAS project, signing (Apple developer account, Play console), and for push an
+APNs key and FCM service account on the relay. `appId` is `dev.nekkolabs.agentnekko` on both
+platforms, matching the desktop bundle id.

@@ -170,6 +170,18 @@ describe('relay v2 routing', () => {
     expect(rooms.get('r5')!.pushTokens.size).toBe(0);
   });
 
+  it('accepts FCM-shaped push tokens (with a colon) from Android phones', async () => {
+    const { url, rooms } = await startRelay({ pushSender: { enabled: true, send: async () => {} } });
+    const agent = await connect(url, { room: 'r6', role: 'agent', key: 'k' });
+    const c = await connect(url, { room: 'r6', role: 'client', key: 'k' });
+    await c.next();
+    await agent.next();
+    const fcm = 'dQw4w9WgXcQ:APA91bHPRgkF3JUikC4ENAHEeMrd41Zxv3hVZjC9KtT8OvPVGJ-hQMRKRrZuJAEcl7B338qju59zJMjw2DELjzEvxwYv7hH5Ynpc1ODQ0aT4U4OFEeco8ohsN5PjL1iC2dNtk2BAokeMCg2ZXKqpc8FXKmhX94kIxQ';
+    c.send({ type: 'register-push', token: fcm, platform: 'android', deviceId: '00000000-0000-4000-8000-000000000002' });
+    await new Promise((r) => setTimeout(r, 50));
+    expect(rooms.get('r6')!.pushTokens.get('00000000-0000-4000-8000-000000000002')?.token).toBe(fcm);
+  });
+
   it('gates agent enrollment behind the authz URL when configured', async () => {
     // Mock cloud authorizer: accepts only "good-token".
     const authz = createServer((req, res) => {

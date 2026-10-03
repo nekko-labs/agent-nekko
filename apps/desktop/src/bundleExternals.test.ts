@@ -126,9 +126,10 @@ describe('staged product identity', () => {
     expect(builder.match(/artifactName: AgentNekko-\$\{version\}-\$\{arch\}\.\$\{ext\}/g)).toHaveLength(3);
     expect(builder).toContain('repo: agent-nekko');
     expect(pkg.name).toBe('@agent-nekko/desktop');
-    const mobile = readFileSync(join(root, '../mobile/capacitor.config.ts'), 'utf8');
-    expect(mobile).toContain("appName: 'Agent Nekko'");
-    expect(mobile).toContain("appId: 'dev.nekkolabs.agentnekko'");
+    const mobile = JSON.parse(readFileSync(join(root, '../mobile/app.json'), 'utf8')).expo;
+    expect(mobile.name).toBe('Agent Nekko');
+    expect(mobile.ios.bundleIdentifier).toBe('dev.nekkolabs.agentnekko');
+    expect(mobile.android.package).toBe('dev.nekkolabs.agentnekko');
     const manifest = JSON.parse(readFileSync(join(root, 'src/renderer/public/manifest.webmanifest'), 'utf8'));
     expect(manifest.name).toBe('Agent Nekko');
     expect(manifest.short_name).toBe('Agent Nekko');

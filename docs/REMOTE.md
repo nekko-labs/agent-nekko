@@ -22,8 +22,26 @@ and tools always execute on **your** machine, under its guardrails; the phone is
 
 1. On your computer: **Settings → Remote access → Enable** (the managed relay is prefilled; or
    paste your self-hosted relay URL), then **Pair a device**.
-2. On your phone: scan the QR with the Agent Nekko app, or open the pairing link in a browser.
+2. On your phone: scan the QR in the Agent Nekko app (**Computers → Pair a computer**), or with the
+   phone's camera app, which hands the `agent-nekko-pair:` link to the Agent Nekko app. Without the
+   app, open the pairing link in a browser to get the full app over the relay.
 3. The phone shows up under **Paired devices**, with a live connection dot.
+
+## The phone app
+
+The iOS and Android app (`apps/mobile`) is built for the phone rather than being the desktop on a
+small screen: your computer's chats with **Working** / **Needs you** badges, new chats on any of the
+computer's models and folders, live replies, **Allow this?** cards for risky commands, the agent's
+questions as tap-to-answer choices, follow-ups that queue while a run is going, and Stop. It can
+pair several computers and talks to one at a time.
+
+It also runs **models on the phone itself** (llama.cpp, curated small GGUF models from Hugging Face
+sized to the phone's memory), so you can keep chatting when the computer is off. Those chats never
+leave the phone and don't use the relay.
+
+On the phone, the pairing key and the derived encryption key live in the iOS Keychain / Android
+Keystore. The app drops any provider API keys your computer sends with its settings and never
+stores them.
 
 Manage devices from the same card: **rename** them, **revoke** one instantly (it's kicked live and
 denied from then on), or **Rotate secret** to cryptographically reset the room, which unpairs
