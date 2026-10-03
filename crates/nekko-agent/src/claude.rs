@@ -269,7 +269,8 @@ impl SamplingMemory {
     /// has one (a sideband call's explicit budget), else the model's ceiling,
     /// never above what the API has told us.
     pub fn output_cap_for(&self, model: &str, requested: Option<u64>) -> u64 {
-        let learned = self.output_limits.lock().unwrap_or_else(|e| e.into_inner()).get(&normalize_model_id(model)).copied();
+        let learned =
+            self.output_limits.lock().unwrap_or_else(|e| e.into_inner()).get(&normalize_model_id(model)).copied();
         let ceiling = learned.unwrap_or_else(|| claude_max_output_tokens(model));
         match requested {
             Some(n) if n > 0 => n.min(ceiling),

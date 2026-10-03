@@ -324,7 +324,7 @@ function GridCellFrame({
         <div ref={setMetadataSlot} className="flex min-w-0 items-center gap-1" />
         <div className="min-w-0 flex-1" />
         <div ref={setActionSlot} className="flex shrink-0 items-center gap-0.5" />
-        <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title="Open in the Agent tab" aria-label={`Open ${title} in the Agent tab`} onClick={onOpen}>
+        <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title={`Open ${title}`} aria-label={`Open ${title} in the Agent tab`} onClick={onOpen}>
           <ExternalIcon className="h-3 w-3" />
         </button>
         <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title="Remove from the grid (the chat stays)" aria-label={`Remove ${title} from the grid`} onClick={onRemove}>
