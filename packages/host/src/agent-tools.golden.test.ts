@@ -30,7 +30,21 @@ vi.mock('child_process', async (importOriginal) => {
     queueMicrotask(() => cb(null, `RAN ${options.cwd}`, ''));
     return { stdout: null, stderr: null };
   }) as unknown as typeof real.execFile;
-  return { ...real, default: { ...real, execFile }, execFile };
+  const spawn = ((file: string, args: string[], options: { cwd?: string }) => {
+    if (!execMode.stub) return real.spawn(file, args, options);
+    const { EventEmitter } = require('node:events');
+    const { PassThrough } = require('node:stream');
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    queueMicrotask(() => {
+      child.stdout.end(`RAN ${options.cwd}`);
+      child.stderr.end();
+      child.emit('close', 0, null);
+    });
+    return child;
+  }) as unknown as typeof real.spawn;
+  return { ...real, default: { ...real, execFile, spawn }, execFile, spawn };
 });
 const mirrored = vi.hoisted(() => [] as Array<{ workspaceId: string | undefined; data: string }>);
 vi.mock('./terminal.js', () => ({
