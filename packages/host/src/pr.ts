@@ -77,7 +77,7 @@ function ghState(state: string, mergedAt?: string | null): PrState {
 }
 
 const GH_FIELDS =
-  'number,title,state,url,isDraft,mergedAt,additions,deletions,changedFiles,headRefName,baseRefName,reviewDecision,statusCheckRollup,updatedAt';
+  'number,title,state,url,isDraft,createdAt,closedAt,mergedAt,additions,deletions,changedFiles,headRefName,baseRefName,reviewDecision,statusCheckRollup,updatedAt';
 
 /** Fetch one PR's live state via gh, falling back to the REST API. */
 async function fetchPrInfo(url: string): Promise<PrInfo | null> {
@@ -109,6 +109,8 @@ async function fetchPrInfo(url: string): Promise<PrInfo | null> {
           baseRefName: (j.baseRefName as string) || undefined,
           reviewDecision: (j.reviewDecision as string) || null,
           checks: rollupChecks(j.statusCheckRollup),
+          createdAt: (j.createdAt as string) || null,
+          closedAt: (j.closedAt as string) || null,
           mergedAt: (j.mergedAt as string) || null,
           updatedAt: (j.updatedAt as string) || null,
           source: 'gh',
@@ -155,6 +157,8 @@ async function fetchPrInfoApi(owner: string, repo: string, number: number, url: 
       baseRefName: j.base?.ref || undefined,
       reviewDecision: null,
       checks,
+      createdAt: j.created_at || null,
+      closedAt: j.closed_at || null,
       mergedAt: j.merged_at || null,
       updatedAt: j.updated_at || null,
       source: 'api',

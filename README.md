@@ -284,6 +284,20 @@ npm test             # vitest (guardrails, context, outline)
 npm run dev          # launch the desktop app with hot reload (electron-vite)
 ```
 
+### Build the app and engine
+
+```bash
+npm run build         # release nekkod + app (TypeScript packages, CLI, desktop)
+npm run build:nekkod  # release Rust daemon only, staged into desktop resources/bin
+npm run build:app     # TypeScript packages, CLI and desktop only; no Rust build
+```
+
+The combined build requires Rust/Cargo and fails if the daemon cannot be built.
+`build:nekkod` also checks the usual `~/.cargo/bin` installation when Cargo is not
+on PATH, and stages the runtime sidecar libraries alongside the executable.
+`build:app` does not update an already staged daemon; use the combined build after
+changing Rust code.
+
 ### Test your changes locally (no installer, no Defender)
 
 After making changes, run **one** command to build and launch the real app for

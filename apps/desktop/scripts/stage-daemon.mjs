@@ -7,6 +7,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const optional = process.argv.includes('--optional');
@@ -16,8 +17,9 @@ const exe = process.platform === 'win32' ? 'nekkod.exe' : 'nekkod';
 
 // No shell: cargo is a real executable on every platform, and on Windows a
 // shell reads the system Path rather than the PATH this process was given.
-const cargo = spawnSync('cargo', ['--version'], { stdio: 'ignore' });
-if (cargo.status !== 0) {
+const candidates = ['cargo', join(homedir(), '.cargo', 'bin', process.platform === 'win32' ? 'cargo.exe' : 'cargo')];
+const cargo = candidates.find((candidate) => spawnSync(candidate, ['--version'], { stdio: 'ignore' }).status === 0);
+if (!cargo) {
   const msg = 'cargo not found: install Rust (https://rustup.rs) to build the engine daemon';
   if (optional) {
     console.warn(`${msg}; the app will run the TS backend without it.`);
@@ -27,7 +29,7 @@ if (cargo.status !== 0) {
   process.exit(1);
 }
 
-execFileSync('cargo', ['build', '--release', '--locked', '-p', 'nekkod'], { cwd: repo, stdio: 'inherit' });
+execFileSync(cargo, ['build', '--release', '--locked', '-p', 'nekkod'], { cwd: repo, stdio: 'inherit' });
 
 const built = join(repo, 'target', 'release', exe);
 if (!existsSync(built)) {

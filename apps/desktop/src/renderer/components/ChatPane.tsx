@@ -35,7 +35,7 @@ import { ContextWarning } from './ContextWarning.js';
 import { ChatControls } from './ChatControls.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
-import { PrCard, PrBadge } from './PrCard.js';
+import { PrCard, PrBadge, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
@@ -318,9 +318,8 @@ const TranscriptRowView = memo(function TranscriptRowView({
   if (row.kind === 'activity') return <ActivityGroup items={row.items} />;
   if (row.kind === 'compaction') return <CompactionSummary message={row.message} latest={row.latest} />;
   if (row.kind === 'prs') {
-    // PRs mentioned only in tool output (never in assistant text) still get a
-    // card, appended after the transcript.
-    return <>{row.urls.map((u) => <PrCard key={`orphan_${u}`} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}</>;
+    // Historical milestones stay anchored to their original transcript positions.
+    return <>{row.urls.map((u) => <PrCard key={`${row.event}_${u}`} url={u} info={prByUrl.get(u)} event={row.event} />)}</>;
   }
   const persisted = row.message.id !== 'tmp' && row.message.id !== 'live';
   const editable = !readOnly && !streaming && row.message.role === 'user' && persisted;
@@ -337,7 +336,7 @@ const TranscriptRowView = memo(function TranscriptRowView({
         chronological
       />
       {/* A PR card right after the message that first names it. */}
-      {row.prUrls.map((u) => <PrCard key={u} url={u} info={prByUrl.get(u)} sessionId={sessionId} />)}
+      {row.prUrls.map((u) => <PrCard key={u} url={u} info={prByUrl.get(u)} event="created" />)}
     </>
   );
 });
@@ -1793,8 +1792,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // --- The transcript, as windowed rows ---
   const messages = session?.messages;
   const rows = useMemo(
-    () => (messages ? toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls) : []),
-    [messages],
+    () => (messages ? toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls, prs) : []),
+    [messages, prs],
   );
   const prByUrl = useMemo(() => new Map(prs.map((p) => [p.url, p])), [prs]);
   // Handlers handed to rows go through refs, so a row never re-renders because
@@ -2062,6 +2061,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
           <div className="composer-column mx-auto w-[90%]">
+            <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={messages ? collectSessionPrUrls(messages) : []} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
             {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
               <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>

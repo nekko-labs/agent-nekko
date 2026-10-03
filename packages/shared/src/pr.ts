@@ -27,6 +27,8 @@ export interface PrInfo {
   /** 'approved' | 'changes_requested' | 'review_required' | null (gh only). */
   reviewDecision?: string | null;
   checks: PrChecks;
+  createdAt?: string | null;
+  closedAt?: string | null;
   mergedAt?: string | null;
   updatedAt?: string | null;
   /** Where the live state came from, for graceful-degradation messaging. */

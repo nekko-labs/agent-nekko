@@ -20,18 +20,25 @@ describe('toTranscriptRows', () => {
     expect(new Set(r.map((x) => x.key)).size).toBe(r.length);
   });
 
-  it('puts a PR card after the message that first names it, and the rest at the end', () => {
+  it('anchors discoveries including tool-only PRs instead of moving them after new messages', () => {
     const pr1 = 'https://github.com/o/r/pull/1';
     const pr2 = 'https://github.com/o/r/pull/2';
-    const r = rows([
-      msg('u', 'user', `look at ${pr1}`),
-      msg('a1', 'assistant', `Opened ${pr1}`),
-      msg('a2', 'assistant', `Still ${pr1}`),
-      msg('t', 'tool', '', { toolResult: { toolCallId: 'x', output: `created ${pr2}` } }),
-    ]);
-    expect(r.map((x) => (x.kind === 'msg' ? x.prUrls : x.kind === 'prs' ? x.urls : []))).toEqual([[], [pr1], [], [pr2]]);
-    expect(r[1].gapAfter).toBe(8);
-    expect(r[3]).toMatchObject({ kind: 'prs', gapAfter: 8 });
+    const base = [msg('u', 'user', 'make PRs'), msg('a1', 'assistant', 'Opened ' + pr1),
+      msg('t', 'tool', '', { toolResult: { toolCallId: 'x', output: 'created ' + pr2 } })];
+    const before = rows(base);
+    const after = rows([...base, msg('u2', 'user', 'run the build'), msg('a2', 'assistant', 'Building.')]);
+    expect(before.filter((r) => r.kind === 'prs').map((r) => r.urls)).toEqual([[pr1], [pr2]]);
+    expect(after.slice(0, before.length)).toEqual(before);
+    expect(after.at(-1)).toMatchObject({ kind: 'msg', message: { id: 'a2' } });
+  });
+
+  it('keeps created and merged milestones separate, before later replies', () => {
+    const url = 'https://github.com/o/r/pull/1';
+    const messages = [msg('a', 'assistant', url, { createdAt: 100 }), msg('merged', 'assistant', 'Merged.', { createdAt: 200 }), msg('u', 'user', 'Next task', { createdAt: 400 })];
+    const prs = [{ url, state: 'merged', mergedAt: new Date(250).toISOString() }] as any;
+    const result = toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls, prs);
+    expect(result.map((r) => r.kind === 'prs' ? r.event : r.kind === 'msg' ? r.message.id : r.kind)).toEqual(['a', 'created', 'merged', 'merged', 'u']);
+    expect(new Set(result.map((r) => r.key)).size).toBe(result.length);
   });
 
   it('does not append phantom PR cards from reading test fixtures', () => {

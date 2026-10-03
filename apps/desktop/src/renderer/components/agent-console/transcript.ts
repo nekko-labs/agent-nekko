@@ -1,4 +1,4 @@
-import type { ChatMessage, ToolCall } from '@agent-nekko/shared';
+import type { ChatMessage, ToolCall, PrInfo, PrState } from '@agent-nekko/shared';
 
 /**
  * Pure transcript model for the agent console: how a raw message list folds
@@ -83,58 +83,94 @@ export function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
 const PR_CARD_GAP = 8;
 
 /**
- * One row of the windowed transcript: a message (with the PR cards it is the
- * first to mention), a run of working steps, or the PR cards that were only
- * ever mentioned in tool output, at the end.
+ * One row of the windowed transcript: a message, working steps, or an anchored
+ * PR lifecycle milestone. PR cards never live at a moving transcript tail.
  */
 export type TranscriptRow =
   | { key: string; kind: 'msg'; message: ChatMessage; prUrls: string[]; gapAfter?: number }
   | { key: string; kind: 'activity'; items: Activity[]; gapAfter?: number }
-  | { key: string; kind: 'prs'; urls: string[]; gapAfter?: number }
+  | { key: string; kind: 'prs'; urls: string[]; event: 'created' | PrState; gapAfter?: number }
   /** A compaction summary: a divider under the turns it replaced, then the summary. */
   | { key: string; kind: 'compaction'; message: ChatMessage; latest: boolean; gapAfter?: number };
 
 /**
- * Fold a transcript into rows, the way the console always laid it out: the
- * blocks of `toStreamBlocks`, a PR card right after the message that first
- * names it, and cards for PRs seen only in tool output appended at the end.
+ * Fold a transcript into rows with PR discovery and resolution milestones.
+ * Tool-only discoveries are anchored just like assistant/user mentions.
  * Keys are unique within the chat and stable as messages are appended.
  */
 export function toTranscriptRows(
   messages: ChatMessage[],
   extractUrls: (text: string) => string[],
   collectUrls: (messages: ChatMessage[]) => string[],
+  prs: PrInfo[] = [],
 ): TranscriptRow[] {
   const rows: TranscriptRow[] = [];
+  const known = new Set(collectUrls(messages));
   const shown = new Set<string>();
+  const anchors = new Map<number, Array<{ url: string; event: 'created' | PrState }>>();
+  const add = (index: number, url: string, event: 'created' | PrState) => {
+    const events = anchors.get(index) ?? [];
+    events.push({ url, event });
+    anchors.set(index, events);
+  };
+  // Anchor tool-only discoveries to their original turn, never to the moving tail.
+  const contextTools = new Set(['read_file', 'grep', 'glob', 'list_dir']);
+  const calls = new Map(messages.flatMap((m) => (m.toolCalls ?? []).map((c) => [c.id, c.name] as const)));
+  messages.forEach((m, i) => {
+    const tool = m.toolResult?.toolCallId ? calls.get(m.toolResult.toolCallId) : undefined;
+    if (tool && contextTools.has(tool)) return;
+    for (const url of extractUrls([m.content, m.toolResult?.output].filter(Boolean).join('\n'))) {
+      if (!known.has(url) || shown.has(url)) continue;
+      shown.add(url);
+      add(i, url, 'created');
+      const pr = prs.find((p) => p.url === url);
+      if (pr && pr.state !== 'open') {
+        const time = Date.parse((pr.state === 'merged' ? pr.mergedAt : pr.closedAt) ?? '');
+        // Missing timestamps stay next to discovery, not after future messages.
+        let terminal = i;
+        if (Number.isFinite(time)) {
+          for (let n = i; n < messages.length; n++) {
+            if (messages[n].createdAt <= time) terminal = n;
+            else break;
+          }
+        }
+        add(terminal, url, pr.state);
+      }
+    }
+  });
   const keys = new Set<string>();
   const unique = (k: string) => {
     let key = k;
-    for (let n = 1; keys.has(key); n++) key = `${k}~${n}`;
+    for (let n = 1; keys.has(key); n++) key = k + '~' + n;
     keys.add(key);
     return key;
   };
   let latestSummary: string | undefined;
   for (const m of messages) if (m.compaction) latestSummary = m.id;
-  for (const b of toStreamBlocks(messages)) {
-    if (b.type !== 'msg') {
-      rows.push({ key: unique(b.key), kind: 'activity', items: b.items });
-      continue;
+  const append = (chunk: ChatMessage[]) => {
+    for (const b of toStreamBlocks(chunk)) {
+      if (b.type !== 'msg') {
+        rows.push({ key: unique(b.key), kind: 'activity', items: b.items });
+        continue;
+      }
+      const m = b.message;
+      if (m.compaction) {
+        rows.push({ key: unique('c_' + m.id), kind: 'compaction', message: m, latest: m.id === latestSummary });
+        continue;
+      }
+      if (m.role === 'assistant' && !m.content && !m.reasoning && !m.toolCalls?.length && !m.images?.length) continue;
+      rows.push({ key: unique('m_' + m.id), kind: 'msg', message: m, prUrls: [] });
     }
-    const m = b.message;
-    if (m.compaction) {
-      rows.push({ key: unique(`c_${m.id}`), kind: 'compaction', message: m, latest: m.id === latestSummary });
-      continue;
-    }
-    // An assistant message with nothing to show renders nothing, so it must not
-    // take a row (and a gap) either.
-    if (m.role === 'assistant' && !m.content && !m.reasoning && !m.toolCalls?.length && !m.images?.length) continue;
-    const urls = m.role === 'user' ? [] : extractUrls(m.content).filter((u) => !shown.has(u));
-    urls.forEach((u) => shown.add(u));
-    rows.push({ key: unique(`m_${m.id}`), kind: 'msg', message: m, prUrls: urls, ...(urls.length ? { gapAfter: PR_CARD_GAP } : {}) });
-  }
-  const orphans = collectUrls(messages).filter((u) => !shown.has(u));
-  if (orphans.length) rows.push({ key: unique('orphan_prs'), kind: 'prs', urls: orphans, gapAfter: PR_CARD_GAP });
+  };
+  let start = 0;
+  messages.forEach((m, i) => {
+    const events = anchors.get(i);
+    if (!events) return;
+    append(messages.slice(start, i + 1));
+    for (const e of events) rows.push({ key: unique('pr_' + e.url + '_' + e.event), kind: 'prs', urls: [e.url], event: e.event, gapAfter: PR_CARD_GAP });
+    start = i + 1;
+  });
+  append(messages.slice(start));
   return rows;
 }
 
