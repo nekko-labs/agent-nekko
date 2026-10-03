@@ -37,7 +37,7 @@ let decisions: DecisionRunner | null = null;
 export function setDecisionRunner(runner: DecisionRunner | null): void {
   decisions = runner;
 }
-import { getSession, saveSession, saveTurnSession, createSession } from './sessions.js';
+import { getSession, saveSession, saveTurnSession, createSession, setSessionOptions } from './sessions.js';
 import { executeTool } from './tools.js';
 import { recordUsage } from './usage.js';
 import { recordReply } from './replies.js';
@@ -703,6 +703,11 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       description: 'Name this chat with a concise, specific 3-6 word title. Never overrides a user-chosen title.',
       parameters: { type: 'object', properties: { title: { type: 'string' } }, required: ['title'], additionalProperties: false },
     });
+    if (!incognito && !session.parentSessionId && !session.trainingRunId && !disabled.has('complete_session')) tools.push({
+      name: 'complete_session',
+      description: 'Mark this chat completed using the app’s Complete action (archive it). Call only when the user explicitly asks to complete this session. Does not delete messages, clean up worktrees, or stop this final reply. Archived chats follow the app’s archive retention policy. Queued prompts remain saved but will not run automatically.',
+      parameters: { type: 'object', properties: {}, additionalProperties: false },
+    });
     // Run-driven sessions can register experiments into their run's idea maze
     // and report the artifacts they produce.
     if (session.trainingRunId) tools.push(REPORT_EXPERIMENT_TOOL, REPORT_ARTIFACT_TOOL);
@@ -866,6 +871,16 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             persist();
             send({ type: 'session_meta', sessionId: session.id });
             return { toolCallId: call.id, output: 'Chat title updated.' };
+          }
+          if (call.name === 'complete_session') {
+            if (Object.keys(call.input).length > 0) return { toolCallId: call.id, output: 'complete_session takes no arguments and only completes the current chat.', isError: true };
+            const disk = getSession(session.id);
+            if (!disk) return { toolCallId: call.id, output: 'Session not found; completion was not saved.', isError: true };
+            const saved = setSessionOptions(session.id, { archivedAt: disk.archivedAt ?? Date.now() });
+            if (!saved) return { toolCallId: call.id, output: 'Session not found; completion was not saved.', isError: true };
+            session.archivedAt = saved.archivedAt;
+            send({ type: 'session_meta', sessionId: session.id });
+            return { toolCallId: call.id, output: 'This session is marked completed (archived). Messages are retained under the app’s archive retention policy. You can restore it from completed chats.' };
           }
           if (call.name === ASK_USER_TOOL.name) {
             return { toolCallId: call.id, output: await askUser(call) };
@@ -1060,7 +1075,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   if (!abort.signal.aborted) {
     const fresh = getSession(opts.sessionId);
     const next = fresh?.queue?.[0];
-    if (fresh && next) {
+    if (fresh && !fresh.archivedAt && next) {
       await sendChat({ sessionId: opts.sessionId, providerId: opts.providerId, modelId: opts.modelId, text: next }, send, allowBrowserControl, { index: 0, text: next });
     }
   }
