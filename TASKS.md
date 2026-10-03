@@ -19,7 +19,7 @@ owner:
 ## Stack (decided, do not relitigate)
 
 - **Monorepo**: npm workspaces. **No pnpm** (broken on this machine by a corepack/yarn override up the directory tree).
-- **Desktop**: Electron **43.3.0** (exact-pinned under workspaces) + Vite 7 + React 19 + TypeScript 7 + Tailwind CSS v4 + Zustand 5. `electron-vite` v5 drives the build; `electron-builder` v26 creates installers. These versions reflect the dependency upgrade already present on `main`; keep the lockfile and package manifests aligned and verify packaged main/preload bundling when upgrading again.
+- **Desktop**: Electron **43.7.7** (exact-pinned under workspaces) + Vite 7 + React 19 + TypeScript 7 + Tailwind CSS v4 + Zustand 5. `electron-vite` v5 drives the build; `electron-builder` v26 creates installers. These versions reflect the dependency upgrade already present on `main`; keep the lockfile and package manifests aligned and verify packaged main/preload bundling when upgrading again.
 - **Core engine**: `packages/core`, pure TS, no Electron imports, unit-testable with Vitest.
 - **Host services**: `packages/host` (`@agent-nekko/host`), transport-agnostic Node services + a `createHost()` facade (Phase-2 extraction; see Architecture).
 - **Shared types/IPC contracts**: `packages/shared` (`@agent-nekko/shared`).
