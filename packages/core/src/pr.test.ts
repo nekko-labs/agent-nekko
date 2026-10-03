@@ -35,6 +35,28 @@ describe('parsePrUrl', () => {
 });
 
 describe('collectSessionPrUrls', () => {
+  it('ignores PR examples in file reads and search results but keeps shell-created PRs', () => {
+    const messages = [
+      { toolCalls: [
+        { id: 'read', name: 'read_file' },
+        { id: 'search', name: 'grep' },
+        { id: 'shell', name: 'bash' },
+      ] },
+      { role: 'tool', content: 'https://github.com/o/r/pull/1', toolResult: { toolCallId: 'read', output: 'https://github.com/o/r/pull/1' } },
+      { toolResult: { toolCallId: 'search', output: 'https://github.com/o/r/pull/2' } },
+      { toolResult: { toolCallId: 'shell', output: 'https://github.com/nekko-labs/agent-nekko/pull/253' } },
+    ];
+    expect(collectSessionPrUrls(messages)).toEqual(['https://github.com/nekko-labs/agent-nekko/pull/253']);
+  });
+
+  it('keeps explicitly discussed URLs even when a read exposed the same URL', () => {
+    const url = 'https://github.com/o/r/pull/1';
+    expect(collectSessionPrUrls([
+      { toolCalls: [{ id: 'read', name: 'read_file' }] },
+      { toolResult: { toolCallId: 'read', output: url } },
+      { role: 'assistant', content: `Review ${url}` },
+    ])).toEqual([url]);
+  });
   it('scans message content and tool output', () => {
     const messages = [
       { content: 'working on it' },

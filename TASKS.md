@@ -240,6 +240,15 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### In-chat PR identity and styling (2026-10-02)
+
+- [x] Show the actual GitHub head branch on open PR cards, retain repository/number/target context, and use neutral banner styling with slim borderless actions. Ignore file-read and code-search example URLs during session PR discovery. Core PR and transcript regression tests pass (18 tests), desktop typecheck passes, and before/after card evidence is captured at desktop/mobile widths in both themes. · Done: 2026-10-02
+### Completed-session PR follow-up (2026-10-02)
+
+- [x] Correct fallback shell process-group launching and preserve Windows quoted arguments; format loop-detector Rust sources to satisfy CI. Host routing tests and typecheck plus Rust formatting check verified locally. · Done: 2026-10-02
+- [ ] Publish completion screenshots/recording to the PR and verify native iOS/Android visuals before marking the completion PR ready.
+
+
 ### Server browser, chat chrome and tray (added 2026-10-01)
 
 - [ ] **UX40**, Server cards share a row above models and use the existing power icon. [Spec](SPEC.md#server-model-browser-and-desktop-tray)
@@ -992,3 +1001,9 @@ Technical approach: independent approval policy and session environment; default
 - [ ] Add Permissions settings, two-column Mode menu, first-use setup and per-session Connectors dropdown after MCP. Capture base/after evidence.
 - [ ] Add reviewed diff export/apply with conflict detection, path validation and rollback of failed applies.
 - [ ] Verify real container host/private-network/filesystem escapes, symlinks, indirect tool paths, policy changes, revocation and cleanup; test each supported runtime before advertising availability.
+### Workspace context commands and composer question surface
+
+- [x] Add modifier selection and chat-row menus for single and batch commands. Done: 2026-10-03. Selection helper regression tests pass.
+- [x] Add default-model context actions, pinned labels, and missing-default disabled rows. Done: 2026-10-03. Available/missing default render tests pass.
+- [x] Widen the composer and attach questions with opening/closing motion and reduced-motion support. Done: 2026-10-03. Desktop typecheck/build and question tests pass.
+- [ ] Complete matched base-branch screenshots for every changed surface, native smoke testing, and batch command integration verification before merge.
