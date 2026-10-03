@@ -85,10 +85,21 @@ export function parsePrUrl(url: string): { owner: string; repo: string; number: 
 
 /** Collect the PR URLs referenced anywhere in a chat's messages (content + tool output). */
 export function collectSessionPrUrls(
-  messages: Array<{ content?: string; toolResult?: { output?: string } }>,
+  messages: Array<{
+    role?: string;
+    content?: string;
+    toolCalls?: Array<{ id: string; name: string }>;
+    toolResult?: { toolCallId?: string; output?: string };
+  }>,
 ): string[] {
+  // Reading source and search matches can expose example PR URLs in tests/docs.
+  // Those are context, not PRs created or discussed by this conversation.
+  const contextTools = new Set(['read_file', 'grep', 'glob', 'list_dir']);
+  const calls = new Map(messages.flatMap((m) => (m.toolCalls ?? []).map((c) => [c.id, c.name] as const)));
   const urls = new Set<string>();
   for (const m of messages) {
+    const name = m.toolResult?.toolCallId ? calls.get(m.toolResult.toolCallId) : undefined;
+    if (name && contextTools.has(name)) continue;
     for (const u of extractPrUrls(m.content ?? '')) urls.add(u);
     if (m.toolResult?.output) for (const u of extractPrUrls(m.toolResult.output)) urls.add(u);
   }

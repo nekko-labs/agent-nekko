@@ -103,19 +103,20 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
   }
 
   const check = info ? CHECK_META[info.checks] : CHECK_META.none;
+  const actionClass = 'inline-flex h-6 items-center rounded-md px-2 text-[11px] font-medium transition-colors enabled:hover:bg-surface disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2';
   return (
-    <div className="fade-in my-2 overflow-hidden rounded-xl border border-line" style={{ background: 'var(--surface-2)' }}>
+    <div className="fade-in relative my-2 overflow-hidden rounded-xl px-4 py-3" style={{ background: 'linear-gradient(270deg, color-mix(in srgb, var(--ink) 5%, transparent), transparent)' }}>
       {/* Info on the left, actions parked on the right so the card stays slim. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3.5 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className={`shrink-0 text-[13px] ${closed ? 'text-red-400' : 'text-green-400'}`}>⑂</span>
-            <button className="font-mono text-[12px] font-medium hover:underline" onClick={() => openExternally(url)} title="Open on GitHub">
-              {label}
+            <button className="min-w-0 truncate font-mono text-[12px] font-medium hover:underline" onClick={() => openExternally(url)} title={`${label}${info?.headRefName ? ` · ${info.headRefName} → ${info.baseRefName ?? 'main'}` : ''} · Open on GitHub`}>
+              {info?.headRefName ?? label}
             </button>
             <span
-              className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium text-white"
-              style={{ background: closed ? '#8a5cd0' : info?.isDraft ? 'var(--neutral)' : '#2ea043' }}
+              className="shrink-0 text-[10px] font-medium"
+              style={{ color: closed ? 'var(--ink-faint)' : info?.isDraft ? 'var(--neutral)' : 'var(--success)' }}
             >
               {closed ? 'closed' : info?.isDraft ? 'draft' : 'open'}
             </span>
@@ -131,7 +132,7 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
           </div>
           {info?.title && <div className="truncate pt-1 text-[13px]">{info.title}</div>}
           {info?.headRefName && (
-            <div className="truncate pt-0.5 font-mono text-[10.5px] text-ink-faint">{info.headRefName} → {info.baseRefName ?? 'main'}</div>
+            <div className="truncate pt-0.5 font-mono text-[10.5px] text-ink-faint">{label} · → {info.baseRefName ?? 'main'}</div>
           )}
         </div>
 
@@ -139,8 +140,8 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
         <div className="ml-auto flex shrink-0 items-center gap-1">
           {!closed && (
             <button
-              className="inline-flex h-7 items-center rounded-lg px-2.5 text-[12px] font-semibold text-white shadow-sm transition enabled:hover:brightness-110 disabled:opacity-50"
-              style={{ background: 'linear-gradient(180deg, #34c759 0%, #2ea043 100%)' }}
+              className={actionClass}
+              style={{ color: 'var(--success)' }}
               onClick={() => act('approve')}
               disabled={!!busy}
               title="Approve this PR (with auto-merge on, this lands it once checks pass)"
@@ -150,7 +151,7 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
           )}
           {!closed && (
             <button
-              className="inline-flex h-7 items-center rounded-lg px-2.5 text-[12px] font-medium transition enabled:hover:bg-red-500/10 disabled:opacity-50"
+              className={actionClass}
               style={{ color: 'color-mix(in srgb, var(--danger) 85%, transparent)' }}
               onClick={() => act('close')}
               disabled={!!busy}
@@ -161,7 +162,7 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
           )}
           {closed && (
             <button
-              className="inline-flex h-7 items-center rounded-lg border border-line px-2.5 text-[12px] font-medium transition hover:bg-surface disabled:opacity-50"
+              className={actionClass}
               onClick={() => act('reopen')}
               disabled={!!busy}
             >
@@ -169,7 +170,7 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
             </button>
           )}
           <button
-            className="inline-flex h-7 items-center rounded-lg border border-line px-2.5 text-[12px] font-medium transition hover:bg-surface"
+            className={actionClass}
             onClick={() => openPrPane(url)}
             title="Review the diff in a side pane"
           >
@@ -177,7 +178,7 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
           </button>
           {!closed && (
             <button
-              className="inline-flex h-7 items-center rounded-lg px-2.5 text-[12px] font-medium text-violet-300 transition hover:bg-violet-500/10 hover:text-violet-200 disabled:opacity-50"
+              className={`${actionClass} text-ink-soft`}
               onClick={() => act('merge')}
               disabled={!!busy}
               title="Merge this PR now (merge commit)"
@@ -186,7 +187,7 @@ export function PrCard({ url, info, sessionId }: { url: string; info?: PrInfo; s
             </button>
           )}
           <button
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ink-faint transition hover:bg-surface hover:text-ink"
+            className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint transition hover:bg-surface hover:text-ink"
             onClick={() => openExternally(url)}
             title="Open on GitHub"
             aria-label="Open on GitHub"
