@@ -951,7 +951,10 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         },
         temperature: EFFORT_TEMPERATURE[effectiveEffort(settings.effort, opts.modelId)],
         effort: settings.effort ?? 'normal',
-        maxOutputTokens: clampMaxOutputTokens(settings.maxOutputTokens),
+        // The output cap is a safeguard for local servers, where a looping
+        // model streams until its context fills. Cloud providers run to their
+        // own ceilings; a cap of 8k there cut long replies off mid-sentence.
+        maxOutputTokens: isLocalProvider(provider.kind) ? clampMaxOutputTokens(settings.maxOutputTokens) : undefined,
         think: session.thinking,
         maxHistoryTurns: opts.maxHistoryTurns,
         resume: opts.resume,
