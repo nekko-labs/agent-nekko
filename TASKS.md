@@ -254,6 +254,10 @@ Philip asked (2026-10-03) to continue the phone app as a native iOS/Android clie
 - [ ] **MA8, Store release.** EAS project + signing, App Store / Play listings and screenshots, APNs key and FCM service account on the managed relay (see provisioning in the workspace), privacy labels (no data collected; models download from Hugging Face).
 - [ ] **MA9, Follow-ups.** Exclude downloaded models from iOS backup; resume interrupted model downloads (`DownloadTask.savable()`); images in phone chats for vision models; switch a chat's model mid-chat; delete/rename/archive chats from the phone; a "send to my computer" hand-off from a phone chat; remove the Capacitor-only `RelayPairing` and the `window.Capacitor` branches from the desktop renderer now that nothing wraps it.
 
+### Guardrail defaults and reset (2026-10-03)
+
+- [x] Mark each guardrail rule's default action with a dot on its allow/ask/deny control and add a "Reset to defaults" button (plus a differs-from-defaults count) at the bottom of Settings → Guardrails. `DEFAULT_GUARDRAILS` moved from `@agent-nekko/core` to `@agent-nekko/shared` so the renderer can read it; core re-exports it unchanged.
+
 ### In-chat PR identity and styling (2026-10-02)
 
 - [x] Show the actual GitHub head branch on open PR cards, retain repository/number/target context, and use neutral banner styling with slim borderless actions. Ignore file-read and code-search example URLs during session PR discovery. Core PR and transcript regression tests pass (18 tests), desktop typecheck passes, and before/after card evidence is captured at desktop/mobile widths in both themes. · Done: 2026-10-02

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { DEFAULT_GUARDRAILS } from '@agent-nekko/shared';
 import type { AppSettings, ChatMode, ChatWorktreeInfo, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -810,6 +811,20 @@ function GuardrailsSection({
     setJsonMode(true);
   };
 
+  const defaultById = new Map(DEFAULT_GUARDRAILS.map((r) => [r.id, r]));
+  const isChanged = (g: GuardrailRule) => {
+    const d = defaultById.get(g.id);
+    return !d || d.action !== g.action || d.enabled !== g.enabled || d.pattern !== g.pattern;
+  };
+  const changedCount =
+    settings.guardrails.filter(isChanged).length + DEFAULT_GUARDRAILS.filter((d) => !settings.guardrails.some((g) => g.id === d.id)).length;
+
+  const resetToDefaults = () => {
+    update({ guardrails: DEFAULT_GUARDRAILS.map((r) => ({ ...r })) });
+    setJsonMode(false);
+    setError('');
+  };
+
   const apply = () => {
     try {
       const parsed = JSON.parse(draft) as GuardrailRule[];
@@ -833,7 +848,7 @@ function GuardrailsSection({
         </button>
       </div>
       <p className="mt-1 text-[12px] text-ink-faint">
-        Protections for risky commands. Set each to allow, ask, or deny, or edit the rule set directly as JSON.
+        Protections for risky commands. Set each to allow, ask, or deny, or edit the rule set directly as JSON. The dot marks each rule's default.
       </p>
 
       {jsonMode ? (
@@ -864,16 +879,27 @@ function GuardrailsSection({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <div className="flex rounded-lg p-0.5" style={{ background: 'var(--surface-2)' }}>
-                    {(['allow', 'ask', 'deny'] as GuardrailAction[]).map((a) => (
-                      <button
-                        key={a}
-                        onClick={() => updateGuardrail({ ...g, action: a })}
-                        className="rounded-md px-2 py-1 text-[11px] font-medium"
-                        style={g.action === a ? { background: ACTION_COLORS[a], color: '#fff' } : { color: 'var(--ink-faint)' }}
-                      >
-                        {a}
-                      </button>
-                    ))}
+                    {(['allow', 'ask', 'deny'] as GuardrailAction[]).map((a) => {
+                      const isDefault = defaultById.get(g.id)?.action === a;
+                      return (
+                        <button
+                          key={a}
+                          onClick={() => updateGuardrail({ ...g, action: a })}
+                          title={isDefault ? 'Default' : undefined}
+                          className="relative rounded-md px-2 py-1 text-[11px] font-medium"
+                          style={g.action === a ? { background: ACTION_COLORS[a], color: '#fff' } : { color: 'var(--ink-faint)' }}
+                        >
+                          {a}
+                          {isDefault && (
+                            <span
+                              aria-label="default"
+                              className="absolute right-[3px] top-[3px] h-1.5 w-1.5 rounded-full"
+                              style={{ background: 'currentColor', opacity: 0.9 }}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                   <Toggle on={g.enabled} onChange={(v) => updateGuardrail({ ...g, enabled: v })} />
                 </div>
@@ -882,6 +908,15 @@ function GuardrailsSection({
           ))}
         </div>
       )}
+
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-[12px] text-ink-faint">
+          {changedCount === 0 ? 'Using the default rules.' : `${changedCount} ${changedCount === 1 ? 'rule differs' : 'rules differ'} from the defaults.`}
+        </p>
+        <button className="btn btn-outline py-1 text-[12px]" onClick={resetToDefaults} disabled={changedCount === 0 && settings.guardrails.length === DEFAULT_GUARDRAILS.length}>
+          Reset to defaults
+        </button>
+      </div>
     </section>
   );
 }
