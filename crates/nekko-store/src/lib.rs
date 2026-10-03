@@ -192,6 +192,21 @@ mod tests {
     }
 
     #[test]
+    fn completion_survives_summary_refresh_and_restore() {
+        let (s, dir) = store();
+        let chat = s.create(None).unwrap();
+        let id = chat["id"].as_str().unwrap();
+        assert!(s.summaries()[0].get("archivedAt").is_none());
+        let completed = s.set_options(id, &json!({ "archivedAt": 123 })).unwrap().unwrap();
+        assert_eq!(completed["archivedAt"], 123);
+        assert_eq!(s.summaries()[0]["archivedAt"], 123);
+        assert_eq!(SessionStore::new(&dir).summaries()[0]["archivedAt"], 123);
+        s.set_options(id, &json!({ "archivedAt": null })).unwrap();
+        assert!(s.summaries()[0]["archivedAt"].is_null());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
     fn collects_generated_images_newest_last() {
         let (s, dir) = store();
         let g = json!({ "modelId": "m", "width": 8, "height": 8, "steps": 1, "cfgScale": 1, "seed": 1, "ms": 1 });
