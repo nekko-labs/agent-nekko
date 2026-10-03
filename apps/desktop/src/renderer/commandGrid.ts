@@ -241,7 +241,10 @@ export function seedGrid(state: CommandGridState, sessions: SessionSummary[], te
  * spawned sub-agents included. Returns the same object when nothing changed.
  */
 export function reconcileGrid(state: CommandGridState, sessions: SessionSummary[], terminals: TerminalInfo[], now: number): CommandGridState {
-  if (state.watermark === 0) return seedGrid(state, sessions, terminals, now);
+  // Seed once, and only once the lists have arrived: the view mounts with
+  // empty lists, and seeding against those would watermark every chat that
+  // already exists out of the grid.
+  if (state.watermark === 0) return sessions.length === 0 && terminals.length === 0 ? state : seedGrid(state, sessions, terminals, now);
   const chatById = new Map(sessions.map((s) => [s.id, s]));
   const termIds = new Set(terminals.map((t) => t.id));
   const kept = state.cells.filter((c) => (c.kind === 'chat' ? !!chatById.get(c.refId) && gridChat(chatById.get(c.refId)!) : termIds.has(c.refId)));

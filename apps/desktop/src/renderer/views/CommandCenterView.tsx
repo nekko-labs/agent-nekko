@@ -56,12 +56,17 @@ export function CommandCenterView() {
   const [grid, setGridState] = useState<CommandGridState>(() => loadGridState(typeof localStorage === 'undefined' ? undefined : localStorage));
   const setGrid = (update: (s: CommandGridState) => CommandGridState) => setGridState((s) => update(s));
   useEffect(() => { saveGridState(typeof localStorage === 'undefined' ? undefined : localStorage, grid); }, [grid]);
-  useEffect(() => { setGridState((g) => reconcileGrid(g, sessions, terminals, Date.now())); }, [sessions, terminals]);
+  // Not before both lists have loaded once: reconciling against the empty
+  // lists the view mounts with would seed an empty wall and watermark every
+  // chat that already exists out of it.
+  const [listsReady, setListsReady] = useState(false);
+  useEffect(() => {
+    if (listsReady) setGridState((g) => reconcileGrid(g, sessions, terminals, Date.now()));
+  }, [listsReady, sessions, terminals]);
 
   useEffect(() => {
     window.nekko.getUsageSummary().then(setUsage);
-    refreshSessions();
-    refreshTerminals();
+    Promise.all([refreshSessions(), refreshTerminals()]).finally(() => setListsReady(true));
     window.nekko.listTasks().then(setTasks).catch(() => setTasks([]));
     window.nekko.pendingInput().then(setPending).catch(() => {});
     const off = window.nekko.onTasksUpdated(setTasks);
@@ -288,7 +293,10 @@ function GridToolbar({ grid, setGrid }: { grid: CommandGridState; setGrid: (upda
             )}
           </div>
         </div>
-        <Toggle value={grid.autoAdd} onChange={(v) => setGrid((g) => ({ ...g, autoAdd: v }))} label="Auto-add new agents" title="Every chat that starts, sub-agents included, joins the wall" />
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-soft" title="Every chat that starts, sub-agents included, joins the wall">
+          <Toggle value={grid.autoAdd} onChange={(v) => setGrid((g) => ({ ...g, autoAdd: v }))} label="Auto-add new agents" />
+          <span>Auto-add new agents</span>
+        </label>
         {!grid.insights.show && (
           <button className="btn btn-outline py-1 text-[12px]" onClick={() => setGrid((g) => ({ ...g, insights: { ...g.insights, show: true } }))}>Show insights</button>
         )}

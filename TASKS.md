@@ -240,6 +240,19 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### CC: Command Center as a live grid, and six fixes (added 2026-10-03)
+
+Philip's 2026-10-03 batch: a Command Center that is a wall of live windows instead of a card board, plus the cloud output cap, worktree names, first-launch size, rail order, composer Tab and the workspaces → agents rename. · [spec](SPEC.md#chat--cowork-unified-surface)
+
+- [x] **CC1, Cloud providers are not capped.** The Settings output cap (default 8,192) was sent to every provider as `max_tokens`, so long cloud replies stopped mid-sentence. The host now passes it only for local kinds (`isLocalProvider`); OpenAI-compatible and Codex requests omit the field, and Anthropic (where it is required) sends the model's own ceiling from `claudeMaxOutputTokens` (64k for Opus 4.5+, Sonnet 3.7+, Haiku 4.5+, Fable/Mythos; 32k for Opus 4/4.1 and unknown ids) and learns a lower one from a `max_tokens: X > Y` 400, retrying once. TS and Rust providers both; goldens re-recorded. Settings label says "local models". · Done: 2026-10-03
+- [x] **CC2, Worktrees named in words.** `chat-worktrees.ts` names a checkout `adjective-colour-animal` (or a slug of a chosen title), unique per repository; the Git management list maps a folder to its chat through `session.gitWorktrees` instead of the folder name (old id-named folders still resolve). · Done: 2026-10-03
+- [x] **CC3, First launch at 70% × 80%.** `initialWindowBounds(workArea)` sizes and centres the window before `BrowserWindow` is created (`show: false` until ready-to-show), so there is no visible resize; saved bounds still win on later launches. · Done: 2026-10-03
+- [x] **CC4, Agent above Command Center** in the rail and the phone tab bar; a saved `navOrder` still wins. · Done: 2026-10-03
+- [x] **CC5, Tab indents list lines in the composer**, Shift+Tab outdents (`composerLists.ts`, two spaces, any `-`/`*`/`+`/`1.`/`1)`/task line; off a list line Tab moves focus as before). · Done: 2026-10-03
+- [x] **CC6, Workspaces are called agents** in the Agent tab's UI strings (sidebar header, create menu, empty state, card close, split compass). Code identifiers unchanged. · Done: 2026-10-03
+- [x] **CC7, The grid.** `commandGrid.ts` (pure, tested: auto shape, tracks, rects, seeding, reconcile, persistence) + `CommandGrid.tsx` (absolute-positioned cells from computed rects, draggable column/row dividers with pointer capture, drag-to-swap, plus cell with new agent / new terminal / already-running lists, `PaneSlots` so the chat's header actions land in the cell strip) + `InsightsBox.tsx` (gear menu, top/bottom, auto-fit panel columns, vitals strip) + `EmptyIllustrations.tsx` (agents / automations / insights line art). `SessionBoard.tsx` removed. State in `localStorage` under `nekko.commandGrid`. · Done: 2026-10-03
+- [ ] **CC8, Follow-ups.** Make the grid state a setting (so phone and web share it); a "fit to window" option for the fixed picker that shrinks cells instead of scrolling; drag a cell out of the grid into the Agent tab; keyboard resizing of dividers.
+
 ### MA: Native phone app, remote client + on-device models (added 2026-10-03)
 
 Philip asked (2026-10-03) to continue the phone app as a native iOS/Android client that runs Agent Nekko from remote and also runs local models. That merges PF21 and PF22 into one app (PF22 had planned on-device models as a separate product; the user's call overrides that). · [spec](SPEC.md#your-agent-in-your-pocket-the-ios-and-android-app)

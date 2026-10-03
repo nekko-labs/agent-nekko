@@ -89,6 +89,13 @@ describe('grid contents', () => {
     expect(after.cells.map((c) => c.refId)).toEqual(['b', 'kid']);
   });
 
+  it('waits for the lists to arrive before seeding, so existing chats are not watermarked out', () => {
+    expect(reconcileGrid(DEFAULT_GRID_STATE, [], [], 5_000)).toBe(DEFAULT_GRID_STATE);
+    const seeded = reconcileGrid(DEFAULT_GRID_STATE, [chat('a', { createdAt: 1_000, updatedAt: 4_000 })], [], 5_000);
+    expect(seeded.cells).toEqual([{ kind: 'chat', refId: 'a' }]);
+    expect(seeded.watermark).toBe(5_000);
+  });
+
   it('respects the auto-add switch but still moves the watermark', () => {
     const base = { ...DEFAULT_GRID_STATE, autoAdd: false, watermark: 5_000 };
     const next = reconcileGrid(base, [chat('b', { createdAt: 6_000 })], [], 8_000);
