@@ -253,6 +253,11 @@ Philip's 2026-10-03 batch: a Command Center that is a wall of live windows inste
 - [x] **CC7, The grid.** `commandGrid.ts` (pure, tested: auto shape, tracks, rects, seeding, reconcile, persistence) + `CommandGrid.tsx` (absolute-positioned cells from computed rects, draggable column/row dividers with pointer capture, drag-to-swap, plus cell with new agent / new terminal / already-running lists, `PaneSlots` so the chat's header actions land in the cell strip) + `InsightsBox.tsx` (gear menu, top/bottom, auto-fit panel columns, vitals strip) + `EmptyIllustrations.tsx` (agents / automations / insights line art). `SessionBoard.tsx` removed. State in `localStorage` under `nekko.commandGrid`. · Done: 2026-10-03
 - [ ] **CC8, Follow-ups.** Make the grid state a setting (so phone and web share it); a "fit to window" option for the fixed picker that shrinks cells instead of scrolling; drag a cell out of the grid into the Agent tab; keyboard resizing of dividers.
 
+### Release: notary key pre-flight (added 2026-10-03)
+
+- [x] Fail the macOS release leg in seconds, not after a full signed build, when Apple rejects the App Store Connect key: a read-only `xcrun notarytool history` pre-flight step in `release.yml`, plus a rotation runbook in `docs/signing.md`. Root cause of every failed release since v0.7.1 (2026-09-11): the org-wide `APPLE_API_KEY_ID`/`APPLE_API_KEY_P8` still point at the ASC key revoked on 2026-09-06, so signing succeeded and notarization returned `401 Unauthenticated`. The runner-image keychain failure seen on v0.7.0 cleared itself with image 20260907. Verified locally: the revoked key id reproduces the exact 401, the live key lists submission history. · Done: 2026-10-03
+- [ ] Rotate `APPLE_API_KEY_ID` + `APPLE_API_KEY_P8` on the `nekko-labs` org to the live ASC key and re-run Release at `v0.8.0` (org-admin action). The same rotation repairs hypergate and lightwrite, which share the secrets.
+
 ### MA: Native phone app, remote client + on-device models (added 2026-10-03)
 
 Philip asked (2026-10-03) to continue the phone app as a native iOS/Android client that runs Agent Nekko from remote and also runs local models. That merges PF21 and PF22 into one app (PF22 had planned on-device models as a separate product; the user's call overrides that). · [spec](SPEC.md#your-agent-in-your-pocket-the-ios-and-android-app)
@@ -266,6 +271,10 @@ Philip asked (2026-10-03) to continue the phone app as a native iOS/Android clie
 - [ ] **MA7, Verify on real phones.** Android emulator run of the APK covers the app shell and llama.rn on x86_64; still needed: an iPhone (Metal) and a recent Android phone (OpenCL/Hexagon) for load times, tokens/s and memory pressure with each catalog model, and the camera QR scan.
 - [ ] **MA8, Store release.** EAS project + signing, App Store / Play listings and screenshots, APNs key and FCM service account on the managed relay (see provisioning in the workspace), privacy labels (no data collected; models download from Hugging Face).
 - [ ] **MA9, Follow-ups.** Exclude downloaded models from iOS backup; resume interrupted model downloads (`DownloadTask.savable()`); images in phone chats for vision models; switch a chat's model mid-chat; delete/rename/archive chats from the phone; a "send to my computer" hand-off from a phone chat; remove the Capacitor-only `RelayPairing` and the `window.Capacitor` branches from the desktop renderer now that nothing wraps it.
+
+### Guardrail defaults and reset (2026-10-03)
+
+- [x] Mark each guardrail rule's default action with a dot on its allow/ask/deny control and add a "Reset to defaults" button (plus a differs-from-defaults count) at the bottom of Settings → Guardrails. `DEFAULT_GUARDRAILS` moved from `@agent-nekko/core` to `@agent-nekko/shared` so the renderer can read it; core re-exports it unchanged.
 
 ### In-chat PR identity and styling (2026-10-02)
 
