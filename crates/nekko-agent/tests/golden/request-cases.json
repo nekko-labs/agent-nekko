@@ -84,7 +84,7 @@
         {
           "id": "m1790000000013",
           "role": "user",
-          "content": "You have reached the step limit. Answer now.",
+          "content": "You kept repeating tool calls. Answer now.",
           "createdAt": 1790000000013
         }
       ]

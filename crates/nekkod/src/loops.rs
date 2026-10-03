@@ -21,7 +21,7 @@ use crate::backend::Backend;
 use crate::hub::Hub;
 use nekko_agent::{ProviderConfig, create_provider};
 use nekko_chat::ProviderClient;
-use nekko_loop::{Cancel, DEFAULT_MAX_STEPS, RunOptions, ToolRunner, run_agent};
+use nekko_loop::{Cancel, RunOptions, ToolRunner, run_agent};
 use nekko_tools::{ChangeTracker, CommandLog, ToolCall, ToolContext, approver_fn, is_ported};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -256,7 +256,6 @@ impl Loops {
             system: str_of("system").unwrap_or_default(),
             history: &mut history,
             tools: spec.get("tools").and_then(Value::as_array).cloned().unwrap_or_default(),
-            max_iterations: DEFAULT_MAX_STEPS,
             temperature: opt_f64(spec, "temperature"),
             effort: str_of("effort"),
             think: spec.get("think").and_then(Value::as_bool),

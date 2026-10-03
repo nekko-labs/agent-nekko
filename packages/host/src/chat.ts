@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { ASK_CANCELLED, DEFAULT_MAX_STEPS, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
+import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -48,7 +48,7 @@ import { searchWorkspace } from './workspace.js';
 import { buildSpec } from './spec.js';
 import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
 import { daemonCall } from './engine/daemon.js';
-import { daemonOwns, runAgentViaDaemon } from './daemon-loop.js';
+import { daemonRunsLoops, runAgentViaDaemon } from './daemon-loop.js';
 import { completeText } from './sideband.js';
 import { appendAgentTerminal, finishAgentTerminal } from './terminal.js';
 
@@ -931,7 +931,6 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         },
         temperature: EFFORT_TEMPERATURE[effectiveEffort(settings.effort, opts.modelId)],
         effort: settings.effort ?? 'normal',
-        maxIterations: DEFAULT_MAX_STEPS,
         maxOutputTokens: clampMaxOutputTokens(settings.maxOutputTokens),
         think: session.thinking,
         maxHistoryTurns: opts.maxHistoryTurns,
@@ -945,10 +944,11 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       // Under the engine daemon the run itself is the daemon's (daemon-loop.ts):
       // its tokens reach the UI without passing through this process. A run
       // that reports rate-limit headers stays here, since only this side
-      // records them.
+      // records them. Only a daemon that runs with no tool-step limit gets the
+      // run (daemonRunsLoops): an older one would cap it.
       // NEKKO_AGENT_LOOP=ts keeps every run in this process (a kill switch).
       const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
-      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonOwns(daemon, 'loop:run'));
+      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonRunsLoops(daemon));
       const source = viaDaemon
         ? runAgentViaDaemon(daemon, {
             ...runOptions,
@@ -979,8 +979,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             auth: provider.auth,
           });
         }
-        // How the reply ended, for tuning the step budget and loop detector
-        // (counts only). Older engines omit `stop`; nothing is recorded then.
+        // How the reply ended, for tuning the loop detector (counts only). Older engines omit `stop`; nothing is recorded then.
         if (event.type === 'done' && event.stop && !incognito) {
           recordReply({
             ts: Date.now(),
@@ -989,7 +988,6 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             modelId: opts.modelId,
             steps: event.steps ?? 0,
             stop: event.stop,
-            maxSteps: runOptions.maxIterations ?? DEFAULT_MAX_STEPS,
           });
         }
         if (event.type === 'done' && provider.auth === 'subscription' && provider.tokenKey) {

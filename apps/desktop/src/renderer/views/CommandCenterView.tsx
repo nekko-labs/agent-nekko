@@ -560,33 +560,34 @@ function UsagePanel({ usage }: { usage: UsageSummary | null }) {
   );
 }
 
-const STOP_LABEL: Record<ReplyStop, string> = {
+const STOP_LABEL: Record<ReplyStop | 'other', string> = {
   complete: 'Finished',
-  step_limit: 'Hit step limit',
   loop: 'Stopped looping',
   runaway: 'Runaway output',
+  other: 'Other',
 };
 
 /**
- * How agent replies end and how many tool steps they take, so the step budget
- * (Settings → Agent loop) can be tuned from real runs. Counts only.
+ * How agent replies end and how many tool steps they take. Replies have no
+ * tool-step limit; this shows how long real runs go and how often the loop
+ * detector steps in. Counts only.
  */
 function RepliesPanel({ usage, sessions }: { usage: UsageSummary | null; sessions: SessionSummary[] }) {
   const r = usage?.replies;
   if (!r) return null;
   const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
-  const stops = (Object.keys(STOP_LABEL) as ReplyStop[]).filter((k) => r.byStop[k] > 0);
+  const stops = (Object.keys(STOP_LABEL) as Array<ReplyStop | 'other'>).filter((k) => r.byStop[k] > 0);
   return (
     <div className="card mt-3 p-5">
       <div className="flex items-baseline gap-2">
         <h3 className="text-[13px] font-semibold">Agent replies</h3>
-        <span className="text-[11.5px] text-ink-faint">tool steps per reply, for tuning the step limit</span>
+        <span className="text-[11.5px] text-ink-faint">tool steps per reply</span>
       </div>
       <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-[13px]">
         <div><span className="text-ink-faint">Replies</span> <span className="font-semibold tabular-nums">{r.total.toLocaleString()}</span></div>
         <div><span className="text-ink-faint">Median steps</span> <span className="font-semibold tabular-nums">{r.p50Steps}</span></div>
         <div><span className="text-ink-faint">90th pct</span> <span className="font-semibold tabular-nums">{r.p90Steps}</span></div>
-        <div><span className="text-ink-faint">Most</span> <span className="font-semibold tabular-nums">{r.maxSteps}</span></div>
+        <div><span className="text-ink-faint">Most</span> <span className="font-semibold tabular-nums">{r.mostSteps}</span></div>
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px]">
         {stops.map((k) => (
@@ -601,7 +602,7 @@ function RepliesPanel({ usage, sessions }: { usage: UsageSummary | null; session
             <div key={`${s.ts}_${s.sessionId}`} className="flex justify-between gap-3 text-[12px]">
               <span className="min-w-0 truncate text-ink-soft">{titleOf(s.sessionId)}</span>
               <span className="shrink-0 tabular-nums text-ink-faint">
-                {STOP_LABEL[s.stop]} · {s.steps}/{s.maxSteps === 0 ? 'unlimited' : s.maxSteps} steps · <span className="font-mono">{s.modelId}</span>
+                {STOP_LABEL[s.stop]} · {s.steps} steps · <span className="font-mono">{s.modelId}</span>
               </span>
             </div>
           ))}

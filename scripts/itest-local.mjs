@@ -78,7 +78,6 @@ for await (const ev of runAgent({
   history,
   tools: BUILTIN_TOOLS,
   executeTool,
-  maxIterations: 6,
 })) {
   if (ev.type === 'tool_call') {
     toolsCalled.push(ev.call.name);
@@ -116,7 +115,7 @@ let rounds = 0;
 for await (const ev of runAgent({
   sessionId: 'itest2', provider, model,
   system: 'You use tools to inspect the filesystem. List a directory before reading files.',
-  history: history2, tools: BUILTIN_TOOLS, executeTool, maxIterations: 8,
+  history: history2, tools: BUILTIN_TOOLS, executeTool,
 })) {
   if (ev.type === 'tool_call') { tools2.push(ev.call.name); rounds++; console.log(`  → ${ev.call.name}(${JSON.stringify(ev.call.input)})`); }
   else if (ev.type === 'text') final2 += ev.delta;

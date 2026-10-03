@@ -75,16 +75,16 @@ function stuckProvider(seen: ChatRequest[]): Provider {
 }
 
 describe('runAgent loop detection', () => {
-  it('nudges once, then stops early with an honest note instead of burning the budget', async () => {
+  it('nudges once, then stops early with an honest note instead of looping forever', async () => {
     const seen: ChatRequest[] = [];
     const history: ChatMessage[] = [{ id: 'u', role: 'user', content: 'list PRs', createdAt: 0 }];
     const events = [];
     for await (const e of runAgent({
-      sessionId: 's', provider: stuckProvider(seen), model: 'm', system: 'sys', history, maxIterations: 250,
+      sessionId: 's', provider: stuckProvider(seen), model: 'm', system: 'sys', history,
       executeTool: async (c) => ({ toolCallId: c.id, output: 'HTTP 401', isError: true }),
     })) events.push(e);
 
-    // 3 repeats → nudge, 3 more → wrap up: 6 tool rounds and one wrap-up, not 250.
+    // 3 repeats → nudge, 3 more → wrap up: 6 tool rounds and one wrap-up.
     expect(seen).toHaveLength(LOOP_REPEATS * 2 + 1);
     expect(seen[LOOP_REPEATS].messages.at(-1)?.content).toMatch(/stuck in a loop/);
     expect(seen.at(-1)?.tools).toEqual([]);

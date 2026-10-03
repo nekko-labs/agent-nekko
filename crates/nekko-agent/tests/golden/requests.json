@@ -113,7 +113,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -918,7 +918,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -1764,7 +1764,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -2547,7 +2547,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -3333,7 +3333,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -4139,7 +4139,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -4913,7 +4913,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -5588,7 +5588,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -6410,7 +6410,7 @@
           },
           {
             "role": "user",
-            "content": "You have reached the step limit. Answer now."
+            "content": "You kept repeating tool calls. Answer now."
           }
         ],
         "tools": []
@@ -7399,7 +7399,7 @@
             "content": [
               {
                 "type": "input_text",
-                "text": "You have reached the step limit. Answer now."
+                "text": "You kept repeating tool calls. Answer now."
               }
             ]
           }

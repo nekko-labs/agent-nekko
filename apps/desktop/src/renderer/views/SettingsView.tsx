@@ -271,7 +271,7 @@ export function SettingsView() {
 }
 
 /**
- * Prompts have unlimited tool steps. The output cap saves on blur/Enter.
+ * Replies have no tool-step limit; the output cap saves on blur/Enter.
  */
 function AgentLoopSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {
   const savedOut = clampMaxOutputTokens(settings.maxOutputTokens);
@@ -288,14 +288,10 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
     <section className="card mt-5 p-5">
       <div className="flex items-center gap-2"><RobotIcon className="h-4 w-4" /><h2 className="font-semibold">Agent loop</h2></div>
       <p className="mt-1 text-[12px] text-ink-faint">
-        Tool steps are unlimited for every prompt. Agent Nekko continues until the task is finished or you press Stop.
-        Loop detection still catches repeated tool calls and error streaks; output safeguards remain active.
+        Agent Nekko keeps working until the task is finished or you press Stop. Loop detection catches repeated tool
+        calls and error streaks; output safeguards remain active.
       </p>
       <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
-        <span className="text-[13px]">Tool steps per reply</span>
-        <span className="text-[13px] text-ink-faint">Unlimited</span>
-      </div>
-      <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3 border-t border-line pt-3">
         <div className="min-w-0">
           <span className="text-[13px]">Output cap per response</span>
           <p className="text-[11px] text-ink-faint">

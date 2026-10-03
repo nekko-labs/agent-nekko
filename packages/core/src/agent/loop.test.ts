@@ -24,7 +24,7 @@ function scriptedProvider(rounds: ProviderChunk[][]): Provider {
 }
 
 describe('runAgent', () => {
-  it.each([undefined, 0])('continues beyond the former 1000-step cap with budget %s', async (maxIterations) => {
+  it('continues beyond the former 1000-step cap', async () => {
     const rounds: ProviderChunk[][] = Array.from({ length: 1001 }, (_, i) => [
       { type: 'tool_call', call: { id: `c${i}`, name: 'read_file', input: { path: `file-${i}` } } },
     ]);
@@ -33,7 +33,7 @@ describe('runAgent', () => {
     const events = [];
     for await (const e of runAgent({
       sessionId: 's', provider: scriptedProvider(rounds), model: 'm', system: 'sys',
-      history: [msg('user', 'go')], executeTool, maxIterations,
+      history: [msg('user', 'go')], executeTool,
     })) events.push(e);
     expect(executeTool).toHaveBeenCalledTimes(1001);
     expect(events.at(-1)).toMatchObject({ type: 'done', stop: 'complete', steps: 1001 });
@@ -152,20 +152,21 @@ describe('runAgent', () => {
     expect(history.at(-1)?.content).toContain('empty response');
   });
 
-  it('wraps up with an answer (not an error) when the step budget runs out', async () => {
-    // A model that never stops calling tools while it has any, and answers once
-    // they're withheld, exactly the shape of the wrap-up pass.
-    const toolRounds: ChatRequest[] = [];
+  it('never stops a progressing reply on a step count', async () => {
+    // A model that keeps reading different files for a long time, then answers.
+    // There is no tool-step limit, so every round runs and no wrap-up pass (a
+    // request with the tools withheld) is ever made.
+    const seen: ChatRequest[] = [];
     const provider: Provider = {
       config: { id: 'p', kind: 'openai-compat', label: 'x', baseUrl: 'x', enabled: true },
       listModels: async () => [],
       test: async () => ({ ok: true, message: '' }),
       async *chat(req: ChatRequest) {
-        toolRounds.push(req);
-        if (req.tools?.length) {
-          yield { type: 'tool_call', call: { id: `c${toolRounds.length}`, name: 'read_file', input: {} } } as ProviderChunk;
+        seen.push(req);
+        if (seen.length <= 300) {
+          yield { type: 'tool_call', call: { id: `c${seen.length}`, name: 'read_file', input: { path: `f${seen.length}` } } } as ProviderChunk;
         } else {
-          yield { type: 'text', delta: 'here is what I found so far' } as ProviderChunk;
+          yield { type: 'text', delta: 'all done' } as ProviderChunk;
         }
         yield { type: 'done' } as ProviderChunk;
       },
@@ -173,26 +174,21 @@ describe('runAgent', () => {
     const history: ChatMessage[] = [{ id: 'u', role: 'user', content: 'explore', createdAt: 0 }];
     const events = [];
     for await (const e of runAgent({
-      sessionId: 's', provider, model: 'm', system: 'sys', history, maxIterations: 3,
-      executeTool: async (c) => ({ toolCallId: c.id, output: 'contents' }),
+      sessionId: 's', provider, model: 'm', system: 'sys', history,
+      executeTool: async (c) => ({ toolCallId: c.id, output: `contents of ${c.id}` }),
     })) {
       events.push(e);
     }
-    // The reply survives: no error, a done event, and the model's own summary.
     expect(events.some((e) => e.type === 'error')).toBe(false);
-    expect(events.at(-1)?.type).toBe('done');
-    expect(history.at(-1)?.content).toContain('here is what I found so far');
-    // Plus an honest note about why it stopped, naming the budget.
-    expect(history.at(-1)?.content).toContain('3-step tool limit');
-    // 3 budgeted rounds with tools, then one wrap-up round with none.
-    expect(toolRounds).toHaveLength(4);
-    expect(toolRounds[2].tools?.length).toBeGreaterThan(0);
-    expect(toolRounds[3].tools).toEqual([]);
-    // The wrap-up nudge is never persisted into the transcript.
-    expect(history.filter((m) => m.role === 'user')).toHaveLength(1);
+    expect(events.at(-1)).toMatchObject({ type: 'done', stop: 'complete', steps: 300 });
+    expect(seen).toHaveLength(301);
+    expect(seen.every((r) => (r.tools?.length ?? 0) > 0)).toBe(true);
+    expect(history.at(-1)?.content).toBe('all done');
+    expect(history.some((m) => /limit/i.test(m.content))).toBe(false);
   });
 
-  it('still notes the step limit when the wrap-up pass produces nothing', async () => {
+  it('still notes why it stopped when the loop wrap-up pass produces nothing', async () => {
+    // The same call with the same result, forever: the loop detector ends it.
     const provider: Provider = {
       config: { id: 'p', kind: 'openai-compat', label: 'x', baseUrl: 'x', enabled: true },
       listModels: async () => [],
@@ -205,13 +201,14 @@ describe('runAgent', () => {
     const history: ChatMessage[] = [{ id: 'u', role: 'user', content: 'go', createdAt: 0 }];
     const events = [];
     for await (const e of runAgent({
-      sessionId: 's', provider, model: 'm', system: 'sys', history, maxIterations: 1,
+      sessionId: 's', provider, model: 'm', system: 'sys', history,
       executeTool: async (c) => ({ toolCallId: c.id, output: 'ok' }),
     })) {
       events.push(e);
     }
-    expect(events.at(-1)?.type).toBe('done');
-    expect(history.at(-1)?.content).toContain('1-step tool limit');
+    expect(events.at(-1)).toMatchObject({ type: 'done', stop: 'loop' });
+    expect(history.at(-1)?.content).toContain('Stopped early');
+    expect(history.at(-1)?.content).not.toMatch(/step.*limit/i);
   });
 
   it('cuts a reply off when the model collapses into a repeated phrase', async () => {

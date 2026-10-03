@@ -1,10 +1,9 @@
 /**
  * Tool-loop detection: is the agent still getting anywhere?
  *
- * The step budget (DEFAULT_MAX_STEPS) counts tool round trips, which says
- * nothing about whether they were useful: a long, productive coding turn and a
- * model calling the same failing command forever look the same to a counter.
- * This watches what the calls *did* instead, and trips on the two patterns a
+ * Replies have no tool-step limit: a long, productive coding turn is allowed to
+ * run as long as it needs. What ends a reply that is going nowhere is this
+ * detector, which watches what the calls *did* and trips on the two patterns a
  * stuck loop actually produces:
  *
  * - the same call (tool + input) coming back with the same result several

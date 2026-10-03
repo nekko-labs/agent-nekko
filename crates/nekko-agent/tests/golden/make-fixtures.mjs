@@ -109,7 +109,7 @@ const requests = {
     model: 'm',
     system: 'You are a coding agent.',
     tools: [],
-    messages: [user('Do the thing'), user('You have reached the step limit. Answer now.')],
+    messages: [user('Do the thing'), user('You kept repeating tool calls. Answer now.')],
   },
   images: {
     model: 'gemma-4-12b',

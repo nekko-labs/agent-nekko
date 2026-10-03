@@ -220,7 +220,7 @@ export function getSessionWorkspaceIds(
 export type ChatClearScope = 'today' | 'month' | 'all';
 
 /** How a reply ended (see the `done` event). */
-export type ReplyStop = 'complete' | 'step_limit' | 'loop' | 'runaway';
+export type ReplyStop = 'complete' | 'loop' | 'runaway';
 
 /** Streaming events emitted by the agent loop. */
 export type AgentEvent =
@@ -254,9 +254,9 @@ export type AgentEvent =
       sessionId: string;
       messageId: string;
       /**
-       * Why the reply ended: it finished, it spent the step budget, the loop
-       * detector stopped it (progress.ts), or a stream collapsed into
-       * repetition. Absent from older engines.
+       * Why the reply ended: it finished, the loop detector stopped it
+       * (progress.ts), or a stream collapsed into repetition. Absent from
+       * older engines.
        */
       stop?: ReplyStop;
       /** Tool round trips the reply took. */

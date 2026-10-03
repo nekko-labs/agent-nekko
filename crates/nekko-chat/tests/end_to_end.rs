@@ -74,7 +74,6 @@ fn options<'a>(history: &'a mut Vec<Value>, cancel: Cancel) -> RunOptions<'a> {
         system: "SYSTEM".into(),
         history,
         tools: vec![json!({ "name": "read_file", "description": "Read a file.", "parameters": { "type": "object" } })],
-        max_iterations: 8,
         temperature: None,
         effort: None,
         think: None,

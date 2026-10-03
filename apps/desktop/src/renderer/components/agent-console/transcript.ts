@@ -49,7 +49,7 @@ export function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
     runKey = `${m.id}_${i}_after`;
   };
   // The turn's answer is the last assistant message's own text, even when that
-  // message also made tool calls, a run cut short by the step budget, an abort,
+  // message also made tool calls, a run cut short by the loop detector, an abort,
   // or a model that concludes in the same message as its final tool call.
   // Without this its wrap-up would fold into the collapsed activity group and
   // vanish; mid-run narration still folds in as before.

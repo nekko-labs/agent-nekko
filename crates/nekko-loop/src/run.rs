@@ -1,6 +1,8 @@
 //! `runAgent` (packages/core/src/agent/loop.ts): stream a model response, run
 //! any tool calls it asked for, feed the results back, and repeat until it
-//! stops calling tools, then report the events a chat draws from.
+//! stops calling tools, then report the events a chat draws from. There is no
+//! tool-step limit: a reply ends when the model answers, a safeguard (loop
+//! detector, runaway stream) trips, a stream fails, or the run is cancelled.
 //!
 //! The loop is generic over the model client and the tool runner, so it runs
 //! against the real providers (`nekko-agent`) and tools (`nekko-tools`) and,
@@ -110,8 +112,6 @@ pub struct RunOptions<'a> {
     /// The transcript so far; the loop appends its messages to it.
     pub history: &'a mut Vec<Value>,
     pub tools: Vec<Value>,
-    /// Optional internal round-trip budget; 0 (default) means unlimited.
-    pub max_iterations: usize,
     pub temperature: Option<f64>,
     pub effort: Option<String>,
     pub think: Option<bool>,
@@ -121,13 +121,9 @@ pub struct RunOptions<'a> {
     pub cancel: Cancel,
 }
 
-/// `DEFAULT_MAX_STEPS`.
-pub const DEFAULT_MAX_STEPS: usize = 0;
-
 /// How much of a looping stream is kept (`RUNAWAY_KEEP_CHARS`, UTF-16 units).
 const RUNAWAY_KEEP_CHARS: usize = 4_000;
 
-const WRAP_UP_PROMPT: &str = "You have reached this reply's tool-step limit, so no further tool calls are possible. Answer now with what you already know: what you did, what you found, and the concrete next steps you would take. Do not ask to run more tools.";
 const EMPTY_NUDGE: &str = "Please continue and give your answer.";
 const STALLED: &str =
     "_The model returned an empty response and stopped. It may have run out of steam: try again, or rephrase._";
@@ -339,19 +335,20 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
         let mut loops = LoopDetector::default();
         let mut loop_extra: Vec<Value> = Vec::new();
         let mut nudged = false;
-        let mut loop_reason: Option<String> = None;
         let mut steps: usize = 0;
+        let mut first_pass = true;
 
-        for iter in 0.. {
-            if self.opts.max_iterations != 0 && iter >= self.opts.max_iterations {
-                break;
-            }
+        let loop_reason = loop {
             if self.opts.cancel.is_cancelled() {
                 self.event("error", json!({ "message": "Aborted" }));
                 return;
             }
             let mut turn = Turn::default();
-            let first = if iter == 0 { std::mem::take(&mut resume_extra) } else { std::mem::take(&mut loop_extra) };
+            let first = if std::mem::take(&mut first_pass) {
+                std::mem::take(&mut resume_extra)
+            } else {
+                std::mem::take(&mut loop_extra)
+            };
             let mut result = self.stream(&mut turn, first, true).await;
             // An empty response gets one retry with a nudge, so the turn does not
             // silently stall (common with some local models mid-loop).
@@ -422,38 +419,26 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
 
             if let Some(reason) = tripped {
                 if nudged {
-                    loop_reason = Some(reason);
-                    break;
+                    break reason;
                 }
                 nudged = true;
                 loops.reset();
                 loop_extra = vec![user_nudge(&loop_nudge(&reason))];
             }
-        }
+        };
 
-        // Budget spent, or the loop detector tripped twice: one last pass with
-        // the tools withheld, so the work comes back as an answer rather than an
-        // error.
+        // The loop detector tripped twice: one last pass with the tools
+        // withheld, so the work comes back as an answer rather than an error.
         if self.opts.cancel.is_cancelled() {
             self.event("error", json!({ "message": "Aborted" }));
             return;
         }
         let mut wrap = Turn::default();
-        let prompt = if loop_reason.is_some() { LOOP_WRAP_UP_PROMPT } else { WRAP_UP_PROMPT };
-        if let Err(e) = self.stream(&mut wrap, vec![user_nudge(prompt)], false).await {
+        if let Err(e) = self.stream(&mut wrap, vec![user_nudge(LOOP_WRAP_UP_PROMPT)], false).await {
             self.end_interrupted(&wrap, e);
             return;
         }
-        let note = if wrap.runaway {
-            RUNAWAY_NOTE.to_string()
-        } else if let Some(reason) = &loop_reason {
-            loop_note(reason)
-        } else {
-            format!(
-                "_Stopped at this reply's {}-step tool limit. Ask me to continue and I'll pick up from here (or raise the limit in Settings → Agent loop)._",
-                self.opts.max_iterations
-            )
-        };
+        let note = if wrap.runaway { RUNAWAY_NOTE.to_string() } else { loop_note(&loop_reason) };
         let wrap_text = js::trim(&if wrap.runaway { trim_runaway(&wrap.text) } else { wrap.text.clone() }).to_string();
         let mut m = Map::new();
         m.insert("id".into(), json!(id("msg")));
@@ -469,8 +454,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
         m.insert("createdAt".into(), json!(now_ms()));
         let message_id = m["id"].clone();
         self.opts.history.push(Value::Object(m));
-        let stop = if loop_reason.is_some() { "loop" } else { "step_limit" };
-        self.event("done", json!({ "messageId": message_id, "stop": stop, "steps": steps }));
+        self.event("done", json!({ "messageId": message_id, "stop": "loop", "steps": steps }));
     }
 }
 
