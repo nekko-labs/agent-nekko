@@ -24,6 +24,21 @@ function scriptedProvider(rounds: ProviderChunk[][]): Provider {
 }
 
 describe('runAgent', () => {
+  it.each([undefined, 0])('continues beyond the former 1000-step cap with budget %s', async (maxIterations) => {
+    const rounds: ProviderChunk[][] = Array.from({ length: 1001 }, (_, i) => [
+      { type: 'tool_call', call: { id: `c${i}`, name: 'read_file', input: { path: `file-${i}` } } },
+    ]);
+    rounds.push([{ type: 'text', delta: 'finished' }]);
+    const executeTool = vi.fn(async (c: ToolCall): Promise<ToolResult> => ({ toolCallId: c.id, output: c.id }));
+    const events = [];
+    for await (const e of runAgent({
+      sessionId: 's', provider: scriptedProvider(rounds), model: 'm', system: 'sys',
+      history: [msg('user', 'go')], executeTool, maxIterations,
+    })) events.push(e);
+    expect(executeTool).toHaveBeenCalledTimes(1001);
+    expect(events.at(-1)).toMatchObject({ type: 'done', stop: 'complete', steps: 1001 });
+  });
+
   it('streams text and completes when no tools are called', async () => {
     const provider = scriptedProvider([
       [{ type: 'text', delta: 'Hello' }, { type: 'text', delta: ' world' }, { type: 'done' }],

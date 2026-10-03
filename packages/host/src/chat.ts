@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { ASK_CANCELLED, DEFAULT_MAX_STEPS, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, clampMaxSteps, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
+import { ASK_CANCELLED, DEFAULT_MAX_STEPS, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -914,7 +914,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         },
         temperature: EFFORT_TEMPERATURE[effectiveEffort(settings.effort, opts.modelId)],
         effort: settings.effort ?? 'normal',
-        maxIterations: clampMaxSteps(settings.maxSteps),
+        maxIterations: DEFAULT_MAX_STEPS,
         maxOutputTokens: clampMaxOutputTokens(settings.maxOutputTokens),
         think: session.thinking,
         maxHistoryTurns: opts.maxHistoryTurns,

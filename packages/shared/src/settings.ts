@@ -176,8 +176,8 @@ export interface AppSettings {
   /** Sub-agent orchestration strategy + bounds. */
   orchestration?: import('./orchestration.js').OrchestrationSettings;
   /**
-   * Tool steps one reply may take before the agent wraps up (runaway-loop
-   * backstop). Undefined = the core default. See MAX_STEPS_RANGE.
+   * Legacy tool-step setting, retained for settings-file compatibility only.
+   * Ignored: all prompts run without a tool-step cap.
    */
   maxSteps?: number;
   /**
@@ -224,19 +224,9 @@ export interface AppSettings {
   messaging?: import('./messaging.js').MessagingSettings;
 }
 
-/**
- * Tool steps one reply may take before the agent wraps up. Real agentic work
- * (explore, edit, verify) routinely runs dozens of tool calls, so this is a
- * runaway-loop backstop rather than a work limit: reaching it makes the agent
- * answer with what it has instead of failing the reply.
- *
- * Raised from 80 to 250, then to 1000, after long multi-part coding turns kept
- * stopping mid-progress. A stuck loop no longer needs the count to catch it:
- * the loop detector (packages/core/src/agent/progress.ts) trips on repeated
- * calls and error streaks, so this is a last-resort ceiling rather than the
- * guard. Keep in sync with `crates/nekko-loop/src/run.rs`.
- */
-export const DEFAULT_MAX_STEPS = 1000;
+/** Prompts have no tool-step cap. Zero is the wire-safe unlimited sentinel.
+ * Keep in sync with `crates/nekko-loop/src/run.rs`. */
+export const DEFAULT_MAX_STEPS = 0;
 
 /** Bounds for the per-reply tool-step budget (Settings → Agent loop). */
 export const MAX_STEPS_RANGE = { min: 5, max: 5000 } as const;
@@ -288,7 +278,7 @@ export interface ReplyRecord {
   /** Tool round trips the reply took. */
   steps: number;
   stop: import('./chat.js').ReplyStop;
-  /** The step budget in force for this reply. */
+  /** The step budget in force for this reply; 0 means unlimited. */
   maxSteps: number;
 }
 

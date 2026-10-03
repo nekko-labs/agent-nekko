@@ -256,7 +256,7 @@ impl Loops {
             system: str_of("system").unwrap_or_default(),
             history: &mut history,
             tools: spec.get("tools").and_then(Value::as_array).cloned().unwrap_or_default(),
-            max_iterations: spec.get("maxIterations").and_then(Value::as_u64).map_or(DEFAULT_MAX_STEPS, |n| n as usize),
+            max_iterations: DEFAULT_MAX_STEPS,
             temperature: opt_f64(spec, "temperature"),
             effort: str_of("effort"),
             think: spec.get("think").and_then(Value::as_bool),

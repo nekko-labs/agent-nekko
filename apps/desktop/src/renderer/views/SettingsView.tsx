@@ -5,7 +5,7 @@ import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
 import { ThemePresetPicker } from '../components/ThemePresetPicker.js';
-import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, DEFAULT_MAX_STEPS, MAX_STEPS_RANGE, clampMaxSteps, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION, updateChecks, DEFAULT_TURN_WRAPPER } from '@agent-nekko/shared';
+import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION, updateChecks, DEFAULT_TURN_WRAPPER } from '@agent-nekko/shared';
 import { ShieldIcon, SunIcon, TrashIcon, RobotIcon, WandIcon } from '../icons.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
 import { useT, LANGUAGES } from '../i18n.js';
@@ -289,21 +289,9 @@ export function SettingsView() {
 }
 
 /**
- * The agent loop's step budget: how many tool steps one reply may take before
- * Agent Nekko stops and answers with what it has. Committed on blur/Enter (not per
- * keystroke) so a half-typed number never becomes the live setting.
+ * Prompts have unlimited tool steps. The output cap saves on blur/Enter.
  */
 function AgentLoopSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {
-  const savedSteps = settings.maxSteps ?? DEFAULT_MAX_STEPS;
-  const [steps, setSteps] = useState(String(savedSteps));
-  useEffect(() => { setSteps(String(settings.maxSteps ?? DEFAULT_MAX_STEPS)); }, [settings.maxSteps]);
-
-  const commitSteps = () => {
-    const next = clampMaxSteps(Number(steps)) ?? DEFAULT_MAX_STEPS;
-    setSteps(String(next));
-    if (next !== savedSteps) update({ maxSteps: next });
-  };
-
   const savedOut = clampMaxOutputTokens(settings.maxOutputTokens);
   const [out, setOut] = useState(String(savedOut));
   useEffect(() => { setOut(String(clampMaxOutputTokens(settings.maxOutputTokens))); }, [settings.maxOutputTokens]);
@@ -318,28 +306,12 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
     <section className="card mt-5 p-5">
       <div className="flex items-center gap-2"><RobotIcon className="h-4 w-4" /><h2 className="font-semibold">Agent loop</h2></div>
       <p className="mt-1 text-[12px] text-ink-faint">
-        A long task takes many tool steps (read, search, edit, verify). These are the backstops that catch a loop
-        going nowhere, not work limits: when a reply reaches one, Agent Nekko stops and answers with what it found plus
-        the next steps, so nothing is thrown away.
+        Tool steps are unlimited for every prompt. Agent Nekko continues until the task is finished or you press Stop.
+        Loop detection still catches repeated tool calls and error streaks; output safeguards remain active.
       </p>
       <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
-        <div className="min-w-0">
-          <span className="text-[13px]">Tool steps per reply</span>
-          <p className="text-[11px] text-ink-faint">
-            {MAX_STEPS_RANGE.min}–{MAX_STEPS_RANGE.max}. Default {DEFAULT_MAX_STEPS}.
-          </p>
-        </div>
-        <input
-          type="number"
-          className="input max-w-[110px] py-1.5 tabular-nums"
-          min={MAX_STEPS_RANGE.min}
-          max={MAX_STEPS_RANGE.max}
-          value={steps}
-          aria-label="Tool steps per reply"
-          onChange={(e) => setSteps(e.target.value)}
-          onBlur={commitSteps}
-          onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-        />
+        <span className="text-[13px]">Tool steps per reply</span>
+        <span className="text-[13px] text-ink-faint">Unlimited</span>
       </div>
       <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3 border-t border-line pt-3">
         <div className="min-w-0">

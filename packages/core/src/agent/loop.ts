@@ -17,7 +17,7 @@ export interface RunAgentOptions {
   /** Executes a tool call in the host and returns its result. */
   executeTool: (call: ToolCall) => Promise<ToolResult>;
   signal?: AbortSignal;
-  /** Max tool-use round trips before wrapping up (see DEFAULT_MAX_STEPS). */
+  /** Optional internal round-trip budget; 0 (default) means unlimited. Prompts do not set a budget. */
   maxIterations?: number;
   /** Sampling temperature (from the effort setting). */
   temperature?: number;
@@ -275,7 +275,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   /** Tool round trips actually taken this reply (reported on `done`). */
   let steps = 0;
 
-  for (let iter = 0; iter < maxIterations; iter++) {
+  for (let iter = 0; maxIterations === 0 || iter < maxIterations; iter++) {
     if (opts.signal?.aborted) {
       yield { type: 'error', sessionId: opts.sessionId, message: 'Aborted' };
       return;
