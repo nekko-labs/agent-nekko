@@ -10,6 +10,7 @@ import { clearLiveRun, getLiveRun, takeFinishedRun, useLiveRun, type LiveRun } f
 import { getCachedSession, loadSession, putCachedSession } from '../sessionCache.js';
 import { usePaneVisible } from '../paneVisibility.js';
 import { afterPaint } from '../afterPaint.js';
+import { chatWelcomeState } from './agent-console/chatWelcome.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { indentListSelection } from '../composerLists.js';
@@ -1837,6 +1838,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const columnWidth = Math.max(0, (paneWidth || 800) * (contentWidth.includes('75%') ? 0.75 : 1) - 32);
   const estimate = useCallback((row: TranscriptRow) => estimateRowHeight(row, columnWidth), [columnWidth]);
   const hasLive = !!(held || getLiveRun(sessionId));
+  const welcomeState = chatWelcomeState({ messages: session?.messages.length ?? 0, streaming, hasLive, hasProvider, modelId, imageMode });
   const onCompacted = useCallback(() => {
     refreshCtxRef.current();
     loadSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
@@ -1934,7 +1936,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             className={`${contentWidth} space-y-5`}
             onPinnedChange={onPinnedChange}
             onGrowWhileUnpinned={onGrowWhileUnpinned}
-            header={!session?.messages.length && !hasLive ? (
+            header={welcomeState.welcome ? (
 
               <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
                 <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
@@ -1953,7 +1955,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 {!hasProvider ? (
                   <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
                 ) : null}
-                {hasProvider && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
+                {welcomeState.modelChoice && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
                   <div className="flex items-center justify-between gap-2 px-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Choose a model</span>
                     {session && <ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
