@@ -229,7 +229,7 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 > **What v1.0 means**: the polished, installable **OSS product** (Desktop + self-hosted web + Docker), every differentiator and IDE surface working and verified, the two new visual/editing features landed, and clean signed installs + npm publish. **Agent Nekko Cloud (paid)** runs as a *parallel track* (T31/T32/T34) and does **not** gate the OSS v1.0 launch.
 
-**Done toward v1.0**: core engine + agent loop, all providers + local auto-discovery, the differentiators (Context Inspector, guardrails, memory), workbench + terminals + sub-agents + Command Center, spec-driven dev + orchestration + optimize + auto-mode + refined design system, the **IDE-surfaces wave** (file viewer/editor, browser pane, file explorer, diff/approval, hoverable inspector, prompt analyzer, T66), **inline editor comments (T72)** and the **Design board (T73)**, and all distribution editions (desktop release through **v0.7.1** (Windows/Linux; macOS pending notary creds), web/npx, Docker, mobile shells, relay-mediated push).
+**Done toward v1.0**: core engine + agent loop, all providers + local auto-discovery, the differentiators (Context Inspector, guardrails, memory), workbench + terminals + sub-agents + Command Center, spec-driven dev + orchestration + optimize + auto-mode + refined design system, the **IDE-surfaces wave** (file viewer/editor, browser pane, file explorer, diff/approval, hoverable inspector, prompt analyzer, T66), **inline editor comments (T72)** and the **Design board (T73)**, and all distribution editions (desktop release through **v0.8.0** (Windows/Linux/macOS, signed and notarized), web/npx, Docker, mobile shells, relay-mediated push).
 
 **Remaining for v1.0:**
 
@@ -243,7 +243,7 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 ### Release: notary key pre-flight (added 2026-10-03)
 
 - [x] Fail the macOS release leg in seconds, not after a full signed build, when Apple rejects the App Store Connect key: a read-only `xcrun notarytool history` pre-flight step in `release.yml`, plus a rotation runbook in `docs/signing.md`. Root cause of every failed release since v0.7.1 (2026-09-11): the org-wide `APPLE_API_KEY_ID`/`APPLE_API_KEY_P8` still point at the ASC key revoked on 2026-09-06, so signing succeeded and notarization returned `401 Unauthenticated`. The runner-image keychain failure seen on v0.7.0 cleared itself with image 20260907. Verified locally: the revoked key id reproduces the exact 401, the live key lists submission history. · Done: 2026-10-03
-- [ ] Rotate `APPLE_API_KEY_ID` + `APPLE_API_KEY_P8` on the `nekko-labs` org to the live ASC key and re-run Release at `v0.8.0` (org-admin action). The same rotation repairs hypergate and lightwrite, which share the secrets.
+- [x] Rotate `APPLE_API_KEY_ID` + `APPLE_API_KEY_P8` on the `nekko-labs` org to the live ASC key and re-run Release at `v0.8.0`. Rotated 2026-10-03 13:22Z; the first re-run notarized but could not upload because the release had been published by hand on 2026-10-01 (electron-builder only uploads into a draft), so the release was set back to draft and re-run. v0.8.0 now carries `AgentNekko-0.8.0-arm64.dmg`/`.zip` + `latest-mac.yml`, verified `source=Notarized Developer ID`. Same rotation repairs hypergate and lightwrite. Follow-up for the automation PR: flip an already-published release back to draft before building. · Done: 2026-10-03
 
 ### MA: Native phone app, remote client + on-device models (added 2026-10-03)
 
