@@ -246,7 +246,8 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 ### Completed-session PR follow-up (2026-10-02)
 
 - [x] Correct fallback shell process-group launching and preserve Windows quoted arguments; format loop-detector Rust sources to satisfy CI. Host routing tests and typecheck plus Rust formatting check verified locally. · Done: 2026-10-02
-- [ ] Publish completion screenshots/recording to the PR and verify native iOS/Android visuals before marking the completion PR ready.
+- [ ] Publish completion screenshots/recording to the PR and verify native iOS/Android visuals. User explicitly waived these remaining merge gates and authorized bypassing CI on 2026-10-03; they remain unverified follow-ups, not completed checks.
+- [x] Update guardrail golden-test mocks to intercept execFile so destructive fixture commands never execute; preserve prior shell error formatting and invalid-command validation. All 470 host tests and host typecheck pass locally. · Done: 2026-10-03
 
 
 ### Server browser, chat chrome and tray (added 2026-10-01)
