@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
+import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -480,7 +480,7 @@ export async function previewContext(sessionId: string, attachedPaths: string[])
     indexSnippets: [],
     // The whole message, not just its text: reasoning and tool traffic are
     // replayed to the model too, and on a long run they are most of the window.
-    history: session?.messages ?? [],
+    history: sinceCompaction(session?.messages ?? []),
     systemText,
     contextWindow: modelContextWindow(session?.modelId),
     excluded: new Set(session?.contextPrefs?.excluded ?? []),
@@ -763,8 +763,13 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     // that never got to run. Nothing is appended and nothing is dropped.
     repairInterruptedHistory(session.messages);
   } else if (opts.regenerate) {
-    // Re-answer the last user turn: drop trailing assistant/tool messages.
-    while (session.messages.length && session.messages[session.messages.length - 1].role !== 'user') {
+    // Re-answer the last user turn: drop trailing assistant/tool messages, but
+    // never a compaction summary, which stands in for everything before it.
+    while (
+      session.messages.length &&
+      session.messages[session.messages.length - 1].role !== 'user' &&
+      !session.messages[session.messages.length - 1].compaction
+    ) {
       session.messages.pop();
     }
   } else {

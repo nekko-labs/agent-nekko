@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { navOrder, moveNav } from './nav-order.js';
 import { useStore, viewEnabled, type View } from './store.js';
 import { startLiveRuns } from './liveRuns.js';
+import { startCompactionStatus } from './compactionStatus.js';
 import { useT } from './i18n.js';
 import { SHORTCUTS } from './shortcuts.js';
 import { hasAppChrome } from './chrome.js';
@@ -101,6 +102,7 @@ export function App() {
   // pane is a view of this; without it, switching workspaces unmounted the only
   // listener and the run's output went nowhere until the next event arrived.
   useEffect(() => startLiveRuns(), []);
+  useEffect(() => startCompactionStatus(), []);
 
   // Archived chats past the retention window are deleted at launch and every
   // few hours after, whichever view the app opens on, so a long-running window

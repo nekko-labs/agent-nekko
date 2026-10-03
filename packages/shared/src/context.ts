@@ -60,6 +60,8 @@ export interface HistoryMessage {
   toolCalls?: Array<{ name?: string; input?: unknown }>;
   /** A tool's output, under the field name `ToolResult` actually uses. */
   toolResult?: { output?: string };
+  /** Set on a compaction summary; nothing before it is sent any more. */
+  compaction?: unknown;
 }
 
 /**
@@ -83,10 +85,30 @@ export function historyText(m: HistoryMessage): string {
   return parts.filter(Boolean).join('\n');
 }
 
+/** Index of the latest compaction summary in a transcript, or -1. */
+export function latestCompactionIndex(messages: Array<{ compaction?: unknown }>): number {
+  for (let i = messages.length - 1; i >= 0; i--) if (messages[i].compaction) return i;
+  return -1;
+}
+
+/**
+ * The part of a transcript a model is still sent: the latest compaction
+ * summary and everything after it, or the whole transcript when it was never
+ * compacted.
+ */
+export function sinceCompaction<T extends { compaction?: unknown }>(messages: T[]): T[] {
+  const i = latestCompactionIndex(messages);
+  return i < 0 ? messages : messages.slice(i);
+}
+
+/** How a compaction summary opens when it is sent to a model. */
+export const COMPACTION_PREAMBLE = 'Summary of the earlier conversation, compacted to save context:';
+
 /** Estimated tokens a transcript occupies when replayed to the model. */
 export function estimateTranscriptTokens(messages: HistoryMessage[]): number {
-  if (messages.length === 0) return 0;
-  return estimateTokens(messages.map(historyText).join('\n'));
+  const sent = sinceCompaction(messages);
+  if (sent.length === 0) return 0;
+  return estimateTokens(sent.map(historyText).join('\n'));
 }
 
 /** JSON for token counting. A value that cannot be serialized (a cycle) still

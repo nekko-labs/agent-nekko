@@ -10560,5 +10560,157 @@
     "seed": 0
    }
   }
+ ],
+ "compacted": [
+  {
+   "name": "never compacted",
+   "history": [
+    {
+     "id": "u1",
+     "role": "user",
+     "content": "hi",
+     "createdAt": 1
+    },
+    {
+     "id": "a1",
+     "role": "assistant",
+     "content": "hello",
+     "createdAt": 1
+    }
+   ]
+  },
+  {
+   "name": "summary then user",
+   "history": [
+    {
+     "id": "u1",
+     "role": "user",
+     "content": "old",
+     "createdAt": 1
+    },
+    {
+     "id": "a1",
+     "role": "assistant",
+     "content": "old answer",
+     "createdAt": 1
+    },
+    {
+     "id": "c2",
+     "role": "assistant",
+     "content": "S1",
+     "createdAt": 2,
+     "compaction": {
+      "summarized": 2
+     }
+    },
+    {
+     "id": "u3",
+     "role": "user",
+     "content": "next",
+     "createdAt": 3,
+     "images": [
+      "data:x"
+     ]
+    },
+    {
+     "id": "a3",
+     "role": "assistant",
+     "content": "ok",
+     "createdAt": 3
+    }
+   ]
+  },
+  {
+   "name": "summary last",
+   "history": [
+    {
+     "id": "u1",
+     "role": "user",
+     "content": "old",
+     "createdAt": 1
+    },
+    {
+     "id": "c2",
+     "role": "assistant",
+     "content": "S1",
+     "createdAt": 2,
+     "compaction": {
+      "summarized": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "two summaries",
+   "history": [
+    {
+     "id": "c1",
+     "role": "assistant",
+     "content": "S1",
+     "createdAt": 1,
+     "compaction": {
+      "summarized": 4
+     }
+    },
+    {
+     "id": "u2",
+     "role": "user",
+     "content": "mid",
+     "createdAt": 2
+    },
+    {
+     "id": "c3",
+     "role": "assistant",
+     "content": "S2",
+     "createdAt": 3,
+     "compaction": {
+      "summarized": 2
+     }
+    },
+    {
+     "id": "u4",
+     "role": "user",
+     "content": "now",
+     "createdAt": 4
+    }
+   ]
+  },
+  {
+   "name": "summary then tool traffic",
+   "history": [
+    {
+     "id": "c1",
+     "role": "assistant",
+     "content": "S1",
+     "createdAt": 1,
+     "compaction": {
+      "summarized": 3
+     }
+    },
+    {
+     "id": "a2",
+     "role": "assistant",
+     "content": "",
+     "createdAt": 2,
+     "toolCalls": [
+      {
+       "id": "t",
+       "name": "read_file",
+       "input": {}
+      }
+     ]
+    },
+    {
+     "id": "t3",
+     "role": "tool",
+     "content": "",
+     "createdAt": 3,
+     "toolResult": {
+      "toolCallId": "t",
+      "output": "x"
+     }
+    }
+   ]
+  }
  ]
 }

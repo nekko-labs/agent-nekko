@@ -48,3 +48,41 @@ pub fn as_seen_by_chat_model(m: &Value) -> Value {
     ));
     out
 }
+
+/// `COMPACTION_PREAMBLE` (context.ts).
+pub const COMPACTION_PREAMBLE: &str = "Summary of the earlier conversation, compacted to save context:";
+
+/// `latestCompactionIndex` (context.ts): the last message marked `compaction`.
+pub fn latest_compaction_index(history: &[Value]) -> Option<usize> {
+    history.iter().rposition(|m| js::truthy(m.get("compaction")))
+}
+
+/// `fromLatestCompaction` (loop.ts): the latest compaction summary and what
+/// follows it, the summary folded into the next user message (or a user
+/// message of its own), so the history still opens on a user turn.
+pub fn from_latest_compaction(history: &[Value]) -> Vec<Value> {
+    let Some(at) = latest_compaction_index(history) else { return history.to_vec() };
+    let marker = &history[at];
+    let summary = format!("{COMPACTION_PREAMBLE}\n\n{}", marker.get("content").and_then(Value::as_str).unwrap_or(""));
+    let rest = &history[at + 1..];
+    let mut out = Vec::with_capacity(rest.len() + 1);
+    match rest.first() {
+        Some(first) if first.get("role").and_then(Value::as_str) == Some("user") => {
+            let mut merged = first.clone();
+            let content = first.get("content").and_then(Value::as_str).unwrap_or("");
+            merged["content"] = Value::String(format!("{summary}\n\n---\n\n{content}"));
+            out.push(merged);
+            out.extend_from_slice(&rest[1..]);
+        }
+        _ => {
+            let mut m = serde_json::Map::new();
+            m.insert("id".into(), marker.get("id").cloned().unwrap_or(Value::Null));
+            m.insert("role".into(), Value::String("user".into()));
+            m.insert("content".into(), Value::String(summary));
+            m.insert("createdAt".into(), marker.get("createdAt").cloned().unwrap_or(Value::Null));
+            out.push(Value::Object(m));
+            out.extend_from_slice(rest);
+        }
+    }
+    out
+}

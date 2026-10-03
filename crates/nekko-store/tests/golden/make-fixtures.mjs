@@ -37,6 +37,13 @@ const sessions = [
   ]),
   base('s_many', Array.from({ length: 20 }, (_, i) => msg(`m${i}`, i % 2 ? 'assistant' : 'user', i % 5 === 4 ? '   ' : `turn ${i} 😀`))),
   base('s_stalled', [msg('u1', 'user', 'go'), msg('a1', 'assistant', 'partial answer', { interrupted: true })]),
+  base('s_compacted', [
+    msg('u1', 'user', 'old '.repeat(400)),
+    msg('a1', 'assistant', 'old answer '.repeat(400)),
+    msg('c1', 'assistant', 'Summary of the old work.', { compaction: { summarized: 2 } }),
+    msg('u2', 'user', 'carry on'),
+    msg('a2', 'assistant', 'Carrying on.'),
+  ]),
   base('s_not_stalled', [msg('u1', 'user', 'go'), msg('a1', 'assistant', 'partial', { interrupted: true }), msg('u2', 'user', 'again')]),
   base('s_image', [
     msg('u1', 'user', 'a lighthouse at sunset'),

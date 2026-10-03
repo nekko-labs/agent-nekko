@@ -486,5 +486,100 @@
     "seed": 0
    }
   }
+ ],
+ "compacted": [
+  {
+   "name": "never compacted",
+   "sent": [
+    {
+     "id": "u1",
+     "role": "user",
+     "content": "hi",
+     "createdAt": 1
+    },
+    {
+     "id": "a1",
+     "role": "assistant",
+     "content": "hello",
+     "createdAt": 1
+    }
+   ]
+  },
+  {
+   "name": "summary then user",
+   "sent": [
+    {
+     "id": "u3",
+     "role": "user",
+     "content": "Summary of the earlier conversation, compacted to save context:\n\nS1\n\n---\n\nnext",
+     "createdAt": 3,
+     "images": [
+      "data:x"
+     ]
+    },
+    {
+     "id": "a3",
+     "role": "assistant",
+     "content": "ok",
+     "createdAt": 3
+    }
+   ]
+  },
+  {
+   "name": "summary last",
+   "sent": [
+    {
+     "id": "c2",
+     "role": "user",
+     "content": "Summary of the earlier conversation, compacted to save context:\n\nS1",
+     "createdAt": 2
+    }
+   ]
+  },
+  {
+   "name": "two summaries",
+   "sent": [
+    {
+     "id": "u4",
+     "role": "user",
+     "content": "Summary of the earlier conversation, compacted to save context:\n\nS2\n\n---\n\nnow",
+     "createdAt": 4
+    }
+   ]
+  },
+  {
+   "name": "summary then tool traffic",
+   "sent": [
+    {
+     "id": "c1",
+     "role": "user",
+     "content": "Summary of the earlier conversation, compacted to save context:\n\nS1",
+     "createdAt": 1
+    },
+    {
+     "id": "a2",
+     "role": "assistant",
+     "content": "",
+     "createdAt": 2,
+     "toolCalls": [
+      {
+       "id": "t",
+       "name": "read_file",
+       "input": {}
+      }
+     ]
+    },
+    {
+     "id": "t3",
+     "role": "tool",
+     "content": "",
+     "createdAt": 3,
+     "toolResult": {
+      "toolCallId": "t",
+      "output": "x"
+     }
+    }
+   ]
+  }
  ]
 }

@@ -668,7 +668,7 @@ export function WorkspacesView() {
                               if (useStore.getState().sessions.some((chat) => chat.id === s.id && chat.archivedAt)) celebrateCompletion(rect);
                             }}
                           >
-                            <CheckIcon className="h-3 w-3" />
+                            <CheckIcon className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       ))}

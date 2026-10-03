@@ -44,6 +44,13 @@ export interface ChatMessage {
    * than discarded, and the chat offers to resume from here.
    */
   interrupted?: boolean;
+  /**
+   * This message is a compaction summary: it stands in for every message
+   * before it. The earlier messages stay in the transcript so the chat can
+   * still show them, but from here on a model is sent this summary and what
+   * follows it, never what came before (`sinceCompaction`).
+   */
+  compaction?: { summarized: number };
   createdAt: number;
 }
 
@@ -223,6 +230,21 @@ export type ChatClearScope = 'today' | 'month' | 'all';
 export type ReplyStop = 'complete' | 'loop' | 'runaway';
 
 /** Streaming events emitted by the agent loop. */
+/**
+ * A compaction's state, as the chat shows it. `done`/`total` count the summary
+ * calls: one per transcript chunk, plus a merge pass when there were several.
+ * `target` says where the summary lands: this chat, or a new one it opens
+ * (`newSessionId`, once that exists).
+ */
+export interface CompactionProgress {
+  state: 'running' | 'done' | 'failed' | 'cancelled';
+  done: number;
+  total: number;
+  target: 'here' | 'new';
+  newSessionId?: string;
+  error?: string;
+}
+
 export type AgentEvent =
   | { type: 'text'; sessionId: string; delta: string }
   | { type: 'reasoning'; sessionId: string; delta: string }
@@ -263,6 +285,8 @@ export type AgentEvent =
       steps?: number;
     }
   | { type: 'error'; sessionId: string; message: string }
+  /** How a compaction of this chat is going (`compaction.ts` in the host). */
+  | { type: 'compaction'; sessionId: string; progress: CompactionProgress }
   /**
    * The session record changed outside the event stream (its plan, its title),
    * so anything showing it should re-read it. Emitted mid-turn, which is why it

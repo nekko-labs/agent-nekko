@@ -490,7 +490,7 @@ export interface NekkoApi {
   /** The newest pictures an image chat made, newest last, keyed by message id. */
   sessionImages(sessionId: string, limit: number): Promise<Array<{ messageId: string; src: string }>>;
   abortChat(sessionId: string): Promise<void>;
-  compactSession(sessionId: string): Promise<Session>;
+  compactSession(sessionId: string, opts?: { newChat?: boolean }): Promise<Session>;
   cancelSessionCompaction(sessionId: string): Promise<void>;
   /** Append a prompt to a chat's run-queue (runs when the current turn ends). */
   queuePrompt(sessionId: string, text: string): Promise<Session | null>;

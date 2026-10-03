@@ -47,8 +47,13 @@ fn history_text(m: &Value) -> String {
     parts.join("\n")
 }
 
-/// `estimateTranscriptTokens` (context.ts): a quarter token per UTF-16 unit.
-fn transcript_tokens(messages: &[Value]) -> u64 {
+/// `estimateTranscriptTokens` (context.ts): a quarter token per UTF-16 unit,
+/// counted from the latest compaction summary (`sinceCompaction`).
+fn transcript_tokens(all: &[Value]) -> u64 {
+    let messages = match all.iter().rposition(|m| js::truthy(m.get("compaction"))) {
+        Some(at) => &all[at..],
+        None => all,
+    };
     if messages.is_empty() {
         return 0;
     }
