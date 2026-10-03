@@ -87,7 +87,7 @@ export const ContextInspector = memo(function ContextInspector({ sessionId: show
   const splitRef = useRef<HTMLDivElement>(null);
 
   const session = sessions.find((s) => s.id === sessionId) ?? null;
-  const workspaces = settings?.workspaces ?? [];
+  const workspaces = (settings?.workspaces ?? []).map((w) => ({ ...w, path: session?.gitWorktrees?.[w.id]?.path ?? w.path }));
   const attached = session?.attachedPaths ?? [];
   // The skill armed in this chat's composer (renderer-only until sent), so we can
   // show it in the window and count its tokens live.
@@ -371,6 +371,23 @@ export const ContextInspector = memo(function ContextInspector({ sessionId: show
           </div>
 
           <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+            <Section title="System prompt" info="Standing instructions, user profile, and the server-side per-turn wrapper.">
+              <button className="btn btn-outline w-full py-1.5 text-[12px]" onClick={() => {
+                useStore.getState().setView('settings');
+                const locate = () => {
+                  const section = document.getElementById('customization');
+                  if (section) { section.scrollIntoView({ block: 'start' }); section.querySelector<HTMLTextAreaElement>('textarea[aria-label="System prompt"]')?.focus(); }
+                };
+                setTimeout(locate, 200);
+              }}>Edit system prompt &amp; customization</button>
+            </Section>
+            {session?.gitWorktrees && Object.entries(session.gitWorktrees).map(([id, checkout]) => (
+              <div key={id} className="rounded-lg border border-line p-2 text-[11px] text-ink-soft">
+                <p className="font-medium">{checkout.branch}</p>
+                <p className="mt-1 break-all">{checkout.path}</p>
+                <p className="mt-1">{checkout.notice}</p>
+              </div>
+            ))}
             {/* Armed skill: highlighted, with its token weight (Claude-Code style). */}
             {activeSkill && (
               <div className="rounded-xl border border-accent/40 p-3" style={{ background: 'var(--accent-soft)' }}>

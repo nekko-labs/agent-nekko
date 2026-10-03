@@ -106,6 +106,9 @@ export interface Session {
   id: string;
   title: string;
   workspaceId?: string;
+  /** Opt-in marker written only on new chats; older sessions keep their checkout. */
+  gitIsolation?: boolean;
+  gitWorktrees?: Record<string, { sourceRoot: string; root: string; path: string; branch: string; notice: string }>;
   /** Additional context folders for this chat; workspaceId remains primary. */
   supportingWorkspaceIds?: string[];
   /**

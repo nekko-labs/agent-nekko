@@ -24,6 +24,8 @@ import type { GitStatus } from '@agent-nekko/shared';
 import { trimTrailingSlashes } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 import { branchPr } from './pr.js';
+import { getSession } from './sessions.js';
+import { chatWorkspaces } from './chat-worktrees.js';
 
 /** How long a read stays fresh. Long enough to absorb a render storm. */
 const CACHE_MS = 5_000;
@@ -143,7 +145,11 @@ const PR_WAIT_MS = 3_000;
  * sidebar full of cards over one repo costs a single `git`.
  */
 export async function getGitStatus(workspaceId: string, force = false): Promise<GitStatus> {
-  const folder = getSettings().workspaces.find((w) => w.id === workspaceId);
+  // A session handle resolves its primary checkout without accepting arbitrary filesystem paths.
+  const session = workspaceId.startsWith('session:') ? getSession(workspaceId.slice(8)) : null;
+  const folder = workspaceId.startsWith('session:')
+    ? session ? chatWorkspaces(session, getSettings())[0] : undefined
+    : getSettings().workspaces.find((w) => w.id === workspaceId);
   if (!folder?.path) return notARepo(workspaceId);
 
   const cached = cache.get(workspaceId);

@@ -34,6 +34,15 @@ describe('toTranscriptRows', () => {
     expect(r[3]).toMatchObject({ kind: 'prs', gapAfter: 8 });
   });
 
+  it('does not append phantom PR cards from reading test fixtures', () => {
+    const r = rows([
+      msg('a', 'assistant', '', { toolCalls: [{ id: 'read', name: 'read_file', input: {} }] }),
+      msg('t', 'tool', '', { toolResult: { toolCallId: 'read', output: 'https://github.com/o/r/pull/1' } }),
+      msg('done', 'assistant', 'Read the tests.'),
+    ]);
+    expect(r.map((x) => x.kind)).toEqual(['activity', 'msg']);
+  });
+
   it('keeps keys stable as messages are appended', () => {
     const base = [msg('u', 'user', 'a'), msg('a', 'assistant', 'b')];
     const before = rows(base).map((x) => x.key);

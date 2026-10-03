@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto';
 import { join } from 'path';
 import type { Session, SessionSummary } from '@agent-nekko/shared';
 import { archiveExpired, summarizeSession } from '@agent-nekko/shared';
-import { dataDir } from './store.js';
+import { dataDir, getSettings } from './store.js';
 
 function sessionsDir(): string {
   const dir = join(dataDir(), 'sessions');
@@ -318,6 +318,8 @@ export function createSession(workspaceId?: string, parentSessionId?: string, su
     id: `s_${now.toString(36)}_${randomBytes(6).toString('base64url')}`,
     title: parentSessionId ? 'Sub-agent' : 'New chat',
     workspaceId,
+    gitIsolation: parentSessionId ? false : getSettings().gitManagement?.mode !== 'shared',
+    gitWorktrees: parentSessionId ? getSession(parentSessionId)?.gitWorktrees : undefined,
     supportingWorkspaceIds: supportingWorkspaceIds?.length ? supportingWorkspaceIds : undefined,
     parentSessionId,
     messages: [],

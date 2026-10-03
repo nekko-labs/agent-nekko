@@ -110,7 +110,7 @@ pub struct RunOptions<'a> {
     /// The transcript so far; the loop appends its messages to it.
     pub history: &'a mut Vec<Value>,
     pub tools: Vec<Value>,
-    /// Tool-use round trips before the wrap-up pass (`DEFAULT_MAX_STEPS`, 250).
+    /// Tool-use round trips before the wrap-up pass (`DEFAULT_MAX_STEPS`, 1000).
     pub max_iterations: usize,
     pub temperature: Option<f64>,
     pub effort: Option<String>,
@@ -122,7 +122,7 @@ pub struct RunOptions<'a> {
 }
 
 /// `DEFAULT_MAX_STEPS`.
-pub const DEFAULT_MAX_STEPS: usize = 250;
+pub const DEFAULT_MAX_STEPS: usize = 1000;
 
 /// How much of a looping stream is kept (`RUNAWAY_KEEP_CHARS`, UTF-16 units).
 const RUNAWAY_KEEP_CHARS: usize = 4_000;
@@ -348,8 +348,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
                 return;
             }
             let mut turn = Turn::default();
-            let first =
-                if iter == 0 { std::mem::take(&mut resume_extra) } else { std::mem::take(&mut loop_extra) };
+            let first = if iter == 0 { std::mem::take(&mut resume_extra) } else { std::mem::take(&mut loop_extra) };
             let mut result = self.stream(&mut turn, first, true).await;
             // An empty response gets one retry with a nudge, so the turn does not
             // silently stall (common with some local models mid-loop).

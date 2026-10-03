@@ -240,6 +240,11 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### In-chat PR identity and styling (2026-10-02)
+
+- [x] Show the actual GitHub head branch on open PR cards, retain repository/number/target context, and use neutral banner styling with slim borderless actions. Ignore file-read and code-search example URLs during session PR discovery. Core PR and transcript regression tests pass (18 tests), desktop typecheck passes, and before/after card evidence is captured at desktop/mobile widths in both themes. · Done: 2026-10-02
+
+
 ### Server browser, chat chrome and tray (added 2026-10-01)
 
 - [ ] **UX40**, Server cards share a row above models and use the existing power icon. [Spec](SPEC.md#server-model-browser-and-desktop-tray)
@@ -974,11 +979,22 @@ Observation: the fixed per-reply step budget (`DEFAULT_MAX_STEPS`, was 80) was h
 - [x] Rename session archive controls and read-only surfaces to Completed with checkmark icons. Preserve archivedAt compatibility and 60-day retention. Add a non-blocking check, circle and tiny confetti success effect capped at 800 ms, skipped for reduced motion. Cover effect cleanup and reduced motion in tests. Done: 2026-10-02
 
 
+### Chat follow-up isolation and customization
+
+- [x] Add new-chat isolation marker in host and daemon; lazily provision worktrees and map tool/context roots per chat. Provide HEAD or tracked-local-edits baseline settings and visible checkout notice. Preserve existing chats and parent checkout for delegation. Done: 2026-10-03
+- [x] Add host-applied editable turn wrapper, standing system instructions, user profile, title tool, and Context customization shortcut. Match server running colors to identifying dots. Completed chat list is already implemented by the completion terminology change. Done: 2026-10-03
+
+
 ### Browser approval and throughput fixes
 
 - [x] Suppress unmeasurable token-speed samples, keep token/time totals paired, and clear stale speed on new turns. Buffered and missing timing regression tests pass.
 - [x] Route dedicated browser actions through a private bearer-authenticated loopback bridge to an Electron-owned sandboxed window, without external browser launch or app-wide CDP exposure. Keep approval per action and explicit existing mode. Host routing tests and desktop/host typechecks pass.
 - [ ] Capture desktop before/after evidence and manually verify navigation, click, fill, close and approval waits in the rebuilt desktop app before merging.
+
+### Photo viewer and compact session controls
+
+- [x] Add a visible photo Close button, dismiss blank space around the image, move Automate to the composer top right with a colored bolt, and show all compact PR state counts. Done: 2026-10-03. Desktop typecheck, 275 tests, and production build pass.
+- [ ] Deferred by user on 2026-10-03: live photo/Close/Escape checks, narrow-layout screenshots and dismissal recording. Automated builds, tests and typechecks pass; manual visual verification remains untested.
 
 ### Workspace context commands and composer question surface
 

@@ -21,6 +21,8 @@ import {
 } from '@agent-nekko/core';
 import { reportExperiment, reportArtifact, updateRunPlan, runPlanForSession } from './training.js';
 import { getSettings } from './store.js';
+import { DEFAULT_TURN_WRAPPER } from '@agent-nekko/shared';
+import { chatWorkspaces, prepareChatWorktrees } from './chat-worktrees.js';
 
 /**
  * Where the `decide` tool sends its questions. Set by the host once the
@@ -460,13 +462,16 @@ export async function previewContext(sessionId: string, attachedPaths: string[])
   // The base system prompt (no per-turn context block — those items are counted
   // individually below) so the inspector reflects true window usage.
   const systemText = buildSystemPrompt({
-    workspaces: settings.workspaces,
+    workspaces: chatWorkspaces(session, settings),
+    systemInstructions: settings.systemInstructions,
+    turnWrapper: settings.turnWrapper ?? DEFAULT_TURN_WRAPPER,
+    aboutUser: settings.aboutUser,
     contextBlock: '',
     platform: process.platform,
   });
   const { contents: _contents, ...preview } = assembleContext({
     attached: collectAttached([...(session?.attachedPaths ?? []), ...attachedPaths]),
-    guidelines: collectGuidelines(),
+    guidelines: collectGuidelines(chatWorkspaces(session, settings)),
     memory: [
       ...listMemory('global'),
       ...((session ? getSessionWorkspaceIds(session) : []).flatMap((id) => listMemory('workspace', id))),
@@ -628,6 +633,22 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     return;
   }
 
+  try {
+    if (!session.incognito && !session.offline) {
+      const before = JSON.stringify(session.gitWorktrees);
+      prepareChatWorktrees(session, settings);
+      if (JSON.stringify(session.gitWorktrees) !== before) {
+        saveSession(session);
+        send({ type: 'session_meta', sessionId: session.id });
+      }
+    }
+  } catch (error) {
+    send({ type: 'error', sessionId: opts.sessionId, message: (error as Error).message });
+    return;
+  }
+  const workspaces = chatWorkspaces(session, settings);
+  const toolSettings = { ...settings, workspaces };
+
   // Per-chat policy.
   const mode = session.mode ?? settings.defaultChatMode ?? 'guardrails';
   const offline = !!session.offline;
@@ -660,6 +681,11 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     // contract; ordinary chats publish it to the plan rail so the user sees the
     // plan the agent derived, not a re-listing of their own prompt.
     tools.push(UPDATE_PLAN_TOOL);
+    if (session.titleAuto !== false && !session.parentSessionId) tools.push({
+      name: 'set_chat_title',
+      description: 'Name this chat with a concise, specific 3-6 word title. Never overrides a user-chosen title.',
+      parameters: { type: 'object', properties: { title: { type: 'string' } }, required: ['title'], additionalProperties: false },
+    });
     // Run-driven sessions can register experiments into their run's idea maze
     // and report the artifacts they produce.
     if (session.trainingRunId) tools.push(REPORT_EXPERIMENT_TOOL, REPORT_ARTIFACT_TOOL);
@@ -680,13 +706,13 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   // Build context with provenance. Offline mode skips internet connectors.
   const bundle = assembleContext({
     attached: collectAttached([...(session.attachedPaths ?? []), ...(opts.attachedPaths ?? [])]),
-    guidelines: collectGuidelines(),
+    guidelines: collectGuidelines(workspaces),
     memory: [
       ...listMemory('global'),
       ...getSessionWorkspaceIds(session).flatMap((id) => listMemory('workspace', id)),
     ],
     connectorSnippets: offline ? [] : await collectConnectorSnippets(opts.text),
-    indexSnippets: collectIndexSnippets(getSessionWorkspaceIds(session), opts.text),
+    indexSnippets: session.gitWorktrees && Object.keys(session.gitWorktrees).length ? [] : collectIndexSnippets(getSessionWorkspaceIds(session), opts.text),
     excluded: new Set(session.contextPrefs?.excluded ?? []),
     pinned: new Set(session.contextPrefs?.pinned ?? []),
   });
@@ -696,7 +722,11 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   const contextBlock = renderContextBlock(bundle, bundle.contents ?? new Map());
 
   const system = buildSystemPrompt({
-    workspaces: settings.workspaces,
+    workspaces,
+    systemInstructions: settings.systemInstructions,
+    turnWrapper: settings.turnWrapper ?? DEFAULT_TURN_WRAPPER,
+    aboutUser: settings.aboutUser,
+    checkoutNotice: session.messages.length === 0 ? Object.values(session.gitWorktrees ?? {}).map((w) => w.notice).join('\n') : undefined,
     contextBlock,
     platform: process.platform,
     canAsk: tools.some((t) => t.name === ASK_USER_TOOL.name),
@@ -792,9 +822,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     };
 
     try {
-      const defaultCwd = session.workspaceId
-        ? settings.workspaces.find((w) => w.id === session.workspaceId)?.path ?? settings.workspaces[0]?.path
-        : settings.workspaces[0]?.path;
+      const defaultCwd = workspaces[0]?.path;
       const runOptions = {
         sessionId: opts.sessionId,
         provider: createProvider(resolvedProvider),
@@ -805,6 +833,17 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         executeTool: async (call: ToolCall): Promise<ToolResult> => {
           if (!tools.some((tool) => tool.name === call.name)) {
             return { toolCallId: call.id, output: 'This tool is disabled or unavailable for this chat.', isError: true };
+          }
+          if (call.name === 'set_chat_title') {
+            const disk = getSession(session.id);
+            if (disk?.titleAuto === false) return { toolCallId: call.id, output: 'The chat already has a chosen title; it was not changed.' };
+            const title = typeof call.input.title === 'string' ? call.input.title.trim().replace(/\s+/g, ' ').slice(0, 64) : '';
+            if (!title) return { toolCallId: call.id, output: 'A nonblank title is required.', isError: true };
+            session.title = title;
+            session.titleAuto = false;
+            persist();
+            send({ type: 'session_meta', sessionId: session.id });
+            return { toolCallId: call.id, output: 'Chat title updated.' };
           }
           if (call.name === ASK_USER_TOOL.name) {
             return { toolCallId: call.id, output: await askUser(call) };
@@ -864,7 +903,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
           return isMcpTool(call.name)
             ? callMcpTool(call)
             : executeTool(call, {
-                settings,
+                settings: toolSettings,
                 defaultCwd,
                 requestApproval,
                 mode,
@@ -905,7 +944,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
               mode,
               sandboxMode: settings.sandboxMode,
               guardrails: settings.guardrails,
-              workspaces: settings.workspaces.map((w) => ({ id: w.id, path: w.path })),
+              workspaces: workspaces.map((w) => ({ id: w.id, path: w.path })),
               defaultCwd,
             },
           })
