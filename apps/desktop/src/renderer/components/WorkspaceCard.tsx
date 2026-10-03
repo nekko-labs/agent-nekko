@@ -5,7 +5,7 @@ import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
 import { useGitStatus } from '../useGitStatus.js';
 import { CheckIcon, BranchIcon, CloseIcon, RobotIcon, TerminalIcon, WorktreeIcon } from '../icons.js';
-import { celebrateCompletion } from '../completionCelebration.js';
+import { COMPLETION_ROW_ATTR, completeWithExit } from '../completionExit.js';
 import { SessionPrLinks } from './SessionPrLinks.js';
 
 /**
@@ -262,9 +262,11 @@ function WorkspaceCardImpl({
           aria-label={isChat ? `Complete ${title}` : `Close ${title}`}
           onClick={async (e) => {
             e.stopPropagation();
-            const rect = e.currentTarget.getBoundingClientRect();
-            await onClose();
-            if (session && useStore.getState().sessions.some((s) => s.id === session.id && s.archivedAt)) celebrateCompletion(rect);
+            if (!session) return void onClose();
+            await completeWithExit(e.currentTarget.closest<HTMLElement>(`[${COMPLETION_ROW_ATTR}]`), async () => {
+              await onClose();
+              return useStore.getState().sessions.some((s) => s.id === session.id && s.archivedAt);
+            });
           }}
         >
           {isChat ? <CheckIcon className="h-3.5 w-3.5" /> : <CloseIcon className="h-3 w-3" />}

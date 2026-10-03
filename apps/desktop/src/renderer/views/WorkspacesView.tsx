@@ -20,7 +20,7 @@ import { StatusDot, WorkspaceCard, type AgentStatus } from '../components/Worksp
 import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
-import { celebrateCompletion } from '../completionCelebration.js';
+import { COMPLETION_ROW_ATTR, completeWithExit, findCompletionRow } from '../completionExit.js';
 import { ContextMenu, ContextAction } from '../components/ContextMenu.js';
 import { ModelPicker } from '../components/agent-console/ModelPicker.js';
 import { selectWorkspaceRows } from './workspaceSelection.js';
@@ -240,7 +240,7 @@ export function WorkspacesView() {
     if (action === 'delete' && !window.confirm('Permanently delete ' + ids.length + ' chat(s)? This cannot be undone.')) return;
     await Promise.all(ids.map(async (id) => {
       try {
-        if (action === 'complete') await archiveChat(id);
+        if (action === 'complete') await completeWithExit(findCompletionRow(id), async () => { await archiveChat(id); return useStore.getState().sessions.some((s) => s.id === id && s.archivedAt); });
         if (action === 'delete') { await window.nekko.abortChat(id); await window.nekko.deleteSession(id); const state = useStore.getState(); const w = state.workspaces.find(w => w.anchor.kind === 'chat' && w.anchor.refId === id); if (w) state.closeWorkspace(w.id); }
         if (action === 'stop' && statuses.has(id)) await window.nekko.abortChat(id);
         if (action === 'continue' && !statuses.has(id)) { const s = await window.nekko.getSession(id); if (!s?.providerId || !s.modelId || s.autoModel) throw new Error('Choose a specific model before continuing this chat.'); if (!s.messages.some(m => m.role === 'user')) throw new Error('This chat has no prompt to continue.'); await window.nekko.sendChat({sessionId:id,providerId:s.providerId,modelId:s.modelId,text:'',resume:true}); }
@@ -610,6 +610,7 @@ export function WorkspacesView() {
                     return (
                       <div
                         key={w.id}
+                        {...(s ? { [COMPLETION_ROW_ATTR]: s.id } : {})}
                         onContextMenu={s ? (e) => contextRow(e, s.id) : undefined}
                         onClickCapture={s ? (e) => { if (selectRow(e, s.id)) e.stopPropagation(); } : undefined}
                         style={s && selected.includes(s.id) ? {background:'var(--accent-soft)', borderRadius:8, boxShadow:'inset 0 0 0 1px var(--accent)'} : undefined}
@@ -649,7 +650,7 @@ export function WorkspacesView() {
                     <div className="pt-2">
                       <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Saved chats</p>
                       {saved.map((s) => (
-                        <div key={s.id} onContextMenu={(e) => contextRow(e,s.id)} onClickCapture={(e) => { if (selectRow(e,s.id)) e.stopPropagation(); }} style={selected.includes(s.id) ? {background:"var(--accent-soft)", boxShadow:"inset 0 0 0 1px var(--accent)"} : undefined} className="group flex items-center rounded-lg hover:bg-surface-2">
+                        <div key={s.id} {...{ [COMPLETION_ROW_ATTR]: s.id }} onContextMenu={(e) => contextRow(e,s.id)} onClickCapture={(e) => { if (selectRow(e,s.id)) e.stopPropagation(); }} style={selected.includes(s.id) ? {background:"var(--accent-soft)", boxShadow:"inset 0 0 0 1px var(--accent)"} : undefined} className="group flex items-center rounded-lg hover:bg-surface-2">
                           <button
                             className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[12px] text-ink-soft"
                             title={`Open ${s.title}`}
@@ -662,11 +663,10 @@ export function WorkspacesView() {
                             className="mr-1.5 shrink-0 rounded-sm p-0.5 text-ink-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
                             title="Complete this chat (kept for 60 days)"
                             aria-label={`Complete ${s.title}`}
-                            onClick={async (e) => {
-                              const rect = e.currentTarget.getBoundingClientRect();
+                            onClick={(e) => completeWithExit(e.currentTarget.closest<HTMLElement>(`[${COMPLETION_ROW_ATTR}]`), async () => {
                               await archiveChat(s.id);
-                              if (useStore.getState().sessions.some((chat) => chat.id === s.id && chat.archivedAt)) celebrateCompletion(rect);
-                            }}
+                              return useStore.getState().sessions.some((chat) => chat.id === s.id && chat.archivedAt);
+                            })}
                           >
                             <CheckIcon className="h-3.5 w-3.5" />
                           </button>

@@ -1000,6 +1000,7 @@ Observation: the fixed per-reply step budget (`DEFAULT_MAX_STEPS`, was 80) was h
 ### Session completion terminology
 
 - [x] Rename session archive controls and read-only surfaces to Completed with checkmark icons. Preserve archivedAt compatibility and 60-day retention. Add a non-blocking check, circle and tiny confetti success effect capped at 800 ms, skipped for reduced motion. Cover effect cleanup and reduced motion in tests. Done: 2026-10-02
+- [x] Replace the checkmark flourish with a row exit: the row closes to the left, stardust drifts out where it vanished, then its height collapses so the rows below slide up, and only then is the chat archived (restored on failure). Applies to workspace cards, saved-chat rows and the row menu's Mark as completed. Timer fallback so a window that stops painting still completes. `completionExit.test.ts` covers ordering, failure restore, double clicks, stalled animations and reduced motion. Done: 2026-10-03
 
 
 ### Chat follow-up isolation and customization

@@ -1558,47 +1558,54 @@
   }
 }
 
-/* A small, non-interactive completion flourish anchored to the pressed check. */
-.completion-celebration {
+/* Stardust left where a completed row folded shut (see completionExit.ts).
+   Fixed to the viewport so it outlives the row; never interactive. */
+.completion-stardust {
   position: fixed;
   z-index: 100;
-  width: 40px;
-  height: 40px;
-  margin: -20px;
+  width: 0;
+  height: 0;
   pointer-events: none;
-  color: var(--success);
-  animation: completion-pop 800ms ease-out both;
 }
-.completion-celebration svg { width: 100%; height: 100%; overflow: visible; }
-.completion-check, .completion-circle { stroke-dasharray: 1; stroke-dashoffset: 1; }
-.completion-check { animation: completion-draw 220ms ease-out forwards; }
-.completion-circle { transform: rotate(-90deg); transform-origin: center; animation: completion-draw 260ms 180ms ease-out forwards; }
-.completion-celebration i {
+.completion-stardust i {
   position: absolute;
-  left: 18px;
-  top: 18px;
-  width: 3px;
-  height: 5px;
-  border-radius: 1px;
+  left: 0;
+  top: 0;
+  width: var(--dust-size);
+  height: var(--dust-size);
+  margin: calc(var(--dust-size) / -2);
+  border-radius: 50%;
   background: var(--accent);
+  box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent) 55%, transparent);
   opacity: 0;
-  animation: completion-confetti 480ms 200ms ease-out both;
+  animation: stardust-drift 700ms var(--dust-delay) cubic-bezier(.2, .6, .3, 1) both;
 }
-.completion-celebration i:nth-of-type(even) { background: var(--success); }
-@keyframes completion-draw { to { stroke-dashoffset: 0; } }
-@keyframes completion-pop {
-  0% { transform: scale(.65); opacity: 0; }
-  18% { transform: scale(1.08); opacity: 1; }
-  38%, 75% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(.95); opacity: 0; }
+.completion-stardust i:nth-of-type(3n + 2) {
+  background: var(--accent-2);
+  box-shadow: 0 0 4px 1px color-mix(in srgb, var(--accent-2) 55%, transparent);
 }
-@keyframes completion-confetti {
-  0% { opacity: 0; transform: translate(0, 0) scale(.5); }
-  15% { opacity: 1; }
-  100% { opacity: 0; transform: translate(var(--confetti-x), var(--confetti-y)) rotate(var(--confetti-turn)) scale(.7); }
+.completion-stardust i.is-star {
+  width: calc(var(--dust-size) * 2.4);
+  height: calc(var(--dust-size) * 2.4);
+  margin: calc(var(--dust-size) * -1.2);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--accent) 40%, white);
+  box-shadow: none;
+  clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%);
+  animation-name: stardust-twinkle;
+}
+@keyframes stardust-drift {
+  0% { opacity: 0; transform: translate(var(--dust-x0), 0) scale(.4); }
+  20% { opacity: 1; transform: translate(calc(var(--dust-x0) + 4px), calc(var(--dust-y) * .3)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dust-x), var(--dust-y)) scale(.3); }
+}
+@keyframes stardust-twinkle {
+  0% { opacity: 0; transform: translate(var(--dust-x0), 0) scale(.2) rotate(0deg); }
+  30% { opacity: 1; transform: translate(calc(var(--dust-x0) + 4px), calc(var(--dust-y) * .3)) scale(1) rotate(45deg); }
+  100% { opacity: 0; transform: translate(var(--dust-x), var(--dust-y)) scale(.2) rotate(90deg); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .completion-celebration { display: none; }
+  .completion-stardust { display: none; }
 }
 
 /* The question grows out of the composer rather than occupying a separate tray. */
