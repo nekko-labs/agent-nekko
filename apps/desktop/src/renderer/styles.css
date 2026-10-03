@@ -1660,3 +1660,30 @@
 .composer-bullet { display: inline-block; position: relative; color: transparent !important; }
 .composer-bullet::after { content: '•'; position: absolute; left: 0; color: var(--accent); }
 [contenteditable][data-placeholder]:has(> br:only-child)::before { content: attr(data-placeholder); color: var(--ink-faint); pointer-events: none; position: absolute; }
+
+/* A full-window drag proxy, rather than a tiny header snapshot. */
+.command-drag-hatch {
+  border: 2px solid var(--accent);
+  border-radius: 16px;
+  background-color: var(--surface);
+  background-image: repeating-linear-gradient(45deg, transparent 0 7px, color-mix(in srgb, var(--accent) 18%, transparent) 7px 9px), repeating-linear-gradient(-45deg, transparent 0 7px, color-mix(in srgb, var(--accent) 12%, transparent) 7px 9px);
+}
+.command-full-composer {
+  display: flex;
+  flex-direction: column;
+}
+.command-full-composer .composer-column,
+.command-full-composer .composer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.command-full-composer .composer > .relative {
+  flex: 1;
+  min-height: 120px;
+}
+.command-full-composer [contenteditable] {
+  height: 100% !important;
+  max-height: none;
+}

@@ -10,7 +10,7 @@ import {
   removeCell,
   resizeTracks,
   sameCell,
-  swapCells,
+  moveCell,
   tracksFor,
   visibleCells,
   type CommandGridState,
@@ -68,6 +68,7 @@ export function CommandGrid({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [dragging, setDragging] = useState<GridCell | null>(null);
+  const [dropTarget, setDropTarget] = useState<GridCell | null>(null);
   // Track fractions mid-drag live here so the whole page is not re-saved on
   // every pointer move; they are committed to state when the drag ends.
   const [liveTracks, setLiveTracks] = useState<{ axis: 'col' | 'row'; fr: number[] } | null>(null);
@@ -97,6 +98,7 @@ export function CommandGrid({
   const sessionById = useMemo(() => new Map(sessions.map((s) => [s.id, s])), [sessions]);
   const terminalById = useMemo(() => new Map(terminals.map((t) => [t.id, t])), [terminals]);
   const cells = visibleCells(state.cells, state.filter);
+  const previewCells = dragging && dropTarget ? visibleCells(moveCell(state, dragging, dropTarget, state.filter).cells, state.filter) : cells;
   const count = cells.length + 1; // the plus cell
   const narrow = size.width > 0 && size.width < NARROW_WIDTH;
   const { cols, rows } = gridShape(state.layout, count, size.width, size.height);
@@ -171,9 +173,26 @@ export function CommandGrid({
   }
 
   return (
-    <div ref={wrapRef} className="relative" style={{ height: size.width ? totalHeight : MIN_GRID_H }}>
+    <div ref={wrapRef} className="relative" style={{ height: size.width ? totalHeight : MIN_GRID_H }}
+      onDragOver={(e) => {
+        if (!dragging || !e.dataTransfer.types.includes(CELL_DRAG_TYPE)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        const bounds = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - bounds.left, y = e.clientY - bounds.top;
+        const index = rects.findIndex((r) => x >= r.x && x <= r.x + r.width && y >= r.y && y <= r.y + r.height);
+        if (index >= 0) setDropTarget(cells[Math.min(index, cells.length - 1)] ?? null);
+      }}
+      onDrop={(e) => {
+        if (!dragging) return;
+        e.preventDefault();
+        if (dropTarget) setState((s) => moveCell(s, dragging, dropTarget, state.filter));
+        setDragging(null);
+        setDropTarget(null);
+      }}>
+
       {size.width > 0 && cells.map((cell, i) => {
-        const rect = rects[i];
+        const rect = rects[previewCells.findIndex((c) => sameCell(c, cell))];
         const session = cell.kind === 'chat' ? sessionById.get(cell.refId) : undefined;
         const terminal = cell.kind === 'terminal' ? terminalById.get(cell.refId) : undefined;
         const project = projects.find((p) => p.id === (session?.workspaceId ?? terminal?.workspaceId));
@@ -195,13 +214,13 @@ export function CommandGrid({
             status={status}
             subAgents={session ? (childrenOf.get(session.id)?.length ?? 0) : 0}
             dragging={dragging}
-            onDragStart={() => setDragging(cell)}
-            onDragEnd={() => setDragging(null)}
-            onDrop={(from) => { setState((s) => swapCells(s, from, cell)); setDragging(null); }}
+            onDragStart={() => { setDragging(cell); setDropTarget(cell); }}
+            onDragEnd={() => { setDragging(null); setDropTarget(null); }}
+
             onOpen={() => (cell.kind === 'chat' ? onOpenChat(cell.refId) : onOpenTerminal(cell.refId))}
             onRemove={() => setState((s) => removeCell(s, cell))}
           >
-            {cell.kind === 'chat' ? <ChatPane sessionId={cell.refId} /> : <TerminalPane terminalId={cell.refId} />}
+            {cell.kind === 'chat' ? <ChatPane sessionId={cell.refId} commandCenter /> : <TerminalPane terminalId={cell.refId} />}
           </GridCellFrame>
         );
       })}
@@ -263,7 +282,6 @@ function GridCellFrame({
   dragging,
   onDragStart,
   onDragEnd,
-  onDrop,
   onOpen,
   onRemove,
   children,
@@ -278,15 +296,13 @@ function GridCellFrame({
   dragging: GridCell | null;
   onDragStart: () => void;
   onDragEnd: () => void;
-  onDrop: (from: GridCell) => void;
   onOpen: () => void;
   onRemove: () => void;
   children: React.ReactNode;
 }) {
   const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null);
   const [metadataSlot, setMetadataSlot] = useState<HTMLElement | null>(null);
-  const [over, setOver] = useState(false);
-  const targeting = dragging !== null && !sameCell(dragging, cell);
+  const isDragging = dragging !== null && sameCell(dragging, cell);
   const Icon = cell.kind === 'chat' ? ChatIcon : TerminalIcon;
 
   return (
@@ -294,7 +310,7 @@ function GridCellFrame({
       className="panel panel-ring absolute flex flex-col overflow-hidden"
       style={{
         left: rect.x, top: rect.y, width: rect.width, height: rect.height, transition,
-        '--panel-ring-color': over ? 'var(--accent)' : 'var(--line)',
+        '--panel-ring-color': isDragging ? 'var(--accent)' : 'var(--line)',
       } as React.CSSProperties}
       data-grid-cell={`${cell.kind}:${cell.refId}`}
     >
@@ -306,10 +322,18 @@ function GridCellFrame({
           e.dataTransfer.effectAllowed = 'move';
           e.dataTransfer.setData(CELL_DRAG_TYPE, JSON.stringify(cell));
           e.dataTransfer.setData('text/plain', title);
+          const frame = e.currentTarget.parentElement!;
+          const bounds = frame.getBoundingClientRect();
+          const ghost = document.createElement('div');
+          ghost.className = 'command-drag-hatch';
+          Object.assign(ghost.style, { position: 'fixed', left: '0', top: '0', width: bounds.width + 'px', height: bounds.height + 'px', zIndex: '9999' });
+          document.body.appendChild(ghost);
+          e.dataTransfer.setDragImage(ghost, e.clientX - bounds.left, e.clientY - bounds.top);
+          setTimeout(() => ghost.remove(), 0);
           onDragStart();
         }}
         onDragEnd={onDragEnd}
-        title="Drag onto another window to trade places"
+        title="Drag to reorder windows"
       >
         <Icon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
         <span className="min-w-0 max-w-[40%] truncate text-[12px] font-medium">{title}</span>
@@ -335,20 +359,9 @@ function GridCellFrame({
         <div className="absolute inset-0 flex flex-col">
           <PaneSlots actions={actionSlot} metadata={metadataSlot}>{children}</PaneSlots>
         </div>
-        {targeting && (
-          <div
-            className="absolute inset-0 z-20"
-            style={over ? { background: 'color-mix(in srgb, var(--accent) 12%, transparent)' } : undefined}
-            onDragOver={(e) => { if (!e.dataTransfer.types.includes(CELL_DRAG_TYPE)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!over) setOver(true); }}
-            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false); }}
-            onDrop={(e) => {
-              e.preventDefault();
-              setOver(false);
-              try { onDrop(JSON.parse(e.dataTransfer.getData(CELL_DRAG_TYPE)) as GridCell); } catch { /* not ours */ }
-            }}
-          />
-        )}
+
       </div>
+      {isDragging && <div className="command-drag-hatch pointer-events-none absolute inset-0 z-30" aria-hidden />}
     </div>
   );
 }

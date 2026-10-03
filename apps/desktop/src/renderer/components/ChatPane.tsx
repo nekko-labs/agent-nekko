@@ -453,7 +453,7 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false }: {
   sessionId: string;
   onRunningChange?: (running: boolean) => void;
   /**
@@ -462,6 +462,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
    * two things that make sense for an archived chat, restore it or delete it.
    */
   readOnly?: boolean;
+  commandCenter?: boolean;
 }) {
   const { providers, settings, setMascotMood, refreshSessions } = useStore(
     useShallow((s) => ({
@@ -475,6 +476,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // Painted straight from the session cache when this chat was open recently;
   // the host copy is fetched regardless and replaces it (stale-while-revalidate).
   const [session, setSession] = useState<Session | null>(() => getCachedSession(sessionId) ?? null);
+  const fullComposer = commandCenter && !!session && session.messages.length === 0 && !readOnly;
+  const focusedChat = commandCenter && !!session?.messages.length;
   // Seed the composer from whatever was parked for this chat, so an unsent
   // message survives a tab switch or a restart.
   const [draft, setDraft] = useState(() => loadDraft(sessionId)?.text ?? '');
@@ -529,7 +532,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const [pendingImages, setPendingImages] = useState<string[]>(() => loadDraft(sessionId)?.images ?? []);
   // The context panel toggle lives in the store so the ⌘\ shortcut and the
   // command palette's "Toggle context panel" act on this pane too.
-  const ctxOpen = useStore((s) => s.contextPanelOpen);
+  const ctxOpen = useStore((s) => s.contextPanelOpen) && !commandCenter;
   // The plan/sub-agent rail beside the transcript (see PlanRail). Whether there
   // is room for it depends on this pane, not on the window: the workbench splits,
   // so a viewport breakpoint would keep the rail open in a pane squeezed to a
@@ -538,8 +541,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const planRailWanted = useStore((s) => s.planRailOpen);
   const paneRef = useRef<HTMLDivElement>(null);
   const paneWidth = useElementWidth(paneRef, sessionId);
-  const planRailOpen = planRailWanted && paneWidth >= PLAN_RAIL_MIN_PANE;
-  const wideEnoughForRail = paneWidth >= PLAN_RAIL_MIN_PANE;
+  const planRailOpen = !commandCenter && planRailWanted && paneWidth >= PLAN_RAIL_MIN_PANE;
+  const wideEnoughForRail = !commandCenter && paneWidth >= PLAN_RAIL_MIN_PANE;
   // The armed skill lives in the store (per session) so the Context Inspector on
   // the right can show it and count its tokens while it's active.
   const activeSkill = useStore((s) => s.activeSkillBySession[sessionId] ?? null);
@@ -1798,7 +1801,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
    * sides. When the plan rail is showing it already takes the right quarter, so
    * the column below it goes full width rather than indenting twice.
    */
-  const contentWidth = planRailOpen || paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
+  const contentWidth = commandCenter || planRailOpen || paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
 
   // --- The transcript, as windowed rows ---
   const messages = session?.messages;
@@ -1915,7 +1918,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               </button>
             )}
             <button
-              className={`btn btn-ghost hidden px-2 py-1 lg:inline-flex ${ctxOpen ? 'text-accent' : ''}`}
+              className={`btn btn-ghost hidden px-2 py-1 ${commandCenter ? '' : 'lg:inline-flex'} ${ctxOpen ? 'text-accent' : ''}`}
               onClick={() => useStore.getState().toggleContextPanel()}
               title="Toggle context panel (Ctrl/⌘+\)"
               aria-pressed={ctxOpen}
@@ -1924,7 +1927,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             </button>
         </ChatHeader>
 
-        <div className="relative flex min-h-0 w-full flex-1">
+        <div className="relative flex min-h-0 w-full flex-1" style={fullComposer ? { display: 'none' } : undefined}>
           <VirtualTranscript
             ref={transcriptRef}
             rows={rows}
@@ -2056,7 +2059,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
         {readOnly ? (
           <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
         ) : (
-        <div ref={composerSectionRef} className="relative px-4 pb-4 pt-1.5">
+        <div ref={composerSectionRef} className={`relative px-4 pb-4 pt-1.5 ${fullComposer ? 'command-full-composer min-h-0 flex-1 overflow-y-auto' : ''}`}>
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
           <div
@@ -2071,7 +2074,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute inset-x-0 top-[5px] h-0.5 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
-          <div className="composer-column mx-auto w-[90%]">
+          <div className={`composer-column mx-auto ${commandCenter ? 'w-full' : 'w-[90%]'}`}>
             <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={messages ? collectSessionPrUrls(messages) : []} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
             {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
@@ -2080,6 +2083,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <div className={streaming ? 'composer composer-beam' : 'composer'}>
             {/* Controls live at the top of the input surface. Separate rows keep
                 the model and its effort slider together when a pane is narrow. */}
+            {!focusedChat && <>
             <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
               <div className="min-w-0 flex-1">
               <ChatControls
@@ -2183,6 +2187,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               </>)}
             </div>
 
+            </>}
+
             {/* Queued follow-ups expand inside the same surface as the input. */}
             <div className={`collapse-wrap ${queued.length > 0 ? '' : 'collapsed'}`} aria-hidden={queued.length === 0}>
               <div className="min-h-0 overflow-hidden">
@@ -2210,7 +2216,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               </div>
             </div>
 
-            {!imageMode && (
+            {!imageMode && !focusedChat && (
             <PromptAnalyzer
               text={deferredDraft}
               sessionId={sessionId}

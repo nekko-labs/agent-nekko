@@ -180,7 +180,7 @@ export function CommandCenterView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto flex w-full max-w-[1920px] flex-col gap-4 px-4 py-5 xl:px-8">
+      <div className="flex w-full flex-col gap-4 px-4 py-5 xl:px-8">
         <GridToolbar grid={grid} setGrid={setGrid} />
         {grid.insights.position === 'top' && insights}
         <CommandGrid

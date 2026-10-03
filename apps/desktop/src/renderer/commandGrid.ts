@@ -200,6 +200,18 @@ export function removeCell(state: CommandGridState, cell: GridCell): CommandGrid
   return cells.length === state.cells.length ? state : { ...state, cells };
 }
 
+/** Insert a window at another window's position, shifting the intervening cells. */
+export function moveCell(state: CommandGridState, from: GridCell, to: GridCell, filter: GridFilter = 'all'): CommandGridState {
+  const visible = visibleCells(state.cells, filter);
+  const i = visible.findIndex((c) => sameCell(c, from));
+  const j = visible.findIndex((c) => sameCell(c, to));
+  if (i < 0 || j < 0 || i === j) return state;
+  const reordered = [...visible];
+  reordered.splice(j, 0, reordered.splice(i, 1)[0]);
+  let index = 0;
+  return { ...state, cells: state.cells.map((c) => filter === 'all' || c.kind === filter ? reordered[index++] : c) };
+}
+
 /** Trade two cells' places (a drag of one window's strip onto another). */
 export function swapCells(state: CommandGridState, a: GridCell, b: GridCell): CommandGridState {
   const i = state.cells.findIndex((c) => sameCell(c, a));
