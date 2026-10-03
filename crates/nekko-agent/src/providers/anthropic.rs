@@ -144,12 +144,12 @@ impl AnthropicProvider {
             let text = sink.text(&mut res).await?;
             // Our ceiling for this model was too high: the API names the real
             // one. Keep it and go again with the same shape.
-            if let Some(limit) = crate::claude::output_limit_error(res.status, &text) {
-                if limit < self.sampling.output_cap_for(&req.model, req.max_output_tokens) {
-                    self.sampling.learn_output_limit(&req.model, limit);
-                    tried.pop();
-                    continue;
-                }
+            if let Some(limit) = crate::claude::output_limit_error(res.status, &text)
+                && limit < self.sampling.output_cap_for(&req.model, req.max_output_tokens)
+            {
+                self.sampling.learn_output_limit(&req.model, limit);
+                tried.pop();
+                continue;
             }
             let next =
                 crate::claude::sampling_param_error(res.status, &text).and_then(|_| next_sampling_shape(shape, &tried));
