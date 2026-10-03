@@ -14,13 +14,12 @@ describe('composerMarkdownNodes', () => {
     expect(out).not.toContain(ACCENT);
   });
 
-  it('tints heading marks without restyling the heading text', () => {
+  it('sizes and emphasizes headings on the editable surface', () => {
     const out = html('## Plan\nbody');
-    // The marks take the accent; the words stay the composer's own ink, and no
-    // font-weight may appear anywhere (a metric change would desync the caret).
     expect(out).toContain(`color:${ACCENT}">##</span>`);
     expect(out).toContain(' Plan');
-    expect(out).not.toContain('font-weight');
+    expect(out).toContain('font-size:1.4em');
+    expect(out).toContain('font-weight:600');
     expect(out).not.toContain('font-style');
   });
 

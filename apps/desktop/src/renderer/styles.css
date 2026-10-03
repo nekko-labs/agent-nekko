@@ -1620,3 +1620,8 @@
 @keyframes composer-question-close { to { opacity: 0; transform: scale(.08, 0); } }
 @media (max-width: 640px) { .composer-column { width: 100%; } .composer-question { width: 94%; } }
 @media (prefers-reduced-motion: reduce) { .composer-question.is-open, .composer-question.is-closing { animation: none; } .composer-question.is-closing { visibility: hidden; } }
+
+/* Preserve markdown text while painting a real bullet on the editable surface. */
+.composer-bullet { display: inline-block; position: relative; color: transparent !important; }
+.composer-bullet::after { content: '•'; position: absolute; left: 0; color: var(--accent); }
+[contenteditable][data-placeholder]:has(> br:only-child)::before { content: attr(data-placeholder); color: var(--ink-faint); pointer-events: none; position: absolute; }

@@ -1,20 +1,6 @@
 import React, { forwardRef } from 'react';
 
-/**
- * Markdown cues behind the composer's textarea.
- *
- * The textarea keeps the text, the selection and the caret; this overlay sits
- * under it with the same box, font and padding, painting what markdown markup
- * will mean — a tinted `#`, an accent bullet, a quoted line gone soft — while
- * the textarea's own glyphs are transparent. It is the difference between
- * typing a message and typing markup you have to imagine rendered.
- *
- * One hard rule: only color and decoration may differ. A font weight or size
- * change shifts glyph widths, and the moment glyphs shift the overlay stops
- * sitting under the text it colors, so headings and bold are tinted, not
- * emboldened. `scrollbar-gutter: stable` on both sides keeps the wrap point
- * identical whether or not a scrollbar is out.
- */
+/** Markdown styling for the single-surface draft editor. Markup stays in the draft. */
 
 const INK = 'var(--ink)';
 const INK_SOFT = 'var(--ink-soft)';
@@ -56,7 +42,7 @@ function inlineNodes(text: string, keyBase: string): React.ReactNode[] {
       out.push(
         <span key={key}>
           <span style={{ color: INK_FAINT }}>{tok.slice(0, marks)}</span>
-          {tok.slice(marks, -marks)}
+          <span style={marks === 2 ? { fontWeight: 700 } : { fontStyle: 'italic' }}>{tok.slice(marks, -marks)}</span>
           <span style={{ color: INK_FAINT }}>{tok.slice(-marks)}</span>
         </span>,
       );
@@ -101,7 +87,7 @@ export function composerMarkdownNodes(text: string): React.ReactNode[] {
     const heading = line.match(/^(#{1,6})(\s+.*)?$/);
     if (heading) {
       out.push(
-        <span key={key}>
+        <span key={key} style={{ fontSize: `${[1.6, 1.4, 1.25, 1.15, 1.05, 1][heading[1].length - 1]}em`, fontWeight: 600 }}>
           <span style={{ color: ACCENT }}>{heading[1]}</span>
           {heading[2] ? <span style={{ color: INK }}>{inlineNodes(heading[2], key)}</span> : null}
         </span>,
@@ -125,9 +111,9 @@ export function composerMarkdownNodes(text: string): React.ReactNode[] {
       out.push(
         <span key={key}>
           {list[1]}
-          <span style={{ color: ACCENT }}>{list[2]}</span>
+          <span className={/^[*+-]$/.test(list[2]) ? 'composer-bullet' : undefined} style={{ color: ACCENT }}>{list[2]}</span>
           {list[3] ? <span style={{ color: ACCENT }}>{list[3]}</span> : null}
-          <span style={{ color: INK }}>{inlineNodes(list[4], key)}</span>
+          <span style={{ color: INK }}>{inlineNodes(list[4] ?? '', key)}</span>
         </span>,
       );
       continue;

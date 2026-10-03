@@ -404,6 +404,12 @@
         "contextLength": 1000000
       },
       {
+        "id": "claude-sonnet-5-5",
+        "providerId": "anthropic",
+        "name": "Claude Sonnet 5.5",
+        "contextLength": 1000000
+      },
+      {
         "id": "claude-sonnet-5",
         "providerId": "anthropic",
         "name": "Claude Sonnet 5",
