@@ -31,9 +31,11 @@ export interface ChatRequest {
    */
   think?: boolean;
   /**
-   * Hard cap on tokens this response may generate. Without one, a model that
-   * degenerates into a loop streams until it fills its own context window, so
-   * every provider sends its native equivalent (`max_tokens`, `num_predict`).
+   * Hard cap on tokens this response may generate. Set for local servers, where
+   * a model that degenerates into a loop streams until it fills its own context
+   * window; each sends its native equivalent (`max_tokens`, `num_predict`).
+   * Unset for cloud providers, which run to their own ceilings (Anthropic needs
+   * a figure, and sends the model's maximum).
    */
   maxOutputTokens?: number;
   signal?: AbortSignal;

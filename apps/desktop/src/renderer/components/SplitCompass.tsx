@@ -278,7 +278,7 @@ function Compass({
                 opacity: room ? 1 : 0.35,
                 cursor: room ? 'pointer' : 'not-allowed',
               }}
-              title={room ? DIR_LABEL[d] : `No room: a workspace holds at most ${MAX_ACROSS} windows across`}
+              title={room ? DIR_LABEL[d] : `No room: an agent holds at most ${MAX_ACROSS} windows across`}
               aria-label={DIR_LABEL[d]}
               aria-disabled={!room}
               onMouseEnter={() => onHover(d)}

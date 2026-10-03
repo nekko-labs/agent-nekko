@@ -293,11 +293,12 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
       </p>
       <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
         <div className="min-w-0">
-          <span className="text-[13px]">Output cap per response</span>
+          <span className="text-[13px]">Output cap per response, local models</span>
           <p className="text-[11px] text-ink-faint">
-            Tokens one response may generate. Stops a model that gets stuck repeating itself from streaming until
-            its context fills. {MAX_OUTPUT_TOKENS_RANGE.min}–{MAX_OUTPUT_TOKENS_RANGE.max.toLocaleString()}. Default{' '}
-            {MAX_OUTPUT_TOKENS_DEFAULT.toLocaleString()}.
+            Tokens one response from a local server (Ollama, LM Studio, vLLM, llama.cpp) may generate. Stops a model
+            that gets stuck repeating itself from streaming until its context fills. Cloud providers run to their own
+            limits and are not capped. {MAX_OUTPUT_TOKENS_RANGE.min}–{MAX_OUTPUT_TOKENS_RANGE.max.toLocaleString()}.
+            Default {MAX_OUTPUT_TOKENS_DEFAULT.toLocaleString()}.
           </p>
         </div>
         <input

@@ -477,7 +477,7 @@ export function WorkspacesView() {
     // than the screen it slides over.
     <div className="panel panel-ring flex h-full flex-col" style={{ width: `min(${sidebarW}px, 82vw)` }}>
       <div className="flex items-center justify-between px-3 py-2.5">
-        <span className="text-sm font-semibold">Workspaces</span>
+        <span className="text-sm font-semibold">Agents</span>
         <div className="relative" ref={newMenuRef}>
           <button
             className={`rounded-sm p-1.5 ${contextPanelOpen ? 'bg-surface-2 text-accent' : 'text-ink-faint hover:text-ink'}`}
@@ -490,7 +490,7 @@ export function WorkspacesView() {
           </button>
           <button
             className={`btn btn-ghost px-2 py-1 ${newMenuOpen ? 'text-accent' : ''}`}
-            title="New workspace with terminal"
+            title="New agent with a terminal"
             aria-expanded={newMenuOpen}
             onMouseEnter={openNewMenu}
             onFocus={openNewMenu}
@@ -517,7 +517,7 @@ export function WorkspacesView() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[13px] font-semibold">New agent</span>
-                  <span className="block text-[11px] text-ink-faint">A workspace around a new chat</span>
+                  <span className="block text-[11px] text-ink-faint">A fresh chat, with room for windows around it</span>
                 </span>
                 <kbd className="kbd">{SHORTCUTS.newAgent.label}</kbd>
               </button>
@@ -593,7 +593,7 @@ export function WorkspacesView() {
                   )}
                 </button>
                 <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                  <button className="rounded-md p-1 text-ink-faint hover:bg-paper hover:text-ink" title="New workspace in project"
+                  <button className="rounded-md p-1 text-ink-faint hover:bg-paper hover:text-ink" title="New agent in this project"
                     onClick={() => { setActiveProject(b.ws?.id ?? null); void newTerminalWorkspace(b.ws?.id); }}><PlusIcon className="h-3.5 w-3.5" /></button>
                   <button className="rounded-md p-1 text-ink-faint hover:bg-paper hover:text-ink" title="New terminal in project"
                     onClick={() => newTerminal(b.ws?.id)}><TerminalIcon className="h-3.5 w-3.5" /></button>
@@ -602,7 +602,7 @@ export function WorkspacesView() {
               <div className={`collapse-wrap ${isCollapsed ? 'collapsed' : ''}`}>
                 <div className="min-h-0 space-y-0.5 overflow-hidden pb-1">
                   {items.length === 0 && saved.length === 0 && (
-                    <p className="px-3.5 py-1 text-[11px] text-ink-faint">No workspaces yet</p>
+                    <p className="px-3.5 py-1 text-[11px] text-ink-faint">No agents yet</p>
                   )}
                   {items.map((w) => {
                     const s = sessionOf(w);
@@ -686,7 +686,7 @@ export function WorkspacesView() {
       <div className="flex shrink-0 items-center justify-end border-t border-line px-2 py-1.5">
         <button
           className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] ${archiveOpen ? 'bg-accent-soft text-accent' : 'text-ink-faint hover:bg-surface-2 hover:text-ink'}`}
-          title={archiveOpen ? 'Back to the workspaces' : 'Show completed chats'}
+          title={archiveOpen ? 'Back to the agents' : 'Show completed chats'}
           aria-pressed={archiveOpen}
           onClick={() => setArchiveOpen(!archiveOpen)}
         >
@@ -725,7 +725,7 @@ export function WorkspacesView() {
       <div
         role="separator"
         aria-orientation="vertical"
-        aria-label="Resize the workspace list"
+        aria-label="Resize the agent list"
         aria-valuemin={SIDEBAR_MIN_W}
         aria-valuemax={SIDEBAR_MAX_W}
         aria-valuenow={sidebarW}
@@ -761,7 +761,7 @@ export function WorkspacesView() {
           }
         }}
         onDoubleClick={() => saveSidebarW(SIDEBAR_DEFAULT_W)}
-        title="Drag to resize the workspace list · double-click resets"
+        title="Drag to resize the agent list · double-click resets"
       >
         <span className="absolute inset-y-0 -left-1 -right-1" />
         <span
@@ -775,7 +775,7 @@ export function WorkspacesView() {
           <button className="btn btn-ghost px-2 py-1" onClick={() => setMobileNav(true)} aria-label="Open sidebar">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
-          <span className="text-[13px] font-semibold">Workspaces</span>
+          <span className="text-[13px] font-semibold">Agents</span>
         </div>
 
         {/* An archived chat being read takes the middle, over the workspaces,
@@ -1123,15 +1123,15 @@ function EmptyState({ onNewChat, onNewTerminal }: { onNewChat: () => void; onNew
     <div className="panel panel-ring flex flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
       <div className="grid h-14 w-14 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={34} /></div>
       <div>
-        <h2 className="text-lg font-semibold">No workspace open</h2>
+        <h2 className="text-lg font-semibold">No agent open</h2>
         <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
-          A workspace is a chat and whatever it needs around it — files, a terminal, a browser — all on screen at once.
+          An agent is a chat and whatever it needs around it, files, a terminal, a browser, all on screen at once.
           Start one and add windows on any side.
         </p>
       </div>
       <div className="flex gap-2">
         <button className="btn btn-primary" onClick={onNewChat}>
-          <ChatIcon className="h-4 w-4" /> New workspace <kbd className="kbd">{SHORTCUTS.newAgent.label}</kbd>
+          <ChatIcon className="h-4 w-4" /> New agent <kbd className="kbd">{SHORTCUTS.newAgent.label}</kbd>
         </button>
         <button className="btn btn-outline" onClick={onNewTerminal}>
           <TerminalIcon className="h-4 w-4" /> New terminal <kbd className="kbd">{SHORTCUTS.newTerminal.label}</kbd>

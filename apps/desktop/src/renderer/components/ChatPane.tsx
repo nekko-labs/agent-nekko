@@ -12,6 +12,7 @@ import { usePaneVisible } from '../paneVisibility.js';
 import { afterPaint } from '../afterPaint.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
+import { indentListSelection } from '../composerLists.js';
 import {
   ActivityGroup, ApprovalBar, AutoQualityMenu, MessageBubble, ModelPicker,
   ReplyStatus, useElementWidth,
@@ -1619,6 +1620,18 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
       setDraft(ghostSuggestion);
       requestAnimationFrame(() => el.setSelectionRange(el.value.length, el.value.length));
       return;
+    }
+    // Tab on a list line indents it (Shift+Tab outdents); anywhere else the
+    // key keeps moving focus, as it does in any form.
+    if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const el = e.currentTarget;
+      const edit = indentListSelection(el.value, el.selectionStart, el.selectionEnd, e.shiftKey);
+      if (edit) {
+        e.preventDefault();
+        setDraft(edit.text);
+        requestAnimationFrame(() => el.setSelectionRange(edit.selectionStart, edit.selectionEnd));
+        return;
+      }
     }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();

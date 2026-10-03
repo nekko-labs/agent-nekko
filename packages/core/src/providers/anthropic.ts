@@ -1,5 +1,5 @@
 import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
-import { claudeContextWindow, effectiveEffort, modelEffortLevels } from '@agent-nekko/shared';
+import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { parseSSE } from './sse.js';
 import { DecodeClock } from './decode-clock.js';
@@ -119,6 +119,43 @@ export function nextSamplingShape(shape: SamplingShape, tried: ReadonlySet<Sampl
 /** Test seam: forget everything learned from the API. */
 export function resetLearnedSampling(): void {
   LEARNED_SHAPE.clear();
+  LEARNED_OUTPUT_LIMIT.clear();
+}
+
+/**
+ * The output ceiling the API reported for a model, when our table was too
+ * generous. `max_tokens` is required on every request, so a cloud chat with no
+ * cap of its own is sent the model's known maximum; a model that holds less
+ * answers 400 with the real figure, and that figure is kept for the rest of
+ * the process so the next request is right the first time.
+ */
+const LEARNED_OUTPUT_LIMIT = new Map<string, number>();
+
+export function learnOutputLimit(model: string, limit: number): void {
+  LEARNED_OUTPUT_LIMIT.set(normalizeModelId(model), limit);
+}
+
+/**
+ * The `max_tokens` to send: the request's own cap when it has one (local-model
+ * safeguards never reach this provider, so that is a sideband call's explicit
+ * budget), else the model's ceiling, never above what the API has told us.
+ */
+export function outputCapFor(model: string, requested: number | undefined): number {
+  const ceiling = LEARNED_OUTPUT_LIMIT.get(normalizeModelId(model)) ?? claudeMaxOutputTokens(model);
+  return requested && requested > 0 ? Math.min(requested, ceiling) : ceiling;
+}
+
+/**
+ * The ceiling a 400 about `max_tokens` names, e.g. "max_tokens: 64000 > 32000,
+ * which is the maximum allowed number of output tokens for claude-opus-4-1".
+ * Null for any other error, including a `max_tokens` complaint with no figure.
+ */
+export function outputLimitError(status: number, body: string): number | null {
+  if (status !== 400) return null;
+  const m = /max_tokens[^.]*?>\s*(\d[\d,_]*)/i.exec(body);
+  if (!m) return null;
+  const limit = Number(m[1].replace(/[,_]/g, ''));
+  return Number.isFinite(limit) && limit > 0 ? limit : null;
 }
 
 /**
@@ -224,7 +261,10 @@ export class AnthropicProvider implements Provider {
         headers: this.headers(),
         body: JSON.stringify({
           model: req.model,
-          max_tokens: req.maxOutputTokens ?? 4096,
+          // Required here, so a chat with no cap of its own runs to the
+          // model's ceiling (see outputCapFor); a 400 naming a lower one is
+          // learned below and the request goes again.
+          max_tokens: outputCapFor(req.model, req.maxOutputTokens),
           stream: true,
           ...knob(shape),
           system: this.systemParam(req.system),
@@ -253,6 +293,13 @@ export class AnthropicProvider implements Provider {
       if (res.ok) break;
 
       const text = await res.text().catch(() => '');
+      // Our ceiling for this model was too high: the API names the real one.
+      // Keep it and go again with the same shape.
+      const limit = outputLimitError(res.status, text);
+      if (limit && limit < outputCapFor(req.model, req.maxOutputTokens)) {
+        learnOutputLimit(req.model, limit);
+        continue;
+      }
       const next = isSamplingParamError(res.status, text) ? nextSamplingShape(shape, tried) : null;
       if (!next) throw new Error(`anthropic ${res.status}: ${text.slice(0, 200)}`);
       shape = next;

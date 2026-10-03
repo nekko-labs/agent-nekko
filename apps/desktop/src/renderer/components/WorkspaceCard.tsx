@@ -195,7 +195,7 @@ function WorkspaceCardImpl({
 
   const windows = allPanes(workspace.root).length;
   const lastReply = session?.lastReplyAt;
-  const title = session?.title ?? terminal?.title ?? 'Workspace';
+  const title = session?.title ?? terminal?.title ?? 'Agent';
   const isChat = !!session;
   const model = session
     ? session.chatType === 'image'
@@ -258,7 +258,7 @@ function WorkspaceCardImpl({
             stay readable for 60 days. A shell has nothing to keep, so it closes. */}
         <button
           className="shrink-0 rounded-sm p-0.5 text-ink-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
-          title={isChat ? 'Complete this chat (kept for 60 days)' : 'Close this workspace'}
+          title={isChat ? 'Complete this chat (kept for 60 days)' : 'Close this agent'}
           aria-label={isChat ? `Complete ${title}` : `Close ${title}`}
           onClick={async (e) => {
             e.stopPropagation();
