@@ -12,6 +12,7 @@ import { loadWindowBounds, saveWindowBounds, setWindowStateDir } from './windowS
 import { preservePackagedProfile } from './appIdentity.js';
 import { EngineProcess } from './engine-process.js';
 import { createDesktopTray } from './tray.js';
+import { startAgentBrowser } from './agentBrowser.js';
 
 let desktopTray: ReturnType<typeof createDesktopTray> | null = null;
 let quitting = false;
@@ -302,7 +303,7 @@ function claimSingleInstance(): boolean {
 const isPrimary = claimSingleInstance();
 if (!isPrimary) app.quit();
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (!isPrimary) return;
   // No File/Edit/View/Window bar: it cost a whole strip of chrome above the UI
   // to duplicate shortcuts the app already owns. macOS keeps its menu — there
@@ -332,7 +333,10 @@ app.whenReady().then(() => {
   // The engine runs in its own processes (see engine-process.ts); the window
   // only needs to know where it listens.
   const rendererUrl = process.env['ELECTRON_RENDERER_URL'];
+  const agentBrowser = await startAgentBrowser();
+  app.once('will-quit', () => agentBrowser.close());
   engine = new EngineProcess({
+    browserBridge: { url: agentBrowser.url, token: agentBrowser.token },
     dataDir,
     app: {
       isPackaged: app.isPackaged,

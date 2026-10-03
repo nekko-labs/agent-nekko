@@ -514,3 +514,10 @@ On the desktop, Agent Nekko runs as three processes:
 - "Agent Nekko" as a local provider in onboarding now deep-links to **Nekko Server**, where the engine, the library and the borrowed folders all live. It should still become a real one-click managed-model install rather than a link to a tab.
 - Microsoft Teams reads need Microsoft Graph OAuth, which requires an app registration; v1 supports posting via incoming webhook and reads via a pasted token. Whether to register a first-party Nekko Graph app is open.
 - Full Gmail/Drive OAuth flow (needs Google client creds); macOS signing + notarization is **done**: the `nekko-labs` org secrets are in place and releases from v0.6.0 on are Developer ID signed and notarized (see [docs/signing.md](docs/signing.md)). Windows Authenticode is pending SignPath Foundation. The npm publish of `agent-nekko` needs an npm credential that may publish it: the v0.6.1 run failed with a 403 on the old package name, so either `NPM_TOKEN` must be able to publish the new name or the first publish is done by hand, after which a Trusted Publisher can be bound to `nekko-labs/agent-nekko`. Provisioning details in [provisioning.md](../../obsurdian/projects/agent-nekko/provisioning.md).
+
+
+### Browser approvals and token-speed accuracy
+
+Dedicated browser tool sessions open an isolated, sandboxed Chromium window owned by Nekko, not Edge or another external browser application. Every action still needs explicit approval. Existing mode remains an explicit attachment to a user-enabled local CDP browser. Browser tool windows deny popups, downloads and device permissions and use ephemeral storage separate from the app and personal browser.
+
+Token speed is shown only for turns with usable timing for every nonempty output step. Sub-100 ms buffered samples and missing timings hide the rate rather than pairing untimed tokens with other steps timings. Approval/tool waits do not enter decode time. Starting a new turn clears the previous speed.

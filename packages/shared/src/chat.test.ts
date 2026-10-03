@@ -1,8 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import type { ChatMessage, ToolCall } from './chat.js';
-import { decodeRate, formatRate, hasResumableProgress, parseReplySuggestions } from './chat.js';
+import { accumulateDecodeMs, decodeRate, formatRate, hasResumableProgress, parseReplySuggestions } from './chat.js';
 
 describe('decodeRate', () => {
+  it('does not report buffered output as thousands of tokens per second', () => {
+    expect(decodeRate(106, 4)).toBe(0);
+    expect(decodeRate(106, 1)).toBe(0);
+    expect(decodeRate(106, NaN)).toBe(0);
+  });
+
+  it('does not pair untimed tokens with another step timing', () => {
+    const measured = accumulateDecodeMs(0, 100, 2000);
+    expect(decodeRate(100, measured)).toBe(50);
+    const incomplete = accumulateDecodeMs(measured, 106, 4);
+    expect(decodeRate(206, incomplete)).toBe(0);
+    expect(accumulateDecodeMs(incomplete, 100, 2000)).toBe(-1);
+    expect(accumulateDecodeMs(measured, 106)).toBe(-1);
+    expect(accumulateDecodeMs(measured, 0)).toBe(measured);
+  });
   it('divides tokens by the time spent generating them', () => {
     expect(decodeRate(500, 10_000)).toBe(50);
   });

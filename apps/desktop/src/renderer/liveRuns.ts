@@ -30,7 +30,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import type { AgentEvent, ToolCall } from '@agent-nekko/shared';
 import type { Activity } from './components/agent-console/transcript.js';
-import { describeLiveActivity, emptyLiveActivity, reduceLiveActivity, type LiveActivity } from '@agent-nekko/shared';
+import { accumulateDecodeMs, describeLiveActivity, emptyLiveActivity, reduceLiveActivity, type LiveActivity } from '@agent-nekko/shared';
 
 export type LiveBlock = { kind: 'text'; text: string } | { kind: 'activity'; items: Activity[] };
 
@@ -223,7 +223,7 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
     case 'usage':
       next.outputTokens = prev.outputTokens + event.outputTokens;
       next.inputTokens = prev.inputTokens + event.inputTokens;
-      next.decodeMs = prev.decodeMs + (event.outputMs ?? 0);
+      next.decodeMs = accumulateDecodeMs(prev.decodeMs, event.outputTokens, event.outputMs);
       break;
     default:
       // Approvals and questions are pending-input state, owned by the host and
