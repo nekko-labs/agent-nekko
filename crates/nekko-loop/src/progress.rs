@@ -105,6 +105,9 @@ mod tests {
             assert_eq!(d.push(&c, &json!({ "output": format!("e{i}"), "isError": true })), None);
         }
         let c = json!({ "name": "bash", "input": { "command": "last" } });
-        assert_eq!(d.push(&c, &json!({ "output": "e", "isError": true })).as_deref(), Some("bash failing 5 times in a row"));
+        assert_eq!(
+            d.push(&c, &json!({ "output": "e", "isError": true })).as_deref(),
+            Some("bash failing 5 times in a row")
+        );
     }
 }

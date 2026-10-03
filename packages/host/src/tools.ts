@@ -1,4 +1,4 @@
-import { exec, spawn, type ChildProcess, type ExecOptions } from 'child_process';
+import { execFile, spawn, type ChildProcess, type ExecFileOptions } from 'child_process';
 import {
   existsSync,
   mkdirSync,
@@ -236,8 +236,8 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
             };
             // A separate process group on Unix lets Stop and timeout kill all
             // descendants. On Windows taskkill /T does the same for cmd.exe.
-            const options: ExecOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, encoding: 'utf8' };
-            const child = exec(a.command, options, (error: Error | null, stdout: string, stderr: string) => {
+            const options: ExecFileOptions & { detached: boolean; encoding: 'utf8' } = { cwd, maxBuffer: 10 * 1024 * 1024, detached: process.platform !== 'win32', windowsHide: true, windowsVerbatimArguments: process.platform === 'win32', encoding: 'utf8' };
+            const child = execFile(process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : '/bin/sh', process.platform === 'win32' ? ['/d', '/s', '/c', a.command] : ['-c', a.command], options, (error: Error | null, stdout: string, stderr: string) => {
               clearTimeout(timer);
               opts.signal?.removeEventListener('abort', onAbort);
               if (stopped) reject(Object.assign(new Error(`Command ${stopped}.`), { stdout, stderr }));

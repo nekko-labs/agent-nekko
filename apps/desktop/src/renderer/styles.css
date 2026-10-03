@@ -1557,3 +1557,46 @@
     transform: none !important;
   }
 }
+
+/* A small, non-interactive completion flourish anchored to the pressed check. */
+.completion-celebration {
+  position: fixed;
+  z-index: 100;
+  width: 40px;
+  height: 40px;
+  margin: -20px;
+  pointer-events: none;
+  color: var(--success);
+  animation: completion-pop 800ms ease-out both;
+}
+.completion-celebration svg { width: 100%; height: 100%; overflow: visible; }
+.completion-check, .completion-circle { stroke-dasharray: 1; stroke-dashoffset: 1; }
+.completion-check { animation: completion-draw 220ms ease-out forwards; }
+.completion-circle { transform: rotate(-90deg); transform-origin: center; animation: completion-draw 260ms 180ms ease-out forwards; }
+.completion-celebration i {
+  position: absolute;
+  left: 18px;
+  top: 18px;
+  width: 3px;
+  height: 5px;
+  border-radius: 1px;
+  background: var(--accent);
+  opacity: 0;
+  animation: completion-confetti 480ms 200ms ease-out both;
+}
+.completion-celebration i:nth-of-type(even) { background: var(--success); }
+@keyframes completion-draw { to { stroke-dashoffset: 0; } }
+@keyframes completion-pop {
+  0% { transform: scale(.65); opacity: 0; }
+  18% { transform: scale(1.08); opacity: 1; }
+  38%, 75% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(.95); opacity: 0; }
+}
+@keyframes completion-confetti {
+  0% { opacity: 0; transform: translate(0, 0) scale(.5); }
+  15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--confetti-x), var(--confetti-y)) rotate(var(--confetti-turn)) scale(.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .completion-celebration { display: none; }
+}

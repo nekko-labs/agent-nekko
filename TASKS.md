@@ -240,6 +240,12 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### Completed-session PR follow-up (2026-10-02)
+
+- [x] Correct fallback shell process-group launching and preserve Windows quoted arguments; format loop-detector Rust sources to satisfy CI. Host routing tests and typecheck plus Rust formatting check verified locally. · Done: 2026-10-02
+- [ ] Publish completion screenshots/recording to the PR and verify native iOS/Android visuals before marking the completion PR ready.
+
+
 ### Server browser, chat chrome and tray (added 2026-10-01)
 
 - [ ] **UX40**, Server cards share a row above models and use the existing power icon. [Spec](SPEC.md#server-model-browser-and-desktop-tray)
@@ -968,3 +974,7 @@ Observation: the fixed per-reply step budget (`DEFAULT_MAX_STEPS`, was 80) was h
 
 - [x] **T119**, **Released v0.4.0, the first release actually named Kotrain.** Bumped root/desktop/server to 0.4.0 and tagged. Housekeeping the rebrands never finished: deleted the stale v0.2.0/v0.3.0 drafts (their assets were still `Open-Paw-0.3.0-*`, which is why a fresh download installed "Open Paw"), retitled the six published releases from "Nekkos v0.1.x" back to "Kotrain 0.1.x", and swept Nekkos out of the v0.1.0/v0.1.5 bodies (the Open Paw historical notes stay, they describe those builds accurately). One CI casualty of the deps bump: electron-builder 26 started deriving `executableName` from the npm package name, sanitized `@kotrain/desktop` to `@kotraindesktop`, and refused the `@` — pinned `executableName: Kotrain` (the pre-26 default) so the Linux AppImage builds again. First tag run shipped win+mac but failed linux, so the partial drafts were deleted and the tag moved to the fix commit for one clean 13-asset draft, published as latest. Carries everything since v0.1.5, including T118's border beam, the orbit icon, Aphelion, and the Tailwind v4 bump. · Done: 2026-08-05
 - [x] **T78**, **Released v0.3.0.** Bumped root/desktop/server to 0.3.0, pushed the backlog to `nekko-labs/kotrain` main, tagged `v0.3.0` → Release workflow (win/mac/linux installers → draft GitHub Release) + Docker workflow (GHCR image). First release carrying T66 (IDE surfaces), T72 (inline comments), T73 (design board), T74–77 (Command Center rework, cost, tasks, skills), and connector official icons + validate-on-connect. Pending creds (non-blocking): npm publish of `kotrain`, code-signing/notarization, one-click Gmail/Drive OAuth.
+
+### Session completion terminology
+
+- [x] Rename session archive controls and read-only surfaces to Completed with checkmark icons. Preserve archivedAt compatibility and 60-day retention. Add a non-blocking check, circle and tiny confetti success effect capped at 800 ms, skipped for reduced motion. Cover effect cleanup and reduced motion in tests. Done: 2026-10-02

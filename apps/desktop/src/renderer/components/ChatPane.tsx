@@ -35,7 +35,7 @@ import { ScheduleTaskModal } from './ScheduleTaskModal.js';
 import { PrCard, PrBadge } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, ArchiveIcon, TrashIcon, UndoIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -2588,9 +2588,9 @@ function ArchivedChatBar({ sessionId, contentWidth, archivedAt }: { sessionId: s
   return (
     <div className="border-t border-line px-4 py-3">
       <div className={`${contentWidth} flex flex-wrap items-center gap-2 rounded-xl px-3 py-2.5`} style={{ background: 'var(--surface-2)' }}>
-        <ArchiveIcon className="h-4 w-4 shrink-0 text-ink-faint" />
+        <CheckIcon className="h-4 w-4 shrink-0 text-ink-faint" />
         <p className="min-w-0 flex-1 text-[12px] text-ink-soft">
-          Archived and read-only.
+          Completed and read-only.
           {days !== null && (
             <span className="text-ink-faint"> {days === 0 ? 'Deleted today' : `Deleted in ${days} day${days === 1 ? '' : 's'}`} unless restored.</span>
           )}

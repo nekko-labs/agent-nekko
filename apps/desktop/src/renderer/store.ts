@@ -521,7 +521,11 @@ export const useStore = create<UiState>((set, get) => ({
         activeWorkspaceId: workspaces.some((w) => w.id === s.activeWorkspaceId) ? s.activeWorkspaceId : workspaces[workspaces.length - 1]?.id ?? null,
       };
     });
-    if (!get().activeSessionId && sessions[0]) set({ activeSessionId: sessions[0].id });
+    // The default chat to report on is the newest live one: an archived chat
+    // is read from the Archived list, never opened as a workspace by default.
+    const firstLive = sessions.find((x) => !x.archivedAt);
+    const current = get().activeSessionId;
+    if ((!current || !live.has(current)) && firstLive && !get().archivedViewId) set({ activeSessionId: firstLive.id });
   },
 
   installedSkills: [],
@@ -675,6 +679,11 @@ export const useStore = create<UiState>((set, get) => ({
   // was on screen.
   openChatPane: (sessionId) => {
     set((s) => {
+      // An archived chat opens read-only in the Archived list instead of as a
+      // workspace, so nothing can be sent into it by accident.
+      if (s.sessions.find((x) => x.id === sessionId)?.archivedAt) {
+        return { view: 'chat' as View, archiveOpen: true, archivedViewId: sessionId };
+      }
       const hit = locatePane(s.workspaces, 'chat', sessionId);
       if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
       return addWorkspace(s, { id: newPaneId(), kind: 'chat', refId: sessionId });
@@ -858,9 +867,9 @@ export const useStore = create<UiState>((set, get) => ({
     } catch { /* nothing running */ }
     try {
       await window.nekko.setSessionOptions(sessionId, { archivedAt: Date.now() });
-      get().pushToast('info', 'Chat archived. Find it under Archived for 60 days.');
+      get().pushToast('success', 'Chat completed. Find it under Completed for 60 days.');
     } catch (e) {
-      get().pushToast('error', `Could not archive the chat: ${(e as Error).message}`);
+      get().pushToast('error', `Could not complete the chat: ${(e as Error).message}`);
     }
     await get().refreshSessions();
   },

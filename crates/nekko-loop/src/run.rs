@@ -348,8 +348,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
                 return;
             }
             let mut turn = Turn::default();
-            let first =
-                if iter == 0 { std::mem::take(&mut resume_extra) } else { std::mem::take(&mut loop_extra) };
+            let first = if iter == 0 { std::mem::take(&mut resume_extra) } else { std::mem::take(&mut loop_extra) };
             let mut result = self.stream(&mut turn, first, true).await;
             // An empty response gets one retry with a nudge, so the turn does not
             // silently stall (common with some local models mid-loop).
