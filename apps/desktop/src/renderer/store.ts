@@ -3,6 +3,7 @@ import type { AppSettings, Session, SessionSummary, ProviderConfig, ModelInfo, T
 import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
+import { putCachedSession } from './sessionCache.js';
 import { loadLayout, maxIdSeq, pruneLayout, saveLayout } from './workspacePersist.js';
 import {
   allPanes,
@@ -482,6 +483,9 @@ export const useStore = create<UiState>((set, get) => ({
     }),
   newChat: async () => {
     const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    // The host already returned the full record: seed before opening the pane
+    // so its first frame has the session and brain, without a round-trip.
+    putCachedSession(s);
     set((state) => ({ sessions: [summarizeSession(s), ...state.sessions], activeSessionId: s.id, view: 'chat' }));
     get().openChatPane(s.id);
   },
@@ -491,6 +495,7 @@ export const useStore = create<UiState>((set, get) => ({
       chatType: 'image',
       imageParams: { ...DEFAULT_IMAGE_CHAT_PARAMS, modelId, ...(defaults ?? {}) },
     })) ?? created;
+    putCachedSession(s);
     set((state) => ({ sessions: [summarizeSession(s), ...state.sessions], activeSessionId: s.id, view: 'chat' }));
     get().openChatPane(s.id);
   },
