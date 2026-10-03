@@ -22,7 +22,7 @@ import { LiveTurn, producedTokens, useProducedTokens } from './agent-console/Liv
 import { ChatTypeToggle, ImageModeControls } from './agent-console/ImageModeControls.js';
 import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
-import { ComposerHighlight } from './agent-console/ComposerHighlight.js';
+import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
 import { describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
@@ -424,7 +424,7 @@ const LiveReplyStatus = memo(function LiveReplyStatus({
  * chat; and done after the frame, because focus forces a layout, and paying for
  * it inside the switch would hold back the frame that shows the chat.
  */
-function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<HTMLTextAreaElement | null>; sessionId: string; ready: number }) {
+function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<MarkdownEditorElement | null>; sessionId: string; ready: number }) {
   const visible = usePaneVisible();
   const focusedFor = useRef<string | null>(null);
   useEffect(() => {
@@ -435,7 +435,7 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<H
     if (focusedFor.current === sessionId) return;
     return afterPaint(() => {
       const el = target.current;
-      if (!el || el.disabled) return;
+      if (!el || !el.isContentEditable) return;
       const active = document.activeElement;
       // A composer in a pane that was just hidden may still hold focus for a
       // moment; it is not someone typing.
@@ -626,9 +626,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // has scrolled up.
   const [showJump, setShowJump] = useState(false);
   const transcriptRef = useRef<VirtualTranscriptHandle>(null);
-  const composerRef = useRef<HTMLTextAreaElement>(null);
-  // The markdown highlight under the composer; its scroll chases the textarea's.
-  const composerHighlightRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<MarkdownEditorElement>(null);
   // A dragged composer height, or null to size to the draft. See COMPOSER_H_KEY.
   const [composerH, setComposerH] = useState<number | null>(readComposerHeight);
   const composerSectionRef = useRef<HTMLDivElement>(null);
@@ -1580,7 +1578,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // placeholder while the box is empty; ArrowRight types it in.
   const ghostSuggestion = !draft && !errorNotice && liveSuggestions?.next ? liveSuggestions.next : null;
 
-  const onComposerKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  const onComposerKeyDown = (e: React.KeyboardEvent<MarkdownEditorElement>) => {
     if (e.nativeEvent.isComposing) return;
     const menuCount = slashMenuOpen ? skillMatches.length + slashMatches.length : atMenuOpen ? atMatches.length : 0;
     if (slashMenuOpen || atMenuOpen) {
@@ -1656,7 +1654,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     setPendingImages((current) => [...current, ...images.filter((image): image is string => !!image)]);
   };
 
-  const onPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+  const onPaste = (e: React.ClipboardEvent<MarkdownEditorElement>) => {
     const files = Array.from(e.clipboardData.items)
       .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
       .map((item) => item.getAsFile())
@@ -2389,31 +2387,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                       →
                     </span>
                   )}
-                  {/* Markdown cues live on an overlay behind the textarea: the
-                      glyphs here are transparent so the caret, the selection
-                      and IME composition stay the browser's own. The gutter is
-                      stable on both so a scrollbar never shifts the wrap. */}
-                  <ComposerHighlight ref={composerHighlightRef} text={imageMode ? '' : draft} />
-                  <textarea
+                  <MarkdownEditor
                     ref={composerRef}
-                    className={`${composerH != null ? '' : 'max-h-60 '}relative min-h-[52px] w-full resize-none bg-transparent px-3.5 pt-3 text-sm text-transparent caret-ink outline-hidden [scrollbar-gutter:stable] placeholder:text-ink-faint`}
-                    rows={2}
+                    className={`${composerH != null ? '' : 'max-h-60 '}relative min-h-[52px] w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 py-3 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
                     placeholder={imageMode ? 'Describe the image you want…' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
                     value={draft}
-                    role="combobox"
                     aria-expanded={slashMenuOpen || atMenuOpen}
                     aria-controls={slashMenuOpen ? `slash-menu-${sessionId}` : atMenuOpen ? `at-menu-${sessionId}` : undefined}
-                    aria-autocomplete="list"
-                    onChange={(e) => { setDraft(e.target.value); setMenuClosed(false); }}
+                    onChange={(text) => { setDraft(text); setMenuClosed(false); }}
                     onPaste={imageMode ? undefined : onPaste}
                     onKeyDown={onComposerKeyDown}
-                    onScroll={(e) => {
-                      const h = composerHighlightRef.current;
-                      if (h) {
-                        h.scrollTop = e.currentTarget.scrollTop;
-                        h.scrollLeft = e.currentTarget.scrollLeft;
-                      }
-                    }}
                     disabled={!canCompose}
                   />
                   <ComposerFocus target={composerRef} sessionId={sessionId} ready={providers.length} />

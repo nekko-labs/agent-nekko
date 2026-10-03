@@ -218,7 +218,7 @@ async function openApp({ appUrl, cdpPort, vsync }) {
       const seen = await cdp.call((marker) => [...document.querySelectorAll('.panel')].map((p) => ({
         title: p.firstElementChild?.querySelector('span.truncate')?.textContent,
         visible: p.checkVisibility(),
-        composer: !!p.querySelector('textarea')?.checkVisibility(),
+        composer: !!p.querySelector('textarea, .composer [contenteditable]')?.checkVisibility(),
         newest: p.textContent.includes(marker),
       })), lastMarker(i));
       throw new Error(`switch to ${chatTitle(i)} did not paint (${JSON.stringify(res)}): ${JSON.stringify(seen)}`);
@@ -231,7 +231,7 @@ async function openApp({ appUrl, cdpPort, vsync }) {
   /** Send the long-reply prompt from the focused chat's composer. */
   const startStream = async (mock) => {
     const before = mock.state.streamsStarted;
-    await clickEl('textarea', null, 'the composer');
+    await clickEl('textarea, .composer [contenteditable]', null, 'the composer');
     await cdp.send('Input.insertText', { text: `${STREAM_TRIGGER} write the long report` });
     await sleep(200);
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' });
@@ -243,7 +243,7 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     await sleep(1500);
     // The measurement means nothing unless tokens are actually landing on screen.
     const shown = () => cdp.evaluate(`(() => {
-      const panel = [...document.querySelectorAll('.panel')].find((p) => p.querySelector('textarea')?.checkVisibility());
+      const panel = [...document.querySelectorAll('.panel')].find((p) => p.querySelector('textarea, .composer [contenteditable]')?.checkVisibility());
       const all = panel ? panel.querySelectorAll('.msg-ai') : [];
       return all.length ? all[all.length - 1].textContent.length : 0;
     })()`);
