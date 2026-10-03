@@ -2,6 +2,23 @@
 
 Conventions for any AI agent or human opening PRs in this repo.
 
+## Keep the primary checkout on main
+
+The primary project checkout stays on `main`. Do implementation work in a
+separate worktree and branch per chat or task; never switch the primary checkout
+to a feature branch. Start from an up-to-date `main`:
+
+```
+git fetch origin
+git merge --ff-only origin/main
+git worktree add -b <branch> .worktrees/<task> main
+```
+
+Run edits, tests, commits and PR commands from that task worktree. After merging,
+fast-forward the primary checkout and remove the task worktree and merged branch.
+Inspect dirty files and preserve any unmerged work before cleanup; never force
+remove a worktree just because its PR was squash-merged.
+
 ## Always land work as a PR
 
 The default for every change is: commit it to a branch, push, open a PR, and merge it.
@@ -10,7 +27,7 @@ in-flight batches share the tree (parallel agents), land them together in one PR
 rather than letting the tree drift further from `main`.
 
 ```
-git checkout -b <branch>
+# In the task worktree created above:
 git add -A   # or a scoped add; never commit .shots/ or other evidence dirs
 git commit -m "..."
 git push -u origin <branch>

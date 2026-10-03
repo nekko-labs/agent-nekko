@@ -102,6 +102,19 @@ export function App() {
   // listener and the run's output went nowhere until the next event arrived.
   useEffect(() => startLiveRuns(), []);
 
+  // Archived chats past the retention window are deleted at launch and every
+  // few hours after, whichever view the app opens on, so a long-running window
+  // still lets them go on time. The list is re-read only when something went.
+  useEffect(() => {
+    const purge = () =>
+      void window.nekko.purgeExpiredArchives?.()
+        .then((n) => { if (n > 0) void useStore.getState().refreshSessions(); })
+        .catch(() => { /* an older host without the channel */ });
+    purge();
+    const t = window.setInterval(purge, 6 * 60 * 60 * 1000);
+    return () => window.clearInterval(t);
+  }, []);
+
   // A background catalog check (Settings → Updates) can land a new provider
   // model list mid-session: re-list so pickers show it immediately.
   useEffect(

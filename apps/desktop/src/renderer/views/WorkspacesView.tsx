@@ -250,14 +250,6 @@ export function WorkspacesView() {
   };
   const archivedCount = useMemo(() => sessions.filter(isArchived).length, [sessions]);
 
-  // Archived chats past the 60-day window are deleted when the workspaces
-  // open (and so at every launch, which lands here), then the list is re-read.
-  useEffect(() => {
-    void window.nekko.purgeExpiredArchives?.()
-      .then((n) => { if (n > 0) void refreshSessions(); })
-      .catch(() => { /* an older host without the channel */ });
-  }, [refreshSessions]);
-
   const [statuses, setStatuses] = useState<Map<string, AgentStatus>>(new Map());
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
