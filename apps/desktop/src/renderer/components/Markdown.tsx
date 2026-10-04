@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { ContextAction, ContextMenu } from './ContextMenu.js';
+import { useStore } from '../store.js';
 
 /**
  * Minimal, dependency-free markdown renderer covering the constructs a chat
@@ -549,12 +551,33 @@ export function safeHref(href: string): string | null {
   }
 }
 
+export function linkContextActions(href: string): Array<{ label: string; run: () => void }> {
+  const safe = safeHref(href);
+  if (!safe) return [];
+  const actions = [{ label: 'Open in external browser', run: () => { void window.nekko.openPath(safe); } }];
+  if (/^https?:\/\//i.test(safe)) {
+    actions.push({ label: 'Open in in-app browser', run: () => { useStore.getState().openBrowserPane(safe); } });
+  }
+  actions.push({ label: 'Copy link', run: () => { void navigator.clipboard.writeText(safe); } });
+  return actions;
+}
+
 function Link({ href, children }: { href: string; children: React.ReactNode }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const safe = safeHref(href);
   if (!safe) return <span className="wrap-break-word text-ink-soft" title={href}>{children}</span>;
   return (
-    <a href={safe} target="_blank" rel="noreferrer" className="wrap-break-word underline" style={{ color: 'var(--accent)' }}>
-      {children}
-    </a>
+    <>
+      <a href={safe} target="_blank" rel="noreferrer" className="wrap-break-word underline" style={{ color: 'var(--accent)' }} onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}>
+        {children}
+      </a>
+      {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+        {linkContextActions(safe).map((action) => <ContextAction key={action.label} onClick={() => { setMenu(null); action.run(); }}>{action.label}</ContextAction>)}
+      </ContextMenu>}
+    </>
   );
 }
