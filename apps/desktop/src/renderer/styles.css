@@ -324,32 +324,51 @@
 /* Border beam: while the agent works, a violet→cyan beam laps the composer's
    border (the border-beam pattern, in brand colors). It's the border only, no
    surface wash, so the composer reads as "busy" without the interior shifting
-   color as you type. Where @property can't animate the angle the ring degrades
-   to a static gradient border, which still reads as "busy". */
-@utility composer-beam {
-  position: relative;
-  &::before {
-    content: '';
-    position: absolute;
-    pointer-events: none;
-    border-radius: 1rem; /* track the composer's rounded-2xl corners */
-    inset: -1px;
-    padding: 1.5px;
-    background: conic-gradient(
-      from var(--beam-angle),
-      transparent 0% 58%,
-      var(--accent-2) 74%,
-      var(--accent) 88%,
-      color-mix(in srgb, var(--accent) 55%, #f0abfc) 95%,
-      transparent 100%
-    );
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    animation: beam-lap 3.2s linear infinite;
-  }
+   color as you type.
+
+   The ring is a masked wrapper; inside it a square holding the gradient
+   rotates. Rotation is a transform, so the browser composites it without
+   repainting: an earlier version animated the gradient's angle, which
+   repainted the whole composer every frame, in every working window on the
+   wall at once. The square is sized from the ring's own box (container units)
+   so its corners cover the ring at every angle. */
+.composer-beam-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: 1rem; /* track the composer's rounded-2xl corners */
+  padding: 1.5px;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.composer-beam-spin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(2 * max(100cqw, 100cqh));
+  height: calc(2 * max(100cqw, 100cqh));
+  background: conic-gradient(
+    from 0deg,
+    transparent 0% 58%,
+    var(--accent-2) 74%,
+    var(--accent) 88%,
+    color-mix(in srgb, var(--accent) 55%, #f0abfc) 95%,
+    transparent 100%
+  );
+  will-change: transform;
+  animation: composer-beam-spin 3.2s linear infinite;
+}
+@keyframes composer-beam-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .composer-beam-spin { animation: none; transform: translate(-50%, -50%); }
 }
 
 /* The queue grows as part of the composer rather than floating above it. */
@@ -1456,23 +1475,6 @@
   border-left: 2px solid var(--accent);
   border-radius: 10px;
   background: color-mix(in srgb, var(--surface-2) 60%, transparent);
-}
-
-/* The border-beam angle has to be a registered property to interpolate. */
-@property --beam-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-@keyframes beam-lap {
-  to {
-    --beam-angle: 360deg;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .composer-beam::before {
-    animation: none;
-  }
 }
 
 /* ── Split compass ──────────────────────────────────────────────────────────

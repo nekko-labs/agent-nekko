@@ -1,11 +1,15 @@
 import React from 'react';
 
+/** How far one arrow-key press moves a divider, as a share of its split. */
+const KEY_STEP = 0.02;
+
 /**
  * The handle between two windows in a split tree. Pointer capture rather than
  * window listeners, so the drag keeps tracking over the panes' own iframes and
- * terminals (which would otherwise swallow it). Shared by the Agent tab's
- * workspaces and the Command Center wall, so a divider drags the same way
- * wherever two windows meet.
+ * terminals (which would otherwise swallow it). Focused (it is in the tab
+ * order), the arrow keys along its axis move it in small steps. Shared by the
+ * Agent tab's workspaces and the Command Center wall, so a divider behaves the
+ * same way wherever two windows meet.
  */
 export function Divider({
   splitId, index, dir, onResize,
@@ -34,6 +38,23 @@ export function Divider({
     handle.addEventListener('pointermove', onMove);
     handle.addEventListener('pointerup', onUp);
   };
+  // The divider's own place in its split is the fraction to start from, read
+  // from the layout rather than threaded down from the tree.
+  const onKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const back = row ? 'ArrowLeft' : 'ArrowUp';
+    const forward = row ? 'ArrowRight' : 'ArrowDown';
+    if (e.key !== back && e.key !== forward) return;
+    const handle = e.currentTarget;
+    const area = handle.parentElement;
+    if (!area) return;
+    const rect = area.getBoundingClientRect();
+    const own = handle.getBoundingClientRect();
+    const span = row ? rect.width : rect.height;
+    if (span <= 0) return;
+    const at = row ? (own.left + own.width / 2 - rect.left) / span : (own.top + own.height / 2 - rect.top) / span;
+    e.preventDefault();
+    onResize(splitId, index, at + (e.key === forward ? KEY_STEP : -KEY_STEP));
+  };
 
   return (
     <div
@@ -46,6 +67,8 @@ export function Divider({
       className={`group relative shrink-0 ${row ? 'cursor-col-resize' : 'cursor-row-resize'}`}
       style={{ [row ? 'width' : 'height']: 'var(--pane-gap)', touchAction: 'none' } as React.CSSProperties}
       onPointerDown={start}
+      onKeyDown={onKey}
+      title={row ? 'Drag, or focus and use ← →' : 'Drag, or focus and use ↑ ↓'}
     >
       <span
         /* A little wider than the gap, so the handle is grabbable without

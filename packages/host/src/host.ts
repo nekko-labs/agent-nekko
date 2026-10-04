@@ -162,7 +162,7 @@ import {
   reconcileWorkflowRuns,
 } from './workflows.js';
 import { listChatWorktrees, removeChatWorktree } from './chat-worktrees.js';
-import { isChatRunning, reconcileInterruptedChats, setDecisionRunner, sendChat, abortChat, steerChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { isChatRunning, reconcileInterruptedChats, setDecisionRunner, sendChat, abortChat, steerChat, suggestReplies, fillPromptPart, getPendingInput, getRunningSessionIds, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
 import { loopApprove, loopEnd, loopEvent, loopLog, loopTool } from './daemon-loop.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting, setCompactionSender } from './compaction.js';
@@ -347,6 +347,7 @@ export interface Host {
   answerQuestion(sessionId: string, callId: string, answers: AskAnswer[]): void;
   /** Every session waiting on a person right now, keyed by session id. */
   pendingInput(): Record<string, PendingInput>;
+  runningSessions(): string[];
 
   listTerminals(): Promise<TerminalInfo[]>;
   listShells(): ShellOption[];
@@ -927,6 +928,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     approveTool: (sessionId, toolCallId, approved) => resolveApproval(sessionId, toolCallId, approved),
     answerQuestion: (sessionId, callId, answers) => resolveQuestion(sessionId, callId, answers),
     pendingInput: getPendingInput,
+    runningSessions: getRunningSessionIds,
 
     listTerminals,
     listShells,

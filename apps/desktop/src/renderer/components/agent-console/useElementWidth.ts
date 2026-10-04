@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
 /** The last width measured per key, and overall, to start the next mount from. */
 const remembered = new Map<string, number>();
@@ -44,25 +44,39 @@ export const COMPACT_WIDTH = 470;
 export const COMPACT_HEIGHT = 440;
 
 /**
+ * What a surface already knows about the room a window will have, before the
+ * window has been laid out. The Command Center wall knows every window's
+ * share of the stage, so it can say "compact" on the first render; a pane
+ * mounted anywhere else starts full-size and folds once measured.
+ */
+export const PaneDensityHint = createContext<boolean | null>(null);
+
+/**
  * Whether the element is small enough to call for the compact chat chrome:
  * a cell on the Command Center wall, or a window split down to a sliver.
  * Width and height both count, since a wide but short window has no more
- * room for two rows of controls than a narrow one. False until measured, so a
- * pane opens at full size and folds only once it knows it must.
+ * room for two rows of controls than a narrow one.
+ *
+ * The size comes from the ResizeObserver's own entries, never from
+ * `clientWidth`: reading that forced a layout of the whole document for
+ * every chat window as it mounted, nine times over on a wall, and was the
+ * single biggest cost in switching to it.
  */
 export function useElementCompact(ref: React.RefObject<HTMLElement | null>): boolean {
-  const [compact, setCompact] = useState(false);
+  const hint = useContext(PaneDensityHint);
+  const [compact, setCompact] = useState(hint ?? false);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const measure = () => {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      if (w <= 0 || h <= 0) return;
-      setCompact(w < COMPACT_WIDTH || h < COMPACT_HEIGHT);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const box = entry.contentBoxSize?.[0];
+        const w = box ? box.inlineSize : entry.contentRect.width;
+        const h = box ? box.blockSize : entry.contentRect.height;
+        if (w <= 0 || h <= 0) continue;
+        setCompact(w < COMPACT_WIDTH || h < COMPACT_HEIGHT);
+      }
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, [ref]);

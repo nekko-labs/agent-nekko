@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, AutomationTask, PendingInput, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType } from '@agent-nekko/shared';
-import { BLOCKED_META, classifyAgent, classifySession, formatUSD, sessionLane, summarizeSession } from '@agent-nekko/shared';
+import { classifyAgent, classifySession, formatUSD, summarizeSession } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
+import { runningSessionIds } from '../liveRuns.js';
 import { Toggle } from '../components/primitives/index.js';
 import { BoltIcon, ChatIcon, GridIcon, LayoutIcon, PlusIcon, TerminalIcon } from '../icons.js';
 import { CommandWall } from '../components/CommandWall.js';
@@ -17,10 +18,13 @@ import {
   hasPane,
   loadWallState,
   reconcileWall,
+  ribbonItems,
   saveWallState,
   tileTree,
+  toWallSetting,
   wallPane,
   type CommandWallState,
+  type RibbonItem,
   type WallFilter,
 } from '../commandWall.js';
 
@@ -50,7 +54,11 @@ export function CommandCenterView() {
     })),
   );
   const [usage, setUsage] = useState<UsageSummary | null>(null);
-  const [running, setRunning] = useState<Set<string>>(new Set());
+  // Which chats are mid-turn. Seeded from the app-wide fold of agent events,
+  // so a chat that was already working shows as working on the first frame
+  // rather than idle until its next token; the host confirms the set on
+  // mount, for runs that began before this window did.
+  const [running, setRunning] = useState<Set<string>>(() => new Set(runningSessionIds()));
   const [tasks, setTasks] = useState<AutomationTask[]>([]);
   // What each chat is waiting on a person for, read from the host so a question
   // asked while this screen was closed shows on its window when it opens.
@@ -58,11 +66,27 @@ export function CommandCenterView() {
   const [, setTick] = useState(0);
   const now = Date.now();
 
-  // The wall itself: remembered between runs, kept honest against the chats
-  // and terminals that exist, and grown by every new chat while auto-add is on.
-  const [wall, setWallState] = useState<CommandWallState>(() => loadWallState(typeof localStorage === 'undefined' ? undefined : localStorage));
+  // The wall itself: a setting, so the desktop, web and phone editions of one
+  // install show the same wall, with the browser's copy as the fast first
+  // paint. Kept honest against the chats and terminals that exist, and grown
+  // by every new chat while auto-add is on.
+  const storage = typeof localStorage === 'undefined' ? undefined : localStorage;
+  const [wall, setWallState] = useState<CommandWallState>(() => loadWallState(storage, useStore.getState().settings?.commandWall));
   const setWall = useCallback((update: (s: CommandWallState) => CommandWallState) => setWallState((s) => update(s)), []);
-  useEffect(() => { saveWallState(typeof localStorage === 'undefined' ? undefined : localStorage, wall); }, [wall]);
+  const firstSave = useRef(true);
+  useEffect(() => {
+    saveWallState(storage, wall);
+    // The first run is the load itself; after that, every change goes to the
+    // host a moment after it settles (a divider drag is many changes a second).
+    if (firstSave.current) { firstSave.current = false; return; }
+    const t = setTimeout(() => {
+      const setting = toWallSetting(wall);
+      useStore.setState((s) => (s.settings ? { settings: { ...s.settings, commandWall: setting } } : {}));
+      window.nekko.updateSettings({ commandWall: setting }).catch(() => {});
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wall]);
   // The stage's shape, as the wall measures it, for placing windows nobody
   // pointed at a side for: beside the biggest window, along its longer side.
   const aspectRef = useRef(DEFAULT_ASPECT);
@@ -80,6 +104,7 @@ export function CommandCenterView() {
     Promise.all([refreshSessions(), refreshTerminals()]).finally(() => setListsReady(true));
     window.nekko.listTasks().then(setTasks).catch(() => setTasks([]));
     window.nekko.pendingInput().then(setPending).catch(() => {});
+    window.nekko.runningSessions().then((ids) => setRunning((r) => (ids.every((id) => r.has(id)) ? r : new Set([...r, ...ids])))).catch(() => {});
     const off = window.nekko.onTasksUpdated(setTasks);
     return off;
   }, [refreshSessions, refreshTerminals]);
@@ -196,13 +221,7 @@ export function CommandCenterView() {
     return () => clearTimeout(t);
   }, [flash]);
 
-  const needs = useMemo(
-    () => sessions
-      .filter((s) => !s.archivedAt && !!pending[s.id])
-      .map((s) => ({ session: s, pending: pending[s.id], blocked: sessionLane({ running: false, pending: pending[s.id] }).blocked }))
-      .filter((n): n is Need => !!n.blocked),
-    [sessions, pending],
-  );
+  const needs = useMemo(() => ribbonItems(sessions, pending), [sessions, pending]);
 
   const renderPanel = (kind: 'automations' | 'insights') =>
     kind === 'automations' ? (
@@ -246,39 +265,25 @@ export function CommandCenterView() {
 
 /* ---------- the ribbon ---------- */
 
-type Need = { session: SessionSummary; pending: PendingInput; blocked: NonNullable<ReturnType<typeof sessionLane>['blocked']> };
-
-/** What an approval is asking for, in a few words: the command when there is one, else the tool. */
-function approvalSummary(p: PendingInput): string | null {
-  const call = p.approval?.call as { name?: string; arguments?: unknown } | undefined;
-  if (!call) return null;
-  const args = call.arguments && typeof call.arguments === 'object' ? (call.arguments as Record<string, unknown>) : {};
-  const cmd = typeof args.command === 'string' ? args.command : typeof args.cmd === 'string' ? args.cmd : null;
-  if (cmd) return cmd.length > 48 ? `${cmd.slice(0, 47)}…` : cmd;
-  return call.name ?? null;
-}
-
 /**
  * Everything waiting on a person, in one line above the wall. Each window
  * already wears its own ring; this is the list for a wall with more windows
- * than fit, with a jump to each.
+ * than fit, with a jump to each. The rows come from `ribbonItems`, which is
+ * pure and tested.
  */
-function NeedsYouRibbon({ needs, onGo }: { needs: Need[]; onGo: (sessionId: string) => void }) {
+function NeedsYouRibbon({ needs, onGo }: { needs: RibbonItem[]; onGo: (sessionId: string) => void }) {
   return (
     <div className="wall-ribbon" role="region" aria-label="Needs you">
       <span className="wall-ribbon-lead"><span className="h-[7px] w-[7px] animate-pulse rounded-full" style={{ background: 'var(--warning)' }} />Needs you · {needs.length}</span>
-      {needs.map(({ session, pending, blocked }) => {
-        const what = blocked === 'approval' ? approvalSummary(pending) : null;
-        return (
-          <span key={session.id} className="wall-ribbon-item">
-            <span className="min-w-0 max-w-[28ch] truncate font-medium">{session.title}</span>
-            <span className="min-w-0 truncate text-ink-soft">
-              {blocked === 'approval' && what ? <>approve <code className="rounded-sm px-1 font-mono text-[11px]" style={{ background: 'var(--surface-2)' }}>{what}</code></> : BLOCKED_META[blocked].label.toLowerCase()}
-            </span>
-            <button className="wall-ribbon-go" onClick={() => onGo(session.id)} title={`Jump to ${session.title}`}>Go</button>
+      {needs.map((n) => (
+        <span key={n.sessionId} className="wall-ribbon-item">
+          <span className="min-w-0 max-w-[28ch] truncate font-medium">{n.title}</span>
+          <span className="min-w-0 truncate text-ink-soft">
+            {n.command ? <>approve <code className="rounded-sm px-1 font-mono text-[11px]" style={{ background: 'var(--surface-2)' }}>{n.what}</code></> : n.what}
           </span>
-        );
-      })}
+          <button className="wall-ribbon-go" onClick={() => onGo(n.sessionId)} title={`Jump to ${n.title}`}>Go</button>
+        </span>
+      ))}
       <span className="ml-auto text-[11.5px] text-ink-faint">Answer on the window, or jump to it.</span>
     </div>
   );
