@@ -109,6 +109,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.toolApprove]: ([sid, tid, ok]) => host.approveTool(sid, tid, ok),
     [C.chatAnswer]: ([sid, callId, answers]) => host.answerQuestion(sid, callId, answers),
     [C.chatPending]: () => host.pendingInput(),
+    [C.chatRunning]: () => host.runningSessions(),
 
     [C.terminalsList]: () => host.listTerminals(),
     [C.terminalShells]: () => host.listShells(),

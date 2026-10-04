@@ -119,6 +119,7 @@ export const IpcChannels = {
   toolApprove: 'tool:approve',
   chatAnswer: 'chat:answer',
   chatPending: 'chat:pending',
+  chatRunning: 'chat:running',
 
   terminalsList: 'terminals:list',
   terminalShells: 'terminal:shells',
@@ -537,6 +538,8 @@ export interface NekkoApi {
    * reads this on mount so a question asked while it was closed is still there.
    */
   pendingInput(): Promise<Record<string, PendingInput>>;
+  /** The chats whose turn is running right now, so a screen that opens mid-run shows them working at once. */
+  runningSessions(): Promise<string[]>;
 
   /** Live terminal sessions (in-memory; they don't persist across restarts). */
   listTerminals(): Promise<TerminalInfo[]>;

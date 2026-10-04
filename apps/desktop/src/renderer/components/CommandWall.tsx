@@ -23,10 +23,12 @@ import {
   addPane,
   filterTree,
   hasPane,
+  leafRects,
   wallPane,
   type CommandWallState,
 } from '../commandWall.js';
 import { ChatPane } from './ChatPane.js';
+import { COMPACT_HEIGHT, COMPACT_WIDTH, PaneDensityHint } from './agent-console/useElementWidth.js';
 import { TerminalPane } from './TerminalPane.js';
 import { PaneActions, PaneFrame } from './PaneFrame.js';
 import { Divider } from './Divider.js';
@@ -96,7 +98,10 @@ export function CommandWall({
     const rect = el.getBoundingClientRect();
     const width = Math.round(rect.width);
     const height = Math.round(rect.height);
-    if (width > 0 && height > 0) onAspect(width / height);
+    // Hidden behind another view the wall measures nothing; keep the last real
+    // size so its windows stay mounted and warm until it is shown again.
+    if (width === 0 || height === 0) return;
+    onAspect(width / height);
     setSize((s) => (s.width === width && s.height === height ? s : { width, height }));
   }, [onAspect]);
   useLayoutEffect(() => {
@@ -143,6 +148,16 @@ export function CommandWall({
   const aspect = size.width > 0 && size.height > 0 ? size.width / size.height : DEFAULT_ASPECT;
   const narrow = size.width > 0 && size.width < NARROW_WIDTH;
   const tree = useMemo(() => filterTree(state.root, state.filter), [state.root, state.filter]);
+  // Each window's share of the stage, so a chat can be told it is compact on
+  // its first render instead of measuring itself after the fact.
+  const rects = useMemo(() => leafRects(tree), [tree]);
+  const densityOf = (paneId: string, stacked: boolean): boolean | null => {
+    if (stacked) return size.width > 0 ? size.width < COMPACT_WIDTH || NARROW_ROW_H < COMPACT_HEIGHT : null;
+    const r = rects.get(paneId);
+    if (!r || size.width === 0) return null;
+    // The strip takes about 32 px of the window's height.
+    return r.width * size.width < COMPACT_WIDTH || r.height * size.height - 32 < COMPACT_HEIGHT;
+  };
 
   const update = useCallback((fn: (root: WbNode | null) => WbNode | null) => setState((s) => {
     const root = fn(s.root);
@@ -265,7 +280,7 @@ export function CommandWall({
               </button>
             </PaneActions>
           )}
-          {pane.kind === 'chat' ? <ChatPane key={pane.refId} sessionId={pane.refId} />
+          {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id, stacked)}><ChatPane key={pane.refId} sessionId={pane.refId} /></PaneDensityHint.Provider>
             : pane.kind === 'terminal' ? <TerminalPane key={pane.refId} terminalId={pane.refId} />
             : renderPanel(pane.kind as 'automations' | 'insights')}
         </PaneFrame>

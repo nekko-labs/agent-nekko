@@ -122,6 +122,11 @@ export function getPendingInput(): Record<string, PendingInput> {
   return Object.fromEntries(pendingBySession);
 }
 
+/** The chats whose turn is running right now. */
+export function getRunningSessionIds(): string[] {
+  return [...abortControllers.keys()];
+}
+
 function isAuthFailure(message: string): boolean {
   return /\b401\b|unauthorized|invalid auth|invalid api key|authentication/i.test(message);
 }

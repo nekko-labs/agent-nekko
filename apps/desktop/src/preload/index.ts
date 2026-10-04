@@ -147,6 +147,7 @@ const api: NekkoApi = {
   approveTool: (sessionId, toolCallId, approved) => inv(IpcChannels.toolApprove, sessionId, toolCallId, approved),
   answerQuestion: (sessionId, callId, answers) => inv(IpcChannels.chatAnswer, sessionId, callId, answers),
   pendingInput: () => inv(IpcChannels.chatPending),
+  runningSessions: () => inv(IpcChannels.chatRunning),
 
   listTerminals: () => inv(IpcChannels.terminalsList),
   listShells: () => inv(IpcChannels.terminalShells),
