@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { DEFAULT_GUARDRAILS } from '@agent-nekko/shared';
-import type { AppSettings, ChatMode, ChatWorktreeInfo, GuardrailRule, GuardrailAction, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@agent-nekko/shared';
+import type { AppSettings, ChatMode, ChatWorktreeInfo, GuardrailRule, GuardrailAction, HookEvent, HookRule, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
@@ -148,6 +148,7 @@ export function SettingsView() {
 
         {/* Agent loop */}
         <AgentLoopSection settings={settings} update={update} />
+        <HooksSection settings={settings} update={update} />
 
         {/* Terminal */}
         <TerminalSection settings={settings} update={update} />
@@ -369,6 +370,58 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
         </div>
         <Toggle on={settings.desktopNotifications !== false} onChange={(v) => update({ desktopNotifications: v })} />
       </div>
+    </section>
+  );
+}
+
+const HOOK_EVENTS: Array<{ value: HookEvent; label: string; hint: string }> = [
+  { value: 'PreToolUse', label: 'Before a tool', hint: 'Exit code 2, or {"decision":"block","reason":"…"} on stdout, blocks the call; the reason goes to the model.' },
+  { value: 'PostToolUse', label: 'After a tool', hint: 'Whatever it prints is appended to the tool result for the model.' },
+  { value: 'TurnEnd', label: 'When a reply ends', hint: 'Runs when a reply finishes, fails or is stopped. Nothing waits on it.' },
+];
+
+/**
+ * Lifecycle hooks: a shell command per event, the event as JSON on stdin.
+ */
+function HooksSection({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => void }) {
+  const hooks = settings.hooks ?? [];
+  const save = (next: HookRule[]) => update({ hooks: next });
+  const edit = (id: string, patch: Partial<HookRule>) => save(hooks.map((h) => (h.id === id ? { ...h, ...patch } : h)));
+  const add = () => save([...hooks, { id: `hook_${Date.now().toString(36)}`, event: 'PreToolUse', matcher: '', command: '', enabled: true }]);
+  return (
+    <section className="card mt-5 p-5">
+      <div className="flex items-center gap-2"><WandIcon className="h-4 w-4" /><h2 className="font-semibold">Hooks</h2></div>
+      <p className="mt-1 text-[12px] text-ink-faint">
+        Your own commands around the agent's actions. Each gets the event as JSON on stdin (event, tool name and input,
+        the result for post-hooks) and runs in the chat's workspace with <code>NEKKO_HOOK_EVENT</code> set; the tool name
+        matcher is a regular expression, empty for every tool. While a tool hook is on, every tool runs in the host so the
+        hook sees it.
+      </p>
+      <div className="mt-3 space-y-2">
+        {hooks.map((h) => {
+          const ev = HOOK_EVENTS.find((e) => e.value === h.event) ?? HOOK_EVENTS[0];
+          return (
+            <div key={h.id} className="rounded-lg border border-line p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <select className="input max-w-[170px] py-1" value={h.event} aria-label="Hook event" onChange={(e) => edit(h.id, { event: e.target.value as HookEvent })}>
+                  {HOOK_EVENTS.map((e) => <option key={e.value} value={e.value}>{e.label}</option>)}
+                </select>
+                <input className="input max-w-[150px] py-1 text-[12px]" placeholder="Name" aria-label="Hook name" defaultValue={h.name ?? ''} onBlur={(e) => edit(h.id, { name: e.target.value.trim() || undefined })} />
+                {h.event !== 'TurnEnd' && (
+                  <input className="input max-w-[170px] py-1 font-mono text-[12px]" placeholder="Tools (regex), empty = all" aria-label="Hook tool matcher" defaultValue={h.matcher ?? ''} onBlur={(e) => edit(h.id, { matcher: e.target.value.trim() })} />
+                )}
+                <div className="ml-auto flex items-center gap-2">
+                  <Toggle on={h.enabled !== false} onChange={(v) => edit(h.id, { enabled: v })} />
+                  <button className="btn btn-ghost px-2 py-1 text-ink-faint hover:text-(--danger)" title="Remove hook" aria-label="Remove hook" onClick={() => save(hooks.filter((x) => x.id !== h.id))}><TrashIcon className="h-3.5 w-3.5" /></button>
+                </div>
+              </div>
+              <input className="input mt-2 w-full py-1 font-mono text-[12px]" placeholder="Command, e.g. node scripts/check-tool.js" aria-label="Hook command" defaultValue={h.command} onBlur={(e) => edit(h.id, { command: e.target.value })} />
+              <p className="mt-1 text-[11px] text-ink-faint">{ev.hint}</p>
+            </div>
+          );
+        })}
+      </div>
+      <button className="btn btn-outline mt-3 px-3 py-1 text-[12px]" onClick={add}>Add hook</button>
     </section>
   );
 }
