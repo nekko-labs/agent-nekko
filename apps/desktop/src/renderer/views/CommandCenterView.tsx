@@ -1,3 +1,7 @@
+import { createPortal } from 'react-dom';
+import { hasAppChrome } from '../chrome.js';
+import { ProviderLimitsDock } from '../components/ProviderLimitsDock.js';
+import { ResourceDock } from '../components/ResourceMonitor.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, AutomationTask, PendingInput, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType } from '@agent-nekko/shared';
@@ -223,8 +227,10 @@ export function CommandCenterView() {
 
   const needs = useMemo(() => ribbonItems(sessions, pending), [sessions, pending]);
 
-  const renderPanel = (kind: 'automations' | 'insights') =>
-    kind === 'automations' ? (
+  const renderPanel = (kind: 'automations' | 'insights' | 'subscriptions' | 'resources') =>
+    kind === 'subscriptions' ? <div className="min-h-0 flex-1 overflow-auto"><ProviderLimitsDock standalone /></div>
+    : kind === 'resources' ? <div className="min-h-0 flex-1 overflow-auto"><ResourceDock standalone /></div>
+    : kind === 'automations' ? (
       <AutomationsPane tasks={tasks} running={running} now={now} onOpen={openChat} />
     ) : (
       <InsightsBox
@@ -238,9 +244,21 @@ export function CommandCenterView() {
       />
     );
 
+  const [titleSlot, setTitleSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (!hasAppChrome) return;
+    // Below this width the controls cannot share a row with the brand, version,
+    // developer controls and native window buttons without clipping.
+    const wide = window.matchMedia('(min-width: 1400px)');
+    const sync = () => setTitleSlot(wide.matches ? document.getElementById('command-titlebar-slot') : null);
+    sync();
+    wide.addEventListener('change', sync);
+    return () => wide.removeEventListener('change', sync);
+  }, []);
+  const toolbar = <WallToolbar compact={!!titleSlot} wall={wall} setWall={setWall} sessions={sessions} terminals={terminals} onAdd={addFromToolbar} onAutoArrange={autoArrange} />;
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-5 xl:px-6">
-      <WallToolbar wall={wall} setWall={setWall} sessions={sessions} terminals={terminals} onAdd={addFromToolbar} onAutoArrange={autoArrange} />
+    <div className={`flex h-full min-h-0 flex-col gap-3 px-4 pb-4 ${titleSlot ? 'pt-2' : 'pt-5'} xl:px-6`}>
+      {titleSlot ? createPortal(toolbar, titleSlot) : toolbar}
       {needs.length > 0 && <NeedsYouRibbon needs={needs} onGo={goTo} />}
       <CommandWall
         state={wall}
@@ -298,6 +316,7 @@ const FILTERS: Array<{ key: WallFilter; label: string }> = [
 ];
 
 function WallToolbar({
+  compact = false,
   wall,
   setWall,
   sessions,
@@ -311,6 +330,7 @@ function WallToolbar({
   terminals: import('@agent-nekko/shared').TerminalInfo[];
   onAdd: (kind: PaneKind, refId?: string) => Promise<void>;
   onAutoArrange: () => void;
+  compact?: boolean;
 }) {
   const [addOpen, setAddOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -338,12 +358,12 @@ function WallToolbar({
   const canArrange = !!wall.root && isSplit(wall.root) && !wallPanes.some((p) => p.pinned);
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <h1 className="text-gradient text-2xl font-semibold">Command Center</h1>
-      <span className="text-[12px] text-ink-faint">
+    <div className={`flex w-full items-center gap-x-4 gap-y-2 ${compact ? 'min-w-0' : 'flex-wrap'}`}>
+      <h1 className={`text-gradient shrink-0 font-semibold ${compact ? 'text-sm' : 'text-2xl'}`}>Command Center</h1>
+      <span className={`${compact ? 'hidden 2xl:inline' : ''} text-[12px] text-ink-faint`}>
         {counts.chat} agent{counts.chat === 1 ? '' : 's'} · {counts.terminal} terminal{counts.terminal === 1 ? '' : 's'} on the wall
       </span>
-      <div className="ml-auto flex flex-wrap items-center gap-3">
+      <div className={`ml-auto flex shrink-0 items-center gap-3 ${compact ? '' : 'flex-wrap'}`}>
         <div className="inline-flex rounded-lg border border-line p-0.5" role="tablist" aria-label="Show">
           {FILTERS.map((f) => (
             <button
@@ -398,9 +418,15 @@ function WallToolbar({
                 </span>
                 <kbd className="kbd">{SHORTCUTS.newTerminal.label}</kbd>
               </button>
-              {(!on('automations') || !on('insights')) && (
+              {(!on('automations') || !on('insights') || !on('subscriptions') || !on('resources')) && (
                 <>
                   <p className="px-2.5 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Panels</p>
+                  {(['subscriptions', 'resources'] as const).filter((kind) => !on(kind)).map((kind) => (
+                    <button key={kind} className="create-row flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left" role="menuitem" onClick={() => run(kind)}>
+                      <LayoutIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+                      <span className="min-w-0 flex-1 truncate text-[12.5px]">{kind === 'subscriptions' ? 'Subscription usage' : 'System utilization'}</span>
+                    </button>
+                  ))}
                   {!on('automations') && (
                     <button className="create-row flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left" role="menuitem" onClick={() => run('automations')}>
                       <BoltIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />

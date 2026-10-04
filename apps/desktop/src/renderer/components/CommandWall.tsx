@@ -85,7 +85,7 @@ export function CommandWall({
   /** Start a chat; resolves to its id once the session list knows it. */
   onNewChat: () => Promise<string>;
   onNewTerminal: () => Promise<string>;
-  renderPanel: (kind: 'automations' | 'insights') => React.ReactNode;
+  renderPanel: (kind: 'automations' | 'insights' | 'subscriptions' | 'resources') => React.ReactNode;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -198,7 +198,7 @@ export function CommandWall({
   const titleOf = (pane: WbPane): string => {
     if (pane.kind === 'chat') return sessionById.get(pane.refId)?.title ?? 'Chat';
     if (pane.kind === 'terminal') return terminalById.get(pane.refId)?.title || 'Terminal';
-    return pane.kind === 'automations' ? 'Automations' : 'Insights';
+    return pane.kind === 'automations' ? 'Automations' : pane.kind === 'subscriptions' ? 'Subscription usage' : pane.kind === 'resources' ? 'System utilization' : 'Insights';
   };
   const iconOf = (kind: PaneKind) => {
     const cls = 'h-3.5 w-3.5 shrink-0 text-ink-faint';
@@ -309,7 +309,7 @@ export function CommandWall({
           )}
           {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id, stacked)}><ChatPane key={pane.refId} sessionId={pane.refId} /></PaneDensityHint.Provider>
             : pane.kind === 'terminal' ? <TerminalPane key={pane.refId} terminalId={pane.refId} />
-            : renderPanel(pane.kind as 'automations' | 'insights')}
+            : renderPanel(pane.kind as 'automations' | 'insights' | 'subscriptions' | 'resources')}
         </PaneFrame>
       </div>
     );

@@ -29,7 +29,7 @@ export type DropTarget = Direction | 'swap';
  * wall, where the automations list and the insights box are windows you place
  * like any other.
  */
-export type PaneKind = 'chat' | 'terminal' | 'file' | 'files' | 'browser' | 'diff' | 'pr' | 'hypergate' | 'automations' | 'insights';
+export type PaneKind = 'chat' | 'terminal' | 'file' | 'files' | 'browser' | 'diff' | 'pr' | 'hypergate' | 'automations' | 'insights' | 'subscriptions' | 'resources';
 
 /** A leaf: one window. */
 export interface WbPane {

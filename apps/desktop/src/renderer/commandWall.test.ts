@@ -108,6 +108,20 @@ describe('addPane', () => {
   });
 });
 
+describe('monitor windows', () => {
+  it('restores both monitor kinds with their pins and keeps them through filters', () => {
+    const usage = { ...wallPane('subscriptions'), pinned: true };
+    const resources = wallPane('resources');
+    const state = { ...DEFAULT_WALL_STATE, root: tileTree([usage, resources]), watermark: 1 };
+    const restored = loadWallState(undefined, toWallSetting(state));
+    expect(allPanes(restored.root).map((p) => p.kind)).toEqual(['subscriptions', 'resources']);
+    expect(allPanes(restored.root)[0].pinned).toBe(true);
+    expect(refs(filterTree(restored.root, 'chat'))).toEqual(['subscriptions', 'resources']);
+    expect(refs(filterTree(restored.root, 'terminal'))).toEqual(['subscriptions', 'resources']);
+    expect(reconcileWall(restored, [], [], 2).root).toBe(restored.root);
+  });
+});
+
 describe('filterTree', () => {
   it('lifts out the other kind and keeps the panels', () => {
     const root = tileTree([wallPane('chat', 'a'), wallPane('terminal', 't'), wallPane('automations'), wallPane('insights')], 1.8);

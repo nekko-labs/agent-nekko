@@ -33,7 +33,7 @@ import {
 export type WallFilter = 'all' | 'chat' | 'terminal';
 
 /** The kinds a wall window may be: the Agent tab's chats and shells, plus the two panels. */
-export const WALL_KINDS: readonly PaneKind[] = ['chat', 'terminal', 'automations', 'insights'];
+export const WALL_KINDS: readonly PaneKind[] = ['chat', 'terminal', 'automations', 'insights', 'subscriptions', 'resources'];
 
 export type InsightPanel = 'vitals' | 'optimize' | 'cost' | 'tokens' | 'models' | 'replies' | 'services';
 
