@@ -51,6 +51,8 @@ export function htmlToText(html: string, baseUrl?: string): string {
   s = s.replace(/<h([1-6])\b[^>]*>/gi, (_, n: string) => `\n\n${'#'.repeat(Number(n))} `);
   s = s.replace(/<\/h[1-6]\s*>/gi, '\n\n');
   s = s.replace(/<li\b[^>]*>/gi, '\n- ');
+  // A closing </li> adds no line of its own; the next <li> opens one.
+  s = s.replace(/<\/li\s*>/gi, '');
   s = s.replace(/<(td|th)\b[^>]*>/gi, ' | ');
   s = s.replace(/<(pre|code)\b[^>]*>/gi, '`');
   s = s.replace(/<\/(pre|code)\s*>/gi, '`');
