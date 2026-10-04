@@ -1,5 +1,5 @@
-import type { SessionSummary, TerminalInfo } from '@agent-nekko/shared';
-import { isArchived } from '@agent-nekko/shared';
+import type { CommandWallSetting, PendingInput, SessionSummary, TerminalInfo } from '@agent-nekko/shared';
+import { BLOCKED_META, isArchived, sessionLane } from '@agent-nekko/shared';
 import {
   allPanes,
   canSplit,
@@ -323,10 +323,16 @@ export function migrateGridState(saved: unknown): CommandWallState | null {
   };
 }
 
-/** Read the saved wall, carrying over the previous grid when there is no wall yet, and tolerating a damaged entry. */
-export function loadWallState(storage: Pick<Storage, 'getItem'> | undefined): CommandWallState {
+/**
+ * Read the saved wall. The setting wins when there is one (it is what the
+ * desktop, web and phone editions of an install share); the browser's copy
+ * is the fast first paint and the fallback for an install that has not saved
+ * the setting yet, and the grid that came before this wall is carried over
+ * when neither exists. A damaged entry falls back to an empty wall.
+ */
+export function loadWallState(storage: Pick<Storage, 'getItem'> | undefined, setting?: CommandWallSetting | null): CommandWallState {
   try {
-    const raw = storage?.getItem(WALL_STATE_KEY);
+    const raw = setting ? JSON.stringify(setting) : storage?.getItem(WALL_STATE_KEY);
     if (!raw) {
       const legacy = storage?.getItem(LEGACY_GRID_KEY);
       if (legacy) return migrateGridState(JSON.parse(legacy)) ?? DEFAULT_WALL_STATE;
@@ -354,4 +360,53 @@ export function saveWallState(storage: Pick<Storage, 'setItem'> | undefined, sta
   } catch {
     /* private mode or full */
   }
+}
+
+/** The wall as the setting stores it: the same fields, typed loosely for the shared schema. */
+export function toWallSetting(state: CommandWallState): CommandWallSetting {
+  return { root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark };
+}
+
+/* ---------- the ribbon ---------- */
+
+export type BlockedKind = 'question' | 'approval' | 'interrupted';
+
+export interface RibbonItem {
+  sessionId: string;
+  title: string;
+  blocked: BlockedKind;
+  /** What is being asked, in a few words: the command an approval wants to run, else the kind of wait. */
+  what: string;
+  /** True when `what` is a command, so the view can set it in monospace. */
+  command: boolean;
+}
+
+/** What an approval is asking for: the command when the call has one, else the tool's name. */
+export function approvalSummary(p: PendingInput): string | null {
+  const call = p.approval?.call;
+  if (!call) return null;
+  // `ToolCall.input` is the tool's arguments; the first cut of the ribbon read
+  // a field called `arguments` and so never showed a command.
+  const args = call.input && typeof call.input === 'object' ? call.input : {};
+  const cmd = typeof args.command === 'string' ? args.command : typeof args.cmd === 'string' ? args.cmd : null;
+  if (cmd) return cmd.length > 48 ? `${cmd.slice(0, 47)}…` : cmd;
+  return call.name || null;
+}
+
+/**
+ * Everything waiting on a person, for the ribbon above the wall: one row per
+ * chat with a pending approval or question, archived chats left out, in the
+ * order the chats are listed.
+ */
+export function ribbonItems(sessions: SessionSummary[], pending: Record<string, PendingInput>): RibbonItem[] {
+  const out: RibbonItem[] = [];
+  for (const s of sessions) {
+    const p = pending[s.id];
+    if (!p || isArchived(s)) continue;
+    const { blocked } = sessionLane({ running: false, pending: p });
+    if (!blocked) continue;
+    const cmd = blocked === 'approval' ? approvalSummary(p) : null;
+    out.push({ sessionId: s.id, title: s.title, blocked, what: cmd ?? BLOCKED_META[blocked].label.toLowerCase(), command: !!cmd });
+  }
+  return out;
 }

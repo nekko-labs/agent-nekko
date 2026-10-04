@@ -104,7 +104,16 @@ export function CommandWall({
     const el = wrapRef.current;
     const ro = el ? new ResizeObserver(() => measure()) : null;
     if (el && ro) ro.observe(el);
-    return () => ro?.disconnect();
+    // A wall mounted while its window had no size (a hidden web tab, a
+    // minimised window) gets a second chance when the window resizes or
+    // comes back into view, in case the observer's first notice was lost.
+    window.addEventListener('resize', measure);
+    document.addEventListener('visibilitychange', measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+      document.removeEventListener('visibilitychange', measure);
+    };
   }, [measure]);
 
   useEffect(() => {
