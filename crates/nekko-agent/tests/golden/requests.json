@@ -5584,11 +5584,16 @@
         "messages": [
           {
             "role": "user",
-            "content": "Do the thing"
-          },
-          {
-            "role": "user",
-            "content": "You kept repeating tool calls. Answer now."
+            "content": [
+              {
+                "type": "text",
+                "text": "Do the thing"
+              },
+              {
+                "type": "text",
+                "text": "You kept repeating tool calls. Answer now."
+              }
+            ]
           }
         ],
         "tools": []
@@ -5719,12 +5724,7 @@
                 "type": "tool_result",
                 "tool_use_id": "call_1",
                 "content": "export function parse() {}"
-              }
-            ]
-          },
-          {
-            "role": "user",
-            "content": [
+              },
               {
                 "type": "tool_result",
                 "tool_use_id": "call_2",
@@ -6406,11 +6406,16 @@
         "messages": [
           {
             "role": "user",
-            "content": "Do the thing"
-          },
-          {
-            "role": "user",
-            "content": "You kept repeating tool calls. Answer now."
+            "content": [
+              {
+                "type": "text",
+                "text": "Do the thing"
+              },
+              {
+                "type": "text",
+                "text": "You kept repeating tool calls. Answer now."
+              }
+            ]
           }
         ],
         "tools": []
@@ -6558,12 +6563,7 @@
                 "type": "tool_result",
                 "tool_use_id": "call_1",
                 "content": "export function parse() {}"
-              }
-            ]
-          },
-          {
-            "role": "user",
-            "content": [
+              },
               {
                 "type": "tool_result",
                 "tool_use_id": "call_2",

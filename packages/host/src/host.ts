@@ -162,7 +162,7 @@ import {
   reconcileWorkflowRuns,
 } from './workflows.js';
 import { listChatWorktrees, removeChatWorktree } from './chat-worktrees.js';
-import { isChatRunning, reconcileInterruptedChats, setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { isChatRunning, reconcileInterruptedChats, setDecisionRunner, sendChat, abortChat, steerChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
 import { loopApprove, loopEnd, loopEvent, loopLog, loopTool } from './daemon-loop.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting, setCompactionSender } from './compaction.js';
@@ -329,6 +329,7 @@ export interface Host {
   cancelSessionCompaction(sessionId: string): void;
   queuePrompt(sessionId: string, input: string | QueuePayload): Session | null;
   dequeuePrompt(sessionId: string, index: number): Session | null;
+  steerChat(sessionId: string, text: string): Promise<Session | null>;
   interruptQueuedPrompt(sessionId: string, index: number, brain?: { providerId: string; modelId: string }): Promise<void>;
   /**
    * Model-written next-step ideas for a chat's last reply: one-click follow-up
@@ -893,6 +894,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     cancelSessionCompaction,
     queuePrompt: sessions.queuePrompt,
     dequeuePrompt: sessions.dequeuePrompt,
+    steerChat,
     interruptQueuedPrompt: async (sessionId, index, brain) => {
       const session = sessions.getSession(sessionId);
       if (!session) throw new Error('Session not found.');

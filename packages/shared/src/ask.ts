@@ -139,6 +139,10 @@ export function formatAskAnswers(request: AskRequest, answers: AskAnswer[]): str
 export const ASK_CANCELLED =
   'The user did not answer. Do not ask again: pick the most reasonable option, say which one you picked and why, and carry on.';
 
+/** The answer when nobody was around within the unattended limit (Settings → Agent loop). */
+export const ASK_UNATTENDED =
+  'Nobody answered within the unattended time limit. Do not ask again: choose the most reasonable, least destructive option yourself, state the assumption plainly in your reply, and carry on.';
+
 /** One-line summary of what is being asked, for a board card or a sidebar row. */
 export function summarizeAsk(request: AskRequest): string {
   const [first] = request.questions;

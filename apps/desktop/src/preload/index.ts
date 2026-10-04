@@ -140,6 +140,7 @@ const api: NekkoApi = {
   cancelSessionCompaction: (sessionId) => inv(IpcChannels.chatCancelCompaction, sessionId),
   queuePrompt: (sessionId, text) => inv(IpcChannels.chatQueue, sessionId, text),
   dequeuePrompt: (sessionId, index) => inv(IpcChannels.chatDequeue, sessionId, index),
+  steerChat: (sessionId, text) => inv(IpcChannels.chatSteer, sessionId, text),
   interruptQueuedPrompt: (sessionId, index, brain) => inv(IpcChannels.chatInterruptQueued, sessionId, index, brain),
   suggestReplies: (sessionId) => inv(IpcChannels.chatSuggest, sessionId),
   fillPromptPart: (sessionId, part, draft) => inv(IpcChannels.chatFillPrompt, sessionId, part, draft),

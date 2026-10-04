@@ -45,6 +45,7 @@ async fn main() {
             max_output_tokens: Some(256),
             resume: false,
             cancel: Cancel::default(),
+            steering: Default::default(),
         },
         &client,
         &Clock,

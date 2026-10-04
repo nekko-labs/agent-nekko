@@ -21,7 +21,7 @@ use crate::backend::Backend;
 use crate::hub::Hub;
 use nekko_agent::{ProviderConfig, create_provider};
 use nekko_chat::ProviderClient;
-use nekko_loop::{Cancel, RunOptions, ToolRunner, run_agent};
+use nekko_loop::{Cancel, RunOptions, Steering, ToolRunner, run_agent};
 use nekko_tools::{ChangeTracker, CommandLog, ToolCall, ToolContext, approver_fn, is_ported};
 use serde_json::{Value, json};
 use std::collections::HashMap;
@@ -35,6 +35,8 @@ const DELTA_BATCH: Duration = Duration::from_millis(100);
 
 pub struct Loops {
     runs: Arc<Mutex<HashMap<String, Cancel>>>,
+    /// Each run's steering inbox (`loop:steer`), drained by the loop at tool boundaries.
+    steering: Arc<Mutex<HashMap<String, Steering>>>,
     /// Pending changes, shared with the `changes:*` channels and the TS
     /// host's own tool executor (`changes:record`), so there is one list.
     pub changes: Arc<ChangeTracker>,
@@ -42,7 +44,7 @@ pub struct Loops {
 
 impl Loops {
     pub fn new(changes: Arc<ChangeTracker>) -> Self {
-        Self { runs: Arc::default(), changes }
+        Self { runs: Arc::default(), steering: Arc::default(), changes }
     }
 }
 
@@ -69,6 +71,14 @@ impl ToolRunner for HostTools {
         }
         self.backend.call("loop:tool", json!([self.run_id, call])).await
     }
+}
+
+/// What one run is driven with, besides its spec.
+struct Parts {
+    config: ProviderConfig,
+    cancel: Cancel,
+    changes: Arc<ChangeTracker>,
+    steering: Steering,
 }
 
 /// The agent terminal lines of one run, sent to the host in order.
@@ -137,7 +147,7 @@ fn is_delta(e: &Value) -> bool {
 }
 
 fn is_checkpoint(e: &Value) -> bool {
-    matches!(e.get("type").and_then(Value::as_str), Some("step" | "tool_result" | "done" | "error"))
+    matches!(e.get("type").and_then(Value::as_str), Some("step" | "steered" | "tool_result" | "done" | "error"))
 }
 
 fn is_final(e: &Value) -> bool {
@@ -222,12 +232,17 @@ impl Loops {
             .map_err(|e| format!("provider: {e}"))?;
         let cancel = Cancel::default();
         self.runs.lock().unwrap_or_else(|e| e.into_inner()).insert(run_id.clone(), cancel.clone());
+        let inbox: Steering = Arc::default();
+        self.steering.lock().unwrap_or_else(|e| e.into_inner()).insert(run_id.clone(), inbox.clone());
         let runs = self.runs.clone();
+        let steering = self.steering.clone();
         let changes = self.changes.clone();
         tokio::spawn(async move {
             let session_id = spec.get("sessionId").cloned().unwrap_or(Value::Null);
-            let history = Self::drive(backend.clone(), hub, &spec, &run_id, config, cancel, changes).await;
+            let parts = Parts { config, cancel, changes, steering: inbox };
+            let history = Self::drive(backend.clone(), hub, &spec, &run_id, parts).await;
             runs.lock().unwrap_or_else(|e| e.into_inner()).remove(&run_id);
+            steering.lock().unwrap_or_else(|e| e.into_inner()).remove(&run_id);
             // The session id lets a host that did not start this run (it was
             // restarted meanwhile) still save the transcript (daemon-loop.ts).
             let _ = backend.call("loop:end", json!([run_id, { "history": history, "sessionId": session_id }])).await;
@@ -235,15 +250,8 @@ impl Loops {
         Ok(json!({ "started": true }))
     }
 
-    async fn drive(
-        backend: Arc<Backend>,
-        hub: Hub,
-        spec: &Value,
-        run_id: &str,
-        config: ProviderConfig,
-        cancel: Cancel,
-        changes: Arc<ChangeTracker>,
-    ) -> Vec<Value> {
+    async fn drive(backend: Arc<Backend>, hub: Hub, spec: &Value, run_id: &str, parts: Parts) -> Vec<Value> {
+        let Parts { config, cancel, changes, steering } = parts;
         let run_id = run_id.to_string();
         let mut history = spec.get("history").and_then(Value::as_array).cloned().unwrap_or_default();
 
@@ -266,6 +274,7 @@ impl Loops {
             max_output_tokens: spec.get("maxOutputTokens").and_then(Value::as_u64),
             resume: spec.get("resume") == Some(&json!(true)),
             cancel,
+            steering,
         };
         run_agent(opts, &client, &tools, &mut |event: Value, transcript: &[Value]| {
             let snapshot = is_checkpoint(&event).then(|| transcript.to_vec());
@@ -282,6 +291,18 @@ impl Loops {
     /// on its side instead of leaving it waiting for events that never come.
     pub fn is_running(&self, run_id: &str) -> bool {
         self.runs.lock().unwrap_or_else(|e| e.into_inner()).contains_key(run_id)
+    }
+
+    /// `loop:steer`: a user message for a running reply, folded into its
+    /// transcript at the next tool boundary; false when the run is not here.
+    pub fn steer(&self, run_id: &str, message: Value) -> bool {
+        match self.steering.lock().unwrap_or_else(|e| e.into_inner()).get(run_id) {
+            Some(inbox) => {
+                inbox.lock().unwrap_or_else(|e| e.into_inner()).push(message);
+                true
+            }
+            None => false,
+        }
     }
 
     /// `loop:abort`: stop a run; true when there was one.

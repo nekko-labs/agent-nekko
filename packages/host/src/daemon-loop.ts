@@ -163,10 +163,13 @@ export interface DaemonRunOptions {
   resume?: boolean;
   /** How often a silent run is checked on (tests shorten it). */
   livenessIntervalMs?: number;
+  /** Told the run's id as soon as it has one, for `loop:steer`. */
+  onRunId?: (runId: string) => void;
 }
 
 export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): AsyncGenerator<AgentEvent> {
   const runId = `run_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`;
+  opts.onRunId?.(runId);
   const replace = (next?: ChatMessage[]) => {
     if (Array.isArray(next)) opts.history.splice(0, opts.history.length, ...next);
   };

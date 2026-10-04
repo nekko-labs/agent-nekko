@@ -134,7 +134,13 @@ pub struct RunOptions<'a> {
     pub max_output_tokens: Option<u64>,
     pub resume: bool,
     pub cancel: Cancel,
+    /// Messages the user sent while the reply runs (`loop:steer`). Drained at
+    /// each tool boundary into the transcript, as `pullSteering` is in TS.
+    pub steering: Steering,
 }
+
+/// The steering inbox of one run: the host pushes, the loop drains.
+pub type Steering = Arc<Mutex<Vec<Value>>>;
 
 /// How much of a looping stream is kept (`RUNAWAY_KEEP_CHARS`, UTF-16 units).
 const RUNAWAY_KEEP_CHARS: usize = 4_000;
@@ -476,11 +482,19 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
                 return;
             }
             let mut turn = Turn::default();
-            let first = if std::mem::take(&mut first_pass) {
-                std::mem::take(&mut resume_extra)
-            } else {
-                std::mem::take(&mut loop_extra)
-            };
+            let first_call = std::mem::take(&mut first_pass);
+            if !first_call {
+                // Steering joins the transcript at the step boundary (never
+                // mid-stream), so the next call sees it without a restart.
+                let steered: Vec<Value> =
+                    std::mem::take(&mut *self.opts.steering.lock().unwrap_or_else(|e| e.into_inner()));
+                for m in steered {
+                    let message_id = m.get("id").cloned().unwrap_or(Value::Null);
+                    self.opts.history.push(m);
+                    self.event("steered", json!({ "messageId": message_id }));
+                }
+            }
+            let first = if first_call { std::mem::take(&mut resume_extra) } else { std::mem::take(&mut loop_extra) };
             let mut result = self.stream_with_retry(&mut turn, first, true).await;
             // An empty response gets one retry with a nudge, so the turn does not
             // silently stall (common with some local models mid-loop).
