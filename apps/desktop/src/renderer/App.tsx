@@ -8,6 +8,7 @@ import { useT } from './i18n.js';
 import { SHORTCUTS } from './shortcuts.js';
 import { hasAppChrome } from './chrome.js';
 import { TitleBar } from './components/TitleBar.js';
+import { BrandMark } from './components/BrandMark.js';
 import { AutumnBackground } from './components/AutumnBackground.js';
 import { Mascot, NekkoAvatar } from './components/Mascot.js';
 import { ResourceHud } from './components/ResourceMonitor.js';
@@ -230,14 +231,13 @@ export function App() {
             touch), where the bottom tab bar below takes over. */}
         <nav className="relative z-40 hidden w-16 shrink-0 md:block">
           <div className="rail absolute inset-y-0 left-0 flex flex-col gap-1 overflow-hidden bg-paper px-2.5 py-4">
-            {/* Wordmark only, no logo mark: the cat now lives on the Agent tab.
-                In the desktop shell the title bar carries it instead, so it isn't
-                shown twice and the rail starts on its first destination. */}
-            {!hasAppChrome && (
-              <div className="mb-3 flex h-9 items-center px-1.5">
-                <span className="rail-label text-[15px] font-semibold tracking-tight">Agent Nekko</span>
-              </div>
-            )}
+            {/* The brand mark heads the rail. The wordmark joins it only where
+                there is no title bar to carry it (web and phone builds), so the
+                name is never shown twice. */}
+            <div className="mb-3 flex h-9 items-center gap-2 px-1.5" aria-hidden={hasAppChrome || undefined}>
+              <span className="grid h-8 w-8 shrink-0 place-items-center text-ink"><BrandMark size={24} title={hasAppChrome ? undefined : 'Agent Nekko'} /></span>
+              {!hasAppChrome && <span className="rail-label text-[15px] font-semibold tracking-tight">Agent Nekko</span>}
+            </div>
             {visibleNav.map(({ view: v, labelKey, Icon }) => (
               <button
                 key={v}

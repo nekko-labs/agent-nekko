@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Direction, DropTarget, WbPane } from '../layout.js';
+import type { Direction, DropTarget, PaneKind, WbPane } from '../layout.js';
 import { CloseIcon } from '../icons.js';
 import { SplitCompass } from './SplitCompass.js';
 
@@ -125,6 +125,10 @@ export function PaneFrame({
   onDragStart,
   onDragEnd,
   onDrop,
+  ringColor,
+  stripStyle,
+  addable,
+  closeTitle = 'Close this window',
   children,
 }: {
   pane: WbPane;
@@ -133,6 +137,14 @@ export function PaneFrame({
   /** Optional trailing chip (the project a chat belongs to, a status dot). */
   badge?: React.ReactNode;
   isActive: boolean;
+  /** The outline, when a surface wants to say more than active or not (a window waiting on you). */
+  ringColor?: string;
+  /** A tint for the title strip, same reason. */
+  stripStyle?: React.CSSProperties;
+  /** The kinds the compass offers; the workspace set when omitted. */
+  addable?: PaneKind[];
+  /** What the close button says it does: a workspace closes a window, the wall only takes it off. */
+  closeTitle?: string;
   /** The window currently being dragged anywhere in this workspace, if any. */
   dragging: string | null;
   canSplit: (dir: Direction) => boolean;
@@ -163,15 +175,15 @@ export function PaneFrame({
       // whole pane read as a bright border framing the history. The mix still
       // says "this one" and still follows the user's accent, just quieter.
       style={{
-        '--panel-ring-color': isActive
+        '--panel-ring-color': ringColor ?? (isActive
           ? 'color-mix(in srgb, var(--accent) 40%, var(--line))'
-          : 'var(--line)',
+          : 'var(--line)'),
       } as React.CSSProperties}
       onMouseDown={onFocus}
     >
       <div
         className="flex shrink-0 items-center gap-1.5 border-b border-line px-2 py-1"
-        style={{ background: isActive ? 'var(--surface-2)' : 'transparent', cursor: 'grab' }}
+        style={{ background: isActive ? 'var(--surface-2)' : 'transparent', cursor: 'grab', ...stripStyle }}
         draggable
         onDragStart={(e) => {
           e.dataTransfer.effectAllowed = 'move';
@@ -191,16 +203,16 @@ export function PaneFrame({
             git branch it is on. It hides when neither has anything to say, and
             it sits between the name and that context, never trailing after. */}
         <span aria-hidden="true" className="pane-strip-sep text-[14px] text-ink-faint opacity-40">/</span>
-        <span className="pane-strip-badge flex min-w-0 items-center gap-1">{badge}</span>
-        <div ref={setMetadataSlot} className="pane-strip-meta flex min-w-0 items-center gap-1" />
+        <span className="pane-strip-badge flex min-w-0 items-center gap-1 overflow-hidden">{badge}</span>
+        <div ref={setMetadataSlot} className="pane-strip-meta flex min-w-0 items-center gap-1 overflow-hidden" />
         <div className="min-w-0 flex-1" />
         {/* The pane's own actions, portalled in, so there is one bar per window
             rather than the frame's and the pane's stacked on each other. */}
         <div ref={setActionSlot} className="flex shrink-0 items-center gap-0.5" />
-        <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} />
+        <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} addable={addable} />
         <button
           className="rounded-sm p-1 text-ink-faint hover:text-ink"
-          title="Close this window"
+          title={closeTitle}
           aria-label={`Close ${title}`}
           onClick={onClose}
         >
