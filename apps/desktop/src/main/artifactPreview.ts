@@ -6,10 +6,14 @@ import { MAX_PREVIEW_BYTES, PREVIEW_CHANNEL, PREVIEW_POLICY, previewRequestAllow
 /** No engine token, preload, persisted cookies, or host bridge enters this window. */
 export function registerArtifactPreview(authorized: (sender: WebContents) => boolean): void {
   const windows = new Map<number, BrowserWindow>();
+  const pending = new Set<number>();
   ipcMain.handle(PREVIEW_CHANNEL, async (event, source: unknown) => {
     if (!authorized(event.sender) || event.senderFrame !== event.sender.mainFrame) throw new Error('Preview requires the application main frame.');
     if (!validPreviewSource(source)) throw new Error(`Preview must be HTML under ${MAX_PREVIEW_BYTES} bytes.`);
     const owner = event.sender;
+    if (pending.has(owner.id)) throw new Error('A preview is already opening.');
+    pending.add(owner.id);
+    try {
     // One preview per app window; no accumulation of untrusted renderers.
     windows.get(owner.id)?.close();
     const token = randomUUID();
@@ -20,6 +24,7 @@ export function registerArtifactPreview(authorized: (sender: WebContents) => boo
       res.end(source);
     });
     await new Promise<void>((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+    if (owner.isDestroyed()) { server.close(); throw new Error('Preview owner closed.'); }
     const address = server.address();
     if (!address || typeof address === 'string') { server.close(); throw new Error('Preview transport unavailable.'); }
     const url = `http://127.0.0.1:${address.port}/${token}`;
@@ -45,5 +50,6 @@ export function registerArtifactPreview(authorized: (sender: WebContents) => boo
       void isolated.clearStorageData();
     });
     try { await win.loadURL(url); } catch (error) { close(); throw error; }
+    } finally { pending.delete(owner.id); }
   });
 }

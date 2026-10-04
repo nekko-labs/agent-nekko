@@ -322,6 +322,15 @@ export function FilePane({ path }: { path: string }) {
               </button>
             </>
           )}
+          {isHtml && !truncated && (
+            <button className="chip chip-action text-[11px]" onClick={async () => {
+              const state = useStore.getState();
+              const workspaceId = state.activeProjectId ?? state.settings?.workspaces[0]?.id;
+              if (!workspaceId) { pushToast('error', 'Choose a project first.'); return; }
+              try { await window.nekko.addDesignPage(workspaceId, name, path); state.setView('design'); }
+              catch (e) { pushToast('error', (e as Error).message); }
+            }}>Add to design board</button>
+          )}
           {canPreview && (
             <button className="chip chip-action text-[11px]" onClick={() => setPreview((p) => !p)} title={preview ? 'Edit source' : 'Preview artifact'}>
               {preview ? 'Source' : 'Preview'}
