@@ -176,7 +176,9 @@ export function addPane(root: WbNode | null, pane: WbPane, aspect = DEFAULT_ASPE
   let bestId: string | null = null;
   let bestArea = -1;
   let bestRect: LeafRect | null = null;
+  const pinned = new Set(allPanes(root).filter((p) => p.pinned).map((p) => p.id));
   for (const [id, r] of rects) {
+    if (pinned.has(id)) continue;
     const area = r.width * r.height;
     if (area > bestArea + 1e-9) { bestArea = area; bestId = id; bestRect = r; }
   }
@@ -289,7 +291,7 @@ function sanitize(node: unknown, reserve: (id: string) => void): WbNode | null {
   }
   if (!WALL_KINDS.includes(n.kind as PaneKind) || typeof n.refId !== 'string') return null;
   reserve(n.id);
-  return { id: n.id, kind: n.kind as PaneKind, refId: n.refId };
+  return { id: n.id, kind: n.kind as PaneKind, refId: n.refId, ...(n.pinned === true ? { pinned: true } : {}) };
 }
 
 function readPanels(raw: unknown): InsightsPrefs {

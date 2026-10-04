@@ -77,6 +77,28 @@ describe('addPane', () => {
     const rects = leafRects(root);
     expect(rects.get(c.id)!.y).toBeGreaterThan(0);
   });
+  it('keeps pinned geometry unchanged through repeated insertions', () => {
+    const [a, b] = panes(2);
+    a.pinned = true;
+    let root = tileTree([a, b], 1.8);
+    const before = leafRects(root).get(a.id);
+    for (let i = 0; i < 8; i++) root = addPane(root, wallPane('chat', `new-${i}`), 1.8);
+    expect(leafRects(root).get(a.id)).toEqual(before);
+    expect(allPanes(root).find((p) => p.id === a.id)?.pinned).toBe(true);
+  });
+  it('does not displace a wall with every window pinned', () => {
+    const [a] = panes(1);
+    a.pinned = true;
+    expect(addPane(a, wallPane('chat', 'new'))).toBe(a);
+  });
+  it('persists pin state through settings restoration', () => {
+    const [a, b] = panes(2);
+    a.pinned = true;
+    const state = { ...DEFAULT_WALL_STATE, root: tileTree([a, b]), watermark: 1 };
+    const restored = loadWallState(undefined, toWallSetting(state));
+    expect(allPanes(restored.root).find((p) => p.id === a.id)?.pinned).toBe(true);
+    expect(allPanes(restored.root).find((p) => p.id === b.id)?.pinned).toBeUndefined();
+  });
   it('never breaks the 8×8 ceiling', () => {
     let root = tileTree(panes(1), 1.8);
     for (let i = 1; i < 80; i++) root = addPane(root, wallPane('chat', `x${i}`), 1.8);

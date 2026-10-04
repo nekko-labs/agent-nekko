@@ -25,7 +25,6 @@ import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
 import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
-import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
 import { PERSISTED_INTERRUPTION, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
@@ -500,9 +499,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // count) renders from this, one step behind the keystroke, so
   // a keypress paints the textarea before any of that work runs.
   const deferredDraft = useDeferredValue(draft);
-  const historyCursor = useRef<HistoryCursor | null>(null);
-  const sentPrompts = useMemo(() => promptHistory(session?.messages ?? []), [session?.messages]);
-  useEffect(() => { historyCursor.current = null; }, [sessionId, sentPrompts]);
   const [streaming, setStreaming] = useState(false);
   // Mirrors for the long-lived agent-event listener, so a token does not set
   // state that is already set.
@@ -1655,22 +1651,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     }
     // → accepts the ghost suggestion while the box is empty (the box is empty
     // whenever a ghost is showing, so the caret is already at the end).
-    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
-        !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      const el = e.currentTarget;
-      const recalled = recallPrompt(sentPrompts, historyCursor.current, draft, e.key, el.selectionStart, el.selectionEnd);
-      if (recalled) {
-        e.preventDefault();
-        historyCursor.current = recalled;
-        setDraft(recalled.text);
-        setMenuClosed(true);
-        requestAnimationFrame(() => {
-          const caret = e.key === 'ArrowUp' ? 0 : el.value.length;
-          el.setSelectionRange(caret, caret);
-        });
-        return;
-      }
-    }
     if (e.key === 'ArrowRight' && ghostSuggestion && !e.currentTarget.value) {
       e.preventDefault();
       const el = e.currentTarget;

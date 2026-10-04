@@ -32,7 +32,8 @@ import { COMPACT_HEIGHT, COMPACT_WIDTH, PaneDensityHint } from './agent-console/
 import { TerminalPane } from './TerminalPane.js';
 import { PaneActions, PaneFrame } from './PaneFrame.js';
 import { Divider } from './Divider.js';
-import { BoltIcon, ChatIcon, ExternalIcon, LayoutIcon, TerminalIcon } from '../icons.js';
+import { BoltIcon, ChatIcon, ExternalIcon, LayoutIcon, TerminalIcon, CheckIcon } from '../icons.js';
+import { useStore } from '../store.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { AgentsEmptyArt, EmptyArea } from './EmptyIllustrations.js';
 
@@ -264,10 +265,36 @@ export function CommandWall({
           onDragStart={() => setDragging(pane.id)}
           onDragEnd={() => setDragging(null)}
           onDrop={(target) => {
-            if (dragging) update((root) => (target === 'swap' ? swapPanes(root, dragging, pane.id) : movePane(root, dragging, pane.id, target)));
+            if (dragging && !pane.pinned && !allPanes(state.root).some((p) => p.id === dragging && p.pinned)) update((root) => (target === 'swap' ? swapPanes(root, dragging, pane.id) : movePane(root, dragging, pane.id, target)));
             setDragging(null);
           }}
         >
+          <PaneActions>
+            <button
+              className={`rounded-sm p-1 ${pane.pinned ? 'text-accent' : 'text-ink-faint hover:text-ink'}`}
+              title={pane.pinned ? 'Unpin window' : 'Pin window to keep its position and size'}
+              aria-label={pane.pinned ? 'Unpin window' : 'Pin window'}
+              aria-pressed={!!pane.pinned}
+              onClick={() => update((root) => {
+                const toggle = (node: WbNode): WbNode => isSplit(node)
+                  ? { ...node, children: node.children.map(toggle) }
+                  : node.id === pane.id ? { ...node, pinned: !node.pinned } : node;
+                return root ? toggle(root) : root;
+              })}
+            >
+              <span className="text-[11px]">{pane.pinned ? 'Unpin' : 'Pin'}</span>
+            </button>
+            {session && (
+              <button
+                className="rounded-sm p-1 text-ink-faint hover:text-success"
+                title="Complete this chat (kept for 60 days)"
+                aria-label="Complete chat"
+                onClick={() => void useStore.getState().archiveChat(session.id)}
+              >
+                <CheckIcon className="h-3 w-3" />
+              </button>
+            )}
+          </PaneActions>
           {openable && (
             <PaneActions>
               <button
@@ -296,7 +323,7 @@ export function CommandWall({
       <div key={node.id} className={`flex min-h-0 min-w-0 flex-1 ${node.dir === 'row' ? 'flex-row' : 'flex-col'}`}>
         {node.children.map((child, i) => (
           <React.Fragment key={child.id}>
-            {i > 0 && <Divider splitId={node.id} index={i - 1} dir={node.dir} onResize={(id, index, fraction) => update((root) => resizeSplit(root, id, index, fraction))} />}
+            {i > 0 && !allPanes(node).some((p) => p.pinned) && <Divider splitId={node.id} index={i - 1} dir={node.dir} onResize={(id, index, fraction) => update((root) => resizeSplit(root, id, index, fraction))} />}
             <div className="flex min-h-0 min-w-0" style={{ flex: `${node.sizes[i]} 1 0` }}>
               {renderNode(child)}
             </div>

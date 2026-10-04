@@ -41,6 +41,8 @@ export interface WbPane {
    * or the Hypergate manager's URL (hypergate).
    */
   refId: string;
+  /** Command Center only: preserve this window when adding or arranging. */
+  pinned?: boolean;
 }
 
 /**

@@ -147,7 +147,7 @@
     pointer-events: none;
     border-radius: inherit;
     corner-shape: squircle;
-    box-shadow: inset 0 0 0 1px var(--panel-ring-color, var(--line));
+    box-shadow: inset 0 0 0 var(--panel-ring-width, 1px) var(--panel-ring-color, var(--line));
     transition: box-shadow var(--dur-fast, 0.12s) ease;
   }
 }

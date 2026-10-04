@@ -206,7 +206,7 @@ export function CommandCenterView() {
     const ref = refId ?? (kind === 'chat' ? await newChat() : kind === 'terminal' ? await newTerminal() : kind);
     setWall((w) => (hasPane(w.root, kind, ref) ? w : { ...w, root: addPane(w.root, wallPane(kind, ref), aspectRef.current) }));
   };
-  const autoArrange = () => setWall((w) => ({ ...w, root: tileTree(allPanes(w.root), aspectRef.current) }));
+  const autoArrange = () => setWall((w) => allPanes(w.root).some((p) => p.pinned) ? w : ({ ...w, root: tileTree(allPanes(w.root), aspectRef.current) }));
 
   // The ribbon's jump: the window is rung once and its composer focused.
   const [flash, setFlash] = useState<{ paneId: string; at: number } | null>(null);
@@ -333,7 +333,9 @@ function WallToolbar({
     .slice(0, 8);
   const shells = terminals.filter((t) => !on('terminal', t.id) && !t.agentSessionId).slice(0, 6);
   const run = (kind: PaneKind, refId?: string) => { setAddOpen(false); setBusy(true); void onAdd(kind, refId).finally(() => setBusy(false)); };
-  const canArrange = !!wall.root && isSplit(wall.root);
+  const wallPanes = allPanes(wall.root);
+  const allPinned = wallPanes.length > 0 && wallPanes.every((p) => p.pinned);
+  const canArrange = !!wall.root && isSplit(wall.root) && !wallPanes.some((p) => p.pinned);
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -363,14 +365,18 @@ function WallToolbar({
         >
           <GridIcon className="h-3.5 w-3.5" /> Auto-arrange
         </button>
-        <div className="relative" ref={addRef}>
+        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-soft" title="Every chat that starts, sub-agents included, joins the wall">
+          <Toggle value={wall.autoAdd} onChange={(v) => setWall((w) => ({ ...w, autoAdd: v }))} label="Auto-add new agents" />
+          <span>Auto-add new agents</span>
+        </label>
+        <div className="relative ml-5" ref={addRef}>
           <button
             className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
             onClick={() => setAddOpen((o) => !o)}
-            disabled={busy}
+            disabled={busy || allPinned}
             aria-haspopup="menu"
             aria-expanded={addOpen}
-            title="Add an agent, a terminal, a panel, or a chat already running"
+            title={allPinned ? 'Unpin a window to make room for a new one' : 'Add an agent, a terminal, a panel, or a chat already running'}
           >
             <PlusIcon className="h-3.5 w-3.5" /> {busy ? 'Starting…' : 'Add window'}
           </button>
@@ -431,10 +437,6 @@ function WallToolbar({
             </div>
           )}
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-soft" title="Every chat that starts, sub-agents included, joins the wall">
-          <Toggle value={wall.autoAdd} onChange={(v) => setWall((w) => ({ ...w, autoAdd: v }))} label="Auto-add new agents" />
-          <span>Auto-add new agents</span>
-        </label>
       </div>
     </div>
   );
