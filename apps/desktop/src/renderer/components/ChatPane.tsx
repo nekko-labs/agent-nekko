@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { decideApproval, type ApprovalScope } from './agent-console/approval-decision.js';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, QueuePayload, QueuedPrompt } from '@agent-nekko/shared';
 import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, lastReplyInterrupted, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
@@ -1515,9 +1516,11 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     URL.revokeObjectURL(url);
   };
 
-  const approve = async (okDecision: boolean) => {
+  const approve = async (okDecision: boolean, scope: ApprovalScope = 'once') => {
     if (!approval) return;
-    await window.nekko.approveTool(sessionId, approval.call.id, okDecision);
+    const saved = await decideApproval(window.nekko, sessionId, approval.call.id, okDecision, scope);
+    if (saved.session) setSession(saved.session);
+    if (saved.settings) useStore.setState({ settings: saved.settings });
     setApproval(null);
   };
 
