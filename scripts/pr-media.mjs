@@ -83,6 +83,7 @@ export async function upload(pr, repo) {
       const payload = join(scratch, 'body.json');
       writeFileSync(payload, JSON.stringify({ body }));
       gh('api', '--method', 'PATCH', `repos/${repo}/pulls/${pr}`, '--input', payload);
+      if (getPr().body !== body) throw new Error('PR body update did not persist; inspect concurrent edits');
       console.log(`Updated PR #${pr}`);
     }
   } finally {
