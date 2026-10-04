@@ -51,6 +51,7 @@ import { buildSpec } from './spec.js';
 import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
 import { daemonCall } from './engine/daemon.js';
 import { daemonOwns, daemonRunsLoops, runAgentViaDaemon } from './daemon-loop.js';
+import { killSessionProcesses } from './processes.js';
 import { completeText } from './sideband.js';
 import { appendAgentTerminal, finishAgentTerminal } from './terminal.js';
 
@@ -417,6 +418,8 @@ export function abortChat(sessionId: string): void {
   abortControllers.get(sessionId)?.abort();
   abortControllers.delete(sessionId);
   releasePending(sessionId);
+  // A dev server the agent started belongs to the work it was doing.
+  killSessionProcesses(sessionId);
 }
 
 export function isChatRunning(sessionId: string): boolean {

@@ -231,6 +231,9 @@ const TOOL_VERBS: Record<string, string> = {
   update_plan: 'Planning',
   report_experiment: 'Recording',
   report_artifact: 'Recording',
+  start_process: 'Starting',
+  read_process: 'Checking',
+  kill_process: 'Stopping',
 };
 
 /** Words kept in the short status. Five is the brief; the sixth is noise. */

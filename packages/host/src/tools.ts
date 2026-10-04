@@ -13,6 +13,7 @@ import type { ToolCall, ToolResult, AppSettings, ChatMode } from '@agent-nekko/s
 import { classifyCommand } from '@agent-nekko/core';
 import { recordOriginal } from './changes.js';
 import { appendAgentTerminal } from './terminal.js';
+import { describeProcess, killProcess, listProcesses, readProcess, startProcess } from './processes.js';
 
 const dedicatedBrowsers = new Set<string>();
 const browsers = new Map<string, { client: import('@browserbasehq/stagehand').Stagehand; mode: string; port?: number }>();
@@ -281,6 +282,53 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
         assertInJail(root, opts);
         if (!existsSync(root)) return err(call, `Path not found: ${root}`);
         return ok(call, grepFiles(root, a.pattern).slice(0, 100).join('\n') || '(no matches)');
+      }
+      case 'start_process': {
+        if (typeof a.command !== 'string' || !a.command.trim()) return err(call, 'A command is required.');
+        const decision = classifyCommand(a.command, opts.settings.guardrails);
+        if (decision.action === 'deny') {
+          return err(call, `Blocked by guardrail (${decision.matches.map((m) => m.label).join(', ')}).`);
+        }
+        const needsApproval = opts.mode === 'yolo' ? false : asksEverything(opts) || decision.action === 'ask';
+        if (needsApproval) {
+          const approved = await opts.requestApproval(call, decision.matches.map((m) => m.label).join(', ') || 'Start a background process', decision.severity);
+          if (!approved) return err(call, 'Command not approved by user.');
+        }
+        if (!opts.sessionId) return err(call, 'Background processes need a chat to belong to.');
+        const cwd = a.cwd ? resolvePath(a.cwd, opts) : opts.defaultCwd ?? opts.settings.workspaces[0]?.path ?? process.cwd();
+        try {
+          const info = startProcess({
+            sessionId: opts.sessionId,
+            workspaceId: opts.settings.workspaces.find((w) => w.path === cwd)?.id,
+            command: a.command,
+            cwd,
+            name: typeof a.name === 'string' && a.name.trim() ? a.name.trim().slice(0, 40) : undefined,
+          });
+          return ok(call, `Started ${info.name ? `${info.id} (${info.name})` : info.id}${info.pid ? `, pid ${info.pid}` : ''}, in ${cwd}. Call read_process with this id to see its output (wait_ms waits for more), kill_process to stop it. It stops when this chat stops.`);
+        } catch (e) {
+          return err(call, (e as Error).message);
+        }
+      }
+      case 'read_process': {
+        if (!opts.sessionId) return err(call, 'Background processes need a chat to belong to.');
+        if (typeof a.id !== 'string' || !a.id) {
+          const list = listProcesses(opts.sessionId);
+          return ok(call, list.length ? list.map(describeProcess).join('\n') : 'No background processes in this chat.');
+        }
+        const read = await readProcess(a.id, { waitMs: typeof a.wait_ms === 'number' ? a.wait_ms : undefined, all: a.all === true });
+        if (!read || read.info.sessionId !== opts.sessionId) return err(call, `No process ${a.id} in this chat. It may have exited and been read already; start it again if you need it.`);
+        const head = describeProcess(read.info);
+        const body = read.output ? `${read.truncated ? '…(older output dropped)\n' : ''}${read.output}` : '(no new output)';
+        return ok(call, `${head}\n\n${body}`);
+      }
+      case 'kill_process': {
+        if (!opts.sessionId) return err(call, 'Background processes need a chat to belong to.');
+        if (typeof a.id !== 'string' || !a.id) return err(call, 'A process id is required.');
+        const info = listProcesses(opts.sessionId).find((p) => p.id === a.id);
+        if (!info) return err(call, `No process ${a.id} in this chat.`);
+        if (info.exitCode !== undefined) return ok(call, `${describeProcess(info)} (already exited)`);
+        killProcess(a.id);
+        return ok(call, `Stopping ${info.name ? `${info.id} (${info.name})` : info.id}.`);
       }
       case 'bash': {
         const decision = classifyCommand(a.command, opts.settings.guardrails);

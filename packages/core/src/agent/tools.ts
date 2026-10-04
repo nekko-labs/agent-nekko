@@ -77,7 +77,7 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
   {
     name: 'bash',
     description:
-      'Run a command in the chat project. Windows uses cmd.exe, not Bash or PowerShell; wrap PowerShell commands with powershell -NoProfile -Command. Unix uses /bin/sh. Subject to guardrails, risky commands require user approval.',
+      'Run a command in the chat project and wait for it. Windows uses cmd.exe, not Bash or PowerShell; wrap PowerShell commands with powershell -NoProfile -Command. Unix uses /bin/sh. Subject to guardrails, risky commands require user approval. Killed after 120 seconds: for a dev server, a watcher, or anything that keeps running, use start_process instead of backgrounding it yourself.',
     parameters: {
       type: 'object',
       properties: {
@@ -85,6 +85,42 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
         cwd: { type: 'string', description: 'Optional working directory.' },
       },
       required: ['command'],
+    },
+  },
+  {
+    name: 'start_process',
+    description:
+      'Start a long-running command (a dev server, a watcher, a long build) in the background and return at once with its id. Same shell and guardrails as bash. Its output is buffered: call read_process to see it, kill_process to stop it. Processes stop with the chat.',
+    parameters: {
+      type: 'object',
+      properties: {
+        command: { type: 'string' },
+        cwd: { type: 'string', description: 'Optional working directory.' },
+        name: { type: 'string', description: 'A short label, e.g. "vite".' },
+      },
+      required: ['command'],
+    },
+  },
+  {
+    name: 'read_process',
+    description:
+      'Output of a background process since you last read it, and whether it is still running. With wait_ms, wait up to that long (max 120000) for new output or exit before answering. Without an id, list this chat\'s processes.',
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'The id start_process returned.' },
+        wait_ms: { type: 'number', description: 'Wait this long for new output when there is none yet.' },
+        all: { type: 'boolean', description: 'Return everything kept, not just what is new.' },
+      },
+    },
+  },
+  {
+    name: 'kill_process',
+    description: 'Stop a background process started with start_process.',
+    parameters: {
+      type: 'object',
+      properties: { id: { type: 'string' } },
+      required: ['id'],
     },
   },
   {
