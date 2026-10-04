@@ -180,7 +180,7 @@ export interface Session {
   /** Free-form tags for organizing/filtering chats. */
   tags?: string[];
   /** Queued prompts to run one after another when the current turn finishes. */
-  queue?: string[];
+  queue?: QueuedPrompt[];
   /**
    * The plan for the prompt this chat is working on: decoded from the prompt,
    * then whatever the user edited it into. Lives on the session so the rail
@@ -359,6 +359,29 @@ export function hasResumableProgress(history: ChatMessage[]): boolean {
     if (m.role === 'assistant' && (m.content.trim() || m.toolCalls?.length || m.reasoning?.trim() || m.images?.length)) return true;
   }
   return false;
+}
+
+export interface QueuePayload {
+  text: string;
+  /** Image data URLs attached to this queued user turn. */
+  images?: string[];
+  /** Skill invoked for this queued user turn and the user's own input. */
+  skill?: { name: string; input: string };
+}
+
+/** Queue entries are kept backwards-compatible with older string-only sessions. */
+export type QueuedPrompt = string | QueuePayload;
+
+export function queueItemText(item: QueuedPrompt): string {
+  return typeof item === 'string' ? item : item.text;
+}
+
+export function queueItemPayload(item: QueuedPrompt): QueuePayload {
+  return typeof item === 'string' ? { text: item } : item;
+}
+
+export function queueItemsEqual(a: QueuedPrompt, b: QueuedPrompt): boolean {
+  return JSON.stringify(queueItemPayload(a)) === JSON.stringify(queueItemPayload(b));
 }
 
 export interface SendOptions {

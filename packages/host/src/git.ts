@@ -151,11 +151,17 @@ export async function getGitStatus(workspaceId: string, force = false): Promise<
     ? session ? chatWorkspaces(session, getSettings())[0] : undefined
     : getSettings().workspaces.find((w) => w.id === workspaceId);
   if (!folder?.path) return notARepo(workspaceId);
+  // Isolation is provisioned on first send. Until then the source checkout is
+  // a baseline, not this chat's branch/worktree/PR.
+  if (session?.gitIsolation && !Object.keys(session.gitWorktrees ?? {}).length) return notARepo(workspaceId);
+  // A session handle can change checkout after provisioning or a mode switch.
+  // Never reuse the source checkout's cached status for the new path.
+  const cacheKey = `${workspaceId}|${folder.path}`;
 
-  const cached = cache.get(workspaceId);
+  const cached = cache.get(cacheKey);
   if (!force && cached && cached.updatedAt + CACHE_MS > Date.now()) return cached;
 
-  const existing = inFlight.get(workspaceId);
+  const existing = inFlight.get(cacheKey);
   if (existing) return existing;
 
   const promise = (async (): Promise<GitStatus> => {
@@ -182,13 +188,13 @@ export async function getGitStatus(workspaceId: string, force = false): Promise<
         if (pr) status.pr = pr;
       }
     }
-    cache.set(workspaceId, status);
+    cache.set(cacheKey, status);
     return status;
   })().finally(() => {
-    if (inFlight.get(workspaceId) === promise) inFlight.delete(workspaceId);
+    if (inFlight.get(cacheKey) === promise) inFlight.delete(cacheKey);
   });
 
-  inFlight.set(workspaceId, promise);
+  inFlight.set(cacheKey, promise);
   return promise;
 }
 

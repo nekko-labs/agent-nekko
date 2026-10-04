@@ -29,7 +29,8 @@ it('isolates concurrent chats from HEAD and preserves local edits', () => {
   expect(a.gitWorktrees!.repo.path).not.toBe(b.gitWorktrees!.repo.path);
   expect(readFileSync(join(a.gitWorktrees!.repo.path, 'file.txt'), 'utf8')).toBe('committed\n');
   expect(readFileSync(join(root, 'file.txt'), 'utf8')).toBe('local edits\n');
-  expect(a.gitWorktrees!.repo.notice).toContain('Interrupt');
+  expect(a.gitWorktrees!.repo.notice).not.toContain('Interrupt');
+  expect(a.gitWorktrees!.repo.notice).toContain('Existing local changes are not included.');
   expect(chatWorkspaces(a, settings)[0].path).toBe(a.gitWorktrees!.repo.path);
   prepareChatWorktrees(a, settings); // idempotent
 });
@@ -42,13 +43,25 @@ it('copies tracked edits only when configured', () => {
   expect(readFileSync(join(a.gitWorktrees!.repo.path, 'file.txt'), 'utf8')).toBe('local edits\n');
   expect(existsSync(join(a.gitWorktrees!.repo.path, 'secret.txt'))).toBe(false);
 });
-it('does not move existing chats or shared checkouts', () => {
+it('does not move existing chats without per-session isolation, but ignores global shared mode', () => {
   const old = session('s_old'); delete old.gitIsolation;
   prepareChatWorktrees(old, settings);
   expect(old.gitWorktrees).toBeUndefined();
   settings.gitManagement = { mode: 'shared' };
-  const shared = session('s_shared'); prepareChatWorktrees(shared, settings);
-  expect(shared.gitWorktrees).toBeUndefined();
+  const isolated = session('s_isolated'); prepareChatWorktrees(isolated, settings);
+  expect(isolated.gitWorktrees!.repo.path).not.toBe(root);
+});
+
+it('preserves saved worktrees but resolves shared-mode sessions to configured folders', () => {
+  const a = session('s_switch');
+  prepareChatWorktrees(a, settings);
+  const saved = a.gitWorktrees!.repo.path;
+  expect(chatWorkspaces(a, settings)[0].path).toBe(saved);
+  a.gitIsolation = false;
+  expect(a.gitWorktrees!.repo.path).toBe(saved);
+  expect(chatWorkspaces(a, settings)[0].path).toBe(root);
+  expect(prepareChatWorktrees(a, settings)).toEqual([]);
+  expect(a.gitWorktrees!.repo.path).toBe(saved);
 });
 it('copies only gitignored files listed in .worktreeinclude', () => {
   writeFileSync(join(root, '.gitignore'), '.env\nbuild/\n');

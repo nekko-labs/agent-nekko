@@ -83,7 +83,7 @@ or you could not verify), and the concrete next step. Do not claim a task is com
 when something blocked you, state plainly what is blocking it and what the user needs to do to unblock it.
 
 Platform: ${ctx.platform}
-${ctx.canAsk ? `\n${ASK_GUIDANCE}\n` : ''}${ctx.canPlan ? `\n${PLAN_GUIDANCE}\n` : ''}${ctx.orchestrationHint ? `\nDelegation:\n${ctx.orchestrationHint}\n` : ''}${ctx.systemInstructions?.trim() ? `Custom system instructions:\n${ctx.systemInstructions.trim()}\n` : ''}${ctx.aboutUser?.trim() ? `About the user (user-provided background and preferences):\n${ctx.aboutUser.trim()}\n` : ''}${ctx.turnWrapper?.trim() ? `Server instructions for this user turn:\n${ctx.turnWrapper.trim()}\n` : ''}${ctx.checkoutNotice ? `Checkout baseline: Before starting work, tell the user in ordinary chat text:\n${ctx.checkoutNotice}\n` : ''}
+${ctx.canAsk ? `\n${ASK_GUIDANCE}\n` : ''}${ctx.canPlan ? `\n${PLAN_GUIDANCE}\n` : ''}${ctx.orchestrationHint ? `\nDelegation:\n${ctx.orchestrationHint}\n` : ''}${ctx.systemInstructions?.trim() ? `Custom system instructions:\n${ctx.systemInstructions.trim()}\n` : ''}${ctx.aboutUser?.trim() ? `About the user (user-provided background and preferences):\n${ctx.aboutUser.trim()}\n` : ''}${ctx.turnWrapper?.trim() ? `Server instructions for this user turn:\n${ctx.turnWrapper.trim()}\n` : ''}${ctx.checkoutNotice ? `Checkout baseline:\n${ctx.checkoutNotice}\n` : ''}
 Workspace folders:
 ${folders}
 ${ctx.contextBlock ? `\nAdditional context provided for this turn:\n\n${ctx.contextBlock}` : ''}`;
