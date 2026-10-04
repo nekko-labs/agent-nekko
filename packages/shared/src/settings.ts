@@ -86,6 +86,15 @@ export interface OnboardingState {
 /** Bump when the wizard's steps change enough that existing users should see it again. */
 export const ONBOARDING_VERSION = 1;
 
+/** The saved Command Center wall; `root` is the renderer's split tree (`layout.ts`), checked on load. */
+export interface CommandWallSetting {
+  root: unknown;
+  autoAdd: boolean;
+  filter: 'all' | 'chat' | 'terminal';
+  insights: { panels: Record<string, boolean> };
+  watermark: number;
+}
+
 /**
  * The background refresh checks under Settings → Updates, one toggle each.
  * These are metadata refreshes only: a check may swap a provider's model list
@@ -249,6 +258,13 @@ export interface AppSettings {
   developer?: { serverControls?: boolean };
   /** First-run setup wizard progress (undefined on installs that predate it). */
   onboarding?: OnboardingState;
+  /**
+   * The Command Center wall: the split tree of windows and the toolbar
+   * switches, as the renderer saves them, so the desktop, web and phone
+   * editions of one install show the same wall. The renderer validates the
+   * tree field by field on load, hence the loose type here.
+   */
+  commandWall?: CommandWallSetting;
   /**
    * Inbound messaging channels (Telegram bot, …). Each adapter stays off until
    * enabled with an explicit allowlist of chat ids. See messaging.ts.

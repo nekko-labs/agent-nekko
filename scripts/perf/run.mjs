@@ -100,7 +100,18 @@ process.on('SIGINT', async () => { await cleanup(); process.exit(130); });
  * chat onto it before the page loads and opens them from there.
  */
 let WALL_IDS = [];
-const wallState = (ids) => JSON.stringify({ cells: ids.map((id) => ({ kind: 'chat', refId: id })), layout: { mode: 'auto' }, autoAdd: false, filter: 'all', colSizes: {}, rowSizes: {}, insights: { show: false, position: 'bottom', panels: {} }, watermark: Date.now() });
+/** The wall as `commandWall.ts` saves it: a column of rows of four chat windows, no panels, auto-add off. */
+const wallState = (ids) => {
+  let seq = 0;
+  const pane = (refId) => ({ id: `pane_${(++seq).toString(36)}`, kind: 'chat', refId });
+  const rows = [];
+  for (let i = 0; i < ids.length; i += 4) {
+    const slice = ids.slice(i, i + 4).map(pane);
+    rows.push(slice.length === 1 ? slice[0] : { id: `split_${(++seq).toString(36)}`, dir: 'row', children: slice, sizes: slice.map(() => 1 / slice.length) });
+  }
+  const root = rows.length === 0 ? null : rows.length === 1 ? rows[0] : { id: `split_${(++seq).toString(36)}`, dir: 'col', children: rows, sizes: rows.map(() => 1 / rows.length) };
+  return JSON.stringify({ root, autoAdd: false, filter: 'all', insights: { panels: {} }, watermark: Date.now() });
+};
 
 /** One browser on the app, with the handful of gestures the scenarios need. */
 async function openApp({ appUrl, cdpPort, vsync }) {
@@ -115,7 +126,7 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     cdp.on('Runtime.consoleAPICalled', (p) => console.log('[page]', p.args.map((a) => a.value ?? a.description ?? JSON.stringify(a.preview?.properties?.map((x) => `${x.name}=${x.value}`))).join(' ')));
   }
   await cdp.send('Emulation.setDeviceMetricsOverride', { ...CFG.viewport, deviceScaleFactor: 1, mobile: false });
-  await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('nekko.commandGrid', ${JSON.stringify(wallState(WALL_IDS))}); } catch {}` });
+  await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: `try { localStorage.setItem('nekko.commandWall', ${JSON.stringify(wallState(WALL_IDS))}); } catch {}` });
   await cdp.send('Page.navigate', { url: appUrl });
 
   const waitFor = async (expr, what, timeoutMs = 30000) => {

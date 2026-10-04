@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionSummary, TerminalInfo } from '@agent-nekko/shared';
+import type { PendingInput, SessionSummary, TerminalInfo } from '@agent-nekko/shared';
 import { allPanes, extent, isSplit, type WbPane } from './layout.js';
 import {
   DEFAULT_WALL_STATE,
@@ -12,6 +12,8 @@ import {
   loadWallState,
   migrateGridState,
   reconcileWall,
+  ribbonItems,
+  toWallSetting,
   saveWallState,
   seedWall,
   tileTree,
@@ -169,5 +171,44 @@ describe('persistence', () => {
     storage.setItem(WALL_STATE_KEY, JSON.stringify({ root: { id: 'split_1', dir: 'row', children: [{ id: 'pane_2', kind: 'browser', refId: 'x' }, { id: 'pane_3', kind: 'chat', refId: 'a' }], sizes: [0.5, 0.5] } }));
     const loaded = loadWallState(storage);
     expect(allPanes(loaded.root).map((p) => p.refId)).toEqual(['a']);
+  });
+});
+
+describe('the setting', () => {
+  const memory = () => {
+    const m = new Map<string, string>();
+    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => void m.set(k, v) };
+  };
+  it('wins over the browser copy, which stays the fallback', () => {
+    const storage = memory();
+    const local = seedWall(DEFAULT_WALL_STATE, [chat('local', { updatedAt: 1 })], [], 1);
+    saveWallState(storage, local);
+    const shared = seedWall(DEFAULT_WALL_STATE, [chat('shared', { updatedAt: 1 })], [], 2);
+    expect(allPanes(loadWallState(storage, toWallSetting(shared)).root).map((p) => p.refId)).toContain('shared');
+    expect(allPanes(loadWallState(storage, null).root).map((p) => p.refId)).toContain('local');
+  });
+  it('round-trips through the setting shape', () => {
+    const state = seedWall({ ...DEFAULT_WALL_STATE, autoAdd: false, filter: 'terminal' }, [chat('a', { updatedAt: 1 })], [term('t')], 5);
+    const back = loadWallState(undefined, toWallSetting(state));
+    expect(back).toEqual(state);
+  });
+});
+
+describe('ribbonItems', () => {
+  const approval = (command?: string): PendingInput =>
+    ({ sessionId: 'a', approval: { call: { id: 'c1', name: 'run_command', input: command ? { command } : {} }, reason: 'shell', severity: 'medium', requestedAt: 1 } }) as unknown as PendingInput;
+  const question = (): PendingInput => ({ sessionId: 'q', question: { id: 'q1', questions: [] } }) as unknown as PendingInput;
+
+  it('lists each waiting chat once, with the command an approval wants to run', () => {
+    const items = ribbonItems([chat('a', { title: 'Ship it' }), chat('q', { title: 'Retry policy' }), chat('idle')], { a: approval('git push -u origin cc'), q: question() });
+    expect(items).toEqual([
+      { sessionId: 'a', title: 'Ship it', blocked: 'approval', what: 'git push -u origin cc', command: true },
+      { sessionId: 'q', title: 'Retry policy', blocked: 'question', what: 'asked you a question', command: false },
+    ]);
+  });
+  it('falls back to the tool name, shortens a long command, and skips archived chats', () => {
+    const long = 'x'.repeat(80);
+    const items = ribbonItems([chat('a'), chat('b'), chat('z', { archivedAt: 9 } as Partial<SessionSummary>)], { a: approval(), b: approval(long), z: question() });
+    expect(items.map((i) => i.what)).toEqual(['run_command', `${'x'.repeat(47)}…`]);
   });
 });
