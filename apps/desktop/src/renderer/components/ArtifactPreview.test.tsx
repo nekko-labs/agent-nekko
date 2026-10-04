@@ -14,7 +14,7 @@ describe('artifact previews', () => {
   it('starts with scripts disabled and exposes responsive viewport controls', () => {
     const html = renderToStaticMarkup(<ArtifactPreview source="<h1>Design</h1>" />);
     expect(html).toContain('sandbox=""');
-    expect(html).toContain('Enable interactions');
+    expect(html).toContain('Open interactive preview');
     expect(html).toContain('375px');
     expect(html).toContain('1280px');
   });

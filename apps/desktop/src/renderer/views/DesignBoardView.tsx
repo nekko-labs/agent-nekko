@@ -294,7 +294,7 @@ function PageCard({
           key={`${page.id}:${reloadNonce}`}
           {...(concept ? { srcDoc: isolatedDocument(page.html ?? '') } : { src: page.url })}
           title={page.label}
-          sandbox={concept ? 'allow-scripts' : 'allow-scripts allow-same-origin'}
+          sandbox={concept ? '' : 'allow-scripts allow-same-origin'}
           style={{
             width: LOGICAL, height: Math.round(H / scale), border: 0,
             transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none',

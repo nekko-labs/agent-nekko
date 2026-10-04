@@ -7,18 +7,24 @@ export function isolatedDocument(source: string): string {
 
 export function ArtifactPreview({ source, title = 'Design preview' }: { source: string; title?: string }) {
   const [width, setWidth] = useState('100%');
-  const [interactive, setInteractive] = useState(false);
+  const [error, setError] = useState('');
+  const openInteractive = async () => {
+    const bridge = (window as unknown as { nekkoPreview?: { open: (source: string) => Promise<void> } }).nekkoPreview;
+    if (!bridge) { setError('Interactive isolated previews require the desktop app. Static preview remains available.'); return; }
+    try { await bridge.open(source); setError(''); } catch (e) { setError((e as Error).message); }
+  };
   return <div className="flex h-full min-h-96 flex-col gap-2 p-3">
     <div className="flex flex-wrap items-center gap-2 text-[12px]">
       <strong>{title}</strong>
       <select aria-label="Preview viewport" className="input w-auto" value={width} onChange={(e) => setWidth(e.target.value)}>
         <option value="100%">Fit</option><option value="375px">Phone · 375</option><option value="768px">Tablet · 768</option><option value="1280px">Desktop · 1280</option>
       </select>
-      <button className="chip chip-action" aria-pressed={interactive} onClick={() => setInteractive(!interactive)}>{interactive ? 'Disable interactions' : 'Enable interactions'}</button>
+      <button className="chip chip-action" onClick={openInteractive}>Open interactive preview</button>
       <span className="text-ink-faint">Isolated · network blocked</span>
     </div>
+    {error && <p role="status" className="text-[12px] text-ink-soft">{error}</p>}
     <div className="min-h-96 flex-1 overflow-auto rounded-lg border border-line bg-surface-2">
-      <iframe key={String(interactive)} title={title} sandbox={interactive ? 'allow-scripts' : ''} referrerPolicy="no-referrer"
+      <iframe title={title} sandbox="" referrerPolicy="no-referrer"
         srcDoc={isolatedDocument(source)} style={{ width, height: '100%', minHeight: 480, border: 0, background: 'white' }} />
     </div>
   </div>;
