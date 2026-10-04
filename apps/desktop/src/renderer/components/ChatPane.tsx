@@ -33,7 +33,8 @@ import { ComposerQuestion } from './ComposerQuestion.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
-import { ChatControls } from './ChatControls.js';
+import { ChatControls, MODE_LABEL } from './ChatControls.js';
+import { useElementCompact } from './agent-console/useElementWidth.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
 import { PrCard, PrBadge, PrActionDock } from './PrCard.js';
@@ -556,6 +557,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const paneWidth = useElementWidth(paneRef, sessionId);
   const planRailOpen = planRailWanted && paneWidth >= PLAN_RAIL_MIN_PANE;
   const wideEnoughForRail = paneWidth >= PLAN_RAIL_MIN_PANE;
+  // A small window (a cell on the Command Center wall, a sliver of a split)
+  // folds the two control rows into one summary chip, so the transcript keeps
+  // the room; the chip opens them again on demand.
+  const compact = useElementCompact(paneRef);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const showControls = !compact || controlsOpen;
   // The armed skill lives in the store (per session) so the Context Inspector on
   // the right can show it and count its tokens while it's active.
   const activeSkill = useStore((s) => s.activeSkillBySession[sessionId] ?? null);
@@ -1902,6 +1909,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 {changeCount} change{changeCount === 1 ? '' : 's'}
               </button>
             )}
+            {!compact && (
             <button
               className="btn btn-ghost px-2 py-1 text-[11px]"
               onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
@@ -1909,10 +1917,11 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             >
               Commands
             </button>
-            {!!session?.messages.length && (
+            )}
+            {!compact && !!session?.messages.length && (
               <button className="btn btn-ghost px-2 py-1" onClick={exportChat} title="Export chat as Markdown"><DownloadIcon /></button>
             )}
-            {wideEnoughForRail && (
+            {!compact && wideEnoughForRail && (
               <button
                 className={`btn btn-ghost px-2 py-1 ${planRailOpen ? 'text-accent' : ''}`}
                 onClick={() => useStore.getState().togglePlanRail()}
@@ -1922,6 +1931,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 <ListIcon className="h-4 w-4" />
               </button>
             )}
+            {!compact && (
             <button
               className={`btn btn-ghost hidden px-2 py-1 lg:inline-flex ${ctxOpen ? 'text-accent' : ''}`}
               onClick={() => useStore.getState().toggleContextPanel()}
@@ -1930,6 +1940,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             >
               <PanelIcon />
             </button>
+            )}
         </ChatHeader>
 
         <div className="relative flex min-h-0 w-full flex-1">
@@ -2086,6 +2097,36 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>
             ))}
             <div className={streaming ? 'composer composer-beam' : 'composer'}>
+            {compact && (
+              <div className="composer-summary">
+                <button
+                  className="composer-summary-chip"
+                  onClick={() => setControlsOpen((o) => !o)}
+                  aria-expanded={controlsOpen}
+                  title={controlsOpen ? 'Hide the model, mode and tool controls' : 'Show the model, mode and tool controls for this chat'}
+                >
+                  <span className="composer-summary-model">{imageMode ? 'Image' : modelId === AUTO_MODEL_ID ? 'Auto' : selectedModelInfo?.name ?? modelId ?? 'Pick a model'}</span>
+                  <span className="composer-summary-meta">
+                    {!imageMode && ` \u00b7 ${MODE_LABEL[session?.mode ?? settings?.defaultChatMode ?? 'guardrails']}`}
+                    {thinkingSupported && ` \u00b7 Thinking ${thinkingOn ? 'on' : 'off'}`}
+                    {session?.offline && ' \u00b7 Offline'}
+                    {session?.incognito && ' \u00b7 Incognito'}
+                  </span>
+                  <span className="ctl-caret">{controlsOpen ? '\u25b4' : '\u25be'}</span>
+                </button>
+                {!imageMode && (
+                  <button
+                    className="ctl-toggle ml-auto shrink-0 whitespace-nowrap"
+                    onClick={() => setScheduleOpen(true)}
+                    aria-label="Automate: schedule, repeat, or run in the background"
+                    title="Automate: schedule, repeat, or run in the background"
+                  >
+                    <span style={{ color: 'var(--warning)' }}><BoltIcon className="h-3 w-3" /></span> Automate
+                  </button>
+                )}
+              </div>
+            )}
+            {showControls && (<>
             {/* Controls live at the top of the input surface. Separate rows keep
                 the model and its effort slider together when a pane is narrow. */}
             <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
@@ -2190,6 +2231,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               ) : null}
               </>)}
             </div>
+            </>)}
 
             {/* Queued follow-ups expand inside the same surface as the input. */}
             <div className={`collapse-wrap ${queued.length > 0 ? '' : 'collapsed'}`} aria-hidden={queued.length === 0}>
@@ -2403,7 +2445,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                   )}
                   <MarkdownEditor
                     ref={composerRef}
-                    className={`${composerH != null ? '' : 'max-h-60 '}relative min-h-[52px] w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 py-3 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
+                    className={`${composerH != null ? '' : 'max-h-60 '}relative ${compact ? 'min-h-[36px] py-2' : 'min-h-[52px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
                     placeholder={imageMode ? 'Describe the image you want…' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
                     value={draft}
                     aria-expanded={slashMenuOpen || atMenuOpen}

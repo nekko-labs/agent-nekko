@@ -38,3 +38,33 @@ export function useElementWidth(ref: React.RefObject<HTMLElement | null>, key?: 
   }, [ref, key]);
   return width;
 }
+
+/** Under this width or height a chat folds its instrument strip into one summary chip. */
+export const COMPACT_WIDTH = 470;
+export const COMPACT_HEIGHT = 440;
+
+/**
+ * Whether the element is small enough to call for the compact chat chrome:
+ * a cell on the Command Center wall, or a window split down to a sliver.
+ * Width and height both count, since a wide but short window has no more
+ * room for two rows of controls than a narrow one. False until measured, so a
+ * pane opens at full size and folds only once it knows it must.
+ */
+export function useElementCompact(ref: React.RefObject<HTMLElement | null>): boolean {
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      if (w <= 0 || h <= 0) return;
+      setCompact(w < COMPACT_WIDTH || h < COMPACT_HEIGHT);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return compact;
+}
