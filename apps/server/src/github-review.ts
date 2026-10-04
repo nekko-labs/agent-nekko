@@ -96,6 +96,9 @@ export function registerGitHubReviewRoutes(app: FastifyInstance, config: GitHubR
   let busy = false;
   const rateBuckets = new Map<string, { count: number; resetAt: number }>();
   app.register(async (scope) => {
+    // Limit before signature verification/model work. A single global bucket
+    // bounds memory and cannot be bypassed by rotating source IPs.
+    await scope.register(rateLimit, { max: 30, timeWindow: '1 minute', keyGenerator: () => 'github-review' });
     scope.removeAllContentTypeParsers();
     scope.addContentTypeParser('application/json', { parseAs: 'buffer', bodyLimit: 256_000 }, (_req, body, done) => done(null, body));
     scope.post('/hooks/github/review', { bodyLimit: 256_000 }, async (req, reply) => {
