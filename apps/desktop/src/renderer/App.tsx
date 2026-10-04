@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { navOrder, moveNav } from './nav-order.js';
 import { useStore, viewEnabled, type View } from './store.js';
 import { startLiveRuns } from './liveRuns.js';
+import { startDesktopNotifications } from './notifications.js';
 import { startCompactionStatus } from './compactionStatus.js';
 import { useT } from './i18n.js';
 import { SHORTCUTS } from './shortcuts.js';
@@ -105,6 +106,8 @@ export function App() {
   // listener and the run's output went nowhere until the next event arrived.
   useEffect(() => startLiveRuns(), []);
   useEffect(() => startCompactionStatus(), []);
+  // An OS notification when a chat you are not looking at finishes or needs you.
+  useEffect(() => startDesktopNotifications(), []);
 
   // Archived chats past the retention window are deleted at launch and every
   // few hours after, whichever view the app opens on, so a long-running window

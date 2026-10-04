@@ -359,6 +359,16 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
           <span className="text-[12px] text-ink-faint">min</span>
         </div>
       </div>
+      <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[13px]">Desktop notifications</span>
+          <p className="text-[11px] text-ink-faint">
+            A system notification when a chat you are not looking at finishes, fails, or stops to ask you something.
+            Clicking it opens that chat.
+          </p>
+        </div>
+        <Toggle on={settings.desktopNotifications !== false} onChange={(v) => update({ desktopNotifications: v })} />
+      </div>
     </section>
   );
 }
