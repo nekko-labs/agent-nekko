@@ -1,6 +1,7 @@
 const {app,BrowserWindow}=require('electron');const path=require('path');const fs=require('fs');
 app.setPath('userData',path.join(require('os').tmpdir(),'nekko-security-profile-'+Date.now()));
 require('esbuild').buildSync({entryPoints:[path.join(__dirname,'../src/main/artifactPreview.ts')],bundle:true,platform:'node',format:'cjs',external:['electron'],outfile:path.join(__dirname,'../../../node_modules/.cache/nekko-preview-test.cjs')}); const {registerArtifactPreview}=require(path.join(__dirname,'../../../node_modules/.cache/nekko-preview-test.cjs'));
+app.on('window-all-closed',()=>{});
 app.whenReady().then(async()=>{try{
  const parent=new BrowserWindow({show:false,webPreferences:{preload:path.join(__dirname,'security-preload.cjs'),contextIsolation:true,sandbox:true}});
  registerArtifactPreview(w=>w.id===parent.webContents.id);
@@ -12,5 +13,17 @@ app.whenReady().then(async()=>{try{
  const result=await preview.webContents.executeJavaScript(`({...probe,text:document.querySelector('#result').textContent})`);
  if(result.text!=='Script executed'||result.bridge!=='undefined'||result.node!=='undefined'||result.network!=='blocked'||!result.opener)throw Error(JSON.stringify(result));
  
- console.log('PASS',result);preview.close();parent.close();app.quit();
+ const originalUrl=preview.webContents.getURL();
+ await preview.webContents.executeJavaScript("window.open('https://example.com'); location.href='https://example.com'");
+ await new Promise(r=>setTimeout(r,250));
+ if(preview.webContents.getURL()!==originalUrl || BrowserWindow.getAllWindows().length!==2) throw Error('Navigation or popup escaped');
+ await parent.webContents.executeJavaScript(`window.testPreview(${JSON.stringify('<h1>Replacement</h1>')})`);
+ if(!preview.isDestroyed() || BrowserWindow.getAllWindows().length!==2) throw Error('Replacement leaked a window');
+ const replacement=BrowserWindow.getAllWindows().find(w=>w!==parent);
+ const endpoint=replacement.webContents.getURL();
+ parent.close(); await new Promise(r=>setTimeout(r,250));
+ if(!replacement.isDestroyed()) throw Error('Owner close leaked preview');
+ let closed=false;try{await fetch(endpoint)}catch{closed=true}
+ if(!closed) throw Error('Owner close leaked HTTP transport');
+ console.log('PASS',result,'navigation, popup, replacement and owner cleanup');app.quit();
 }catch(e){console.error(e);app.exit(1);}});
