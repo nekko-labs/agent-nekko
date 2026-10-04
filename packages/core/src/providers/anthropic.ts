@@ -369,9 +369,20 @@ export class AnthropicProvider implements Provider {
 
   private toAnthropicMessages(req: ChatRequest) {
     const out: any[] = [];
+    // Two user turns in a row (tool results, then a message the user sent
+    // while the tools ran) are one turn to the API.
+    const push = (msg: any) => {
+      const last = out[out.length - 1];
+      if (last && last.role === 'user' && msg.role === 'user') {
+        const blocks = (v: any) => (typeof v === 'string' ? [{ type: 'text', text: v }] : v);
+        last.content = [...blocks(last.content), ...blocks(msg.content)];
+        return;
+      }
+      out.push(msg);
+    };
     for (const m of req.messages) {
       if (m.role === 'tool' && m.toolResult) {
-        out.push({
+        push({
           role: 'user',
           content: [{ type: 'tool_result', tool_use_id: m.toolResult.toolCallId, content: m.toolResult.output }],
         });
@@ -381,9 +392,9 @@ export class AnthropicProvider implements Provider {
         for (const c of m.toolCalls) {
           content.push({ type: 'tool_use', id: c.id, name: c.name, input: c.input });
         }
-        out.push({ role: 'assistant', content });
+        push({ role: 'assistant', content });
       } else if (m.role === 'user' || m.role === 'assistant') {
-        out.push({
+        push({
           role: m.role,
           content: m.role === 'user' && m.images?.length
             ? [

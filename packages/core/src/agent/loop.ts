@@ -59,6 +59,12 @@ export interface RunAgentOptions {
    * what is already there, so the steps it already took are not repeated.
    */
   resume?: boolean;
+  /**
+   * Messages the user sent while the reply ran. Pulled at each tool boundary
+   * (never mid-stream) and appended to `history` before the next model call,
+   * so steering lands in the transcript without stopping the turn.
+   */
+  pullSteering?: () => ChatMessage[];
   /** Pass response headers up to the host (rate-limit capture). */
   onHeaders?: (headers: Headers) => void;
 }
@@ -341,6 +347,15 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     if (opts.signal?.aborted) {
       yield { type: 'error', sessionId: opts.sessionId, message: 'Aborted' };
       return;
+    }
+    // Steering: what the user typed while the tools ran joins the transcript
+    // here, at the step boundary, so the next call sees it without the turn
+    // having been stopped and started over.
+    if (iter > 0) {
+      for (const m of opts.pullSteering?.() ?? []) {
+        opts.history.push(m);
+        yield { type: 'steered', sessionId: opts.sessionId, messageId: m.id };
+      }
     }
 
     const turn: Turn = { text: '', reasoning: '', calls: [] };

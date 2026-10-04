@@ -59,6 +59,7 @@ fn opts<'a>(history: &'a mut Vec<Value>, cancel: Cancel) -> RunOptions<'a> {
         max_output_tokens: None,
         resume: false,
         cancel,
+        steering: Default::default(),
     }
 }
 

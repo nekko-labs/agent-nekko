@@ -294,6 +294,16 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
     if (next !== savedOut) update({ maxOutputTokens: next });
   };
 
+  const savedWait = Math.max(0, Math.round(settings.unattendedQuestionMinutes ?? 0));
+  const [wait, setWait] = useState(String(savedWait));
+  useEffect(() => { setWait(String(Math.max(0, Math.round(settings.unattendedQuestionMinutes ?? 0)))); }, [settings.unattendedQuestionMinutes]);
+  const commitWait = () => {
+    const n = Number(wait);
+    const next = Number.isFinite(n) ? Math.min(1440, Math.max(0, Math.round(n))) : savedWait;
+    setWait(String(next));
+    if (next !== savedWait) update({ unattendedQuestionMinutes: next });
+  };
+
   return (
     <section className="card mt-5 p-5">
       <div className="flex items-center gap-2"><RobotIcon className="h-4 w-4" /><h2 className="font-semibold">Agent loop</h2></div>
@@ -323,6 +333,31 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
           onBlur={commitOut}
           onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
         />
+      </div>
+      <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[13px]">Unattended questions: decide after</span>
+          <p className="text-[11px] text-ink-faint">
+            Minutes a question from the agent waits for you before it is told nobody answered and to choose the most
+            reasonable option itself, stating the assumption. For chats you leave running. 0 waits for ever. Approvals
+            of risky commands never time out.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <input
+            type="number"
+            className="input max-w-[90px] py-1.5 tabular-nums"
+            min={0}
+            max={1440}
+            step={5}
+            value={wait}
+            aria-label="Unattended questions: decide after minutes"
+            onChange={(e) => setWait(e.target.value)}
+            onBlur={commitWait}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+          />
+          <span className="text-[12px] text-ink-faint">min</span>
+        </div>
       </div>
     </section>
   );

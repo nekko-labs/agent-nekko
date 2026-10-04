@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, QueuedPrompt, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { ASK_CANCELLED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho, queueItemPayload } from '@agent-nekko/shared';
+import { ASK_CANCELLED, ASK_UNATTENDED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho, queueItemPayload } from '@agent-nekko/shared';
 import {
   createProvider,
   runAgent,
@@ -38,7 +38,7 @@ let decisions: DecisionRunner | null = null;
 export function setDecisionRunner(runner: DecisionRunner | null): void {
   decisions = runner;
 }
-import { getSession, listSessions, saveSession, saveTurnSession, createSession, setSessionOptions } from './sessions.js';
+import { getSession, listSessions, saveSession, saveTurnSession, createSession, setSessionOptions, queuePrompt } from './sessions.js';
 import { executeTool } from './tools.js';
 import { AGENT_WATCH_TOOL, agentWatchTool } from './agent-watches.js';
 import { recordUsage } from './usage.js';
@@ -50,7 +50,7 @@ import { searchWorkspace } from './workspace.js';
 import { buildSpec } from './spec.js';
 import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
 import { daemonCall } from './engine/daemon.js';
-import { daemonRunsLoops, runAgentViaDaemon } from './daemon-loop.js';
+import { daemonOwns, daemonRunsLoops, runAgentViaDaemon } from './daemon-loop.js';
 import { completeText } from './sideband.js';
 import { appendAgentTerminal, finishAgentTerminal } from './terminal.js';
 
@@ -94,6 +94,10 @@ const DAEMON_TOOLS = new Set(['read_file', 'write_file', 'edit_file', 'glob', 'g
 const abortControllers = new Map<string, AbortController>();
 const pendingApprovals = new Map<string, (approved: boolean) => void>();
 const pendingAnswers = new Map<string, (answers: AskAnswer[]) => void>();
+/** Messages sent to a running chat, waiting for its next tool boundary (TS-loop runs). */
+const steering = new Map<string, ChatMessage[]>();
+/** The daemon run id of each chat the daemon is driving, for `loop:steer`. */
+const daemonRunIds = new Map<string, string>();
 
 /**
  * What each session is waiting on a person for.
@@ -381,6 +385,32 @@ ${INTERRUPTED_NOTE}`,
     marked++;
   }
   return marked;
+}
+
+/**
+ * Steer a running reply: the text becomes a user message at the chat's next
+ * tool boundary (never mid-stream), so the model sees it without the turn
+ * being stopped and started over, as pi's steering queue and typing into a
+ * working Claude Code session do. A daemon-driven run gets it through
+ * `loop:steer`; a chat that is not running (or a daemon too old to take it)
+ * gets the text queued for after the turn instead.
+ */
+export async function steerChat(sessionId: string, text: string): Promise<Session | null> {
+  const content = text.trim();
+  if (!content) return getSession(sessionId);
+  if (!isChatRunning(sessionId)) return queuePrompt(sessionId, content);
+  const message: ChatMessage = { id: `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`, role: 'user', content, createdAt: Date.now() };
+  const runId = daemonRunIds.get(sessionId);
+  const daemon = runId ? daemonCall() : undefined;
+  if (runId && daemon && (await daemonOwns(daemon, 'loop:steer'))) {
+    const taken = await daemon<boolean>('loop:steer', runId, message).catch(() => false);
+    if (taken) return getSession(sessionId);
+    if (!isChatRunning(sessionId)) return queuePrompt(sessionId, content);
+  }
+  const inbox = steering.get(sessionId) ?? [];
+  inbox.push(message);
+  steering.set(sessionId, inbox);
+  return getSession(sessionId);
 }
 
 export function abortChat(sessionId: string): void {
@@ -894,13 +924,29 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       const parsed = parseAskRequest(call.id, call.input);
       if ('error' in parsed) return parsed.error;
       const request = parsed.request;
+      // A chat left running unattended does not park on a question for ever:
+      // past the limit the agent is told nobody answered and to decide itself.
+      // Approvals never time out this way; only questions do.
+      const unattendedMs = Math.max(0, getSettings().unattendedQuestionMinutes ?? 0) * 60_000;
+      let unattended = false;
+      let timer: ReturnType<typeof setTimeout> | undefined;
       const answers = await new Promise<AskAnswer[]>((resolveP) => {
-        pendingAnswers.set(call.id, resolveP);
+        pendingAnswers.set(call.id, (a) => {
+          clearTimeout(timer);
+          resolveP(a);
+        });
         setPending(opts.sessionId, { question: request });
         send({ type: 'question', sessionId: opts.sessionId, request });
+        if (unattendedMs > 0) {
+          timer = setTimeout(() => {
+            unattended = true;
+            resolveQuestion(opts.sessionId, call.id, []);
+          }, unattendedMs);
+        }
       });
       send({ type: 'question_resolved', sessionId: opts.sessionId, callId: call.id });
-      return answers.length === 0 ? ASK_CANCELLED : formatAskAnswers(request, answers);
+      if (answers.length === 0) return unattended ? ASK_UNATTENDED : ASK_CANCELLED;
+      return formatAskAnswers(request, answers);
     };
 
     try {
@@ -1026,6 +1072,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         think: session.thinking,
         maxHistoryTurns: opts.maxHistoryTurns,
         resume: opts.resume,
+        pullSteering: () => steering.get(opts.sessionId)?.splice(0) ?? [],
         signal: abort.signal,
         onHeaders:
           provider.kind === 'anthropic' && provider.auth === 'subscription' && provider.tokenKey
@@ -1050,6 +1097,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             ...runOptions,
             provider: resolvedProvider,
             requestApproval,
+            onRunId: (runId) => daemonRunIds.set(opts.sessionId, runId),
             // The built-in file and shell tools run in the daemon too.
             toolContext: {
               native: tools.map((t) => t.name).filter((n) => DAEMON_TOOLS.has(n)),
@@ -1098,10 +1146,12 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         // Written before the event goes out, so anything that reacts to it by
         // re-reading the session (the chat pane does exactly that on `done`) is
         // guaranteed to find the step it was just told about.
-        if (event.type === 'tool_result' || event.type === 'step' || event.type === 'done' || event.type === 'error') {
+        if (event.type === 'tool_result' || event.type === 'step' || event.type === 'steered' || event.type === 'done' || event.type === 'error') {
           persist();
         }
         send(event);
+        // The steering message is in the transcript now; panes re-read it.
+        if (event.type === 'steered') send({ type: 'session_meta', sessionId: opts.sessionId });
       }
       lastError = undefined;
       break;
@@ -1126,6 +1176,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       // you" lane over a question that no longer has a run behind it.
       releasePending(opts.sessionId);
       delete session.activeRun;
+      daemonRunIds.delete(opts.sessionId);
       persist();
     }
   }
@@ -1146,6 +1197,13 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   if (!incognito && !offline && session.titleAuto === true) {
     void titleSession(opts.sessionId, resolvedProvider, opts.modelId, send);
   }
+
+  // Steering that arrived during the final model call (no tool boundary left
+  // to fold it into) runs next, as a queued prompt.
+  if (!incognito) {
+    for (const m of steering.get(opts.sessionId)?.splice(0) ?? []) queuePrompt(opts.sessionId, m.content);
+  }
+  steering.delete(opts.sessionId);
 
   // Run the next queued prompt, if any (and we weren't aborted). Each turn
   // dequeues exactly one item, so a chat works through its queue in order.

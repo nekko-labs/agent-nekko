@@ -306,6 +306,11 @@ export type AgentEvent =
    * request on disk instead of losing the whole step.
    */
   | { type: 'step'; sessionId: string; messageId: string }
+  /**
+   * A message the user sent while the reply ran was folded into the
+   * transcript at a tool boundary (`chat:steer`); the next model call sees it.
+   */
+  | { type: 'steered'; sessionId: string; messageId: string }
   /** How a compaction of this chat is going (`compaction.ts` in the host). */
   | { type: 'compaction'; sessionId: string; progress: CompactionProgress }
   /**

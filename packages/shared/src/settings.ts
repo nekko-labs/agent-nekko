@@ -183,6 +183,12 @@ export interface AppSettings {
    */
   maxOutputTokens?: number;
   /**
+   * Minutes an `ask_user` question waits for a person before the agent is
+   * told to decide for itself (0 or unset: wait indefinitely). For chats left
+   * running unattended; approvals are never answered this way.
+   */
+  unattendedQuestionMinutes?: number;
+  /**
    * Which resource monitors run. Anything omitted falls back to
    * DEFAULT_MONITORS; a monitor switched off stops being sampled at all, so no
    * GPU-probe spawn and no CPU sampling happen for it.

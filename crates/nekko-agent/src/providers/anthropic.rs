@@ -218,13 +218,37 @@ fn split_data_url(url: &str) -> Option<(&str, &str)> {
 }
 
 fn to_anthropic_messages(req: &ChatRequest) -> Vec<Value> {
-    let mut out = Vec::new();
+    let mut out: Vec<Value> = Vec::new();
+    // Two user turns in a row (tool results, then a message the user sent
+    // while the tools ran) are one turn to the API.
+    fn push(out: &mut Vec<Value>, msg: Value) {
+        if let Some(last) = out.last_mut()
+            && last["role"] == "user"
+            && msg["role"] == "user"
+        {
+            let blocks = |v: &Value| -> Vec<Value> {
+                match v {
+                    Value::String(text) => vec![json!({ "type": "text", "text": text })],
+                    Value::Array(items) => items.clone(),
+                    other => vec![other.clone()],
+                }
+            };
+            let mut merged = blocks(&last["content"]);
+            merged.extend(blocks(&msg["content"]));
+            last["content"] = Value::Array(merged);
+            return;
+        }
+        out.push(msg);
+    }
     for m in &req.messages {
         if let (Role::Tool, Some(r)) = (m.role, &m.tool_result) {
-            out.push(json!({
-                "role": "user",
-                "content": [{ "type": "tool_result", "tool_use_id": r.tool_call_id, "content": r.output }],
-            }));
+            push(
+                &mut out,
+                json!({
+                    "role": "user",
+                    "content": [{ "type": "tool_result", "tool_use_id": r.tool_call_id, "content": r.output }],
+                }),
+            );
         } else if let (Role::Assistant, Some(calls)) = (m.role, m.calls()) {
             let mut content = Vec::new();
             if !m.content.is_empty() {
@@ -233,7 +257,7 @@ fn to_anthropic_messages(req: &ChatRequest) -> Vec<Value> {
             for c in calls {
                 content.push(json!({ "type": "tool_use", "id": c.id, "name": c.name, "input": c.input }));
             }
-            out.push(json!({ "role": "assistant", "content": content }));
+            push(&mut out, json!({ "role": "assistant", "content": content }));
         } else if matches!(m.role, Role::User | Role::Assistant) {
             let content = match m.user_images() {
                 Some(images) => {
@@ -246,7 +270,7 @@ fn to_anthropic_messages(req: &ChatRequest) -> Vec<Value> {
                 }
                 None => json!(m.content),
             };
-            out.push(json!({ "role": m.role, "content": content }));
+            push(&mut out, json!({ "role": m.role, "content": content }));
         }
     }
     out

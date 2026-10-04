@@ -113,6 +113,7 @@ export const IpcChannels = {
   chatQueue: 'chat:queue',
   chatDequeue: 'chat:dequeue',
   chatInterruptQueued: 'chat:interruptQueued',
+  chatSteer: 'chat:steer',
   chatSuggest: 'chat:suggest',
   chatFillPrompt: 'chat:fillPrompt',
   toolApprove: 'tool:approve',
@@ -496,6 +497,12 @@ export interface NekkoApi {
   queuePrompt(sessionId: string, input: string | import('./chat.js').QueuePayload): Promise<Session | null>;
   /** Remove a queued prompt by index. */
   dequeuePrompt(sessionId: string, index: number): Promise<Session | null>;
+  /**
+   * Steer the reply that is running: the text joins the transcript at the next
+   * tool boundary, so the model sees it without the turn being stopped. A chat
+   * that is not running queues it instead.
+   */
+  steerChat(sessionId: string, text: string): Promise<Session | null>;
   /** Stop active work, then start the selected queued prompt on the chosen model. Resolves when its turn ends. */
   interruptQueuedPrompt(sessionId: string, index: number, brain?: { providerId: string; modelId: string }): Promise<void>;
   /**
