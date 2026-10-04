@@ -19,8 +19,27 @@ describe('unopenedChats', () => {
     expect(unopenedChats(sessions, []).map((s) => s.id)).toEqual(['old', 'open']);
   });
 
-  it('does not list a child separately while its parent is saved', () => {
+  it('keeps children reachable when their parent is saved but has no sidebar workspace', () => {
     expect(unopenedChats([chat('parent'), chat('child', { parentSessionId: 'parent' })], [])
-      .map((s) => s.id)).toEqual(['parent']);
+      .map((s) => s.id)).toEqual(['parent', 'child']);
+  });
+
+  it('excludes only children actually rendered beneath an open anchor', () => {
+    const sessions = [chat('parent'), chat('running', { parentSessionId: 'parent' }), chat('finished', { parentSessionId: 'parent', lastReplyText: 'Done' })];
+    expect(unopenedChats(sessions, [workspace('parent')], new Set(['running']))
+      .map((s) => s.id)).toEqual(['finished']);
+  });
+
+  it('keeps split-pane chats reachable because only the anchor has a sidebar card', () => {
+    const w = workspace('anchor');
+    w.root = { id: 'split', dir: 'row', sizes: [0.5, 0.5], children: [
+      w.root!, { id: 'pane_split-chat', kind: 'chat', refId: 'split-chat' },
+    ] };
+    expect(unopenedChats([chat('anchor'), chat('split-chat')], [w]).map((s) => s.id)).toEqual(['split-chat']);
+  });
+
+  it('keeps orphaned and archived-parent children reachable', () => {
+    const sessions = [chat('parent', { archivedAt: 100 }), chat('child', { parentSessionId: 'parent' }), chat('orphan', { parentSessionId: 'missing' })];
+    expect(unopenedChats(sessions, []).map((s) => s.id)).toEqual(['child', 'orphan']);
   });
 });
