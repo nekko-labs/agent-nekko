@@ -189,6 +189,11 @@ export interface AppSettings {
    */
   unattendedQuestionMinutes?: number;
   /**
+   * OS notifications when a chat you are not looking at finishes, fails, or
+   * stops for an answer or an approval (default on; `false` switches off).
+   */
+  desktopNotifications?: boolean;
+  /**
    * Which resource monitors run. Anything omitted falls back to
    * DEFAULT_MONITORS; a monitor switched off stops being sampled at all, so no
    * GPU-probe spawn and no CPU sampling happen for it.
