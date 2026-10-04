@@ -82,7 +82,7 @@ fn every_write_leaves_the_file_the_ts_host_would() {
                 "setAttachments" => store.set_attachments(fixture, &arg),
                 "setSpecLinked" => store.set_spec_linked(fixture, &arg),
                 "truncate" => store.truncate(fixture, &arg),
-                "queue" => store.queue(fixture, arg.as_str().unwrap_or("")),
+                "queue" => store.queue(fixture, &arg),
                 "dequeue" => store.dequeue(fixture, &arg),
                 other => panic!("unknown op {other}"),
             };
@@ -92,6 +92,17 @@ fn every_write_leaves_the_file_the_ts_host_would() {
         assert_eq!(normalize(&text), expected[fixture].as_str().unwrap(), "{fixture}: file differs");
         std::fs::remove_dir_all(&data).ok();
     }
+}
+
+#[test]
+fn set_options_accepts_git_isolation() {
+    let data = std::env::temp_dir().join(format!("nekko-options-{}", std::process::id()));
+    let store = SessionStore::new(&data);
+    let s = store.create(Some("w1")).unwrap();
+    let id = s["id"].as_str().unwrap();
+    let saved = store.set_options(id, &serde_json::json!({ "gitIsolation": false })).unwrap().unwrap();
+    assert_eq!(saved["gitIsolation"], false);
+    std::fs::remove_dir_all(&data).ok();
 }
 
 #[test]

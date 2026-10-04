@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo } from '@agent-nekko/shared';
-import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, lastReplyInterrupted, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, QueuePayload, QueuedPrompt } from '@agent-nekko/shared';
+import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, lastReplyInterrupted, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -10,6 +10,7 @@ import { clearLiveRun, getLiveRun, takeFinishedRun, useLiveRun, type LiveRun } f
 import { getCachedSession, loadSession, putCachedSession } from '../sessionCache.js';
 import { usePaneVisible } from '../paneVisibility.js';
 import { afterPaint } from '../afterPaint.js';
+import { chatWelcomeState } from './agent-console/chatWelcome.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { indentListSelection } from '../composerLists.js';
@@ -40,6 +41,7 @@ import { ScheduleTaskModal } from './ScheduleTaskModal.js';
 import { PrCard, PrBadge, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
+import { WorktreeChip } from './WorktreeChip.js';
 import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
@@ -51,6 +53,21 @@ const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't c
  * count current without that.
  */
 const DRAFT_MIRROR_MS = 150;
+
+function queuedPayloadFor(text: string, images: string[], skill: SkillDef | null): QueuePayload | string {
+  const trimmed = text.trim();
+  return images.length || skill
+    ? { text: [skill ? skill.template.trimEnd() : '', trimmed].filter(Boolean).join('\n\n'), ...(images.length ? { images } : {}), ...(skill ? { skill: { name: skill.name, input: trimmed } } : {}) }
+    : trimmed;
+}
+
+function queuedTitle(item: QueuedPrompt): string {
+  const payload = queueItemPayload(item);
+  const bits = [payload.text || '(no text)'];
+  if (payload.skill) bits.push(`/${payload.skill.name}`);
+  if (payload.images?.length) bits.push(`${payload.images.length} image${payload.images.length === 1 ? '' : 's'}`);
+  return bits.join(' · ');
+}
 
 /**
  * How often a running turn re-reads its context bundle. Each completed step is
@@ -556,7 +573,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // Where this chat is working in git: the worktree, the branch, and the PR
   // that branch is going into. The same read the sidebar card makes (the host
   // caches it), so the header and the card never disagree.
-  const git = useGitStatus(session ? `session:${session.id}` : undefined);
+  const git = useGitStatus(session ? `session:${session.id}` : undefined, session?.gitIsolation);
   const headerPrs = git?.pr && !prs.some((p) => p.url === git.pr!.url) ? [git.pr, ...prs] : prs;
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
@@ -1245,16 +1262,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     const text = [skill ? skill.template.trimEnd() : '', input.trim()].filter(Boolean).join('\n\n');
     const images = pendingImages;
     if (!text.trim() && images.length === 0 && !skill) return;
-    // A follow-up never interrupts work by accident. Image/skill prompts
-    // cannot be represented by the text-only queue, so keep those in the draft.
+    // A follow-up never interrupts work by accident. Queue the same payload the
+    // turn would have sent so attachments and skills run when their turn arrives.
     if (streamingRef.current && !imageMode) {
-      if (images.length || skill) {
-        useStore.getState().pushToast('info', 'Wait for this reply to finish before sending attachments or skills.');
-        return;
-      }
       if (override === undefined) await queueDraft();
       else {
-        const updated = await window.nekko.queuePrompt(sessionId, input.trim());
+        const updated = await window.nekko.queuePrompt(sessionId, queuedPayloadFor(input, images, skill));
         if (updated) { setSession(updated); refreshSessions(); }
       }
       return;
@@ -1337,18 +1350,23 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // items). Useful for lining up follow-ups while an agent is working.
   const queueDraft = async () => {
     const text = draft.trim();
-    if (!text) return;
-    const updated = await window.nekko.queuePrompt(sessionId, text);
+    const images = pendingImages;
+    const skill = activeSkill;
+    if (!text && images.length === 0 && !skill) return;
+    const updated = await window.nekko.queuePrompt(sessionId, queuedPayloadFor(text, images, skill));
     if (!updated) return;
     setDraft('');
+    setPendingImages([]);
+    setActiveSkill(null);
     clearDraft(sessionId);
     setSession(updated);
     refreshSessions();
   };
 
   const sendQueuedNow = async (index: number) => {
-    const text = session?.queue?.[index];
-    if (!text) return;
+    const item = session?.queue?.[index];
+    if (!item) return;
+    const text = queueItemText(item);
     // Resolve Auto for the queued text, not for the unsent draft. The host
     // receives a concrete provider and model before it stops the current turn.
     const cross = modelId === AUTO_MODEL_ID ? await ensureCrossModels() : crossModels;
@@ -1852,6 +1870,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const columnWidth = Math.max(0, (paneWidth || 800) * (contentWidth.includes('75%') ? 0.75 : 1) - 32);
   const estimate = useCallback((row: TranscriptRow) => estimateRowHeight(row, columnWidth), [columnWidth]);
   const hasLive = !!(held || getLiveRun(sessionId));
+  const welcomeState = chatWelcomeState({ messages: session?.messages.length ?? 0, streaming, hasLive, hasProvider, modelId, imageMode });
   const onCompacted = useCallback(() => {
     refreshCtxRef.current();
     loadSession(sessionId).then((s) => { if (s) setSession(s); }).catch(() => {});
@@ -1871,16 +1890,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
         <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} metadata={
             git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
-                {git.worktree && (
-                  <span
-                    className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
-                    style={{ background: 'color-mix(in srgb, var(--accent-2) 13%, transparent)', color: 'var(--accent-2)' }}
-                    title={`Linked git worktree: ${git.worktree.path}`}
-                  >
-                    <WorktreeIcon className="h-3 w-3 shrink-0" />
-                    <span className="truncate">{git.worktree.name}</span>
-                  </span>
-                )}
+                {session && <WorktreeChip session={session} git={git} disabled={hasLive} onChange={setSession} />}
                 <span
                   className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
                   style={{ background: 'color-mix(in srgb, var(--accent) 13%, transparent)', color: 'var(--accent)' }}
@@ -1953,7 +1963,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             className={`${contentWidth} space-y-5`}
             onPinnedChange={onPinnedChange}
             onGrowWhileUnpinned={onGrowWhileUnpinned}
-            header={!session?.messages.length && !hasLive ? (
+            header={welcomeState.welcome ? (
 
               <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
                 <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
@@ -1972,7 +1982,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 {!hasProvider ? (
                   <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
                 ) : null}
-                {hasProvider && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
+                {welcomeState.modelChoice && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
                   <div className="flex items-center justify-between gap-2 px-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Choose a model</span>
                     {session && <ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
@@ -2241,10 +2251,15 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                     <ListIcon className="h-3 w-3" /> Queued · {queued.length} {streaming ? 'after this reply' : 'waiting to run'}
                   </div>
                   <div className="space-y-1">
-                    {queued.map((q, i) => (
+                    {queued.map((q, i) => {
+                      const payload = queueItemPayload(q);
+                      const label = queuedTitle(q);
+                      return (
                       <div key={i} className="flex items-center gap-2 text-[12px]">
                         <span className="shrink-0 text-[10px] tabular-nums text-ink-faint">{i + 1}</span>
-                        <span className="min-w-0 flex-1 truncate text-ink-soft" title={q}>{q}</span>
+                        <span className="min-w-0 flex-1 truncate text-ink-soft" title={label}>{payload.text || '(no text)'}</span>
+                        {payload.skill && <span className="skill-pill shrink-0 text-[10px]" title={`Skill: ${payload.skill.name}`}><span className="skill-pill-slash">/</span>{payload.skill.name}</span>}
+                        {!!payload.images?.length && <span className="shrink-0 rounded-full border border-line px-1.5 py-px text-[10px] text-ink-faint">{payload.images.length} image{payload.images.length === 1 ? '' : 's'}</span>}
                         {streaming && <button className="shrink-0 rounded-md px-2 py-0.5 text-accent hover:bg-surface" title="Interrupt the current reply and send this message now" onClick={() => void sendQueuedNow(i)}>Send now</button>}
                         <button
                           className="shrink-0 rounded-sm px-1 text-ink-faint hover:text-(--danger)"
@@ -2254,7 +2269,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                           ✕
                         </button>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>

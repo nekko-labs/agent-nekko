@@ -74,6 +74,7 @@ import type {
   SubscriptionLimits,
   ReadinessReport,
   AutoFitSummary,
+  QueuePayload,
   CatalogModel,
   CatalogModelDetail,
   DownloadJob,
@@ -84,7 +85,7 @@ import type {
   ModelFolder,
   ModelFolderReport,
 } from '@agent-nekko/shared';
-import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind } from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload } from '@agent-nekko/shared';
 import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
 import { createEngine } from './engine/index.js';
@@ -326,7 +327,7 @@ export interface Host {
   abortChat(sessionId: string): void;
   compactSession(sessionId: string, opts?: { newChat?: boolean } | null): Promise<Session>;
   cancelSessionCompaction(sessionId: string): void;
-  queuePrompt(sessionId: string, text: string): Session | null;
+  queuePrompt(sessionId: string, input: string | QueuePayload): Session | null;
   dequeuePrompt(sessionId: string, index: number): Session | null;
   interruptQueuedPrompt(sessionId: string, index: number, brain?: { providerId: string; modelId: string }): Promise<void>;
   /**
@@ -369,7 +370,7 @@ export interface Host {
   specPath(sessionId: string): string | null;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
   ): Session | null;
   truncateSession(id: string, messageId: string): Session | null;
   clearSessions(scope: 'today' | 'month' | 'all'): number;
@@ -853,7 +854,12 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     toggleSpecTask,
     setSpecLinked: sessions.setSpecLinked,
     specPath: specPathForSession,
-    setSessionOptions: sessions.setSessionOptions,
+    setSessionOptions: (id, patch) => {
+      if (Object.prototype.hasOwnProperty.call(patch, 'gitIsolation') && isChatRunning(id)) {
+        throw new Error('Wait for the current reply to finish before changing this chat\'s Git isolation.');
+      }
+      return sessions.setSessionOptions(id, patch);
+    },
     truncateSession: sessions.truncateSession,
     clearSessions: sessions.clearSessions,
     purgeExpiredArchives: () => sessions.purgeExpiredArchives(),
@@ -896,7 +902,9 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       const providerId = brain?.providerId ?? session.providerId ?? getSettings().defaultProviderId;
       const modelId = brain?.modelId ?? session.modelId ?? getSettings().defaultModelId;
       if (!providerId || !modelId || modelId === AUTO_MODEL_ID) throw new Error('Choose a provider and model before starting the queued prompt.');
-      const text = session.queue![index];
+      const item = session.queue![index];
+      const payload = queueItemPayload(item);
+      const text = payload.text;
       interrupting.add(sessionId);
       try {
         const active = activeChats.get(sessionId);
@@ -907,7 +915,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
           throw new Error('Image turn is still stopping. Try again when it finishes.');
         }
         if (isSessionCompacting(sessionId)) throw new Error('This chat is being compacted.');
-        await sendChat({ sessionId, providerId, modelId, text }, (e) => events.emit('agentEvent', e), !!opts.allowBrowserControl, { index, text });
+        await sendChat({ sessionId, providerId, modelId, text, ...(payload.images?.length ? { images: payload.images } : {}), ...(payload.skill ? { skill: payload.skill } : {}) }, (e) => events.emit('agentEvent', e), !!opts.allowBrowserControl, { index, item });
       } finally {
         interrupting.delete(sessionId);
       }

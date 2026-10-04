@@ -1,10 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, Session, SessionSummary } from '@agent-nekko/shared';
-import { DEFAULT_ORCHESTRATION, getStrategy, planProgress, summarizeToolCall } from '@agent-nekko/shared';
+import type { AgentEvent, QueuedPrompt, Session, SessionSummary } from '@agent-nekko/shared';
+import { DEFAULT_ORCHESTRATION, getStrategy, planProgress, queueItemPayload, summarizeToolCall } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { CheckIcon, ChatIcon, CloseIcon, ListIcon, RobotIcon } from '../icons.js';
 
 /** The agent's published plan, active delegates and queued follow-ups. */
+function queueLabel(item: QueuedPrompt): string {
+  const payload = queueItemPayload(item);
+  const bits = [payload.text || '(no text)'];
+  if (payload.skill) bits.push(`/${payload.skill.name}`);
+  if (payload.images?.length) bits.push(`${payload.images.length} image${payload.images.length === 1 ? '' : 's'}`);
+  return bits.join(' · ');
+}
+
 export function PlanRail({ sessionId, session, streaming, onClose }: {
   sessionId: string;
   session: Session | null;
@@ -77,7 +85,11 @@ export function PlanRail({ sessionId, session, streaming, onClose }: {
         </section>
         {queued.length > 0 && <section>
           <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">After this · {queued.length}</div>
-          {queued.map((q, i) => <div key={i} className="flex items-start gap-1.5 px-1 py-0.5"><ChatIcon className="mt-0.5 h-3 w-3 shrink-0 text-ink-faint" /><span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint" title={q}>{q}</span></div>)}
+          {queued.map((q, i) => {
+            const payload = queueItemPayload(q);
+            const label = queueLabel(q);
+            return <div key={i} className="flex items-start gap-1.5 px-1 py-0.5"><ChatIcon className="mt-0.5 h-3 w-3 shrink-0 text-ink-faint" /><span className="min-w-0 flex-1 truncate text-[11px] text-ink-faint" title={label}>{label}</span>{payload.skill && <span className="text-[10px] text-ink-faint">/{payload.skill.name}</span>}{!!payload.images?.length && <span className="text-[10px] text-ink-faint">{payload.images.length} img</span>}</div>;
+          })}
         </section>}
       </div>
     </aside>

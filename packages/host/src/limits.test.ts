@@ -256,6 +256,55 @@ describe('LimitsService ChatGPT /wham/usage poll', () => {
     });
   });
 
+  it.each([
+    { name: 'weekly primary with null secondary', primary: 604800, secondary: null, expected: [['7d', '7-day', 'weekly']] },
+    { name: 'weekly primary with absent secondary', primary: 604800, secondary: undefined, expected: [['7d', '7-day', 'weekly']] },
+    { name: 'swapped weekly and session slots', primary: 604800, secondary: 18000, expected: [['7d', '7-day', 'weekly'], ['5h', '5-hour', 'session']] },
+    { name: 'secondary only', primary: null, secondary: 18000, expected: [['5h', '5-hour', 'session']] },
+    { name: 'other reported durations', primary: 3600, secondary: 86400, expected: [['1h', '1-hour', 'session'], ['1d', '1-day', 'session']] },
+    { name: 'minute and second durations', primary: 300, secondary: 90, expected: [['5m', '5-minute', 'session'], ['90s', '90-second', 'session']] },
+    { name: 'longer reported duration', primary: 2592000, secondary: null, expected: [['30d', '30-day', 'weekly']] },
+    { name: 'missing durations', primary: undefined, secondary: undefined, expected: [['primary', 'Primary usage', 'session'], ['secondary', 'Secondary usage', 'session']] },
+    { name: 'non-positive durations', primary: 0, secondary: -604800, expected: [['primary', 'Primary usage', 'session'], ['secondary', 'Secondary usage', 'session']] },
+    { name: 'malformed durations', primary: '604800', secondary: '18000junk', expected: [['primary', 'Primary usage', 'session'], ['secondary', 'Secondary usage', 'session']] },
+    { name: 'non-integer durations', primary: 18000.5, secondary: 1e100, expected: [['primary', 'Primary usage', 'session'], ['secondary', 'Secondary usage', 'session']] },
+  ])('uses duration rather than slot: $name', async ({ primary, secondary, expected, name }) => {
+    const tokenKey = 'chatgpt:duration-test';
+    setToken(tokenKey, {
+      provider: 'chatgpt',
+      accountId: 'duration-test',
+      accessToken: 'chatgpt-access',
+      expiresAt: Date.now() + 120_000,
+      obtainedAt: Date.now(),
+    });
+    const window = (duration: unknown, used: number, reset: number) => duration === null
+      ? null
+      : { used_percent: used, limit_window_seconds: duration, reset_at: reset, reset_after_seconds: 60 };
+    const payload = {
+      plan_type: 'free',
+      rate_limit: {
+        allowed: true,
+        limit_reached: false,
+        primary_window: window(primary, 55, 1778670307),
+        // Missing duration is distinct from an absent window.
+        secondary_window: name === 'weekly primary with absent secondary'
+          ? undefined
+          : window(secondary, 85, 1779157165),
+      },
+      credits: { unlimited: false, balance: '12.5' },
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }));
+    initLimits(new EventEmitter());
+
+    const limits = await poll(tokenKey);
+    expect(limits).toMatchObject({ planType: 'free', creditsBalance: 12.5, creditsState: 'balance' });
+    expect(limits!.windows.map((w) => [w.id, w.label, w.scope])).toEqual(expected);
+    const reported = [payload.rate_limit.primary_window, payload.rate_limit.secondary_window].filter((w) => w != null);
+    expect(limits!.windows.map((w) => [w.usedPercent, w.resetAt, w.status])).toEqual(
+      reported.map((w) => [w.used_percent, w.reset_at * 1000, w.used_percent >= 80 ? 'warning' : 'allowed']),
+    );
+  });
+
   it('throttles to one network call within 30 seconds', async () => {
     const tokenKey = 'chatgpt:acct-2';
     setToken(tokenKey, {
