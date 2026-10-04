@@ -1,7 +1,8 @@
 import { appendFileSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import type { UsageRecord, UsageSummary } from '@agent-nekko/shared';
-import { estimateCostUSD } from '@agent-nekko/shared';
+import { estimateCost, estimateCostUSD, isLocalProvider } from '@agent-nekko/shared';
+import { getSettings } from './store.js';
 import { dataDir } from './store.js';
 import { clearReplies, replyStats } from './replies.js';
 
@@ -23,6 +24,9 @@ export function recordUsage(rec: UsageRecord): void {
 
 export function usageSummary(): UsageSummary {
   const summary: UsageSummary = { totalInput: 0, totalOutput: 0, totalCost: 0, byModel: {}, byProvider: {}, bySession: {}, bySessionCost: {}, daily: [] };
+  const settings = getSettings();
+  summary.avoidedCosts = { subscription: 0, local: 0, unpricedTokens: 0, benchmarkTokens: 0 };
+  summary.bySessionAvoidedCosts = {};
   const replies = replyStats();
   if (replies) summary.replies = replies;
   if (!existsSync(LOG())) return summary;
@@ -37,7 +41,22 @@ export function usageSummary(): UsageSummary {
       continue;
     }
     // Subscription providers charge through the user's plan, not per API token.
-    const cost = r.auth === 'subscription' ? 0 : estimateCostUSD(r.modelId, r.inputTokens, r.outputTokens);
+    const provider = settings.providers.find((p) => p.id === r.providerId);
+    const local = r.local ?? (provider ? isLocalProvider(provider.kind) : false);
+    const cost = local || r.auth === 'subscription' ? 0 : estimateCostUSD(r.modelId, r.inputTokens, r.outputTokens);
+    if (local || r.auth === 'subscription') {
+      const tokens = { inputTokens: r.inputTokens, outputTokens: r.outputTokens };
+      const exact = estimateCost(r.modelId, tokens);
+      const benchmark = local && exact == null ? estimateCost(settings.localCostBenchmark, tokens) : undefined;
+      const equivalent = exact ?? benchmark;
+      const buckets = [summary.avoidedCosts];
+      if (r.sessionId) buckets.push(summary.bySessionAvoidedCosts[r.sessionId] ??= { subscription: 0, local: 0, unpricedTokens: 0, benchmarkTokens: 0 });
+      for (const bucket of buckets) {
+        if (equivalent == null) bucket.unpricedTokens += r.inputTokens + r.outputTokens;
+        else bucket[local ? 'local' : 'subscription'] += equivalent;
+        if (benchmark != null) bucket.benchmarkTokens += r.inputTokens + r.outputTokens;
+      }
+    }
     summary.totalInput += r.inputTokens;
     summary.totalOutput += r.outputTokens;
     summary.totalCost += cost;

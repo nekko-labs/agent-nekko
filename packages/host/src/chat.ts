@@ -1145,6 +1145,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             outputTokens: event.outputTokens,
             sessionId: opts.sessionId,
             auth: provider.auth,
+            local: isLocalProvider(provider.kind),
           });
         }
         // How the reply ended, for tuning the loop detector (counts only). Older engines omit `stop`; nothing is recorded then.
