@@ -320,9 +320,10 @@ function ChatHeader({
  * only when its own data does.
  */
 const TranscriptRowView = memo(function TranscriptRowView({
-  row, streaming, readOnly, prByUrl, sessionId, onEditResend, onCopyToComposer, onSplit, onImageClick, onImageContextMenu,
+  row, streaming, readOnly, prByUrl, sessionId, basePath, onEditResend, onCopyToComposer, onSplit, onImageClick, onImageContextMenu,
 }: {
   row: TranscriptRow;
+  basePath?: string;
   streaming: boolean;
   /** An archived chat: nothing on a row may change the conversation. */
   readOnly: boolean;
@@ -346,6 +347,7 @@ const TranscriptRowView = memo(function TranscriptRowView({
     <>
       <MessageBubble
         message={row.message}
+        basePath={basePath}
         onResend={editable ? onEditResend : undefined}
         onReset={editable ? onEditResend : undefined}
         onCopyToComposer={!readOnly && persisted ? onCopyToComposer : undefined}
@@ -1878,10 +1880,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   copyToComposerRef.current = copyToComposer;
   const onCopyToComposer = useCallback((id: string) => copyToComposerRef.current(id), []);
   const onSplit = useCallback((id: string) => { void useStore.getState().splitChat(sessionId, id); }, [sessionId]);
+  const artifactBasePath = session?.workspaceId ? session.gitWorktrees?.[session.workspaceId]?.path ?? settings?.workspaces.find((w) => w.id === session.workspaceId)?.path : undefined;
   const renderRow = useCallback(
     (row: TranscriptRow) => (
       <TranscriptRowView
         row={row}
+        basePath={artifactBasePath}
         streaming={streaming}
         readOnly={readOnly}
         prByUrl={prByUrl}
@@ -1893,7 +1897,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
         onImageContextMenu={openImageMenu}
       />
     ),
-    [streaming, readOnly, prByUrl, sessionId, onEditResend, onCopyToComposer, onSplit, openImageMenu],
+    [artifactBasePath, streaming, readOnly, prByUrl, sessionId, onEditResend, onCopyToComposer, onSplit, openImageMenu],
   );
   // Width of the text column, for the height estimates of rows not yet measured.
   const columnWidth = Math.max(0, (paneWidth || 800) * (contentWidth.includes('75%') ? 0.75 : 1) - 32);

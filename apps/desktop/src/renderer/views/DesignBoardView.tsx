@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { PlusIcon, CloseIcon, ExternalIcon, TrashIcon } from '../icons.js';
 import { Modal } from '../components/primitives/index.js';
+import { ArtifactPreview, isolatedDocument } from '../components/ArtifactPreview.js';
 
 /**
  * Design board: create designs two ways, both first-class.
@@ -291,7 +292,7 @@ function PageCard({
       <div className="relative cursor-pointer" style={{ height: H, background: '#fff' }} onClick={onOpen} title="Open notes & comments">
         <iframe
           key={`${page.id}:${reloadNonce}`}
-          {...(concept ? { srcDoc: page.html ?? '' } : { src: page.url })}
+          {...(concept ? { srcDoc: isolatedDocument(page.html ?? '') } : { src: page.url })}
           title={page.label}
           sandbox={concept ? 'allow-scripts' : 'allow-scripts allow-same-origin'}
           style={{
@@ -616,6 +617,7 @@ function PageSheet({
         <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title="Close" onClick={onClose}><CloseIcon className="h-3.5 w-3.5" /></button>
       </div>
 
+      {concept && <ArtifactPreview source={page.html ?? ''} title={page.label} />}
       <div className="px-3 py-3">
         {concept && (
           <>

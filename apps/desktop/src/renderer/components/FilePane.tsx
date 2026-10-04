@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LineComment } from '@agent-nekko/shared';
 import { Markdown } from './Markdown.js';
+import { ArtifactPreview, MermaidDiagram } from './ArtifactPreview.js';
 import { FileTypeIcon } from '../fileIcons.js';
 import { ExternalIcon, CloseIcon, UndoIcon, RedoIcon, CopyIcon, PasteIcon } from '../icons.js';
 import { useStore } from '../store.js';
@@ -50,6 +51,10 @@ function readAutoSavePref(): boolean {
  */
 export function FilePane({ path }: { path: string }) {
   const isMd = /\.(md|markdown)$/i.test(path);
+  const isHtml = /\.(html?|svg)$/i.test(path);
+  const isMermaid = /\.(mmd|mermaid)$/i.test(path);
+  const canPreview = isMd || isHtml || isMermaid;
+  const [image, setImage] = useState('');
   const name = path.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || path;
   const dir = useMemo(() => dirName(path), [path]);
   const sendToChat = useStore((s) => s.sendToChat);
@@ -63,7 +68,7 @@ export function FilePane({ path }: { path: string }) {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [autoSave, setAutoSave] = useState(readAutoSavePref);
-  const [preview, setPreview] = useState(isMd); // markdown defaults to rendered
+  const [preview, setPreview] = useState(canPreview); // markdown defaults to rendered
   const [comments, setComments] = useState<LineComment[]>([]);
   const [activeLine, setActiveLine] = useState<number | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -84,6 +89,8 @@ export function FilePane({ path }: { path: string }) {
   useEffect(() => {
     let live = true;
     setLoaded(false);
+    setImage('');
+    setPreview(canPreview);
     setActiveLine(null);
     undoStack.current = [];
     redoStack.current = [];
@@ -92,6 +99,7 @@ export function FilePane({ path }: { path: string }) {
     window.nekko.readFile(path).then((f) => {
       if (!live) return;
       setContent(f.content);
+      setImage(f.imageDataUrl ?? '');
       setBinary(f.binary);
       setTruncated(f.truncated);
       setDirty(false);
@@ -314,8 +322,8 @@ export function FilePane({ path }: { path: string }) {
               </button>
             </>
           )}
-          {isMd && (
-            <button className="chip chip-action text-[11px]" onClick={() => setPreview((p) => !p)} title={preview ? 'Edit the markdown source' : 'Render the markdown'}>
+          {canPreview && (
+            <button className="chip chip-action text-[11px]" onClick={() => setPreview((p) => !p)} title={preview ? 'Edit source' : 'Preview artifact'}>
               {preview ? 'Source' : 'Preview'}
             </button>
           )}
@@ -366,8 +374,14 @@ export function FilePane({ path }: { path: string }) {
         <div className="min-h-0 flex-1 overflow-auto">
           {!loaded ? (
             <p className="p-4 text-[12px] text-ink-faint">Loading…</p>
+          ) : image ? (
+            <img src={image} alt={name} className="mx-auto max-h-full max-w-full object-contain p-4" />
           ) : binary ? (
             <p className="p-4 text-[12px] text-ink-faint">Binary file, can't display as text.</p>
+          ) : isHtml && preview ? (
+            <ArtifactPreview source={content} title={name} />
+          ) : isMermaid && preview ? (
+            <MermaidDiagram code={content} />
           ) : isMd && preview ? (
             <div className="mx-auto max-w-3xl px-6 py-5"><Markdown text={content} doc basePath={dir} /></div>
           ) : (

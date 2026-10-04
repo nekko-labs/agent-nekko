@@ -12,6 +12,7 @@ import { useRowState } from './rowState.js';
  */
 export const MessageBubble = memo(function MessageBubble({
   message,
+  basePath,
   onResend,
   onReset,
   onCopyToComposer,
@@ -21,6 +22,7 @@ export const MessageBubble = memo(function MessageBubble({
   chronological,
 }: {
   message: ChatMessage;
+  basePath?: string;
   onResend?: (id: string, text: string) => void;
   /** Rewind the chat to this message and re-run it (replaces the old Regenerate). */
   onReset?: (id: string, text: string) => void;
@@ -81,7 +83,7 @@ export const MessageBubble = memo(function MessageBubble({
       parts.push(
         <div key="text" className={`group ${entering ? 'fade-in ' : ''}flex justify-start`}>
           <div className="msg-ai">
-            <Markdown text={message.content} />
+            <Markdown basePath={basePath} text={message.content} />
             {displayText && message.content && (
               <div className="mt-1 flex gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
                 <button onClick={copy} title="Copy message" className="hover:text-ink">{copied ? '✓ copied' : 'Copy'}</button>
@@ -129,7 +131,7 @@ export const MessageBubble = memo(function MessageBubble({
         )}
         {/* Your own messages render as markdown too: people type dashed lists and
             `code` in the composer and expect them to come out formatted. */}
-        {displayText && <Markdown text={isUser ? displayText : message.content} />}
+        {displayText && <Markdown basePath={basePath} text={isUser ? displayText : message.content} />}
         {message.toolCalls?.map((c) => <ToolCard key={c.id} call={c} />)}
         {(displayText && message.content || (isUser && message.images?.length)) && (
           <div className={`mt-1.5 flex items-center gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${isUser ? 'justify-end' : ''}`}>
