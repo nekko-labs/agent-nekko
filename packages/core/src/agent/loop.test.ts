@@ -340,7 +340,7 @@ describe('runAgent, interrupted runs', () => {
     const history: ChatMessage[] = [msg('user', 'review this')];
     const events = [];
     for await (const e of runAgent({
-      sessionId: 's', provider, model: 'm', system: 'sys', history,
+      sessionId: 's', provider, model: 'm', system: 'sys', history, retryBaseDelayMs: 0,
       executeTool: async () => ({ toolCallId: 'x', output: '' }),
     })) {
       events.push(e);
@@ -372,7 +372,7 @@ describe('runAgent, interrupted runs', () => {
     };
     const history: ChatMessage[] = [msg('user', 'run the tests')];
     for await (const _ of runAgent({
-      sessionId: 's', provider, model: 'm', system: 'sys', history,
+      sessionId: 's', provider, model: 'm', system: 'sys', history, retryBaseDelayMs: 0,
       executeTool: async () => ({ toolCallId: 'c1', output: '3 tests failed' }),
     })) { /* drain */ }
     // user, assistant(tool call), tool(result), assistant(interrupted partial).
@@ -387,7 +387,7 @@ describe('runAgent, interrupted runs', () => {
     const provider = breakingProvider([{ type: 'text', delta: 'Cleaning up' }, { type: 'tool_call', call }]);
     const history: ChatMessage[] = [msg('user', 'go')];
     for await (const _ of runAgent({
-      sessionId: 's', provider, model: 'm', system: 'sys', history,
+      sessionId: 's', provider, model: 'm', system: 'sys', history, retryBaseDelayMs: 0,
       executeTool: async () => ({ toolCallId: 'c1', output: 'ran' }),
     })) { /* drain */ }
     expect(history.at(-1)?.toolCalls).toBeUndefined();
@@ -397,7 +397,7 @@ describe('runAgent, interrupted runs', () => {
     const provider = breakingProvider([]);
     const history: ChatMessage[] = [msg('user', 'go')];
     for await (const _ of runAgent({
-      sessionId: 's', provider, model: 'm', system: 'sys', history,
+      sessionId: 's', provider, model: 'm', system: 'sys', history, retryBaseDelayMs: 0,
       executeTool: async () => ({ toolCallId: 'x', output: '' }),
     })) { /* drain */ }
     expect(history.map((m) => m.role)).toEqual(['user']);

@@ -162,7 +162,7 @@ import {
   reconcileWorkflowRuns,
 } from './workflows.js';
 import { listChatWorktrees, removeChatWorktree } from './chat-worktrees.js';
-import { isChatRunning, setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
+import { isChatRunning, reconcileInterruptedChats, setDecisionRunner, sendChat, abortChat, suggestReplies, fillPromptPart, getPendingInput, resolveApproval, resolveQuestion, previewContext, setContextPrefs } from './chat.js';
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
 import { loopApprove, loopEnd, loopEvent, loopLog, loopTool } from './daemon-loop.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting, setCompactionSender } from './compaction.js';
@@ -599,6 +599,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
   setWorkflowSender((e) => events.emit('agentEvent', e));
   setWorkflowsNotifier((snapshot) => events.emit('workflowsUpdated', snapshot));
   reconcileWorkflowRuns();
+  reconcileInterruptedChats();
   startWorkflowScheduler();
   startWorkflowListeners();
 

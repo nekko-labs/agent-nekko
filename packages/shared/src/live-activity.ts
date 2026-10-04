@@ -129,6 +129,22 @@ export function reduceLiveActivity(
       a.outputTokens += event.outputTokens;
       break;
 
+    case 'retry': {
+      // The failed call's narration and thinking are gone with it; the rail
+      // says the loop is trying again, so a card does not sit on "Thinking"
+      // through a two-minute backoff.
+      a.thinking = '';
+      a.tail = '';
+      push(a, {
+        id: `retry_${now}_${a.steps.length}`,
+        kind: 'note',
+        label: 'Retrying',
+        detail: `${event.attempt} of ${event.maxAttempts}, in ${Math.max(1, Math.round(event.delayMs / 1000))} s: ${truncateWords(event.reason.replace(/\s+/g, ' '), 50)}`,
+        at: now,
+      });
+      break;
+    }
+
     default:
       break;
   }

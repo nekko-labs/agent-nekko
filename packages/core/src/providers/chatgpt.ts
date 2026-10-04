@@ -3,6 +3,7 @@ import { effectiveEffort } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { randomUUID } from 'node:crypto';
 import { parseSSE } from './sse.js';
+import { httpError } from './errors.js';
 import { DecodeClock } from './decode-clock.js';
 
 /**
@@ -219,7 +220,7 @@ export class ChatGptProvider implements Provider {
     req.onHeaders?.(res.headers);
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      throw new Error(`chatgpt ${res.status}: ${text.slice(0, 200)}`);
+      throw httpError(`chatgpt ${res.status}: ${text.slice(0, 200)}`, res);
     }
 
     // Times the decode phase for the tok/s figure: from the first generated

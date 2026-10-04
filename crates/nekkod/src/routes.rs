@@ -84,6 +84,7 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
         }
         "loop:run" => ctx.loops.start(ctx.backend.clone(), ctx.hub.clone(), arg(&args, 0).clone()),
         "loop:abort" => Ok(json!(ctx.loops.abort(str_arg(&args, 0).unwrap_or_default()))),
+        "loop:alive" => Ok(json!(ctx.loops.is_running(str_arg(&args, 0).unwrap_or_default()))),
         "changes:list" => {
             let (changes, id) = (ctx.loops.changes.clone(), str_arg(&args, 0).unwrap_or_default().to_string());
             let list =
@@ -134,6 +135,7 @@ pub const OWNED: &[&str] = &[
     // the limit was removed read the host's budget as a real cap.
     "loop:unbounded",
     "loop:abort",
+    "loop:alive",
     "provider:complete",
     "changes:list",
     "changes:accept",

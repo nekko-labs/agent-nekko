@@ -1,14 +1,24 @@
+/**
+ * The notice for a reply the chat found already cut off in its transcript: the
+ * app was closed or the host restarted while it ran, so no `error` event ever
+ * reached the pane (see `lastReplyInterrupted`).
+ */
+export const PERSISTED_INTERRUPTION = 'This reply was interrupted before it finished.';
+
 export function describeInterruption(message: string, canContinue: boolean) {
   const paused = message === 'Stopped';
+  const interrupted = message === PERSISTED_INTERRUPTION;
   const detail = paused
     ? 'You stopped this reply.'
     : /^terminated\.?$/i.test(message.trim())
       ? 'The response stream ended unexpectedly. The provider did not report a specific cause.'
       : message;
   return {
-    paused,
+    // A stop the user asked for, and a run the app's own restart cut off, are
+    // not failures and do not wear the failure colour.
+    paused: paused || interrupted,
     reason: detail,
-    title: paused ? 'Reply paused' : 'Reply failed',
+    title: paused ? 'Reply paused' : interrupted ? 'Reply interrupted' : 'Reply failed',
     detail: `${detail} ${canContinue ? 'The work so far is saved; Continue picks up from here.' : 'No resumable progress was saved. You can start over.'}`,
   };
 }

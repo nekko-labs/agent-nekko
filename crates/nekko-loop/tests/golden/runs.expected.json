@@ -86,6 +86,11 @@
     "outputTokens": 8
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "tool_result",
     "sessionId": "s1",
     "result": {
@@ -233,6 +238,11 @@
       "command": "ls"
      }
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",
@@ -410,6 +420,11 @@
      "name": "bash",
      "input": {}
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",
@@ -915,9 +930,19 @@
     "delta": "partial answer"
    },
    {
-    "type": "error",
+    "type": "retry",
     "sessionId": "s1",
-    "message": "socket hang up"
+    "attempt": 1,
+    "maxAttempts": 5,
+    "delayMs": 0,
+    "reason": "socket hang up"
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 0
    }
   ],
   "history": [
@@ -930,10 +955,7 @@
    {
     "id": "msg_ID",
     "role": "assistant",
-    "content": "partial answer\n\n_This reply was cut off before it finished. Everything above is kept, resume to carry on from here._",
-    "reasoning": "plan",
-    "reasoningSeconds": 0,
-    "interrupted": true,
+    "content": "_The model returned an empty response and stopped. It may have run out of steam: try again, or rephrase._",
     "createdAt": 0
    }
   ],
@@ -953,6 +975,44 @@
       "createdAt": 0
      }
     ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "Please continue and give your answer.",
+      "createdAt": 0
+     }
+    ]
    }
   ]
  },
@@ -960,9 +1020,19 @@
   "name": "error before any output",
   "events": [
    {
-    "type": "error",
+    "type": "retry",
     "sessionId": "s1",
-    "message": "connect ECONNREFUSED 127.0.0.1:8080"
+    "attempt": 1,
+    "maxAttempts": 5,
+    "delayMs": 0,
+    "reason": "connect ECONNREFUSED 127.0.0.1:8080"
+   },
+   {
+    "type": "done",
+    "sessionId": "s1",
+    "messageId": "msg_ID",
+    "stop": "complete",
+    "steps": 0
    }
   ],
   "history": [
@@ -970,6 +1040,12 @@
     "id": "u0",
     "role": "user",
     "content": "Do the thing",
+    "createdAt": 0
+   },
+   {
+    "id": "msg_ID",
+    "role": "assistant",
+    "content": "_The model returned an empty response and stopped. It may have run out of steam: try again, or rephrase._",
     "createdAt": 0
    }
   ],
@@ -986,6 +1062,44 @@
       "id": "u0",
       "role": "user",
       "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     }
+    ]
+   },
+   {
+    "model": "test-model",
+    "system": "SYSTEM",
+    "tools": [
+     "read_file",
+     "bash"
+    ],
+    "messages": [
+     {
+      "id": "u0",
+      "role": "user",
+      "content": "Do the thing",
+      "createdAt": 0
+     },
+     {
+      "id": "nudge_ID",
+      "role": "user",
+      "content": "Please continue and give your answer.",
       "createdAt": 0
      }
     ]
@@ -1384,6 +1498,11 @@
     "delta": "I will inspect the file."
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "text",
     "sessionId": "s1",
     "delta": "Found the JSX."
@@ -1400,6 +1519,11 @@
       "end_line": 2150
      }
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",
@@ -1583,6 +1707,11 @@
     }
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "tool_result",
     "sessionId": "s1",
     "result": {
@@ -1601,6 +1730,11 @@
       "command": "gh pr list"
      }
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",
@@ -1623,6 +1757,11 @@
     }
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "tool_result",
     "sessionId": "s1",
     "result": {
@@ -1641,6 +1780,11 @@
       "command": "gh pr list"
      }
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",
@@ -1663,6 +1807,11 @@
     }
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "tool_result",
     "sessionId": "s1",
     "result": {
@@ -1681,6 +1830,11 @@
       "command": "gh pr list"
      }
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",
@@ -2559,6 +2713,11 @@
     }
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "tool_result",
     "sessionId": "s1",
     "result": {
@@ -2577,6 +2736,11 @@
       "command": "try 2"
      }
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",
@@ -2599,6 +2763,11 @@
     }
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "tool_result",
     "sessionId": "s1",
     "result": {
@@ -2619,6 +2788,11 @@
     }
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "tool_result",
     "sessionId": "s1",
     "result": {
@@ -2637,6 +2811,11 @@
       "command": "try 5"
      }
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",
@@ -3314,6 +3493,11 @@
     }
    },
    {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
+   },
+   {
     "type": "tool_result",
     "sessionId": "s1",
     "result": {
@@ -3331,6 +3515,11 @@
       "path": "two"
      }
     }
+   },
+   {
+    "type": "step",
+    "sessionId": "s1",
+    "messageId": "msg_ID"
    },
    {
     "type": "tool_result",

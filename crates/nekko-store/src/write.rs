@@ -262,8 +262,12 @@ impl SessionStore {
                 } else {
                     let mut out = serde_json::Map::new();
                     out.insert("text".into(), json!(text));
-                    if !images.is_empty() { out.insert("images".into(), Value::Array(images)); }
-                    if let Some(skill) = skill { out.insert("skill".into(), skill); }
+                    if !images.is_empty() {
+                        out.insert("images".into(), Value::Array(images));
+                    }
+                    if let Some(skill) = skill {
+                        out.insert("skill".into(), skill);
+                    }
                     Some(Value::Object(out))
                 }
             }

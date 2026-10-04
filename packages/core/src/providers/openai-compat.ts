@@ -2,6 +2,7 @@ import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import { effectiveEffort } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk, ToolSpec } from './types.js';
 import { parseSSE } from './sse.js';
+import { httpError } from './errors.js';
 import { DecodeClock } from './decode-clock.js';
 
 /**
@@ -210,7 +211,7 @@ export class OpenAICompatProvider implements Provider {
       if (!blame) {
         // OpenAI-style bodies carry { error: { message } } — surface that message
         // instead of raw JSON so 401/402/429 replies read like sentences.
-        throw new Error(`Model request failed (HTTP ${res.status})${text ? `: ${extractApiError(text)}` : ''}`);
+        throw httpError(`Model request failed (HTTP ${res.status})${text ? `: ${extractApiError(text)}` : ''}`, res);
       }
       learned.set(blame.field, blame.renameTo ?? null);
       res = undefined;
