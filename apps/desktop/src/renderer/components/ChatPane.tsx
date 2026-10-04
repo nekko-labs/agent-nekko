@@ -1620,9 +1620,18 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // read off the record itself. Dismissing it is remembered per reply.
   const [dismissedInterruption, setDismissedInterruption] = useState<string | null>(null);
   useEffect(() => {
-    if (streaming || errorNotice || !session || dismissedInterruption === lastMsgId) return;
-    if (lastReplyInterrupted(session.messages)) setErrorNotice(PERSISTED_INTERRUPTION);
-  }, [session, streaming, errorNotice, lastMsgId, dismissedInterruption]);
+    // `done` stops streaming before the persisted transcript refresh lands.
+    // The held live reply and activeRun marker identify that stale snapshot.
+    if (streaming || held || session?.activeRun || !session) return;
+    const interrupted = lastReplyInterrupted(session.messages);
+    if (errorNotice === PERSISTED_INTERRUPTION && !interrupted) {
+      setErrorNotice(null);
+      return;
+    }
+    if (!errorNotice && dismissedInterruption !== lastMsgId && interrupted) setErrorNotice(PERSISTED_INTERRUPTION);
+  }, [session, streaming, held, errorNotice, lastMsgId, dismissedInterruption]);
+  const canContinueWork = !streaming && !held && !session?.activeRun && !errorNotice &&
+    session?.messages.at(-1)?.role === 'assistant' && hasResumableProgress(session.messages);
   // The model's single most likely next message, shown as the composer's
   // placeholder while the box is empty; ArrowRight types it in.
   const ghostSuggestion = !draft && !errorNotice && liveSuggestions?.next ? liveSuggestions.next : null;
@@ -2384,14 +2393,14 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 </div>
               )}
             {/* Recovery is separate from the placeholder suggestion. */}
-            {!imageMode && canContinueReply && !streaming && (
+            {!imageMode && (canContinueReply || canContinueWork) && !streaming && (
               <div className="flex items-center border-b border-line px-3 py-2.5">
                 <button
-                  className={suggestedReplyClassName}
-                  title="Continue this reply, keeping the work already done"
-                  onClick={() => void resumeRun()}
+                  className={canContinueReply ? suggestedReplyClassName : 'btn btn-outline py-1 text-[12px]'}
+                  title={canContinueReply ? 'Continue this reply, keeping the work already done' : 'Ask the agent to continue any remaining work from this conversation'}
+                  onClick={() => canContinueReply ? void resumeRun() : void send('Continue the remaining work from this conversation. Preserve what is already done; if the task is complete or blocked, explain that instead of repeating it.')}
                 >
-                  Continue
+                  {canContinueReply ? 'Continue' : 'Continue work'}
                 </button>
               </div>
             )}
