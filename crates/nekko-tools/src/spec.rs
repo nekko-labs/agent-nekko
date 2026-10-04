@@ -98,7 +98,7 @@ pub fn builtin_tools() -> Vec<ToolSpec> {
         ),
         spec(
             "bash",
-            "Run a command in the chat project. Windows uses cmd.exe, not Bash or PowerShell; wrap PowerShell commands with powershell -NoProfile -Command. Unix uses /bin/sh. Subject to guardrails, risky commands require user approval.",
+            "Run a command in the chat project and wait for it. Windows uses cmd.exe, not Bash or PowerShell; wrap PowerShell commands with powershell -NoProfile -Command. Unix uses /bin/sh. Subject to guardrails, risky commands require user approval. Killed after 120 seconds: for a dev server, a watcher, or anything that keeps running, use start_process instead of backgrounding it yourself.",
             json!({
                 "type": "object",
                 "properties": {
