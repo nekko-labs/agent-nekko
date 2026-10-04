@@ -19,7 +19,7 @@ use serde_json::{Map, Value, json};
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// One piece of a streamed model response (`ProviderChunk`).
 #[derive(Clone, Debug, PartialEq)]
@@ -61,6 +61,8 @@ pub struct Cancel(Arc<CancelInner>);
 struct CancelInner {
     done: AtomicBool,
     hooks: Mutex<Vec<Box<dyn Fn() + Send + Sync>>>,
+    /// Wakes `cancelled()`.
+    notify: tokio::sync::Notify,
 }
 
 impl Cancel {
@@ -72,6 +74,19 @@ impl Cancel {
         for hook in hooks {
             hook();
         }
+        self.0.notify.notify_waiters();
+    }
+
+    /// Resolves once the run is cancelled (at once, if it already was). A
+    /// wait between retries selects on this so Stop does not sit out a backoff.
+    pub async fn cancelled(&self) {
+        let notified = self.0.notify.notified();
+        tokio::pin!(notified);
+        notified.as_mut().enable();
+        if self.is_cancelled() {
+            return;
+        }
+        notified.await;
     }
 
     pub fn is_cancelled(&self) -> bool {
@@ -165,6 +180,78 @@ fn trim_runaway(s: &str) -> String {
     } else {
         format!("{}\n\n[…cut off here: the model started repeating itself.]", js::slice16(s, RUNAWAY_KEEP_CHARS))
     }
+}
+
+/// Attempts a model call gets before the reply ends as interrupted
+/// (`MAX_STREAM_ATTEMPTS` in providers/errors.ts).
+pub const MAX_STREAM_ATTEMPTS: u32 = 5;
+
+/// Statuses a second attempt usually gets past; 529 is Anthropic's "overloaded".
+const TRANSIENT_STATUSES: &[u16] = &[408, 409, 425, 429, 500, 502, 503, 504, 529];
+
+/// Whether a model-call failure is worth sending again
+/// (`isTransientProviderError`). Provider errors arrive here as text, so the
+/// status is read out of it ("anthropic 529: ..."), and the ways a connection
+/// dies underneath a request are matched by their wording.
+pub fn is_transient_error(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    if lower.contains("abort") {
+        return false;
+    }
+    let mut digits = String::new();
+    for ch in message.chars().chain(std::iter::once(' ')) {
+        if ch.is_ascii_digit() {
+            digits.push(ch);
+            continue;
+        }
+        if digits.len() == 3
+            && let Ok(status) = digits.parse::<u16>()
+            && TRANSIENT_STATUSES.contains(&status)
+        {
+            return true;
+        }
+        digits.clear();
+    }
+    [
+        "overloaded",
+        "rate limit",
+        "rate_limit",
+        "ratelimit",
+        "too many requests",
+        "temporarily",
+        "try again",
+        "connection reset",
+        "connection refused",
+        "connection closed",
+        "econnreset",
+        "econnrefused",
+        "etimedout",
+        "epipe",
+        "eai_again",
+        "socket hang up",
+        "premature close",
+        "stream ended unexpectedly",
+        "timed out",
+        "timeout",
+        "broken pipe",
+        "fetch failed",
+        "terminated",
+        "network error",
+        "error sending request",
+        "error decoding response body",
+        "stopped sending",
+    ]
+    .iter()
+    .any(|needle| lower.contains(needle))
+}
+
+/// How long to wait before attempt `attempt` (1-based): 1 s doubling to a
+/// 30 s cap, plus up to a second of jitter so parallel chats spread out
+/// (`retryDelayMs`).
+pub fn retry_delay(attempt: u32) -> Duration {
+    let base = (1_000u64 << attempt.saturating_sub(1).min(5)).min(30_000);
+    let jitter = (now_ms() % 1_000).min(base);
+    Duration::from_millis(base + jitter)
 }
 
 /// What one streamed response accumulated (`Turn`).
@@ -295,6 +382,48 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
         Ok(())
     }
 
+    /// `streamWithRetry`: one model call, sent again after a transient failure
+    /// (an overloaded provider, a stream that went quiet, a dropped connection).
+    /// Each attempt starts `turn` over from where it stood before the call, and
+    /// a `retry` event tells the UI to drop what the failed attempt showed.
+    async fn stream_with_retry(&mut self, turn: &mut Turn, extra: Vec<Value>, send_tools: bool) -> Result<(), String> {
+        let mut attempt: u32 = 1;
+        loop {
+            let before = Turn {
+                phase: turn.phase.clone(),
+                text: turn.text.clone(),
+                reasoning: turn.reasoning.clone(),
+                reasoning_seconds: turn.reasoning_seconds,
+                calls: turn.calls.clone(),
+                runaway: turn.runaway,
+            };
+            match self.stream(turn, extra.clone(), send_tools).await {
+                Ok(()) => return Ok(()),
+                Err(e) => {
+                    if self.opts.cancel.is_cancelled() || attempt >= MAX_STREAM_ATTEMPTS || !is_transient_error(&e) {
+                        return Err(e);
+                    }
+                    *turn = before;
+                    let delay = retry_delay(attempt);
+                    self.event(
+                        "retry",
+                        json!({
+                            "attempt": attempt,
+                            "maxAttempts": MAX_STREAM_ATTEMPTS,
+                            "delayMs": delay.as_millis() as u64,
+                            "reason": e,
+                        }),
+                    );
+                    tokio::select! {
+                        _ = tokio::time::sleep(delay) => {}
+                        _ = self.opts.cancel.cancelled() => return Err(e),
+                    }
+                    attempt += 1;
+                }
+            }
+        }
+    }
+
     /// `endInterrupted`: keep what the broken reply produced, and say so.
     fn end_interrupted(&mut self, turn: &Turn, error: String) {
         let partial = js::trim(&if turn.runaway { trim_runaway(&turn.text) } else { turn.text.clone() }).to_string();
@@ -352,11 +481,11 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
             } else {
                 std::mem::take(&mut loop_extra)
             };
-            let mut result = self.stream(&mut turn, first, true).await;
+            let mut result = self.stream_with_retry(&mut turn, first, true).await;
             // An empty response gets one retry with a nudge, so the turn does not
             // silently stall (common with some local models mid-loop).
             if result.is_ok() && turn.is_empty() && !self.opts.cancel.is_cancelled() {
-                result = self.stream(&mut turn, vec![nudge.clone()], true).await;
+                result = self.stream_with_retry(&mut turn, vec![nudge.clone()], true).await;
             }
             if let Err(e) = result {
                 self.end_interrupted(&turn, e);
@@ -405,6 +534,9 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
             if !turn.calls.is_empty() {
                 steps += 1;
             }
+            // The request for these tools is in the transcript now; the host
+            // saves it here, so a tool that never returns still leaves the step.
+            self.event("step", json!({ "messageId": message_id }));
             let mut tripped: Option<String> = None;
             for call in &turn.calls {
                 let result = match self.tools.run(call).await {
@@ -437,7 +569,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
             return;
         }
         let mut wrap = Turn::default();
-        if let Err(e) = self.stream(&mut wrap, vec![user_nudge(LOOP_WRAP_UP_PROMPT)], false).await {
+        if let Err(e) = self.stream_with_retry(&mut wrap, vec![user_nudge(LOOP_WRAP_UP_PROMPT)], false).await {
             self.end_interrupted(&wrap, e);
             return;
         }

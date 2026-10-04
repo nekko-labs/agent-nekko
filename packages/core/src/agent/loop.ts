@@ -5,6 +5,21 @@ import { BUILTIN_TOOLS } from './tools.js';
 import { RUNAWAY_NOTE, createRunawayGuard } from './runaway.js';
 import { INTERRUPTED_NOTE, RESUME_PROMPT, repairInterruptedHistory } from './resume.js';
 import { LOOP_WRAP_UP_PROMPT, createLoopDetector, loopNote, loopNudge } from './progress.js';
+import { MAX_STREAM_ATTEMPTS, ProviderHttpError, isTransientProviderError, retryDelayMs } from '../providers/errors.js';
+
+/** Wait, or stop waiting the moment the run is aborted. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', done);
+      resolve();
+    }
+    signal?.addEventListener('abort', done, { once: true });
+  });
+}
 
 export interface RunAgentOptions {
   sessionId: string;
@@ -19,6 +34,11 @@ export interface RunAgentOptions {
   signal?: AbortSignal;
   /** Sampling temperature (from the effort setting). */
   temperature?: number;
+  /**
+   * The first retry wait after a transient model-call failure, which doubles
+   * from there (default 1 s; see providers/errors.ts). Tests pass 0.
+   */
+  retryBaseDelayMs?: number;
   /** The effort setting itself, for models that take it instead of a temperature. */
   effort?: EffortLevel;
   /** Reasoning toggle passed to the provider (true/false/undefined = default). */
@@ -227,6 +247,38 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   }
 
   /**
+   * One model call, sent again after a transient failure (an overloaded
+   * provider, a stream that went quiet, a dropped connection; see
+   * providers/errors.ts). Each attempt starts `turn` over from where it stood
+   * before the call: a stream that died half-way is regenerated, not stitched,
+   * and a `retry` event tells the UI to drop what the failed attempt showed.
+   * Anything else, a stop the user asked for included, is thrown as before.
+   */
+  async function* streamWithRetry(turn: Turn, extraMessages: ChatMessage[] = [], sendTools = tools): AsyncGenerator<AgentEvent> {
+    for (let attempt = 1; ; attempt++) {
+      const before: Turn = { ...turn, calls: [...turn.calls] };
+      try {
+        yield* stream(turn, extraMessages, sendTools);
+        return;
+      } catch (e) {
+        if (opts.signal?.aborted || attempt >= MAX_STREAM_ATTEMPTS || !isTransientProviderError(e)) throw e;
+        const delayMs = retryDelayMs(attempt, e instanceof ProviderHttpError ? e.retryAfterMs : undefined, Math.random, opts.retryBaseDelayMs);
+        Object.assign(turn, before, { calls: [...before.calls] });
+        yield {
+          type: 'retry',
+          sessionId: opts.sessionId,
+          attempt,
+          maxAttempts: MAX_STREAM_ATTEMPTS,
+          delayMs,
+          reason: (e as Error).message,
+        };
+        await sleep(delayMs, opts.signal);
+        if (opts.signal?.aborted) throw e;
+      }
+    }
+  }
+
+  /**
    * End a reply whose stream broke. Whatever the model produced up to that point
    * is kept in the transcript (dropping it is what made a timeout on a long reply
    * feel like the whole run was thrown away); any tool call it was part-way
@@ -293,12 +345,12 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
 
     const turn: Turn = { text: '', reasoning: '', calls: [] };
     try {
-      yield* stream(turn, iter === 0 ? resumeExtra : loopExtra);
+      yield* streamWithRetry(turn, iter === 0 ? resumeExtra : loopExtra);
       loopExtra = [];
       // Empty response: retry once with a nudge before giving up so the turn
       // doesn't silently stall (common with some local models mid-loop).
       if (isEmptyTurn(turn) && !opts.signal?.aborted) {
-        yield* stream(turn, [nudge]);
+        yield* streamWithRetry(turn, [nudge]);
       }
     } catch (e) {
       yield* endInterrupted(turn, e);
@@ -350,6 +402,9 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     }
 
     if (calls.length) steps++;
+    // The request for these tools is in the transcript now; the host saves it
+    // here, so a tool that never returns still leaves the step on disk.
+    yield { type: 'step', sessionId: opts.sessionId, messageId: assistantMsg.id };
     // Execute tool calls sequentially (the host applies guardrails/approval).
     let tripped: string | undefined;
     for (const call of calls) {
@@ -391,7 +446,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
   }
   const wrapUp: Turn = { text: '', reasoning: '', calls: [] };
   try {
-    yield* stream(
+    yield* streamWithRetry(
       wrapUp,
       [{ id: id('nudge'), role: 'user', content: LOOP_WRAP_UP_PROMPT, createdAt: Date.now() }],
       [],

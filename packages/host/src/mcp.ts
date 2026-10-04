@@ -13,6 +13,9 @@ import { daemonOwns } from './daemon-loop.js';
  *     and echoes the server's `mcp-session-id` for stateful servers.
  * One McpServer wraps one server: handshake, list tools, call tools.
  */
+/** How long one streamable-HTTP MCP call may take before it is given up on. */
+const HTTP_CALL_TIMEOUT_MS = 10 * 60_000;
+
 class McpServer {
   private proc: ChildProcessWithoutNullStreams | null = null;
   private buffer = '';
@@ -54,8 +57,11 @@ class McpServer {
 
   /** POST one JSON-RPC message to the streamable-HTTP endpoint and parse the reply. */
   private async httpSend(body: Record<string, unknown>, expectReply: boolean): Promise<any> {
+    // A server that accepts the request and never answers held the tool call,
+    // and with it the whole turn, for good. Ten minutes is generous for a tool.
     const res = await fetch(this.url!, {
       method: 'POST',
+      signal: AbortSignal.timeout(HTTP_CALL_TIMEOUT_MS),
       headers: {
         'content-type': 'application/json',
         accept: 'application/json, text/event-stream',

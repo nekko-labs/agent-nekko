@@ -16,6 +16,7 @@ use serde_json::Value;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::{Arc, LazyLock};
+use std::time::Duration;
 use tokio::sync::watch;
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
@@ -99,8 +100,27 @@ pub trait Transport: Send + Sync {
     fn send<'a>(&'a self, req: &'a HttpRequest) -> BoxFuture<'a, Result<HttpResponse, TransportError>>;
 }
 
-/// The real wire. No timeouts and no proxy from the environment, like Node's
-/// fetch: a local model can take minutes to its first token.
+/// How long a connection may take to open. A provider that cannot be reached
+/// should say so in seconds, not hang a reply on a SYN nobody answers.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// How long a response may stay silent before the read fails (`terminated`).
+///
+/// Five minutes, as Codex's `stream_idle_timeout_ms`: a local model can take
+/// minutes to its first token on a cold prompt, and a cloud model given a
+/// 200k-token context thinks for a long while before it says anything. A
+/// stream the server silently abandoned used to wait here for ever;
+/// `NEKKO_STREAM_IDLE_MS` overrides the limit (0 disables it).
+pub fn stream_idle() -> Option<Duration> {
+    match std::env::var("NEKKO_STREAM_IDLE_MS").ok().and_then(|v| v.trim().parse::<u64>().ok()) {
+        Some(0) => None,
+        Some(ms) => Some(Duration::from_millis(ms)),
+        None => Some(Duration::from_secs(300)),
+    }
+}
+
+/// The real wire. No overall timeout and no proxy from the environment, like
+/// Node's fetch; only a connect limit and an idle limit on the body.
 pub struct ReqwestTransport {
     client: reqwest::Client,
 }
@@ -113,8 +133,11 @@ impl ReqwestTransport {
     /// One shared client, so connections to a provider are reused across chats.
     pub fn shared() -> Arc<dyn Transport> {
         static SHARED: LazyLock<Arc<ReqwestTransport>> = LazyLock::new(|| {
-            let client = reqwest::Client::builder().no_proxy().build().unwrap_or_default();
-            Arc::new(ReqwestTransport::new(client))
+            let mut builder = reqwest::Client::builder().no_proxy().connect_timeout(CONNECT_TIMEOUT);
+            if let Some(idle) = stream_idle() {
+                builder = builder.read_timeout(idle);
+            }
+            Arc::new(ReqwestTransport::new(builder.build().unwrap_or_default()))
         });
         SHARED.clone()
     }

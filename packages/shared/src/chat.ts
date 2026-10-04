@@ -182,6 +182,12 @@ export interface Session {
   /** Queued prompts to run one after another when the current turn finishes. */
   queue?: string[];
   /**
+   * Set while a turn is running, cleared when it ends. A session that still
+   * carries this when the host starts was cut off by a crash or a quit, and the
+   * host marks its last reply interrupted so the chat offers Continue.
+   */
+  activeRun?: { startedAt: number };
+  /**
    * The plan for the prompt this chat is working on: decoded from the prompt,
    * then whatever the user edited it into. Lives on the session so the rail
    * survives a tab switch, and so a chat resumed tomorrow still shows what it
@@ -285,6 +291,21 @@ export type AgentEvent =
       steps?: number;
     }
   | { type: 'error'; sessionId: string; message: string }
+  /**
+   * A model call failed in a way worth trying again (the provider was
+   * overloaded, a stream went quiet, the network dropped) and the loop is about
+   * to send it again after `delayMs`. Whatever the failed call streamed is
+   * discarded and regenerated, so anything showing the live reply should drop
+   * the text and reasoning since the last `tool_result` (or the turn's start).
+   */
+  | { type: 'retry'; sessionId: string; attempt: number; maxAttempts: number; delayMs: number; reason: string }
+  /**
+   * The assistant message that asks for tool calls has been appended to the
+   * transcript and the tools are about to run. The host checkpoints here, so a
+   * tool that never returns (or a host that dies while it runs) leaves the
+   * request on disk instead of losing the whole step.
+   */
+  | { type: 'step'; sessionId: string; messageId: string }
   /** How a compaction of this chat is going (`compaction.ts` in the host). */
   | { type: 'compaction'; sessionId: string; progress: CompactionProgress }
   /**
@@ -351,6 +372,20 @@ export function formatRate(tokensPerSecond: number): string {
  * before the model said anything has nothing to carry on from, so the chat offers
  * to simply run it again instead of offering to continue from nothing.
  */
+/**
+ * Whether the transcript ends on a reply that was cut off: the last message of
+ * the current turn is an assistant message marked `interrupted`, or a tool call
+ * the model asked for that never got its result. A chat opened on such a
+ * transcript (after a restart, say) shows the interruption and offers Continue
+ * even though no `error` event is around to announce it.
+ */
+export function lastReplyInterrupted(history: ChatMessage[]): boolean {
+  const last = history[history.length - 1];
+  if (!last || last.role === 'user') return false;
+  if (last.role === 'assistant') return !!last.interrupted || !!last.toolCalls?.length;
+  return false;
+}
+
 export function hasResumableProgress(history: ChatMessage[]): boolean {
   for (let i = history.length - 1; i >= 0; i--) {
     const m = history[i];

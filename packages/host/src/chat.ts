@@ -18,6 +18,7 @@ import {
   REPORT_ARTIFACT_TOOL,
   UPDATE_PLAN_TOOL,
   repairInterruptedHistory,
+  INTERRUPTED_NOTE,
 } from '@agent-nekko/core';
 import { reportExperiment, reportArtifact, updateRunPlan, runPlanForSession } from './training.js';
 import { getSettings } from './store.js';
@@ -37,7 +38,7 @@ let decisions: DecisionRunner | null = null;
 export function setDecisionRunner(runner: DecisionRunner | null): void {
   decisions = runner;
 }
-import { getSession, saveSession, saveTurnSession, createSession, setSessionOptions } from './sessions.js';
+import { getSession, listSessions, saveSession, saveTurnSession, createSession, setSessionOptions } from './sessions.js';
 import { executeTool } from './tools.js';
 import { AGENT_WATCH_TOOL, agentWatchTool } from './agent-watches.js';
 import { recordUsage } from './usage.js';
@@ -351,6 +352,37 @@ function releasePending(sessionId: string): void {
   pendingBySession.delete(sessionId);
 }
 
+/**
+ * Chats a previous host left mid-turn (a crash, a quit, a kill): their record
+ * still carries `activeRun`. Nothing is running them now, so say so in the
+ * transcript (an `interrupted` reply, which is what makes the chat offer
+ * Continue) and clear the marker. Called once, when the host starts; returns
+ * how many chats were marked.
+ */
+export function reconcileInterruptedChats(): number {
+  let marked = 0;
+  for (const session of listSessions()) {
+    if (!session.activeRun) continue;
+    const last = session.messages[session.messages.length - 1];
+    const alreadyMarked = last?.role === 'assistant' && last.interrupted;
+    if (last && last.role !== 'user' && !alreadyMarked) {
+      session.messages.push({
+        id: `msg_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        role: 'assistant',
+        content: `_The app closed while this reply was running._
+
+${INTERRUPTED_NOTE}`,
+        interrupted: true,
+        createdAt: Date.now(),
+      });
+    }
+    delete session.activeRun;
+    saveSession(session);
+    marked++;
+  }
+  return marked;
+}
+
 export function abortChat(sessionId: string): void {
   abortControllers.get(sessionId)?.abort();
   abortControllers.delete(sessionId);
@@ -558,6 +590,7 @@ async function runSubAgent(
   modelId: string,
   input: unknown,
   send: Sender,
+  signal?: AbortSignal,
 ): Promise<string> {
   const parentId = parent.id;
   const settings = getSettings();
@@ -610,10 +643,19 @@ async function runSubAgent(
   child.incognito = parent.incognito;
   saveSession(child);
   let failed = false;
-  await sendChat({ sessionId: child.id, providerId: targetProviderId, modelId: targetModelId, text: task }, (event) => {
-    if (event.sessionId === child.id && event.type === 'error') failed = true;
-    send(event);
-  });
+  // Stopping the parent stops the child: otherwise the parent's turn sat on
+  // this await until the orphaned sub-agent finished on its own.
+  const stopChild = () => abortChat(child.id);
+  signal?.addEventListener('abort', stopChild, { once: true });
+  try {
+    await sendChat({ sessionId: child.id, providerId: targetProviderId, modelId: targetModelId, text: task }, (event) => {
+      if (event.sessionId === child.id && event.type === 'error') failed = true;
+      send(event);
+    });
+  } finally {
+    signal?.removeEventListener('abort', stopChild);
+  }
+  if (signal?.aborted) throw new Error('Stopped with the chat.');
   if (failed) throw new Error('The sub-agent failed on the selected provider/model. No fallback was used.');
   const done = getSession(child.id);
   const last = [...(done?.messages ?? [])].reverse().find((m) => m.role === 'assistant' && m.content.trim());
@@ -949,7 +991,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             }
           }
           if (call.name === 'spawn_agent') {
-            return runSubAgent({ ...session, mode }, opts.providerId, opts.modelId, call.input, send)
+            return runSubAgent({ ...session, mode }, opts.providerId, opts.modelId, call.input, send, abort.signal)
               .then((output) => ({ toolCallId: call.id, output }))
               .catch((e) => ({ toolCallId: call.id, output: `Sub-agent failed: ${(e as Error).message}`, isError: true }));
           }
@@ -988,6 +1030,11 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       // NEKKO_AGENT_LOOP=ts keeps every run in this process (a kill switch).
       const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
       const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonRunsLoops(daemon));
+      // On disk while the turn runs: a host that starts and finds it knows the
+      // turn was cut off, and marks the reply so the chat offers Continue
+      // (reconcileInterruptedChats).
+      session.activeRun = { startedAt: Date.now() };
+      persist();
       const source = viaDaemon
         ? runAgentViaDaemon(daemon, {
             ...runOptions,
@@ -1041,7 +1088,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         // Written before the event goes out, so anything that reacts to it by
         // re-reading the session (the chat pane does exactly that on `done`) is
         // guaranteed to find the step it was just told about.
-        if (event.type === 'tool_result' || event.type === 'done' || event.type === 'error') {
+        if (event.type === 'tool_result' || event.type === 'step' || event.type === 'done' || event.type === 'error') {
           persist();
         }
         send(event);
@@ -1068,6 +1115,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       // Leaving the entry behind would park the session in the board's "needs
       // you" lane over a question that no longer has a run behind it.
       releasePending(opts.sessionId);
+      delete session.activeRun;
       persist();
     }
   }

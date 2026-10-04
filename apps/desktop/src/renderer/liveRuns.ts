@@ -57,6 +57,14 @@ export interface LiveRun {
   reasoningStartedAt: number;
   /** The folded step rail, shared with the Command Center's cards. */
   activity: LiveActivity;
+  /**
+   * Where the current model call started: the blocks, text and reasoning as
+   * they stood at the last step boundary. A `retry` event rolls back to it,
+   * since the failed call's output is regenerated rather than kept.
+   */
+  stepMark: { blocks: LiveBlock[]; text: string; reasoning: string };
+  /** The retry the loop is waiting out, until the next event arrives. */
+  retrying?: { attempt: number; maxAttempts: number; delayMs: number; reason: string; at: number };
 }
 
 const runs = new Map<string, LiveRun>();
@@ -111,6 +119,7 @@ function emptyRun(sessionId: string, now: number): LiveRun {
     reasoningMs: 0,
     reasoningStartedAt: 0,
     activity: emptyLiveActivity(now),
+    stepMark: { blocks: [], text: '', reasoning: '' },
   };
 }
 
@@ -148,6 +157,9 @@ const STARTS_RUN = new Set<AgentEvent['type']>([
   'question',
   'image_status',
   'usage',
+  // A first call that fails before its first token is still a turn in flight,
+  // and the rail should say it is being retried rather than nothing at all.
+  'retry',
 ]);
 
 /**
@@ -184,6 +196,20 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
   const prev = runs.get(id) ?? emptyRun(id, now);
   if (!runs.has(id)) finished.delete(id);
   const next: LiveRun = { ...prev, activity: folded ?? prev.activity };
+  if (event.type === 'retry') {
+    // Roll the live reply back to the last step boundary: what the failed
+    // call streamed is being regenerated, and showing it twice would read as
+    // the model repeating itself.
+    next.blocks = prev.stepMark.blocks;
+    next.text = prev.stepMark.text;
+    next.reasoning = prev.stepMark.reasoning;
+    next.reasoningStartedAt = 0;
+    next.retrying = { attempt: event.attempt, maxAttempts: event.maxAttempts, delayMs: event.delayMs, reason: event.reason, at: now };
+    runs.set(id, next);
+    markDirty(id);
+    return;
+  }
+  if (prev.retrying && (event.type === 'text' || event.type === 'reasoning' || event.type === 'tool_call')) next.retrying = undefined;
   const last = prev.blocks[prev.blocks.length - 1];
   if (event.type === 'text') {
     const block: LiveBlock = { kind: 'text', text: clampLive((last?.kind === 'text' ? last.text : '') + event.delta) };
@@ -224,6 +250,10 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
       next.outputTokens = prev.outputTokens + event.outputTokens;
       next.inputTokens = prev.inputTokens + event.inputTokens;
       next.decodeMs = accumulateDecodeMs(prev.decodeMs, event.outputTokens, event.outputMs);
+      break;
+    case 'tool_result':
+      // A step boundary: the next model call starts from here.
+      next.stepMark = { blocks: next.blocks, text: next.text, reasoning: next.reasoning };
       break;
     default:
       // Approvals and questions are pending-input state, owned by the host and

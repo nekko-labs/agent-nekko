@@ -19,5 +19,8 @@ pub use history::{
 };
 pub use progress::LoopDetector;
 pub use resume::{INTERRUPTED_NOTE, INTERRUPTED_TOOL_OUTPUT, RESUME_PROMPT, repair_interrupted_history};
-pub use run::{Cancel, ChatRequest, Chunk, ChunkStream, ModelClient, RunOptions, ToolRunner, run_agent};
+pub use run::{
+    Cancel, ChatRequest, Chunk, ChunkStream, MAX_STREAM_ATTEMPTS, ModelClient, RunOptions, ToolRunner,
+    is_transient_error, retry_delay, run_agent,
+};
 pub use runaway::{RUNAWAY_NOTE, RunawayGuard, RunawayOptions};

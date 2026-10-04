@@ -57,6 +57,14 @@ beforeEach(() => {
   round = 0;
 });
 
+/**
+ * A failure no retry gets past. A dropped connection (`terminated`) is sent
+ * again now (loop-retry.test.ts), so breaking the run for good takes a
+ * rejection the loop does not retry.
+ */
+const FATAL = 'anthropic 400: the request was rejected';
+const fatal = () => new Error(FATAL);
+
 /** The expensive tool result whose loss is the whole complaint. */
 const EXPENSIVE = 'the result that took forty minutes';
 
@@ -77,7 +85,7 @@ describe('a run that is cut off part-way', () => {
   it('has already written its finished steps to disk when it breaks', async () => {
     const file = join(workspace, 'notes.txt');
     writeFileSync(file, EXPENSIVE, 'utf8');
-    rounds = [[readTool(file), { type: 'done' }], new Error('terminated')];
+    rounds = [[readTool(file), { type: 'done' }], fatal()];
 
     const session = createSession('w1');
     let onDiskMidRun: Session | null = null;
@@ -95,12 +103,12 @@ describe('a run that is cut off part-way', () => {
   it('keeps the finished steps and the cut-off reply after it fails', async () => {
     const file = join(workspace, 'notes.txt');
     writeFileSync(file, EXPENSIVE, 'utf8');
-    rounds = [[readTool(file), { type: 'done' }], new Error('terminated')];
+    rounds = [[readTool(file), { type: 'done' }], fatal()];
 
     const session = createSession('w1');
     const events = await run(session);
 
-    expect(events.at(-1)).toMatchObject({ type: 'error', message: 'terminated' });
+    expect(events.at(-1)).toMatchObject({ type: 'error', message: FATAL });
     const saved = getSession(session.id)!;
     expect(saved.messages.some((m) => m.toolResult?.output.includes(EXPENSIVE))).toBe(true);
   });
@@ -110,7 +118,7 @@ describe('resuming a cut-off run', () => {
   it('carries on without running the finished tool again', async () => {
     const file = join(workspace, 'notes.txt');
     writeFileSync(file, EXPENSIVE, 'utf8');
-    rounds = [[readTool(file), { type: 'done' }], new Error('terminated')];
+    rounds = [[readTool(file), { type: 'done' }], fatal()];
 
     const session = createSession('w1');
     await run(session);
@@ -135,7 +143,7 @@ describe('resuming a cut-off run', () => {
     // Kept as a contrast, so the difference the fix makes is spelled out.
     const file = join(workspace, 'notes.txt');
     writeFileSync(file, EXPENSIVE, 'utf8');
-    rounds = [[readTool(file), { type: 'done' }], new Error('terminated')];
+    rounds = [[readTool(file), { type: 'done' }], fatal()];
 
     const session = createSession('w1');
     await run(session);

@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo } from '@agent-nekko/shared';
-import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
+import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, lastReplyInterrupted, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -25,7 +25,7 @@ import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console
 import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
-import { describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
+import { PERSISTED_INTERRUPTION, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
@@ -1578,6 +1578,14 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const lastMsgId = session?.messages[session.messages.length - 1]?.id;
   const liveSuggestions = suggestions && suggestions.forId === lastMsgId ? suggestions : null;
   const canContinueReply = !!errorNotice && !streaming && hasResumableProgress(session?.messages ?? []);
+  // A transcript that ends on a cut-off reply (the app was closed mid-run, the
+  // host restarted) has no `error` event left to announce it, so the notice is
+  // read off the record itself. Dismissing it is remembered per reply.
+  const [dismissedInterruption, setDismissedInterruption] = useState<string | null>(null);
+  useEffect(() => {
+    if (streaming || errorNotice || !session || dismissedInterruption === lastMsgId) return;
+    if (lastReplyInterrupted(session.messages)) setErrorNotice(PERSISTED_INTERRUPTION);
+  }, [session, streaming, errorNotice, lastMsgId, dismissedInterruption]);
   // An interrupted turn needs a recovery action, not model-written follow-ups
   // that may have been generated before the failure.
   const suggestedOptions = errorNotice ? [] : liveSuggestions?.options ?? [];
@@ -2024,7 +2032,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                         Start over
                       </button>
                     )}
-                    <button className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-ink" title="Dismiss" onClick={() => setErrorNotice(null)}>
+                    <button className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-ink" title="Dismiss" onClick={() => { setDismissedInterruption(lastMsgId ?? null); setErrorNotice(null); }}>
                       <CloseIcon className="h-3 w-3" />
                     </button>
                   </div>

@@ -45,6 +45,15 @@ fn normalize(v: &Value) -> Value {
         if matched {
             continue;
         }
+        // A retry's wait is 0 on the TS side (`retryBaseDelayMs: 0`) and real here.
+        if let Some(r) = rest.strip_prefix("\"delayMs\":") {
+            let d = r.bytes().take_while(u8::is_ascii_digit).count();
+            if d > 0 {
+                out.push_str("\"delayMs\":0");
+                i += "\"delayMs\":".len() + d;
+                continue;
+            }
+        }
         if let Some(r) = rest.strip_prefix("\"createdAt\":") {
             let d = r.bytes().take_while(u8::is_ascii_digit).count();
             if d > 0 {
@@ -145,7 +154,7 @@ impl ToolRunner for Tools {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn every_scripted_run_matches_the_ts_loop() {
     let runs = golden("runs.json");
     let expected = golden("runs.expected.json");

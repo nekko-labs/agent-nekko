@@ -77,6 +77,8 @@ async function play(s: Scenario, defaults: { defaultHistory: ChatMessage[]; tool
       return { toolCallId: c.id, output: t.output ?? '', ...(t.isError ? { isError: true } : {}) };
     },
     signal: controller.signal,
+    // Backoffs are instant here; the Rust side runs on a paused clock.
+    retryBaseDelayMs: 0,
     maxHistoryTurns: s.maxHistoryTurns,
     resume: s.resume,
   })) events.push(e);

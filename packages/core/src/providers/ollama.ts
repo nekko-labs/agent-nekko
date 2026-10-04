@@ -1,4 +1,6 @@
 import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import { httpError } from './errors.js';
+import { readWithIdle } from './sse.js';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { DecodeClock } from './decode-clock.js';
 
@@ -52,7 +54,7 @@ export class OllamaProvider implements Provider {
     const dec = new TextDecoder();
     let buf = '';
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readWithIdle(reader);
       if (done) break;
       buf += dec.decode(value, { stream: true });
       let nl: number;
@@ -107,7 +109,7 @@ export class OllamaProvider implements Provider {
       body: JSON.stringify(body),
       signal: req.signal,
     });
-    if (!res.ok || !res.body) throw new Error(`chat ${res.status}`);
+    if (!res.ok || !res.body) throw httpError(`chat ${res.status}`, res);
 
     const reader = res.body.getReader();
     const dec = new TextDecoder();
@@ -115,7 +117,7 @@ export class OllamaProvider implements Provider {
     // Fallback decode timer, used only if the server omits `eval_duration`.
     const decode = new DecodeClock();
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readWithIdle(reader);
       if (done) break;
       buf += dec.decode(value, { stream: true });
       let nl: number;

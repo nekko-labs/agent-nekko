@@ -137,7 +137,7 @@ fn is_delta(e: &Value) -> bool {
 }
 
 fn is_checkpoint(e: &Value) -> bool {
-    matches!(e.get("type").and_then(Value::as_str), Some("tool_result" | "done" | "error"))
+    matches!(e.get("type").and_then(Value::as_str), Some("step" | "tool_result" | "done" | "error"))
 }
 
 fn is_final(e: &Value) -> bool {
@@ -225,9 +225,12 @@ impl Loops {
         let runs = self.runs.clone();
         let changes = self.changes.clone();
         tokio::spawn(async move {
+            let session_id = spec.get("sessionId").cloned().unwrap_or(Value::Null);
             let history = Self::drive(backend.clone(), hub, &spec, &run_id, config, cancel, changes).await;
             runs.lock().unwrap_or_else(|e| e.into_inner()).remove(&run_id);
-            let _ = backend.call("loop:end", json!([run_id, { "history": history }])).await;
+            // The session id lets a host that did not start this run (it was
+            // restarted meanwhile) still save the transcript (daemon-loop.ts).
+            let _ = backend.call("loop:end", json!([run_id, { "history": history, "sessionId": session_id }])).await;
         });
         Ok(json!({ "started": true }))
     }
@@ -272,6 +275,13 @@ impl Loops {
         drop(tx);
         let _ = forwarder.await;
         history
+    }
+
+    /// `loop:alive`: whether a run is still being driven here. The host asks
+    /// when a run has gone quiet, so a daemon restart mid-reply ends the turn
+    /// on its side instead of leaving it waiting for events that never come.
+    pub fn is_running(&self, run_id: &str) -> bool {
+        self.runs.lock().unwrap_or_else(|e| e.into_inner()).contains_key(run_id)
     }
 
     /// `loop:abort`: stop a run; true when there was one.

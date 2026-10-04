@@ -2,6 +2,7 @@ import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@ag
 import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { parseSSE } from './sse.js';
+import { httpError } from './errors.js';
 import { DecodeClock } from './decode-clock.js';
 
 /**
@@ -302,7 +303,7 @@ export class AnthropicProvider implements Provider {
         continue;
       }
       const next = isSamplingParamError(res.status, text) ? nextSamplingShape(shape, tried) : null;
-      if (!next) throw new Error(`anthropic ${res.status}: ${text.slice(0, 200)}`);
+      if (!next) throw httpError(`anthropic ${res.status}: ${text.slice(0, 200)}`, res);
       shape = next;
     }
     learnSamplingShape(req.model, shape);
