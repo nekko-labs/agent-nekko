@@ -1,6 +1,8 @@
 /**
- * The Agent Nekko mark, as vector art: an outline cat head in one stroke
- * weight on a deep tile, plus the installer banners that reuse it. Pure
+ * The Agent Nekko mark, as vector art: an outline cat head (two ears, a soft
+ * curve of forehead between them, a round jaw, nothing inside) in one thin
+ * stroke with sharp corners, on a deep tile, plus the installer banners that
+ * reuse it. Pure
  * string-building with no renderer behind it, so anything that needs the mark
  * -- the desktop icon pipeline, the phone app's icons, the marketing site's
  * favicon -- draws from this one source instead of keeping its own copy of the
@@ -16,27 +18,28 @@ const RIM = '#a7c8ac';
 /** The tile behind the mark, and what the installer panels are painted in. */
 const TILE = '#101714';
 
-/** The head: two ears, a round jaw. Drawn on a 24-unit grid. */
-const HEAD = 'M5 10l-1-6 5 3h6l5-3-1 6a7 7 0 0 1-14 0z';
-/** Two eyes and a smile, same grid. */
-const FACE = 'M9.5 12.5h.01M14.5 12.5h.01M10.6 14.6c.8.7 2 .7 2.8 0';
-/** The art's own bounds on that grid, for centring: x 4..20, y 4..17. */
-const ART = { x: 4, y: 4, w: 16, h: 13 };
+/**
+ * The head: two ears, a forehead that dips between them in a soft curve
+ * rather than a flat bridge, a round jaw. Nothing inside the face. Drawn on a
+ * 24-unit grid; the renderer's `BrandMark.tsx` carries the same path.
+ */
+const HEAD = 'M5 10l-1-6 5 3q3-1.1 6 0l5-3-1 6a7.4 7.4 0 0 1-14 0z';
+/** The art's own bounds on that grid, for centring: x 4..20, y 4..17.4. */
+const ART = { x: 4, y: 4, w: 16, h: 13.4 };
 
 /**
  * The mark alone, drawn to fill `span` units of a square `box`, centred.
- * `size` is the final pixel size the art is chosen for: small icons need a
- * heavier stroke and bigger eyes, or they read as a smudge.
+ * `size` is the final pixel size the art is chosen for: the line is thin at
+ * icon size and heavier below 64 and 32 pixels, or it reads as a smudge in a
+ * taskbar. Miter joins and flat caps keep the ear tips and notches sharp.
  */
 function markGroup(size, box, span, color = INK) {
   const scale = span / Math.max(ART.w, ART.h);
   const tx = (box - ART.w * scale) / 2 - ART.x * scale;
   const ty = (box - ART.h * scale) / 2 - ART.y * scale;
-  const stroke = size < 32 ? 2.2 : size < 64 ? 1.9 : 1.6;
-  const eyes = size < 32 ? 3 : size < 64 ? 2.5 : 2;
-  return `<g transform="translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${scale.toFixed(4)})" fill="none" stroke="${color}" stroke-linecap="round" stroke-linejoin="round">
-      <path d="${HEAD}" stroke-width="${stroke}"/>
-      <path d="${FACE}" stroke-width="${eyes}"/>
+  const stroke = size < 32 ? 2.0 : size < 64 ? 1.5 : 1.2;
+  return `<g transform="translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${scale.toFixed(4)})" fill="none" stroke="${color}" stroke-width="${stroke}" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="8">
+      <path d="${HEAD}"/>
     </g>`;
 }
 
@@ -108,4 +111,4 @@ function bannerSvg(w, h, opts, pw = w, ph = h) {
 </svg>`;
 }
 
-module.exports = { iconSvg, bareMarkSvg, bannerSvg, TILE, INK, HEAD, FACE };
+module.exports = { iconSvg, bareMarkSvg, bannerSvg, TILE, INK, HEAD };
