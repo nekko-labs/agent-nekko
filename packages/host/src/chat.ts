@@ -52,6 +52,7 @@ import { syncMcp, mcpToolSpecs, isMcpTool, callMcpTool } from './mcp.js';
 import { daemonCall } from './engine/daemon.js';
 import { daemonOwns, daemonRunsLoops, runAgentViaDaemon } from './daemon-loop.js';
 import { killSessionProcesses } from './processes.js';
+import { hasToolHooks, postToolHooks, preToolHooks, turnEndHooks } from './hooks.js';
 import { completeText } from './sideband.js';
 import { appendAgentTerminal, finishAgentTerminal } from './terminal.js';
 
@@ -907,6 +908,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   let attempts = 0;
   let eventsSeen = false;
   let lastError: Error | undefined;
+  let lastStop: 'complete' | 'loop' | 'runaway' | undefined;
   while (attempts < 2 && !abort.signal.aborted) {
     abortControllers.set(opts.sessionId, abort);
     eventsSeen = false;
@@ -954,6 +956,112 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
 
     try {
       const defaultCwd = workspaces[0]?.path;
+      const executeToolInner = async (call: ToolCall): Promise<ToolResult> => {
+        if (!tools.some((tool) => tool.name === call.name)) {
+          return { toolCallId: call.id, output: 'This tool is disabled or unavailable for this chat.', isError: true };
+        }
+        if (call.name === 'set_chat_title') {
+          const disk = getSession(session.id);
+          if (disk?.titleAuto === false) return { toolCallId: call.id, output: 'The chat already has a chosen title; it was not changed.' };
+          const title = typeof call.input.title === 'string' ? call.input.title.trim().replace(/\s+/g, ' ').slice(0, 64) : '';
+          if (!title) return { toolCallId: call.id, output: 'A nonblank title is required.', isError: true };
+          session.title = title;
+          session.titleAuto = false;
+          persist();
+          send({ type: 'session_meta', sessionId: session.id });
+          return { toolCallId: call.id, output: 'Chat title updated.' };
+        }
+        if (call.name === 'complete_session') {
+          if (Object.keys(call.input).length > 0) return { toolCallId: call.id, output: 'complete_session takes no arguments and only completes the current chat.', isError: true };
+          const disk = getSession(session.id);
+          if (!disk) return { toolCallId: call.id, output: 'Session not found; completion was not saved.', isError: true };
+          const saved = setSessionOptions(session.id, { archivedAt: disk.archivedAt ?? Date.now() });
+          if (!saved) return { toolCallId: call.id, output: 'Session not found; completion was not saved.', isError: true };
+          session.archivedAt = saved.archivedAt;
+          send({ type: 'session_meta', sessionId: session.id });
+          return { toolCallId: call.id, output: 'This session is marked completed (archived). Messages are retained under the app’s archive retention policy. You can restore it from completed chats.' };
+        }
+        if (call.name === ASK_USER_TOOL.name) {
+          return { toolCallId: call.id, output: await askUser(call) };
+        }
+        if (call.name === DECIDE_TOOL.name && decisions && decideWith) {
+          try {
+            const res = await decisions.run(decideWith, decideRequestFromTool(call.input));
+            return { toolCallId: call.id, output: JSON.stringify({ model: res.model, provider: res.provider, answers: res.answers }) };
+          } catch (e) {
+            return { toolCallId: call.id, output: `decide failed: ${(e as Error).message}`, isError: true };
+          }
+        }
+        const indirect = call.name === 'spawn_agent' || isMcpTool(call.name);
+        if (indirect && (mode === 'ask' || settings.sandboxMode === 'ask-everything')) {
+          const approved = await requestApproval(call, call.name === 'spawn_agent' ? 'Delegate work to a sub-agent' : `Call ${call.name}`, 'medium');
+          if (!approved) return { toolCallId: call.id, output: 'Call not approved by user.', isError: true };
+        }
+        if (call.name === 'report_experiment' && session.trainingRunId) {
+          try {
+            const output = reportExperiment(opts.sessionId, call.input as Record<string, unknown>);
+            return Promise.resolve({ toolCallId: call.id, output });
+          } catch (e) {
+            return Promise.resolve({ toolCallId: call.id, output: `Failed to record: ${(e as Error).message}`, isError: true });
+          }
+        }
+        if (call.name === 'report_artifact' && session.trainingRunId) {
+          try {
+            const output = reportArtifact(opts.sessionId, call.input as Record<string, unknown>);
+            return Promise.resolve({ toolCallId: call.id, output });
+          } catch (e) {
+            return Promise.resolve({ toolCallId: call.id, output: `Failed to record the artifact: ${(e as Error).message}`, isError: true });
+          }
+        }
+        if (call.name === 'update_plan') {
+          try {
+            const input = call.input as Record<string, unknown>;
+            // Run sessions write the run's plan (and mirror it onto the
+            // session so the plan rail can render it too); ordinary chats
+            // write session.agentPlan directly. Either way the rail needs a
+            // session_meta poke to re-read.
+            const output = session.trainingRunId
+              ? updateRunPlan(opts.sessionId, input)
+              : updateSessionPlan(session, input);
+            if (session.trainingRunId) session.agentPlan = runPlanForSession(opts.sessionId);
+            persist();
+            send({ type: 'session_meta', sessionId: opts.sessionId });
+            return Promise.resolve({ toolCallId: call.id, output });
+          } catch (e) {
+            return Promise.resolve({ toolCallId: call.id, output: `Failed to update the plan: ${(e as Error).message}`, isError: true });
+          }
+        }
+        if (call.name === 'agent_watch') {
+          try {
+            if (session.incognito || session.trainingRunId || session.offline) throw new Error('Durable watches are unavailable in incognito, goal runs, or offline chats');
+            const input = call.input as Record<string, unknown>;
+            if (input.action === 'create' && (mode === 'ask' || settings.sandboxMode === 'ask-everything') && !await requestApproval(call, 'Schedule an automatic continuation of this chat', 'medium')) {
+              throw new Error('Watch registration not approved');
+            }
+            const output = await agentWatchTool(opts.sessionId, input);
+            return { toolCallId: call.id, output };
+          } catch (e) {
+            return { toolCallId: call.id, output: `Agent watch failed: ${(e as Error).message}`, isError: true };
+          }
+        }
+        if (call.name === 'spawn_agent') {
+          return runSubAgent({ ...session, mode }, opts.providerId, opts.modelId, call.input, send, abort.signal)
+            .then((output) => ({ toolCallId: call.id, output }))
+            .catch((e) => ({ toolCallId: call.id, output: `Sub-agent failed: ${(e as Error).message}`, isError: true }));
+        }
+        return isMcpTool(call.name)
+          ? callMcpTool(call)
+          : executeTool(call, {
+              settings: toolSettings,
+              defaultCwd,
+              requestApproval,
+              mode,
+              allowBrowserControl,
+              sessionId: opts.sessionId,
+              signal: abort.signal,
+            });
+      };
+
       const runOptions = {
         sessionId: opts.sessionId,
         provider: createProvider(resolvedProvider),
@@ -961,110 +1069,18 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         system,
         history: session.messages,
         tools,
+        // Hooks wrap every tool call (hooks.ts): PreToolUse may block it,
+        // PostToolUse may add to its result. The settings are re-read per
+        // call so a hook added mid-run applies to the next tool.
         executeTool: async (call: ToolCall): Promise<ToolResult> => {
-          if (!tools.some((tool) => tool.name === call.name)) {
-            return { toolCallId: call.id, output: 'This tool is disabled or unavailable for this chat.', isError: true };
-          }
-          if (call.name === 'set_chat_title') {
-            const disk = getSession(session.id);
-            if (disk?.titleAuto === false) return { toolCallId: call.id, output: 'The chat already has a chosen title; it was not changed.' };
-            const title = typeof call.input.title === 'string' ? call.input.title.trim().replace(/\s+/g, ' ').slice(0, 64) : '';
-            if (!title) return { toolCallId: call.id, output: 'A nonblank title is required.', isError: true };
-            session.title = title;
-            session.titleAuto = false;
-            persist();
-            send({ type: 'session_meta', sessionId: session.id });
-            return { toolCallId: call.id, output: 'Chat title updated.' };
-          }
-          if (call.name === 'complete_session') {
-            if (Object.keys(call.input).length > 0) return { toolCallId: call.id, output: 'complete_session takes no arguments and only completes the current chat.', isError: true };
-            const disk = getSession(session.id);
-            if (!disk) return { toolCallId: call.id, output: 'Session not found; completion was not saved.', isError: true };
-            const saved = setSessionOptions(session.id, { archivedAt: disk.archivedAt ?? Date.now() });
-            if (!saved) return { toolCallId: call.id, output: 'Session not found; completion was not saved.', isError: true };
-            session.archivedAt = saved.archivedAt;
-            send({ type: 'session_meta', sessionId: session.id });
-            return { toolCallId: call.id, output: 'This session is marked completed (archived). Messages are retained under the app’s archive retention policy. You can restore it from completed chats.' };
-          }
-          if (call.name === ASK_USER_TOOL.name) {
-            return { toolCallId: call.id, output: await askUser(call) };
-          }
-          if (call.name === DECIDE_TOOL.name && decisions && decideWith) {
-            try {
-              const res = await decisions.run(decideWith, decideRequestFromTool(call.input));
-              return { toolCallId: call.id, output: JSON.stringify({ model: res.model, provider: res.provider, answers: res.answers }) };
-            } catch (e) {
-              return { toolCallId: call.id, output: `decide failed: ${(e as Error).message}`, isError: true };
-            }
-          }
-          const indirect = call.name === 'spawn_agent' || isMcpTool(call.name);
-          if (indirect && (mode === 'ask' || settings.sandboxMode === 'ask-everything')) {
-            const approved = await requestApproval(call, call.name === 'spawn_agent' ? 'Delegate work to a sub-agent' : `Call ${call.name}`, 'medium');
-            if (!approved) return { toolCallId: call.id, output: 'Call not approved by user.', isError: true };
-          }
-          if (call.name === 'report_experiment' && session.trainingRunId) {
-            try {
-              const output = reportExperiment(opts.sessionId, call.input as Record<string, unknown>);
-              return Promise.resolve({ toolCallId: call.id, output });
-            } catch (e) {
-              return Promise.resolve({ toolCallId: call.id, output: `Failed to record: ${(e as Error).message}`, isError: true });
-            }
-          }
-          if (call.name === 'report_artifact' && session.trainingRunId) {
-            try {
-              const output = reportArtifact(opts.sessionId, call.input as Record<string, unknown>);
-              return Promise.resolve({ toolCallId: call.id, output });
-            } catch (e) {
-              return Promise.resolve({ toolCallId: call.id, output: `Failed to record the artifact: ${(e as Error).message}`, isError: true });
-            }
-          }
-          if (call.name === 'update_plan') {
-            try {
-              const input = call.input as Record<string, unknown>;
-              // Run sessions write the run's plan (and mirror it onto the
-              // session so the plan rail can render it too); ordinary chats
-              // write session.agentPlan directly. Either way the rail needs a
-              // session_meta poke to re-read.
-              const output = session.trainingRunId
-                ? updateRunPlan(opts.sessionId, input)
-                : updateSessionPlan(session, input);
-              if (session.trainingRunId) session.agentPlan = runPlanForSession(opts.sessionId);
-              persist();
-              send({ type: 'session_meta', sessionId: opts.sessionId });
-              return Promise.resolve({ toolCallId: call.id, output });
-            } catch (e) {
-              return Promise.resolve({ toolCallId: call.id, output: `Failed to update the plan: ${(e as Error).message}`, isError: true });
-            }
-          }
-          if (call.name === 'agent_watch') {
-            try {
-              if (session.incognito || session.trainingRunId || session.offline) throw new Error('Durable watches are unavailable in incognito, goal runs, or offline chats');
-              const input = call.input as Record<string, unknown>;
-              if (input.action === 'create' && (mode === 'ask' || settings.sandboxMode === 'ask-everything') && !await requestApproval(call, 'Schedule an automatic continuation of this chat', 'medium')) {
-                throw new Error('Watch registration not approved');
-              }
-              const output = await agentWatchTool(opts.sessionId, input);
-              return { toolCallId: call.id, output };
-            } catch (e) {
-              return { toolCallId: call.id, output: `Agent watch failed: ${(e as Error).message}`, isError: true };
-            }
-          }
-          if (call.name === 'spawn_agent') {
-            return runSubAgent({ ...session, mode }, opts.providerId, opts.modelId, call.input, send, abort.signal)
-              .then((output) => ({ toolCallId: call.id, output }))
-              .catch((e) => ({ toolCallId: call.id, output: `Sub-agent failed: ${(e as Error).message}`, isError: true }));
-          }
-          return isMcpTool(call.name)
-            ? callMcpTool(call)
-            : executeTool(call, {
-                settings: toolSettings,
-                defaultCwd,
-                requestApproval,
-                mode,
-                allowBrowserControl,
-                sessionId: opts.sessionId,
-                signal: abort.signal,
-              });
+          const hookSettings = getSettings();
+          if (!hasToolHooks(hookSettings)) return executeToolInner(call);
+          const hookCtx = { sessionId: opts.sessionId, cwd: defaultCwd ?? process.cwd() };
+          const pre = await preToolHooks(hookSettings, call, hookCtx);
+          if (pre.block) return { toolCallId: call.id, output: [pre.block, ...pre.notes].join('\n'), isError: true };
+          const result = await executeToolInner(call);
+          const post = await postToolHooks(hookSettings, call, result, hookCtx);
+          return pre.notes.length ? { ...post, output: `${post.output}\n\n${pre.notes.join('\n')}` } : post;
         },
         temperature: EFFORT_TEMPERATURE[effectiveEffort(settings.effort, opts.modelId)],
         effort: settings.effort ?? 'normal',
@@ -1103,7 +1119,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             onRunId: (runId) => daemonRunIds.set(opts.sessionId, runId),
             // The built-in file and shell tools run in the daemon too.
             toolContext: {
-              native: tools.map((t) => t.name).filter((n) => DAEMON_TOOLS.has(n)),
+              native: hasToolHooks(settings) ? [] : tools.map((t) => t.name).filter((n) => DAEMON_TOOLS.has(n)),
               sessionId: opts.sessionId,
               mode,
               sandboxMode: settings.sandboxMode,
@@ -1127,6 +1143,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
           });
         }
         // How the reply ended, for tuning the loop detector (counts only). Older engines omit `stop`; nothing is recorded then.
+        if (event.type === 'done' && event.stop) lastStop = event.stop;
         if (event.type === 'done' && event.stop && !incognito) {
           recordReply({
             ts: Date.now(),
@@ -1189,6 +1206,13 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   if (lastError) {
     send({ type: 'error', sessionId: opts.sessionId, message: lastError.message });
   }
+  // TurnEnd hooks: how the reply ended, for whoever wants to know. Nothing waits.
+  turnEndHooks(getSettings(), {
+    sessionId: opts.sessionId,
+    cwd: workspaces[0]?.path ?? process.cwd(),
+    stop: abort.signal.aborted ? 'stopped' : lastError ? 'error' : lastStop ?? 'complete',
+    ...(lastError ? { error: lastError.message } : {}),
+  });
 
   // Keep the linked spec.md in sync with the conversation (best-effort).
   if (session.specLinked && !incognito && !offline) {
