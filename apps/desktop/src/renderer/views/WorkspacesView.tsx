@@ -21,10 +21,13 @@ import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, Exte
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 import { COMPLETION_ROW_ATTR, completeWithExit, findCompletionRow } from '../completionExit.js';
+import { SubAgentRow } from '../components/SubAgentRow.js';
 import { ContextMenu, ContextAction } from '../components/ContextMenu.js';
 import { ModelPicker } from '../components/agent-console/ModelPicker.js';
 import { selectWorkspaceRows } from './workspaceSelection.js';
 import { unopenedChats } from './unopenedChats.js';
+import { mergeAgentStatuses, nextAgentFlag, type AgentFlag } from './agentStatus.js';
+import { useRunningKey } from '../liveRuns.js';
 
 /** Short label for a window's title strip. */
 function paneTitle(pane: WbPane, sessions: SessionSummary[], terminals: TerminalInfo[]): string {
@@ -177,16 +180,6 @@ function projectOfWorkspace(w: Workspace, sessions: SessionSummary[], terminals:
   return undefined;
 }
 
-/** Fold an agent event into the per-session status (undefined = idle). */
-function statusFromEvent(type: AgentEvent['type']): AgentStatus | null {
-  switch (type) {
-    case 'tool_approval_required': return 'input';
-    case 'error': return 'error';
-    case 'done': return null;
-    default: return 'working';
-  }
-}
-
 export function WorkspacesView() {
   const {
     sessions, terminals, workspaces, activeWorkspaceId, settings, activeSessionId,
@@ -250,7 +243,15 @@ export function WorkspacesView() {
   };
   const archivedCount = useMemo(() => sessions.filter(isArchived).length, [sessions]);
 
-  const [statuses, setStatuses] = useState<Map<string, AgentStatus>>(new Map());
+  // Working comes from the app-wide live-run registry, which has seen every
+  // event since launch; input/error flags are folded here, seeded from the
+  // host so a question asked while this view was closed still shows.
+  const runningKey = useRunningKey();
+  const [flags, setFlags] = useState<Map<string, AgentFlag>>(new Map());
+  const statuses = useMemo(
+    () => mergeAgentStatuses(flags, runningKey ? runningKey.split('|') : []),
+    [flags, runningKey],
+  );
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -311,23 +312,36 @@ export function WorkspacesView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Derive each session's status (working / needs-input / error / idle) from its
-  // agent events for the sidebar cards + window strips, and surface freshly
-  // spawned sub-agents by refreshing the list when an unknown id appears.
+  useEffect(() => {
+    window.nekko.pendingInput().then((pending) => {
+      setFlags((prev) => {
+        const m = new Map(prev);
+        for (const id of Object.keys(pending)) if (!m.has(id)) m.set(id, 'input');
+        return m;
+      });
+    }).catch(() => {});
+  }, []);
+
+  // Fold the needs-input / error flags from agent events for the sidebar cards
+  // and window strips, and surface freshly spawned sub-agents by refreshing the
+  // list when an unknown id appears. A sub-agent's title and finished reply
+  // land on disk when its turn ends, so its `done` re-reads the list too.
   useEffect(() => {
     const known = new Set(sessions.map((s) => s.id));
+    const children = new Set(sessions.filter((s) => s.parentSessionId).map((s) => s.id));
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
-      const next = statusFromEvent(e.type);
-      setStatuses((prev) => {
-        // Most events (every token) leave the status as it was; keeping the
-        // same Map then means the view, and every pane in it, does not re-render.
-        if (next === null ? !prev.has(e.sessionId) : prev.get(e.sessionId) === next) return prev;
+      setFlags((prev) => {
+        const next = nextAgentFlag(prev.get(e.sessionId), e.type);
+        // Most events (every token) leave the flag as it was; keeping the same
+        // Map then means the view, and every pane in it, does not re-render.
+        if (prev.get(e.sessionId) === next) return prev;
         const m = new Map(prev);
-        if (next === null) m.delete(e.sessionId);
+        if (next === undefined) m.delete(e.sessionId);
         else m.set(e.sessionId, next);
         return m;
       });
       if (!known.has(e.sessionId)) { known.add(e.sessionId); refreshSessions(); }
+      else if (children.has(e.sessionId) && (e.type === 'done' || e.type === 'error')) refreshSessions();
     });
     return off;
   }, [sessions, refreshSessions]);
@@ -634,12 +648,13 @@ export function WorkspacesView() {
                           onClose={() => archiveWorkspace(w.id)}
                         />
                         {/* Sub-agents this chat spawned, one line each. */}
-                        {kids.map((kid) => (
+                        {kids.map((kid, i) => (
                           <SubAgentRow
                             key={kid.id}
                             session={kid}
                             status={statuses.get(kid.id)}
                             isActive={kid.id === activeSessionId}
+                            isLast={i === kids.length - 1}
                             onOpen={() => openChatPane(kid.id)}
                           />
                         ))}
@@ -875,29 +890,6 @@ function ArchivedList({
         );
       })}
     </div>
-  );
-}
-
-/** One sub-agent under its parent's card: a single line, no details of its own. */
-function SubAgentRow({
-  session, status, isActive, onOpen,
-}: {
-  session: SessionSummary; status: AgentStatus | undefined; isActive: boolean; onOpen: () => void;
-}) {
-  return (
-    <button
-      onClick={onOpen}
-      className={`flex w-full items-center gap-2 rounded-lg py-1 pl-6 pr-2 text-left text-[12px] transition-colors duration-150 ${
-        isActive ? 'bg-accent-soft text-ink' : 'text-ink-soft hover:bg-surface-2'
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`h-[5px] w-[5px] shrink-0 rounded-full bg-transparent ring-1 ${isActive ? 'ring-accent' : 'ring-ink-faint'}`}
-      />
-      <span className="min-w-0 flex-1 truncate">{session.title}</span>
-      {status && <StatusDot status={status} />}
-    </button>
   );
 }
 

@@ -311,6 +311,19 @@ export function useLiveRunsVersion(): number {
   }, () => version);
 }
 
+/**
+ * The ids of every session with a turn in flight, sorted and joined with `|`.
+ *
+ * A string so React compares it by value: a component re-renders when a run
+ * starts or ends, not on every streamed token like `useLiveRunsVersion` would.
+ */
+export function useRunningKey(): string {
+  return useSyncExternalStore((fn) => {
+    globalListeners.add(fn);
+    return () => globalListeners.delete(fn);
+  }, () => [...runs.keys()].sort().join('|'));
+}
+
 /** What a session is doing right now, in a few words. Empty when idle. */
 export function describeRun(sessionId: string): string {
   return describeLiveActivity(runs.get(sessionId)?.activity);
