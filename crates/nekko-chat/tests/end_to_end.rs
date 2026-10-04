@@ -115,7 +115,7 @@ async fn a_tool_round_trip_through_the_openai_compatible_provider() {
         .await;
 
     let kinds: Vec<&str> = events.iter().map(|e| e["type"].as_str().unwrap()).collect();
-    assert_eq!(kinds, ["tool_call", "tool_result", "text", "done"], "{events:?}");
+    assert_eq!(kinds, ["tool_call", "step", "tool_result", "text", "done"], "{events:?}");
     assert_eq!(events[0]["call"]["input"], json!({ "path": "src/app.ts" }));
     assert_eq!(history.len(), 4);
     assert_eq!(history[3]["content"], "It exports start.");
