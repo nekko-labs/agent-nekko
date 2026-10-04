@@ -590,6 +590,8 @@ export const useStore = create<UiState>((set, get) => ({
   selectProvider: async (id) => {
     set({ activeProviderId: id, models: [] });
     const models = await window.nekko.listModels(id);
+    // A slower catalog request must not overwrite a newer provider choice.
+    if (get().activeProviderId !== id) return;
     set({ models });
     // Keep the current model if this provider serves it, otherwise leave it
     // unset: a chat then asks which model to use instead of inheriting a guess.
@@ -597,9 +599,9 @@ export const useStore = create<UiState>((set, get) => ({
     // because a local server lists more than chat models - LM Studio's first
     // entry is often `whisper-large-v3`, which can't answer a chat turn at all.
     if (!models.some((m) => m.id === get().activeModelId)) set({ activeModelId: null });
-    // Remember as the default for new chats and next launch.
-    const activeModelId = get().activeModelId;
-    window.nekko.updateSettings({ defaultProviderId: id, ...(activeModelId ? { defaultModelId: activeModelId } : {}) });
+    // Loading or browsing a provider is not a model choice. Persist the pair
+    // only in selectModel, otherwise the old default model can be associated
+    // with an unrelated provider (including during startup).
   },
 
   reloadModels: async (providerId) => {
@@ -613,7 +615,11 @@ export const useStore = create<UiState>((set, get) => ({
 
   selectModel: (id) => {
     set({ activeModelId: id });
-    window.nekko.updateSettings({ defaultProviderId: get().activeProviderId ?? undefined, defaultModelId: id });
+    const defaultProviderId = get().activeProviderId;
+    if (!defaultProviderId) return;
+    void window.nekko.updateSettings({ defaultProviderId, defaultModelId: id })
+      .then((settings) => set({ settings }))
+      .catch((e) => get().pushToast('error', String(e)));
   },
 
   toggleContextPanel: () => set((s) => ({ contextPanelOpen: !s.contextPanelOpen })),
