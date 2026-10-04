@@ -14,6 +14,7 @@ import { classifyCommand } from '@agent-nekko/core';
 import { recordOriginal } from './changes.js';
 import { appendAgentTerminal } from './terminal.js';
 import { describeProcess, killProcess, listProcesses, readProcess, startProcess } from './processes.js';
+import { describeFetched, fetchUrl } from './web-fetch.js';
 
 const dedicatedBrowsers = new Set<string>();
 const browsers = new Map<string, { client: import('@browserbasehq/stagehand').Stagehand; mode: string; port?: number }>();
@@ -282,6 +283,17 @@ export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promis
         assertInJail(root, opts);
         if (!existsSync(root)) return err(call, `Path not found: ${root}`);
         return ok(call, grepFiles(root, a.pattern).slice(0, 100).join('\n') || '(no matches)');
+      }
+      case 'fetch_url': {
+        if (typeof a.url !== 'string' || !a.url.trim()) return err(call, 'A URL is required.');
+        // Reading a page is as safe as reading a file; only ask-everything asks.
+        if (asksEverything(opts) && !(await opts.requestApproval(call, `Fetch ${a.url}`, 'low'))) return err(call, 'Fetch not approved by user.');
+        try {
+          const page = await fetchUrl(a.url, { maxChars: typeof a.max_chars === 'number' ? a.max_chars : undefined, signal: opts.signal });
+          return ok(call, describeFetched(page));
+        } catch (e) {
+          return err(call, (e as Error).message);
+        }
       }
       case 'start_process': {
         if (typeof a.command !== 'string' || !a.command.trim()) return err(call, 'A command is required.');

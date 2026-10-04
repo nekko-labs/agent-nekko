@@ -124,6 +124,19 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: 'fetch_url',
+    description:
+      'Fetch a public http(s) URL and return its readable text: HTML is reduced to text with headings, lists and links kept, JSON and plain text come back as they are. One GET, 30 s, 2 MB, up to max_chars characters (default 20000). No scripts, logins or searches: use the browser tool for pages that need a real browser.',
+    parameters: {
+      type: 'object',
+      properties: {
+        url: { type: 'string' },
+        max_chars: { type: 'number', description: 'Characters of text to return (1000 to 100000).' },
+      },
+      required: ['url'],
+    },
+  },
+  {
     name: 'browser',
     description: 'Control a visible local Chromium browser. Every action requires user approval. Dedicated mode opens an isolated in-app Nekko browser window (use this by default); existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
     parameters: {
