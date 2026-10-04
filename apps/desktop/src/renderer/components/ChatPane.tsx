@@ -91,7 +91,7 @@ const NARROW_PANE = 620;
  * Unset means "grow with what's typed", which is where every composer starts.
  */
 const COMPOSER_H_KEY = 'nekko.composer.height';
-const COMPOSER_MIN_H = 52;
+const COMPOSER_MIN_H = 64;
 /** The conversation keeps at least this much of the pane, however tall the composer. */
 const TRANSCRIPT_MIN_H = 160;
 
@@ -580,8 +580,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<string | null>(null);
-  // What the model thinks the user will say next: one-click follow-up chips and
-  // the composer's ghost text. Pinned to the reply it was written for (forId) so
+  // What the model thinks the user will say next: the composer's ghost text.
+  // Pinned to the reply it was written for (forId) so
   // a newer turn can't inherit stale suggestions.
   const [suggestions, setSuggestions] = useState<{ forId: string; options: string[]; next: string | null } | null>(null);
   // A failed reply stays in the transcript with a retry, instead of vanishing
@@ -997,7 +997,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
    * Ask the model what the user might say next, then pin the answer to the
    * reply it was written for. Nice-to-have traffic: a provider hiccup, a
    * session with nothing to suggest from, or a malformed reply all just mean
-   * no chips this turn.
+   * no placeholder suggestion this turn.
    */
   const requestSuggestions = async () => {
     try {
@@ -1027,7 +1027,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     transcriptRef.current?.scrollToBottom('smooth');
   };
 
-  // Grow the composer with its content: reset to the 3-line minimum, then match
+  // Grow the composer with its content: reset to the two-line minimum, then match
   // the scroll height (CSS max-height caps it and lets it scroll past that).
   // A composer the user has sized keeps that size and scrolls instead.
   useEffect(() => {
@@ -1627,9 +1627,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     if (streaming || errorNotice || !session || dismissedInterruption === lastMsgId) return;
     if (lastReplyInterrupted(session.messages)) setErrorNotice(PERSISTED_INTERRUPTION);
   }, [session, streaming, errorNotice, lastMsgId, dismissedInterruption]);
-  // An interrupted turn needs a recovery action, not model-written follow-ups
-  // that may have been generated before the failure.
-  const suggestedOptions = errorNotice ? [] : liveSuggestions?.options ?? [];
   // The model's single most likely next message, shown as the composer's
   // placeholder while the box is empty; ArrowRight types it in.
   const ghostSuggestion = !draft && !errorNotice && liveSuggestions?.next ? liveSuggestions.next : null;
@@ -2406,29 +2403,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                   )}
                 </div>
               )}
-            {/* Model-written follow-ups to the reply above: one click sends it
-                outright, and starting any turn clears them. */}
-            {!imageMode && (canContinueReply || suggestedOptions.length > 0) && !streaming && (
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2.5" role="group" aria-label="Suggested replies">
-                {canContinueReply && (
-                  <button
-                    className={suggestedReplyClassName}
-                    title="Continue this reply, keeping the work already done"
-                    onClick={() => void resumeRun()}
-                  >
-                    Continue
-                  </button>
-                )}
-                {suggestedOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    className={suggestedReplyClassName}
-                    title={`Send: ${opt}`}
-                    onClick={() => { setSuggestions(null); void send(opt); }}
-                  >
-                    {opt}
-                  </button>
-                ))}
+            {/* Recovery is separate from the placeholder suggestion. */}
+            {!imageMode && canContinueReply && !streaming && (
+              <div className="flex items-center border-b border-line px-3 py-2.5">
+                <button
+                  className={suggestedReplyClassName}
+                  title="Continue this reply, keeping the work already done"
+                  onClick={() => void resumeRun()}
+                >
+                  Continue
+                </button>
               </div>
             )}
 
@@ -2491,7 +2475,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                   )}
                   <MarkdownEditor
                     ref={composerRef}
-                    className={`${composerH != null ? '' : 'max-h-60 '}relative ${compact ? 'min-h-[36px] py-2' : 'min-h-[52px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
+                    className={`${composerH != null ? '' : 'max-h-60 '}relative ${compact ? 'h-[56px] min-h-[56px] py-2' : 'h-[64px] min-h-[64px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
                     placeholder={imageMode ? 'Describe the image you want…' : streaming ? 'Queue a follow-up… (Ctrl/⌘+Enter steers the running reply)' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
                     value={draft}
                     aria-expanded={slashMenuOpen || atMenuOpen}

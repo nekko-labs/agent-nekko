@@ -414,6 +414,31 @@ describe('reply suggestions', () => {
     expect(requests).toEqual([]);
   });
 
+  it('checks bounded past user replies even when assistant messages fill the recent tail', async () => {
+    const session = replied();
+    session.messages = [
+      ...Array.from({ length: 10 }, (_, i) => ({
+        id: `user-${i}`, role: 'user' as const,
+        content: `Preference ${i}: ${'x'.repeat(900)}`, createdAt: i,
+      })),
+      ...Array.from({ length: 7 }, (_, i) => ({
+        id: `assistant-${i}`, role: 'assistant' as const,
+        content: `Progress ${i}`, createdAt: 10 + i,
+      })),
+    ];
+    saveSession(session);
+    await suggestReplies(session.id);
+    const prompt = suggestRequests[0].request.messages.at(-1)?.content ?? '';
+    expect(prompt).toContain('Past user replies (oldest first):');
+    expect(prompt).toContain('Preference 2:');
+    expect(prompt).toContain('Preference 9:');
+    expect(prompt).not.toContain('Preference 1:');
+    expect(prompt).not.toContain('x'.repeat(801));
+    expect(prompt).toContain('already answered, rejected');
+    expect(prompt).toContain('{"options":[],"next":"..."}');
+    expect(prompt.split('Recent conversation:')[1]).not.toContain('Preference');
+  });
+
   it('returns null when there is no reply to suggest from', async () => {
     const session = createSession();
     session.providerId = 'frontier';
