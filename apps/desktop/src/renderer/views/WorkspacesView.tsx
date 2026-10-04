@@ -3,7 +3,7 @@ import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFo
 import { AUTO_MODEL_ID, archiveDaysLeft, archiveDeletesAt, isArchived, parsePrUrl } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, type Workspace } from '../store.js';
-import { PaneVisibleContext } from '../paneVisibility.js';
+import { PaneVisibleContext, usePaneVisible } from '../paneVisibility.js';
 import { afterPaint } from '../afterPaint.js';
 import { allPanes, isSplit, type Direction, type WbNode, type WbPane } from '../layout.js';
 import { ChatPane } from '../components/ChatPane.js';
@@ -17,6 +17,7 @@ import { ContextInspector } from '../components/ContextInspector.js';
 import { ExplorerPane } from '../components/ExplorerPane.js';
 import { PaneFrame } from '../components/PaneFrame.js';
 import { Divider } from '../components/Divider.js';
+import { runningSessionIds } from '../liveRuns.js';
 import { StatusDot, WorkspaceCard, type AgentStatus } from '../components/WorkspaceCard.js';
 import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
@@ -251,7 +252,19 @@ export function WorkspacesView() {
   };
   const archivedCount = useMemo(() => sessions.filter(isArchived).length, [sessions]);
 
-  const [statuses, setStatuses] = useState<Map<string, AgentStatus>>(new Map());
+  // Seeded from the app-wide fold of agent events, so a chat already working
+  // is marked so on the first frame; the host confirms on mount for runs that
+  // began before this window did.
+  const [statuses, setStatuses] = useState<Map<string, AgentStatus>>(() => new Map(runningSessionIds().map((id) => [id, 'working' as AgentStatus])));
+  useEffect(() => {
+    window.nekko.runningSessions().then((ids) => setStatuses((prev) => {
+      const missing = ids.filter((id) => !prev.has(id));
+      if (missing.length === 0) return prev;
+      const m = new Map(prev);
+      for (const id of missing) m.set(id, 'working');
+      return m;
+    })).catch(() => {});
+  }, []);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
@@ -918,6 +931,8 @@ function WorkspaceCanvas({
   statuses: Map<string, AgentStatus>;
   projects: WorkspaceFolder[];
 }) {
+  // The whole tab may be hidden behind the Command Center; a workspace is on screen only when the tab is.
+  const tabVisible = usePaneVisible();
   const [dragging, setDragging] = useState<string | null>(null);
   const {
     splitPane, movePane, swapPanes, closePane, setActivePane, canSplitPane, resizePanes,
@@ -1052,7 +1067,7 @@ function WorkspaceCanvas({
       style={{ gap: 'var(--pane-gap)', zIndex: hidden ? 0 : 1, contentVisibility: hidden ? 'hidden' : 'visible' }}
       aria-hidden={hidden || undefined}
     >
-      <PaneVisibleContext.Provider value={!hidden}>{renderNode(workspace.root!)}</PaneVisibleContext.Provider>
+      <PaneVisibleContext.Provider value={!hidden && tabVisible}>{renderNode(workspace.root!)}</PaneVisibleContext.Provider>
     </div>
   );
 }

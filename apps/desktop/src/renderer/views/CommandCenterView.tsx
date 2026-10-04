@@ -4,6 +4,7 @@ import type { AgentType } from '@agent-nekko/shared';
 import { classifyAgent, classifySession, formatUSD, summarizeSession } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
+import { runningSessionIds } from '../liveRuns.js';
 import { Toggle } from '../components/primitives/index.js';
 import { BoltIcon, ChatIcon, GridIcon, LayoutIcon, PlusIcon, TerminalIcon } from '../icons.js';
 import { CommandWall } from '../components/CommandWall.js';
@@ -53,7 +54,11 @@ export function CommandCenterView() {
     })),
   );
   const [usage, setUsage] = useState<UsageSummary | null>(null);
-  const [running, setRunning] = useState<Set<string>>(new Set());
+  // Which chats are mid-turn. Seeded from the app-wide fold of agent events,
+  // so a chat that was already working shows as working on the first frame
+  // rather than idle until its next token; the host confirms the set on
+  // mount, for runs that began before this window did.
+  const [running, setRunning] = useState<Set<string>>(() => new Set(runningSessionIds()));
   const [tasks, setTasks] = useState<AutomationTask[]>([]);
   // What each chat is waiting on a person for, read from the host so a question
   // asked while this screen was closed shows on its window when it opens.
@@ -99,6 +104,7 @@ export function CommandCenterView() {
     Promise.all([refreshSessions(), refreshTerminals()]).finally(() => setListsReady(true));
     window.nekko.listTasks().then(setTasks).catch(() => setTasks([]));
     window.nekko.pendingInput().then(setPending).catch(() => {});
+    window.nekko.runningSessions().then((ids) => setRunning((r) => (ids.every((id) => r.has(id)) ? r : new Set([...r, ...ids])))).catch(() => {});
     const off = window.nekko.onTasksUpdated(setTasks);
     return off;
   }, [refreshSessions, refreshTerminals]);

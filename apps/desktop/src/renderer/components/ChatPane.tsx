@@ -1864,6 +1864,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     () => (messages ? toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls, prs) : []),
     [messages, prs],
   );
+  // Every PR the transcript mentions, scanned once per transcript: the scan is
+  // a regular expression over every message, and it used to run on every
+  // render of the pane, including each streaming frame.
+  const sessionPrUrls = useMemo(() => (messages ? collectSessionPrUrls(messages) : []), [messages]);
   const prByUrl = useMemo(() => new Map(prs.map((p) => [p.url, p])), [prs]);
   // Handlers handed to rows go through refs, so a row never re-renders because
   // this pane re-rendered.
@@ -2126,12 +2130,18 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
           <div className="composer-column mx-auto w-[90%]">
-            <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={messages ? collectSessionPrUrls(messages) : []} />
+            <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
             {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
               <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>
             ))}
-            <div className={streaming ? 'composer composer-beam' : 'composer'}>
+            <div className="composer relative">
+            {/* While the agent works, a violet→cyan beam laps the border. The
+                gradient is a square that rotates on the compositor, clipped
+                to the ring by the mask on its wrapper; animating the gradient
+                angle itself repainted the whole composer every frame, in every
+                working window on the wall at once. */}
+            {streaming && <span className="composer-beam-ring" aria-hidden><span className="composer-beam-spin" /></span>}
             {compact && (
               <div className="composer-summary">
                 <button
