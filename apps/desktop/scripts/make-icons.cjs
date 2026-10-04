@@ -17,10 +17,11 @@
 const { app, BrowserWindow, nativeImage } = require('electron');
 const { writeFileSync } = require('fs');
 const { join } = require('path');
-const { iconSvg, bannerSvg } = require('./icon-art.cjs');
+const { iconSvg, bareMarkSvg, bannerSvg, TILE } = require('./icon-art.cjs');
 
 const BUILD = join(__dirname, '..', 'build');
 const PUBLIC = join(__dirname, '..', 'src', 'renderer', 'public');
+const MOBILE = join(__dirname, '..', '..', 'mobile', 'assets', 'images');
 const SIZES = [16, 24, 32, 48, 64, 128, 256];
 
 /**
@@ -160,8 +161,18 @@ app.whenReady().then(async () => {
   );
   writeFileSync(join(BUILD, 'installerSidebar.bmp'), toBmp24(sidebar));
 
+  // The phone app (Expo) takes PNGs: the tile for the iOS/app icon and the web
+  // favicon, and bare layers for Android's adaptive icon and the splash.
+  writeFileSync(join(MOBILE, 'icon.png'), await render(win, 1024));
+  writeFileSync(join(MOBILE, 'favicon.png'), await render(win, 48));
+  const bare = (px, opts) => shoot(win, (rw) => bareMarkSvg(rw, opts), px, px);
+  writeFileSync(join(MOBILE, 'splash-icon.png'), (await bare(512, { inset: 0.8 })).toPNG());
+  writeFileSync(join(MOBILE, 'android-icon-foreground.png'), (await bare(512, { inset: 0.5 })).toPNG());
+  writeFileSync(join(MOBILE, 'android-icon-monochrome.png'), (await bare(512, { inset: 0.5, color: '#ffffff' })).toPNG());
+  writeFileSync(join(MOBILE, 'android-icon-background.png'), (await bare(512, { inset: 0, background: TILE })).toPNG());
+
   console.log(
-    `wrote icon.svg, icon.png (512), icon.ico (${SIZES.join(', ')}), renderer icon.svg + icon-512.png, and the two installer BMPs`,
+    `wrote icon.svg, icon.png (512), icon.ico (${SIZES.join(', ')}), renderer icon.svg + icon-512.png, the two installer BMPs, and the phone app's icons`,
   );
   win.destroy();
   app.quit();

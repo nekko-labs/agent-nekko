@@ -24,8 +24,12 @@ export type Direction = 'up' | 'down' | 'left' | 'right';
  */
 export type DropTarget = Direction | 'swap';
 
-/** What a single window shows. */
-export type PaneKind = 'chat' | 'terminal' | 'file' | 'files' | 'browser' | 'diff' | 'pr' | 'hypergate';
+/**
+ * What a single window shows. The last two exist only on the Command Center
+ * wall, where the automations list and the insights box are windows you place
+ * like any other.
+ */
+export type PaneKind = 'chat' | 'terminal' | 'file' | 'files' | 'browser' | 'diff' | 'pr' | 'hypergate' | 'automations' | 'insights';
 
 /** A leaf: one window. */
 export interface WbPane {
