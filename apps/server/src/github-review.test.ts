@@ -34,6 +34,15 @@ async function fixture(options: { current?: any; initial?: any; files?: any; lin
 }
 
 describe('GitHub review', () => {
+  it('rate limits unauthenticated requests before API or model work', async () => {
+    const f = await fixture();
+    try {
+      for (let i = 0; i < 30; i++) expect((await f.send(event(), `invalid-${i}`, 'invalid')).statusCode).toBe(401);
+      expect((await f.send()).statusCode).toBe(429);
+      expect(f.client.installationToken).not.toHaveBeenCalled();
+      expect(f.reviewer).not.toHaveBeenCalled();
+    } finally { await f.app.close(); }
+  });
   it('verifies exact bytes and only recognizes explicit top-level commands', () => {
     const raw = Buffer.from('{ "a": 1 }');
     const sig = `sha256=${createHmac('sha256', 's').update(raw).digest('hex')}`;
