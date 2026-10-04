@@ -542,6 +542,35 @@ function parseAnthropicCredits(
   return { creditsBalance: Math.max(0, limit - spent), creditsState: 'balance' };
 }
 
+/** WHAM slots are not periods: even primary can be the weekly window. */
+function describeChatGptWindow(
+  key: 'primary_window' | 'secondary_window',
+  duration: unknown,
+): Pick<LimitWindow, 'id' | 'label' | 'scope'> {
+  const slot = key === 'primary_window' ? 'primary' : 'secondary';
+  if (typeof duration !== 'number' || !Number.isSafeInteger(duration) || duration <= 0) {
+    // The shared shape has no unknown scope; session is a compatibility fallback,
+    // not a claim about the period. Never infer a duration from the slot/reset.
+    return { id: slot, label: `${titleCase(slot)} usage`, scope: 'session' };
+  }
+  if (duration === 18_000) return { id: '5h', label: '5-hour', scope: 'session' };
+  if (duration === 604_800) return { id: '7d', label: '7-day', scope: 'weekly' };
+
+  const units = [
+    { seconds: 86_400, suffix: 'd', label: 'day' },
+    { seconds: 3_600, suffix: 'h', label: 'hour' },
+    { seconds: 60, suffix: 'm', label: 'minute' },
+    { seconds: 1, suffix: 's', label: 'second' },
+  ];
+  const unit = units.find((u) => duration % u.seconds === 0)!;
+  const count = duration / unit.seconds;
+  return {
+    id: `${count}${unit.suffix}`,
+    label: `${count}-${unit.label}`,
+    scope: duration >= 604_800 ? 'weekly' : 'session',
+  };
+}
+
 function parseChatGptUsage(json: Record<string, unknown>): SubscriptionLimits {
   const windows: LimitWindow[] = [];
   const rateLimit = json.rate_limit as Record<string, unknown> | undefined;
@@ -566,12 +595,7 @@ function parseChatGptUsage(json: Record<string, unknown>): SubscriptionLimits {
     const allowed = rateLimit.allowed === true;
     const limitReached = rateLimit.limit_reached === true;
 
-    const addWindow = (
-      key: 'primary_window' | 'secondary_window',
-      id: string,
-      scope: LimitWindow['scope'],
-      label: string,
-    ) => {
+    const addWindow = (key: 'primary_window' | 'secondary_window') => {
       const win = rateLimit[key] as Record<string, unknown> | undefined;
       if (!win) return;
 
@@ -592,17 +616,15 @@ function parseChatGptUsage(json: Record<string, unknown>): SubscriptionLimits {
       }
 
       windows.push({
-        id,
-        label,
-        scope,
+        ...describeChatGptWindow(key, win.limit_window_seconds),
         usedPercent: clampPercent(usedPercent),
         resetAt,
         status,
       });
     };
 
-    addWindow('primary_window', '5h', 'session', '5-hour');
-    addWindow('secondary_window', '7d', 'weekly', '7-day');
+    addWindow('primary_window');
+    addWindow('secondary_window');
   }
 
   return { windows, planType, creditsBalance, creditsState, updatedAt: Date.now(), staleAfterMs: POLL_STALE_MS };
