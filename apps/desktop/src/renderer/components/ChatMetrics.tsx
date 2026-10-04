@@ -7,7 +7,9 @@ import { sourceMeta } from '../contextSources.js';
 
 const FREE_COLOR = 'var(--surface-2)';
 
-const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
+export const formatContextTokens = (n: number) => n >= 1_000_000
+  ? `${Number((n / 1_000_000).toFixed(1))}m`
+  : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`;
 
 /**
  * `n.toLocaleString()`, with the formatter built once. The gauge repaints as a
@@ -89,7 +91,7 @@ export function ContextGauge({
       >
         <span className="font-medium text-ink-soft">Context{!windowReported && windowTokens ? ' ~' : ''}</span>
         <span className="tabular-nums">
-          {fmt(used)}{windowTokens ? ` / ${fmt(windowTokens)}` : ''}
+          {formatContextTokens(used)}{windowTokens ? ` / ${formatContextTokens(windowTokens)}` : ''}
         </span>
         <span className="h-1.5 w-14 overflow-hidden rounded-full" style={{ background: 'var(--surface-2)' }}>
           <span

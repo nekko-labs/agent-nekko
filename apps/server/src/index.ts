@@ -13,6 +13,8 @@ import { runCli } from 'agent-nekko/run';
 import { isLoopbackHost, tokenMatches, validateBindSecurity } from './security.js';
 import { createApiSecurityHook } from './request-security.js';
 import { registerWebhookRoutes } from './webhooks.js';
+import { reviewRepository } from '@agent-nekko/host';
+import { githubReviewConfig, registerGitHubReviewRoutes, ReviewReplayLedger } from './github-review.js';
 
 /** Subcommands handled by the embedded CLI (so `npx agent-nekko mcp|chat|…` works). */
 const CLI_SUBCOMMANDS = new Set([
@@ -135,6 +137,8 @@ async function main() {
 
   // Inbound workflow webhook endpoint: per-trigger secret auth, 10 MB body cap, rate limit.
   registerWebhookRoutes(app, host);
+  const githubConfig = githubReviewConfig(env);
+  if (githubConfig) registerGitHubReviewRoutes(app, githubConfig, reviewRepository, new ReviewReplayLedger(DATA_DIR));
 
   // Stream agent + index events over a WebSocket.
   app.get('/api/events', { websocket: true }, (socket: any, req) => {
