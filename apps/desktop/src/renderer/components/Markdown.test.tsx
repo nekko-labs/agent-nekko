@@ -6,6 +6,17 @@ import { Markdown, markdownSegments, renderWhole, safeHref } from './Markdown.js
 const html = (text: string) => renderToStaticMarkup(<Markdown text={text} />);
 
 describe('Markdown', () => {
+  it('renders the reported GitHub PR reply as a labeled link', () => {
+    const out = html('Yes—the GitHub integration is in [PR #309](https://github.com/nekko-labs/agent-nekko/pull/309). It’s an open draft with passing checks, not merged or verified against a live GitHub installation.');
+    expect(out).toContain('href="https://github.com/nekko-labs/agent-nekko/pull/309"');
+    expect(out).not.toContain('[PR #309]');
+  });
+  it('renders links nested inside emphasis without losing surrounding links', () => {
+    const out = html('**[PR #309](https://github.com/nekko-labs/agent-nekko/pull/309)** and *[docs](https://example.com/docs)* then [next](https://example.com/next)');
+    expect(out.match(/href=/g)).toHaveLength(3);
+    expect(out).not.toContain('[PR #309]');
+  });
+
   it('turns a dashed run glued to a sentence into a real list', () => {
     // The shape people actually type into the composer: a lead-in line with no
     // blank line before the dashes.

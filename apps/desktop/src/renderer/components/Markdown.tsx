@@ -439,18 +439,20 @@ function inline(s: string, ctx: Ctx): React.ReactNode {
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
-  INLINE_RE.lastIndex = 0;
-  while ((m = INLINE_RE.exec(s))) {
+  // Each inline walk owns its cursor: nested emphasis must not reset the
+  // parent's scan and repeat or skip later links.
+  const pattern = new RegExp(INLINE_RE.source, INLINE_RE.flags);
+  while ((m = pattern.exec(s))) {
     if (m.index > last) nodes.push(s.slice(last, m.index));
     const [, imgAlt, imgSrc, bold, italic, strike, code, linkText, linkHref, bareUrl] = m;
     if (imgSrc !== undefined) {
       nodes.push(<ImageRef key={key++} alt={imgAlt ?? ''} src={imgSrc} basePath={ctx.basePath} />);
     } else if (bold !== undefined) {
-      nodes.push(<strong key={key++}>{bold}</strong>);
+      nodes.push(<strong key={key++}>{inline(bold, ctx)}</strong>);
     } else if (italic !== undefined) {
-      nodes.push(<em key={key++}>{italic}</em>);
+      nodes.push(<em key={key++}>{inline(italic, ctx)}</em>);
     } else if (strike !== undefined) {
-      nodes.push(<s key={key++} className="text-ink-faint">{strike}</s>);
+      nodes.push(<s key={key++} className="text-ink-faint">{inline(strike, ctx)}</s>);
     } else if (code !== undefined) {
       nodes.push(
         <code key={key++} className="rounded-sm px-1 py-0.5 font-mono text-[13px]" style={{ background: 'var(--surface-2)' }}>
