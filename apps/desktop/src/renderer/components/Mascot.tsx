@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useStore } from '../store.js';
 
 export type MascotMood = 'idle' | 'waving' | 'thinking';
 
@@ -351,6 +352,7 @@ export function NekkoAvatar({ size = 28, title }: { size?: number; title?: strin
  * stretch, bug-watch, or sleep pose.
  */
 export function Mascot({ mood, enabled }: { mood: MascotMood; enabled: boolean }) {
+  const autumn = useStore((s) => s.settings?.themePreset === 'autumn');
   const [peek, setPeek] = useState(false);
   const [hovering, setHovering] = useState(false);
   const [pose, wake] = useMascotPose(mood, enabled);
@@ -412,6 +414,16 @@ export function Mascot({ mood, enabled }: { mood: MascotMood; enabled: boolean }
               {pose === 'bug' && <BugPose />}
               {pose === 'waking' && <StandPose />}
             </g>
+            {autumn && (
+              <g data-season="autumn" strokeWidth="1.4" strokeLinejoin="round">
+                <path d="M91 72q-2-5 2-8" stroke="#71804a" />
+                <ellipse cx="91" cy="79" rx="10" ry="9" fill="#e59336" stroke="#a95a26" />
+                <ellipse cx="91" cy="79" rx="5" ry="9" stroke="#b96929" />
+                <path d="m86 77 2-2 2 2m3 0 2-2 2 2m-9 5q3 3 6 0" stroke="#744729" />
+                <path d="M18 68q-9-2-7-10 9 0 7 10Z" fill="#cd7130" stroke="#a95a26" />
+                <path d="m12 59 7 11" stroke="#744729" />
+              </g>
+            )}
             </g>
           </svg>
         </div>

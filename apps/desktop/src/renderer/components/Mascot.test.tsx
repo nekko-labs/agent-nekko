@@ -4,6 +4,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { Mascot, MiniNekko, NekkoAvatar } from './Mascot.js';
 import { LANGUAGES, translate } from '../i18n.js';
+import { useStore } from '../store.js';
+import { BrandMark } from './BrandMark.js';
 
 vi.mock('../store.js', () => ({ useStore: vi.fn() }));
 
@@ -26,6 +28,21 @@ function renderPose(pose: string): string {
     poseOverride.value = null;
   }
 }
+
+describe('Fall decorations', () => {
+  it('adds seasonal artwork only when the Fall preset is selected', () => {
+    try {
+      vi.mocked(useStore).mockReturnValue(true);
+      expect(renderToStaticMarkup(<BrandMark />)).toContain('data-season="autumn"');
+      expect(renderPose('lying')).toContain('data-season="autumn"');
+      vi.mocked(useStore).mockReturnValue(false);
+      expect(renderToStaticMarkup(<BrandMark />)).not.toContain('data-season="autumn"');
+      expect(renderPose('lying')).not.toContain('data-season="autumn"');
+    } finally {
+      vi.mocked(useStore).mockReset();
+    }
+  });
+});
 
 const OLD_BODY_PATHS = [
   'M 27 50 C 33 42 46 40 61 44',
