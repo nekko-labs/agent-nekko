@@ -122,7 +122,9 @@ export function useRemoteChat(sessionId: string): ChatModel {
     question: turn.question,
     error: loadError ?? turn.error,
     blocked,
-    queued: session?.queue,
+    // Queue entries may carry attachments and skills now (QueuePayload); the
+    // phone shows the text of each.
+    queued: session?.queue?.map((q) => (typeof q === 'string' ? q : q.text)),
     rate: turn.rate,
     send,
     stop: () => void remote().call(Channels.chatAbort, sessionId).catch(() => {}),
