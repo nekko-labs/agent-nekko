@@ -184,7 +184,12 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     const openSel = `button[title="Open ${title}"]`;
     // Each chat is a live window on the wall; its strip's "Open" button takes it to the Agent tab.
     await waitFor(`!!document.querySelector('button[title^="Open Perf chat"]')`, 'the wall');
-    await clickEl(openSel, null, `the window for ${title}`);
+    // Setup is not measured. Dispatch on the exact Open control rather than
+    // sampling coordinates while the wall is still settling its geometry.
+    await cdp.call((selector) => document.querySelector(selector)?.click(), openSel);
+    // The wall already contains this transcript. It cannot prove the Open
+    // gesture navigated to the Agent tab, whose sidebar switching is measured.
+    await waitFor("!!document.querySelector('button[data-sidebar-group]')", 'the Agent tab sidebar');
     const ok = await cdp.call((t, m) => window.__perf.waitForChat(t, m, 30000), title, marker);
     if (!ok) {
       const seen = await cdp.call((t, m) => {
@@ -207,6 +212,10 @@ async function openApp({ appUrl, cdpPort, vsync }) {
   const switchTo = async (i) => {
     await cdp.call((t, m) => window.__perf.armSwitch(t, m), chatTitle(i), lastMarker(i));
     const title = chatTitle(i);
+    // Setup navigation leaves the pointer over the expanding app rail, which
+    // can cover the Agents sidebar. Move off it before locating a measured card.
+    await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: CFG.viewport.width - 20, y: 20 });
+    await sleep(350);
     let at = await find('div[role="button"]', title, 30);
     if (!at) {
       // The card is there but hidden in a collapsed group. Active chats without
@@ -215,6 +224,11 @@ async function openApp({ appUrl, cdpPort, vsync }) {
       at = await find('div[role="button"]', title, 20);
     }
     if (!at) throw new Error(`could not find the sidebar card for ${title}: ${JSON.stringify(await sidebarState())}`);
+    // Scroll/reflow may move the sidebar row after locate scrolls it. Resolve
+    // its final hit point before dispatching the measured input event.
+    await cdp.evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    at = await cdp.call(locate, 'div[role="button"]', title);
+    if (!at) throw new Error('sidebar card disappeared before measured switch: ' + title);
     await clickAt(at);
     let res = null;
     for (let k = 0; k < 800 && !res; k++) {
