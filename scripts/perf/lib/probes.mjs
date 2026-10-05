@@ -16,14 +16,14 @@ const HELPERS = String.raw`
     ch.port1.onmessage = () => fn(performance.now());
     ch.port2.postMessage(0);
   });
-  // The on-screen window whose title strip reads "title" and whose composer is
-  // visible: that is the chat's frame, painted.
+  // Transcript-only wall windows have a separate shared composer. Locate the
+  // titled transcript itself; a composer is not evidence that history painted.
   const visiblePanel = (title) => {
-    for (const ta of document.querySelectorAll('textarea, .composer [contenteditable]')) {
-      if (!ta.checkVisibility()) continue;
-      const panel = ta.closest('.panel');
-      const strip = panel && panel.firstElementChild && panel.firstElementChild.querySelector('span.truncate');
-      if (strip && strip.textContent === title) return panel;
+    for (const panel of document.querySelectorAll('.panel')) {
+      if (!panel.checkVisibility()) continue;
+      const strip = panel.firstElementChild?.querySelector('span.truncate');
+      const scroller = panel.querySelector('[data-transcript-scroll]');
+      if (strip?.textContent === title && scroller?.checkVisibility()) return panel;
     }
     return null;
   };

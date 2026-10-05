@@ -47,12 +47,12 @@ function bindingWindow(limits: SubscriptionLimits | undefined): LimitWindow | un
   return [...(limits?.windows ?? [])].sort((a, b) => b.usedPercent - a.usedPercent)[0];
 }
 
-export function ProviderLimitsDock() {
+export function ProviderLimitsDock({ standalone = false }: { standalone?: boolean } = {}) {
   const providers = useStore((s) => s.providers);
   const [open, setOpen] = useState(() => {
     if (typeof window === 'undefined') return true;
     try {
-      return window.localStorage.getItem(DOCK_OPEN_KEY) !== 'off';
+      return standalone || window.localStorage.getItem(DOCK_OPEN_KEY) !== 'off';
     } catch {
       return true;
     }
@@ -85,7 +85,7 @@ export function ProviderLimitsDock() {
     };
   });
 
-  if (rows.length === 0) return null;
+  if (rows.length === 0) return standalone ? <p className="p-4 text-sm text-ink-faint">No enabled subscription or API providers. Add a provider to see its usage limits.</p> : null;
 
   // The single most-spent window anywhere, which is the headline when collapsed.
   const worst = rows
