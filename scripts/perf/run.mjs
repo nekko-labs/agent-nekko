@@ -187,12 +187,18 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     await clickEl(openSel, null, `the window for ${title}`);
     const ok = await cdp.call((t, m) => window.__perf.waitForChat(t, m, 30000), title, marker);
     if (!ok) {
-      const seen = await cdp.call((t) => {
+      const seen = await cdp.call((t, m) => {
         const p = window.__perf.panel(t);
-        const s = p?.querySelector('.overflow-y-auto');
         const ai = p ? [...p.querySelectorAll('.msg-ai')] : [];
-        return { panel: !!p, visible: p?.checkVisibility(), rows: p?.querySelectorAll('[data-vt-key]').length, last: ai.pop()?.textContent.slice(0, 80), gap: s ? s.scrollHeight - s.scrollTop - s.clientHeight : null };
-      }, title);
+        const last = ai.pop();
+        const s = last?.closest('.overflow-y-auto') ?? p?.querySelector('.overflow-y-auto');
+        const rect = (el) => { const r = el?.getBoundingClientRect(); return r ? { top: r.top, bottom: r.bottom, width: r.width, height: r.height } : null; };
+        return { panel: !!p, visible: p?.checkVisibility(), rows: p?.querySelectorAll('[data-vt-key]').length,
+          last: last?.textContent.slice(0, 80), textLength: last?.textContent.length, markerPresent: last?.textContent.includes(m),
+          panelRect: rect(p), replyRect: rect(last), scrollerRect: rect(s),
+          scrollHeight: s?.scrollHeight, scrollTop: s?.scrollTop, clientHeight: s?.clientHeight,
+          gap: s ? s.scrollHeight - s.scrollTop - s.clientHeight : null };
+      }, title, marker);
       throw new Error(`${title} never showed its newest message: ${JSON.stringify(seen)}`);
     }
   };

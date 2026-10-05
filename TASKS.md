@@ -1129,6 +1129,26 @@ Technical approach: independent approval policy and session environment; default
 - [x] Widen the composer and attach questions with opening/closing motion and reduced-motion support. Done: 2026-10-03. Desktop typecheck/build and question tests pass.
 - [ ] Complete matched base-branch screenshots for every changed surface, native smoke testing, and batch command integration verification before merge.
 
+## Resource queue foundation
+- [x] Experimental toggle, host outbound transport and manual queue UI implemented in draft.
+- [ ] OS secret storage, per-client identities, durable lease recovery and independent result verification.
+- [ ] Visual evidence and live Fly/getsu test.
+
+- [x] Restrict chat PR discovery and native summaries to successful creation tool results; add regression tests for references and failed calls.
+
+- [x] Composer-attached slim PR deck and reduced-motion-safe expand/retract animations; rendering and ownership tests pass.
+- [ ] Capture matched before/after desktop evidence and short PR deck motion recording before merging.
+
+- [x] Rename seasonal picker label to Spooky, group under Fun!, gate seasonal PR confetti on theme and add composer-only orange wizard hat. 32 focused tests and desktop typecheck passed.
+- [ ] Matched desktop screenshots for theme switching, Fun! picker and composer wizard hat.
+
+- [x] Preserve explicit text on resume and announce saved user turns to wall transcript panes. Checkpoint and transcript tests pass; interactive wall reproduction remains unverified.
+
+- [x] Reject quoted/scripted creation examples and mixed shell results; reconcile host/native ownership golden fixtures. 28 source-routed TS tests and 12 Rust tests pass.
+
+- [x] Bounded same-child recovery for transient delegation failures; preserve actual cause and checkpoint handoff. 80 host recovery/routing tests pass.
+- [ ] Durable restart reconciliation and completion-aware supervision; live-but-hung tools need phase-aware deadlines that never bypass approvals.
+
 
 ## DK - Command Center dock and animated layouts
 - [x] DK-1: Persisted state, migration, dock and view controls; 38 focused tests and desktop typecheck.
