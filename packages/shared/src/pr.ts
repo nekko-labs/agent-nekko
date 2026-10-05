@@ -85,25 +85,27 @@ export function parsePrUrl(url: string): { owner: string; repo: string; number: 
   return { owner: m[1], repo: m[2], number: Number(m[3]) };
 }
 
-/** Collect the PR URLs referenced anywhere in a chat's messages (content + tool output). */
-export function collectSessionPrUrls(
-  messages: Array<{
-    role?: string;
-    content?: string;
-    toolCalls?: Array<{ id: string; name: string }>;
-    toolResult?: { toolCallId?: string; output?: string };
-  }>,
-): string[] {
-  // Reading source and search matches can expose example PR URLs in tests/docs.
-  // Those are context, not PRs created or discussed by this conversation.
-  const contextTools = new Set(['read_file', 'grep', 'glob', 'list_dir']);
-  const calls = new Map(messages.flatMap((m) => (m.toolCalls ?? []).map((c) => [c.id, c.name] as const)));
+/** Only successful PR-creation tool results attach PRs to this chat. */
+export function collectSessionPrUrls(messages: Array<{
+  role?: string; content?: string;
+  toolCalls?: Array<{ id: string; name: string; input?: Record<string, unknown> }>;
+  toolResult?: { toolCallId?: string; output?: string; isError?: boolean };
+}>): string[] {
+  const calls = new Map(messages.flatMap(m => (m.toolCalls ?? []).map(c => [c.id, c] as const)));
   const urls = new Set<string>();
   for (const m of messages) {
-    const name = m.toolResult?.toolCallId ? calls.get(m.toolResult.toolCallId) : undefined;
-    if (name && contextTools.has(name)) continue;
-    for (const u of extractPrUrls(m.content ?? '')) urls.add(u);
-    if (m.toolResult?.output) for (const u of extractPrUrls(m.toolResult.output)) urls.add(u);
+    const result = m.toolResult;
+    const call = result?.toolCallId ? calls.get(result.toolCallId) : undefined;
+    if (!call || result?.isError || call.name !== 'bash') continue;
+    const command = String(call.input?.command ?? '');
+    const create = /\bgh\s+pr\s+create\b/.test(command);
+    const api = /\bgh\s+api\s+[^\s]*repos\/[^\s]+\/pulls(?:\s|$)/.test(command)
+      && /(?:-X|--method)\s+POST\b/.test(command);
+    if (!create && !api) continue;
+    for (const line of (result?.output ?? '').split('\n')) {
+      const value = line.trim();
+      if (/^https?:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+$/.test(value)) urls.add(value);
+    }
   }
   return [...urls];
 }
