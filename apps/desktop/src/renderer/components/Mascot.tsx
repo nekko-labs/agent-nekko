@@ -28,6 +28,7 @@ function usePageHidden() {
   return hidden;
 }
 
+
 export function NekkoAvatar({ size = 28, title }: { size?: number; title?: string }) {
   const hidden = usePageHidden();
   return (

@@ -1,6 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+vi.hoisted(function () { Object.assign(globalThis, { window: {}, localStorage: { getItem: function () { return null; } } }); });
 import { ArtifactPreview, isolatedDocument, MermaidDiagram } from './ArtifactPreview.js';
 import { Markdown } from './Markdown.js';
 

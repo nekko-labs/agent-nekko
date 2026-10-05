@@ -20,6 +20,7 @@ describe('Pixel Nekko', () => {
   });
 
   it.each([16, 18, 24, 28, 40, 64])('keeps a square grid at %spx', (size) => {
+
     const markup = renderToStaticMarkup(<NekkoAvatar size={size} />);
     expect(markup).toContain(`width="${size}" height="${size}"`);
     expect(markup).toContain('viewBox="0 0 32 32"');
@@ -34,6 +35,7 @@ describe('Pixel Nekko', () => {
       expect(markup.match(/data-part="pixel-head"/g)).toHaveLength(1);
       for (const eye of ['open', 'happy', 'closed']) expect(markup).toContain(`pixel-eyes-${eye}`);
       expect(markup).not.toMatch(/sunglasses|earpiece|collar|tie|slender-body|filter=/);
+
     }
   });
 
