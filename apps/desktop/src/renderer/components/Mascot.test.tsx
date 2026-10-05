@@ -53,7 +53,7 @@ describe('Nekko branding', () => {
   it('keeps the mini working indicator and full activity poses', () => {
     const mini = renderToStaticMarkup(<MiniNekko />);
     expect(mini).toContain('nekko-mini-float');
-    expect(mini).toContain('nekko-orbit');
+    expect(mini).toContain('data-part="pixel-head"');
     const waking = renderToStaticMarkup(<Mascot mood="idle" enabled />);
     expect(waking).toContain('data-mascot-pose="waking"');
     expect(waking).toContain('aria-label="Nekko is getting up"');
@@ -136,10 +136,11 @@ describe('Nekko branding', () => {
     expect(markup).toContain(`width="${size}" height="${size}"`);
     expect(markup).toContain('aria-hidden="true"');
     expect(markup).toContain('focusable="false"');
-    expect(markup).toContain('data-mascot-accessory="sunglasses"');
-    expect(markup).toContain('data-mascot-accessory="earpiece"');
-    expect(markup).toContain('#f0a35e');
-    expect(markup).toContain('nekko-orbit');
+    expect(markup).toContain('data-part="pixel-head"');
+    expect(markup).toContain('shape-rendering="crispEdges"');
+    expect(markup).toContain('viewBox="0 0 32 32"');
+    expect(markup).toContain('nekko-mini-float');
+    expect(markup).not.toContain('data-mascot-accessory');
     for (const accessory of ['wire', 'collar', 'tie']) {
       expect(markup).not.toContain(`data-mascot-accessory="${accessory}"`);
     }

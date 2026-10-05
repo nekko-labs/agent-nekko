@@ -299,24 +299,11 @@ function StandPose() {
 export function MiniNekko({ size = 18 }: { size?: number }) {
   return (
     <span className="nekko-mini-float inline-block shrink-0 align-middle" style={{ lineHeight: 0 }}>
-      <svg viewBox="0 0 26 26" width={size} height={size} fill="none" aria-hidden="true" focusable="false">
-        {/* Compact outline dome; a heavier stroke keeps it legible at 18px. */}
-        <path
-          d="M 5.5 10 C 5.8 6.1 7.1 3.4 7.4 2.2 Q 7.7 0.7 8.9 1.7 L 12.9 5.1 L 17.1 1.7 Q 18.3 0.7 18.6 2.2 C 18.9 3.4 20.2 6.1 20.5 10 L 20.5 17.4 C 20.5 21.2 17.2 23.2 13 23.2 C 8.8 23.2 5.5 21.2 5.5 17.4 Z"
-          fill={PAPER}
-          stroke={INK}
-          strokeWidth={1.7}
-          strokeLinejoin="round"
-        />
-        <path d="M 7.9 6 L 8 3.1 L 10.5 5.2 M 15.5 5.2 L 18 3.1 L 18.1 6" stroke={GINGER} strokeWidth={1} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        <g data-mascot-accessory="sunglasses" fill={INK} stroke={INK} strokeWidth={0.9} strokeLinejoin="round" strokeLinecap="round">
-          <path d="M 8.3 12.4 L 12.1 12.7 L 11.7 15 Q 9.9 15.6 8.7 14.5 Z M 14 12.7 L 17.8 12.4 L 17.4 14.5 Q 16.2 15.6 14.4 15 Z" />
-          <path d="M 12 13.2 Q 13 12.6 14.1 13.2 M 8.3 12.6 L 7 12 M 17.8 12.6 L 19.1 12" fill="none" />
-        </g>
-        <path data-mascot-accessory="earpiece" d="M 20.5 12.9 Q 22.6 12.9 22.6 14.5 Q 22.6 16.1 20.5 16.1" fill={PAPER} stroke={INK} strokeWidth={1.2} strokeLinecap="round" />
-        <path d="M 11.8 17.3 q 1.2 1.1 2.4 0" stroke={INK} strokeWidth={1} strokeLinecap="round" fill="none" />
-        <g style={{ transformBox: 'view-box', transformOrigin: '13px 13.6px' }} className="nekko-orbit">
-          <circle cx={13} cy={1.8} r={1.4} fill={GINGER} />
+      <svg viewBox="0 0 32 32" width={size} height={size} shapeRendering="crispEdges" aria-hidden="true" focusable="false">
+        <g data-part="pixel-head" strokeLinejoin="miter">
+          <path d="M4 5H6V7H8V9H11V10H21V9H24V7H26V5H28V19H27V22H25V24H22V26H10V24H7V22H5V19H4Z" fill="#101714" stroke="#f2f1e9" strokeWidth="2" />
+          <path d="M11 15H13V18H11Z M20 15H22V18H20Z" fill="#f2f1e9" />
+          <path d="M15 20H17V21H15Z" fill="#a7c8ac" />
         </g>
       </svg>
     </span>
