@@ -69,6 +69,7 @@
 }
 
 .command-wall-add { flex-direction: column; gap: 8px; }
+.command-wall-add[data-grid-bar] { flex-direction: row; gap: 12px; }
 .command-wall-add-icon { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:var(--accent-soft); color:var(--accent); font-size:24px; }
 .command-wall-companion > header { display:flex; gap:8px; justify-content:space-between; background:var(--surface); }
 .command-wall-companion > header span { overflow:hidden; text-overflow:ellipsis; }

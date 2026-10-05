@@ -87,7 +87,7 @@ export interface WallGeometry {
   hero: string | null;
   height: number;
   add: { x: number; y: number; width: number; height: number };
-  /** Preview tree with one Add-cell placeholder inserted exactly where addPane would place the next window. */
+  /** Display tree retaining real split identities; Add has its own geometry. */
   addGrid: WbNode | null;
   grid: WbNode | null;
   stageHeight: number;
@@ -118,15 +118,13 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const deckHeight = state.layout.mode === 'focus' ? 0 : Math.max(240, Math.min(440, width / 3));
   // A stacked Focus chat needs space for transcript, approval and composer
   // above its companion. The wall scrolls when the viewport cannot fit them.
-  const minimum = state.layout.mode === 'focus' && width > 0 && width < 640 ? 960 : state.layout.mode === 'grid' ? 560 : 240;
+  const minimum = state.layout.mode === 'focus' && width > 0 && width < 640 ? 960 : 240;
   const stageHeight = Math.max(minimum, height - (state.layout.mode === 'focus' ? 0 : 64 + gap));
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
-  const addPanePreview: WbPane = { id: '__wall_add__', kind: 'chat', refId: '__wall_add__' };
-  // Choose insertion from the saved tree before applying display-only weights.
-  const addGrid = companionTree(state.layout.mode === 'grid' && width >= NARROW_WIDTH
-    ? addPanes(grid, [addPanePreview], width > 0 && height > 0 ? width / height : DEFAULT_ASPECT)
-    : grid, expanded);
+  // Keep real split identities and user ratios. A virtual chat insertion would
+  // re-tile every render and hide dividers whose IDs no longer match the source.
+  const addGrid = companionTree(grid, expanded);
   let contentHeight = stageHeight;
   if (state.layout.mode === 'focus') {
     if (hero) panes.set(hero, { x: 0, y: 0, width, height: stageHeight });
@@ -149,12 +147,8 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
       width: Math.max(0, r.width * width - (r.x > 0 ? gap / 2 : 0) - (r.x + r.width < 1 - 1e-6 ? gap / 2 : 0)),
       height: Math.max(0, r.height * stageHeight - (r.y > 0 ? gap / 2 : 0) - (r.y + r.height < 1 - 1e-6 ? gap / 2 : 0)),
     });
-    for (const [id, r] of leafRects(addGrid)) { if (id !== addPanePreview.id) panes.set(id, rectOf(r)); }
-    const preview = leafRects(addGrid).get(addPanePreview.id);
-    if (preview) {
-      deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: stageHeight + gap, width: 240, height: 160 }));
-      return { panes, deck, hero, height: stageHeight + gap + deckHeight, add: rectOf(preview), addGrid, grid, stageHeight };
-    }
+    for (const [id, r] of leafRects(addGrid)) panes.set(id, rectOf(r));
+    return { panes, deck, hero, height: stageHeight + gap + 64, add: { x: 0, y: stageHeight + gap, width: Math.min(width, 320), height: 64 }, addGrid, grid, stageHeight };
   }
   // Focus keeps other bodies warm but selects them through the row above the hero.
   return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, addGrid, grid, stageHeight };
@@ -484,7 +478,7 @@ export function CommandWall({
       <div className="command-wall-stage" style={{ height: geometry.height, minWidth: state.layout.mode === 'focus' ? size.width : Math.max(size.width, geometry.add.x + geometry.add.width) }}>
         {allPanes(state.root).map(renderLeaf)}
         {state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
-        {state.layout.mode !== 'focus' && <button className="command-wall-add" style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: geometry.add.height }} onClick={onAddWindow} aria-label="Add window"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
+        {state.layout.mode !== 'focus' && <button className="command-wall-add" data-grid-bar={state.layout.mode === 'grid' && size.width >= NARROW_WIDTH ? true : undefined} style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: geometry.add.height }} onClick={onAddWindow} aria-label="Add window"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
         {!filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : 'No windows on the wall yet. Add a window to get started.'}</div>}
       </div>
     </div>

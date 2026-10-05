@@ -9,6 +9,7 @@ import { brandEnv, IpcEvents, type AppSettings } from '@agent-nekko/shared';
 import { registerIpc } from './ipc.js';
 import { checkForUpdates } from './update.js';
 import { initialWindowBounds, loadWindowBounds, MIN_WINDOW, saveWindowBounds, setWindowStateDir } from './windowState.js';
+import { registerDevLaunch } from './devLaunchProcess.js';
 import { preservePackagedProfile } from './appIdentity.js';
 import { EngineProcess } from './engine-process.js';
 import { createDesktopTray } from './tray.js';
@@ -46,6 +47,8 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
   process.exit(1);
 }
 
+app.setName('Agent Nekko');
+registerDevLaunch(app);
 const previousProfile = app.getPath('userData');
 preservePackagedProfile(app);
 

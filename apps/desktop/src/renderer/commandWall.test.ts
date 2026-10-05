@@ -72,16 +72,17 @@ describe('addPane', () => {
     const [a] = panes(1);
     expect(addPane(null, a)).toBe(a);
   });
-  it('lands beside the biggest window, along its longer side', () => {
-    const [a, b, c] = panes(3);
-    // One wide window: the second goes to its right.
-    let root = addPane(a, b, 1.8);
-    expect(root && isSplit(root) && root.dir).toBe('row');
-    // Two half-width windows are taller than wide: the third goes below the first.
-    root = addPane(root, c, 1.8);
-    expect(extent(root)).toEqual({ across: 2, down: 2 });
+  it('appends agents as balanced sequential tiles instead of splitting the last agent', () => {
+    const items = panes(7);
+    let root = tileTree(items.slice(0, 6), 1.8);
+    root = addPane(root, items[6], 1.8);
+    expect(refs(root)).toEqual(items.map((p) => p.refId));
     const rects = leafRects(root);
-    expect(rects.get(c.id)!.y).toBeGreaterThan(0);
+    const last = rects.get(items[5].id)!;
+    const added = rects.get(items[6].id)!;
+    expect(added.y).toBeGreaterThan(last.y);
+    expect(last.height).toBeCloseTo(added.height);
+    expect(last.width).toBeGreaterThanOrEqual(1 / 3);
   });
   it('never breaks the 8×8 ceiling', () => {
     let root = tileTree(panes(1), 1.8);

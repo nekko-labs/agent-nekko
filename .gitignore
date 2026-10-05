@@ -36,3 +36,8 @@ apps/desktop/resources/bin/
 
 # Speed-contract harness output (scripts/perf)
 perf-results/
+
+# Local branded development Electron runtime
+.dev-runtime/
+
+.dev-runtime-v2/

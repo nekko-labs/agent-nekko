@@ -22,14 +22,12 @@ import {
   loadWallState,
   nextAgent,
   reconcileWall,
-  ribbonItems,
   wallAgents,
   saveWallState,
   tileTree,
   toWallSetting,
   wallPane,
   type CommandWallState,
-  type RibbonItem,
   type WallFilter,
 } from '../commandWall.js';
 
@@ -40,8 +38,7 @@ const HOUR = 60 * 60_000;
  * arranged in the same split tree the Agent tab uses, with the automations
  * list and the insights box as windows among them. The windows are the same
  * chat and terminal panes the Agent tab shows, so work gets handled here, not
- * just watched; a ribbon above the wall lists everything waiting on you and
- * jumps to it.
+ * just watched; waiting windows draw attention with their own glowing ring.
  */
 export function CommandCenterView() {
   const { sessions, terminals, providers, settings, activeProjectId, setView, openChatPane, openTerminalPane, refreshSessions, refreshTerminals } = useStore(
@@ -213,21 +210,6 @@ export function CommandCenterView() {
   };
   const autoArrange = () => setWall((w) => w.layout.mode === 'grid' ? { ...w, root: tileTree(allPanes(w.root), aspectRef.current) } : w);
 
-  // The ribbon's jump: the window is rung once and its composer focused.
-  const [flash, setFlash] = useState<{ paneId: string; at: number } | null>(null);
-  const goTo = (sessionId: string) => {
-    const pane = allPanes(wall.root).find((p) => p.kind === 'chat' && p.refId === sessionId);
-    if (pane) setFlash({ paneId: pane.id, at: Date.now() });
-    else { setWall((w) => ({ ...w, root: addPane(w.root, wallPane('chat', sessionId), aspectRef.current) })); }
-  };
-  useEffect(() => {
-    if (!flash) return;
-    const t = setTimeout(() => setFlash(null), 1200);
-    return () => clearTimeout(t);
-  }, [flash]);
-
-  const needs = useMemo(() => ribbonItems(sessions, pending), [sessions, pending]);
-
   // The agent the composer speaks for: the window clicked last, or the first
   // on the wall. Ctrl+Tab / Ctrl+Shift+Tab walk the windows in reading order;
   // Ctrl+1…9 (or Alt+1…9) pick one by its number.
@@ -292,9 +274,8 @@ export function CommandCenterView() {
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-5 xl:px-6">
+    <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
       <WallToolbar wall={wall} setWall={setWall} sessions={sessions} terminals={terminals} onAdd={addFromToolbar} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} />
-      {needs.length > 0 && <NeedsYouRibbon needs={needs} onGo={goTo} />}
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
         <div className="wall-column">
@@ -316,7 +297,7 @@ export function CommandCenterView() {
         pending={pending}
         childrenOf={childrenOf}
         projects={settings?.workspaces ?? []}
-        flash={flash}
+        flash={null}
         selectedId={selected}
         onSelect={selectAgent}
         onAspect={onAspect}
@@ -329,32 +310,6 @@ export function CommandCenterView() {
       {wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{composerSplit}{composer}</>}
         </div>
       </div>
-    </div>
-  );
-}
-
-/* ---------- the ribbon ---------- */
-
-/**
- * Everything waiting on a person, in one line above the wall. Each window
- * already wears its own ring; this is the list for a wall with more windows
- * than fit, with a jump to each. The rows come from `ribbonItems`, which is
- * pure and tested.
- */
-function NeedsYouRibbon({ needs, onGo }: { needs: RibbonItem[]; onGo: (sessionId: string) => void }) {
-  return (
-    <div className="wall-ribbon" role="region" aria-label="Needs you">
-      <span className="wall-ribbon-lead"><span className="h-[7px] w-[7px] animate-pulse rounded-full" style={{ background: 'var(--warning)' }} />Needs you · {needs.length}</span>
-      {needs.map((n) => (
-        <span key={n.sessionId} className="wall-ribbon-item">
-          <span className="min-w-0 max-w-[28ch] truncate font-medium">{n.title}</span>
-          <span className="min-w-0 truncate text-ink-soft">
-            {n.command ? <>approve <code className="rounded-sm px-1 font-mono text-[11px]" style={{ background: 'var(--surface-2)' }}>{n.what}</code></> : n.what}
-          </span>
-          <button className="wall-ribbon-go" onClick={() => onGo(n.sessionId)} title={`Jump to ${n.title}`}>Go</button>
-        </span>
-      ))}
-      <span className="ml-auto text-[11.5px] text-ink-faint">Answer on the window, or jump to it.</span>
     </div>
   );
 }
