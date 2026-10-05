@@ -138,7 +138,7 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
   },
   {
     name: 'browser',
-    description: 'Control a visible local Chromium browser. Every action requires user approval. Dedicated mode opens an isolated in-app Nekko browser window (use this by default); existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
+    description: 'Control a visible local Chromium browser. Each action requires approval unless the user has enabled allow-all (YOLO) for this chat. Dedicated mode opens an isolated in-app Nekko browser window (use this by default); existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
     parameters: {
       type: 'object',
       properties: {
@@ -154,7 +154,7 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
   },
   {
     name: 'capture',
-    description: 'Capture an actual local app window, including apps launched by terminal commands in any project. Desktop only; every action requires approval. First list windows, then select its window_id for a PNG screenshot or a 1–15 second silent WebM recording. No browser substitution or whole-screen capture. Restore minimized windows before capture. Output files must be new paths inside the chat project; report the path and inspect the evidence before claiming visual verification.',
+    description: 'Capture an actual local app window, including apps launched by terminal commands in any project. Desktop only; each action requires approval unless the user has enabled allow-all (YOLO) for this chat. First list windows, then select its window_id for a PNG screenshot or a 1–15 second silent WebM recording. No browser substitution or whole-screen capture. Restore minimized windows before capture. Output files must be new paths inside the chat project; report the path and inspect the evidence before claiming visual verification.',
     parameters: {
       type: 'object',
       properties: {

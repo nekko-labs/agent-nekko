@@ -922,12 +922,17 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     abortControllers.set(opts.sessionId, abort);
     eventsSeen = false;
 
-    const requestApproval = (call: ToolCall, reason: string, severity: 'low' | 'medium' | 'high') =>
-      new Promise<boolean>((resolveP) => {
+    const requestApproval = (call: ToolCall, reason: string, severity: 'low' | 'medium' | 'high') => {
+      // Read live policy: the user can allow the remaining calls while this turn
+      // is parked on an approval, including approvals forwarded by the daemon.
+      const liveMode = getSession(opts.sessionId)?.mode ?? getSettings().defaultChatMode ?? 'guardrails';
+      if (liveMode === 'yolo') return Promise.resolve(true);
+      return new Promise<boolean>((resolveP) => {
         pendingApprovals.set(call.id, resolveP);
         setPending(opts.sessionId, { approval: { call, reason, severity, requestedAt: Date.now() } });
         send({ type: 'tool_approval_required', sessionId: opts.sessionId, call, reason, severity });
       });
+    };
 
     /**
      * Park the turn on a question and wait. The board and the chat both answer

@@ -87,7 +87,7 @@ export function PrActionCard({ url, info, sessionId, onDismiss }: { url: string;
   const check = info ? CHECK_META[info.checks] : CHECK_META.none;
   const actionClass = 'rounded-md px-2 py-1 text-[11px] font-medium hover:bg-surface-2 disabled:opacity-50';
   return (
-    <div className="mb-2 flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2" data-pr-actions={url}>
+    <div className="flex items-center gap-2 border-b border-line bg-surface px-3 py-1.5 last:border-b-0" data-pr-actions={url}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <a href={url} className="truncate font-mono text-[11px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
@@ -95,19 +95,19 @@ export function PrActionCard({ url, info, sessionId, onDismiss }: { url: string;
           {check.dot && <span className="text-[10px]" style={{ color: check.color }}>{check.dot} {check.label}</span>}
         </div>
         {info?.title && <p className="truncate text-[12px]">{info.title}</p>}
-        <div className="mt-1 flex flex-wrap items-center gap-1">
-          {(['approve', 'close', 'merge'] as const).map((action) => (
-            <button key={action} className={actionClass} disabled={!!busy || !info} onClick={() => void act(action)}
-              title={action === 'close' ? 'Close this PR without merging' : action === 'approve' ? 'Approve this PR' : 'Merge this PR'}>
-              {busy === action ? 'Working…' : confirm === action ? 'Confirm?' : action === 'approve' ? 'Approve' : action === 'close' ? 'Decline' : 'Merge'}
-            </button>
-          ))}
-          <button className={actionClass} onClick={() => openPrPane(url)}>Review</button>
-          <button className={actionClass} onClick={() => openExternally(url)} aria-label="Open on GitHub">↗</button>
-          {confirm && <button className={actionClass} onClick={() => setConfirm(null)}>Cancel</button>}
-        </div>
       </div>
-      <button className="ml-auto grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint hover:bg-surface-2 hover:text-ink"
+      <div className="flex max-w-[55%] shrink-0 flex-wrap items-center justify-end gap-0" data-pr-action-controls>
+        {(['approve', 'close', 'merge'] as const).map((action) => (
+          <button key={action} className={actionClass} disabled={!!busy || !info} onClick={() => void act(action)}
+            title={action === 'close' ? 'Close this PR without merging' : action === 'approve' ? 'Approve this PR' : 'Merge this PR'}>
+            {busy === action ? 'Working…' : confirm === action ? 'Confirm?' : action === 'approve' ? 'Approve' : action === 'close' ? 'Decline' : 'Merge'}
+          </button>
+        ))}
+        <button className={actionClass} onClick={() => openPrPane(url)}>Review</button>
+        <button className={actionClass} onClick={() => openExternally(url)} aria-label="Open on GitHub">↗</button>
+        {confirm && <button className={actionClass} onClick={() => setConfirm(null)}>Cancel</button>}
+      </div>
+      <button className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint hover:bg-surface-2 hover:text-ink"
         onClick={onDismiss} aria-label={'Hide PR ' + label} title="Hide this PR panel (does not close the PR)"><CloseIcon className="h-3.5 w-3.5" /></button>
     </div>
   );
@@ -130,7 +130,7 @@ export function PrActionDock({ sessionId, prs, urls }: { sessionId: string; prs:
     setDismissed(next);
     try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* memory-only dismissal */ }
   };
-  return <section aria-label="Pending pull requests" className="max-h-60 overflow-y-auto">{active.map((url) => <PrActionCard key={url} url={url} info={byUrl.get(url)} sessionId={sessionId} onDismiss={() => dismiss(url)} />)}</section>;
+  return <section aria-label="Pending pull requests" className="mx-auto max-h-60 w-[80%] overflow-y-auto rounded-xl border border-line">{active.map((url) => <PrActionCard key={url} url={url} info={byUrl.get(url)} sessionId={sessionId} onDismiss={() => dismiss(url)} />)}</section>;
 }
 
 /** One line of a unified-diff hunk. */

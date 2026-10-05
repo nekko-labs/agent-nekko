@@ -161,8 +161,26 @@ describe('agent command terminal', () => {
 });
 
 describe('browser permission boundary', () => {
-  it('hides browser control on non-desktop hosts and requests approval even in yolo mode', async () => {
+  it('honors allow-all for desktop browser calls without another prompt', async () => {
     const session = createSession();
+    rounds = [[{ type: 'tool_call', call: { id: 'browse-yolo', name: 'browser', input: { mode: 'dedicated', action: 'close' } } }, { type: 'done' }]];
+    vi.stubEnv('NEKKO_BROWSER_URL', 'http://127.0.0.1:12345/');
+    vi.stubEnv('NEKKO_BROWSER_TOKEN', 'test-token');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ output: 'Closed' }) })));
+    const events: AgentEvent[] = [];
+    try {
+      await sendChat({ sessionId: session.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'close browser' }, (event) => { events.push(event); }, true);
+      expect(events.some((event) => event.type === 'tool_approval_required')).toBe(false);
+      expect(events.find((event) => event.type === 'tool_result')).toMatchObject({ result: { output: 'Closed' } });
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+  it('hides browser control on non-desktop hosts and requests approval in guardrails mode', async () => {
+    const session = createSession();
+    session.mode = 'guardrails';
+    saveSession(session);
     rounds = [[{ type: 'tool_call', call: { id: 'browse', name: 'browser', input: { mode: 'existing', action: 'inspect' } } }, { type: 'done' }]];
     await run(session);
     expect(requests[0].request.tools?.some((tool) => tool.name === 'browser')).toBe(false);
