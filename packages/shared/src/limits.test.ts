@@ -39,7 +39,7 @@ describe('getModelPrice', () => {
     expect(getModelPrice('gpt-5-mini')?.output).toBe(2);
     expect(getModelPrice('gpt-5-nano')?.input).toBe(0.05);
     expect(getModelPrice('gpt-5-codex')).toBeUndefined();
-    expect(getModelPrice('gpt-5.6-sol')).toBeUndefined();
+    expect(getModelPrice('gpt-5.6-sol')?.input).toBe(4);
     expect(getModelPrice('gpt-6-sol')).toBeUndefined();
     expect(formatModelPriceLabel({ modelId: 'gpt-5', auth: 'apikey' })).toBe('$1.25/$10.00 per MTok');
     expect(formatModelPriceLabel({ modelId: 'gpt-6-sol', auth: 'subscription' })).toBe('Included in plan');
@@ -150,5 +150,19 @@ describe('formatModelPriceLabel', () => {
 
   it('returns undefined for unknown metered models', () => {
     expect(formatModelPriceLabel({ modelId: 'local-custom-7b', auth: 'apikey' })).toBeUndefined();
+  });
+});
+
+
+describe('current subscription API equivalents', () => {
+  it('prices published current models without billing subscription usage', () => {
+    for (const [id, total] of [['gpt-6-astra', 60], ['gpt-6.1-sol', 12], ['gpt-6-luna', 0.6], ['gpt-5.6-sol', 24], ['gpt-5.6-cyber', 87.5]] as const) {
+      expect(estimateCostUSD(id, 1_000_000, 1_000_000)).toBeCloseTo(total);
+      expect(estimateCost(id, { inputTokens: 1_000_000, outputTokens: 1_000_000, auth: 'subscription' })).toBe(0);
+    }
+  });
+  it('does not assign prices to unpublished variants', () => {
+    expect(getModelPrice('gpt-6-unknown')).toBeUndefined();
+    expect(getModelPrice('gpt-6-astra-codex')).toBeUndefined();
   });
 });

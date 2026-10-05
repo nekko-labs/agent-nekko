@@ -57,8 +57,9 @@ describe('command wall geometry', () => {
     expect(g.stageHeight).toBe(560);
     expect(g.panes.get('a')!.height).toBe(560);
     expect(g.add.y).toBe(568);
-    expect(g.add.height).toBe(64);
-    expect(g.height).toBe(632);
+    expect(g.add.height).toBeCloseTo(1000 / 3);
+    expect(g.add.width).toBeCloseTo(1000 / 3);
+    expect(g.height).toBeCloseTo(568 + 1000 / 3);
   });
 
   it('uses Focus-only deck and falls back when the hero is missing or filtered', () => {

@@ -5,6 +5,7 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  padding: 14px;
 }
 .command-wall-stage { position: relative; min-height: 304px; }
 .command-wall-window {
