@@ -36,7 +36,7 @@ describe('worktree chip', () => {
 
   it('keeps the control available after switching to the current branch', () => {
     const html = renderToStaticMarkup(<WorktreeChip session={{ ...session, gitIsolation: false }} git={git} disabled={false} onChange={() => {}} />);
-    expect(html).toContain('Current branch');
+    expect(html).toContain('detached');
     expect(html).not.toContain('silver-puffin');
   });
 });

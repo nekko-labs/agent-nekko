@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { GitStatus, Session } from '@agent-nekko/shared';
-import { WorktreeIcon, CheckIcon, CloseIcon } from '../icons.js';
+import { WorktreeIcon, BranchIcon, CheckIcon, CloseIcon } from '../icons.js';
 import { useStore } from '../store.js';
 
 const shownNotices = new Set<string>();
@@ -79,8 +79,8 @@ export function WorktreeChip({ session, git, disabled, onChange }: {
       className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
       style={{ background: 'color-mix(in srgb, var(--accent-2) 13%, transparent)', color: 'var(--accent-2)' }}
       onMouseEnter={enter} onMouseLeave={leave} onFocus={enter} onBlur={leave} onClick={enter}>
-      <WorktreeIcon className="h-3 w-3 shrink-0" />
-      <span className="truncate">{isolated ? git.worktree?.name : 'Current branch'}</span>
+      {isolated ? <WorktreeIcon className="h-3 w-3 shrink-0" /> : <BranchIcon className="h-3 w-3 shrink-0" />}
+      <span className="truncate">{isolated ? git.worktree?.name : git.branch ?? git.head ?? 'detached'}</span>
     </button>
     {open && createPortal(<div ref={panel} role="dialog" aria-label="Git checkout options"
       className="fixed z-50 max-w-[calc(100vw-16px)] w-[340px] rounded-lg border border-line bg-paper p-3 text-[12px] shadow-lg"

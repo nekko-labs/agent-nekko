@@ -140,13 +140,11 @@ fn pr_urls(messages: &[Value]) -> Vec<String> {
         if !cli && !api {
             continue;
         }
-        for line in [str_field(result, "output").trim()] {
-            let line = line.trim();
-            let mut urls = Vec::new();
-            pr_urls_in(line, &mut urls);
-            if urls.len() == 1 && urls[0] == line && !out.contains(&urls[0]) {
-                out.push(urls.remove(0));
-            }
+        let line = str_field(result, "output").trim();
+        let mut urls = Vec::new();
+        pr_urls_in(line, &mut urls);
+        if urls.len() == 1 && urls[0] == line && !out.contains(&urls[0]) {
+            out.push(urls.remove(0));
         }
     }
     out

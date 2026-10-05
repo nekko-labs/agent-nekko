@@ -586,6 +586,15 @@ A new sandbox begins in Ask with no tool, connector, MCP or general network gran
 Explicitly provided folders are copied into the isolated session, not mounted read-write. Work stays in the copy. Review diffs and explicitly apply changes back, detecting original-file changes and rejecting traversal, symlink escapes and ambiguous conflicts. All tool paths, MCP processes, delegated sessions, file context, terminal commands, previews and connector retrieval must honor the same session capabilities. No host filesystem, Docker socket, privileged container, host networking or unselected connector access is allowed. Containerization is a bounded isolation mechanism, not a promise against every kernel/runtime vulnerability.
 
 Availability: design and initial policy/discovery helpers only. App-control adapters, container executor, broker enforcement, setup/UI and live escape tests remain unimplemented. Existing workspace-jail/docker labels are not evidence of these guarantees.
+## Chat chrome and composer refinement (implemented; desktop verification pending)
+
+- Chat headers show one checkout control: isolated worktree name or current Git branch/HEAD, never both. The control retains checkout options; PR chips are removed from the header while existing PR surfaces remain available.
+- The plan rail's Change plan action is a slim pencil-icon control; it still prepares an editable follow-up without submitting or mutating the plan.
+- Composer text grows with input/paste, including Markdown list indentation, and scrolls its caret within the editor once capped. The full composer budget is half the smaller of the viewport and available pane height; surrounding composer controls consume part of that budget. Manually sized text areas may grow to accommodate input within the same cap. Shift+Tab outside a list retains normal keyboard focus traversal.
+- Completion suppresses persisted-interruption detection until the final transcript reload settles, even if no held live reply exists. Actual interrupted transcripts retain recovery actions. This is a client-side stale-snapshot safeguard, not a claim that every provider-side interruption is fixed.
+- Acceptance: one checkout chip, no header PR badges, compact icon action, latest edited/pasted text visible without page scrolling, bounded composer on narrow/short panes, and no recovery notice from stale mid-turn snapshots after completion. Focused checks cover logic; desktop before/after and composer motion evidence remain pending. No credentials or external services are required for verification.
+- Insights cost and token charts have independent today/1wk/1m/6m/1y/all-time ranges (UTC days; 30/180/365-day long windows), defaulting to 1m. Totals reflect the range; monthly projections remain separate. Range tests pass; desktop evidence remains pending.
+
 ## Workspace context commands and connected composer
 
 - Right-click chat workspace cards and saved-chat rows for a read-only session identifier, Open, Mark as completed, Change model, Stop, Continue, and permanent Delete. Delete bypasses Completed and asks for confirmation.
