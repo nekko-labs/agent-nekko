@@ -607,3 +607,6 @@ Security tests must cover isolation, no silent local reads, raster bounds/signat
 
 ### Spooky theme
 The seasonal preset is displayed as Spooky in a dedicated Fun! group below the standard theme preset groups. Its persisted autumn ID remains compatible with existing settings. Seasonal merged-PR confetti is only shown while Spooky is active and disappears on theme changes. Only the composer bottom-right avatar wears a small orange wizard hat; shared avatars and the sidebar mascot remain undecorated.
+
+### Visible continuation turns
+Explicit typed continuation text remains a saved user message even when a request resumes an interrupted run. Newly persisted user turns emit session metadata before streaming, so a separate wall transcript sees input sent by the shared composer. Empty resume-button clicks still add no synthetic user text.

@@ -875,7 +875,8 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     // and only make the transcript valid to send again, by answering any tool call
     // that never got to run. Nothing is appended and nothing is dropped.
     repairInterruptedHistory(session.messages);
-  } else if (opts.regenerate) {
+  }
+  if (opts.regenerate && !opts.resume) {
     // Re-answer the last user turn: drop trailing assistant/tool messages, but
     // never a compaction summary, which stands in for everything before it.
     while (
@@ -885,8 +886,8 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     ) {
       session.messages.pop();
     }
-  } else {
-    // Append the user message.
+  } else if (!opts.resume || opts.text.trim() || opts.images?.length) {
+    // Empty resume clicks add no synthetic user message, but explicit input is never discarded.
     const userMsg: ChatMessage = {
       id: `msg_${Date.now().toString(36)}`,
       role: 'user',
@@ -914,7 +915,12 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       send({ type: 'error', sessionId: opts.sessionId, message: (e as Error).message });
       return;
     }
-  } else persist();
+  } else {
+    persist();
+    // The wall composer and transcript are separate panes. Publish the saved
+    // user turn before streaming starts so both show the conversation boundary.
+    if (!incognito) send({ type: 'session_meta', sessionId: opts.sessionId });
+  }
 
   let resolvedProvider: ProviderConfig;
   try {

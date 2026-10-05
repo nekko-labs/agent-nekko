@@ -1141,3 +1141,5 @@ Technical approach: independent approval policy and session environment; default
 
 - [x] Rename seasonal picker label to Spooky, group under Fun!, gate seasonal PR confetti on theme and add composer-only orange wizard hat. 32 focused tests and desktop typecheck passed.
 - [ ] Matched desktop screenshots for theme switching, Fun! picker and composer wizard hat.
+
+- [x] Preserve explicit text on resume and announce saved user turns to wall transcript panes. Checkpoint and transcript tests pass; interactive wall reproduction remains unverified.
