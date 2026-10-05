@@ -1,4 +1,4 @@
 export const RUNTIME_RELEASES = {
-  llama: { repo: 'ggml-org/llama.cpp', tag: 'b11223' },
+  llama: { repo: 'ggml-org/llama.cpp', tag: 'b11224' },
   diffusion: { repo: 'leejet/stable-diffusion.cpp', tag: 'master-929-3f8527a' },
 } as const;
