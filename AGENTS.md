@@ -137,3 +137,12 @@ For every request that adds a feature, changes user-visible behavior, or settles
 For substantial research, comparisons, architecture, and explanations, provide a concise chat summary plus a linked Markdown report when it improves readability or reuse. Include sources, assumptions, recommendations, and next steps. Use Mermaid for useful diagrams, image links for actual photos/screenshots, and self-contained HTML/CSS/SVG for rich design prototypes. Keep editable source in the project, normally reports/ or nekko-designs/; follow existing conventions. Do not generate artifacts for trivial replies. Never confuse captured evidence with inspected evidence.
 
 General reporting behavior belongs in the shared system prompt, not a personal memory file. Repository-specific workflow belongs here. Preview changes must retain explicit user consent for local reads, isolate generated HTML from the app, and prevent silent external resource fetching.
+
+## Shared prompt parity
+
+When editing `packages/core/src/agent/prompt.ts`, inspect its Rust counterpart
+`crates/nekko-context/src/prompt.rs` in the same change. Keep shared instruction
+text synchronized. Regenerate `crates/nekko-context/tests/golden/expected.json`
+with the host context golden test (`UPDATE_GOLDEN=1`) against the changed core,
+then rerun that test without regeneration and `cargo test -p nekko-context --locked`.
+Core-only prompt tests do not prove host/daemon parity.
