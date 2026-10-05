@@ -44,6 +44,14 @@ describe('collectSessionPrUrls', () => {
     expect(collectSessionPrUrls(pair('gh pr create --title fix'))).toEqual([url]);
     expect(collectSessionPrUrls(pair('gh api repos/o/r/pulls -X POST --jq .html_url'))).toEqual([url]);
   });
+  it('rejects creation text inside source-writing commands and mixed output', () => {
+    expect(collectSessionPrUrls(pair('node -e "write test gh pr create"'))).toEqual([]);
+    expect(collectSessionPrUrls(pair('powershell -Command "Get-Content fixture with gh pr create"'))).toEqual([]);
+    expect(collectSessionPrUrls(pair('gh pr create && cat fixtures'))).toEqual([]);
+    const messages = pair('gh pr create');
+    messages[1].toolResult!.output = url + '\nhttps://github.com/a.b/c-d/pull/12';
+    expect(collectSessionPrUrls(messages)).toEqual([]);
+  });
   it('ignores mentions, lookups, edits, reviews, failed calls and unpaired output', () => {
     expect(collectSessionPrUrls([{ role: 'assistant', content: 'Opened ' + url }, { role: 'user', content: url }, { toolResult: { output: url } }])).toEqual([]);
     for (const command of ['gh pr view 1', 'gh pr list', 'gh pr review 1', 'gh api repos/o/r/pulls/1 -X PATCH', 'gh api repos/o/r/pulls']) expect(collectSessionPrUrls(pair(command))).toEqual([]);

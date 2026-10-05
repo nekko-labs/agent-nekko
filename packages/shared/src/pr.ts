@@ -97,15 +97,16 @@ export function collectSessionPrUrls(messages: Array<{
     const result = m.toolResult;
     const call = result?.toolCallId ? calls.get(result.toolCallId) : undefined;
     if (!call || result?.isError || call.name !== 'bash') continue;
-    const command = String(call.input?.command ?? '');
-    const create = /\bgh\s+pr\s+create\b/.test(command);
-    const api = /\bgh\s+api\s+[^\s]*repos\/[^\s]+\/pulls(?:\s|$)/.test(command)
+    const command = String(call.input?.command ?? '').trim();
+    // Do not classify strings embedded in scripts, quoted fixtures, or shell
+    // batches as creation. Fail closed when output provenance is ambiguous.
+    if (!command.startsWith('gh ') || /[\r\n;&|`]/.test(command)) continue;
+    const create = /^gh\s+pr\s+create(?:\s|$)/.test(command);
+    const api = /^gh\s+api\s+(?:repos\/)?[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pulls(?:\s|$)/.test(command)
       && /(?:-X|--method)\s+POST\b/.test(command);
     if (!create && !api) continue;
-    for (const line of (result?.output ?? '').split('\n')) {
-      const value = line.trim();
-      if (/^https?:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+$/.test(value)) urls.add(value);
-    }
+    const value = (result?.output ?? '').trim();
+    if (/^https?:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/\d+$/.test(value)) urls.add(value);
   }
   return [...urls];
 }

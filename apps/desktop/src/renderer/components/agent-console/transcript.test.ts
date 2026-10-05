@@ -24,7 +24,9 @@ describe('toTranscriptRows', () => {
     const pr1 = 'https://github.com/o/r/pull/1';
     const pr2 = 'https://github.com/o/r/pull/2';
     const base = [msg('u', 'user', 'make PRs'), msg('a1', 'assistant', 'Opened ' + pr1, { toolCalls: [{ id: 'x', name: 'bash', input: { command: 'gh pr create' } }] }),
-      msg('t', 'tool', '', { toolResult: { toolCallId: 'x', output: pr1 + '\n' + pr2 } })];
+      msg('t', 'tool', '', { toolResult: { toolCallId: 'x', output: pr1 } }),
+      msg('a-create2', 'assistant', '', { toolCalls: [{ id: 'y', name: 'bash', input: { command: 'gh pr create' } }] }),
+      msg('t2', 'tool', '', { toolResult: { toolCallId: 'y', output: pr2 } })];
     const before = rows(base);
     const after = rows([...base, msg('u2', 'user', 'run the build'), msg('a2', 'assistant', 'Building.')]);
     expect(before.filter((r) => r.kind === 'prs').map((r) => r.urls)).toEqual([[pr1], [pr2]]);

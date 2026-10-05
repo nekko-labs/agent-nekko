@@ -1143,3 +1143,5 @@ Technical approach: independent approval policy and session environment; default
 - [ ] Matched desktop screenshots for theme switching, Fun! picker and composer wizard hat.
 
 - [x] Preserve explicit text on resume and announce saved user turns to wall transcript panes. Checkpoint and transcript tests pass; interactive wall reproduction remains unverified.
+
+- [x] Reject quoted/scripted creation examples and mixed shell results; reconcile host/native ownership golden fixtures. 28 source-routed TS tests and 12 Rust tests pass.
