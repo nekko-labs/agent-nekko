@@ -32,6 +32,12 @@ function wall(s: CommandWallState) {
 }
 
 describe('command wall geometry', () => {
+  it('keeps narrow Focus transcripts and approval controls above stacked companions', () => {
+    const g = commandWallGeometry(state({ layout: layout('focus'), hero: 'chat-a' }), 390, 300);
+    expect(g.panes.get('a')!.height).toBe(960);
+    expect(g.height).toBe(960);
+    expect(g.panes.get('a')!.height * .65).toBeGreaterThan(600);
+  });
   it('retains saved Grid ratios without mutating the source tree', () => {
     const s = state();
     const before = JSON.stringify(s);

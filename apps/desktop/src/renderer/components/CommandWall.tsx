@@ -83,7 +83,10 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const panes: WallGeometry['panes'] = new Map();
   const gap = 8;
   const deckHeight = state.layout.mode === 'focus' ? 0 : 64;
-  const stageHeight = Math.max(state.layout.mode === 'grid' ? 560 : 240, height - (state.layout.mode === 'focus' ? 0 : 64 + gap));
+  // A stacked Focus chat needs space for transcript, approval and composer
+  // above its companion. The wall scrolls when the viewport cannot fit them.
+  const minimum = state.layout.mode === 'focus' && width > 0 && width < 640 ? 960 : state.layout.mode === 'grid' ? 560 : 240;
+  const stageHeight = Math.max(minimum, height - (state.layout.mode === 'focus' ? 0 : 64 + gap));
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
   let contentHeight = stageHeight;

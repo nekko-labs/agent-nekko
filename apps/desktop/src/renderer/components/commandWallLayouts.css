@@ -85,8 +85,8 @@
 .command-wall-content[data-focus-chat][data-companions-visible] .command-wall-companions { flex-basis: 38%; opacity: 1; transform: translateX(0) scale(1); border-radius: 20px 0 0 20px; }
 .command-wall-content[data-focus-chat] .command-wall-companion { background: var(--surface); border-radius: 20px 0 0 20px; }
 @media (max-width: 639px) {
-  .command-wall-content[data-focus-chat][data-companions-visible] .command-wall-primary { flex-basis: 55%; }
-  .command-wall-content[data-focus-chat][data-companions-visible] .command-wall-companions { width: 100%; flex-basis: 45%; transform: none; }
+  .command-wall-content[data-focus-chat][data-companions-visible] .command-wall-primary { flex-basis: 65%; }
+  .command-wall-content[data-focus-chat][data-companions-visible] .command-wall-companions { width: 100%; flex-basis: 35%; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   .command-wall-content[data-focus-chat] .command-wall-primary, .command-wall-content[data-focus-chat] .command-wall-companions { transition: none; transform: none; }
