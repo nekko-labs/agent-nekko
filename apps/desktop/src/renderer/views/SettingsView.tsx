@@ -9,6 +9,7 @@ import { ThemePresetPicker } from '../components/ThemePresetPicker.js';
 import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION, updateChecks, DEFAULT_TURN_WRAPPER } from '@agent-nekko/shared';
 import { ShieldIcon, SunIcon, TrashIcon, RobotIcon, WandIcon } from '../icons.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
+import { DelegationRouteSettings } from '../components/DelegationRouteSettings.js';
 import { useT, LANGUAGES } from '../i18n.js';
 
 const SANDBOX_OPTS: Array<{ value: SandboxMode; label: string; desc: string }> = [
@@ -222,7 +223,7 @@ export function SettingsView() {
           )}
         </section>
 
-        {/* Spec-driven development */}
+        <section className="card mt-6 p-5"><DelegationRouteSettings settings={settings} update={update} /></section>
 
         {/* MCP servers */}
         <McpSection settings={settings} update={update} reload={reload} />

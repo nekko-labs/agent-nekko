@@ -6,7 +6,9 @@ import { sourceMeta } from '../contextSources.js';
 
 const FREE_COLOR = 'var(--surface-2)';
 
-const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
+export const formatContextTokens = (n: number) => n >= 1_000_000
+  ? `${Number((n / 1_000_000).toFixed(1))}m`
+  : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`;
 
 /** The context bar's fill: accent while there is room, then warning, then danger. */
 function fillColor(pct: number): string {
@@ -97,7 +99,7 @@ export function ContextGauge({
           style={{ width: `${pct}%`, background: `color-mix(in srgb, ${fillColor(pct)} 28%, transparent)` }}
         />
         <span className="relative text-ink-soft">
-          {fmt(used)}{windowTokens ? ` / ${!windowReported ? '~' : ''}${fmt(windowTokens)}` : ''}
+          {formatContextTokens(used)}{windowTokens ? ` / ${!windowReported ? '~' : ''}${formatContextTokens(windowTokens)}` : ''}
         </span>
       </span>
       {/* Expanded breakdown: segmented bar + per-source rows with %, plus free space. */}

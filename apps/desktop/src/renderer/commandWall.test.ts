@@ -166,6 +166,11 @@ describe('reconcileWall', () => {
     expect(allPanes(next.root).map((p) => p.refId)).not.toContain('b');
     expect(next.watermark).toBe(now + 1);
   });
+  it('keeps spawned delegates out of automatic windows', () => {
+    const next = reconcileWall(seeded, [chat('a', { updatedAt: now }), chat('child', { createdAt: now + 1, parentSessionId: 'a' })], [], now + 5);
+    expect(allPanes(next.root).map((p) => p.refId)).not.toContain('child');
+    expect(next.watermark).toBe(now + 1);
+  });
   it('returns the same object when nothing changed', () => {
     expect(reconcileWall(seeded, [chat('a', { updatedAt: now })], [], now + 5)).toBe(seeded);
   });

@@ -622,7 +622,8 @@ function routingPrompt(providers: ProviderConfig[]): string {
     'Sub-agent routing: enabled configured providers (IDs and labels only):',
     JSON.stringify(enabled),
     'Omit provider_id and model_id to inherit this chat\'s provider and model. An explicit provider change requires an explicit exact model ID for that provider.',
-    'Only select a model ID already known for the target provider; never guess. If no exact model ID is known, ask the user to supply one before delegating to that provider. The target model list is checked only when explicit delegation is requested.',
+    'Use delegation_targets to discover exact chat-model IDs on the intended provider before explicit delegation; never guess. If discovery fails, report the blocker or ask the user, not a different provider. Explicit and user-configured default routes are validated before creating a child.',
+    `User-selected delegation default: ${safe(JSON.stringify(getSettings().orchestration?.delegationRoute ?? null))}. When set, omitted routing arguments use this route, not the parent. Explicit arguments override it.`,
     'There is no fallback to another provider or model on failure. Keep sensitive work on the intended provider; do not switch to a cloud provider to bypass a local failure. Incognito delegation is unavailable because child sessions are persisted.',
   ].join('\n');
 }
@@ -659,16 +660,17 @@ async function runSubAgent(
       throw new Error(`${key} must be a nonblank exact ID without surrounding whitespace.`);
     }
   }
-  const targetProviderId = (inp.provider_id as string | undefined) ?? providerId;
-  const targetModelId = (inp.model_id as string | undefined) ?? modelId;
-  if (targetProviderId !== providerId && !('model_id' in inp)) {
+  const defaultRoute = !('provider_id' in inp) && !('model_id' in inp) ? settings.orchestration?.delegationRoute : undefined;
+  const targetProviderId = (inp.provider_id as string | undefined) ?? defaultRoute?.providerId ?? providerId;
+  const targetModelId = (inp.model_id as string | undefined) ?? defaultRoute?.modelId ?? modelId;
+  if (targetProviderId !== providerId && !('model_id' in inp) && !defaultRoute) {
     throw new Error('Changing provider requires an explicit model_id known to belong to that provider. Ask the user for the exact model ID; never guess.');
   }
   if (!targetModelId?.trim()) throw new Error('A nonblank target model ID is required.');
   const provider = settings.providers.find((p) => p.id === targetProviderId);
   if (!provider?.enabled) throw new Error('Target provider is unknown or disabled.');
   if (!providerEndpoint(provider)) throw new Error('Target provider requires a valid HTTP(S) endpoint.');
-  if ('model_id' in inp) {
+  if ('model_id' in inp || defaultRoute) {
     let models;
     try {
       const resolved = await resolveSubscriptionProvider(provider);
@@ -677,11 +679,12 @@ async function runSubAgent(
       throw new Error('Could not verify the target provider model list. Check its availability; no child was created and no fallback was used.');
     }
     const model = models.find((m) => m.id === targetModelId && m.providerId === targetProviderId);
-    if (!model) throw new Error('The exact model ID is not available from the target provider. Ask the user for a known exact model ID; no fallback was used.');
+    if (!model) throw new Error('The exact model ID is not available from the target provider. Use delegation_targets on the intended provider to refresh exact IDs, or update the saved delegation route in Settings; no fallback was used.');
     if (!isChatModel(model)) {
       throw new Error('The selected model is not a chat model. No child was created.');
     }
   }
+  if (signal?.aborted) throw new Error('Delegation cancelled before creating a child.');
   const child = createSession(parent?.workspaceId, parentId, parent ? getSessionWorkspaceIds(parent).slice(1) : undefined);
   child.title = (title?.trim() || task.trim().slice(0, 40)) || 'Sub-agent';
   child.providerId = targetProviderId;
@@ -793,6 +796,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   if (!offline) {
     if (settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
     const disabled = new Set(session.disabledTools ?? []);
+    if (!allowSpawn || disabled.has('spawn_agent') || session.incognito) disabled.add('delegation_targets');
     if (!allowSpawn) disabled.add('spawn_agent');
     if (!allowBrowserControl || !canAsk) { disabled.add('browser'); disabled.add('capture'); }
     tools = [...BUILTIN_TOOLS, ...mcpToolSpecs(), ...(!session.incognito && !session.trainingRunId ? [AGENT_WATCH_TOOL] : [])].filter((t) => !disabled.has(t.name));
@@ -1059,10 +1063,40 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             return { toolCallId: call.id, output: `Agent watch failed: ${(e as Error).message}`, isError: true };
           }
         }
+        if (call.name === 'delegation_targets') {
+          const failure = (code: string, message: string) => ({ toolCallId: call.id, output: JSON.stringify({ ok: false, code, message, fallbackUsed: false }), isError: true });
+          if (session.incognito || session.offline || !allowSpawn || session.disabledTools?.includes('spawn_agent')) return failure('delegation_unavailable', 'Delegation discovery is unavailable in this chat.');
+          const input = call.input as Record<string, unknown>;
+          if (!input || typeof input !== 'object' || Array.isArray(input)) return failure('invalid_input', 'Expected an object.');
+          const id = input.provider_id ?? opts.providerId;
+          if (typeof id !== 'string' || !id.trim() || id !== id.trim()) return failure('invalid_provider_id', 'Use an exact nonblank provider ID.');
+          const provider = getSettings().providers.find((p) => p.id === id && p.enabled);
+          if (!provider) return failure('provider_unavailable', 'Provider is unknown or disabled. Enable the intended provider in Models.');
+          if (!providerEndpoint(provider)) return failure('invalid_endpoint', 'Configure a valid HTTP(S) endpoint for the intended provider.');
+          if (abort.signal.aborted) return failure('cancelled', 'Discovery cancelled.');
+          try {
+            const resolved = await resolveSubscriptionProvider(provider);
+            const models = await createProvider(resolved).listModels();
+            if (abort.signal.aborted) return failure('cancelled', 'Discovery cancelled.');
+            const targets = models.filter((m) => m.providerId === id && isChatModel(m)).map((m) => ({ modelId: m.id }));
+            return { toolCallId: call.id, output: JSON.stringify({ ok: true, providerId: id, models: targets, message: targets.length ? 'Use an exact modelId with spawn_agent.' : 'No chat models available. Load or install a model on this provider, then refresh.', fallbackUsed: false }) };
+          } catch {
+            return failure('model_list_unavailable', 'Could not verify the intended provider model list. Check service availability and credentials in Models, then refresh. No fallback was used.');
+          }
+        }
         if (call.name === 'spawn_agent') {
           return runSubAgent({ ...session, mode }, opts.providerId, opts.modelId, call.input, send, abort.signal)
             .then((output) => ({ toolCallId: call.id, output }))
-            .catch((e) => ({ toolCallId: call.id, output: `Sub-agent failed: ${(e as Error).message}`, isError: true }));
+            .catch((e) => {
+              const message = (e as Error).message;
+              const code = message.includes('exact model ID is not available') ? 'model_unavailable'
+                : message.includes('not a chat model') ? 'not_chat_model'
+                : message.includes('model list') ? 'model_list_unavailable'
+                : message.includes('unknown or disabled') ? 'provider_unavailable'
+                : message.includes('endpoint') ? 'invalid_endpoint'
+                : message.includes('cancelled') ? 'cancelled' : 'delegation_failed';
+              return { toolCallId: call.id, output: JSON.stringify({ ok: false, code, message: `Sub-agent failed: ${message}`, fallbackUsed: false }), isError: true };
+            });
         }
         return isMcpTool(call.name)
           ? callMcpTool(call)
@@ -1155,6 +1189,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             outputTokens: event.outputTokens,
             sessionId: opts.sessionId,
             auth: provider.auth,
+            local: isLocalProvider(provider.kind),
           });
         }
         // How the reply ended, for tuning the loop detector (counts only). Older engines omit `stop`; nothing is recorded then.

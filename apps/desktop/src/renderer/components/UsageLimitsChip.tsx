@@ -53,12 +53,14 @@ export function UsageLimitsChip({
   provider,
   session,
   cost = 0,
+  avoidedCosts,
   turnCost = 0,
   running = false,
 }: {
   provider?: ProviderConfig;
   session?: { id?: string } | null;
   cost?: number;
+  avoidedCosts?: import('@agent-nekko/shared').AvoidedCosts;
   /**
    * What the reply now running has cost so far, accumulated live from the
    * turn's usage events. Zero between turns.
@@ -192,6 +194,16 @@ export function UsageLimitsChip({
           </div>
         )}
 
+        {avoidedCosts && (
+          <div className="mb-2 space-y-1 border-b border-line pb-2">
+            <div className="font-medium text-ink">Estimated API costs avoided · session</div>
+            <div className="flex justify-between"><span>Subscription</span><span>{formatUSD(avoidedCosts.subscription)}</span></div>
+            <div className="flex justify-between"><span>Local AI</span><span>{formatUSD(avoidedCosts.local)}</span></div>
+            <p className="text-ink-faint">Cloud equivalents; excludes plan fees, hardware and electricity.</p>
+            {avoidedCosts.benchmarkTokens > 0 && <p className="text-ink-faint">Local estimate includes your configured cloud benchmark.</p>}
+            {avoidedCosts.unpricedTokens > 0 && <p className="text-ink-faint">{avoidedCosts.unpricedTokens.toLocaleString()} unpriced tokens excluded.</p>}
+          </div>
+        )}
         {subscription ? (
           <>
             <div className="mb-2 flex items-baseline justify-between border-b border-line pb-2">

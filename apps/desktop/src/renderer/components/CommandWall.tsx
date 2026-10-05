@@ -307,7 +307,7 @@ export function CommandWall({
               </button>
             </PaneActions>
           )}
-          {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id, stacked)}><ChatPane key={pane.refId} sessionId={pane.refId} /></PaneDensityHint.Provider>
+          {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id, stacked)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter /></PaneDensityHint.Provider>
             : pane.kind === 'terminal' ? <TerminalPane key={pane.refId} terminalId={pane.refId} />
             : renderPanel(pane.kind as 'automations' | 'insights' | 'subscriptions' | 'resources')}
         </PaneFrame>

@@ -25,9 +25,9 @@ export function PlanRail({ sessionId, session, streaming, onClose }: {
   const spawnAllowed = getStrategy((orchestration ?? DEFAULT_ORCHESTRATION).strategy).allowsSpawn;
   const children = useMemo(() => sessions.filter((s) => s.parentSessionId === sessionId), [sessions, sessionId]);
   const activity = useSubAgentActivity(sessionId, children.map((c) => c.id));
-  // A child remains on disk for history, but disappears from the live work rail
-  // once its turn has finished. Unknown status is kept until a live event arrives.
-  const activeChildren = children.filter((c) => activity[c.id]?.running || (!activity[c.id] && !c.lastReplyText));
+  // Keep completed delegates available here until the user chooses to open
+  // them; spawning alone never opens another window.
+  const activeChildren = children;
   const agentPlan = session?.agentPlan;
   const progress = planProgress(agentPlan);
   const queued = session?.queue ?? [];
@@ -77,7 +77,7 @@ export function PlanRail({ sessionId, session, streaming, onClose }: {
               return <button key={c.id} className="flex w-full items-start gap-1.5 rounded-lg px-1 py-1 text-left hover:bg-surface-2" onClick={() => openChatPane(c.id)} title={`Open ${c.title}`}>
                 <RobotIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-faint" />
                 <span className="min-w-0 flex-1"><span className="block truncate text-[12px] text-ink-soft">{c.title}</span>
-                  <span className="block truncate text-[10px] text-ink-faint">{a?.tool ? a.detail ? `${a.tool} · ${a.detail}` : `Running ${a.tool}` : a?.running ? 'Working…' : 'Waiting to start'}</span>
+                  <span className="block truncate text-[10px] text-ink-faint">{a?.tool ? a.detail ? `${a.tool} · ${a.detail}` : `Running ${a.tool}` : a?.running ? 'Working…' : a?.running === false || c.lastReplyText ? 'Finished · click to view' : 'Waiting to start'}</span>
                 </span>
               </button>;
             })}</div>
