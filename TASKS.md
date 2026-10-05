@@ -1138,3 +1138,6 @@ Technical approach: independent approval policy and session environment; default
 
 - [x] Composer-attached slim PR deck and reduced-motion-safe expand/retract animations; rendering and ownership tests pass.
 - [ ] Capture matched before/after desktop evidence and short PR deck motion recording before merging.
+
+- [x] Rename seasonal picker label to Spooky, group under Fun!, gate seasonal PR confetti on theme and add composer-only orange wizard hat. 32 focused tests and desktop typecheck passed.
+- [ ] Matched desktop screenshots for theme switching, Fun! picker and composer wizard hat.

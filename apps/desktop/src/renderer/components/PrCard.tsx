@@ -46,11 +46,12 @@ export const MERGED_CARD_STYLE: React.CSSProperties = {
 export function PrCard({ url, info, event = 'created' }: { url: string; info?: PrInfo; event?: 'created' | 'open' | 'closed' | 'merged' }) {
   const parsed = parsePrUrl(url);
   const label = info ? info.owner + '/' + info.repo + '#' + info.number : parsed ? parsed.owner + '/' + parsed.repo + '#' + parsed.number : url;
+  const spooky = useStore((s) => s.settings?.themePreset === 'autumn');
   const merged = event === 'merged';
   return (
     <div className="relative my-2 overflow-hidden rounded-xl border px-4 py-3" data-pr-event={event}
       style={merged ? MERGED_CARD_STYLE : { borderColor: 'var(--line)', background: 'var(--surface)' }}>
-      {merged && <AutumnConfetti />}
+      {merged && spooky && <AutumnConfetti />}
       <div className="relative flex flex-wrap items-center gap-x-2 gap-y-1">
         <a href={url} className="min-w-0 truncate font-mono text-[12px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
         {info?.title && <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-soft">{info.title}</span>}

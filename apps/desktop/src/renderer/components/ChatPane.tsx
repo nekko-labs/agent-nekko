@@ -2661,7 +2661,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                       title={streaming ? 'Add to queue after this reply' : 'Send'}
                       aria-label={streaming ? 'Add to queue' : 'Send'}
                     >
-                      <NekkoAvatar size={24} />
+                      <NekkoAvatar size={24} wizardHat={settings?.themePreset === 'autumn'} />
                     </button>
                 </div>
               </div>

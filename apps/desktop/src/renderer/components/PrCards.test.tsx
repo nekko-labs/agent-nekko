@@ -1,7 +1,8 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('../store.js', () => ({ useStore: Object.assign(vi.fn(() => vi.fn()), { getState: vi.fn() }) }));
+const theme = vi.hoisted(() => ({ preset: 'autumn' as string | undefined }));
+vi.mock('../store.js', () => ({ useStore: Object.assign(vi.fn((selector) => selector({ settings: { themePreset: theme.preset }, openPrPane: vi.fn() })), { getState: vi.fn() }) }));
 import type { PrInfo } from '@agent-nekko/shared';
 import { PrCard, PrActionDock, PrBadge } from './PrCard.js';
 const url = 'https://github.com/o/r/pull/1';
@@ -41,6 +42,13 @@ describe('PR milestones and composer actions', () => {
     expect(markup).not.toContain('animate-pulse');
     expect(markup).not.toContain('✦');
     expect(renderToStaticMarkup(<PrCard url={url} info={pr} />)).not.toContain('🎃');
+  });
+  it('removes seasonal decorations when switching to another theme', () => {
+    theme.preset = 'autumn';
+    expect(renderToStaticMarkup(<PrCard url={url} event="merged" />)).toContain('🎃');
+    theme.preset = 'ember';
+    expect(renderToStaticMarkup(<PrCard url={url} event="merged" />)).not.toContain('🎃');
+    theme.preset = 'autumn';
   });
   it('places actions and a non-destructive hide button on the open dock', () => {
     const markup = renderToStaticMarkup(<PrActionDock sessionId="s" prs={[pr]} urls={[url]} />);

@@ -132,7 +132,7 @@ export const THEME_PRESETS: ThemePreset[] = [
     accent: '#fb923c',
     accent2: '#eab308',
     swatch: ['#fb923c', '#eab308', '#0c0c11'],
-    label: 'Autumn',
+    label: 'Spooky',
   },
 ];
 
