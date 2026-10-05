@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('../store.js', () => ({ useStore: Object.assign(vi.fn(() => vi.fn()), { getState: vi.fn() }) }));
 import type { PrInfo } from '@agent-nekko/shared';
-import { PrCard, PrActionDock } from './PrCard.js';
+import { PrCard, PrActionDock, PrBadge } from './PrCard.js';
 const url = 'https://github.com/o/r/pull/1';
 const pr = { url, owner: 'o', repo: 'r', number: 1, title: 'A change', state: 'open', checks: 'pending', source: 'gh' } as PrInfo;
 describe('PR milestones and composer actions', () => {
@@ -18,6 +18,20 @@ describe('PR milestones and composer actions', () => {
     const markup = renderToStaticMarkup(<PrCard url={url} info={pr} event={event} />);
     expect(markup).toContain(`PR ${event}`);
     expect(markup).not.toContain('<button');
+  });
+  it('colours the merged banner from theme tokens, not fixed light violets', () => {
+    const markup = renderToStaticMarkup(<PrCard url={url} info={{ ...pr, state: 'merged' }} event="merged" />);
+    expect(markup).toContain('var(--merged-wash)');
+    expect(markup).toContain('var(--merged-line)');
+    expect(markup).toContain('color:var(--merged-ink)');
+    // Light violets only read on dark paper; on light paper they vanish.
+    expect(markup).not.toMatch(/violet-(50|100|200)|#c084fc|rgba\(147,\s*51,\s*234/);
+  });
+  it('colours the merged badge from theme tokens', () => {
+    const markup = renderToStaticMarkup(<PrBadge prs={[{ ...pr, state: 'merged' }]} />);
+    expect(markup).toContain('var(--merged-chip)');
+    expect(markup).toContain('var(--merged-ink)');
+    expect(markup).not.toContain('#c084fc');
   });
   it('celebrates merges with static decorative autumn confetti', () => {
     const markup = renderToStaticMarkup(<PrCard url={url} info={pr} event="merged" />);

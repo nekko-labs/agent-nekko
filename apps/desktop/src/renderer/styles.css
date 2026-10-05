@@ -1079,6 +1079,16 @@
     --cat-index: #3f9e97;
     --cat-skill: var(--danger);
     --cat-spec: #3f9e97;
+    /* Merged pull requests: the purple celebration banner, badge and link.
+     Separate from --accent (which the user can recolor) so merged text always
+     keeps contrast against its own wash. contrast.test.ts holds every theme
+     and preset to 4.5:1 for the text that sits on these. */
+    --merged-ink: #5b21b6;
+    --merged-star: #8b5cf6;
+    --merged-line: rgba(147, 51, 234, 0.35);
+    --merged-wash: rgba(147, 51, 234, 0.22);
+    --merged-wash-soft: rgba(88, 28, 135, 0.08);
+    --merged-chip: rgba(147, 51, 234, 0.12);
     /* Make native controls (select popups, scrollbars) match the theme so we
      never get light text on a light system-rendered dropdown. */
     color-scheme: light;
@@ -1115,6 +1125,12 @@
     --cat-guideline: #c08adb;
     --cat-index: #5bc8c0;
     --cat-spec: #5bc8c0;
+    --merged-ink: #c4b5fd;
+    --merged-star: #ddd6fe;
+    --merged-line: rgba(168, 85, 247, 0.45);
+    --merged-wash: rgba(147, 51, 234, 0.38);
+    --merged-wash-soft: rgba(88, 28, 135, 0.14);
+    --merged-chip: rgba(147, 51, 234, 0.18);
     color-scheme: dark;
   }
 
@@ -1158,6 +1174,9 @@
     --ink-soft: #6d5d4d;
     --ink-faint: #9e8d7a;
     --line: #e8dfc8;
+    /* Warmer, darker paper and a browner ink-soft: a lighter wash keeps the
+     title on the banner's purple end above 4.5:1. */
+    --merged-wash: rgba(147, 51, 234, 0.16);
   }
 
   /* Belt-and-suspenders for the native <select> popup list. The OS draws that
