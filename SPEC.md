@@ -1,6 +1,6 @@
 ---
 status: active
-last-updated: 2026-10-02
+last-updated: 2026-10-05
 owner:
 ---
 
@@ -16,13 +16,11 @@ The primary domain is **agentnekko.com**; **nekkoagent.com** and every earlier d
 
 The rename is finished and the legacy-name compatibility layer has been retired: only the `agent-nekko` command ships, only `NEKKO_*` environment variables are read, local data lives under `~/.agent-nekko` (desktop profile under `desktop/`, cloud deployments under `cloud/`, unless explicitly overridden), and only `agent-nekko://` deep links resolve. Existing Agent Nekko data from `~/.nekko` or its desktop app-data folder moves only after confirmation; profiles are never merged silently. Release assets and updater feeds published under an older name are immutable and stay where they are, and the earlier domains keep redirecting to the current one.
 
-The personality is a capable, approachable agent nearby, with a restrained secret-agent influence rather than spy parody. Clear task status, quiet confidence, and generous whitespace take precedence over mission jargon, decorative surveillance metaphors, or a heavy space theme.
+The personality is a capable, approachable assistant: clear task status, quiet confidence, and generous whitespace take precedence over spy or space metaphors.
 
 Quality bar: on par with Zed / Cursor / Warp / OpenClaw, generous whitespace, minimal chrome, dark/light themes, fast.
 
-The persona/mascot is **Nekko** (formerly Aphelion), a 2D hand-drawn outline cat with a subtle secret-agent look: slim sunglasses, a discreet earpiece and short coiled wire, and a folded collar with a small tie. The reflective helmet treatment is gone. Her full body is a slender stick-cat silhouette with long line-art limbs and a narrow torso, not the older rounded astronaut/loaf body. At rest she leans one shoulder against a short local representation of the app edge, ankles crossed with one paw relaxed, like an agent waiting for the next assignment. The edge is part of the drawing only; the full rail divider remains hidden while collapsed. Sunglasses lift above closed eyes while sleeping or stretching so expressions remain readable. The miniature working icon simplifies the same head details for small sizes, and the portrait includes the collar without clipping. Website hero and social artwork reuse the app's exact leaning pose. The website favicon and packaged desktop/PWA/installer icons use the exact miniature secret-agent head on the dark-green tile, replacing the old orbit mark.
-
-The ink and paper follow each theme, with ginger ears/tail and ink-filled glasses/tie. The full mascot retains its frame-by-frame "line boil" wobble and the activity system shipped in PR #140 (T124). Every state uses the same slender proportions: leaning while idle, pushing away from the edge and spinning when the user returns, making a long limber stretch during active pauses, standing and bracing against the edge to inspect a bug while the model works, and slumping against the edge after sustained inactivity. Pose timing, reduced-motion handling, offscreen pause behavior, and right-facing placement remain unchanged.
+The mascot redesign is in draft review: an icon-inspired 8-bit cat head in cream on dark green replaces the secret-agent accessories across desktop, live chat status, marketing, and mobile. It blinks, occasionally shows happy ^ ^ eyes, and uses stepped hops with reduced-motion support. The existing app icon remains unchanged. Cross-platform visual evidence and animation review are still required before shipping.
 
 ## Why It Exists
 
@@ -580,3 +578,19 @@ Availability: design and initial policy/discovery helpers only. App-control adap
 - Ctrl (or Command) toggles individual rows; Shift selects an inclusive range in visible sidebar order. Right-click a selected row applies commands to the selected chats. Stop skips idle chats, Continue skips running chats and uses non-destructive resume. Continue currently requires a saved specific model and an existing prompt; Auto chats ask the user to choose a model first. Failures are reported per chat.
 - Composer model pickers and model-provider catalogs offer Set as default on right-click. The default is labeled and pinned first; a missing default remains visible but disabled. Model changes update mounted chat composers immediately.
 - The composer uses 90% of the available pane width on desktop and full usable width on narrow screens. Questions extend from its upper center at 80% of composer width, with curved shoulders and no separate horizontal tray lines. They expand upward and retract on answer, with reduced-motion support.
+
+## Rich responses, reports, and design workspace
+
+### User intent
+Any configured capable model should be able to create rich, portable deliverables within Nekko: photos and captured evidence, readable Markdown reports, architecture diagrams, and interactive design prototypes. This is provider-neutral, not tied to an advertised or assumed model name. Chat stays concise while a substantial research or explanation task may produce a durable linked report.
+
+### Initial implementation (in review; not yet visually verified)
+- Markdown links to local artifacts open the in-app file pane. Chat references resolve from the session's primary workspace or isolated worktree; absolute paths disambiguate multi-root chats.
+- Local PNG/JPEG/GIF/WebP image references offer an explicit Load image action, then display inline. Opening images in the file pane also previews them. Raster reads validate signatures and cap preview size at 8 MB. Remote images are not fetched automatically.
+- Markdown files retain document/source views. HTML and SVG files gain isolated preview/source views; Mermaid fences and .mmd/.mermaid files gain diagrams with source fallback on parse errors.
+- HTML preview provides Fit, phone, tablet, and desktop widths. On desktop, Open interactive preview launches a separate sandboxed window served by an ephemeral loopback HTTP transport. It has an independent response CSP, no preload/app bridge/Node access, no persistent session, and denied outbound requests, navigation, popups, downloads, and permissions. Only the authorized app main frame can request a preview (1 MB UTF-8 limit); closing the preview or owning app closes the server. The web client retains static previews and reports interactive desktop-only availability. An Electron/Chromium probe verified inline script execution, blocked external fetch, and absence of bridge, Node require, and opener; exhaustive hostile-document and cross-platform visual verification remain outstanding. An opaque sandbox origin, restrictive content policy, blocked network/form submission, and no app bridge separate generated content from the host. Prototypes should be self-contained; relative CSS/assets are not automatically bundled.
+- The existing Design board remains the interactive workspace: sketch or describe, refine concepts, pin notes, open/edit source, and interact with viewport-sized previews. New safety policy also covers concept thumbnails. This is not a vector editing canvas or a proprietary design-file importer.
+- Shared prompt guidance encourages reports with sources, assumptions, trade-offs, recommendations, and next steps when useful, without creating unnecessary files for simple conversations. AGENTS.md requires contemporaneous spec maintenance for feature/behavior changes.
+
+### Acceptance and follow-up
+Security tests must cover isolation, no silent local reads, raster bounds/signatures, unsafe URL handling, and broken diagram fallback. UI review must cover chat file links, inline image loading, source/preview editing, viewport controls, and actual prototype interaction. HTML artifacts can now be explicitly imported from the file pane into a chosen project board, creating an editable copy under nekko-designs/. Refinements and restores keep up to ten previous HTML snapshots; restore requires confirmation and saves the current document as a new history entry. This import/restore UI is implemented but not yet end-to-end visually verified. Native mobile parity, direct chat-to-board shortcuts, element-level visual editing, and export to external design formats remain follow-up work; this initial change must not claim them complete. Rendering an image to the user does not itself give the model vision input: multimodal tool-result delivery is a separate requirement.

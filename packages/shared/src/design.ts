@@ -30,6 +30,8 @@ export interface DesignPage {
   kind?: 'live' | 'concept';
   /** Concepts: the generated self-contained HTML prototype. */
   html?: string;
+  /** Bounded previous editable snapshots, newest last. */
+  revisions?: { id: string; html: string; createdAt: number }[];
   /** Concepts: the prompt that produced (or last refined) the html. */
   prompt?: string;
   /** Concepts: where this came from. */
