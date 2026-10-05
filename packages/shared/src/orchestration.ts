@@ -53,6 +53,8 @@ export interface OrchestrationSettings {
   maxDepth: number;
   /** Advisory cap on how many sub-agents to run at once (surfaced in the prompt). */
   maxParallel: number;
+  /** Explicit user-selected default. Unset inherits the parent's route; never a fallback. */
+  delegationRoute?: { providerId: string; modelId: string };
 }
 
 export const DEFAULT_ORCHESTRATION: OrchestrationSettings = {
