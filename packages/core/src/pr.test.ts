@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractPrUrls, parsePrUrl, collectSessionPrUrls } from '@agent-nekko/shared';
+import { extractPrUrls, parsePrUrl, collectSessionPrUrls } from '../../shared/src/pr.js';
 
 describe('extractPrUrls', () => {
   it('pulls unique PR URLs out of text and trims trailing punctuation', () => {
@@ -35,35 +35,18 @@ describe('parsePrUrl', () => {
 });
 
 describe('collectSessionPrUrls', () => {
-  it('ignores PR examples in file reads and search results but keeps shell-created PRs', () => {
-    const messages = [
-      { toolCalls: [
-        { id: 'read', name: 'read_file' },
-        { id: 'search', name: 'grep' },
-        { id: 'shell', name: 'bash' },
-      ] },
-      { role: 'tool', content: 'https://github.com/o/r/pull/1', toolResult: { toolCallId: 'read', output: 'https://github.com/o/r/pull/1' } },
-      { toolResult: { toolCallId: 'search', output: 'https://github.com/o/r/pull/2' } },
-      { toolResult: { toolCallId: 'shell', output: 'https://github.com/nekko-labs/agent-nekko/pull/253' } },
-    ];
-    expect(collectSessionPrUrls(messages)).toEqual(['https://github.com/nekko-labs/agent-nekko/pull/253']);
+  const url = 'https://github.com/o/r/pull/1';
+  const pair = (command: string, isError = false) => [
+    { toolCalls: [{ id: 'c', name: 'bash', input: { command } }] },
+    { role: 'tool', toolResult: { toolCallId: 'c', output: url, isError } },
+  ];
+  it('keeps successful CLI and REST creations', () => {
+    expect(collectSessionPrUrls(pair('gh pr create --title fix'))).toEqual([url]);
+    expect(collectSessionPrUrls(pair('gh api repos/o/r/pulls -X POST --jq .html_url'))).toEqual([url]);
   });
-
-  it('keeps explicitly discussed URLs even when a read exposed the same URL', () => {
-    const url = 'https://github.com/o/r/pull/1';
-    expect(collectSessionPrUrls([
-      { toolCalls: [{ id: 'read', name: 'read_file' }] },
-      { toolResult: { toolCallId: 'read', output: url } },
-      { role: 'assistant', content: `Review ${url}` },
-    ])).toEqual([url]);
-  });
-  it('scans message content and tool output', () => {
-    const messages = [
-      { content: 'working on it' },
-      { content: 'PR up: https://github.com/o/r/pull/5' },
-      { content: '', toolResult: { output: 'created https://github.com/o/r/pull/6' } },
-      { content: 'dup https://github.com/o/r/pull/5' },
-    ];
-    expect(collectSessionPrUrls(messages)).toEqual(['https://github.com/o/r/pull/5', 'https://github.com/o/r/pull/6']);
+  it('ignores mentions, lookups, edits, reviews, failed calls and unpaired output', () => {
+    expect(collectSessionPrUrls([{ role: 'assistant', content: 'Opened ' + url }, { role: 'user', content: url }, { toolResult: { output: url } }])).toEqual([]);
+    for (const command of ['gh pr view 1', 'gh pr list', 'gh pr review 1', 'gh api repos/o/r/pulls/1 -X PATCH', 'gh api repos/o/r/pulls']) expect(collectSessionPrUrls(pair(command))).toEqual([]);
+    expect(collectSessionPrUrls(pair('gh pr create', true))).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChatMessage } from '@agent-nekko/shared';
-import { collectSessionPrUrls, extractPrUrls } from '@agent-nekko/shared';
+import { collectSessionPrUrls, extractPrUrls } from '../../../../../../packages/shared/src/pr.js';
 import { estimateRowHeight, fmtDateTime, fmtTime, toTranscriptRows } from './transcript.js';
 
 const msg = (id: string, role: ChatMessage['role'], content: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
@@ -23,8 +23,8 @@ describe('toTranscriptRows', () => {
   it('anchors discoveries including tool-only PRs instead of moving them after new messages', () => {
     const pr1 = 'https://github.com/o/r/pull/1';
     const pr2 = 'https://github.com/o/r/pull/2';
-    const base = [msg('u', 'user', 'make PRs'), msg('a1', 'assistant', 'Opened ' + pr1),
-      msg('t', 'tool', '', { toolResult: { toolCallId: 'x', output: 'created ' + pr2 } })];
+    const base = [msg('u', 'user', 'make PRs'), msg('a1', 'assistant', 'Opened ' + pr1, { toolCalls: [{ id: 'x', name: 'bash', input: { command: 'gh pr create' } }] }),
+      msg('t', 'tool', '', { toolResult: { toolCallId: 'x', output: pr1 + '\n' + pr2 } })];
     const before = rows(base);
     const after = rows([...base, msg('u2', 'user', 'run the build'), msg('a2', 'assistant', 'Building.')]);
     expect(before.filter((r) => r.kind === 'prs').map((r) => r.urls)).toEqual([[pr1], [pr2]]);
@@ -34,10 +34,10 @@ describe('toTranscriptRows', () => {
 
   it('keeps created and merged milestones separate, before later replies', () => {
     const url = 'https://github.com/o/r/pull/1';
-    const messages = [msg('a', 'assistant', url, { createdAt: 100 }), msg('merged', 'assistant', 'Merged.', { createdAt: 200 }), msg('u', 'user', 'Next task', { createdAt: 400 })];
+    const messages = [msg('a', 'assistant', '', { createdAt: 90, toolCalls: [{ id: 'create', name: 'bash', input: { command: 'gh pr create' } }] }), msg('t', 'tool', url, { createdAt: 100, toolResult: { toolCallId: 'create', output: url } }), msg('merged', 'assistant', 'Merged.', { createdAt: 200 }), msg('u', 'user', 'Next task', { createdAt: 400 })];
     const prs = [{ url, state: 'merged', mergedAt: new Date(250).toISOString() }] as any;
     const result = toTranscriptRows(messages, extractPrUrls, collectSessionPrUrls, prs);
-    expect(result.map((r) => r.kind === 'prs' ? r.event : r.kind === 'msg' ? r.message.id : r.kind)).toEqual(['a', 'created', 'merged', 'merged', 'u']);
+    expect(result.map((r) => r.kind === 'prs' ? r.event : r.kind === 'msg' ? r.message.id : r.kind)).toEqual(['activity', 'created', 'merged', 'merged', 'u']);
     expect(new Set(result.map((r) => r.key)).size).toBe(result.length);
   });
 

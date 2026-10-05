@@ -584,3 +584,6 @@ Availability: design and initial policy/discovery helpers only. App-control adap
 ## Experimental outbound resource queue
 
 An off-by-default developer experiment adds a manual coordinator section to Nekko Server. Register a local resource, inspect jobs, explicitly claim one and open its prompt in a new agent chat. Explicitly submit the final reply as untrusted output, never automatic approval. See docs/resource-queue.md for security and deployment gates.
+
+### Chat PR ownership
+PR cards and session PR links track only successful PR creation calls made in that chat. Mentioned URLs, reviews, status lookups, edits and failed creations do not attach PRs. Ordinary message links remain clickable. Historical chats without creation evidence do not claim ownership.

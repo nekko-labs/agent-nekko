@@ -1112,3 +1112,5 @@ Technical approach: independent approval policy and session environment; default
 - [x] Experimental toggle, host outbound transport and manual queue UI implemented in draft.
 - [ ] OS secret storage, per-client identities, durable lease recovery and independent result verification.
 - [ ] Visual evidence and live Fly/getsu test.
+
+- [x] Restrict chat PR discovery and native summaries to successful creation tool results; add regression tests for references and failed calls.

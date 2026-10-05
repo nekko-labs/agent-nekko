@@ -118,7 +118,7 @@ export function toTranscriptRows(
   const calls = new Map(messages.flatMap((m) => (m.toolCalls ?? []).map((c) => [c.id, c.name] as const)));
   messages.forEach((m, i) => {
     const tool = m.toolResult?.toolCallId ? calls.get(m.toolResult.toolCallId) : undefined;
-    if (tool && contextTools.has(tool)) return;
+    if (m.role !== 'tool' || (tool && contextTools.has(tool))) return;
     for (const url of extractUrls([m.content, m.toolResult?.output].filter(Boolean).join('\n'))) {
       if (!known.has(url) || shown.has(url)) continue;
       shown.add(url);

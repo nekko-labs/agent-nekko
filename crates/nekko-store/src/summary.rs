@@ -117,11 +117,23 @@ fn pr_urls_in(text: &str, out: &mut Vec<String>) {
 fn pr_urls(messages: &[Value]) -> Vec<String> {
     let mut out = Vec::new();
     for m in messages {
-        pr_urls_in(str_field(m, "content"), &mut out);
-        if let Some(o) = m.get("toolResult").and_then(|r| r.get("output")).and_then(Value::as_str)
-            && !o.is_empty()
-        {
-            pr_urls_in(o, &mut out);
+        let Some(result) = m.get("toolResult") else { continue };
+        if js::truthy(result.get("isError")) { continue; }
+        let id = str_field(result, "toolCallId");
+        let call = messages.iter().flat_map(|m| m.get("toolCalls").and_then(Value::as_array).into_iter().flatten())
+            .find(|c| str_field(c, "id") == id && str_field(c, "name") == "bash");
+        let Some(call) = call else { continue };
+        let command = call.get("input").map(|i| str_field(i, "command")).unwrap_or("");
+        let words: Vec<_> = command.split_whitespace().collect();
+        let cli = words.windows(3).any(|w| w == ["gh", "pr", "create"]);
+        let api = words.windows(3).any(|w| w[0] == "gh" && w[1] == "api" && w[2].contains("repos/") && w[2].ends_with("/pulls"))
+            && words.windows(2).any(|w| (w[0] == "-X" || w[0] == "--method") && w[1] == "POST");
+        if !cli && !api { continue; }
+        for line in str_field(result, "output").lines() {
+            let line = line.trim();
+            let mut urls = Vec::new();
+            pr_urls_in(line, &mut urls);
+            if urls.len() == 1 && urls[0] == line && !out.contains(&urls[0]) { out.push(urls.remove(0)); }
         }
     }
     out
@@ -254,4 +266,12 @@ mod tests {
         );
         assert_eq!(out, vec!["https://github.com/o/r/pull/7", "http://github.com/a.b/c-d/pull/12"]);
     }
+    #[test]
+    fn only_created_prs_attach() {
+        let url = "https://github.com/o/r/pull/1";
+        let messages = vec![serde_json::json!({"role":"assistant","content":url}), serde_json::json!({"toolCalls":[{"id":"c","name":"bash","input":{"command":"gh pr create"}}]}), serde_json::json!({"toolResult":{"toolCallId":"c","output":url}})];
+        assert_eq!(pr_urls(&messages), vec![url]);
+        assert!(pr_urls(&messages[..1]).is_empty());
+    }
+
 }
