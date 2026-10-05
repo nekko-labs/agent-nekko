@@ -39,6 +39,12 @@ describe('Pixel Nekko', () => {
     }
   });
 
+  it('only adds the orange wizard hat when explicitly requested', () => {
+    expect(renderToStaticMarkup(<NekkoAvatar wizardHat />)).toContain('orange-wizard-hat');
+    expect(renderToStaticMarkup(<NekkoAvatar />)).not.toContain('orange-wizard-hat');
+    expect(renderToStaticMarkup(<MiniNekko />)).not.toContain('orange-wizard-hat');
+    expect(source('./ChatPane.tsx')).toContain("wizardHat={settings?.themePreset === 'autumn'}");
+  });
   it('keeps working feedback, greeting, and the visibility setting', () => {
     expect(renderToStaticMarkup(<MiniNekko size={16} />)).toContain('pixel-working');
     const working = renderToStaticMarkup(<Mascot mood="thinking" enabled />);

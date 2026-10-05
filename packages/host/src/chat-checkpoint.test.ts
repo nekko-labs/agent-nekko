@@ -72,7 +72,7 @@ function readTool(path: string): ProviderChunk {
   return { type: 'tool_call', call: { id: 'c1', name: 'read_file', input: { path } } };
 }
 
-async function run(session: Session, opts: { resume?: boolean } = {}): Promise<AgentEvent[]> {
+async function run(session: Session, opts: { resume?: boolean; text?: string } = {}): Promise<AgentEvent[]> {
   const events: AgentEvent[] = [];
   await sendChat(
     { sessionId: session.id, providerId: 'p1', modelId: 'm', text: opts.resume ? '' : 'do the long thing', ...opts },
@@ -115,6 +115,30 @@ describe('a run that is cut off part-way', () => {
 });
 
 describe('resuming a cut-off run', () => {
+  it('saves typed continue and announces it before the next assistant reply', async () => {
+    const session = createSession('w1');
+    rounds = [[{ type: 'text', delta: "I'll resume directly." }, { type: 'done' }]];
+    await run(session);
+    round = 0;
+    rounds = [[{ type: 'text', delta: "I'll pick up from here." }, { type: 'done' }]];
+    let visibleAtStart: string[] = [];
+    await sendChat({ sessionId: session.id, providerId: 'p1', modelId: 'm', text: 'continue', resume: true }, e => {
+      if (e.type === 'session_meta' && !visibleAtStart.length) visibleAtStart = getSession(session.id)!.messages.map(m => m.content);
+    });
+    expect(visibleAtStart.at(-1)).toBe('continue');
+    const saved = getSession(session.id)!.messages;
+    const at = saved.findIndex(m => m.role === 'user' && m.content === 'continue');
+    expect(at).toBeGreaterThan(0);
+    expect(saved[at - 1].content).toBe("I'll resume directly.");
+    expect(saved[at + 1].content).toBe("I'll pick up from here.");
+  });
+  it('announces normal typed turns to other mounted panes before streaming', async () => {
+    const session = createSession('w1');
+    rounds = [[{ type: 'text', delta: 'answer' }, { type: 'done' }]];
+    const events = await run(session, { text: 'continue' });
+    expect(events.findIndex(e => e.type === 'session_meta')).toBeLessThan(events.findIndex(e => e.type === 'text'));
+    expect(getSession(session.id)!.messages[0].content).toBe('continue');
+  });
   it('carries on without running the finished tool again', async () => {
     const file = join(workspace, 'notes.txt');
     writeFileSync(file, EXPENSIVE, 'utf8');
