@@ -329,7 +329,7 @@ export function App() {
       {settings?.themePreset === 'autumn' && <AutumnBackground />}
       <UpdateBanner />
       <RelayPairing />
-      <ResourceHud />
+      {view !== 'command' && <ResourceHud />}
       <Mascot mood={mascotMood} enabled={settings?.mascotEnabled ?? true} />
       <CommandPalette />
       <DeepLinkListener />
