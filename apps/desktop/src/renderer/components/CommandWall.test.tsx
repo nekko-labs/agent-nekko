@@ -55,7 +55,7 @@ describe('command wall geometry', () => {
     const before = JSON.stringify(s);
     const g = commandWallGeometry(s, 1000, 700);
     expect(g.panes.get('a')).toEqual({ x: 0, y: 0, width: 496, height: 628 });
-    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 628 });
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 310 });
     expect(g.panes.get('t')).toEqual({ x: 804, y: 0, width: 196, height: 628 });
     expect(g.deck.size).toBe(0);
     expect(JSON.stringify(s)).toBe(before);
@@ -79,7 +79,7 @@ describe('command wall geometry', () => {
     const preview = leafRects(g.addGrid).get('__wall_add__')!;
     expect(preview).toBeTruthy();
     expect(g.stageHeight).toBe(628);
-    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 628 });
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 310 });
     expect(g.add).toEqual({ x: 504, y: 318, width: 292, height: 310 });
     expect(preview.x).toBeCloseTo(0.5);
     expect(preview.y).toBeCloseTo(0.5);

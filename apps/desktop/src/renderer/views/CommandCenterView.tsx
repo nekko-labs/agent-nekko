@@ -8,7 +8,7 @@ import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
 import { Toggle } from '../components/primitives/index.js';
 import { ChatIcon, GridIcon, PlusIcon, TerminalIcon } from '../icons.js';
-import { CommandWall } from '../components/CommandWall.js';
+import { CommandWall, TerminalExcerpt } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
 import { type Vitals } from '../components/InsightsBox.js';
@@ -300,9 +300,10 @@ export function CommandCenterView() {
         <div className="wall-column">
       {wall.layout.mode === 'focus' && <div className="wall-focus-agents" role="toolbar" aria-label="Focus agents">
         {agentList.map((agent) => <button key={agent.session.id} className="wall-focus-agent" aria-pressed={wall.hero === agent.session.id} onClick={() => selectAgent(agent.session.id)}>
-          <NumberedChatIcon number={agent.n} /><span className="truncate">{agent.session.title}</span>
+          <NumberedChatIcon number={agent.n} /><span className="min-w-0 text-left"><span className="block truncate">{agent.session.title}</span><small className="block truncate text-ink-faint">{agent.session.modelId || 'Default model'} · {agent.session.transcriptTokens.toLocaleString()} context tokens</small></span>
           {agent.status && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: agent.status.tone }} />}
         </button>)}
+        {allPanes(wall.root).filter(p => p.kind === 'terminal').map(p => <button key={p.id} className="wall-focus-agent" aria-pressed={wall.hero === p.refId} aria-label={`Focus terminal ${p.refId}`} onClick={() => setWall(w => ({ ...w, hero: p.refId }))}><TerminalIcon className="h-4 w-4 shrink-0" /><span className="min-w-0 text-left"><span className="block truncate">{terminals.find(t => t.id === p.refId)?.title || 'Terminal'}</span><TerminalExcerpt terminalId={p.refId} /></span></button>)}
         <button className="wall-focus-agent" onClick={() => { void addFromToolbar('chat'); }}>+ New agent</button>
       </div>}
       {wall.layout.mode !== 'focus' && wall.composer.side === 'top' && <>{composer}{composerSplit}</>}

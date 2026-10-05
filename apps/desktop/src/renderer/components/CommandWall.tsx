@@ -1,3 +1,4 @@
+import { terminalExcerpt } from './terminalExcerpt.js';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PendingInput, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
@@ -52,7 +53,7 @@ export function TerminalExcerpt({ terminalId }: { terminalId: string }) {
   useEffect(() => {
     let disposed = false;
     const refresh = () => { void window.nekko.terminalSnapshot(terminalId).then(snap => {
-      if (!disposed) setText((snap?.buffer ?? '').replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').trimEnd().split(/\r?\n/).slice(-2).join('\n') || 'No output yet');
+      if (!disposed) setText(terminalExcerpt(snap?.buffer ?? ''));
     }).catch(() => { if (!disposed) setText('Terminal output unavailable'); }); };
     refresh();
     const timer = setInterval(refresh, 3000);
@@ -200,8 +201,8 @@ export function CommandWall({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [dragging, setDragging] = useState<string | null>(null);
-  const [deckOffset, setDeckOffset] = useState(0);
-  useEffect(() => setDeckOffset(0), [state.layout.mode]);
+
+
 
   // The wall fills the window from where it starts down to the bottom and
   // re-measures when its box changes (the ribbon appearing, a resize).
@@ -368,7 +369,7 @@ export function CommandWall({
       <div
         key={pane.id}
         className={`command-wall-window ${inDeck ? 'command-wall-deck-window' : ''} ${flashing ? 'pane-flash' : ''}`}
-        style={rect ? { left: rect.x - (inDeck ? deckOffset : 0), top: rect.y, width: rect.width, height: rect.height } : { display: 'none' }}
+        style={rect ? { left: rect.x, top: rect.y, width: rect.width, height: rect.height } : { display: 'none' }}
         data-wall-deck={inDeck || undefined}
         data-wall-hero={geometry.hero === pane.id || undefined}
         data-wall-pane={pane.id}
