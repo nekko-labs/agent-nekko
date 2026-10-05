@@ -653,3 +653,5 @@ The Rust daemon prompt (`crates/nekko-context/src/prompt.rs`) carries the same a
 
 ### Command wall release follow-up (in verification)
 The follow-up adds deck-only horizontal offset, model/context card labels, read-only terminal excerpt snapshots, a narrow companion Focus notice, and display-only 1.9x companion weighting. Companion ownership follows the anchored chat; a non-chat workspace is used only when it contains one chat, avoiding ambiguous duplication. Saved split ratios are not changed by display weighting. Full web build and npm test passed before the last ownership/widening batch; final component tests and typecheck passed, and quick perf passed all six CI gates. Actual-window evidence remains blocked by local capture/restore failure; metrics completeness and interaction acceptance remain unverified. Not release-complete.
+
+Budget top-agent and local-provider token totals use existing all-time recorded aggregates and are labeled as such; only daily spend is filtered to the UTC month. Monthly attribution and runtime throughput are unavailable in current telemetry and are not guessed.

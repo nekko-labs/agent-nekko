@@ -1,10 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import { RUNTIME_CAPABILITIES, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor, sanitizeMonthlyBudgetUsd } from '@agent-nekko/shared';
 import { DOCK_PANELS, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
-import { localRuntimeMetrics } from './wallDockMetrics.js';
+import { localRuntimeMetrics, recordedBudgetMetrics } from './wallDockMetrics.js';
 import { AutomationsPane } from './AutomationsPane.js';
 import { InsightsBox, type Vitals } from './InsightsBox.js';
 import { useMonitors, useResourceSample } from './ResourceMonitor.js';
@@ -73,7 +73,7 @@ export function WallDock(props: WallDockProps) {
             {p.key === 'vitals' && <InsightsBox {...insightProps} prefs={VITAL_PREFS} onPrefs={() => {}} />}
             {p.key === 'automations' && <AutomationsPane tasks={props.tasks} running={props.running} now={props.now} onOpen={props.onOpenChat} />}
             {p.key === 'utilization' && <Utilization providers={props.providers} usage={props.usage} now={props.now} onOpenModels={props.onOpenModels} />}
-            {p.key === 'budget' && <Budget usage={props.usage} now={props.now} />}
+            {p.key === 'budget' && <Budget usage={props.usage} sessions={props.sessions} providers={props.providers} now={props.now} />}
             {p.key === 'insights' && <InsightsBox {...insightProps} prefs={state.insights} onPrefs={insights} />}
             {p.key === 'hardware' && <Hardware providers={props.providers} />}
           </div>}
@@ -122,7 +122,7 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
   </div>;
 }
 
-function Budget({ usage, now }: Pick<WallDockProps, 'usage' | 'now'>) {
+function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage' | 'now' | 'sessions' | 'providers'>) {
   const settings = useStore((s) => s.settings);
   const budget = sanitizeMonthlyBudgetUsd(settings?.monthlyBudgetUsd);
   const [draft, setDraft] = useState(budget == null ? '' : String(budget));
@@ -130,6 +130,7 @@ function Budget({ usage, now }: Pick<WallDockProps, 'usage' | 'now'>) {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { setDraft(budget == null ? '' : String(budget)); }, [budget]);
   const month = new Date(now).toISOString().slice(0, 7);
+  const recorded = recordedBudgetMetrics(usage, sessions, providers);
   const spend = usage?.daily.filter((d) => d.date.startsWith(`${month}-`)).reduce((sum, d) => sum + d.cost, 0);
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,6 +152,9 @@ function Budget({ usage, now }: Pick<WallDockProps, 'usage' | 'now'>) {
       <p>{spend > budget ? `${formatUSD(spend - budget)} over budget` : `${formatUSD(budget - spend)} remaining`}</p>
       {budget > 0 && <progress aria-label="Monthly budget used" max={budget} value={Math.min(spend, budget)} />}
     </>}
+    <p>Top agent · all-time recorded tokens: {recorded.topAgent}</p>
+    <p>Local providers · all-time recorded tokens: {recorded.localTokens}</p>
+    <p>Per-agent and local-provider monthly breakdowns are unavailable; these totals are not the monthly budget period.</p>
     <form onSubmit={save}><label>Monthly budget (USD)<input type="number" min="0" step="any" value={draft} placeholder="Not set" disabled={!settings || saving} onChange={(e) => setDraft(e.target.value)} /></label><button type="submit" disabled={!settings || saving}>{saving ? 'Saving…' : 'Save'}</button></form>
     {error && <p role="alert">{error}</p>}
     <p>Advisory only, not a spending limit or bill. Estimates cover recorded usage, not subscription fees. Leave blank to clear.</p>

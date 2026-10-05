@@ -1,3 +1,4 @@
+import { isLocalProvider } from '@agent-nekko/shared';
 import type { ResidentModel, RuntimeStatus } from '@agent-nekko/shared';
 import { formatBytes } from './runtimes/verdict.js';
 
@@ -33,4 +34,12 @@ function age(ms: number): string {
   if (m < 60) return m + ' min ago';
   const h = Math.floor(m / 60);
   return h + ' hr ago';
+}
+
+export function recordedBudgetMetrics(usage: import('@agent-nekko/shared').UsageSummary | null, sessions: import('@agent-nekko/shared').SessionSummary[], providers: import('@agent-nekko/shared').ProviderConfig[]) {
+  if (!usage) return { topAgent: 'Unavailable', localTokens: 'Unavailable' };
+  const top = Object.entries(usage.bySession).sort((a, b) => (b[1].input + b[1].output) - (a[1].input + a[1].output))[0];
+  const localIds = new Set(providers.filter(p => isLocalProvider(p.kind)).map(p => p.id));
+  const tokens = Object.entries(usage.byProvider).filter(([id]) => localIds.has(id)).reduce((sum, [, v]) => sum + v.input + v.output, 0);
+  return { topAgent: top ? (sessions.find(s => s.id === top[0])?.title ?? top[0]) + ' · ' + (top[1].input + top[1].output).toLocaleString() + ' tokens' : 'No recorded usage', localTokens: tokens.toLocaleString() };
 }
