@@ -686,4 +686,6 @@ Dock minimization keeps the outgoing panel mounted for a 220ms shrinking transit
 
 The model dropdown renders in a viewport-positioned portal, outside the chat pane's overflow clipping. It fits available height, scrolls its model list, clamps horizontally, and opens above or below the trigger according to available space. Inline empty-chat selection remains inline. Acceptance: subscription usage with published prices has a nonzero API-equivalent total while billed usage remains zero; unknown pricing is not presented as free; filtering, selection, favorites, outside-click dismissal and Escape continue working in narrow composer and full-chat windows. No new network requests or credential access are introduced by the picker.
 
+Engine router port zero uses an OS-assigned listener and reports its actual port in serving metadata. Decision-service integration tests use this to avoid reserve/release port races; auth and CORS checks remain unchanged. Six router tests pass locally; macOS CI confirmation pending. No visual change.
+
 Router decision integration tests bind port zero and read the actual listener port to avoid reserve/release races. Auth/CORS expectations are unchanged; platform execution is verified by CI.
