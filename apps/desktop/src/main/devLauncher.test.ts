@@ -8,9 +8,9 @@ describe('development launcher safety', () => {
     expect(source).toContain("'Agent Nekko.app'");
   });
   it('uses LaunchServices and a distinct development bundle identity', () => {
-    expect(source).toContain("'/usr/bin/open'");
+    expect(readFileSync(new URL('../../scripts/dev-launch-wrapper.cjs', import.meta.url), 'utf8')).toContain("'/usr/bin/open'");
     expect(source).toContain('com.agentnekko.desktop.dev');
-    expect(source).toContain("env.ELECTRON_EXEC_PATH = launcher");
+    expect(source).toContain("env.ELECTRON_EXEC_PATH = prepared.launcher");
   });
   it('rejects node-mode Electron and leaves user privacy grants alone', () => {
     expect(source).toContain('Unset ELECTRON_RUN_AS_NODE');

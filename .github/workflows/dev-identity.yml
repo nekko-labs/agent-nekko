@@ -1,0 +1,30 @@
+name: Development identity
+on:
+  pull_request:
+    paths:
+      - 'apps/desktop/scripts/dev-launch*'
+      - 'apps/desktop/src/main/devLaunchProcess.ts'
+      - 'apps/desktop/src/main/appIdentity*'
+      - '.github/workflows/dev-identity.yml'
+permissions:
+  contents: read
+jobs:
+  macos-native:
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Signed bundle, native window, permission attribution and owned lifecycle
+        working-directory: apps/desktop
+        run: node scripts/dev-launch-smoke.mjs native-smoke
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: native-development-identity
+          path: apps/desktop/native-smoke/
+          if-no-files-found: ignore
