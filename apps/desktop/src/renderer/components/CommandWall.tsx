@@ -21,6 +21,7 @@ import {
   NARROW_WIDTH,
   WALL_KINDS,
   addPane,
+  addPanes,
   filterTree,
   leafRects,
   wallAgents,
@@ -84,6 +85,8 @@ export interface WallGeometry {
   hero: string | null;
   height: number;
   add: { x: number; y: number; width: number; height: number };
+  /** Preview tree with one Add-cell placeholder inserted exactly where addPane would place the next window. */
+  addGrid: WbNode | null;
   grid: WbNode | null;
   stageHeight: number;
 }
@@ -110,6 +113,10 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const stageHeight = Math.max(state.layout.mode === 'grid' ? 560 : 240, height - (state.layout.mode === 'focus' ? deckHeight : 64) - gap);
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
+  const addPanePreview: WbPane = { id: '__wall_add__', kind: 'chat', refId: '__wall_add__' };
+  const addGrid = state.layout.mode === 'grid' && width >= NARROW_WIDTH
+    ? addPanes(grid, [addPanePreview], width > 0 && height > 0 ? width / height : DEFAULT_ASPECT)
+    : grid;
   let contentHeight = stageHeight;
   if (state.layout.mode === 'focus') {
     if (hero) panes.set(hero, { x: 0, y: 0, width, height: stageHeight });
@@ -124,12 +131,23 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     const i = active.length;
     const add = { x: (i % cols) * (cellWidth + gap), y: Math.floor(i / cols) * (rowHeight + gap), width: cellWidth, height: rowHeight };
     deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: contentHeight + gap, width: 240, height: 160 }));
-    return { panes, deck, hero, height: contentHeight + (deck.size ? 168 : 0), add, grid, stageHeight };
+    return { panes, deck, hero, height: contentHeight + (deck.size ? 168 : 0), add, addGrid: grid, grid, stageHeight };
   } else {
-    for (const [id, r] of leafRects(grid)) panes.set(id, { x: r.x * width + (r.x > 0 ? gap / 2 : 0), y: r.y * stageHeight + (r.y > 0 ? gap / 2 : 0), width: Math.max(0, r.width * width - (r.x > 0 ? gap / 2 : 0) - (r.x + r.width < 1 - 1e-6 ? gap / 2 : 0)), height: Math.max(0, r.height * stageHeight - (r.y > 0 ? gap / 2 : 0) - (r.y + r.height < 1 - 1e-6 ? gap / 2 : 0)) });
+    const rectOf = (r: { x: number; y: number; width: number; height: number }) => ({
+      x: r.x * width + (r.x > 0 ? gap / 2 : 0),
+      y: r.y * stageHeight + (r.y > 0 ? gap / 2 : 0),
+      width: Math.max(0, r.width * width - (r.x > 0 ? gap / 2 : 0) - (r.x + r.width < 1 - 1e-6 ? gap / 2 : 0)),
+      height: Math.max(0, r.height * stageHeight - (r.y > 0 ? gap / 2 : 0) - (r.y + r.height < 1 - 1e-6 ? gap / 2 : 0)),
+    });
+    for (const [id, r] of leafRects(grid)) panes.set(id, rectOf(r));
+    const preview = leafRects(addGrid).get(addPanePreview.id);
+    if (preview) {
+      deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: stageHeight + gap, width: 240, height: 160 }));
+      return { panes, deck, hero, height: stageHeight + gap + deckHeight, add: rectOf(preview), addGrid, grid, stageHeight };
+    }
   }
   deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: contentHeight + gap, width: 240, height: 160 }));
-  return { panes, deck, hero, height: contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(240, width), height: deckHeight }, grid, stageHeight };
+  return { panes, deck, hero, height: contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(240, width), height: deckHeight }, addGrid, grid, stageHeight };
 }
 
 /** Stable keyed windows across layouts keep transcripts, terminals and drafts warm. */
@@ -449,7 +467,7 @@ export function CommandWall({
       <div className="command-wall-stage" style={{ height: geometry.height + (state.layout.mode === 'focus' ? 20 : 0), width: size.width }}>
         {state.layout.mode === 'focus' && <div className="command-wall-deck-scroll" aria-label="Scroll other windows" tabIndex={0} style={{ top: geometry.height }} onScroll={e => setDeckOffset(e.currentTarget.scrollLeft)}><div style={{ width: geometry.add.x + geometry.add.width, height: 1 }} /></div>}
         {allPanes(state.root).map(renderLeaf)}
-        {state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.grid && renderDividers(geometry.grid)}
+        {state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
         <button className="command-wall-add" style={{ left: geometry.add.x - (state.layout.mode === 'focus' ? deckOffset : 0), top: geometry.add.y, width: geometry.add.width, height: geometry.add.height }} onClick={onAddWindow} aria-label="Add window"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>
         {!filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : 'No windows on the wall yet. Add a window to get started.'}</div>}
       </div>

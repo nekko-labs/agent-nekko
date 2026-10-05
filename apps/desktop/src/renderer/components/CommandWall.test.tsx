@@ -19,6 +19,7 @@ vi.mock('./PaneFrame.js', () => ({
   PaneActions: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 import { CommandWall, commandWallGeometry, companionTree, workspaceCompanions } from './CommandWall.js';
+import { leafRects } from '../commandWall.js';
 
 const a: WbPane = { id: 'a', kind: 'chat', refId: 'chat-a' };
 const b: WbPane = { id: 'b', kind: 'chat', refId: 'chat-b' };
@@ -58,18 +59,26 @@ describe('command wall geometry', () => {
     for (const mode of ['grid', 'fixed', 'focus'] as const) {
       const s = state({ layout: layout(mode), hero: 'chat-a' });
       const g = commandWallGeometry(s, 1000, 700);
-      expect(commandWallGeometry({ ...s, folded: { 'chat-a': true, 'chat-b': true, term: true } }, 1000, 700)).toEqual(g);
+      const folded = commandWallGeometry({ ...s, folded: { 'chat-a': true, 'chat-b': true, term: true } }, 1000, 700);
+      expect(folded.panes).toEqual(g.panes);
+      expect(folded.deck).toEqual(g.deck);
+      expect(folded.hero).toEqual(g.hero);
+      expect(folded.add).toEqual(g.add);
       expect(g.deck.size).toBe(mode === 'focus' ? 2 : 0);
     }
   });
 
-  it('gives the Grid tree at least 560px plus a reachable Add cell', () => {
-    const g = commandWallGeometry(state(), 1000, 300);
-    expect(g.stageHeight).toBe(560);
-    expect(g.panes.get('a')!.height).toBe(560);
-    expect(g.add.y).toBe(568);
-    expect(g.add.height).toBe(64);
-    expect(g.height).toBe(632);
+  it('places the Grid Add cell at the same leaf addPane will use next', () => {
+    const g = commandWallGeometry(state(), 1000, 700);
+    const preview = leafRects(g.addGrid).get('__wall_add__')!;
+    expect(preview).toBeTruthy();
+    expect(g.stageHeight).toBe(628);
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 628 });
+    expect(g.add).toEqual({ x: 504, y: 318, width: 292, height: 310 });
+    expect(preview.x).toBeCloseTo(0.5);
+    expect(preview.y).toBeCloseTo(0.5);
+    expect(preview.width).toBeCloseTo(0.3);
+    expect(preview.height).toBeCloseTo(0.5);
   });
 
   it('uses Focus-only deck and falls back when the hero is missing or filtered', () => {

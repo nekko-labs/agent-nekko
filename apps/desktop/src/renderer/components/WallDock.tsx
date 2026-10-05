@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { AutomationTask, ProviderConfig, SessionSummary, UsageSummary } from '@agent-nekko/shared';
-import { formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor, sanitizeMonthlyBudgetUsd } from '@agent-nekko/shared';
+import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
+import { RUNTIME_CAPABILITIES, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor, sanitizeMonthlyBudgetUsd } from '@agent-nekko/shared';
 import { DOCK_PANELS, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
+import { localRuntimeMetrics } from './wallDockMetrics.js';
 import { AutomationsPane } from './AutomationsPane.js';
 import { InsightsBox, type Vitals } from './InsightsBox.js';
 import { useMonitors, useResourceSample } from './ResourceMonitor.js';
@@ -74,7 +75,7 @@ export function WallDock(props: WallDockProps) {
             {p.key === 'utilization' && <Utilization providers={props.providers} usage={props.usage} now={props.now} onOpenModels={props.onOpenModels} />}
             {p.key === 'budget' && <Budget usage={props.usage} now={props.now} />}
             {p.key === 'insights' && <InsightsBox {...insightProps} prefs={state.insights} onPrefs={insights} />}
-            {p.key === 'hardware' && <Hardware />}
+            {p.key === 'hardware' && <Hardware providers={props.providers} />}
           </div>}
         </section>)}
         {selectedPanels.length === 0 && <p className="wall-dock__empty">No panels selected. Use Configure to restore them.</p>}
@@ -156,19 +157,33 @@ function Budget({ usage, now }: Pick<WallDockProps, 'usage' | 'now'>) {
   </div>;
 }
 
-function Hardware() {
+function Hardware({ providers }: { providers: ProviderConfig[] }) {
   const monitors = useMonitors();
   const { system, gpu } = useResourceSample();
+  const runtimeIds = providers.filter((p) => p.enabled && p.kind in RUNTIME_CAPABILITIES && RUNTIME_CAPABILITIES[p.kind as keyof typeof RUNTIME_CAPABILITIES].canLoad).map((p) => p.id);
+  const [statuses, setStatuses] = useState<Array<RuntimeStatus | null>>([]);
+  useEffect(() => {
+    let live = true;
+    const refresh = () => { void Promise.all(runtimeIds.map((id) => window.nekko.runtimeStatus(id).catch(() => null))).then((next) => { if (live) setStatuses(next); }); };
+    refresh();
+    const timer = setInterval(refresh, 6000);
+    return () => { live = false; clearInterval(timer); };
+  }, [runtimeIds.join('|')]);
   const util = gpu?.devices.map((d) => d.utilizationPct).filter((n): n is number => n != null && Number.isFinite(n)) ?? [];
   const gpuUtil = util.length ? Math.max(...util) : null;
-  const memory = (used: number, total: number) => total > 0 ? `${(used / 1024).toFixed(1)} / ${(total / 1024).toFixed(1)} GiB (${Math.round(used / total * 100)}%)` : 'Unavailable';
+  const memory = (used: number, total: number) => total > 0 ? (used / 1024).toFixed(1) + ' / ' + (total / 1024).toFixed(1) + ' GiB (' + Math.round(used / total * 100) + '%)' : 'Unavailable';
+  const local = localRuntimeMetrics(statuses.filter((s): s is RuntimeStatus => !!s));
   return <div className="wall-dock__metrics">
     <dl>
-      <dt>CPU</dt><dd>{!monitors.cpu ? 'Monitor off' : system ? `${system.cpuPct}%` : 'Unavailable'}</dd>
+      <dt>CPU</dt><dd>{!monitors.cpu ? 'Monitor off' : system ? system.cpuPct + '%' : 'Unavailable'}</dd>
       <dt>Memory</dt><dd>{!monitors.memory ? 'Monitor off' : system ? memory(system.memUsedMB, system.memTotalMB) : 'Unavailable'}</dd>
-      <dt>GPU (peak device)</dt><dd>{!monitors.gpu ? 'Monitor off' : gpuUtil == null ? 'Unavailable' : `${gpuUtil}%`}</dd>
+      <dt>GPU (peak device)</dt><dd>{!monitors.gpu ? 'Monitor off' : gpuUtil == null ? 'Unavailable' : gpuUtil + '%'}</dd>
       <dt>{gpu ? gpuMemoryLabel(gpu) : 'VRAM'}</dt><dd>{!monitors.vram ? 'Monitor off' : gpu ? memory(gpu.usedMB, gpu.totalMB) : 'Unavailable'}</dd>
+      <dt>Loaded local models</dt><dd>{local.loadedModels}</dd>
+      <dt>Loaded model memory</dt><dd>{local.memoryLabel}</dd>
+      <dt>Last local tok/s</dt><dd>{local.lastTokPerSecond}</dd>
     </dl>
-    <p>Shared resource sampler · OS{gpu ? ` + ${gpu.source}` : ''}. Missing probes are unavailable, not zero. Monitor switches follow Settings.</p>
+    {local.recent.length > 0 && <ul>{local.recent.map((r) => <li key={r.id}>{r.id}{r.placement ? ' · ' + r.placement : ''}{r.lastUsed ? ' · last used ' + r.lastUsed : ''}</li>)}</ul>}
+    <p>Shared resource sampler — OS{gpu ? ' + ' + gpu.source : ''}. Missing probes are unavailable, not zero. Local model rows use runtime resident-model fields; tokens/sec is shown only when a runtime reports it.</p>
   </div>;
 }
