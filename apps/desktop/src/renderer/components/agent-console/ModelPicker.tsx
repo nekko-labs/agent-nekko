@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { pickerPlacement } from './pickerPlacement.js';
+import { filteredModelGroups, isModelPickerEscape, nextFavoriteModels, shouldDismissModelPickerPointer } from './modelPickerInteractions.js';
 import type { AutoQuality, ModelInfo, ProviderConfig } from '@agent-nekko/shared';
 import {
   AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, blockLabel, formatModelPriceLabel,
@@ -82,11 +83,9 @@ export function ModelPicker({
   useEffect(() => {
     if (!open || expanded) return;
     const onDoc = (e: MouseEvent) => {
-      // Context commands render in a portal outside the picker itself.
-      if ((e.target as Element).closest?.('[role="menu"]')) return;
-      if (ref.current && !ref.current.contains(e.target as Node) && !popupRef.current?.contains(e.target as Node)) setOpen(false);
+      if (shouldDismissModelPickerPointer(e.target, ref.current, popupRef.current)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (isModelPickerEscape(e)) setOpen(false); };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
@@ -107,20 +106,15 @@ export function ModelPicker({
 
   const favSet = new Set(settings?.favoriteModels ?? []);
   const toggleFavorite = async (key: string) => {
-    const next = new Set(settings?.favoriteModels ?? []);
-    next.has(key) ? next.delete(key) : next.add(key);
-    await window.nekko.updateSettings({ favoriteModels: [...next] });
+    const next = nextFavoriteModels(settings?.favoriteModels, key);
+    await window.nekko.updateSettings({ favoriteModels: next });
     refreshSettings();
   };
 
   const modelsOf = (pid: string): ModelInfo[] =>
     byProvider[pid] ?? (pid === providerId ? models : []);
   const q = query.trim().toLowerCase();
-  const matches = (m: ModelInfo) => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
-
-  const groups = providers
-    .map((p) => ({ provider: p, models: modelsOf(p.id).filter(matches) }))
-    .filter((g) => g.models.length > 0);
+  const groups = filteredModelGroups(providers, modelsOf, query);
   const starred = groups.flatMap((g) =>
     g.models
       .filter((m) => favSet.has(`${g.provider.id}::${m.id}`) && !recent.includes(`${g.provider.id}::${m.id}`))
