@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { MermaidDiagram } from './ArtifactPreview.js';
+
 import { ContextAction, ContextMenu } from './ContextMenu.js';
 import { useStore } from '../store.js';
+
 
 /**
  * Minimal, dependency-free markdown renderer covering the constructs a chat
@@ -144,6 +147,7 @@ function CodeBlock({ lang, code }: { lang: string; code: string }) {
       setTimeout(() => setCopied(false), 1200);
     });
   };
+  if (lang.toLowerCase() === 'mermaid') return <MermaidDiagram code={code} />;
   return (
     <div className="group relative my-2">
       <pre
@@ -494,14 +498,16 @@ function resolveRef(basePath: string, target: string): string {
  */
 function Ref({ href, basePath, children }: { href: string; basePath?: string; children: React.ReactNode }) {
   if (/^https?:\/\//i.test(href)) return <Link href={href}>{children}</Link>;
-  if (href.startsWith('#') || !basePath) return <span className="text-ink-soft">{children}</span>;
-  const target = resolveRef(basePath, href);
+  if (/^[a-z][a-z0-9+.-]*:/i.test(href) && !/^[a-z]:[\\/]/i.test(href)) return <span>{children}</span>;
+  if (href.startsWith('//') || href.startsWith('\\\\')) return <span>{children}</span>;
+  if (href.startsWith('#') || (!basePath && !/^(?:[A-Za-z]:[\\/]|\/)/.test(href))) return <span className="text-ink-soft">{children}</span>;
+  const target = basePath ? resolveRef(basePath, href) : href;
   return (
     <button
       className="wrap-break-word underline"
       style={{ color: 'var(--accent)' }}
       title={`Open ${target}`}
-      onClick={() => window.nekko.openPath(target)}
+      onClick={() => { void import('../store.js').then(({ useStore }) => useStore.getState().openFilePane(target)); }}
     >
       {children}
     </button>
@@ -514,13 +520,17 @@ function Ref({ href, basePath, children }: { href: string; basePath?: string; ch
  * labelled chip that opens the real file instead of a broken image box.
  */
 function ImageRef({ alt, src, basePath }: { alt: string; src: string; basePath?: string }) {
+  const [image, setImage] = useState('');
+  const [error, setError] = useState('');
   const remote = /^https?:\/\//i.test(src);
-  const target = remote ? src : basePath ? resolveRef(basePath, src) : null;
+  const unsafe = src.startsWith('//') || src.startsWith('\\\\') || (/^[a-z][a-z0-9+.-]*:/i.test(src) && !/^[a-z]:[\\/]/i.test(src) && !remote);
+  const target = unsafe ? null : remote ? src : basePath ? resolveRef(basePath, src) : /^(?:[A-Za-z]:[\\/]|\/)/.test(src) ? src : null;
   const label = alt || src.split(/[\\/]/).pop() || 'image';
+  if (image) return <img src={image} alt={label} className="my-2 max-h-96 max-w-full rounded-lg border border-line object-contain" />;
   const body = (
     <>
       <span aria-hidden>🖼</span>
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate">{label}{error ? ` · ${error}` : target && !remote ? ' · Load image' : ''}</span>
     </>
   );
   const className = 'my-1 inline-flex max-w-full items-center gap-1.5 rounded-lg border border-line px-2 py-0.5 align-middle text-[12px] text-ink-soft';
@@ -529,7 +539,14 @@ function ImageRef({ alt, src, basePath }: { alt: string; src: string; basePath?:
     <button
       className={`${className} hover:bg-surface-2 hover:text-ink`}
       title={`Open ${target}`}
-      onClick={() => window.nekko.openPath(target)}
+      onClick={async () => {
+        if (remote) { window.nekko.openPath(target); return; }
+        try {
+          const file = await window.nekko.readFile(target);
+          if (file.imageDataUrl) setImage(file.imageDataUrl);
+          else setError('Preview unavailable');
+        } catch { setError('Could not read image'); }
+      }}
     >
       {body}
     </button>

@@ -4,7 +4,7 @@
 
 A model is the AI you choose. Local means it runs on your computer rather than an online service. A model runner is the software that loads and runs that AI, such as Ollama, LM Studio, or vLLM. An AI agent can use tools to work on a task, rather than only reply in a chat.
 
-Nekko, the mascot, is a hand-drawn, slender outline cat with ginger ears and tail, slim sunglasses, an earpiece, and a small collar and tie. The website uses the same relaxed leaning pose as the desktop app: Nekko rests one paw against a short edge with crossed ankles.
+Nekko, the mascot, is an animated 8-bit cat head based on the app icon: cream pixels on dark green, with occasional happy ^ ^ eyes, blinks, and stepped hops. The same design appears in the app, live chat status, mobile app, and website, with reduced-motion support.
 
 ## Identity and current distribution
 

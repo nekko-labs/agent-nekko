@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { PREVIEW_CHANNEL } from '../previewPolicy.js';
+if (process.isMainFrame) contextBridge.exposeInMainWorld('nekkoPreview', { open: (source: string) => ipcRenderer.invoke(PREVIEW_CHANNEL, source) });
 import type {
   AppSettings,
   ConnectorKind,

@@ -668,7 +668,7 @@ export interface NekkoApi {
   /** Design board: a workspace's UI page snapshots + persistent notes. */
   getDesignBoard(workspaceId: string): Promise<DesignBoard>;
   addDesignPage(workspaceId: string, label: string, url: string): Promise<DesignBoard>;
-  updateDesignPage(workspaceId: string, pageId: string, patch: Partial<Pick<DesignPage, 'label' | 'url'>>): Promise<DesignBoard>;
+  updateDesignPage(workspaceId: string, pageId: string, patch: Partial<Pick<DesignPage, 'label' | 'url' | 'html'>>): Promise<DesignBoard>;
   removeDesignPage(workspaceId: string, pageId: string): Promise<DesignBoard>;
   addDesignNote(workspaceId: string, pageId: string, text: string): Promise<DesignBoard>;
   resolveDesignNote(workspaceId: string, pageId: string, noteId: string): Promise<DesignBoard>;

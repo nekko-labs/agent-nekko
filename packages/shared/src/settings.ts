@@ -93,6 +93,8 @@ export interface CommandWallSetting {
   filter: 'all' | 'chat' | 'terminal';
   insights: { panels: Record<string, boolean> };
   watermark: number;
+  /** Where the wall's one composer sits. */
+  composer?: { side: 'top' | 'bottom'; align: 'left' | 'center' | 'right' };
 }
 
 /**

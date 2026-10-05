@@ -433,7 +433,7 @@ export interface Host {
   /** Design board: a workspace's UI page snapshots + persistent notes. */
   getDesignBoard(workspaceId: string): DesignBoard;
   addDesignPage(workspaceId: string, label: string, url: string): DesignBoard;
-  updateDesignPage(workspaceId: string, pageId: string, patch: Partial<Pick<DesignPage, 'label' | 'url'>>): DesignBoard;
+  updateDesignPage(workspaceId: string, pageId: string, patch: Partial<Pick<DesignPage, 'label' | 'url' | 'html'>>): DesignBoard;
   removeDesignPage(workspaceId: string, pageId: string): DesignBoard;
   addDesignNote(workspaceId: string, pageId: string, text: string): DesignBoard;
   resolveDesignNote(workspaceId: string, pageId: string, noteId: string): DesignBoard;
