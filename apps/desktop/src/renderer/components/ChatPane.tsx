@@ -782,11 +782,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     return () => { live = false; cancel(); };
   }, [providerId]);
 
-  // Per-chat estimated cost. usageSummary already zeroes subscription providers.
+  // Per-chat cost at the model's published API prices. Subscription chats are
+  // priced too (listCost), so the composer can say what the chat is worth in
+  // API terms rather than just "Subscription".
   useEffect(() => afterPaint(() => {
     window.nekko.getUsageSummary().then((u) => {
       const s = u.bySession[sessionId];
-      setCost(s ? (s.cost ?? 0) : 0);
+      setCost(s ? (s.listCost ?? s.cost ?? 0) : 0);
     }).catch(() => setCost(0));
   }), [sessionId, session?.modelId, session?.messages.length]);
 
@@ -1814,7 +1816,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   ];
 
   const isCloudModel = !providerKind || !isLocalProvider(providerKind);
-  const isSubscription = activeProvider?.auth === 'subscription';
   // Reasoning toggle: offered only for a concrete, reasoning-capable model.
   const selectedModelInfo = modelId && modelId !== AUTO_MODEL_ID ? models.find((m) => m.id === modelId) : undefined;
   const thinkingSupported = !!modelId && modelId !== AUTO_MODEL_ID && modelSupportsThinking({ id: modelId, name: selectedModelInfo?.name });
@@ -1913,6 +1914,42 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     [activeSkill],
   );
   const ctxUsed = useMemo(() => (ctx ? ctx.items.filter((i) => i.included).reduce((s, i) => s + i.tokens, 0) : 0), [ctx]);
+
+  // The model and its effort sit in the bottom bar, between the attach button
+  // and the context gauge, where the eye already is when sending.
+  const modelControls = (
+    <div className="flex min-w-0 shrink items-center rounded-lg">
+    <ModelPicker
+      providers={providers}
+      providerId={providerId}
+      models={models}
+      modelId={modelId}
+      open={modelMenuOpen}
+      onOpenChange={openModelMenu}
+      needsChoice={needsModel}
+      hint={modelHint}
+      onProvider={setProviderId}
+      onModel={(pid, v) => {
+        if (pid) setProviderId(pid);
+        setModelId(v);
+        // Park the pick on the chat itself. Switching tabs unmounts
+        // this pane, so a renderer-only choice was lost on the way
+        // back and the chat fell back to its old provider (which may
+        // have no models at all, leaving it unsendable).
+        const auto = v === AUTO_MODEL_ID;
+        window.nekko
+          .setSessionOptions(sessionId, {
+            autoModel: auto,
+            ...(pid ? { providerId: pid } : {}),
+            ...(auto ? {} : { modelId: v }),
+          })
+          .then((s) => { if (s) setSession(s); })
+          .catch(() => {});
+      }}
+    />
+    <EffortSlider modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
+    </div>
+  );
 
   return (
     <div ref={paneRef} className="flex h-full min-w-0 overflow-hidden">
@@ -2176,10 +2213,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               </div>
             )}
             {showControls && (<>
-            {/* Controls live at the top of the input surface. Separate rows keep
-                the model and its effort slider together when a pane is narrow. */}
-            <div className="flex items-center gap-1 border-b border-line px-2 py-1.5">
-              <div className="min-w-0 flex-1">
+            {/* Chat-wide switches live at the top of the input surface; the
+                model and its effort sit in the bottom bar beside Send. */}
+            <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
+              <div className="min-w-0 shrink">
               <ChatControls
                 session={session}
                 isCloudModel={isCloudModel}
@@ -2187,52 +2224,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 leading={<ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
               />
               </div>
-              {!imageMode && (
-                <button
-                  className="ctl-toggle ml-auto shrink-0 whitespace-nowrap"
-                  onClick={() => setScheduleOpen(true)}
-                  aria-label="Automate: schedule, repeat, or run in the background"
-                  title="Automate: schedule, repeat, or run in the background"
-                >
-                  <span style={{ color: 'var(--warning)' }}><BoltIcon className="h-3 w-3" /></span> Automate
-                </button>
-              )}
-            </div>
-            <div className={`flex min-w-0 flex-wrap items-center gap-1 border-b border-line px-2 py-1.5 ${imageMode ? 'flex-wrap' : ''}`}>
-              {imageMode && session ? (
-                <ImageModeControls session={session} onChange={setSession} busy={streaming} />
-              ) : (<>
-              <div className="flex min-w-0 items-center rounded-lg">
-              <ModelPicker
-                providers={providers}
-                providerId={providerId}
-                models={models}
-                modelId={modelId}
-                open={modelMenuOpen}
-                onOpenChange={openModelMenu}
-                needsChoice={needsModel}
-                hint={modelHint}
-                onProvider={setProviderId}
-                onModel={(pid, v) => {
-                  if (pid) setProviderId(pid);
-                  setModelId(v);
-                  // Park the pick on the chat itself. Switching tabs unmounts
-                  // this pane, so a renderer-only choice was lost on the way
-                  // back and the chat fell back to its old provider (which may
-                  // have no models at all, leaving it unsendable).
-                  const auto = v === AUTO_MODEL_ID;
-                  window.nekko
-                    .setSessionOptions(sessionId, {
-                      autoModel: auto,
-                      ...(pid ? { providerId: pid } : {}),
-                      ...(auto ? {} : { modelId: v }),
-                    })
-                    .then((s) => { if (s) setSession(s); })
-                    .catch(() => {});
-                }}
-              />
-              <EffortSlider modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
-              </div>
+              {!imageMode && (<>
               {modelId === AUTO_MODEL_ID && (
                 <AutoQualityMenu
                   quality={autoQuality}
@@ -2279,7 +2271,22 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 </span>
               ) : null}
               </>)}
+              {!imageMode && (
+                <button
+                  className="ctl-toggle ml-auto shrink-0 whitespace-nowrap"
+                  onClick={() => setScheduleOpen(true)}
+                  aria-label="Automate: schedule, repeat, or run in the background"
+                  title="Automate: schedule, repeat, or run in the background"
+                >
+                  <span style={{ color: 'var(--warning)' }}><BoltIcon className="h-3 w-3" /></span> Automate
+                </button>
+              )}
             </div>
+            {imageMode && session && (
+              <div className="flex min-w-0 flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
+                <ImageModeControls session={session} onChange={setSession} busy={streaming} />
+              </div>
+            )}
             </>)}
 
             {/* Queued follow-ups expand inside the same surface as the input. */}
@@ -2631,11 +2638,11 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                       }}
                     />
                   </div>
+                  {modelControls}
                   <LiveContextGauge
                     sessionId={sessionId}
                     marks={marks}
                     bundle={ctx}
-                    subscription={isSubscription}
                     skill={skillTokens}
                     draftTokens={deferredDraft.trim() ? estimateTokens(deferredDraft) : 0}
                     contextWindow={selectedModelInfo?.contextLength}
