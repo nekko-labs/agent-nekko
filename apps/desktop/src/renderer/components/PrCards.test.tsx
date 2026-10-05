@@ -59,6 +59,17 @@ describe('PR milestones and composer actions', () => {
     expect(markup).toContain('Hide PR o/r#1');
     expect(markup).toContain('does not close the PR');
   });
+  it('uses adjoining rows at 80% composer width with actions beside the PR details', () => {
+    const second = { ...pr, url: 'https://github.com/o/r/pull/2', number: 2 };
+    const markup = renderToStaticMarkup(<PrActionDock sessionId="s" prs={[pr, second]} urls={[url]} />);
+    expect(markup).toContain('mx-auto max-h-60 w-[80%]');
+    expect(markup.match(/data-pr-actions=/g)).toHaveLength(2);
+    expect(markup.match(/last:border-b-0/g)).toHaveLength(2);
+    expect(markup).not.toContain('mb-2');
+    expect(markup).not.toContain('mt-1');
+    expect(markup).toContain('justify-end gap-0');
+    expect(markup).toContain('</p></div><div class="flex max-w-[55%]');
+  });
   it.each(['merged', 'closed'] as const)('automatically removes a %s PR from the dock', (state) => {
     expect(renderToStaticMarkup(<PrActionDock sessionId="s" prs={[{ ...pr, state }]} urls={[url]} />)).toBe('');
   });

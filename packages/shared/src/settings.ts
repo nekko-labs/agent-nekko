@@ -155,6 +155,7 @@ export interface HookRule {
 }
 
 export interface AppSettings {
+  voice?: import('./voice.js').VoiceSettings;
   /** User-authored additions to the built-in system instructions. */
   systemInstructions?: string;
   /** Server-side instructions applied to every user turn. Empty disables them. */

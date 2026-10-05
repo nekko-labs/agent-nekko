@@ -37,6 +37,11 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.runtimeFacts]: ([id]) => host.runtimeFacts(id),
     [C.runtimePlan]: ([id, model, req]) => host.runtimePlan(id, model, req),
     [C.runtimeAutoFit]: ([id, model, budget, slots]) => host.runtimeAutoFit(id, model, budget, slots),
+    [C.voiceStatus]: () => host.voiceStatus(),
+    [C.voiceInstall]: () => host.voiceInstall(),
+    [C.voiceCancelInstall]: () => host.voiceCancelInstall(),
+    [C.voiceUninstall]: () => host.voiceUninstall(),
+    [C.voiceTranscribe]: ([wav]) => host.voiceTranscribe(wav),
     [C.engineStatus]: () => host.engineStatus(),
     // Internal: the engine daemon's router (crates/nekko-infer) asking the
     // engine's policy about a model it does not have running.

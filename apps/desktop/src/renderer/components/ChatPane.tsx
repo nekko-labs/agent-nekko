@@ -1,5 +1,9 @@
+import { needsProviderSetup } from './providers/providerSetup.js';
+import { SetupIllustration } from './providers/ProviderChoices.js';
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { DictationButton } from './DictationButton.js';
+import { decideApproval, type ApprovalScope } from './agent-console/approval-decision.js';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, QueuePayload, QueuedPrompt } from '@agent-nekko/shared';
 import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
@@ -30,7 +34,7 @@ import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterr
 
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
-import { PlanRail } from './PlanRail.js';
+import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
 import { ComposerQuestion } from './ComposerQuestion.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
@@ -1528,9 +1532,11 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     URL.revokeObjectURL(url);
   };
 
-  const approve = async (okDecision: boolean) => {
+  const approve = async (okDecision: boolean, scope: ApprovalScope = 'once') => {
     if (!approval) return;
-    await window.nekko.approveTool(sessionId, approval.call.id, okDecision);
+    const saved = await decideApproval(window.nekko, sessionId, approval.call.id, okDecision, scope);
+    if (saved.session) setSession(saved.session);
+    if (saved.settings) useStore.setState({ settings: saved.settings });
     setApproval(null);
   };
 
@@ -1543,7 +1549,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     await window.nekko.answerQuestion(sessionId, pending.callId, answers);
   };
 
-  const hasProvider = providers.length > 0;
+  const hasProvider = !needsProviderSetup(providers, modelId ?? models[0]?.id);
   // An image chat runs on the engine's image model, not a chat provider, so it
   // can compose with no provider configured at all.
   const summaryType = useStore((st) => st.sessions.find((x) => x.id === sessionId)?.chatType);
@@ -2041,21 +2047,21 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             header={welcomeState.welcome ? (
 
               <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
+                {!hasProvider ? <SetupIllustration /> : <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>}
                 <div>
                   <h2 className="text-[15px] font-semibold">
-                    {!hasProvider ? 'Connect a model to get started' : imageMode ? 'What should Agent Nekko draw?' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
+                    {!hasProvider ? 'Bring your first agent to life' : imageMode ? 'What should Agent Nekko draw?' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
                   </h2>
                   <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
                     {!hasProvider
-                      ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Model Providers.'
+                      ? 'Connect an AI account or a local model. We’ll walk you through it — no technical experience needed.'
                       : needsModel
                         ? 'Choose a model here, or let Auto pick per message.'
                         : 'Ask a question or hand over a task. Use / for skills and prompts, @ to attach files, + for photos and folders.'}
                   </p>
                 </div>
                 {!hasProvider ? (
-                  <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
+                  <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Set up my first agent →</button>
                 ) : null}
                 {welcomeState.modelChoice && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
                   <div className="flex items-center justify-between gap-2 px-2">
@@ -2654,6 +2660,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   </>)}
                   <div className="flex-1" />
                   {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
+                  <DictationButton key={sessionId} sessionId={sessionId} onText={(text) => { setDraft((current) => current + (current && !/\s$/.test(current) ? ' ' : '') + text); composerRef.current?.focus(); }} />
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
                       onClick={() => void send()}
@@ -2681,6 +2688,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             session={session}
             streaming={streaming}
             onClose={() => useStore.getState().togglePlanRail()}
+            onChangePlan={readOnly ? undefined : () => {
+              setDraft(appendPlanChangeRequest);
+              composerRef.current?.focus();
+            }}
           />
         </div>
       )}

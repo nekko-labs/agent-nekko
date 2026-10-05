@@ -278,6 +278,12 @@ export const IpcChannels = {
   // Host-side refresh checks (Settings → Updates "Check now"): model lists + skills.
   updatesCheck: 'updates:check',
 
+  voiceStatus: 'voice:status',
+  voiceInstall: 'voice:install',
+  voiceCancelInstall: 'voice:cancel',
+  voiceUninstall: 'voice:uninstall',
+  voiceTranscribe: 'voice:transcribe',
+  voicePermission: 'voice:permission',
   dialogOpenFolder: 'dialog:openFolder',
 } as const;
 
@@ -303,6 +309,12 @@ export const IpcEvents = {
 
 /** The typed API the preload bridge exposes as window.nekko. */
 export interface NekkoApi {
+  voiceStatus(): Promise<import('./voice.js').VoiceStatus>;
+  voiceInstall(): Promise<import('./voice.js').VoiceStatus>;
+  voiceCancelInstall(): Promise<void>;
+  voiceUninstall(): Promise<void>;
+  voiceTranscribe(wav: number[]): Promise<string>;
+  voicePermission(action?: 'status' | 'request' | 'settings'): Promise<import('./voice.js').VoicePermission>;
   getSettings(): Promise<AppSettings>;
   updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>;
 

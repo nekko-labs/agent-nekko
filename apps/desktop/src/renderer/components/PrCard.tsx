@@ -96,19 +96,19 @@ export function PrActionCard({ url, info, sessionId, onDismiss }: { url: string;
           {check.dot && <span className="text-[10px]" style={{ color: check.color }}>{check.dot} {check.label}</span>}
         </div>
         {info?.title && <p className="truncate text-[12px]">{info.title}</p>}
-        <div className="flex flex-wrap items-center gap-0.5">
-          {(['approve', 'close', 'merge'] as const).map((action) => (
-            <button key={action} className={actionClass} disabled={!!busy || !info} onClick={() => void act(action)}
-              title={action === 'close' ? 'Close this PR without merging' : action === 'approve' ? 'Approve this PR' : 'Merge this PR'}>
-              {busy === action ? 'Working…' : confirm === action ? 'Confirm?' : action === 'approve' ? 'Approve' : action === 'close' ? 'Decline' : 'Merge'}
-            </button>
-          ))}
-          <button className={actionClass} onClick={() => openPrPane(url)}>Review</button>
-          <button className={actionClass} onClick={() => openExternally(url)} aria-label="Open on GitHub">↗</button>
-          {confirm && <button className={actionClass} onClick={() => setConfirm(null)}>Cancel</button>}
-        </div>
       </div>
-      <button className="ml-auto grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint hover:bg-surface-2 hover:text-ink"
+      <div className="flex max-w-[55%] shrink-0 flex-wrap items-center justify-end gap-0" data-pr-action-controls>
+        {(['approve', 'close', 'merge'] as const).map((action) => (
+          <button key={action} className={actionClass} disabled={!!busy || !info} onClick={() => void act(action)}
+            title={action === 'close' ? 'Close this PR without merging' : action === 'approve' ? 'Approve this PR' : 'Merge this PR'}>
+            {busy === action ? 'Working…' : confirm === action ? 'Confirm?' : action === 'approve' ? 'Approve' : action === 'close' ? 'Decline' : 'Merge'}
+          </button>
+        ))}
+        <button className={actionClass} onClick={() => openPrPane(url)}>Review</button>
+        <button className={actionClass} onClick={() => openExternally(url)} aria-label="Open on GitHub">↗</button>
+        {confirm && <button className={actionClass} onClick={() => setConfirm(null)}>Cancel</button>}
+      </div>
+      <button className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint hover:bg-surface-2 hover:text-ink"
         onClick={onDismiss} aria-label={'Hide PR ' + label} title="Hide this PR panel (does not close the PR)"><CloseIcon className="h-3.5 w-3.5" /></button>
     </div>
   );

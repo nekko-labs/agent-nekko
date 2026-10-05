@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, shell, systemPreferences } from 'electron';
 import { type EngineStatus, IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import { initUpdater, checkForUpdates, downloadUpdate, quitAndInstall } from './update.js';
 import type { EngineProcess } from './engine-process.js';
@@ -51,6 +51,16 @@ export function registerIpc(engine: EngineProcess, dataDir: string): void {
     const model = engine.running ? await engine.call<EngineStatus>(IpcChannels.engineStatus) : null;
     return { agentRunning: engine.running, modelRunning: model?.running ?? false,
       modelAvailable: Boolean(model?.install.binPath || model?.diffusionInstall?.binPath || model?.mlxInstall?.binPath) };
+  });
+
+  ipcMain.handle(IpcChannels.voicePermission, async (_event, action = 'status') => {
+    if (!['status', 'request', 'settings'].includes(action)) throw new Error('Unknown microphone permission action');
+    if (action === 'request' && process.platform === 'darwin') await systemPreferences.askForMediaAccess('microphone');
+    if (action === 'settings') {
+      if (process.platform === 'win32') await shell.openExternal('ms-settings:privacy-microphone');
+      else if (process.platform === 'darwin') await shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone');
+    }
+    return { platform: process.platform, status: process.platform === 'win32' || process.platform === 'darwin' ? systemPreferences.getMediaAccessStatus('microphone') : 'unknown' };
   });
 
   // Native folder picker. The preload adds the chosen path through the engine.
