@@ -24,6 +24,8 @@ nekko-designs/
 # Local agent tooling (per-machine hooks and critique scratch)
 .codex/
 .impeccable/
+# Per-person Claude Code settings (.claude/launch.json stays tracked)
+.claude/settings.local.json
 
 # Agent worktrees checked out inside the repo (scratch, never source)
 .worktrees/
