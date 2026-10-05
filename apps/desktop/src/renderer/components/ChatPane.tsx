@@ -539,6 +539,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   const [thinking, setThinking] = useState(false);
   const [atFiles, setAtFiles] = useState<IndexedFile[]>([]);
   const [cost, setCost] = useState(0);
+  const [avoidedCosts, setAvoidedCosts] = useState<import('@agent-nekko/shared').AvoidedCosts>();
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   // The + menu's Skill row expands its skills as a side flyout on hover (no
@@ -788,8 +789,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     window.nekko.getUsageSummary().then((u) => {
       const s = u.bySession[sessionId];
       setCost(s ? (s.listCost ?? s.cost ?? 0) : 0);
-    }).catch(() => setCost(0));
-  }), [sessionId, session?.modelId, session?.messages.length]);
+      setAvoidedCosts(u.bySessionAvoidedCosts?.[sessionId]);
+    }).catch(() => { setCost(0); setAvoidedCosts(undefined); });
+  }), [sessionId, session?.modelId, session?.messages.length, settings?.localCostBenchmark]);
 
   // Keep the sidebar's per-workspace context readout fresh while a turn runs.
   // The pane already re-reads its context bundle per step (throttled to
@@ -1992,7 +1994,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
               title="Open the agent's command log in a terminal window"
             >
-              Commands
+              Log
             </button>
             )}
             {!compact && !!session?.messages.length && (
@@ -2651,6 +2653,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     provider={activeProvider}
                     session={session ?? undefined}
                     cost={cost}
+                    avoidedCosts={avoidedCosts}
                     running={streaming}
                   />
                   </>)}

@@ -1,11 +1,51 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Markdown, markdownSegments, renderWhole, safeHref } from './Markdown.js';
+import { Markdown, markdownSegments, renderWhole, safeHref, linkContextActions } from './Markdown.js';
+
+const browser = vi.hoisted(() => vi.fn());
+vi.mock('../store.js', () => ({ useStore: { getState: () => ({ openBrowserPane: browser }) } }));
 
 const html = (text: string) => renderToStaticMarkup(<Markdown text={text} />);
 
 describe('Markdown', () => {
+  it('normalizes link targets and encodes HTML metacharacters from edited DOM text', () => {
+    const target = 'https://example.com/?label=<img src=x onerror=alert(1)>&quote="\'`';
+    const safe = safeHref(target);
+    expect(safe).not.toBeNull();
+    expect(safe).not.toMatch(/[<>"'`]/);
+    const out = html(`[safe](${target.replace(/ /g, '%20')})`);
+    expect(out).not.toContain('<img');
+    expect(out).not.toContain('<script');
+  });
+  it('routes safe link menu actions to external browser, in-app browser and clipboard', () => {
+    const openPath = vi.fn();
+    const writeText = vi.fn();
+    vi.stubGlobal('window', { nekko: { openPath } });
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+    try {
+      const url = 'https://github.com/nekko-labs/agent-nekko/pull/309';
+      const actions = linkContextActions(url);
+      expect(actions.map((a) => a.label)).toEqual(['Open in external browser', 'Open in in-app browser', 'Copy link']);
+      actions.forEach((a) => a.run());
+      expect(openPath).toHaveBeenCalledWith(url);
+      expect(browser).toHaveBeenCalledWith(url);
+      expect(writeText).toHaveBeenCalledWith(url);
+      expect(linkContextActions('javascript:alert(1)')).toEqual([]);
+      expect(linkContextActions('mailto:test@example.com').map((a) => a.label)).not.toContain('Open in in-app browser');
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it('renders the reported GitHub PR reply as a labeled link', () => {
+    const out = html('Yes—the GitHub integration is in [PR #309](https://github.com/nekko-labs/agent-nekko/pull/309). It’s an open draft with passing checks, not merged or verified against a live GitHub installation.');
+    expect(out).toContain('href="https://github.com/nekko-labs/agent-nekko/pull/309"');
+    expect(out).not.toContain('[PR #309]');
+  });
+  it('renders links nested inside emphasis without losing surrounding links', () => {
+    const out = html('**[PR #309](https://github.com/nekko-labs/agent-nekko/pull/309)** and *[docs](https://example.com/docs)* then [next](https://example.com/next)');
+    expect(out.match(/href=/g)).toHaveLength(3);
+    expect(out).not.toContain('[PR #309]');
+  });
+
   it('turns a dashed run glued to a sentence into a real list', () => {
     // The shape people actually type into the composer: a lead-in line with no
     // blank line before the dashes.
