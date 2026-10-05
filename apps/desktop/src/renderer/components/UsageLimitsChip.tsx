@@ -56,6 +56,7 @@ export function UsageLimitsChip({
   avoidedCosts,
   turnCost = 0,
   running = false,
+  unpriced = false,
 }: {
   provider?: ProviderConfig;
   session?: { id?: string } | null;
@@ -68,6 +69,8 @@ export function UsageLimitsChip({
   turnCost?: number;
   /** A reply is in flight, so the live figure is the one worth showing. */
   running?: boolean;
+  /** Some cloud usage has no published API price; never present it as free. */
+  unpriced?: boolean;
 }) {
   const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -130,6 +133,8 @@ export function UsageLimitsChip({
    */
   const chipText = () => {
     if (local) return 'Free';
+    if (unpriced && cost + turnCost === 0) return 'No estimate';
+    if (unpriced) return `${formatUSD(cost + (liveTurn ? turnCost : 0))}+`;
     if (liveTurn) return `${formatUSD(cost + turnCost)}`;
     return formatUSD(cost);
   };
@@ -148,6 +153,7 @@ export function UsageLimitsChip({
     const limit = subscription && binding
       ? ` · ${binding.label} window ${Math.round(binding.usedPercent)}% used, resets ${resetTime(binding.resetAt, now)}`
       : '';
+    if (unpriced) return 'API-equivalent estimate is incomplete: some usage has no published price. Subscription usage is still included in your plan.';
     return subscription
       ? `This chat at the model's API list prices; your plan covers it${limit}`
       : 'Estimated chat cost at published list prices; your bill may differ';
@@ -194,6 +200,7 @@ export function UsageLimitsChip({
           </div>
         )}
 
+        {unpriced && <p className="mb-2 text-ink-faint">API-equivalent estimate unavailable for some usage. Unpriced tokens are excluded, not free.</p>}
         {avoidedCosts && (
           <div className="mb-2 space-y-1 border-b border-line pb-2">
             <div className="font-medium text-ink">Estimated API costs avoided · session</div>
@@ -208,7 +215,7 @@ export function UsageLimitsChip({
           <>
             <div className="mb-2 flex items-baseline justify-between border-b border-line pb-2">
               <span className="text-ink-soft">This chat at API prices</span>
-              <span className="text-[13px] font-semibold tabular-nums">{formatUSD(cost + (liveTurn ? turnCost : 0))}</span>
+              <span className="text-[13px] font-semibold tabular-nums">{unpriced && cost + turnCost === 0 ? 'Unavailable' : `${formatUSD(cost + (liveTurn ? turnCost : 0))}${unpriced ? '+' : ''}`}</span>
             </div>
             {sortedWindows.length === 0 ? (
               <p className="text-ink-faint">No limit windows reported yet. Send a message to refresh.</p>
