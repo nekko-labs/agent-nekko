@@ -19,6 +19,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run build:web
       - name: Signed bundle, native window, permission attribution and owned lifecycle
         working-directory: apps/desktop
         run: node scripts/dev-launch-smoke.mjs native-smoke

@@ -5,6 +5,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { build } from 'esbuild';
 import { prepareMacBundle } from './dev-launch.mjs';
+import { seedDataDir } from '../../../scripts/perf/lib/seed.mjs';
 
 if (process.platform !== 'darwin') throw Error('This smoke check requires macOS');
 const out = resolve(process.argv[2] || 'native-smoke');
@@ -66,5 +67,46 @@ try {
     await waitFor(() => child.exitCode !== null, 'wrapper shutdown');
     child = null;
   }
-  writeFileSync(join(out, 'result.json'), JSON.stringify({ signedIdentity: true, sharedRuntimeUnchanged: true, isolatedProfile: true, restart: true, shutdown: true }, null, 2));
+  // Exercise the actual main process and full renderer with an owned profile.
+  const seeded = seedDataDir({ mockPort: 4591, chats: [10, 10] });
+  const settingsFile = join(seeded.dir, 'settings.json');
+  const settings = JSON.parse(readFileSync(settingsFile, 'utf8'));
+  settings.commandWall = { root: { id: 'native_split', dir: 'row', sizes: [.5, .5], children: seeded.ids.map(id => ({ id: 'pane_' + id, kind: 'chat', refId: id })) }, autoAdd: false, filter: 'all', layout: { mode: 'grid', cols: 2, rows: 1 }, dock: { side: 'right', show: false, panels: {}, minimized: {} }, folded: {}, composer: { side: 'bottom', align: 'center' }, insights: { panels: {} }, watermark: Date.now() };
+  writeFileSync(settingsFile, JSON.stringify(settings));
+  const fullEntry = join(data, 'full-app'); mkdirSync(fullEntry);
+  writeFileSync(join(fullEntry, 'package.json'), JSON.stringify({ name: 'agent-nekko-full-fixture', main: 'index.cjs' }));
+  writeFileSync(join(fullEntry, 'index.cjs'), `
+const {app,BrowserWindow}=require('electron');
+const fs=require('node:fs'),path=require('node:path');
+app.setAsDefaultProtocolClient=()=>false;
+require(${JSON.stringify(resolve('out/main/index.js'))});
+let checking=false;
+const timer=setInterval(async()=>{
+ if(checking)return;checking=true;
+ try {
+  const win=BrowserWindow.getAllWindows().find(w=>!w.isDestroyed());
+  if(!win||win.webContents.isLoading())return;
+  const ready=await win.webContents.executeJavaScript("!!document.querySelector('nav button[aria-label=\\\"Command Center\\\"]')");
+  if(!ready)return;
+  clearInterval(timer);win.setBounds({x:40,y:50,width:940,height:700});win.show();app.focus({steal:true});
+  await win.webContents.executeJavaScript("document.querySelector('nav button[aria-label=\\\"Command Center\\\"]').click()");
+  setTimeout(async()=>{
+   const state=await win.webContents.executeJavaScript("({title:document.querySelector('h1')?.textContent,headerTop:document.querySelector('h1')?.getBoundingClientRect().top,text:document.body.innerText})");
+   fs.writeFileSync(path.join(process.env.NEKKO_DATA_DIR,'native-full-state.json'),JSON.stringify({pid:process.pid,...state}));
+   fs.writeFileSync(path.join(process.env.NEKKO_DATA_DIR,'native-full.png'),(await win.webContents.capturePage()).toPNG());
+  },1500);
+ }catch(error){fs.writeFileSync(path.join(process.env.NEKKO_DATA_DIR,'native-full-error.txt'),String(error));}finally{checking=false;}
+},100);
+`);
+  child = spawn(launcher, [fullEntry], { env: { ...env, NEKKO_DATA_DIR: seeded.dir }, stdio: 'inherit' });
+  await waitFor(() => existsSync(join(seeded.dir, 'native-full.png')), 'full Command Center renderer');
+  const fullState = JSON.parse(readFileSync(join(seeded.dir, 'native-full-state.json'), 'utf8'));
+  if (fullState.title !== 'Command Center' || fullState.headerTop < 30) throw Error('Native header clearance mismatch');
+  writeFileSync(join(out, 'native-full-state.json'), JSON.stringify(fullState, null, 2));
+  writeFileSync(join(out, 'native-full-renderer.png'), readFileSync(join(seeded.dir, 'native-full.png')));
+  if (spawnSync('/usr/sbin/screencapture', ['-x', join(out, 'native-full-window.png')]).status !== 0) throw Error('Full native screenshot unavailable');
+  child.kill('SIGTERM');
+  await waitFor(() => { try { process.kill(fullState.pid, 0); return false; } catch { return true; } }, 'full app shutdown');
+  await waitFor(() => child.exitCode !== null, 'full wrapper shutdown'); child = null;
+  writeFileSync(join(out, 'result.json'), JSON.stringify({ signedIdentity: true, sharedRuntimeUnchanged: true, isolatedProfile: true, restart: true, shutdown: true, fullRenderer: true }, null, 2));
 } finally { child?.kill('SIGTERM'); }
