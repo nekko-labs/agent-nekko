@@ -1,0 +1,74 @@
+/* Wall-only geometry: panes keep one React parent across every layout. */
+.command-wall-layout {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+.command-wall-stage { position: relative; min-height: 304px; }
+.command-wall-window {
+  position: absolute;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--pane-radius);
+  transition: left 260ms ease, top 260ms ease, width 260ms ease, height 260ms ease;
+}
+.command-wall-window > .panel { min-width: 0; min-height: 0; overflow: hidden; }
+.command-wall-content { position: absolute; inset: 0; display: flex; }
+.command-wall-primary { position: relative; flex: 1; min-width: 0; min-height: 0; }
+/* Only companions fold; primary chat/terminal bodies never hide with folded. */
+.command-wall-companions { display: none; width: 38%; min-width: 0; overflow: auto; gap: 8px; }
+.command-wall-content[data-companions-visible] .command-wall-companions { display: flex; flex-direction: column; }
+.command-wall-companion { display: flex; flex-direction: column; flex: 1 0 240px; min-height: 240px; min-width: 0; border-left: 1px solid var(--line); }
+.command-wall-companion > header { padding: 6px 8px; font-size: 11px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.command-wall-companion-body { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+@media (max-width: 639px) {
+  .command-wall-content[data-companions-visible] { flex-direction: column; }
+  .command-wall-content[data-companions-visible] .command-wall-primary { flex: 1 0 55%; }
+  .command-wall-companions { width: 100%; flex: 1; }
+}
+.command-wall-deck-window { border-bottom: 2px solid var(--line); }
+.command-wall-action {
+  padding: 2px 4px;
+  border-radius: 3px;
+  color: var(--ink-faint);
+  font-size: 10px;
+}
+.command-wall-action:hover, .command-wall-action[aria-pressed="true"] { color: var(--accent); background: var(--surface-2); }
+.command-wall-action:focus-visible, .command-wall-add:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.command-wall-add {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--line);
+  border-radius: var(--pane-radius);
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 12px;
+  transition: left 260ms ease, top 260ms ease, width 260ms ease, height 260ms ease;
+}
+.command-wall-add:hover { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
+.command-wall-empty { padding: 32px; color: var(--ink-faint); font-size: 13px; }
+.command-wall-divider-box { position: absolute; pointer-events: none; }
+.command-wall-divider-box > [role="separator"] {
+  position: absolute;
+  pointer-events: auto;
+  left: var(--wall-divider-left);
+  top: var(--wall-divider-top);
+  width: var(--wall-divider-width) !important;
+  height: var(--wall-divider-height) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .command-wall-window, .command-wall-add { transition: none; }
+  .command-wall-layout .pane-body, .command-wall-layout .pane-flash { animation: none; transition: none; }
+  .command-wall-layout .animate-pulse { animation: none; }
+}
+
+.command-wall-add { flex-direction: column; gap: 8px; }
+.command-wall-add-icon { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:var(--accent-soft); color:var(--accent); font-size:24px; }
+.command-wall-companion > header { display:flex; gap:8px; justify-content:space-between; background:var(--surface); }
+.command-wall-companion > header span { overflow:hidden; text-overflow:ellipsis; }
+.command-wall-deck-window .command-wall-content { visibility:hidden; } .command-wall-card { position:absolute; inset:0; display:flex; flex-direction:column; gap:8px; padding:12px; text-align:left; color:var(--ink-soft); font-size:12px; } .command-wall-card span { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; } .command-wall-card small { margin-top:auto; color:var(--ink-faint); }

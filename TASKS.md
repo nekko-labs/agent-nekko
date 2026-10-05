@@ -1128,3 +1128,9 @@ Technical approach: independent approval policy and session environment; default
 - [x] Add default-model context actions, pinned labels, and missing-default disabled rows. Done: 2026-10-03. Available/missing default render tests pass.
 - [x] Widen the composer and attach questions with opening/closing motion and reduced-motion support. Done: 2026-10-03. Desktop typecheck/build and question tests pass.
 - [ ] Complete matched base-branch screenshots for every changed surface, native smoke testing, and batch command integration verification before merge.
+
+
+## DK - Command Center dock and animated layouts
+- [x] DK-1: Persisted state, migration, dock and view controls; 38 focused tests and desktop typecheck.
+- [ ] DK-2: Finish independent Focus deck scrolling, companion widening/ownership/toast and terminal metadata.
+- [ ] DK-3: Final build, broad tests, perf and inspected before/after plus motion evidence; draft until verified.
