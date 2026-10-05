@@ -163,12 +163,11 @@ export function CommandWall({
   const measure = useCallback(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
     // Geometry lives inside the padded stage. Including its padding feeds
     // intrinsic narrow-layout height back into ResizeObserver on every frame.
     const style = getComputedStyle(el);
-    const width = Math.round(rect.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
-    const height = Math.round(rect.height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom));
+    const width = Math.round(el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+    const height = Math.round(el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom));
     // Hidden behind another view the wall measures nothing; keep the last real
     // size so its windows stay mounted and warm until it is shown again.
     if (width === 0 || height === 0) return;
@@ -409,7 +408,7 @@ export function CommandWall({
 
   return (
     <div ref={wrapRef} className="command-wall-layout" data-command-wall="windows" data-wall-layout={state.layout.mode}>
-      <div className="command-wall-stage" style={{ height: geometry.height, minWidth: Math.max(size.width, geometry.add.x + geometry.add.width) }}>
+      <div className="command-wall-stage" style={{ height: geometry.height, minWidth: state.layout.mode === 'focus' ? size.width : Math.max(size.width, geometry.add.x + geometry.add.width) }}>
         {allPanes(state.root).map(renderLeaf)}
         {state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.grid && renderDividers(geometry.grid)}
         {state.layout.mode !== 'focus' && <button className="command-wall-add" style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: geometry.add.height }} onClick={onAddWindow} aria-label="Add window"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
