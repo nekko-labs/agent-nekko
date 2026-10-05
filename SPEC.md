@@ -666,9 +666,9 @@ The Rust daemon prompt (`crates/nekko-context/src/prompt.rs`) carries the same a
 
 Implemented and native smoke verified on 2026-10-06: `npm run dev` and desktop `start` prepare a separate, locally ad-hoc-signed **Agent Nekko.app** development bundle and launch it through macOS LaunchServices, rather than modifying the shared Electron download or launching directly under Terminal. The native display name is Agent Nekko. Development uses `com.agentnekko.desktop.dev`, separate from the release identity. Existing macOS privacy grants are not reset or migrated; a disposable macOS runner verified the signed private bundle, preserved shared Electron runtime, Agent Nekko menu/Dock identity, microphone attribution, isolated data profile, owned shutdown/relaunch and full Command Center startup. The native screenshots were directly inspected. No user profile data or grants may be changed for testing. Other platforms retain the normal Electron launcher.
 
-## Command Center header spacing
+macOS CI daemon checks use the `macos-15` ARM hosted image after repeated runner-acquisition failures on the macOS 26 ARM pool. The daemon stays on ARM because its current `ort-sys` package lacks an Intel macOS prebuilt. Development identity smoke uses `macos-15-intel`; the same launcher also passed native smoke on ARM. Test commands and required platform check names remain unchanged. These runner pins do not change shipped architecture support.
 
-macOS CI daemon and development identity checks use the standard `macos-15-intel` hosted image after repeated ARM runner-acquisition failures. Test commands and required platform check names remain unchanged. The same development launcher and daemon source also passed on ARM during this change's verification; the runner pin changes CI hardware, not shipped architecture support.
+## Command Center header spacing
 
 Implemented and verified in matched wide/narrow light/dark renderer captures plus native macOS title-bar clearance: the Command Center title and toolbar share the existing top row with a 4px top inset (previously 20px), reclaiming 16px for the wall below. Preserve native title-bar clearance, control sizes, horizontal gutters, and narrow-screen wrapping; do not move controls into the native draggable title bar.
 
