@@ -127,6 +127,9 @@ impl EngineRouter {
                 e.to_string()
             }
         })?;
+        // Port zero requests an OS-assigned listener without a reserve/release race.
+        let mut config = config;
+        config.port = listener.local_addr().map_err(|e| e.to_string())?.port();
         let shared = Shared {
             supervisor: self.supervisor.clone(),
             policy: self.policy.clone(),
