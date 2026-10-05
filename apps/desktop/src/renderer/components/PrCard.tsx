@@ -23,29 +23,13 @@ const CHECK_META: Record<PrChecks, { label: string; color: string; dot: string }
 
 const openExternally = (url: string) => window.nekko.openPath(url).catch(() => {});
 
-/** A few drifting stars for the merged-PR celebration background. */
-function Stars() {
-  const stars = [
-    { top: '18%', left: '8%', s: 7, d: '0s' },
-    { top: '62%', left: '18%', s: 5, d: '.7s' },
-    { top: '30%', left: '46%', s: 6, d: '1.3s' },
-    { top: '72%', left: '63%', s: 5, d: '.4s' },
-    { top: '22%', left: '82%', s: 7, d: '1s' },
-    { top: '55%', left: '92%', s: 5, d: '1.6s' },
-  ];
-  return (
-    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {stars.map((st, i) => (
-        <span
-          key={i}
-          className="absolute animate-pulse text-violet-200"
-          style={{ top: st.top, left: st.left, fontSize: st.s, opacity: 0.5, animationDelay: st.d, animationDuration: '2.4s' }}
-        >
-          ✦
-        </span>
-      ))}
-    </span>
-  );
+/** Static autumn confetti stays decorative and never competes with the milestone text. */
+function AutumnConfetti() {
+  return <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+    {['🍂', '🎃', '🍁', '🍂', '🎃', '🍁'].map((symbol, i) => (
+      <span key={i} className="absolute" style={{ left: (8 + i * 16) + '%', top: i % 2 ? '58%' : '8%', fontSize: 12, opacity: 0.28, transform: 'rotate(' + (i % 2 ? -18 : 18) + 'deg)' }}>{symbol}</span>
+    ))}
+  </span>;
 }
 
 /** A historical milestone, never an action surface or a live status card. */
@@ -55,8 +39,8 @@ export function PrCard({ url, info, event = 'created' }: { url: string; info?: P
   const merged = event === 'merged';
   return (
     <div className="relative my-2 overflow-hidden rounded-xl border px-4 py-3" data-pr-event={event}
-      style={merged ? { borderColor: 'rgba(168,85,247,0.45)', background: 'linear-gradient(270deg, rgba(147,51,234,0.38), rgba(88,28,135,0.14) 70%, transparent)' } : { borderColor: 'var(--line)', background: 'var(--surface)' }}>
-      {merged && <Stars />}
+      style={merged ? { borderColor: 'rgba(217,119,6,0.45)', background: 'linear-gradient(270deg, rgba(217,119,6,0.24), rgba(180,83,9,0.10) 70%, transparent)' } : { borderColor: 'var(--line)', background: 'var(--surface)' }}>
+      {merged && <AutumnConfetti />}
       <div className="relative flex flex-wrap items-center gap-x-2 gap-y-1">
         <a href={url} className="min-w-0 truncate font-mono text-[12px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
         {info?.title && <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-soft">{info.title}</span>}

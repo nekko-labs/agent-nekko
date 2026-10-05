@@ -19,6 +19,15 @@ describe('PR milestones and composer actions', () => {
     expect(markup).toContain(`PR ${event}`);
     expect(markup).not.toContain('<button');
   });
+  it('celebrates merges with static decorative autumn confetti', () => {
+    const markup = renderToStaticMarkup(<PrCard url={url} info={pr} event="merged" />);
+    expect(markup).toContain('🎃');
+    expect(markup).toContain('🍁');
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).not.toContain('animate-pulse');
+    expect(markup).not.toContain('✦');
+    expect(renderToStaticMarkup(<PrCard url={url} info={pr} />)).not.toContain('🎃');
+  });
   it('places actions and a non-destructive hide button on the open dock', () => {
     const markup = renderToStaticMarkup(<PrActionDock sessionId="s" prs={[pr]} urls={[url]} />);
     expect(markup).toContain('Pending pull requests');
