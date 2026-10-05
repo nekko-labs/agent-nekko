@@ -668,6 +668,8 @@ Implemented and native smoke verified on 2026-10-06: `npm run dev` and desktop `
 
 ## Command Center header spacing
 
+macOS CI daemon and development identity checks use the standard `macos-15-intel` hosted image after repeated ARM runner-acquisition failures. Test commands and required platform check names remain unchanged. The same development launcher and daemon source also passed on ARM during this change's verification; the runner pin changes CI hardware, not shipped architecture support.
+
 Implemented and verified in matched wide/narrow light/dark renderer captures plus native macOS title-bar clearance: the Command Center title and toolbar share the existing top row with a 4px top inset (previously 20px), reclaiming 16px for the wall below. Preserve native title-bar clearance, control sizes, horizontal gutters, and narrow-screen wrapping; do not move controls into the native draggable title bar.
 
 ### Focus chat, numbered icons and single approval surface
