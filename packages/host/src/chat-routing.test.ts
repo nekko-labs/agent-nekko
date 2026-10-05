@@ -161,8 +161,26 @@ describe('agent command terminal', () => {
 });
 
 describe('browser permission boundary', () => {
-  it('hides browser control on non-desktop hosts and requests approval even in yolo mode', async () => {
+  it('honors allow-all for desktop browser calls without another prompt', async () => {
     const session = createSession();
+    rounds = [[{ type: 'tool_call', call: { id: 'browse-yolo', name: 'browser', input: { mode: 'dedicated', action: 'close' } } }, { type: 'done' }]];
+    vi.stubEnv('NEKKO_BROWSER_URL', 'http://127.0.0.1:12345/');
+    vi.stubEnv('NEKKO_BROWSER_TOKEN', 'test-token');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ output: 'Closed' }) })));
+    const events: AgentEvent[] = [];
+    try {
+      await sendChat({ sessionId: session.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'close browser' }, (event) => { events.push(event); }, true);
+      expect(events.some((event) => event.type === 'tool_approval_required')).toBe(false);
+      expect(events.find((event) => event.type === 'tool_result')).toMatchObject({ result: { output: 'Closed' } });
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+  it('hides browser control on non-desktop hosts and requests approval in guardrails mode', async () => {
+    const session = createSession();
+    session.mode = 'guardrails';
+    saveSession(session);
     rounds = [[{ type: 'tool_call', call: { id: 'browse', name: 'browser', input: { mode: 'existing', action: 'inspect' } } }, { type: 'done' }]];
     await run(session);
     expect(requests[0].request.tools?.some((tool) => tool.name === 'browser')).toBe(false);
@@ -195,6 +213,61 @@ describe('offline context preview', () => {
     saveSettings({ connectors: [{ kind: 'slack', connected: true, token: 'test-token' }] });
     await previewContext(createSession().id, []);
     expect(connectorFetch).toHaveBeenCalledOnce();
+  });
+});
+
+describe('delegation discovery and defaults', () => {
+  it('discovers exact models on only the requested provider without creating children', async () => {
+    rounds = [[{ type: 'tool_call', call: { id: 'discover', name: 'delegation_targets', input: { provider_id: 'local' } } }, { type: 'done' }]];
+    const { session, result } = await run();
+    expect(listings).toEqual(['local']);
+    expect(children(session)).toHaveLength(0);
+    expect(result).toMatchObject({ result: { output: expect.stringContaining('"modelId":"local-exact"') } });
+  });
+
+  it('reports discovery failure without leaking provider secrets', async () => {
+    listingError = true;
+    rounds = [[{ type: 'tool_call', call: { id: 'discover', name: 'delegation_targets', input: { provider_id: 'local' } } }, { type: 'done' }]];
+    const { result } = await run();
+    expect(result).toMatchObject({ result: { isError: true, output: expect.stringContaining('model_list_unavailable') } });
+    expect(JSON.stringify(result)).not.toMatch(/private-token|private\.example/);
+  });
+
+  it('uses and validates an explicit user default without falling back', async () => {
+    saveSettings({ orchestration: { strategy: 'balanced', maxDepth: 2, maxParallel: 4, delegationRoute: { providerId: 'local', modelId: 'local-exact' } } });
+    delegate({ task: 'child task' });
+    const { session } = await run();
+    expect(children(session)[0]).toMatchObject({ providerId: 'local', modelId: 'local-exact' });
+    expect(listings).toEqual(['local']);
+  });
+
+  it('rejects a stale default without creating a child or trying another provider', async () => {
+    saveSettings({ orchestration: { strategy: 'balanced', maxDepth: 2, maxParallel: 4, delegationRoute: { providerId: 'local', modelId: 'missing' } } });
+    delegate({ task: 'child task' });
+    const { session, result } = await run();
+    expect(children(session)).toHaveLength(0);
+    expect(listings).toEqual(['local']);
+    expect(result).toMatchObject({ result: { isError: true } });
+  });
+
+  it.each(['incognito', 'offline', 'disabled', 'solo'])('blocks discovery for %s chats', async (gate) => {
+    const parent = createSession();
+    if (gate === 'incognito') parent.incognito = true;
+    if (gate === 'offline') parent.offline = true;
+    if (gate === 'disabled') parent.disabledTools = ['spawn_agent'];
+    if (gate === 'solo') saveSettings({ orchestration: { strategy: 'solo', maxDepth: 2, maxParallel: 4 } });
+    saveSession(parent);
+    rounds = [[{ type: 'tool_call', call: { id: 'discover', name: 'delegation_targets', input: { provider_id: 'local' } } }, { type: 'done' }]];
+    await run(parent, gate === 'offline' ? 'local' : 'frontier');
+    expect(listings).toEqual([]);
+    expect(children(parent)).toHaveLength(0);
+  });
+
+  it('distinguishes an empty chat-model list from an unavailable service', async () => {
+    models = [];
+    rounds = [[{ type: 'tool_call', call: { id: 'discover', name: 'delegation_targets', input: { provider_id: 'local' } } }, { type: 'done' }]];
+    const { result } = await run();
+    expect(result).toMatchObject({ result: { output: expect.stringContaining('No chat models available') } });
   });
 });
 

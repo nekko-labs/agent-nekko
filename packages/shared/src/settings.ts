@@ -93,6 +93,8 @@ export interface CommandWallSetting {
   filter: 'all' | 'chat' | 'terminal';
   insights: { panels: Record<string, boolean> };
   watermark: number;
+  /** Where the wall's one composer sits. */
+  composer?: { side: 'top' | 'bottom'; align: 'left' | 'center' | 'right' };
 }
 
 /**
@@ -152,6 +154,7 @@ export interface HookRule {
 }
 
 export interface AppSettings {
+  voice?: import('./voice.js').VoiceSettings;
   /** User-authored additions to the built-in system instructions. */
   systemInstructions?: string;
   /** Server-side instructions applied to every user turn. Empty disables them. */
@@ -178,6 +181,8 @@ export interface AppSettings {
   mascotEnabled: boolean;
   /** How hard the model works per turn (an effort rung or a temperature). */
   effort?: EffortLevel;
+  /** Cloud comparison for local models without published prices; unset means no estimate. */
+  localCostBenchmark?: string;
   /** Check for app updates automatically (desktop). Superseded by `updates.app`. */
   autoUpdate?: boolean;
   /** Whether we've shown the first-run "enable auto-update?" prompt. */
@@ -297,6 +302,8 @@ export interface UsageRecord {
   inputTokens: number;
   outputTokens: number;
   sessionId: string;
+  /** Persist provider locality so later configuration changes do not rewrite history. */
+  local?: boolean;
   /** Subscription providers bill the user through their plan, not per token. */
   auth?: 'apikey' | 'subscription';
 }
@@ -334,7 +341,18 @@ export interface ReplyStats {
   recentStops: Array<{ ts: number; sessionId: string; modelId: string; steps: number; stop: import('./chat.js').ReplyStop }>;
 }
 
+export interface AvoidedCosts {
+  subscription: number;
+  local: number;
+  /** Tokens whose cloud equivalent cannot be priced. */
+  unpricedTokens: number;
+  /** Local tokens estimated using the selected comparison rather than the same model. */
+  benchmarkTokens: number;
+}
+
 export interface UsageSummary {
+  avoidedCosts?: AvoidedCosts;
+  bySessionAvoidedCosts?: Record<string, AvoidedCosts>;
   /** Reply endings (loop detector observation). Absent with no log. */
   replies?: ReplyStats;
   totalInput: number;

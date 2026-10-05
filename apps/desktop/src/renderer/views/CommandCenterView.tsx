@@ -8,6 +8,8 @@ import { runningSessionIds } from '../liveRuns.js';
 import { Toggle } from '../components/primitives/index.js';
 import { BoltIcon, ChatIcon, GridIcon, LayoutIcon, PlusIcon, TerminalIcon } from '../icons.js';
 import { CommandWall } from '../components/CommandWall.js';
+import { WallComposer, WallTether, type WallAgent } from '../components/WallComposer.js';
+import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
 import { InsightsBox, type Vitals } from '../components/InsightsBox.js';
 import { AutomationsPane } from '../components/AutomationsPane.js';
 import { SHORTCUTS } from '../shortcuts.js';
@@ -17,8 +19,10 @@ import {
   addPane,
   hasPane,
   loadWallState,
+  nextAgent,
   reconcileWall,
   ribbonItems,
+  wallAgents,
   saveWallState,
   tileTree,
   toWallSetting,
@@ -223,6 +227,56 @@ export function CommandCenterView() {
 
   const needs = useMemo(() => ribbonItems(sessions, pending), [sessions, pending]);
 
+  // The agent the composer speaks for: the window clicked last, or the first
+  // on the wall. Ctrl+Tab / Ctrl+Shift+Tab walk the windows in reading order;
+  // Ctrl+1…9 (or Alt+1…9) pick one by its number.
+  const [selected, setSelected] = useState<string | null>(null);
+  const agentsOnWall = useMemo(() => wallAgents(wall.root), [wall.root]);
+  useEffect(() => {
+    if (agentsOnWall.length === 0) { if (selected) setSelected(null); return; }
+    if (!selected || !agentsOnWall.some((p) => p.refId === selected)) setSelected(agentsOnWall[0].refId);
+  }, [agentsOnWall, selected]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        setSelected((cur) => nextAgent(wall.root, cur, e.shiftKey ? -1 : 1));
+        return;
+      }
+      if ((e.ctrlKey || e.altKey) && !e.metaKey && /^[1-9]$/.test(e.key)) {
+        const agents = wallAgents(wall.root);
+        const pick = agents[Number(e.key) - 1];
+        if (!pick) return;
+        e.preventDefault();
+        setSelected(pick.refId);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [wall.root]);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLDivElement>(null);
+  const agentList = useMemo<WallAgent[]>(() => agentsOnWall.flatMap((p, i) => {
+    const session = sessions.find((x) => x.id === p.refId);
+    if (!session) return [];
+    const { lane, blocked } = sessionLane({ running: isRunningSession(session), pending: pending[session.id], stalled: session.stalled });
+    const status = lane === 'needs-you' && blocked ? { label: BLOCKED_META[blocked].label, tone: LANE_META[lane].tone, live: true } : { label: LANE_META[lane].title, tone: LANE_META[lane].tone, live: lane === 'working' };
+    return [{ session, n: i + 1, status }];
+  }), [agentsOnWall, sessions, pending, isRunningSession]);
+  const selectedAgent = agentList.find((a) => a.session.id === selected) ?? null;
+  const composer = (
+    <WallComposer
+      agent={selectedAgent}
+      agents={agentList}
+      dock={wall.composer}
+      onDock={(composer) => setWall((w) => ({ ...w, composer }))}
+      onSelect={setSelected}
+      onOpen={openChat}
+      onNewAgent={() => { void addFromToolbar('chat'); }}
+      panelRef={composerRef}
+    />
+  );
+
   const renderPanel = (kind: 'automations' | 'insights') =>
     kind === 'automations' ? (
       <AutomationsPane tasks={tasks} running={running} now={now} onOpen={openChat} />
@@ -242,6 +296,8 @@ export function CommandCenterView() {
     <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-5 xl:px-6">
       <WallToolbar wall={wall} setWall={setWall} sessions={sessions} terminals={terminals} onAdd={addFromToolbar} onAutoArrange={autoArrange} />
       {needs.length > 0 && <NeedsYouRibbon needs={needs} onGo={goTo} />}
+      <div ref={stageRef} className="relative flex min-h-0 flex-1 flex-col gap-3">
+      {wall.composer.side === 'top' && composer}
       <CommandWall
         state={wall}
         setState={setWall}
@@ -252,6 +308,8 @@ export function CommandCenterView() {
         childrenOf={childrenOf}
         projects={settings?.workspaces ?? []}
         flash={flash}
+        selectedId={selected}
+        onSelect={setSelected}
         onAspect={onAspect}
         onOpenChat={openChat}
         onOpenTerminal={openTerminal}
@@ -259,6 +317,9 @@ export function CommandCenterView() {
         onNewTerminal={newTerminal}
         renderPanel={renderPanel}
       />
+      {wall.composer.side === 'bottom' && composer}
+      <WallTether stageRef={stageRef} from={composerRef} toSelector={selected ? `[data-grid-cell="chat:${selected}"]` : null} deps={[wall.root, wall.composer, wall.filter, selected]} />
+      </div>
     </div>
   );
 }

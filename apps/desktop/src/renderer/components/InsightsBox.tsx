@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ProviderConfig, RemoteStatus, ReplyStop, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType, OptimizationTip } from '@agent-nekko/shared';
 import { estimateCostUSD, formatUSD, isLocalProvider, MODEL_PRICING, optimizationTips } from '@agent-nekko/shared';
+import { useStore } from '../store.js';
 import { INSIGHT_PANELS, type InsightPanel, type InsightsPrefs } from '../commandWall.js';
 import { PaneActions, useInPaneFrame } from './PaneFrame.js';
 import { Badge, EmptyHint } from './primitives/index.js';
@@ -352,7 +353,9 @@ function ChartEmpty({ message, bars = 12 }: { message: string; bars?: number }) 
 function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null; sessions: SessionSummary[]; providers: ProviderConfig[] }) {
   const [range, setRange] = useState<InsightRange>('1m');
   const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
-  const hasData = !!usage && ((usage.totalCost ?? 0) > 0.0000001 || !!usage.hasSubscriptionUsage);
+  const benchmark = useStore((s) => s.settings?.localCostBenchmark ?? '');
+  const avoided = usage?.avoidedCosts;
+  const hasData = !!usage && (usage.totalInput + usage.totalOutput > 0 || !!usage.hasSubscriptionUsage);
   const monthKey = new Date().toISOString().slice(0, 7);
   const monthDaily = (usage?.daily ?? []).filter((d) => d.date.startsWith(monthKey));
   const monthActual = monthDaily.reduce((s, d) => s + (d.cost ?? 0), 0);
@@ -420,6 +423,25 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
           )}
         </>
       )}
+      <div className="mt-3 border-t border-line pt-3 text-[12px]">
+        <div className="font-medium">Estimated API costs avoided · all time</div>
+        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+          <Stat value={formatUSD(avoided?.subscription ?? 0)} label="subscription" tone="var(--success)" />
+          <Stat value={formatUSD(avoided?.local ?? 0)} label="local AI" tone="var(--success)" />
+        </div>
+        <label className="mt-3 block text-[11px] text-ink-faint">
+          Cloud benchmark for unpriced local models
+          <select className="input mt-1 w-full" value={benchmark} onChange={(e) => {
+            void window.nekko.updateSettings({ localCostBenchmark: e.target.value }).then(() => useStore.getState().refreshSettings());
+          }}>
+            <option value="">None · show unpriced usage</option>
+            {MODEL_PRICING.map((p) => <option key={p.match} value={p.match}>{p.match} · ${p.input} in / ${p.output} out per 1M</option>)}
+          </select>
+        </label>
+        <p className="mt-2 text-[11px] text-ink-faint">Cloud list-price equivalents, not net savings. Excludes subscription fees, hardware and electricity. Benchmark changes recalculate local history.</p>
+        {!!avoided?.benchmarkTokens && <p className="mt-1 text-[11px] text-ink-faint">{avoided.benchmarkTokens.toLocaleString()} local tokens compared with {benchmark}.</p>}
+        {!!avoided?.unpricedTokens && <p className="mt-1 text-[11px] text-ink-faint">{avoided.unpricedTokens.toLocaleString()} tokens have no cloud price and are excluded.</p>}
+      </div>
       <details className="mt-3">
         <summary className="cursor-pointer text-[11.5px] text-ink-faint hover:text-ink">Token pricing reference (USD per 1M tokens)</summary>
         <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
@@ -430,7 +452,7 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
             </div>
           ))}
         </div>
-        <p className="mt-2 text-[11px] text-ink-faint">Published list prices, matched by model id. Estimates only. Local models and subscription plans cost $0.</p>
+        <p className="mt-2 text-[11px] text-ink-faint">Published list prices, matched by model id. Estimates only. Local models and subscription plans have no per-token API charge; plan fees and local operating costs are not tracked.</p>
       </details>
     </div>
   );

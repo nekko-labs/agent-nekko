@@ -35,6 +35,19 @@ gh pr create --title "..." --body "..."
 gh pr merge --squash --admin --delete-branch
 ```
 
+## PR descriptions must record unfinished work
+
+Every PR description includes an explicit **Unfinished work / release blockers**
+section. List incomplete scope, known bugs, unsupported platforms, missing tests
+or visual evidence, and verification limitations with concrete next steps. Write
+"None" only when verified. Keep the section current after each pushed batch;
+notes only in chat, review comments, or local files are not sufficient.
+
+Read back the published description to verify the update succeeded. If publishing
+fails, report the failure and preserve the pending description locally. Keep work
+with release blockers draft/unmerged; do not claim the notes are published or the
+work is ready to ship.
+
 ## UI changes need visual evidence
 
 Any PR that changes what the app looks like ships the proof in its description:
@@ -78,3 +91,13 @@ If a harness default tells you to append one, don't.
 
 Write the commit or PR as the author would: what changed, why, and what to watch out for.
 Nothing about who or what typed it.
+
+## Keep the product specification current
+
+For every request that adds a feature, changes user-visible behavior, or settles a product decision, inspect and update SPEC.md in the same PR as the implementation. Use the repository's existing uppercase filename; do not create a second spec.md. Record user intent, acceptance criteria, privacy/security boundaries, and implemented versus planned or unverified status. Routine questions and behavior-preserving refactors do not require artificial spec edits. Mention the spec update (or why none is needed) in the final summary. Never mark a feature shipped solely because code exists.
+
+## Reports and portable design artifacts
+
+For substantial research, comparisons, architecture, and explanations, provide a concise chat summary plus a linked Markdown report when it improves readability or reuse. Include sources, assumptions, recommendations, and next steps. Use Mermaid for useful diagrams, image links for actual photos/screenshots, and self-contained HTML/CSS/SVG for rich design prototypes. Keep editable source in the project, normally reports/ or nekko-designs/; follow existing conventions. Do not generate artifacts for trivial replies. Never confuse captured evidence with inspected evidence.
+
+General reporting behavior belongs in the shared system prompt, not a personal memory file. Repository-specific workflow belongs here. Preview changes must retain explicit user consent for local reads, isolate generated HTML from the app, and prevent silent external resource fetching.

@@ -51,8 +51,8 @@ vi.mock('@agent-nekko/core', async () => {
 
 const { setDataDir } = await import('./paths.js');
 const { saveSettings } = await import('./store.js');
-const { createSession, getSession, saveSession } = await import('./sessions.js');
-const { sendChat, resolveQuestion, getPendingInput } = await import('./chat.js');
+const { createSession, getSession, saveSession, setSessionOptions } = await import('./sessions.js');
+const { sendChat, resolveQuestion, resolveApproval, getPendingInput } = await import('./chat.js');
 
 let dir: string;
 
@@ -90,6 +90,31 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 const send = (sessionId: string, onEvent: (e: AgentEvent) => void) =>
   sendChat({ sessionId, providerId: 'p', modelId: 'm', text: 'do the thing' }, onEvent);
+
+describe('live approval policy', () => {
+  it('allows remaining approvals in the current turn without changing other chats', async () => {
+    const session = createSession();
+    setSessionOptions(session.id, { mode: 'ask' });
+    const other = createSession();
+    setSessionOptions(other.id, { mode: 'ask' });
+    const round = (id: string): ProviderChunk[] => [
+      { type: 'tool_call', call: { id, name: 'write_file', input: { path: join(dir, `${id}.txt`), content: 'ok' } } },
+      { type: 'done' },
+    ];
+    rounds = [round('first'), round('second'), [{ type: 'text', delta: 'done' }, { type: 'done' }]];
+    const approvals: string[] = [];
+    await send(session.id, (e) => {
+      if (e.type === 'tool_approval_required') {
+        approvals.push(e.call.id);
+        setSessionOptions(session.id, { mode: 'yolo' });
+        resolveApproval(session.id, e.call.id, true);
+      }
+    });
+    expect(approvals).toEqual(['first']);
+    expect(getSession(session.id)?.mode).toBe('yolo');
+    expect(getSession(other.id)?.mode).toBe('ask');
+  });
+});
 
 describe('ask_user', () => {
   it('parks the turn until someone answers, then hands the answers to the model', async () => {

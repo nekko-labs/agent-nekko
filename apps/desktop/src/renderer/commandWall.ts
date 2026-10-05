@@ -51,6 +51,15 @@ export interface InsightsPrefs {
   panels: Record<InsightPanel, boolean>;
 }
 
+export type ComposerSide = 'top' | 'bottom';
+export type ComposerAlign = 'left' | 'center' | 'right';
+/** Where the wall's one composer sits: above or below the windows, to the left, centred, or to the right. */
+export interface ComposerDock {
+  side: ComposerSide;
+  align: ComposerAlign;
+}
+export const DEFAULT_COMPOSER_DOCK: ComposerDock = { side: 'bottom', align: 'center' };
+
 export interface CommandWallState {
   /** The split tree of windows, or null for an empty wall. */
   root: WbNode | null;
@@ -60,6 +69,7 @@ export interface CommandWallState {
   insights: InsightsPrefs;
   /** Chats created after this moment are auto-added; 0 until the wall has been seeded once. */
   watermark: number;
+  composer: ComposerDock;
 }
 
 /** Below this width the wall stacks its windows one above the other: a phone, or a very narrow window. */
@@ -83,6 +93,7 @@ export const DEFAULT_WALL_STATE: CommandWallState = {
   filter: 'all',
   insights: DEFAULT_INSIGHTS,
   watermark: 0,
+  composer: DEFAULT_COMPOSER_DOCK,
 };
 
 export const WALL_STATE_KEY = 'nekko.commandWall';
@@ -96,6 +107,28 @@ export function wallPane(kind: PaneKind, refId: string = kind): WbPane {
 
 export function hasPane(root: WbNode | null, kind: PaneKind, refId: string = kind): boolean {
   return allPanes(root).some((p) => p.kind === kind && p.refId === refId);
+}
+
+/** The agent windows, in reading order: what the numbers on the strips count and what Ctrl+Tab walks. */
+export function wallAgents(root: WbNode | null): WbPane[] {
+  return allPanes(root).filter((p) => p.kind === 'chat');
+}
+
+/** The agent after (or before) `current` in reading order, wrapping; the first when nothing is current. */
+export function nextAgent(root: WbNode | null, current: string | null, step: 1 | -1 = 1): string | null {
+  const ids = wallAgents(root).map((p) => p.refId);
+  if (ids.length === 0) return null;
+  const i = current ? ids.indexOf(current) : -1;
+  if (i < 0) return step === 1 ? ids[0] : ids[ids.length - 1];
+  return ids[(i + step + ids.length) % ids.length];
+}
+
+function readDock(raw: unknown): ComposerDock {
+  const d = raw && typeof raw === 'object' ? (raw as Partial<ComposerDock>) : {};
+  return {
+    side: d.side === 'top' ? 'top' : 'bottom',
+    align: d.align === 'left' || d.align === 'right' ? d.align : 'center',
+  };
 }
 
 /**
@@ -176,6 +209,20 @@ export function addPane(root: WbNode | null, pane: WbPane, aspect = DEFAULT_ASPE
   let bestId: string | null = null;
   let bestArea = -1;
   let bestRect: LeafRect | null = null;
+  const chats = pane.kind === 'chat' ? allPanes(root).filter((p) => p.kind === 'chat') : [];
+  if (chats.length) {
+    const target = chats.sort((a, b) => {
+      const ar = rects.get(a.id)!;
+      const br = rects.get(b.id)!;
+      return (br.y + br.height) - (ar.y + ar.height) || (br.x + br.width) - (ar.x + ar.width);
+    })[0];
+    const rect = rects.get(target.id)!;
+    const directions: Direction[] = rect.width * aspect >= rect.height ? ['right', 'down'] : ['down', 'right'];
+    for (const dir of directions) {
+      if (canSplit(root, target.id, dir)) return splitPane(root, target.id, dir, pane);
+    }
+    return root;
+  }
   for (const [id, r] of rects) {
     const area = r.width * r.height;
     if (area > bestArea + 1e-9) { bestArea = area; bestId = id; bestRect = r; }
@@ -234,7 +281,7 @@ export function seedWall(state: CommandWallState, sessions: SessionSummary[], te
  * Keep the wall honest against what exists: drop windows whose chat is gone
  * or archived (completing a chat takes it off the wall) and whose terminal is
  * gone, and, when auto-add is on, add every chat created since the last look,
- * spawned sub-agents included. Returns the same object when nothing changed.
+ * excluding sub-agents (opened explicitly from their parent's rail). Returns the same object when nothing changed.
  */
 export function reconcileWall(state: CommandWallState, sessions: SessionSummary[], terminals: TerminalInfo[], now: number, aspect = DEFAULT_ASPECT): CommandWallState {
   // Seed once, and only once the lists have arrived: the view mounts with
@@ -250,7 +297,7 @@ export function reconcileWall(state: CommandWallState, sessions: SessionSummary[
   }
   let watermark = state.watermark;
   for (const s of sessions) {
-    if (s.createdAt > state.watermark && state.autoAdd && wallChat(s) && !hasPane(root, 'chat', s.id)) root = addPane(root, wallPane('chat', s.id), aspect);
+    if (s.createdAt > state.watermark && state.autoAdd && wallChat(s) && !s.parentSessionId && !hasPane(root, 'chat', s.id)) root = addPane(root, wallPane('chat', s.id), aspect);
     watermark = Math.max(watermark, s.createdAt);
   }
   if (root === state.root && watermark === state.watermark) return state;
@@ -320,6 +367,7 @@ export function migrateGridState(saved: unknown): CommandWallState | null {
     filter: g.filter === 'chat' || g.filter === 'terminal' ? g.filter : 'all',
     insights: readPanels(g.insights?.panels),
     watermark: typeof g.watermark === 'number' ? g.watermark : 0,
+    composer: DEFAULT_COMPOSER_DOCK,
   };
 }
 
@@ -348,6 +396,7 @@ export function loadWallState(storage: Pick<Storage, 'getItem'> | undefined, set
       filter: saved.filter === 'chat' || saved.filter === 'terminal' ? saved.filter : 'all',
       insights: readPanels(saved.insights?.panels),
       watermark: typeof saved.watermark === 'number' ? saved.watermark : 0,
+      composer: readDock(saved.composer),
     };
   } catch {
     return DEFAULT_WALL_STATE;
@@ -364,7 +413,7 @@ export function saveWallState(storage: Pick<Storage, 'setItem'> | undefined, sta
 
 /** The wall as the setting stores it: the same fields, typed loosely for the shared schema. */
 export function toWallSetting(state: CommandWallState): CommandWallSetting {
-  return { root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark };
+  return { root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark, composer: state.composer };
 }
 
 /* ---------- the ribbon ---------- */

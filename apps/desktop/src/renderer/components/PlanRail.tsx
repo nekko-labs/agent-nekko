@@ -13,11 +13,19 @@ function queueLabel(item: QueuedPrompt): string {
   return bits.join(' · ');
 }
 
-export function PlanRail({ sessionId, session, streaming, onClose }: {
+export const PLAN_CHANGE_REQUEST = 'Please revise the current agent plan. I would like to change the approach as follows:\n';
+
+export function appendPlanChangeRequest(draft: string): string {
+  return draft.trim() ? `${draft}\n\n${PLAN_CHANGE_REQUEST}` : PLAN_CHANGE_REQUEST;
+}
+
+export function PlanRail({ sessionId, session, streaming, onClose, onChangePlan }: {
   sessionId: string;
   session: Session | null;
   streaming: boolean;
   onClose: () => void;
+  /** Opens an editable follow-up, never mutates or submits the plan directly. */
+  onChangePlan?: () => void;
 }) {
   const sessions = useStore((s) => s.sessions);
   const openChatPane = useStore((s) => s.openChatPane);
@@ -25,9 +33,9 @@ export function PlanRail({ sessionId, session, streaming, onClose }: {
   const spawnAllowed = getStrategy((orchestration ?? DEFAULT_ORCHESTRATION).strategy).allowsSpawn;
   const children = useMemo(() => sessions.filter((s) => s.parentSessionId === sessionId), [sessions, sessionId]);
   const activity = useSubAgentActivity(sessionId, children.map((c) => c.id));
-  // A child remains on disk for history, but disappears from the live work rail
-  // once its turn has finished. Unknown status is kept until a live event arrives.
-  const activeChildren = children.filter((c) => activity[c.id]?.running || (!activity[c.id] && !c.lastReplyText));
+  // Keep completed delegates available here until the user chooses to open
+  // them; spawning alone never opens another window.
+  const activeChildren = children;
   const agentPlan = session?.agentPlan;
   const progress = planProgress(agentPlan);
   const queued = session?.queue ?? [];
@@ -64,7 +72,7 @@ export function PlanRail({ sessionId, session, streaming, onClose }: {
               ))}
             </ol>
           ) : <p className="px-0.5 text-[11px] leading-snug text-ink-faint">{streaming ? 'Waiting for the agent to publish its plan.' : 'The agent’s plan will appear here when it starts work.'}</p>}
-          <p className="mt-2 px-0.5 text-[10px] leading-snug text-ink-faint">Want to change the approach? Send a follow-up asking the agent to adjust or remove a step.</p>
+          {!!agentPlan?.length && <button type="button" className="mt-2 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50" disabled={!onChangePlan} onClick={onChangePlan} title="Describe a plan adjustment in the composer before sending">Change plan</button>}
         </section>
         <section>
           <div className="mb-1.5 flex items-center gap-1.5">
@@ -77,7 +85,7 @@ export function PlanRail({ sessionId, session, streaming, onClose }: {
               return <button key={c.id} className="flex w-full items-start gap-1.5 rounded-lg px-1 py-1 text-left hover:bg-surface-2" onClick={() => openChatPane(c.id)} title={`Open ${c.title}`}>
                 <RobotIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-faint" />
                 <span className="min-w-0 flex-1"><span className="block truncate text-[12px] text-ink-soft">{c.title}</span>
-                  <span className="block truncate text-[10px] text-ink-faint">{a?.tool ? a.detail ? `${a.tool} · ${a.detail}` : `Running ${a.tool}` : a?.running ? 'Working…' : 'Waiting to start'}</span>
+                  <span className="block truncate text-[10px] text-ink-faint">{a?.tool ? a.detail ? `${a.tool} · ${a.detail}` : `Running ${a.tool}` : a?.running ? 'Working…' : a?.running === false || c.lastReplyText ? 'Finished · click to view' : 'Waiting to start'}</span>
                 </span>
               </button>;
             })}</div>

@@ -379,7 +379,11 @@ export function WorkspacesView() {
 
   // Closing a workspace only closes its windows, not the saved conversation.
   // Keep those chats reachable without reopening every transcript at startup.
-  const savedChats = useMemo(() => unopenedChats(sessions, workspaces), [sessions, workspaces]);
+  const savedChats = useMemo(() => {
+    const visibleChildIds = new Set(workspaces.flatMap((w) => w.anchor.kind === 'chat'
+      ? (childrenOf.get(w.anchor.refId) ?? []).map((s) => s.id) : []));
+    return unopenedChats(sessions, workspaces, visibleChildIds);
+  }, [sessions, workspaces, childrenOf]);
 
   const toggleCollapse = (id: string) =>
     setCollapsed((c) => { const n = new Set(c); n.has(id) ? n.delete(id) : n.add(id); return n; });

@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { ConnectorGrid } from '../ConnectorGrid.js';
+import { VoiceSettings } from '../VoiceSettings.js';
 import { CheckIcon, CopyIcon, TerminalIcon } from '../../icons.js';
 
 /**
@@ -181,6 +182,7 @@ export function IntegrationsStep({
         </p>
         <div className="mt-3">
           <ConnectorGrid compact />
+        <VoiceSettings compact />
         </div>
       </section>
     </div>
