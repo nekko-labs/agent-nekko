@@ -9,6 +9,15 @@ vi.mock('../store.js', () => ({ useStore: { getState: () => ({ openBrowserPane: 
 const html = (text: string) => renderToStaticMarkup(<Markdown text={text} />);
 
 describe('Markdown', () => {
+  it('normalizes link targets and encodes HTML metacharacters from edited DOM text', () => {
+    const target = 'https://example.com/?label=<img src=x onerror=alert(1)>&quote="\'`';
+    const safe = safeHref(target);
+    expect(safe).not.toBeNull();
+    expect(safe).not.toMatch(/[<>"'`]/);
+    const out = html(`[safe](${target.replace(/ /g, '%20')})`);
+    expect(out).not.toContain('<img');
+    expect(out).not.toContain('<script');
+  });
   it('routes safe link menu actions to external browser, in-app browser and clipboard', () => {
     const openPath = vi.fn();
     const writeText = vi.fn();

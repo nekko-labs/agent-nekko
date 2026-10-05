@@ -80,4 +80,20 @@ export const RedoIcon = (p: P) => (<S {...p}><path d="M21 8h-9a5 5 0 0 0 0 10h5"
 export const CopyIcon = (p: P) => (<S {...p}><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M15 5.5A2.5 2.5 0 0 0 12.5 3H5a2 2 0 0 0-2 2v7.5A2.5 2.5 0 0 0 5.5 15" /></S>);
 export const PasteIcon = (p: P) => (<S {...p}><path d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" /><rect x="9" y="2" width="6" height="4" rx="1" /></S>);
 // Explorer disclosure chevron (rotated for the open state).
+/** Line rocket, nose up, with a flame and speed streaks (see `.status-rocket`). */
+export const RocketIcon = (p: P) => (
+  <S {...p}>
+    <path className="rocket-body" d="M12 2.5c2.6 2 3.8 5 3.8 8.6V16H8.2v-4.9c0-3.6 1.2-6.6 3.8-8.6z" />
+    <circle className="rocket-body" cx="12" cy="9.5" r="1.6" />
+    <path className="rocket-body" d="M8.2 12.5 5.8 15v2.2l2.4-1.2M15.8 12.5l2.4 2.5v2.2l-2.4-1.2" />
+    <path className="rocket-flame" d="M10.6 18.2 12 21.5l1.4-3.3" />
+    <path className="rocket-streak" d="M3.5 6.5v4M20.5 6.5v4M2.5 13v3M21.5 13v3" />
+  </S>
+);
+/** A question mark in a ring: something is waiting on you. */
+export const QuestionIcon = (p: P) => (<S {...p}><circle cx="12" cy="12" r="9" /><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.8M12 17h.01" /></S>);
+/** "Zz": idle, asleep until you wake it. */
+export const SleepIcon = (p: P) => (<S {...p}><path d="M4 9h6l-6 8h6M14 5h5l-5 6h5" /></S>);
+/** Two arrows squeezing inward onto a line: a transcript being compacted. */
+export const CompactIcon = (p: P) => (<S {...p}><path d="M12 3v6m0 0-3-3m3 3 3-3M12 21v-6m0 0-3 3m3-3 3 3M4 12h16" /></S>);
 export const ChevronIcon = (p: P) => (<S {...p}><path d="m9 6 6 6-6 6" /></S>);
