@@ -47,8 +47,21 @@ Any PR that changes what the app looks like ships the proof in its description:
   so screenshots alone do not cover those changes.
 - Cover every surface the change actually affects: mobile and desktop widths on web,
   iOS and Android for native, light and dark theme if both shift.
-- Media belongs in the PR description, not in the repo. Reference a local path such as
-  `![After](/abs/path/after.png)` and let the PR tooling upload it.
+- Media belongs in the PR description, not in git. Use the single `pr-media`
+  GitHub pre-release for all screenshots and recordings; never create a release
+  per PR. Write local image paths in the description, then upload and rewrite them:
+  ```
+  node scripts/pr-media.mjs 305
+  ```
+  The uploader prefixes filenames with `pr-305-`, verifies both the uploaded
+  bytes and public URLs, and replaces matching markdown image paths in the PR
+  body. It discovers local markdown image paths from the description automatically.
+  Pass `owner/repo` as the second argument if needed.
+  Keep basenames unique. Existing assets are immutable: rename changed evidence
+  rather than overwriting it, so historical links stay accurate. Keep `.shots/`
+  untracked and never delete assets still referenced by a PR or issue.
+  The shared release is evidence storage, not a software release; it must remain
+  a pre-release and must not be marked Latest.
 - If a change has no visual delta (refactor, types, tests, docs, build config), write
   "no visual change" rather than silently omitting the screenshots. A new screen has no
   "before": say so instead of skipping the table.
