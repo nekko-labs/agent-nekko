@@ -1,3 +1,4 @@
+import { terminalExcerpt } from './terminalExcerpt.js';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PendingInput, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
@@ -51,7 +52,7 @@ function TerminalExcerpt({ terminalId }: { terminalId: string }) {
   useEffect(() => {
     let disposed = false;
     const refresh = () => { void window.nekko.terminalSnapshot(terminalId).then(snap => {
-      if (!disposed) setText((snap?.buffer ?? '').replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, '').trimEnd().split(/\r?\n/).slice(-2).join('\n') || 'No output yet');
+      if (!disposed) setText(terminalExcerpt(snap?.buffer ?? ''));
     }).catch(() => { if (!disposed) setText('Terminal output unavailable'); }); };
     refresh();
     const timer = setInterval(refresh, 3000);
