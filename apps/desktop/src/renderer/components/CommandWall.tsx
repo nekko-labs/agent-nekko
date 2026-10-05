@@ -164,8 +164,11 @@ export function CommandWall({
     const el = wrapRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const width = Math.round(rect.width);
-    const height = Math.round(rect.height);
+    // Geometry lives inside the padded stage. Including its padding feeds
+    // intrinsic narrow-layout height back into ResizeObserver on every frame.
+    const style = getComputedStyle(el);
+    const width = Math.round(rect.width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+    const height = Math.round(rect.height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom));
     // Hidden behind another view the wall measures nothing; keep the last real
     // size so its windows stay mounted and warm until it is shown again.
     if (width === 0 || height === 0) return;
