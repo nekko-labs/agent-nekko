@@ -275,7 +275,7 @@ export function CommandCenterView() {
     onPointerMove={(e) => { const drag = composerDrag.current; if (!drag) return; const available = e.currentTarget.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, drag.height + (e.clientY - drag.y) * (wall.composer.side === 'top' ? 1 : -1)))); }}
     onPointerUp={() => { composerDrag.current = null; }} onPointerCancel={() => { composerDrag.current = null; }}
     onDoubleClick={() => setComposerHeight(null)}
-    onKeyDown={(e) => { if (e.key === 'Home') setComposerHeight(null); else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setComposerHeight(Math.max(120, Math.min(600, (composerHeight ?? composerRef.current?.offsetHeight ?? 240) + (e.key === 'ArrowUp' ? 20 : -20) * (wall.composer.side === 'top' ? -1 : 1)))); } }} />;
+    onKeyDown={(e) => { if (e.key === 'Home') { e.preventDefault(); setComposerHeight(null); } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const available = e.currentTarget.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, (composerHeight ?? composerRef.current?.offsetHeight ?? 240) + (e.key === 'ArrowUp' ? 20 : -20) * (wall.composer.side === 'top' ? -1 : 1)))); } }} />;
   const composer = (
     <WallComposer
       height={composerHeight}
