@@ -32,6 +32,16 @@ function AutumnConfetti() {
   </span>;
 }
 
+/**
+ * The merged banner's wash and border. Theme tokens rather than fixed colours:
+ * a light violet that reads on dark paper vanishes on light paper (styles.css,
+ * --merged-*).
+ */
+export const MERGED_CARD_STYLE: React.CSSProperties = {
+  borderColor: 'var(--merged-line)',
+  background: 'linear-gradient(270deg, var(--merged-wash), var(--merged-wash-soft) 70%, transparent)',
+};
+
 /** A historical milestone, never an action surface or a live status card. */
 export function PrCard({ url, info, event = 'created' }: { url: string; info?: PrInfo; event?: 'created' | 'open' | 'closed' | 'merged' }) {
   const parsed = parsePrUrl(url);
@@ -39,12 +49,12 @@ export function PrCard({ url, info, event = 'created' }: { url: string; info?: P
   const merged = event === 'merged';
   return (
     <div className="relative my-2 overflow-hidden rounded-xl border px-4 py-3" data-pr-event={event}
-      style={merged ? { borderColor: 'rgba(217,119,6,0.45)', background: 'linear-gradient(270deg, rgba(217,119,6,0.24), rgba(180,83,9,0.10) 70%, transparent)' } : { borderColor: 'var(--line)', background: 'var(--surface)' }}>
+      style={merged ? MERGED_CARD_STYLE : { borderColor: 'var(--line)', background: 'var(--surface)' }}>
       {merged && <AutumnConfetti />}
       <div className="relative flex flex-wrap items-center gap-x-2 gap-y-1">
         <a href={url} className="min-w-0 truncate font-mono text-[12px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
         {info?.title && <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-soft">{info.title}</span>}
-        <span className="ml-auto text-[12px] font-semibold" style={{ color: merged ? 'var(--accent)' : event === 'closed' ? 'var(--danger)' : 'var(--success)' }}>
+        <span className="ml-auto text-[12px] font-semibold" style={{ color: merged ? 'var(--merged-ink)' : event === 'closed' ? 'var(--danger)' : 'var(--success)' }}>
           {merged ? 'PR merged' : event === 'closed' ? 'PR closed' : 'PR created'}
         </span>
       </div>
@@ -278,7 +288,7 @@ export function PrBadge({ prs, compact = false }: { prs: PrInfo[]; compact?: boo
   }
   if (merged > 0 && (!compact || open === 0)) {
     chips.push(
-      <span key="merged" className="shrink-0 rounded-sm px-1 py-px text-[9px] font-medium leading-normal" style={{ background: 'rgba(147,51,234,0.18)', color: '#c084fc' }} title={`${merged} merged PR${merged === 1 ? '' : 's'}`}>
+      <span key="merged" className="shrink-0 rounded-sm px-1 py-px text-[9px] font-medium leading-normal" style={{ background: 'var(--merged-chip)', color: 'var(--merged-ink)' }} title={`${merged} merged PR${merged === 1 ? '' : 's'}`}>
         ✓ {merged}
       </span>,
     );
