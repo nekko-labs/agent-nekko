@@ -56,6 +56,7 @@ describe('command wall geometry', () => {
     expect(widened.sizes[0] / widened.sizes[1]).toBeCloseTo((0.5 * 1.9) / 0.3);
     expect(JSON.stringify(root)).toBe(before);
   });
+
   it('does not duplicate shared companions under a secondary chat', () => {
     const shared = { ...workspace, root: { ...root, children: [a, b, ...companions], sizes: Array(7).fill(1 / 7) } };
     expect(workspaceCompanions([shared], 'chat-b')).toEqual([]);
@@ -67,6 +68,7 @@ describe('command wall geometry', () => {
     expect(g.height).toBe(960);
     expect(g.panes.get('a')!.height * .65).toBeGreaterThan(600);
   });
+
   it('retains saved Grid ratios without mutating the source tree', () => {
     const s = state();
     const before = JSON.stringify(s);

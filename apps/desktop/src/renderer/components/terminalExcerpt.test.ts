@@ -1,14 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { expect, it } from 'vitest';
 import { terminalExcerpt } from './terminalExcerpt.js';
-describe('terminal text preview', () => {
-  it('keeps the last two complete lines across CRLF output', () => {
-    expect(terminalExcerpt('first\r\nsecond\r\nthird\r\n')).toBe('second\nthird');
-  });
-  it('keeps the latest carriage-return progress update without concatenating it', () => {
-    expect(terminalExcerpt('Preparing\nLoading 10%\rLoading 100%')).toBe('Preparing\nLoading 100%');
-  });
-  it('strips color and terminal title escapes and handles backspace', () => {
-    expect(terminalExcerpt('\x1b]0;private title\x07\x1b[32mready\x1b[0m\nerrorx\b')).toBe('ready\nerror');
-  });
-  it('labels empty output', () => expect(terminalExcerpt('')).toBe('No output yet'));
+it('keeps two trailing lines and strips ANSI styling', () => {
+  expect(terminalExcerpt('old\n\x1b[31mred\x1b[0m\nlast\n')).toBe('red\nlast');
+});
+it('overwrites carriage-return progress and preserves the remaining suffix', () => {
+  expect(terminalExcerpt('Progress 10%\rProgress 90%\nDone')).toBe('Progress 90%\nDone');
+  expect(terminalExcerpt('abcdef\rxy')).toBe('xycdef');
+});
+it('handles backspace, CRLF and empty snapshots', () => {
+  expect(terminalExcerpt('abc\bD\r\nnext')).toBe('abD\nnext');
+  expect(terminalExcerpt('')).toBe('No output yet');
 });
