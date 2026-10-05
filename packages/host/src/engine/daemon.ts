@@ -1,3 +1,4 @@
+import { readDaemonResponse } from './daemon-response.js';
 /**
  * The engine daemon's model-server channels (`crates/nekko-infer`), seen from
  * the TS engine.
@@ -77,10 +78,7 @@ export function daemonCall(): (<T>(channel: string, ...args: unknown[]) => Promi
       headers: { Authorization: `Bearer ${link.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ args }),
     });
-    const text = await res.text();
-    const body = text ? JSON.parse(text) : null;
-    if (!res.ok) throw new Error(body?.error ?? `${channel}: HTTP ${res.status}`);
-    return body as T;
+    return readDaemonResponse<T>(res, channel);
   };
 }
 
@@ -95,10 +93,7 @@ export function daemonClient(link: { url: string; token: string }): EngineDaemon
       headers: { Authorization: `Bearer ${link.token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ args }),
     });
-    const text = await res.text();
-    const body = text ? JSON.parse(text) : null;
-    if (!res.ok) throw new Error(body?.error ?? `${channel}: HTTP ${res.status}`);
-    return body as T;
+    return readDaemonResponse<T>(res, channel);
   };
   return {
     serve: (cfg) =>

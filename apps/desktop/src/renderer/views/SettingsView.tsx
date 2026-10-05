@@ -98,6 +98,21 @@ export function SettingsView() {
               ))}
             </select>
           </div>
+          <div className="mt-2 flex min-h-[40px] items-center justify-between gap-3">
+            <div className="min-w-0">
+              <label htmlFor="chat-pane-action" className="text-[13px]">Chat pane top-right action</label>
+              <p className="text-[11px] text-ink-faint">Complete keeps chats under Completed for 60 days. Delete always asks for confirmation. Close remains in the title-bar menu.</p>
+            </div>
+            <select
+              id="chat-pane-action"
+              className="input max-w-[180px] py-1.5"
+              value={settings.chatPaneAction ?? 'complete'}
+              onChange={(e) => update({ chatPaneAction: e.target.value === 'delete' ? 'delete' : 'complete' })}
+            >
+              <option value="complete">Complete (default)</option>
+              <option value="delete">Delete</option>
+            </select>
+          </div>
           <div className="mt-2 flex min-h-[40px] items-center justify-between gap-3 border-t border-line pt-3">
             <div className="min-w-0">
               <span className="text-[13px]">Setup wizard</span>

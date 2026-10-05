@@ -32,7 +32,7 @@ export const LiveTurn = memo(function LiveTurn({
       {run.blocks.map((block, i) => (
         <Fragment key={i}>
           {block.kind === 'activity'
-            ? <ActivityGroup items={block.items} streaming={!!live && i === run.blocks.length - 1} />
+            ? <ActivityGroup items={block.items} streaming={!!live && i === run.blocks.length - 1} toolActivity={live?.activity} />
             : <MessageBubble message={{ id: `live_${i}`, role: 'assistant', content: block.text, createdAt: 0 }} onImageClick={onImageClick} chronological />}
         </Fragment>
       ))}
