@@ -1,3 +1,4 @@
+import { resourceQueue } from './resource-queue.js';
 import { EventEmitter } from 'events';
 import { basename, resolve } from 'path';
 import type {
@@ -343,6 +344,7 @@ export interface Host {
    * chips plus the ghost-text draft. Sideband, unpersisted; null when there's
    * nothing to suggest from.
    */
+  resourceQueue(action: string, input?: Record<string, unknown>): Promise<unknown>;
   suggestReplies(sessionId: string): Promise<import('@agent-nekko/shared').ReplySuggestions | null>;
   /**
    * Model-drafted fill for a missing prompt part (analyzer click-to-fill).
@@ -938,6 +940,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       }
     },
     suggestReplies,
+    resourceQueue,
     fillPromptPart,
     approveTool: (sessionId, toolCallId, approved) => resolveApproval(sessionId, toolCallId, approved),
     answerQuestion: (sessionId, callId, answers) => resolveQuestion(sessionId, callId, answers),

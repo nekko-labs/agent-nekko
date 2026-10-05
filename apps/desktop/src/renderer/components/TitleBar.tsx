@@ -23,6 +23,7 @@ export function TitleBar() {
     <div className={`titlebar ${isMacChrome ? 'titlebar-mac' : ''}`}>
       <span className="titlebar-word"><BrandMark size={16} className="titlebar-mark" />Agent Nekko</span>
       <UpdateControl />
+      <div id="command-titlebar-slot" className="no-drag ml-4 flex min-w-0 flex-1 items-center pr-[150px]" />
       <DeveloperServerControls />
     </div>
   );

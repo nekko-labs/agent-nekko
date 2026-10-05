@@ -32,6 +32,7 @@ import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/Mark
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
 import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
+
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
@@ -96,7 +97,7 @@ const NARROW_PANE = 620;
  * Unset means "grow with what's typed", which is where every composer starts.
  */
 const COMPOSER_H_KEY = 'nekko.composer.height';
-const COMPOSER_MIN_H = 52;
+const COMPOSER_MIN_H = 64;
 /** The conversation keeps at least this much of the pane, however tall the composer. */
 const TRANSCRIPT_MIN_H = 160;
 
@@ -516,9 +517,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // count) renders from this, one step behind the keystroke, so
   // a keypress paints the textarea before any of that work runs.
   const deferredDraft = useDeferredValue(draft);
-  const historyCursor = useRef<HistoryCursor | null>(null);
-  const sentPrompts = useMemo(() => promptHistory(session?.messages ?? []), [session?.messages]);
-  useEffect(() => { historyCursor.current = null; }, [sessionId, sentPrompts]);
   const [streaming, setStreaming] = useState(false);
   // Mirrors for the long-lived agent-event listener, so a token does not set
   // state that is already set.
@@ -596,8 +594,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<string | null>(null);
-  // What the model thinks the user will say next: one-click follow-up chips and
-  // the composer's ghost text. Pinned to the reply it was written for (forId) so
+  // What the model thinks the user will say next: the composer's ghost text.
+  // Pinned to the reply it was written for (forId) so
   // a newer turn can't inherit stale suggestions.
   const [suggestions, setSuggestions] = useState<{ forId: string; options: string[]; next: string | null } | null>(null);
   // A failed reply stays in the transcript with a retry, instead of vanishing
@@ -1019,7 +1017,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
    * Ask the model what the user might say next, then pin the answer to the
    * reply it was written for. Nice-to-have traffic: a provider hiccup, a
    * session with nothing to suggest from, or a malformed reply all just mean
-   * no chips this turn.
+   * no placeholder suggestion this turn.
    */
   const requestSuggestions = async () => {
     try {
@@ -1049,7 +1047,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     transcriptRef.current?.scrollToBottom('smooth');
   };
 
-  // Grow the composer with its content: reset to the 3-line minimum, then match
+  // Grow the composer with its content: reset to the two-line minimum, then match
   // the scroll height (CSS max-height caps it and lets it scroll past that).
   // A composer the user has sized keeps that size and scrolls instead.
   useLayoutEffect(() => {
@@ -1652,9 +1650,11 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     if (errorNotice || !session || dismissedInterruption === lastMsgId) return;
     if (shouldShowPersistedInterruption(session.messages, streaming, !!held || finalizingReply.current)) setErrorNotice(PERSISTED_INTERRUPTION);
   }, [session, streaming, held, errorNotice, lastMsgId, dismissedInterruption]);
-  // An interrupted turn needs a recovery action, not model-written follow-ups
-  // that may have been generated before the failure.
+  const canContinueWork = !streaming && !held && !session?.activeRun && !errorNotice &&
+    session?.messages.at(-1)?.role === 'assistant' && hasResumableProgress(session.messages);
+  // Suppress suggestions while recovery actions are visible.
   const suggestedOptions = errorNotice ? [] : liveSuggestions?.options ?? [];
+
   // The model's single most likely next message, shown as the composer's
   // placeholder while the box is empty; ArrowRight types it in.
   const ghostSuggestion = !draft && !errorNotice && liveSuggestions?.next ? liveSuggestions.next : null;
@@ -1683,22 +1683,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     }
     // → accepts the ghost suggestion while the box is empty (the box is empty
     // whenever a ghost is showing, so the caret is already at the end).
-    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
-        !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      const el = e.currentTarget;
-      const recalled = recallPrompt(sentPrompts, historyCursor.current, draft, e.key, el.selectionStart, el.selectionEnd);
-      if (recalled) {
-        e.preventDefault();
-        historyCursor.current = recalled;
-        setDraft(recalled.text);
-        setMenuClosed(true);
-        requestAnimationFrame(() => {
-          const caret = e.key === 'ArrowUp' ? 0 : el.value.length;
-          el.setSelectionRange(caret, caret);
-        });
-        return;
-      }
-    }
     if (e.key === 'ArrowRight' && ghostSuggestion && !e.currentTarget.value) {
       e.preventDefault();
       const el = e.currentTarget;
@@ -2181,6 +2165,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           <div className={`composer-column mx-auto ${commandCenter ? 'w-[98%]' : 'w-[90%]'}`} style={commandCenter ? { width: '98%' } : undefined}>
             <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
+
             <div className="composer relative">
             {/* While the agent works, a violet→cyan beam laps the border. The
                 gradient is a square that rotates on the compositor, clipped
@@ -2422,29 +2407,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   )}
                 </div>
               )}
-            {/* Model-written follow-ups to the reply above: one click sends it
-                outright, and starting any turn clears them. */}
-            {!imageMode && (canContinueReply || suggestedOptions.length > 0) && !streaming && (
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2.5" role="group" aria-label="Suggested replies">
-                {canContinueReply && (
-                  <button
-                    className={suggestedReplyClassName}
-                    title="Continue this reply, keeping the work already done"
-                    onClick={() => void resumeRun()}
-                  >
-                    Continue
-                  </button>
-                )}
-                {suggestedOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    className={suggestedReplyClassName}
-                    title={`Send: ${opt}`}
-                    onClick={() => { setSuggestions(null); void send(opt); }}
-                  >
-                    {opt}
-                  </button>
-                ))}
+            {/* Recovery is separate from the placeholder suggestion. */}
+            {!imageMode && (canContinueReply || canContinueWork) && !streaming && (
+              <div className="flex items-center border-b border-line px-3 py-2.5">
+                <button
+                  className={canContinueReply ? suggestedReplyClassName : 'btn btn-outline py-1 text-[12px]'}
+                  title={canContinueReply ? 'Continue this reply, keeping the work already done' : 'Ask the agent to continue any remaining work from this conversation'}
+                  onClick={() => canContinueReply ? void resumeRun() : void send('Continue the remaining work from this conversation. Preserve what is already done; if the task is complete or blocked, explain that instead of repeating it.')}
+                >
+                  {canContinueReply ? 'Continue' : 'Continue work'}
+                </button>
               </div>
             )}
 
@@ -2676,7 +2648,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                       title={streaming ? 'Add to queue after this reply' : 'Send'}
                       aria-label={streaming ? 'Add to queue' : 'Send'}
                     >
-                      <NekkoAvatar size={24} />
+                      <NekkoAvatar size={24} wizardHat={settings?.themePreset === 'autumn'} />
                     </button>
                 </div>
               </div>

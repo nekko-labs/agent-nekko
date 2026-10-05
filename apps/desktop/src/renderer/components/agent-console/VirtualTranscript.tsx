@@ -300,6 +300,7 @@ function VirtualTranscriptImpl<R extends VirtualRow>({
   return (
     <div
       ref={scrollRef}
+      data-transcript-scroll
       onScroll={onScroll}
       className="w-full flex-1 overflow-y-auto overflow-x-hidden px-4 py-5"
       style={{ overflowAnchor: 'none' }}
