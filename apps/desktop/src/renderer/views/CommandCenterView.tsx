@@ -1,3 +1,4 @@
+import { NumberedChatIcon } from '../components/NumberedChatIcon.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, AutomationTask, PendingInput, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType } from '@agent-nekko/shared';
@@ -288,7 +289,14 @@ export function CommandCenterView() {
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
         <div className="wall-column">
-      {wall.composer.side === 'top' && composer}
+      {wall.layout.mode === 'focus' && <div className="wall-focus-agents" role="toolbar" aria-label="Focus agents">
+        {agentList.map((agent) => <button key={agent.session.id} className="wall-focus-agent" aria-pressed={wall.hero === agent.session.id} onClick={() => selectAgent(agent.session.id)}>
+          <NumberedChatIcon number={agent.n} /><span className="truncate">{agent.session.title}</span>
+          {agent.status && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: agent.status.tone }} />}
+        </button>)}
+        <button className="wall-focus-agent" onClick={() => { void addFromToolbar('chat'); }}>+ New agent</button>
+      </div>}
+      {wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composer}
       <CommandWall
         state={wall}
         setState={setWall}
@@ -308,7 +316,7 @@ export function CommandCenterView() {
         onNewTerminal={newTerminal}
         onAddWindow={() => setAddOpen(true)}
       />
-      {wall.composer.side === 'bottom' && composer}
+      {wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composer}
         </div>
       </div>
     </div>

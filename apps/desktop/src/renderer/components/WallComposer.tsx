@@ -1,3 +1,4 @@
+import { NumberedChatIcon } from './NumberedChatIcon.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { SessionSummary } from '@agent-nekko/shared';
 import { ChatPane } from './ChatPane.js';
@@ -77,10 +78,9 @@ export function WallComposer({
       data-dock={`${dock.side}-${dock.align}`}
     >
       <div className="flex shrink-0 items-center gap-1.5 border-b border-line px-2 py-1 text-[12px]">
-        <ChatIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
+        <NumberedChatIcon number={agent?.n} />
         {agent ? (
           <>
-            <span className="wall-num" title={`Window ${agent.n}: Ctrl+${agent.n} selects it`}>{agent.n}</span>
             <span className="min-w-0 truncate font-medium" data-composer-title>{agent.session.title}</span>
             {agent.status && (
               <span className="flex min-w-0 items-center gap-1 text-[11px]" style={{ color: agent.status.tone }}>

@@ -2142,7 +2142,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         </div>
         )}
 
-        {approval && <ApprovalBar approval={approval} onDecide={approve} />}
+        {approval && surface !== 'composer' && <ApprovalBar approval={approval} onDecide={approve} />}
 
         {readOnly ? (
           surface === 'transcript' ? null : <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />

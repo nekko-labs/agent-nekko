@@ -8,7 +8,7 @@ import type { Workspace } from '../store.js';
 
 const fixture = vi.hoisted(() => ({ workspaces: [] as Workspace[] }));
 vi.mock('../store.js', () => ({ useStore: (select: (s: { workspaces: Workspace[] }) => unknown) => select(fixture) }));
-vi.mock('./ChatPane.js', () => ({ ChatPane: ({ sessionId }: { sessionId: string }) => <textarea defaultValue={`draft:${sessionId}`} /> }));
+vi.mock('./ChatPane.js', () => ({ ChatPane: ({ sessionId, surface }: { sessionId: string; surface: string }) => <textarea data-surface={surface} defaultValue={`draft:${sessionId}`} /> }));
 vi.mock('./TerminalPane.js', () => ({ TerminalPane: ({ terminalId }: { terminalId: string }) => <div data-terminal={terminalId} /> }));
 vi.mock('./FilePane.js', () => ({ FilePane: ({ path }: { path: string }) => <div data-file={path} /> }));
 vi.mock('./ExplorerPane.js', () => ({ ExplorerPane: ({ paneId }: { paneId: string }) => <div data-explorer={paneId} /> }));
@@ -64,7 +64,7 @@ describe('command wall geometry', () => {
   it('uses Focus-only deck and falls back when the hero is missing or filtered', () => {
     const g = commandWallGeometry(state({ layout: layout('focus'), hero: 'chat-b' }), 1000, 700);
     expect(g.hero).toBe('b');
-    expect(g.panes.get('b')).toEqual({ x: 0, y: 0, width: 1000, height: 532 });
+    expect(g.panes.get('b')).toEqual({ x: 0, y: 0, width: 1000, height: 700 });
     expect([...g.deck]).toEqual(['a', 't']);
     expect(g.add.x).toBe(496);
     expect(commandWallGeometry(state({ layout: layout('focus'), hero: 'missing' }), 1000, 700).hero).toBe('a');
@@ -134,12 +134,31 @@ describe('workspace companions and stable bodies', () => {
     expect(source).toContain('{allPanes(state.root).map(renderLeaf)}');
     expect(source).toContain('key={pane.id}');
     expect(source).toContain('key={companion.id}');
-    expect(source).toContain("!folded && (state.layout.mode === 'grid' || (state.layout.mode === 'focus' && geometry.hero === pane.id))");
+    expect(source).toContain("surface={focusedChat ? 'full' : 'transcript'}");
     expect(source).toContain('useStore.getState().closePane(companion.id)');
     expect(source).not.toContain('inert={folded');
     expect(css).toContain('transition: left 260ms ease');
     expect(css).toContain('@media (prefers-reduced-motion: reduce)');
     expect(css).toContain('.command-wall-window, .command-wall-add { transition: none; }');
     expect(source).toContain("matches ? 'auto' : 'smooth'");
+  });
+});
+
+
+describe('focus full-height chat', () => {
+  it('keeps the hero full height and moves other agents out of the stage', () => {
+    const g = commandWallGeometry(state({ layout: layout('focus'), hero: 'chat-a' }), 1000, 700);
+    expect(g.height).toBe(700);
+    expect(g.panes.get('a')?.height).toBe(700);
+    expect(g.panes.has('b')).toBe(false);
+  });
+  it('renders the composer inside the focused chat only', () => {
+    const html = renderToStaticMarkup(wall(state({ layout: layout('focus'), hero: 'chat-a' })));
+    expect(html).toContain('data-surface="full"');
+    expect(html).toContain('data-focus-chat="true"');
+  });
+  it('suppresses approvals on composer-only surfaces', () => {
+    const source = readFileSync(new URL('./ChatPane.tsx', import.meta.url), 'utf8');
+    expect(source).toContain("approval && surface !== 'composer' && <ApprovalBar");
   });
 });
