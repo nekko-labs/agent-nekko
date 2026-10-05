@@ -670,8 +670,6 @@ Implemented and native smoke verified on 2026-10-06: `npm run dev` and desktop `
 
 Implemented and verified in matched wide/narrow light/dark renderer captures plus native macOS title-bar clearance: the Command Center title and toolbar share the existing top row with a 4px top inset (previously 20px), reclaiming 16px for the wall below. Preserve native title-bar clearance, control sizes, horizontal gutters, and narrow-screen wrapping; do not move controls into the native draggable title bar.
 
-Engine router port zero uses an OS-assigned listener and reports its actual port in serving metadata. Decision-service integration tests use this to avoid reserve/release port races; auth and CORS checks remain unchanged. Six router tests pass locally; macOS CI confirmation pending. No visual change.
-
 ### Focus chat, numbered icons and single approval surface
 
 [Implemented; shared renderer visual and motion verification completed on 2026-10-06] Command Center chat headers combine the window number and a larger chat-outline icon instead of a separate numeric badge. Window numbers and Ctrl+1…9 selection keep their existing reading-order semantics. Permission approval controls appear on the chat transcript/full window only, never on a separate composer-only surface.
@@ -701,8 +699,6 @@ Implemented and native smoke verified on 2026-10-06: `npm run dev` and desktop `
 ## Command Center header spacing
 
 Implemented and verified in matched wide/narrow light/dark renderer captures plus native macOS title-bar clearance: the Command Center title and toolbar share the existing top row with a 4px top inset (previously 20px), reclaiming 16px for the wall below. Preserve native title-bar clearance, control sizes, horizontal gutters, and narrow-screen wrapping; do not move controls into the native draggable title bar.
-
-Engine router port zero uses an OS-assigned listener and reports its actual port in serving metadata. Decision-service integration tests use this to avoid reserve/release port races; auth and CORS checks remain unchanged. Six router tests pass locally; macOS CI confirmation pending. No visual change.
 
 Router decision integration tests bind port zero and read the actual listener port to avoid reserve/release races. Auth/CORS expectations are unchanged; platform execution is verified by CI.
 
