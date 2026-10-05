@@ -327,7 +327,7 @@ Reported 2026-10-05 with a screenshot: in light mode the merged-PR banner's left
 - [x] **PRL2, Merged `PrCard` uses the tokens.** `MERGED_CARD_STYLE` (exported) builds the gradient and border from the tokens; the status reads `--merged-ink`; label and title stay on `--ink` / `ink-soft`; stars take `--merged-star` and stop pulsing under reduced motion. · Done: 2026-10-05
 - [x] **PRL3, Badges and links.** `PrBadge`'s merged chip (`--merged-chip` / `--merged-ink`, 1.95:1 → 7.3:1 in light) and `SessionPrLinks` `prTone` (`var(--merged-ink)`). · Done: 2026-10-05
 - [x] **PRL4, Regression test.** `renderer/contrast.ts` (WCAG luminance, compositing, ratio) and `contrast.test.ts`, which reads the tokens out of `styles.css` and holds `--ink`, `--ink-soft` and `--merged-ink` to 4.5:1 at bare paper, soft wash and full wash, plus the chip and link on paper and surface, for light, solar, dark, nebula, terminal and nord (26 checks). Swapping the old `#ede9fe` back in fails at 1.15:1. `PrCards.test.tsx` asserts the merged card and badge read the tokens and carry no fixed light violets. Desktop typecheck and 439 tests green. · Done: 2026-10-05
-- [ ] **PRL5, Visual evidence.** Before/after of the merged card and badge, light and dark, same seeded chat (live PR #315 via `gh`), 1280px at 2x with reduced motion, in the PR description via `scripts/pr-media.mjs`.
+- [x] **PRL5, Visual evidence.** Before/after of the merged card and badge, light and dark, same seeded chat (live PR #315 via `gh`), 1280px at 2x with reduced motion, in the PR description via `scripts/pr-media.mjs`. · PR #325 · Done: 2026-10-05
 
 ### Guardrail defaults and reset (2026-10-03)
 
