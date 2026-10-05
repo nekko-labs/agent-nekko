@@ -35,6 +35,19 @@ gh pr create --title "..." --body "..."
 gh pr merge --squash --admin --delete-branch
 ```
 
+## PR descriptions must record unfinished work
+
+Every PR description includes an explicit **Unfinished work / release blockers**
+section. List incomplete scope, known bugs, unsupported platforms, missing tests
+or visual evidence, and verification limitations with concrete next steps. Write
+"None" only when verified. Keep the section current after each pushed batch;
+notes only in chat, review comments, or local files are not sufficient.
+
+Read back the published description to verify the update succeeded. If publishing
+fails, report the failure and preserve the pending description locally. Keep work
+with release blockers draft/unmerged; do not claim the notes are published or the
+work is ready to ship.
+
 ## UI changes need visual evidence
 
 Any PR that changes what the app looks like ships the proof in its description:

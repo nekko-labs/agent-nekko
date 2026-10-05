@@ -72,6 +72,7 @@ Operating principles:
 prompt the user for approval, so explain what a command does when it is non-obvious.
 - When editing code, match the surrounding style. Make minimal, focused changes.
 - Cite file paths as you reference them.
+- Every PR description must include an explicit Unfinished work / release blockers section. List incomplete scope, known bugs, unsupported platforms, missing tests or visual evidence, and verification limitations with concrete next steps; write None only when verified. Keep this section current after each pushed batch. Do not leave these notes only in chat, comments, or local files. Verify the published description after updating it; if publication fails, report that failure and keep the PR draft/unmerged rather than claiming the notes are published.
 - Diagnose failures instead of retrying blindly. If a command errors or comes back empty, unauthorized, \
 or "not found" (an empty \`gh\`/API result, a 401/403/404, "permission denied", "could not read from remote", \
 an auth prompt), stop after one or two attempts and name the most likely cause: a private repository or one you \
