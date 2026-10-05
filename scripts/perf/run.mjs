@@ -158,22 +158,19 @@ async function openApp({ appUrl, cdpPort, vsync }) {
   };
 
   /**
-   * Put the sidebar in the state where every chat's card can be seen: the
-   * agents list rather than the completed-chats archive, with every project
-   * group expanded. A stray click on a group header or the archive button
-   * during a run otherwise hides cards for the rest of it.
+   * Put the sidebar in the state where every chat's card can be seen: every
+   * project group expanded. A stray click on a group header during a run
+   * otherwise hides cards for the rest of it.
    */
   const showAllCards = () => cdp.evaluate(`(() => {
-    document.querySelector('button[title="Back to the agents"]')?.click();
     for (const h of document.querySelectorAll('button[aria-expanded="false"][data-sidebar-group]')) h.click();
     return true;
   })()`);
   /** What the sidebar is showing, for the error when a card cannot be found. */
   const sidebarState = () => cdp.evaluate(`(() => ({
-    archive: !!document.querySelector('button[title="Back to the agents"]'),
     groups: [...document.querySelectorAll('button[data-sidebar-group]')].map((h) => h.textContent.trim() + ':' + h.getAttribute('aria-expanded')),
     cards: [...document.querySelectorAll('div[role="button"]')].map((c) => c.getAttribute('title')).filter(Boolean),
-    saved: [...document.querySelectorAll('button[title^="Open "]')].length,
+    completed: [...document.querySelectorAll('[data-completed-row]')].length,
   }))()`);
 
   await waitFor(`!!document.querySelector('nav button[aria-label="Command Center"]')`, 'the app shell');
@@ -206,17 +203,10 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     const title = chatTitle(i);
     let at = await find('div[role="button"]', title, 30);
     if (!at) {
-      // The card is there but hidden (a collapsed group, the archive view).
+      // The card is there but hidden in a collapsed group. Active chats without
+      // an open window are cards too, so there is no second list to fall back to.
       await showAllCards();
       at = await find('div[role="button"]', title, 20);
-    }
-    if (!at) {
-      // Not open as an agent at all: its saved-chat row opens it as one.
-      const row = await find('button[title^="Open "]', `Open ${title}`, 10);
-      if (row) {
-        await clickAt(row);
-        at = await find('div[role="button"]', title, 50);
-      }
     }
     if (!at) throw new Error(`could not find the sidebar card for ${title}: ${JSON.stringify(await sidebarState())}`);
     await clickAt(at);

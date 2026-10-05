@@ -708,9 +708,11 @@ export const useStore = create<UiState>((set, get) => ({
       if (s.sessions.find((x) => x.id === sessionId)?.archivedAt) {
         return { view: 'chat' as View, archiveOpen: true, archivedViewId: sessionId };
       }
+      // An active chat leaves the completed-chat reader, if it was open.
+      const leaveReader = { archiveOpen: false, archivedViewId: null };
       const hit = locatePane(s.workspaces, 'chat', sessionId);
-      if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
-      return addWorkspace(s, { id: newPaneId(), kind: 'chat', refId: sessionId });
+      if (hit) return { ...focusPane(s, hit.workspaceId, hit.paneId), ...leaveReader };
+      return { ...addWorkspace(s, { id: newPaneId(), kind: 'chat', refId: sessionId }), ...leaveReader };
     });
   },
 
@@ -852,6 +854,8 @@ export const useStore = create<UiState>((set, get) => ({
         view: 'chat' as View,
         activeWorkspaceId: id,
         activeSessionId: chat?.refId ?? s.activeSessionId,
+        archiveOpen: false,
+        archivedViewId: null,
       };
     });
   },
@@ -926,7 +930,7 @@ export const useStore = create<UiState>((set, get) => ({
       get().pushToast('error', `Could not delete the chat: ${(e as Error).message}`);
       return;
     }
-    set((s) => ({ archivedViewId: s.archivedViewId === sessionId ? null : s.archivedViewId }));
+    set((s) => (s.archivedViewId === sessionId ? { archivedViewId: null, archiveOpen: false } : {}));
     await get().refreshSessions();
   },
 
