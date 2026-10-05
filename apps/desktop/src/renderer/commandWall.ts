@@ -162,8 +162,9 @@ function readDock(raw: unknown): ComposerDock {
 export function autoShape(count: number, aspect = DEFAULT_ASPECT): { cols: number; rows: number } {
   const n = Math.max(1, count);
   let best = { cols: 1, rows: n, score: Infinity };
-  for (let cols = 1; cols <= Math.min(6, n); cols++) {
+  for (let cols = 1; cols <= Math.min(8, n); cols++) {
     const rows = Math.ceil(n / cols);
+    if (rows > 8) continue;
     const cellAspect = (aspect * rows) / cols;
     const score = Math.abs(Math.log(cellAspect / 1.4)) + (0.35 * (cols * rows - n)) / n;
     if (score < best.score - 1e-9) best = { cols, rows, score };
@@ -230,19 +231,12 @@ export function addPane(root: WbNode | null, pane: WbPane, aspect = DEFAULT_ASPE
   let bestId: string | null = null;
   let bestArea = -1;
   let bestRect: LeafRect | null = null;
-  const chats = pane.kind === 'chat' ? allPanes(root).filter((p) => p.kind === 'chat') : [];
-  if (chats.length) {
-    const target = chats.sort((a, b) => {
-      const ar = rects.get(a.id)!;
-      const br = rects.get(b.id)!;
-      return (br.y + br.height) - (ar.y + ar.height) || (br.x + br.width) - (ar.x + ar.width);
-    })[0];
-    const rect = rects.get(target.id)!;
-    const directions: Direction[] = rect.width * aspect >= rect.height ? ['right', 'down'] : ['down', 'right'];
-    for (const dir of directions) {
-      if (canSplit(root, target.id, dir)) return splitPane(root, target.id, dir, pane);
-    }
-    return root;
+  // Unpositioned agents append in reading order, never halve the last agent.
+  // Explicit compass placement still uses splitPane at the call site.
+  if (pane.kind === 'chat') {
+    const panes = [...allPanes(root), pane];
+    if (panes.length > 64) return root;
+    return tileTree(panes, aspect)!;
   }
   for (const [id, r] of rects) {
     const area = r.width * r.height;

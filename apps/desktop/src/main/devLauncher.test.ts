@@ -1,0 +1,19 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+const source = readFileSync(new URL('../../scripts/dev-launch.mjs', import.meta.url), 'utf8');
+describe('development launcher safety', () => {
+  it('copies a versioned private runtime with relative framework symlinks preserved', () => {
+    expect(source).toContain("require('electron/package.json').version");
+    expect(source).toContain('verbatimSymlinks: true');
+    expect(source).toContain("'Agent Nekko.app'");
+  });
+  it('uses LaunchServices and a distinct development bundle identity', () => {
+    expect(source).toContain("'/usr/bin/open'");
+    expect(source).toContain('com.agentnekko.desktop.dev');
+    expect(source).toContain("env.ELECTRON_EXEC_PATH = launcher");
+  });
+  it('rejects node-mode Electron and leaves user privacy grants alone', () => {
+    expect(source).toContain('Unset ELECTRON_RUN_AS_NODE');
+    expect(source).not.toContain('tccutil');
+  });
+});

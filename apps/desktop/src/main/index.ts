@@ -46,6 +46,7 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
   process.exit(1);
 }
 
+app.setName('Agent Nekko');
 const previousProfile = app.getPath('userData');
 preservePackagedProfile(app);
 
