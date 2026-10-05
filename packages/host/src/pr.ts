@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import { PrReadCache, githubReadCooldownMs } from './pr-cache.js';
 import type { PrAction, PrActionResult, PrChecks, PrDiff, PrDiffFile, PrInfo, PrState } from '@agent-nekko/shared';
 import { collectSessionPrUrls, parsePrUrl } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
@@ -35,6 +36,7 @@ function run(
   });
 }
 
+let ghReadCooldownUntil = 0;
 let ghMissing = false; // sticky once we learn gh isn't installed (avoids re-probing)
 
 /** The GitHub token for API fallback: the connector's PAT, else the environment. */
@@ -87,8 +89,9 @@ export async function fetchPrInfo(url: string): Promise<PrInfo | null> {
   const slug = `${owner}/${repo}`;
 
   // Preferred path: gh CLI.
-  if (!ghMissing) {
+  if (!ghMissing && Date.now() >= ghReadCooldownUntil) {
     const res = await run('gh', ['pr', 'view', String(number), '--repo', slug, '--json', GH_FIELDS]);
+    ghReadCooldownUntil = Math.max(ghReadCooldownUntil, Date.now() + githubReadCooldownMs(res.stderr));
     if (res.missing) {
       ghMissing = true;
     } else if (res.ok) {
@@ -168,16 +171,11 @@ async function fetchPrInfoApi(owner: string, repo: string, number: number, url: 
   }
 }
 
-// Short-lived cache so re-renders and the sidebar don't re-shell gh constantly.
-const CACHE_TTL = 15_000;
-const cache = new Map<string, { info: PrInfo | null; ts: number }>();
+// Share reads across cards, sessions and concurrent refreshes.
+const cache = new PrReadCache<PrInfo | null>(60_000);
 
 async function cachedInfo(url: string, force = false): Promise<PrInfo | null> {
-  const hit = cache.get(url);
-  if (!force && hit && Date.now() - hit.ts < CACHE_TTL) return hit.info;
-  const info = await fetchPrInfo(url);
-  cache.set(url, { info, ts: Date.now() });
-  return info;
+  return cache.get(url, () => fetchPrInfo(url), force);
 }
 
 // A branch's PR changes rarely (opened once, merged once) and asking costs a gh
@@ -199,11 +197,13 @@ export async function branchPr(cwd: string, branch: string): Promise<PrInfo | nu
   const key = `${cwd}|${branch}`;
   const hit = branchCache.get(key);
   if (hit && Date.now() - hit.ts < BRANCH_PR_TTL) return hit.info;
+  if (Date.now() < ghReadCooldownUntil) return hit?.info ?? null;
   const pending = branchInFlight.get(key);
   if (pending) return pending;
 
   const promise = (async () => {
     const res = await run('gh', ['pr', 'view', branch, '--json', GH_FIELDS], 10_000, cwd);
+    ghReadCooldownUntil = Math.max(ghReadCooldownUntil, Date.now() + githubReadCooldownMs(res.stderr));
     if (res.missing) ghMissing = true;
     let info: PrInfo | null = null;
     if (res.ok) {
