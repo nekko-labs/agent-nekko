@@ -22,3 +22,13 @@ export function githubReadCooldownMs(stderr: string): number {
   if (/API rate limit (?:already )?exceeded/i.test(stderr)) return 60 * 60_000;
   return 0;
 }
+
+/** Bound background GitHub reads across all sessions and branches. */
+export class PrReadQueue {
+  private tail: Promise<unknown> = Promise.resolve();
+  run<T>(read: () => Promise<T>): Promise<T> {
+    const next = this.tail.then(read);
+    this.tail = next.catch(() => {});
+    return next;
+  }
+}

@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import { PrReadCache, githubReadCooldownMs } from './pr-cache.js';
+import { PrReadCache, PrReadQueue, githubReadCooldownMs } from './pr-cache.js';
 import type { PrAction, PrActionResult, PrChecks, PrDiff, PrDiffFile, PrInfo, PrState } from '@agent-nekko/shared';
 import { collectSessionPrUrls, parsePrUrl } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
@@ -33,6 +33,17 @@ function run(
         missing,
       });
     });
+  });
+}
+
+const ghReadQueue = new PrReadQueue();
+
+async function runGhRead(args: string[], timeoutMs?: number, cwd?: string) {
+  return ghReadQueue.run(async () => {
+    if (Date.now() < ghReadCooldownUntil) return { ok: false, code: 1, stdout: '', stderr: 'GitHub background reads paused after rate limit', missing: false };
+    const result = await run('gh', args, timeoutMs, cwd);
+    ghReadCooldownUntil = Math.max(ghReadCooldownUntil, Date.now() + githubReadCooldownMs(result.stderr));
+    return result;
   });
 }
 
@@ -90,7 +101,7 @@ export async function fetchPrInfo(url: string): Promise<PrInfo | null> {
 
   // Preferred path: gh CLI.
   if (!ghMissing && Date.now() >= ghReadCooldownUntil) {
-    const res = await run('gh', ['pr', 'view', String(number), '--repo', slug, '--json', GH_FIELDS]);
+    const res = await runGhRead(['pr', 'view', String(number), '--repo', slug, '--json', GH_FIELDS]);
     ghReadCooldownUntil = Math.max(ghReadCooldownUntil, Date.now() + githubReadCooldownMs(res.stderr));
     if (res.missing) {
       ghMissing = true;
@@ -202,7 +213,7 @@ export async function branchPr(cwd: string, branch: string): Promise<PrInfo | nu
   if (pending) return pending;
 
   const promise = (async () => {
-    const res = await run('gh', ['pr', 'view', branch, '--json', GH_FIELDS], 10_000, cwd);
+    const res = await runGhRead(['pr', 'view', branch, '--json', GH_FIELDS], 10_000, cwd);
     ghReadCooldownUntil = Math.max(ghReadCooldownUntil, Date.now() + githubReadCooldownMs(res.stderr));
     if (res.missing) ghMissing = true;
     let info: PrInfo | null = null;

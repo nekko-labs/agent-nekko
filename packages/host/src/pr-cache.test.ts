@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest';
-import { PrReadCache, githubReadCooldownMs } from './pr-cache.js';
+import { PrReadCache, PrReadQueue, githubReadCooldownMs } from './pr-cache.js';
 it('deduplicates, caches and permits forced refresh', async () => {
   let now = 0;
   const cache = new PrReadCache(60000, () => now);
@@ -24,4 +24,13 @@ it('distinguishes quota exhaustion from access errors', () => {
   expect(githubReadCooldownMs('GraphQL: API rate limit already exceeded for user ID 4411499.')).toBe(3600000);
   expect(githubReadCooldownMs('secondary rate limit')).toBe(60000);
   expect(githubReadCooldownMs('Resource not accessible')).toBe(0);
+});
+
+it('serializes reads across distinct PRs', async () => {
+  const queue = new PrReadQueue();
+  let active = 0;
+  let peak = 0;
+  const read = async () => { active++; peak = Math.max(peak, active); await Promise.resolve(); active--; };
+  await Promise.all(Array.from({ length: 40 }, () => queue.run(read)));
+  expect(peak).toBe(1);
 });
