@@ -275,8 +275,8 @@ async fn decisions_are_answered_in_process_behind_the_same_auth_and_cors() {
 
     for loaded in [false, true] {
         let router = EngineRouter::new(sup.clone(), loader.clone()).with_decisions(Arc::new(FakeDecisions { loaded }));
-        let port = free_port();
-        router.serve(config(port)).await.unwrap();
+        router.serve(config(0)).await.unwrap();
+        let port = router.serving().unwrap().port;
         let base = format!("http://127.0.0.1:{port}");
         assert_eq!(http.post(format!("{base}/v1/decisions")).json(&body).send().await.unwrap().status(), 401);
         for path in ["/v1/decisions", "/v1/systemone"] {
