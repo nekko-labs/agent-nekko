@@ -74,6 +74,13 @@
 .command-wall-companion > header span { overflow:hidden; text-overflow:ellipsis; }
 .command-wall-deck-window .command-wall-content { visibility:hidden; } .command-wall-card { position:absolute; inset:0; display:flex; flex-direction:column; gap:8px; padding:12px; text-align:left; color:var(--ink-soft); font-size:12px; } .command-wall-card span { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; } .command-wall-card small { margin-top:auto; color:var(--ink-faint); }
 
+/* The deck scroll offset moves only cards, never the hero or composer. */
+.command-wall-layout[data-wall-layout="focus"] { overflow-x:clip; }
+.command-wall-deck-scroll { position:absolute; left:0; right:0; height:20px; overflow-x:auto; overflow-y:hidden; }
+.command-wall-deck-scroll:focus-visible { outline:2px solid var(--accent); }
+
+.command-wall-notice { position:sticky; top:0; z-index:30; padding:8px 12px; background:var(--surface); border:1px solid var(--line); border-radius:10px; font-size:12px; }
+.command-wall-notice button { margin-left:12px; color:var(--accent); }
 .numbered-chat-icon { position: relative; display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ink-faint); }
 .numbered-chat-icon > span { position: absolute; top: 5px; left: 5px; right: 4px; text-align: center; font-size: 10px; font-weight: 700; line-height: 13px; color: var(--ink); }
 [data-wall-selected] .numbered-chat-icon, [aria-pressed="true"] .numbered-chat-icon { color: var(--accent); }
