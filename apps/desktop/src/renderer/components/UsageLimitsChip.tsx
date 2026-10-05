@@ -53,12 +53,14 @@ export function UsageLimitsChip({
   provider,
   session,
   cost = 0,
+  avoidedCosts,
   turnCost = 0,
   running = false,
 }: {
   provider?: ProviderConfig;
   session?: { id?: string } | null;
   cost?: number;
+  avoidedCosts?: import('@agent-nekko/shared').AvoidedCosts;
   /**
    * What the reply now running has cost so far, accumulated live from the
    * turn's usage events. Zero between turns.
@@ -120,15 +122,15 @@ export function UsageLimitsChip({
    */
   const liveTurn = running && turnCost > 0;
 
+  /**
+   * Always a price: the chat's cost at the model's published API rates, or
+   * Free for a local model. A subscription chat is priced the same way, so
+   * "what is this costing" has one answer whoever pays it; the plan's limit
+   * windows are in the popover.
+   */
   const chipText = () => {
-    if (local) return running ? 'Running · free' : 'Free';
-    if (liveTurn) return `${formatUSD(turnCost)} this reply`;
-    if (subscription) {
-      if (!provider.tokenKey) return 'Subscription · sign in';
-      if (!limits) return 'Limits · …';
-      if (!binding) return 'Limits · no data';
-      return `Limits ${Math.round(binding.usedPercent)}%`;
-    }
+    if (local) return 'Free';
+    if (liveTurn) return `${formatUSD(cost + turnCost)}`;
     return formatUSD(cost);
   };
 
@@ -143,12 +145,12 @@ export function UsageLimitsChip({
 
   const chipTitle = () => {
     if (local) return 'Local models run on this machine and cost nothing';
-    if (subscription) {
-      if (!provider.tokenKey) return 'Sign in to see subscription limits';
-      if (!binding) return 'Waiting for the first usage response';
-      return `${binding.label} window is ${Math.round(binding.usedPercent)}% used · resets ${resetTime(binding.resetAt, now)}`;
-    }
-    return `Estimated session cost at published list prices; your bill may differ`;
+    const limit = subscription && binding
+      ? ` · ${binding.label} window ${Math.round(binding.usedPercent)}% used, resets ${resetTime(binding.resetAt, now)}`
+      : '';
+    return subscription
+      ? `This chat at the model's API list prices; your plan covers it${limit}`
+      : 'Estimated chat cost at published list prices; your bill may differ';
   };
 
   const windowOrder: LimitWindow['scope'][] = ['session', 'weekly', 'model'];
@@ -166,11 +168,6 @@ export function UsageLimitsChip({
         style={chipColor() ? { color: chipColor(), background: `color-mix(in srgb, ${chipColor()} 14%, var(--surface-2))` } : undefined}
       >
         {chipText()}
-        {subscription && binding && (
-          <span className="ml-1 text-[10px] tabular-nums text-ink-faint">
-            {timeUntil(binding.resetAt - now)}
-          </span>
-        )}
       </button>
 
       {/* Hover/focus popover: every window, plus plan + credits. */}
@@ -197,8 +194,22 @@ export function UsageLimitsChip({
           </div>
         )}
 
+        {avoidedCosts && (
+          <div className="mb-2 space-y-1 border-b border-line pb-2">
+            <div className="font-medium text-ink">Estimated API costs avoided · session</div>
+            <div className="flex justify-between"><span>Subscription</span><span>{formatUSD(avoidedCosts.subscription)}</span></div>
+            <div className="flex justify-between"><span>Local AI</span><span>{formatUSD(avoidedCosts.local)}</span></div>
+            <p className="text-ink-faint">Cloud equivalents; excludes plan fees, hardware and electricity.</p>
+            {avoidedCosts.benchmarkTokens > 0 && <p className="text-ink-faint">Local estimate includes your configured cloud benchmark.</p>}
+            {avoidedCosts.unpricedTokens > 0 && <p className="text-ink-faint">{avoidedCosts.unpricedTokens.toLocaleString()} unpriced tokens excluded.</p>}
+          </div>
+        )}
         {subscription ? (
           <>
+            <div className="mb-2 flex items-baseline justify-between border-b border-line pb-2">
+              <span className="text-ink-soft">This chat at API prices</span>
+              <span className="text-[13px] font-semibold tabular-nums">{formatUSD(cost + (liveTurn ? turnCost : 0))}</span>
+            </div>
             {sortedWindows.length === 0 ? (
               <p className="text-ink-faint">No limit windows reported yet. Send a message to refresh.</p>
             ) : (

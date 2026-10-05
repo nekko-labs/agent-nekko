@@ -10,6 +10,7 @@ import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES,
 import { ShieldIcon, SunIcon, TrashIcon, RobotIcon, WandIcon } from '../icons.js';
 import { VoiceSettings } from '../components/VoiceSettings.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
+import { DelegationRouteSettings } from '../components/DelegationRouteSettings.js';
 import { useT, LANGUAGES } from '../i18n.js';
 
 const SANDBOX_OPTS: Array<{ value: SandboxMode; label: string; desc: string }> = [
@@ -224,7 +225,7 @@ export function SettingsView() {
           )}
         </section>
 
-        {/* Spec-driven development */}
+        <section className="card mt-6 p-5"><DelegationRouteSettings settings={settings} update={update} /></section>
 
         {/* MCP servers */}
         <McpSection settings={settings} update={update} reload={reload} />

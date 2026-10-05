@@ -1,3 +1,5 @@
+import { lastReplyInterrupted, type ChatMessage } from '@agent-nekko/shared';
+
 /**
  * The notice for a reply the chat found already cut off in its transcript: the
  * app was closed or the host restarted while it ran, so no `error` event ever
@@ -24,3 +26,8 @@ export function describeInterruption(message: string, canContinue: boolean) {
 }
 
 export const suggestedReplyClassName = 'max-w-full truncate rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 text-left text-[12px] font-medium text-ink-soft hover:border-accent/50 hover:bg-accent/20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
+
+/** A held reply means the final transcript is still loading; the record is stale. */
+export function shouldShowPersistedInterruption(history: ChatMessage[], streaming: boolean, awaitingTranscript: boolean): boolean {
+  return !streaming && !awaitingTranscript && lastReplyInterrupted(history);
+}

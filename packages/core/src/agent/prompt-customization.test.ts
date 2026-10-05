@@ -18,6 +18,19 @@ it('requires published PR descriptions to keep unfinished work explicit and curr
   expect(prompt).toContain('Verify the published description');
   expect(prompt).toContain('keep the PR draft/unmerged');
 });
+it('always includes safe app verification guidance without optional capabilities', () => {
+  const prompt = buildSystemPrompt({ workspaces: [], platform: 'win32', contextBlock: '' });
+  expect(prompt).toContain('App verification:');
+  expect(prompt).toContain('Do not launch the app when those checks suffice.');
+  expect(prompt).toContain('check for existing instances');
+  expect(prompt).toContain('Prefer reusing a matching agent-owned sandbox');
+  expect(prompt).toContain("Treat the user's running app as read-only by default; ask before interactions");
+  expect(prompt).toContain('separate app data and external side effects disabled by default');
+  expect(prompt).toContain("never close the user's app.");
+  expect(prompt).toContain('Headless checks do not replace actual desktop-window evidence');
+});
+
+
 it('omits empty customization sections', () => {
   const prompt = buildSystemPrompt({ workspaces: [], platform: 'win32', contextBlock: '', turnWrapper: '' });
   expect(prompt).not.toContain('Server instructions for this user turn:');

@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { ContextAction, ContextMenu } from './ContextMenu.js';
+import { useStore } from '../store.js';
 
 /**
  * Minimal, dependency-free markdown renderer covering the constructs a chat
@@ -439,18 +441,20 @@ function inline(s: string, ctx: Ctx): React.ReactNode {
   let last = 0;
   let m: RegExpExecArray | null;
   let key = 0;
-  INLINE_RE.lastIndex = 0;
-  while ((m = INLINE_RE.exec(s))) {
+  // Each inline walk owns its cursor: nested emphasis must not reset the
+  // parent's scan and repeat or skip later links.
+  const pattern = new RegExp(INLINE_RE.source, INLINE_RE.flags);
+  while ((m = pattern.exec(s))) {
     if (m.index > last) nodes.push(s.slice(last, m.index));
     const [, imgAlt, imgSrc, bold, italic, strike, code, linkText, linkHref, bareUrl] = m;
     if (imgSrc !== undefined) {
       nodes.push(<ImageRef key={key++} alt={imgAlt ?? ''} src={imgSrc} basePath={ctx.basePath} />);
     } else if (bold !== undefined) {
-      nodes.push(<strong key={key++}>{bold}</strong>);
+      nodes.push(<strong key={key++}>{inline(bold, ctx)}</strong>);
     } else if (italic !== undefined) {
-      nodes.push(<em key={key++}>{italic}</em>);
+      nodes.push(<em key={key++}>{inline(italic, ctx)}</em>);
     } else if (strike !== undefined) {
-      nodes.push(<s key={key++} className="text-ink-faint">{strike}</s>);
+      nodes.push(<s key={key++} className="text-ink-faint">{inline(strike, ctx)}</s>);
     } else if (code !== undefined) {
       nodes.push(
         <code key={key++} className="rounded-sm px-1 py-0.5 font-mono text-[13px]" style={{ background: 'var(--surface-2)' }}>
@@ -540,19 +544,41 @@ function ImageRef({ alt, src, basePath }: { alt: string; src: string; basePath?:
  */
 export function safeHref(href: string): string | null {
   try {
-    const { protocol } = new URL(href, 'about:blank');
-    return protocol === 'http:' || protocol === 'https:' || protocol === 'mailto:' ? href : null;
+    const url = new URL(href, 'about:blank');
+    if (url.protocol !== 'http:' && url.protocol !== 'https:' && url.protocol !== 'mailto:') return null;
+    return href.replace(/[<>"'`]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
   } catch {
     return null;
   }
 }
 
+export function linkContextActions(href: string): Array<{ label: string; run: () => void }> {
+  const safe = safeHref(href);
+  if (!safe) return [];
+  const actions = [{ label: 'Open in external browser', run: () => { void window.nekko.openPath(safe); } }];
+  if (/^https?:\/\//i.test(safe)) {
+    actions.push({ label: 'Open in in-app browser', run: () => { useStore.getState().openBrowserPane(safe); } });
+  }
+  actions.push({ label: 'Copy link', run: () => { void navigator.clipboard.writeText(safe); } });
+  return actions;
+}
+
 function Link({ href, children }: { href: string; children: React.ReactNode }) {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const safe = safeHref(href);
   if (!safe) return <span className="wrap-break-word text-ink-soft" title={href}>{children}</span>;
   return (
-    <a href={safe} target="_blank" rel="noreferrer" className="wrap-break-word underline" style={{ color: 'var(--accent)' }}>
-      {children}
-    </a>
+    <>
+      <a href={safe} target="_blank" rel="noreferrer" className="wrap-break-word underline" style={{ color: 'var(--accent)' }} onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenu({ x: e.clientX, y: e.clientY });
+      }}>
+        {children}
+      </a>
+      {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+        {linkContextActions(safe).map((action) => <ContextAction key={action.label} onClick={() => { setMenu(null); action.run(); }}>{action.label}</ContextAction>)}
+      </ContextMenu>}
+    </>
   );
 }

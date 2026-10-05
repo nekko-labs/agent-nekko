@@ -167,6 +167,15 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: 'delegation_targets',
+    description: 'Discover exact available chat-model IDs on one enabled configured provider before explicit delegation. Read-only; does not create a child, download models, or switch providers. Omit provider_id to inspect the current provider.',
+    parameters: {
+      type: 'object',
+      properties: { provider_id: { type: 'string', description: 'Exact enabled provider ID from routing guidance.' } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'spawn_agent',
     description:
       'Delegate a self-contained sub-task to a fresh sub-agent that works in the same project with its own context, then returns its final answer. Use for parallelizable or well-scoped work (e.g. "investigate X", "implement Y in file Z"). The sub-agent appears as a nested tab in the workbench.',

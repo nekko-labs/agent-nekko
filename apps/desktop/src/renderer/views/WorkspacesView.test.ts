@@ -13,13 +13,14 @@ const workspace = (id: string): Workspace => ({
 });
 
 describe('unopenedChats', () => {
-  it('offers saved chats after their workspace is closed, without duplicating open chats', () => {
+  it('keeps active chats listed after their workspace is closed, without duplicating open chats', () => {
     const sessions = [chat('old'), chat('open'), chat('archived', { archivedAt: 100 })];
     expect(unopenedChats(sessions, [workspace('open')]).map((s) => s.id)).toEqual(['old']);
     expect(unopenedChats(sessions, []).map((s) => s.id)).toEqual(['old', 'open']);
   });
 
   it('keeps children reachable when their parent is saved but has no sidebar workspace', () => {
+
     expect(unopenedChats([chat('parent'), chat('child', { parentSessionId: 'parent' })], [])
       .map((s) => s.id)).toEqual(['parent', 'child']);
   });

@@ -1,13 +1,21 @@
 import React from 'react';
 import type { ContextBundle, ContextItem, EffortLevel } from '@agent-nekko/shared';
 import { effectiveEffort, modelDefaultEffort, modelEffortLevels, usesNativeEffort } from '@agent-nekko/shared';
-import { formatUSD } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { sourceMeta } from '../contextSources.js';
 
 const FREE_COLOR = 'var(--surface-2)';
 
-const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
+export const formatContextTokens = (n: number) => n >= 1_000_000
+  ? `${Number((n / 1_000_000).toFixed(1))}m`
+  : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`;
+
+/** The context bar's fill: accent while there is room, then warning, then danger. */
+function fillColor(pct: number): string {
+  if (pct >= 90) return 'var(--danger)';
+  if (pct >= 70) return 'var(--warning)';
+  return 'var(--accent)';
+}
 
 /**
  * `n.toLocaleString()`, with the formatter built once. The gauge repaints as a
@@ -19,13 +27,11 @@ const num = (n: number) => (numberFormat ??= new Intl.NumberFormat()).format(n);
 /**
  * Compact context-window gauge for the composer footer: usage bar + count with
  * a hover/focus breakdown of where the tokens go (mirrors the Context
- * Inspector's color vocabulary), plus the chat's estimated cost. Keyboard
+ * Inspector's color vocabulary). The chat's cost is the usage chip beside it. Keyboard
  * users reach the breakdown by focusing the gauge.
  */
 export function ContextGauge({
   bundle,
-  cost,
-  subscription,
   skill,
   draftTokens = 0,
   liveTokens = 0,
@@ -33,9 +39,6 @@ export function ContextGauge({
   windowReported = false,
 }: {
   bundle: ContextBundle | null;
-  cost?: number;
-  /** True when the chat runs on a subscription provider, so cost is $0. */
-  subscription?: boolean;
   /** The skill armed in the composer, folded into the token count when present. */
   skill?: { name: string; tokens: number } | null;
   /** Tokens of the unsent draft, so the gauge tracks what you're typing. */
@@ -81,36 +84,24 @@ export function ContextGauge({
   const freePct = windowTokens ? (free / windowTokens) * 100 : 0;
 
   return (
-    <div className="group relative flex min-w-0 items-center gap-1.5 text-[11px] text-ink-faint">
+    <div className="group relative flex min-w-0 shrink-0 items-center text-[11px] text-ink-faint">
+      {/* One bar that fills as the window does, with the count written on it.
+          `~` marks a window guessed from the model family rather than reported. */}
       <span
-        className="flex cursor-default items-center gap-1.5 rounded-md px-1 py-0.5 outline-hidden focus-visible:ring-2 focus-visible:ring-(--ring)"
+        className="context-bar relative flex h-6 min-w-[92px] cursor-default items-center justify-center overflow-hidden rounded-md border border-line px-2 tabular-nums outline-hidden focus-visible:ring-2 focus-visible:ring-(--ring)"
+        style={{ background: 'var(--surface-2)' }}
         tabIndex={0}
-        aria-label={`Context: ${num(used)}${windowTokens ? ` of ${num(windowTokens)}` : ''} tokens in use`}
+        aria-label={`Context window: ${num(used)}${windowTokens ? ` of ${num(windowTokens)}` : ''} tokens in use`}
       >
-        <span className="font-medium text-ink-soft">Context{!windowReported && windowTokens ? ' ~' : ''}</span>
-        <span className="tabular-nums">
-          {fmt(used)}{windowTokens ? ` / ${fmt(windowTokens)}` : ''}
-        </span>
-        <span className="h-1.5 w-14 overflow-hidden rounded-full" style={{ background: 'var(--surface-2)' }}>
-          <span
-            className="block h-full rounded-full transition-[width] duration-300"
-            style={{ width: `${pct}%`, background: pct > 85 ? 'var(--danger)' : 'var(--accent)' }}
-          />
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 transition-[width] duration-300"
+          style={{ width: `${pct}%`, background: `color-mix(in srgb, ${fillColor(pct)} 28%, transparent)` }}
+        />
+        <span className="relative text-ink-soft">
+          {formatContextTokens(used)}{windowTokens ? ` / ${!windowReported ? '~' : ''}${formatContextTokens(windowTokens)}` : ''}
         </span>
       </span>
-      {cost != null && cost > 0 ? (
-        <span className="hidden sm:inline" title="Estimated cost of this chat (list prices; local models are free)">
-          · {formatUSD(cost)}
-        </span>
-      ) : subscription ? (
-        <span
-          className="hidden sm:inline"
-          title="Runs on a subscription plan; no per-token API cost."
-          aria-label="Runs on a subscription plan; no per-token API cost."
-        >
-          · Subscription
-        </span>
-      ) : null}
       {/* Expanded breakdown: segmented bar + per-source rows with %, plus free space. */}
       <div
         className="pointer-events-none absolute bottom-7 left-0 z-40 hidden w-72 rounded-xl border border-line p-3 text-[11px] shadow-lg group-hover:block group-focus-within:block"

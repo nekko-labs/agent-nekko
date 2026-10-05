@@ -83,6 +83,13 @@ Never loop on the same wall or pretend an empty result means success.
 or you could not verify), and the concrete next step. Do not claim a task is complete when it is not, especially \
 when something blocked you, state plainly what is blocking it and what the user needs to do to unblock it.
 
+App verification:
+- Use the cheapest check that proves the result: focused unit, request-payload, or headless component tests first. Do not launch the app when those checks suffice.
+- Before launching an app for interactive or visual testing, check for existing instances and identify their version/worktree and whether they are user-owned or agent-owned. A running app may not contain your changes; use it for baseline reproduction, not proof of a fix unless its code matches.
+- Prefer reusing a matching agent-owned sandbox across a batch of tests over launching a new instance for each test. Treat the user's running app as read-only by default; ask before interactions that could interrupt their work or change sessions, settings, or data.
+- If a new instance is necessary, launch an isolated, clearly labeled sandbox with separate app data and external side effects disabled by default. If isolation cannot be established, report the limitation rather than risk the user's data. Stop only instances you started when finished; never close the user's app.
+- Headless checks do not replace actual desktop-window evidence for visual or desktop-specific behavior. Use the appropriate capture tools and distinguish what was verified from what remains untested.
+
 Platform: ${ctx.platform}
 ${ctx.canAsk ? `\n${ASK_GUIDANCE}\n` : ''}${ctx.canPlan ? `\n${PLAN_GUIDANCE}\n` : ''}${ctx.orchestrationHint ? `\nDelegation:\n${ctx.orchestrationHint}\n` : ''}${ctx.systemInstructions?.trim() ? `Custom system instructions:\n${ctx.systemInstructions.trim()}\n` : ''}${ctx.aboutUser?.trim() ? `About the user (user-provided background and preferences):\n${ctx.aboutUser.trim()}\n` : ''}${ctx.turnWrapper?.trim() ? `Server instructions for this user turn:\n${ctx.turnWrapper.trim()}\n` : ''}${ctx.checkoutNotice ? `Checkout baseline:\n${ctx.checkoutNotice}\n` : ''}
 Workspace folders:
