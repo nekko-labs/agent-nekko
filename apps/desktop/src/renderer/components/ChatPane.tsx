@@ -471,8 +471,9 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false }: {
   sessionId: string;
+  commandCenter?: boolean;
   onRunningChange?: (running: boolean) => void;
   /**
    * An archived chat, opened to be read: the transcript renders as usual, but
@@ -2151,7 +2152,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
         {readOnly ? (
           <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
         ) : (
-        <div ref={composerSectionRef} className="relative px-4 pb-4 pt-1.5">
+        <div ref={composerSectionRef} className={`relative ${commandCenter ? '' : 'px-4'} pb-4 pt-1.5`}>
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
           <div
@@ -2166,12 +2167,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute inset-x-0 top-[5px] h-0.5 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
-          <div className="composer-column mx-auto w-[90%]">
+          <div className={`composer-column mx-auto ${commandCenter ? 'w-[98%]' : 'w-[90%]'}`} style={commandCenter ? { width: '98%' } : undefined}>
             <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
-            {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
-              <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>
-            ))}
             <div className="composer relative">
             {/* While the agent works, a violet→cyan beam laps the border. The
                 gradient is a square that rotates on the compositor, clipped
