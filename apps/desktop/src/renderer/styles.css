@@ -1695,11 +1695,11 @@
 .wall-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; gap: 12px; }
 .wall-workspace[data-dock-side='top'], .wall-workspace[data-dock-side='bottom'] { flex-direction: column; }
 .wall-column { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; gap: 12px; }
-.wall-composer { flex-shrink: 0; background: var(--win); box-shadow: var(--shadow-md); }
+.wall-composer { width: 75%; max-width: none; flex-shrink: 0; background: var(--win); box-shadow: var(--shadow-md); }
 .command-wall-window > .panel { background: var(--win); }
 .command-wall-window[data-wall-selected] > .panel {
   --panel-ring-color: color-mix(in srgb, var(--accent) 75%, var(--line)) !important;
-  box-shadow: 0 0 16px color-mix(in srgb, var(--accent) 75%, transparent);
+  box-shadow: 0 0 12px 1px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 .command-wall-window[data-wall-selected] .wall-num, .wall-composer[data-has-agent] .wall-num { background: var(--accent); color: var(--win); }
 .wall-layout-control { position: relative; }
@@ -1736,3 +1736,9 @@
   .provider-choice { transition: none; }
   .provider-choice:hover { transform: none; }
 }
+
+@media (max-width: 767px) { .wall-composer { width: 100%; } }
+.wall-composer-split { flex: 0 0 10px; width: 100%; cursor: row-resize; touch-action: none; display: grid; place-items: center; }
+.wall-composer-split::after { content: ""; width: 48px; height: 3px; border-radius: 3px; background: var(--line); }
+.wall-composer-split:hover::after, .wall-composer-split:focus-visible::after { background: var(--accent); }
+.wall-composer > .wall-composer-body { overflow: auto; min-height: 0; }
