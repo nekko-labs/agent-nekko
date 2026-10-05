@@ -269,8 +269,17 @@ export function CommandCenterView() {
     return [{ session, n: i + 1, status }];
   }), [agentsOnWall, sessions, pending, isRunningSession]);
   const selectedAgent = agentList.find((a) => a.session.id === selected) ?? null;
+  const [composerHeight, setComposerHeight] = useState<number | null>(null);
+  const composerDrag = useRef<{ y: number; height: number } | null>(null);
+  const composerSplit = <div className="wall-composer-split" role="separator" tabIndex={0} aria-label="Resize composer versus wall" aria-orientation="horizontal" title="Drag to resize composer versus wall; double-click to reset"
+    onPointerDown={(e) => { composerDrag.current = { y: e.clientY, height: composerRef.current?.offsetHeight ?? 240 }; e.currentTarget.setPointerCapture(e.pointerId); }}
+    onPointerMove={(e) => { const drag = composerDrag.current; if (!drag) return; const available = e.currentTarget.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, drag.height + (e.clientY - drag.y) * (wall.composer.side === 'top' ? 1 : -1)))); }}
+    onPointerUp={() => { composerDrag.current = null; }} onPointerCancel={() => { composerDrag.current = null; }}
+    onDoubleClick={() => setComposerHeight(null)}
+    onKeyDown={(e) => { if (e.key === 'Home') { e.preventDefault(); setComposerHeight(null); } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const available = e.currentTarget.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, (composerHeight ?? composerRef.current?.offsetHeight ?? 240) + (e.key === 'ArrowUp' ? 20 : -20) * (wall.composer.side === 'top' ? -1 : 1)))); } }} />;
   const composer = (
     <WallComposer
+      height={composerHeight}
       agent={selectedAgent}
       agents={agentList}
       dock={wall.composer}
@@ -296,7 +305,7 @@ export function CommandCenterView() {
         </button>)}
         <button className="wall-focus-agent" onClick={() => { void addFromToolbar('chat'); }}>+ New agent</button>
       </div>}
-      {wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composer}
+      {wall.layout.mode !== 'focus' && wall.composer.side === 'top' && <>{composer}{composerSplit}</>}
       <CommandWall
         state={wall}
         setState={setWall}
@@ -316,7 +325,7 @@ export function CommandCenterView() {
         onNewTerminal={newTerminal}
         onAddWindow={() => setAddOpen(true)}
       />
-      {wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composer}
+      {wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{composerSplit}{composer}</>}
         </div>
       </div>
     </div>

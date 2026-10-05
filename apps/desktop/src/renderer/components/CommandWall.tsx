@@ -82,7 +82,7 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const deck = new Set(deckPanes.map((p) => p.id));
   const panes: WallGeometry['panes'] = new Map();
   const gap = 8;
-  const deckHeight = state.layout.mode === 'focus' ? 0 : 64;
+  const deckHeight = state.layout.mode === 'focus' ? 0 : Math.max(240, Math.min(440, width / 3));
   // A stacked Focus chat needs space for transcript, approval and composer
   // above its companion. The wall scrolls when the viewport cannot fit them.
   const minimum = state.layout.mode === 'focus' && width > 0 && width < 640 ? 960 : state.layout.mode === 'grid' ? 560 : 240;
@@ -108,7 +108,7 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     for (const [id, r] of leafRects(grid)) panes.set(id, { x: r.x * width + (r.x > 0 ? gap / 2 : 0), y: r.y * stageHeight + (r.y > 0 ? gap / 2 : 0), width: Math.max(0, r.width * width - (r.x > 0 ? gap / 2 : 0) - (r.x + r.width < 1 - 1e-6 ? gap / 2 : 0)), height: Math.max(0, r.height * stageHeight - (r.y > 0 ? gap / 2 : 0) - (r.y + r.height < 1 - 1e-6 ? gap / 2 : 0)) });
   }
   // Focus keeps other bodies warm but selects them through the row above the hero.
-  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(240, width), height: deckHeight }, grid, stageHeight };
+  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, grid, stageHeight };
 }
 
 /** Stable keyed windows across layouts keep transcripts, terminals and drafts warm. */
@@ -207,7 +207,7 @@ export function CommandWall({
     const el = wrapRef.current?.querySelector<HTMLElement>(`[data-wall-pane="${flash.paneId}"]`);
     if (!el) return;
     el.scrollIntoView({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    const input = el.querySelector<HTMLElement>('[contenteditable="true"], textarea');
+    const input = el.querySelector<HTMLElement>('[contenteditable]:not([contenteditable="false"]), textarea');
     input?.focus({ preventScroll: true });
   }, [flash]);
 

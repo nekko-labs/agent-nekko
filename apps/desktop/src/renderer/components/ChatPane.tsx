@@ -2156,7 +2156,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         <div ref={composerSectionRef} className={`relative ${commandCenter ? '' : 'px-4'} pb-4 pt-1.5`}>
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
-          <div
+          {surface !== 'composer' && <div
             className="group absolute inset-x-0 -top-1.5 z-10 h-3 cursor-row-resize"
             onPointerDown={startComposerResize}
             onDoubleClick={resetComposerHeight}
@@ -2167,7 +2167,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           >
             <span className="absolute inset-x-0 top-[5px] h-0.5 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
-          </div>
+          </div>}
           <div className={`composer-column mx-auto ${commandCenter ? 'w-[98%]' : 'w-[90%]'}`} style={commandCenter ? { width: '98%' } : undefined}>
             <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
