@@ -117,3 +117,11 @@
 .wall-dock__resize:hover, .wall-dock__resize:focus-visible { background: var(--accent-soft); outline: none; border-radius: 4px; }
 @media (max-width: 767px) { .wall-dock__resize { display: none; } }
 @media (prefers-reduced-motion: reduce) { .wall-dock__minimized button { animation: none; } }
+
+/* Keep the outgoing panel mounted until it shrinks into its restore control. */
+@keyframes wall-panel-collapse {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(.08); }
+}
+.wall-dock__panel--collapsing { transform-origin: top left; pointer-events: none; animation: wall-panel-collapse 220ms ease-in both; }
+@media (prefers-reduced-motion: reduce) { .wall-dock__panel--collapsing { animation: none; } }
