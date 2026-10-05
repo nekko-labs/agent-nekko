@@ -6,7 +6,9 @@ import { sourceMeta } from '../contextSources.js';
 
 const FREE_COLOR = 'var(--surface-2)';
 
-const fmt = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
+export const formatContextTokens = (n: number) => n >= 1_000_000
+  ? `${Number((n / 1_000_000).toFixed(1))}m`
+  : n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`;
 
 /** The context bar's fill: accent while there is room, then warning, then danger. */
 function fillColor(pct: number): string {
@@ -97,7 +99,7 @@ export function ContextGauge({
           style={{ width: `${pct}%`, background: `color-mix(in srgb, ${fillColor(pct)} 28%, transparent)` }}
         />
         <span className="relative text-ink-soft">
-          {fmt(used)}{windowTokens ? ` / ${!windowReported ? '~' : ''}${fmt(windowTokens)}` : ''}
+          {formatContextTokens(used)}{windowTokens ? ` / ${!windowReported ? '~' : ''}${formatContextTokens(windowTokens)}` : ''}
         </span>
       </span>
       {/* Expanded breakdown: segmented bar + per-source rows with %, plus free space. */}
@@ -173,22 +175,35 @@ export function EffortSlider({ modelId }: { modelId?: string }) {
 
   const options: EffortLevel[] = native ? ['normal', ...levels] : levels;
   const index = native && saved === 'normal' ? 0 : Math.max(0, options.indexOf(effective));
+  // 0..1 up the rungs: it drives the glow's size and arms the top rung's
+  // speed lines.
+  const level = options.length > 1 ? Math.max(0, index) / (options.length - 1) : 0;
+  const atMax = options.length > 1 && index === options.length - 1;
   const shown = native && saved === 'normal' ? `Default · ${EFFORT_LABEL[fallback]}` : EFFORT_LABEL[effective];
   return (
     <div className="effort-slider flex shrink-0 items-center gap-1 rounded-r-lg border border-l-0 border-line px-2 py-1 text-[11px]" title="Reasoning effort (applies to all chats)">
       <label htmlFor="composer-effort" className="text-ink-faint">Effort</label>
-      <input
-        id="composer-effort"
-        type="range"
-        min={0}
-        max={options.length - 1}
-        step={1}
-        value={Math.max(0, index)}
-        onChange={(event) => pick(options[Number(event.target.value)])}
-        aria-label="Reasoning effort"
-        aria-valuetext={shown}
-        style={{ '--effort-fill': `${options.length > 1 ? Math.max(0, index) / (options.length - 1) * 100 : 0}%` } as React.CSSProperties}
-      />
+      <span
+        className="effort-track"
+        style={{ '--effort-fill': `${level * 100}%`, '--effort-level': level } as React.CSSProperties}
+      >
+        <input
+          id="composer-effort"
+          type="range"
+          min={0}
+          max={options.length - 1}
+          step={1}
+          value={Math.max(0, index)}
+          onChange={(event) => pick(options[Number(event.target.value)])}
+          aria-label="Reasoning effort"
+          aria-valuetext={shown}
+        />
+        {atMax && (
+          <span className="effort-speed" aria-hidden="true">
+            <i /><i /><i />
+          </span>
+        )}
+      </span>
       <span className="min-w-12 text-right text-ink-soft">{shown}</span>
     </div>
   );

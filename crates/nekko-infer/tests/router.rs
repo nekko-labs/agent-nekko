@@ -264,8 +264,8 @@ async fn decisions_are_answered_in_process_behind_the_same_auth_and_cors() {
 
     // No decision service at all: a clear 409, never a proxy attempt.
     let bare = EngineRouter::new(sup.clone(), loader.clone());
-    let port = free_port();
-    bare.serve(config(port)).await.unwrap();
+    bare.serve(config(0)).await.unwrap();
+    let port = bare.serving().unwrap().port;
     let res =
         http.post(format!("http://127.0.0.1:{port}/v1/decisions")).bearer_auth("k").json(&body).send().await.unwrap();
     assert_eq!(res.status(), 409);

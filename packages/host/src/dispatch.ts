@@ -37,6 +37,11 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.runtimeFacts]: ([id]) => host.runtimeFacts(id),
     [C.runtimePlan]: ([id, model, req]) => host.runtimePlan(id, model, req),
     [C.runtimeAutoFit]: ([id, model, budget, slots]) => host.runtimeAutoFit(id, model, budget, slots),
+    [C.voiceStatus]: () => host.voiceStatus(),
+    [C.voiceInstall]: () => host.voiceInstall(),
+    [C.voiceCancelInstall]: () => host.voiceCancelInstall(),
+    [C.voiceUninstall]: () => host.voiceUninstall(),
+    [C.voiceTranscribe]: ([wav]) => host.voiceTranscribe(wav),
     [C.engineStatus]: () => host.engineStatus(),
     // Internal: the engine daemon's router (crates/nekko-infer) asking the
     // engine's policy about a model it does not have running.
@@ -104,6 +109,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.chatDequeue]: ([id, idx]) => host.dequeuePrompt(id, idx),
     [C.chatSteer]: ([id, text]) => host.steerChat(id, text),
     [C.chatInterruptQueued]: ([id, idx, brain]) => host.interruptQueuedPrompt(id, idx, brain),
+    [C.resourceQueue]: ([action, input]) => host.resourceQueue(action, input),
     [C.chatSuggest]: ([sid]) => host.suggestReplies(sid),
     [C.chatFillPrompt]: ([sid, part, draft]) => host.fillPromptPart(sid, part, draft),
     [C.toolApprove]: ([sid, tid, ok]) => host.approveTool(sid, tid, ok),

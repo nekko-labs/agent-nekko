@@ -1,3 +1,4 @@
+import { resourceQueue } from './resource-queue.js';
 import { EventEmitter } from 'events';
 import { basename, resolve } from 'path';
 import type {
@@ -100,6 +101,8 @@ import {
   OFFLINE_STACK_CATALOG,
 } from '@agent-nekko/core';
 import { setDataDir, dataDir } from './paths.js';
+import { createVoiceService } from './engine/voice.js';
+import { join } from 'node:path';
 import { getSettings, saveSettings, resetSettings } from './store.js';
 import * as sessions from './sessions.js';
 import * as memory from './memory.js';
@@ -250,6 +253,11 @@ export interface Host {
   ): Promise<AutoFitSummary | null>;
 
   /** The built-in engine: install, catalog, library, and its own server. */
+  voiceStatus(): Promise<import('@agent-nekko/shared').VoiceStatus>;
+  voiceInstall(): Promise<import('@agent-nekko/shared').VoiceStatus>;
+  voiceCancelInstall(): Promise<void>;
+  voiceUninstall(): Promise<void>;
+  voiceTranscribe(wav: number[]): Promise<string>;
   engineStatus(): Promise<EngineStatus>;
   /** For the engine daemon's router: load a model it was asked for, or say why not. */
   engineRouterLoad(modelId: string, image: boolean): Promise<{ ok: boolean; status?: number; message?: string }>;
@@ -336,6 +344,7 @@ export interface Host {
    * chips plus the ghost-text draft. Sideband, unpersisted; null when there's
    * nothing to suggest from.
    */
+  resourceQueue(action: string, input?: Record<string, unknown>): Promise<unknown>;
   suggestReplies(sessionId: string): Promise<import('@agent-nekko/shared').ReplySuggestions | null>;
   /**
    * Model-drafted fill for a missing prompt part (analyzer click-to-fill).
@@ -426,7 +435,7 @@ export interface Host {
   /** Design board: a workspace's UI page snapshots + persistent notes. */
   getDesignBoard(workspaceId: string): DesignBoard;
   addDesignPage(workspaceId: string, label: string, url: string): DesignBoard;
-  updateDesignPage(workspaceId: string, pageId: string, patch: Partial<Pick<DesignPage, 'label' | 'url'>>): DesignBoard;
+  updateDesignPage(workspaceId: string, pageId: string, patch: Partial<Pick<DesignPage, 'label' | 'url' | 'html'>>): DesignBoard;
   removeDesignPage(workspaceId: string, pageId: string): DesignBoard;
   addDesignNote(workspaceId: string, pageId: string, text: string): DesignBoard;
   resolveDesignNote(workspaceId: string, pageId: string, noteId: string): DesignBoard;
@@ -547,6 +556,7 @@ function chatOwner(worktreeRoot: string): { id: string; title: string; running: 
 
 export function createHost(opts: { dataDir: string; allowBrowserControl?: boolean }): Host {
   setDataDir(opts.dataDir);
+  const voice = createVoiceService(join(opts.dataDir, 'voice'), getSettings);
   const events = new EventEmitter();
   const activeChats = new Map<string, Promise<void>>();
   const interrupting = new Set<string>();
@@ -691,6 +701,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     getSettings,
     updateSettings: (patch) => {
       const next = saveSettings(patch);
+      if (patch.voice !== undefined) voice.stop();
       if (patch.messaging !== undefined) messaging.update(next.messaging);
       return next;
     },
@@ -784,13 +795,18 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     },
     runtimeStatus: (providerId) => runtimes.status(providerId),
     runtimeStart: (providerId) => runtimes.start(providerId),
-    runtimeStop: (providerId, force) => runtimes.stop(providerId, force),
+    runtimeStop: (providerId, force) => { if (providerId === 'nekko-engine') voice.stop(); return runtimes.stop(providerId, force); },
     runtimeLoad: (providerId, modelId, params) => runtimes.load(providerId, modelId, params),
     runtimeFacts: (providerId) => runtimes.facts(providerId),
     runtimePlan: (providerId, modelId, req) => runtimes.plan(providerId, modelId, req),
     runtimeAutoFit: (providerId, modelId, budgetFraction, parallelSlots) =>
       runtimes.autoPlan(providerId, modelId, budgetFraction, parallelSlots),
 
+    voiceStatus: () => voice.status(),
+    voiceInstall: () => voice.install(),
+    voiceCancelInstall: () => voice.cancel(),
+    voiceUninstall: () => voice.uninstall(),
+    voiceTranscribe: (wav) => voice.transcribe(wav),
     engineStatus: () => engine.status(),
     engineRouterLoad: (modelId, image) => engine.routerLoad(modelId, image),
     loopTool,
@@ -924,6 +940,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       }
     },
     suggestReplies,
+    resourceQueue,
     fillPromptPart,
     approveTool: (sessionId, toolCallId, approved) => resolveApproval(sessionId, toolCallId, approved),
     answerQuestion: (sessionId, callId, answers) => resolveQuestion(sessionId, callId, answers),

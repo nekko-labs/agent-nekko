@@ -115,6 +115,7 @@ export const IpcChannels = {
   chatInterruptQueued: 'chat:interruptQueued',
   chatSteer: 'chat:steer',
   chatSuggest: 'chat:suggest',
+  resourceQueue: 'resource:queue',
   chatFillPrompt: 'chat:fillPrompt',
   toolApprove: 'tool:approve',
   chatAnswer: 'chat:answer',
@@ -277,6 +278,12 @@ export const IpcChannels = {
   // Host-side refresh checks (Settings → Updates "Check now"): model lists + skills.
   updatesCheck: 'updates:check',
 
+  voiceStatus: 'voice:status',
+  voiceInstall: 'voice:install',
+  voiceCancelInstall: 'voice:cancel',
+  voiceUninstall: 'voice:uninstall',
+  voiceTranscribe: 'voice:transcribe',
+  voicePermission: 'voice:permission',
   dialogOpenFolder: 'dialog:openFolder',
 } as const;
 
@@ -302,6 +309,12 @@ export const IpcEvents = {
 
 /** The typed API the preload bridge exposes as window.nekko. */
 export interface NekkoApi {
+  voiceStatus(): Promise<import('./voice.js').VoiceStatus>;
+  voiceInstall(): Promise<import('./voice.js').VoiceStatus>;
+  voiceCancelInstall(): Promise<void>;
+  voiceUninstall(): Promise<void>;
+  voiceTranscribe(wav: number[]): Promise<string>;
+  voicePermission(action?: 'status' | 'request' | 'settings'): Promise<import('./voice.js').VoicePermission>;
   getSettings(): Promise<AppSettings>;
   updateSettings(patch: Partial<AppSettings>): Promise<AppSettings>;
 
@@ -514,6 +527,7 @@ export interface NekkoApi {
    * unattended run, no usable provider). Never persists anything.
    */
   suggestReplies(sessionId: string): Promise<ReplySuggestions | null>;
+  resourceQueue(action: string, input?: Record<string, unknown>): Promise<unknown>;
   /**
    * Model-drafted snippet for a prompt part the composer is missing (the
    * analyzer's click-to-fill chips). A sideband call on the chat's own provider
@@ -656,7 +670,7 @@ export interface NekkoApi {
   /** Design board: a workspace's UI page snapshots + persistent notes. */
   getDesignBoard(workspaceId: string): Promise<DesignBoard>;
   addDesignPage(workspaceId: string, label: string, url: string): Promise<DesignBoard>;
-  updateDesignPage(workspaceId: string, pageId: string, patch: Partial<Pick<DesignPage, 'label' | 'url'>>): Promise<DesignBoard>;
+  updateDesignPage(workspaceId: string, pageId: string, patch: Partial<Pick<DesignPage, 'label' | 'url' | 'html'>>): Promise<DesignBoard>;
   removeDesignPage(workspaceId: string, pageId: string): Promise<DesignBoard>;
   addDesignNote(workspaceId: string, pageId: string, text: string): Promise<DesignBoard>;
   resolveDesignNote(workspaceId: string, pageId: string, noteId: string): Promise<DesignBoard>;

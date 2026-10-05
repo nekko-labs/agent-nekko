@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { PREVIEW_CHANNEL } from '../previewPolicy.js';
+if (process.isMainFrame) contextBridge.exposeInMainWorld('nekkoPreview', { open: (source: string) => ipcRenderer.invoke(PREVIEW_CHANNEL, source) });
 import type {
   AppSettings,
   ConnectorKind,
@@ -32,6 +34,7 @@ import {
  * main (see `engine-socket.ts`).
  */
 const SHELL_CHANNELS = new Set<string>([
+  IpcChannels.voicePermission,
   IpcChannels.dialogOpenFiles,
   IpcChannels.openPath,
   IpcChannels.appInfo,
@@ -81,6 +84,12 @@ const api: NekkoApi = {
   runtimePlan: (providerId, modelId, req) => inv(IpcChannels.runtimePlan, providerId, modelId, req),
   runtimeAutoFit: (providerId, modelId, budgetFraction, parallelSlots) =>
     inv(IpcChannels.runtimeAutoFit, providerId, modelId, budgetFraction, parallelSlots),
+  voiceStatus: () => inv(IpcChannels.voiceStatus),
+  voiceInstall: () => inv(IpcChannels.voiceInstall),
+  voiceCancelInstall: () => inv(IpcChannels.voiceCancelInstall),
+  voiceUninstall: () => inv(IpcChannels.voiceUninstall),
+  voiceTranscribe: (wav) => inv(IpcChannels.voiceTranscribe, wav),
+  voicePermission: (action) => inv(IpcChannels.voicePermission, action),
   engineStatus: () => inv(IpcChannels.engineStatus),
   engineInstall: (buildId, runtime) => inv(IpcChannels.engineInstall, buildId, runtime),
   engineUninstall: (runtime) => inv(IpcChannels.engineUninstall, runtime),
@@ -142,6 +151,7 @@ const api: NekkoApi = {
   dequeuePrompt: (sessionId, index) => inv(IpcChannels.chatDequeue, sessionId, index),
   steerChat: (sessionId, text) => inv(IpcChannels.chatSteer, sessionId, text),
   interruptQueuedPrompt: (sessionId, index, brain) => inv(IpcChannels.chatInterruptQueued, sessionId, index, brain),
+  resourceQueue: (action, input) => inv(IpcChannels.resourceQueue, action, input),
   suggestReplies: (sessionId) => inv(IpcChannels.chatSuggest, sessionId),
   fillPromptPart: (sessionId, part, draft) => inv(IpcChannels.chatFillPrompt, sessionId, part, draft),
   approveTool: (sessionId, toolCallId, approved) => inv(IpcChannels.toolApprove, sessionId, toolCallId, approved),

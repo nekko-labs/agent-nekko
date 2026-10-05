@@ -11,6 +11,13 @@ it('includes server customization separately from user content and built-in poli
   expect(prompt).not.toContain('Before starting work');
   expect(prompt).toContain('Operating principles:');
 });
+it('requires published PR descriptions to keep unfinished work explicit and current', () => {
+  const prompt = buildSystemPrompt({ workspaces: [], platform: 'win32', contextBlock: '' });
+  expect(prompt).toContain('Unfinished work / release blockers');
+  expect(prompt).toContain('Keep this section current after each pushed batch');
+  expect(prompt).toContain('Verify the published description');
+  expect(prompt).toContain('keep the PR draft/unmerged');
+});
 it('always includes safe app verification guidance without optional capabilities', () => {
   const prompt = buildSystemPrompt({ workspaces: [], platform: 'win32', contextBlock: '' });
   expect(prompt).toContain('App verification:');
@@ -23,8 +30,31 @@ it('always includes safe app verification guidance without optional capabilities
   expect(prompt).toContain('Headless checks do not replace actual desktop-window evidence');
 });
 
+
 it('omits empty customization sections', () => {
   const prompt = buildSystemPrompt({ workspaces: [], platform: 'win32', contextBlock: '', turnWrapper: '' });
   expect(prompt).not.toContain('Server instructions for this user turn:');
   expect(prompt).not.toContain('About the user');
+});
+
+it('requires automatic UI verification and authorized landing, not a draft-PR handoff', () => {
+  const prompt = buildSystemPrompt({ workspaces: [], platform: 'darwin', contextBlock: '' });
+  for (const rule of [
+    'automatically continue into isolated visual and interaction testing',
+    'unchanged base revision in a separate sandbox',
+    'Capture and inspect matching before/after screenshots',
+    'record a short video for motion or timing changes',
+    'verify the published links',
+    'Missing evidence is unfinished work',
+    'A draft PR is a checkpoint, not a stopping condition',
+    'When the user or repository authorizes landing',
+    'never bypass protections or approval requirements',
+    'Investigate available isolation and verification paths',
+    'A user-requested pause or narrower scope always takes precedence',
+    'register agent_watch when available before ending the turn',
+    'If unavailable or registration fails',
+    'Do not schedule continuations to bypass',
+  ]) expect(prompt).toContain(rule);
+  // GitHub release naming is repository policy, not a global side effect.
+  expect(prompt).not.toContain('pr-media');
 });

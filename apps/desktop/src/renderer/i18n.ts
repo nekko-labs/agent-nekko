@@ -16,7 +16,7 @@ type Dict = Record<string, string>;
 // English is the source of truth; other locales fall back to it per-key.
 const en: Dict = {
   'nav.command': 'Command Center',
-  'nav.chat': 'Agent',
+  'nav.chat': 'Agents',
   'nav.design': 'Design',
   'nav.skills': 'Skills',
   'nav.training': 'Training',
@@ -58,7 +58,7 @@ const en: Dict = {
 
 const es: Dict = {
   'nav.command': 'Centro de mando',
-  'nav.chat': 'Agente',
+  'nav.chat': 'Agentes',
   'nav.models': 'Proveedores',
   'nav.modelserver': 'Servidor de modelos',
   'nav.connectors': 'Conectores',
@@ -94,7 +94,7 @@ const es: Dict = {
 
 const fr: Dict = {
   'nav.command': 'Centre de commande',
-  'nav.chat': 'Agent',
+  'nav.chat': 'Agents',
   'nav.models': 'Fournisseurs',
   'nav.modelserver': 'Serveur de modèles',
   'nav.connectors': 'Connecteurs',
@@ -130,7 +130,7 @@ const fr: Dict = {
 
 const de: Dict = {
   'nav.command': 'Kommandozentrale',
-  'nav.chat': 'Agent',
+  'nav.chat': 'Agenten',
   'nav.models': 'Anbieter',
   'nav.modelserver': 'Modellserver',
   'nav.connectors': 'Konnektoren',
@@ -166,7 +166,7 @@ const de: Dict = {
 
 const pt: Dict = {
   'nav.command': 'Central de comando',
-  'nav.chat': 'Agente',
+  'nav.chat': 'Agentes',
   'nav.models': 'Provedores',
   'nav.modelserver': 'Servidor de modelos',
   'nav.connectors': 'Conectores',

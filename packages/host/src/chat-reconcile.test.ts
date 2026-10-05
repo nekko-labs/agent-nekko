@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { lastReplyInterrupted } from '@agent-nekko/shared';
+import { lastReplyInterrupted } from '../../shared/src/chat.js';
 import { setDataDir } from './paths.js';
 import { createSession, getSession, saveSession } from './sessions.js';
 import { reconcileInterruptedChats } from './chat.js';
@@ -61,6 +61,26 @@ describe('reconcileInterruptedChats', () => {
 });
 
 describe('lastReplyInterrupted', () => {
+  it('does not call completed tool work interrupted', () => {
+    expect(lastReplyInterrupted([
+      { id: 'u', role: 'user', content: 'go', createdAt: 0 },
+      { id: 'a', role: 'assistant', content: '', toolCalls: [{ id: 'c', name: 'bash', input: {} }], createdAt: 1 },
+      { id: 't', role: 'tool', content: '', toolResult: { toolCallId: 'c', output: 'done' }, createdAt: 2 },
+      { id: 'final', role: 'assistant', content: 'Next step is implementation.', createdAt: 3 },
+    ])).toBe(false);
+  });
+  it('detects unresolved calls even after another call returned', () => {
+    expect(lastReplyInterrupted([
+      { id: 'a', role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'bash', input: {} }, { id: 'c2', name: 'read_file', input: {} }], createdAt: 0 },
+      { id: 't', role: 'tool', content: '', toolResult: { toolCallId: 'c1', output: 'done' }, createdAt: 1 },
+    ])).toBe(true);
+  });
+  it('does not retain an old interruption after a successful continuation', () => {
+    expect(lastReplyInterrupted([
+      { id: 'a', role: 'assistant', content: 'partial', interrupted: true, createdAt: 0 },
+      { id: 'done', role: 'assistant', content: 'Finished.', createdAt: 1 },
+    ])).toBe(false);
+  });
   it('reads an interruption off the transcript', () => {
     expect(lastReplyInterrupted([])).toBe(false);
     expect(lastReplyInterrupted([{ id: 'u', role: 'user', content: 'x', createdAt: 0 }])).toBe(false);

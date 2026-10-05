@@ -1,5 +1,5 @@
-import type { CommandWallSetting, PendingInput, SessionSummary, TerminalInfo } from '@agent-nekko/shared';
-import { BLOCKED_META, isArchived, sessionLane } from '@agent-nekko/shared';
+import type { CommandWallSetting, PendingInput, SessionSummary, TerminalInfo, WallLayout, WallDock, WallDockPanel } from '@agent-nekko/shared';
+import { DEFAULT_WALL_LAYOUT, DEFAULT_WALL_DOCK, BLOCKED_META, isArchived, sessionLane } from '@agent-nekko/shared';
 import {
   allPanes,
   canSplit,
@@ -32,8 +32,20 @@ import {
 
 export type WallFilter = 'all' | 'chat' | 'terminal';
 
-/** The kinds a wall window may be: the Agent tab's chats and shells, plus the two panels. */
-export const WALL_KINDS: readonly PaneKind[] = ['chat', 'terminal', 'automations', 'insights'];
+/** Only chats and shells belong in the wall tree; dashboard panels live in the dock. */
+export type WallKind = 'chat' | 'terminal';
+export const WALL_KINDS: readonly WallKind[] = ['chat', 'terminal'];
+
+export type { WallLayout, WallLayoutMode, WallDock, WallDockSide, WallDockPanel } from '@agent-nekko/shared';
+export { DEFAULT_WALL_LAYOUT, DEFAULT_WALL_DOCK };
+export const DOCK_PANELS: Array<{ key: WallDockPanel; label: string; blurb: string }> = [
+  { key: 'vitals', label: 'Vitals', blurb: 'Agents working and waiting on you' },
+  { key: 'automations', label: 'Automations', blurb: 'Scheduled and running automations' },
+  { key: 'utilization', label: 'Utilization', blurb: 'Tokens and model usage' },
+  { key: 'budget', label: 'Budget', blurb: 'Monthly spend against your advisory budget' },
+  { key: 'insights', label: 'Insights', blurb: 'Usage trends and optimization tips' },
+  { key: 'hardware', label: 'Hardware', blurb: 'Local resource monitors' },
+];
 
 export type InsightPanel = 'vitals' | 'optimize' | 'cost' | 'tokens' | 'models' | 'replies' | 'services';
 
@@ -51,7 +63,21 @@ export interface InsightsPrefs {
   panels: Record<InsightPanel, boolean>;
 }
 
+export type ComposerSide = 'top' | 'bottom';
+export type ComposerAlign = 'left' | 'center' | 'right';
+/** Where the wall's one composer sits: above or below the windows, to the left, centred, or to the right. */
+export interface ComposerDock {
+  side: ComposerSide;
+  align: ComposerAlign;
+}
+export const DEFAULT_COMPOSER_DOCK: ComposerDock = { side: 'bottom', align: 'center' };
+
 export interface CommandWallState {
+  layout: WallLayout;
+  dock: WallDock;
+  hero: string | null;
+  /** Companion visibility keyed by session ID; does not fold whole chats. */
+  folded: Record<string, boolean>;
   /** The split tree of windows, or null for an empty wall. */
   root: WbNode | null;
   /** New chats (including spawned sub-agents) join the wall as they appear. */
@@ -60,6 +86,7 @@ export interface CommandWallState {
   insights: InsightsPrefs;
   /** Chats created after this moment are auto-added; 0 until the wall has been seeded once. */
   watermark: number;
+  composer: ComposerDock;
 }
 
 /** Below this width the wall stacks its windows one above the other: a phone, or a very narrow window. */
@@ -78,24 +105,51 @@ export const DEFAULT_INSIGHTS: InsightsPrefs = {
 };
 
 export const DEFAULT_WALL_STATE: CommandWallState = {
+  layout: DEFAULT_WALL_LAYOUT,
+  dock: DEFAULT_WALL_DOCK,
+  hero: null,
+  folded: {},
   root: null,
   autoAdd: true,
   filter: 'all',
   insights: DEFAULT_INSIGHTS,
   watermark: 0,
+  composer: DEFAULT_COMPOSER_DOCK,
 };
 
 export const WALL_STATE_KEY = 'nekko.commandWall';
 /** Where the grid that came before this wall kept itself; read once, to carry a wall over. */
 export const LEGACY_GRID_KEY = 'nekko.commandGrid';
 
-/** A window pointing at a chat or shell, or one of the two panels (which are their own reference). */
+/** A window pointing at a chat or shell. */
 export function wallPane(kind: PaneKind, refId: string = kind): WbPane {
   return { id: newPaneId(), kind, refId };
 }
 
 export function hasPane(root: WbNode | null, kind: PaneKind, refId: string = kind): boolean {
   return allPanes(root).some((p) => p.kind === kind && p.refId === refId);
+}
+
+/** The agent windows, in reading order: what the numbers on the strips count and what Ctrl+Tab walks. */
+export function wallAgents(root: WbNode | null): WbPane[] {
+  return allPanes(root).filter((p) => p.kind === 'chat');
+}
+
+/** The agent after (or before) `current` in reading order, wrapping; the first when nothing is current. */
+export function nextAgent(root: WbNode | null, current: string | null, step: 1 | -1 = 1): string | null {
+  const ids = wallAgents(root).map((p) => p.refId);
+  if (ids.length === 0) return null;
+  const i = current ? ids.indexOf(current) : -1;
+  if (i < 0) return step === 1 ? ids[0] : ids[ids.length - 1];
+  return ids[(i + step + ids.length) % ids.length];
+}
+
+function readDock(raw: unknown): ComposerDock {
+  const d = raw && typeof raw === 'object' ? (raw as Partial<ComposerDock>) : {};
+  return {
+    side: d.side === 'top' ? 'top' : 'bottom',
+    align: d.align === 'left' || d.align === 'right' ? d.align : 'center',
+  };
 }
 
 /**
@@ -207,7 +261,7 @@ export function addPanes(root: WbNode | null, panes: WbPane[], aspect = DEFAULT_
   return panes.reduce<WbNode | null>((tree, p) => addPane(tree, p, aspect), root);
 }
 
-/** The tree the filter lets through: windows of the other kind are lifted out, the panels always stay. */
+/** The tree the filter lets through: windows of the other kind are lifted out. */
 export function filterTree(root: WbNode | null, filter: WallFilter): WbNode | null {
   if (filter === 'all') return root;
   const drop = filter === 'chat' ? 'terminal' : 'chat';
@@ -223,8 +277,7 @@ function wallChat(s: SessionSummary): boolean {
 
 /**
  * What a wall that has never been used starts with: the chats touched in the
- * last day (newest first) and the shells still running, tiled, with the two
- * panels in a column on the right. The watermark is set so only chats created
+ * last day (newest first) and the shells still running, tiled without dock panels. The watermark is set so only chats created
  * from now on are added automatically.
  */
 export function seedWall(state: CommandWallState, sessions: SessionSummary[], terminals: TerminalInfo[], now: number, aspect = DEFAULT_ASPECT): CommandWallState {
@@ -238,9 +291,7 @@ export function seedWall(state: CommandWallState, sessions: SessionSummary[], te
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, SEED_TERMINALS)
     .map((t) => wallPane('terminal', t.id));
-  const windows = tileTree([...chats, ...shells], aspect * 0.72);
-  const panels: WbSplit = { id: newSplitId(), dir: 'col', children: [wallPane('automations'), wallPane('insights')], sizes: [0.5, 0.5] };
-  const root: WbNode = windows ? { id: newSplitId(), dir: 'row', children: [windows, panels], sizes: [0.72, 0.28] } : panels;
+  const root = tileTree([...chats, ...shells], aspect);
   return { ...state, root, watermark: now };
 }
 
@@ -280,7 +331,7 @@ function idSeq(id: string): number {
 }
 
 /** A saved node, checked field by field; anything malformed drops out (a split left with one child collapses into it). */
-function sanitize(node: unknown, reserve: (id: string) => void): WbNode | null {
+function sanitize(node: unknown, reserve: (id: string) => void, dock: WallDock): WbNode | null {
   if (!node || typeof node !== 'object') return null;
   const n = node as Partial<WbPane> & Partial<WbSplit>;
   if (typeof n.id !== 'string') return null;
@@ -289,7 +340,7 @@ function sanitize(node: unknown, reserve: (id: string) => void): WbNode | null {
     const children: WbNode[] = [];
     const sizes: number[] = [];
     n.children.forEach((c, i) => {
-      const kept = sanitize(c, reserve);
+      const kept = sanitize(c, reserve, dock);
       if (!kept) return;
       children.push(kept);
       const s = Array.isArray(n.sizes) ? n.sizes[i] : undefined;
@@ -301,9 +352,54 @@ function sanitize(node: unknown, reserve: (id: string) => void): WbNode | null {
     reserve(n.id);
     return { id: n.id, dir: n.dir, children, sizes: sizes.map((s) => s / sum) };
   }
-  if (!WALL_KINDS.includes(n.kind as PaneKind) || typeof n.refId !== 'string') return null;
+  if (n.kind === 'automations' || n.kind === 'insights') {
+    dock.panels[n.kind] = true;
+    return null;
+  }
+  if (!WALL_KINDS.includes(n.kind as WallKind) || typeof n.refId !== 'string') return null;
   reserve(n.id);
   return { id: n.id, kind: n.kind as PaneKind, refId: n.refId };
+}
+
+function record(raw: unknown): Record<string, unknown> {
+  return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+}
+
+export function sanitizeWallLayout(raw: unknown): WallLayout {
+  const value = record(raw);
+  const dimension = (n: unknown, fallback: number) => typeof n === 'number' && Number.isFinite(n)
+    ? Math.min(6, Math.max(1, Math.round(n))) : fallback;
+  return {
+    mode: value.mode === 'focus' || value.mode === 'fixed' ? value.mode : 'grid',
+    cols: dimension(value.cols, DEFAULT_WALL_LAYOUT.cols),
+    rows: dimension(value.rows, DEFAULT_WALL_LAYOUT.rows),
+  };
+}
+
+export function sanitizeWallDock(raw: unknown): WallDock {
+  const value = record(raw);
+  const panels = record(value.panels);
+  const out = { ...DEFAULT_WALL_DOCK.panels };
+  const minimized = { ...DEFAULT_WALL_DOCK.minimized };
+  const savedMinimized = record(value.minimized);
+  for (const key of Object.keys(out) as WallDockPanel[]) {
+    if (typeof panels[key] === 'boolean') out[key] = panels[key];
+    if (typeof savedMinimized[key] === 'boolean') minimized[key] = savedMinimized[key];
+  }
+  return {
+    side: value.side === 'left' || value.side === 'top' || value.side === 'bottom' ? value.side : 'right',
+    show: typeof value.show === 'boolean' ? value.show : true,
+    minimized,
+    panels: out,
+  };
+}
+
+function readFolded(raw: unknown): Record<string, boolean> {
+  return Object.fromEntries(Object.entries(record(raw)).filter((entry): entry is [string, boolean] => entry[0].length > 0 && typeof entry[1] === 'boolean'));
+}
+
+function readWatermark(raw: unknown): number {
+  return typeof raw === 'number' && Number.isFinite(raw) && raw >= 0 ? raw : 0;
 }
 
 function readPanels(raw: unknown): InsightsPrefs {
@@ -315,8 +411,7 @@ function readPanels(raw: unknown): InsightsPrefs {
 
 /**
  * The grid this wall replaced kept a flat list of cells; the first run after
- * the change tiles them so nobody's wall starts over, with the panels in a
- * column beside them (the grid had its insights box above or below).
+ * the change tiles them so nobody's wall starts over; its panels move to the dock.
  */
 export function migrateGridState(saved: unknown): CommandWallState | null {
   if (!saved || typeof saved !== 'object') return null;
@@ -324,16 +419,21 @@ export function migrateGridState(saved: unknown): CommandWallState | null {
   const cells = Array.isArray(g.cells)
     ? g.cells.filter((c): c is { kind: 'chat' | 'terminal'; refId: string } => !!c && typeof c === 'object' && ((c as { kind?: unknown }).kind === 'chat' || (c as { kind?: unknown }).kind === 'terminal') && typeof (c as { refId?: unknown }).refId === 'string')
     : [];
-  const windows = tileTree(cells.map((c) => wallPane(c.kind, c.refId)), DEFAULT_ASPECT * 0.72);
-  const showPanels = g.insights?.show !== false;
-  const panels: WbSplit = { id: newSplitId(), dir: 'col', children: [wallPane('automations'), wallPane('insights')], sizes: [0.5, 0.5] };
-  const root: WbNode | null = windows && showPanels ? { id: newSplitId(), dir: 'row', children: [windows, panels], sizes: [0.72, 0.28] } : windows ?? (showPanels ? panels : null);
+  const root = tileTree(cells.map((c) => wallPane(c.kind, c.refId)));
+  const dock = sanitizeWallDock(undefined);
+  dock.panels.automations = g.insights?.show !== false;
+  dock.panels.insights = g.insights?.show !== false;
   return {
+    ...DEFAULT_WALL_STATE,
+    layout: sanitizeWallLayout(undefined),
+    folded: {},
+    dock,
     root,
     autoAdd: typeof g.autoAdd === 'boolean' ? g.autoAdd : true,
     filter: g.filter === 'chat' || g.filter === 'terminal' ? g.filter : 'all',
     insights: readPanels(g.insights?.panels),
-    watermark: typeof g.watermark === 'number' ? g.watermark : 0,
+    watermark: readWatermark(g.watermark),
+    composer: DEFAULT_COMPOSER_DOCK,
   };
 }
 
@@ -352,16 +452,22 @@ export function loadWallState(storage: Pick<Storage, 'getItem'> | undefined, set
       if (legacy) return migrateGridState(JSON.parse(legacy)) ?? DEFAULT_WALL_STATE;
       return DEFAULT_WALL_STATE;
     }
-    const saved = JSON.parse(raw) as Partial<CommandWallState>;
+    const saved = record(JSON.parse(raw));
+    const dock = sanitizeWallDock(saved.dock);
     let maxSeq = 0;
-    const root = sanitize(saved.root, (id) => { maxSeq = Math.max(maxSeq, idSeq(id)); });
+    const root = sanitize(saved.root, (id) => { maxSeq = Math.max(maxSeq, idSeq(id)); }, dock);
     reserveIdSeq(maxSeq);
     return {
       root,
-      autoAdd: saved.autoAdd ?? true,
+      layout: sanitizeWallLayout(saved.layout),
+      dock,
+      hero: typeof saved.hero === 'string' && saved.hero.length > 0 ? saved.hero : null,
+      folded: readFolded(saved.folded),
+      autoAdd: typeof saved.autoAdd === 'boolean' ? saved.autoAdd : true,
       filter: saved.filter === 'chat' || saved.filter === 'terminal' ? saved.filter : 'all',
-      insights: readPanels(saved.insights?.panels),
-      watermark: typeof saved.watermark === 'number' ? saved.watermark : 0,
+      insights: readPanels(record(saved.insights).panels),
+      watermark: readWatermark(saved.watermark),
+      composer: readDock(saved.composer),
     };
   } catch {
     return DEFAULT_WALL_STATE;
@@ -378,7 +484,7 @@ export function saveWallState(storage: Pick<Storage, 'setItem'> | undefined, sta
 
 /** The wall as the setting stores it: the same fields, typed loosely for the shared schema. */
 export function toWallSetting(state: CommandWallState): CommandWallSetting {
-  return { root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark };
+  return { layout: state.layout, dock: state.dock, hero: state.hero, folded: state.folded, root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark, composer: state.composer };
 }
 
 /* ---------- the ribbon ---------- */

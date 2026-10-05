@@ -68,6 +68,7 @@ export interface ExperimentalFlags {
   memory?: boolean;
   /** Listen on 127.0.0.1 for inbound workflow webhooks. */
   workflowLoopbackListener?: boolean;
+  resourceQueue?: boolean;
 }
 
 /**
@@ -86,13 +87,43 @@ export interface OnboardingState {
 /** Bump when the wizard's steps change enough that existing users should see it again. */
 export const ONBOARDING_VERSION = 1;
 
+export type WallLayoutMode = 'grid' | 'focus' | 'fixed';
+export interface WallLayout { mode: WallLayoutMode; cols: number; rows: number }
+export type WallDockSide = 'right' | 'left' | 'top' | 'bottom';
+export type WallDockPanel = 'vitals' | 'automations' | 'utilization' | 'budget' | 'insights' | 'hardware';
+export interface WallDock {
+  side: WallDockSide;
+  show: boolean;
+  panels: Record<WallDockPanel, boolean>;
+  /** Independent minimization state for each dock panel. */
+  minimized: Record<WallDockPanel, boolean>;
+}
+export const DEFAULT_WALL_LAYOUT: WallLayout = { mode: 'grid', cols: 3, rows: 2 };
+export const DEFAULT_WALL_DOCK: WallDock = {
+  side: 'right', show: true,
+  minimized: { vitals: false, automations: false, utilization: false, budget: false, insights: false, hardware: false },
+  panels: { vitals: true, automations: true, utilization: true, budget: true, insights: false, hardware: true },
+};
+
+/** Advisory USD budget only, not an enforced spending limit. Invalid/unset means no budget. */
+export function sanitizeMonthlyBudgetUsd(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
 /** The saved Command Center wall; `root` is the renderer's split tree (`layout.ts`), checked on load. */
 export interface CommandWallSetting {
+  layout?: WallLayout;
+  dock?: WallDock;
+  hero?: string | null;
+  /** Fold companions for each session ID; never fold the chat itself. */
+  folded?: Record<string, boolean>;
   root: unknown;
   autoAdd: boolean;
   filter: 'all' | 'chat' | 'terminal';
   insights: { panels: Record<string, boolean> };
   watermark: number;
+  /** Where the wall's one composer sits. */
+  composer?: { side: 'top' | 'bottom'; align: 'left' | 'center' | 'right' };
 }
 
 /**
@@ -152,6 +183,7 @@ export interface HookRule {
 }
 
 export interface AppSettings {
+  voice?: import('./voice.js').VoiceSettings;
   /** User-authored additions to the built-in system instructions. */
   systemInstructions?: string;
   /** Server-side instructions applied to every user turn. Empty disables them. */
@@ -180,6 +212,8 @@ export interface AppSettings {
   effort?: EffortLevel;
   /** Cloud comparison for local models without published prices; unset means no estimate. */
   localCostBenchmark?: string;
+  /** Advisory monthly USD budget; read through sanitizeMonthlyBudgetUsd. */
+  monthlyBudgetUsd?: number;
   /** Check for app updates automatically (desktop). Superseded by `updates.app`. */
   autoUpdate?: boolean;
   /** Whether we've shown the first-run "enable auto-update?" prompt. */

@@ -161,15 +161,16 @@ function Meter({ label, value, pct, sub }: { label: string; value: string; pct: 
  */
 const DOCK_OPEN_KEY = 'nekko.resourceDock.open';
 
-export function ResourceDock() {
-  const monitors = useMonitors();
+export function ResourceDock({ standalone = false }: { standalone?: boolean } = {}) {
+  const configured = useMonitors();
+  const monitors = standalone ? { cpu: true, memory: true, gpu: true, vram: true } : configured;
   const { gpu, system } = useResourceSample();
   const setDockRect = useStore((s) => s.setMonitorDockRect);
   const ref = useRef<HTMLDivElement>(null);
   // Collapsible, because the meters are tall and the panel above them (folders,
   // file tree, context) is where the work happens.
   const [open, setOpen] = useState(() =>
-    typeof window === 'undefined' ? true : readBrandKey(window.localStorage, DOCK_OPEN_KEY) !== 'off');
+    standalone || typeof window === 'undefined' ? true : readBrandKey(window.localStorage, DOCK_OPEN_KEY) !== 'off');
   const toggle = () => setOpen((v) => {
     const next = !v;
     try { window.localStorage.setItem(DOCK_OPEN_KEY, next ? 'on' : 'off'); } catch { /* best effort */ }
@@ -179,7 +180,7 @@ export function ResourceDock() {
 
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!el || !anyOn || !open) return;
+    if (standalone || !el || !anyOn || !open) return;
     const report = () => {
       const r = el.getBoundingClientRect();
       setDockRect({ x: r.left, y: r.top, w: r.width, h: r.height });
@@ -193,7 +194,7 @@ export function ResourceDock() {
       window.removeEventListener('resize', report);
       setDockRect(null);
     };
-  }, [anyOn, open, setDockRect]);
+  }, [anyOn, open, standalone, setDockRect]);
 
   // Everything off: the chip takes over (it's the only way back on), so the
   // section stays out of the way entirely.

@@ -30,7 +30,7 @@ describe('session PR links', () => {
   it('colours a link by the PR state', () => {
     expect(prTone(pr(1))).toBe('var(--success)');
     expect(prTone(pr(1, 'open', true))).toBe('var(--ink-faint)');
-    expect(prTone(pr(1, 'merged'))).toBe('#c084fc');
+    expect(prTone(pr(1, 'merged'))).toBe('var(--merged-ink)');
     expect(prTone(pr(1, 'closed'))).toBe('var(--danger)');
   });
 });

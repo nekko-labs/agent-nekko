@@ -161,8 +161,26 @@ describe('agent command terminal', () => {
 });
 
 describe('browser permission boundary', () => {
-  it('hides browser control on non-desktop hosts and requests approval even in yolo mode', async () => {
+  it('honors allow-all for desktop browser calls without another prompt', async () => {
     const session = createSession();
+    rounds = [[{ type: 'tool_call', call: { id: 'browse-yolo', name: 'browser', input: { mode: 'dedicated', action: 'close' } } }, { type: 'done' }]];
+    vi.stubEnv('NEKKO_BROWSER_URL', 'http://127.0.0.1:12345/');
+    vi.stubEnv('NEKKO_BROWSER_TOKEN', 'test-token');
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ output: 'Closed' }) })));
+    const events: AgentEvent[] = [];
+    try {
+      await sendChat({ sessionId: session.id, providerId: 'frontier', modelId: 'frontier-exact', text: 'close browser' }, (event) => { events.push(event); }, true);
+      expect(events.some((event) => event.type === 'tool_approval_required')).toBe(false);
+      expect(events.find((event) => event.type === 'tool_result')).toMatchObject({ result: { output: 'Closed' } });
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+  it('hides browser control on non-desktop hosts and requests approval in guardrails mode', async () => {
+    const session = createSession();
+    session.mode = 'guardrails';
+    saveSession(session);
     rounds = [[{ type: 'tool_call', call: { id: 'browse', name: 'browser', input: { mode: 'existing', action: 'inspect' } } }, { type: 'done' }]];
     await run(session);
     expect(requests[0].request.tools?.some((tool) => tool.name === 'browser')).toBe(false);
@@ -195,6 +213,61 @@ describe('offline context preview', () => {
     saveSettings({ connectors: [{ kind: 'slack', connected: true, token: 'test-token' }] });
     await previewContext(createSession().id, []);
     expect(connectorFetch).toHaveBeenCalledOnce();
+  });
+});
+
+describe('delegation discovery and defaults', () => {
+  it('discovers exact models on only the requested provider without creating children', async () => {
+    rounds = [[{ type: 'tool_call', call: { id: 'discover', name: 'delegation_targets', input: { provider_id: 'local' } } }, { type: 'done' }]];
+    const { session, result } = await run();
+    expect(listings).toEqual(['local']);
+    expect(children(session)).toHaveLength(0);
+    expect(result).toMatchObject({ result: { output: expect.stringContaining('"modelId":"local-exact"') } });
+  });
+
+  it('reports discovery failure without leaking provider secrets', async () => {
+    listingError = true;
+    rounds = [[{ type: 'tool_call', call: { id: 'discover', name: 'delegation_targets', input: { provider_id: 'local' } } }, { type: 'done' }]];
+    const { result } = await run();
+    expect(result).toMatchObject({ result: { isError: true, output: expect.stringContaining('model_list_unavailable') } });
+    expect(JSON.stringify(result)).not.toMatch(/private-token|private\.example/);
+  });
+
+  it('uses and validates an explicit user default without falling back', async () => {
+    saveSettings({ orchestration: { strategy: 'balanced', maxDepth: 2, maxParallel: 4, delegationRoute: { providerId: 'local', modelId: 'local-exact' } } });
+    delegate({ task: 'child task' });
+    const { session } = await run();
+    expect(children(session)[0]).toMatchObject({ providerId: 'local', modelId: 'local-exact' });
+    expect(listings).toEqual(['local']);
+  });
+
+  it('rejects a stale default without creating a child or trying another provider', async () => {
+    saveSettings({ orchestration: { strategy: 'balanced', maxDepth: 2, maxParallel: 4, delegationRoute: { providerId: 'local', modelId: 'missing' } } });
+    delegate({ task: 'child task' });
+    const { session, result } = await run();
+    expect(children(session)).toHaveLength(0);
+    expect(listings).toEqual(['local']);
+    expect(result).toMatchObject({ result: { isError: true } });
+  });
+
+  it.each(['incognito', 'offline', 'disabled', 'solo'])('blocks discovery for %s chats', async (gate) => {
+    const parent = createSession();
+    if (gate === 'incognito') parent.incognito = true;
+    if (gate === 'offline') parent.offline = true;
+    if (gate === 'disabled') parent.disabledTools = ['spawn_agent'];
+    if (gate === 'solo') saveSettings({ orchestration: { strategy: 'solo', maxDepth: 2, maxParallel: 4 } });
+    saveSession(parent);
+    rounds = [[{ type: 'tool_call', call: { id: 'discover', name: 'delegation_targets', input: { provider_id: 'local' } } }, { type: 'done' }]];
+    await run(parent, gate === 'offline' ? 'local' : 'frontier');
+    expect(listings).toEqual([]);
+    expect(children(parent)).toHaveLength(0);
+  });
+
+  it('distinguishes an empty chat-model list from an unavailable service', async () => {
+    models = [];
+    rounds = [[{ type: 'tool_call', call: { id: 'discover', name: 'delegation_targets', input: { provider_id: 'local' } } }, { type: 'done' }]];
+    const { result } = await run();
+    expect(result).toMatchObject({ result: { output: expect.stringContaining('No chat models available') } });
   });
 });
 
@@ -414,6 +487,31 @@ describe('reply suggestions', () => {
     expect(requests).toEqual([]);
   });
 
+  it('checks bounded past user replies even when assistant messages fill the recent tail', async () => {
+    const session = replied();
+    session.messages = [
+      ...Array.from({ length: 10 }, (_, i) => ({
+        id: `user-${i}`, role: 'user' as const,
+        content: `Preference ${i}: ${'x'.repeat(900)}`, createdAt: i,
+      })),
+      ...Array.from({ length: 7 }, (_, i) => ({
+        id: `assistant-${i}`, role: 'assistant' as const,
+        content: `Progress ${i}`, createdAt: 10 + i,
+      })),
+    ];
+    saveSession(session);
+    await suggestReplies(session.id);
+    const prompt = suggestRequests[0].request.messages.at(-1)?.content ?? '';
+    expect(prompt).toContain('Past user replies (oldest first):');
+    expect(prompt).toContain('Preference 2:');
+    expect(prompt).toContain('Preference 9:');
+    expect(prompt).not.toContain('Preference 1:');
+    expect(prompt).not.toContain('x'.repeat(801));
+    expect(prompt).toContain('already answered, rejected');
+    expect(prompt).toContain('{"options":[],"next":"..."}');
+    expect(prompt.split('Recent conversation:')[1]).not.toContain('Preference');
+  });
+
   it('returns null when there is no reply to suggest from', async () => {
     const session = createSession();
     session.providerId = 'frontier';
@@ -597,5 +695,29 @@ describe('session titles', () => {
     await settle();
     expect(titleRequests).toEqual([]);
     expect(getSession(session.id)?.title).toBe('My chat');
+  });
+});
+
+
+describe('child checkpoint recovery', () => {
+  it('resumes a lost child on the same route without creating a duplicate session', async () => {
+    delegate({ task: 'finish the delegated work' });
+    rounds.push(new Error('The engine stopped driving this reply.'), [{ type: 'text', delta: 'Recovered child result.' }, { type: 'done' }]);
+    const { session, result } = await run();
+    expect(children(session)).toHaveLength(1);
+    const child = getSession(children(session)[0].id)!;
+    expect(child.messages.filter(m => m.role === 'user')).toHaveLength(1);
+    expect(child.messages.at(-1)?.content).toBe('Recovered child result.');
+    expect(result?.type === 'tool_result' && result.result.output).toContain('Recovered child result.');
+    expect(requests.every(r => r.providerId === 'frontier')).toBe(true);
+  });
+  it('hands the parent the real failure and child ID when the recovery budget is exhausted', async () => {
+    delegate({ task: 'finish the delegated work' });
+    rounds.push(new Error('The engine stopped driving this reply.'), new Error('The engine stopped driving this reply.'));
+    const { session, result } = await run();
+    expect(children(session)).toHaveLength(1);
+    expect(result?.type === 'tool_result' && result.result.isError).toBe(true);
+    expect(result?.type === 'tool_result' && result.result.output).toContain(children(session)[0].id);
+    expect(result?.type === 'tool_result' && result.result.output).toContain('Continue the delegated task directly');
   });
 });

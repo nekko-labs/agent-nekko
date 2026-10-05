@@ -1,7 +1,12 @@
-import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { needsProviderSetup } from './providers/providerSetup.js';
+import { SetupIllustration } from './providers/ProviderChoices.js';
+import { revealEditorCaret } from './agent-console/editorCaret.js';
+import React, { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { DictationButton } from './DictationButton.js';
+import { decideApproval, type ApprovalScope } from './agent-console/approval-decision.js';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, QueuePayload, QueuedPrompt } from '@agent-nekko/shared';
-import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, lastReplyInterrupted, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
+import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -26,10 +31,11 @@ import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console
 import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
-import { PERSISTED_INTERRUPTION, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
+import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
+
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
-import { PlanRail } from './PlanRail.js';
+import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
 import { ComposerQuestion } from './ComposerQuestion.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
@@ -38,11 +44,11 @@ import { ChatControls, MODE_LABEL } from './ChatControls.js';
 import { useElementCompact } from './agent-console/useElementWidth.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
-import { PrCard, PrBadge, PrActionDock } from './PrCard.js';
+import { PrCard, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -91,7 +97,7 @@ const NARROW_PANE = 620;
  * Unset means "grow with what's typed", which is where every composer starts.
  */
 const COMPOSER_H_KEY = 'nekko.composer.height';
-const COMPOSER_MIN_H = 52;
+const COMPOSER_MIN_H = 64;
 /** The conversation keeps at least this much of the pane, however tall the composer. */
 const TRANSCRIPT_MIN_H = 160;
 
@@ -320,9 +326,10 @@ function ChatHeader({
  * only when its own data does.
  */
 const TranscriptRowView = memo(function TranscriptRowView({
-  row, streaming, readOnly, prByUrl, sessionId, onEditResend, onCopyToComposer, onSplit, onImageClick, onImageContextMenu,
+  row, streaming, readOnly, prByUrl, sessionId, basePath, onEditResend, onCopyToComposer, onSplit, onImageClick, onImageContextMenu,
 }: {
   row: TranscriptRow;
+  basePath?: string;
   streaming: boolean;
   /** An archived chat: nothing on a row may change the conversation. */
   readOnly: boolean;
@@ -346,6 +353,7 @@ const TranscriptRowView = memo(function TranscriptRowView({
     <>
       <MessageBubble
         message={row.message}
+        basePath={basePath}
         onResend={editable ? onEditResend : undefined}
         onReset={editable ? onEditResend : undefined}
         onCopyToComposer={!readOnly && persisted ? onCopyToComposer : undefined}
@@ -471,8 +479,17 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full' }: {
   sessionId: string;
+  commandCenter?: boolean;
+  /**
+   * Which part of the chat this instance shows. A window on the Command
+   * Center wall shows the `transcript` alone; the wall's one composer shows
+   * the `composer` alone for the selected chat; everywhere else a pane is the
+   * `full` chat. Two instances of the same chat may be on screen at once (a
+   * wall window and the composer); both read the same live run and cache.
+   */
+  surface?: 'full' | 'transcript' | 'composer';
   onRunningChange?: (running: boolean) => void;
   /**
    * An archived chat, opened to be read: the transcript renders as usual, but
@@ -500,9 +517,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // count) renders from this, one step behind the keystroke, so
   // a keypress paints the textarea before any of that work runs.
   const deferredDraft = useDeferredValue(draft);
-  const historyCursor = useRef<HistoryCursor | null>(null);
-  const sentPrompts = useMemo(() => promptHistory(session?.messages ?? []), [session?.messages]);
-  useEffect(() => { historyCursor.current = null; }, [sessionId, sentPrompts]);
   const [streaming, setStreaming] = useState(false);
   // Mirrors for the long-lived agent-event listener, so a token does not set
   // state that is already set.
@@ -562,7 +576,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // A small window (a cell on the Command Center wall, a sliver of a split)
   // folds the two control rows into one summary chip, so the transcript keeps
   // the room; the chip opens them again on demand.
-  const compact = useElementCompact(paneRef);
+  const compact = useElementCompact(paneRef) && surface !== 'composer';
   const [controlsOpen, setControlsOpen] = useState(false);
   const showControls = !compact || controlsOpen;
   // The armed skill lives in the store (per session) so the Context Inspector on
@@ -575,14 +589,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // that branch is going into. The same read the sidebar card makes (the host
   // caches it), so the header and the card never disagree.
   const git = useGitStatus(session ? `session:${session.id}` : undefined, session?.gitIsolation);
-  const headerPrs = git?.pr && !prs.some((p) => p.url === git.pr!.url) ? [git.pr, ...prs] : prs;
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<string | null>(null);
-  // What the model thinks the user will say next: one-click follow-up chips and
-  // the composer's ghost text. Pinned to the reply it was written for (forId) so
+  // What the model thinks the user will say next: the composer's ghost text.
+  // Pinned to the reply it was written for (forId) so
   // a newer turn can't inherit stale suggestions.
   const [suggestions, setSuggestions] = useState<{ forId: string; options: string[]; next: string | null } | null>(null);
   // A failed reply stays in the transcript with a retry, instead of vanishing
@@ -937,7 +950,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, setMascotMood]);
 
+  const finalizingReply = useRef(false);
   const endTurn = () => {
+    finalizingReply.current = true;
     streamingRef.current = false;
     setStreaming(false);
     // The turn is over. liveRuns has usually retired the run already (it hears
@@ -986,12 +1001,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     // then clear the held copy in the same commit, so the end of a reply never
     // flashes the answer out and back in.
     loadSession(sessionId).then((s) => {
+      finalizingReply.current = false;
       setSession(s);
       if (heldRef.current === final) {
         heldRef.current = null;
         setHeld(null);
       }
-    }).catch(() => {});
+    }).catch(() => { finalizingReply.current = false; });
     refreshSessions();
     // A reply may have created or updated a PR (e.g. `gh pr create`).
     useStore.getState().refreshSessionPrs(sessionId);
@@ -1001,7 +1017,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
    * Ask the model what the user might say next, then pin the answer to the
    * reply it was written for. Nice-to-have traffic: a provider hiccup, a
    * session with nothing to suggest from, or a malformed reply all just mean
-   * no chips this turn.
+   * no placeholder suggestion this turn.
    */
   const requestSuggestions = async () => {
     try {
@@ -1031,25 +1047,26 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     transcriptRef.current?.scrollToBottom('smooth');
   };
 
-  // Grow the composer with its content: reset to the 3-line minimum, then match
+  // Grow the composer with its content: reset to the two-line minimum, then match
   // the scroll height (CSS max-height caps it and lets it scroll past that).
   // A composer the user has sized keeps that size and scrolls instead.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = composerRef.current;
-    if (!el) return;
-    if (composerH != null) {
-      el.style.height = `${composerH}px`;
-      return;
-    }
-    // An empty box is its two-row minimum, which is its natural height: no
-    // need to measure. Measuring reads layout, and doing that as a chat opens
-    // forced the whole pane to lay out inside the click that opened it.
-    if (!draft) {
-      el.style.height = '';
-      return;
-    }
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    const pane = paneRef.current;
+    const section = composerSectionRef.current;
+    if (!el || !pane || !section) return;
+    const resize = () => {
+      const chrome = section.getBoundingClientRect().height - el.getBoundingClientRect().height;
+      const limit = Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
+      el.style.maxHeight = limit + 'px';
+      el.style.height = 'auto';
+      el.style.height = Math.min(limit, Math.max(el.scrollHeight, composerH ?? 0)) + 'px';
+      revealEditorCaret(el);
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(pane);
+    return () => observer.disconnect();
   }, [draft, composerH]);
 
   /**
@@ -1070,7 +1087,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     const startH = ta.getBoundingClientRect().height;
     // Whatever in the composer is not the text box, which the drag cannot shrink.
     const chrome = section.getBoundingClientRect().height - startH;
-    const maxH = Math.max(COMPOSER_MIN_H, pane.getBoundingClientRect().height - chrome - TRANSCRIPT_MIN_H);
+    const maxH = Math.max(COMPOSER_MIN_H, Math.min(pane.getBoundingClientRect().height - chrome - TRANSCRIPT_MIN_H, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome));
     let latest = startH;
     const onMove = (ev: PointerEvent) => {
       latest = Math.round(Math.min(maxH, Math.max(COMPOSER_MIN_H, startH + (startY - ev.clientY))));
@@ -1519,9 +1536,11 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     URL.revokeObjectURL(url);
   };
 
-  const approve = async (okDecision: boolean) => {
+  const approve = async (okDecision: boolean, scope: ApprovalScope = 'once') => {
     if (!approval) return;
-    await window.nekko.approveTool(sessionId, approval.call.id, okDecision);
+    const saved = await decideApproval(window.nekko, sessionId, approval.call.id, okDecision, scope);
+    if (saved.session) setSession(saved.session);
+    if (saved.settings) useStore.setState({ settings: saved.settings });
     setApproval(null);
   };
 
@@ -1534,7 +1553,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     await window.nekko.answerQuestion(sessionId, pending.callId, answers);
   };
 
-  const hasProvider = providers.length > 0;
+  const hasProvider = !needsProviderSetup(providers, modelId ?? models[0]?.id);
   // An image chat runs on the engine's image model, not a chat provider, so it
   // can compose with no provider configured at all.
   const summaryType = useStore((st) => st.sessions.find((x) => x.id === sessionId)?.chatType);
@@ -1628,12 +1647,14 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   // read off the record itself. Dismissing it is remembered per reply.
   const [dismissedInterruption, setDismissedInterruption] = useState<string | null>(null);
   useEffect(() => {
-    if (streaming || errorNotice || !session || dismissedInterruption === lastMsgId) return;
-    if (lastReplyInterrupted(session.messages)) setErrorNotice(PERSISTED_INTERRUPTION);
-  }, [session, streaming, errorNotice, lastMsgId, dismissedInterruption]);
-  // An interrupted turn needs a recovery action, not model-written follow-ups
-  // that may have been generated before the failure.
+    if (errorNotice || !session || dismissedInterruption === lastMsgId) return;
+    if (shouldShowPersistedInterruption(session.messages, streaming, !!held || finalizingReply.current)) setErrorNotice(PERSISTED_INTERRUPTION);
+  }, [session, streaming, held, errorNotice, lastMsgId, dismissedInterruption]);
+  const canContinueWork = !streaming && !held && !session?.activeRun && !errorNotice &&
+    session?.messages.at(-1)?.role === 'assistant' && hasResumableProgress(session.messages);
+  // Suppress suggestions while recovery actions are visible.
   const suggestedOptions = errorNotice ? [] : liveSuggestions?.options ?? [];
+
   // The model's single most likely next message, shown as the composer's
   // placeholder while the box is empty; ArrowRight types it in.
   const ghostSuggestion = !draft && !errorNotice && liveSuggestions?.next ? liveSuggestions.next : null;
@@ -1662,22 +1683,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     }
     // → accepts the ghost suggestion while the box is empty (the box is empty
     // whenever a ghost is showing, so the caret is already at the end).
-    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
-        !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      const el = e.currentTarget;
-      const recalled = recallPrompt(sentPrompts, historyCursor.current, draft, e.key, el.selectionStart, el.selectionEnd);
-      if (recalled) {
-        e.preventDefault();
-        historyCursor.current = recalled;
-        setDraft(recalled.text);
-        setMenuClosed(true);
-        requestAnimationFrame(() => {
-          const caret = e.key === 'ArrowUp' ? 0 : el.value.length;
-          el.setSelectionRange(caret, caret);
-        });
-        return;
-      }
-    }
     if (e.key === 'ArrowRight' && ghostSuggestion && !e.currentTarget.value) {
       e.preventDefault();
       const el = e.currentTarget;
@@ -1881,10 +1886,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   copyToComposerRef.current = copyToComposer;
   const onCopyToComposer = useCallback((id: string) => copyToComposerRef.current(id), []);
   const onSplit = useCallback((id: string) => { void useStore.getState().splitChat(sessionId, id); }, [sessionId]);
+  const artifactBasePath = session?.workspaceId ? session.gitWorktrees?.[session.workspaceId]?.path ?? settings?.workspaces.find((w) => w.id === session.workspaceId)?.path : undefined;
   const renderRow = useCallback(
     (row: TranscriptRow) => (
       <TranscriptRowView
         row={row}
+        basePath={artifactBasePath}
         streaming={streaming}
         readOnly={readOnly}
         prByUrl={prByUrl}
@@ -1896,7 +1903,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
         onImageContextMenu={openImageMenu}
       />
     ),
-    [streaming, readOnly, prByUrl, sessionId, onEditResend, onCopyToComposer, onSplit, openImageMenu],
+    [artifactBasePath, streaming, readOnly, prByUrl, sessionId, onEditResend, onCopyToComposer, onSplit, openImageMenu],
   );
   // Width of the text column, for the height estimates of rows not yet measured.
   const columnWidth = Math.max(0, (paneWidth || 800) * (contentWidth.includes('75%') ? 0.75 : 1) - 32);
@@ -1950,34 +1957,18 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   );
 
   return (
-    <div ref={paneRef} className="flex h-full min-w-0 overflow-hidden">
+    <div ref={paneRef} className={`flex min-w-0 overflow-hidden ${surface === 'composer' ? '' : 'h-full'}`}>
       <section className="flex min-w-0 w-full flex-1 flex-col overflow-x-hidden">
         {/* One bar per window. Inside a workspace these ride in the frame's
             title strip, which already shows the chat's name; standalone, the
             chat still needs a header of its own. */}
+        {surface !== 'composer' && (
         <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} metadata={
             git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
                 {session && <WorktreeChip session={session} git={git} disabled={hasLive} onChange={setSession} />}
-                <span
-                  className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
-                  style={{ background: 'color-mix(in srgb, var(--accent) 13%, transparent)', color: 'var(--accent)' }}
-                  title={git.branch ? `On branch ${git.branch}${git.dirtyCount ? ` · ${git.dirtyCount} uncommitted` : ''}` : `Detached at ${git.head}`}
-                >
-                  <BranchIcon className="h-3 w-3 shrink-0" />
-                  <span className="max-w-[16ch] truncate">{git.branch ?? git.head ?? 'detached'}</span>
-                </span>
               </span>
             )}>
-            {headerPrs.length > 0 && (
-              <button
-                className="btn btn-ghost px-2 py-1"
-                onClick={() => useStore.getState().openPrPane(headerPrs[0].url)}
-                title={git?.pr ? `Review #${git.pr.number}: ${git.pr.title}` : 'Review pull request'}
-              >
-                <PrBadge prs={headerPrs} />
-              </button>
-            )}
             {changeCount > 0 && (
               <button
                 className="btn btn-ghost px-2 py-1 text-[12px] font-medium text-accent"
@@ -2020,7 +2011,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             </button>
             )}
         </ChatHeader>
+        )}
 
+        {surface !== 'composer' && (
         <div className="relative flex min-h-0 w-full flex-1">
           <VirtualTranscript
             ref={transcriptRef}
@@ -2034,21 +2027,21 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             header={welcomeState.welcome ? (
 
               <div className="fade-in mt-16 flex flex-col items-center gap-3 text-center">
-                <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>
+                {!hasProvider ? <SetupIllustration /> : <div className="grid h-12 w-12 place-items-center rounded-2xl" style={{ background: 'var(--accent-soft)' }}><NekkoAvatar size={30} /></div>}
                 <div>
                   <h2 className="text-[15px] font-semibold">
-                    {!hasProvider ? 'Connect a model to get started' : imageMode ? 'What should Agent Nekko draw?' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
+                    {!hasProvider ? 'Bring your first agent to life' : imageMode ? 'What should Agent Nekko draw?' : needsModel ? 'Pick a model to get started' : 'What should Agent Nekko work on?'}
                   </h2>
                   <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
                     {!hasProvider
-                      ? 'Add a local server (Ollama, LM Studio, vLLM) or a cloud provider in Model Providers.'
+                      ? 'Connect an AI account or a local model. We’ll walk you through it — no technical experience needed.'
                       : needsModel
                         ? 'Choose a model here, or let Auto pick per message.'
                         : 'Ask a question or hand over a task. Use / for skills and prompts, @ to attach files, + for photos and folders.'}
                   </p>
                 </div>
                 {!hasProvider ? (
-                  <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Open Model Providers</button>
+                  <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Set up my first agent →</button>
                 ) : null}
                 {welcomeState.modelChoice && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
                   <div className="flex items-center justify-between gap-2 px-2">
@@ -2147,13 +2140,14 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             </button>
           )}
         </div>
+        )}
 
         {approval && <ApprovalBar approval={approval} onDecide={approve} />}
 
         {readOnly ? (
-          <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
-        ) : (
-        <div ref={composerSectionRef} className="relative px-4 pb-4 pt-1.5">
+          surface === 'transcript' ? null : <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
+        ) : surface === 'transcript' ? null : (
+        <div ref={composerSectionRef} className={`relative ${commandCenter ? '' : 'px-4'} pb-4 pt-1.5`}>
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
           <div
@@ -2168,11 +2162,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute inset-x-0 top-[5px] h-0.5 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
-          <div className="composer-column mx-auto w-[90%]">
+          <div className={`composer-column mx-auto ${commandCenter ? 'w-[98%]' : 'w-[90%]'}`} style={commandCenter ? { width: '98%' } : undefined}>
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
-            {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
-              <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>
-            ))}
+
             <div className="composer relative">
             {/* While the agent works, a violet→cyan beam laps the border. The
                 gradient is a square that rotates on the compositor, clipped
@@ -2218,7 +2210,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 session={session}
                 isCloudModel={isCloudModel}
                 onChange={setSession}
-                leading={<span className="chip text-[10px]">{imageMode ? 'Image creation' : 'Chat'}</span>}
+                leading={<ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
               />
               </div>
               {!imageMode && (<>
@@ -2414,29 +2406,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                   )}
                 </div>
               )}
-            {/* Model-written follow-ups to the reply above: one click sends it
-                outright, and starting any turn clears them. */}
-            {!imageMode && (canContinueReply || suggestedOptions.length > 0) && !streaming && (
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2.5" role="group" aria-label="Suggested replies">
-                {canContinueReply && (
-                  <button
-                    className={suggestedReplyClassName}
-                    title="Continue this reply, keeping the work already done"
-                    onClick={() => void resumeRun()}
-                  >
-                    Continue
-                  </button>
-                )}
-                {suggestedOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    className={suggestedReplyClassName}
-                    title={`Send: ${opt}`}
-                    onClick={() => { setSuggestions(null); void send(opt); }}
-                  >
-                    {opt}
-                  </button>
-                ))}
+            {/* Recovery is separate from the placeholder suggestion. */}
+            {!imageMode && (canContinueReply || canContinueWork) && !streaming && (
+              <div className="flex items-center border-b border-line px-3 py-2.5">
+                <button
+                  className={canContinueReply ? suggestedReplyClassName : 'btn btn-outline py-1 text-[12px]'}
+                  title={canContinueReply ? 'Continue this reply, keeping the work already done' : 'Ask the agent to continue any remaining work from this conversation'}
+                  onClick={() => canContinueReply ? void resumeRun() : void send('Continue the remaining work from this conversation. Preserve what is already done; if the task is complete or blocked, explain that instead of repeating it.')}
+                >
+                  {canContinueReply ? 'Continue' : 'Continue work'}
+                </button>
               </div>
             )}
 
@@ -2499,7 +2478,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                   )}
                   <MarkdownEditor
                     ref={composerRef}
-                    className={`${composerH != null ? '' : 'max-h-60 '}relative ${compact ? 'min-h-[36px] py-2' : 'min-h-[52px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
+                    className={`relative ${compact ? 'min-h-[36px] py-2' : 'min-h-[52px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
                     placeholder={imageMode ? 'Describe the image you want…' : streaming ? 'Queue a follow-up… (Ctrl/⌘+Enter steers the running reply)' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
                     value={draft}
                     aria-expanded={slashMenuOpen || atMenuOpen}
@@ -2638,6 +2617,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                   </>)}
                   <div className="flex-1" />
                   {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
+                  <DictationButton key={sessionId} sessionId={sessionId} onText={(text) => { setDraft((current) => current + (current && !/\s$/.test(current) ? ' ' : '') + text); composerRef.current?.focus(); }} />
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
                       onClick={() => void send()}
@@ -2645,7 +2625,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                       title={streaming ? 'Add to queue after this reply' : 'Send'}
                       aria-label={streaming ? 'Add to queue' : 'Send'}
                     >
-                      <NekkoAvatar size={24} />
+                      <NekkoAvatar size={24} wizardHat={settings?.themePreset === 'autumn'} />
                     </button>
                 </div>
               </div>
@@ -2686,13 +2666,17 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
       {/* The work rail, in the quarter the transcript gives back. Kept inside
           the chat pane (not the workbench's right panel) because everything in
           it belongs to this one conversation. */}
-      {planRailOpen && (
+      {surface !== 'composer' && planRailOpen && (
         <div className="w-1/4 min-w-[224px] max-w-[320px] shrink-0">
           <PlanRail
             sessionId={sessionId}
             session={session}
             streaming={streaming}
             onClose={() => useStore.getState().togglePlanRail()}
+            onChangePlan={readOnly ? undefined : () => {
+              setDraft(appendPlanChangeRequest);
+              composerRef.current?.focus();
+            }}
           />
         </div>
       )}

@@ -13,6 +13,8 @@ import { preservePackagedProfile } from './appIdentity.js';
 import { EngineProcess } from './engine-process.js';
 import { createDesktopTray } from './tray.js';
 import { startAgentBrowser } from './agentBrowser.js';
+import { registerArtifactPreview } from './artifactPreview.js';
+const applicationWindows = new Set<number>();
 
 let desktopTray: ReturnType<typeof createDesktopTray> | null = null;
 let quitting = false;
@@ -185,6 +187,9 @@ function createWindow(): void {
   win.on('resize', persist);
   win.on('move', persist);
 
+  applicationWindows.add(win.webContents.id);
+  const windowId = win.webContents.id;
+  win.once('closed', () => applicationWindows.delete(windowId));
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
     return { action: 'deny' };
@@ -306,6 +311,7 @@ const isPrimary = claimSingleInstance();
 if (!isPrimary) app.quit();
 
 app.whenReady().then(async () => {
+  registerArtifactPreview((sender) => applicationWindows.has(sender.id));
   if (!isPrimary) return;
   // No File/Edit/View/Window bar: it cost a whole strip of chrome above the UI
   // to duplicate shortcuts the app already owns. macOS keeps its menu — there

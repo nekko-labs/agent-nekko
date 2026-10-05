@@ -13,12 +13,13 @@
     "bundle": "node scripts/bundle.mjs"
   },
   "dependencies": {
-    "@fastify/static": "^10.1.2",
-    "@fastify/websocket": "^11.3.0",
     "@agent-nekko/host": "*",
     "@agent-nekko/shared": "*",
-    "fastify": "^5.11.2",
-    "agent-nekko": "*"
+    "@fastify/rate-limit": "^10.3.0",
+    "@fastify/static": "^10.1.2",
+    "@fastify/websocket": "^11.3.0",
+    "agent-nekko": "*",
+    "fastify": "^5.11.2"
   },
   "devDependencies": {
     "esbuild": "^0.25.12"
