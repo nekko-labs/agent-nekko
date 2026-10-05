@@ -473,9 +473,17 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full' }: {
   sessionId: string;
   commandCenter?: boolean;
+  /**
+   * Which part of the chat this instance shows. A window on the Command
+   * Center wall shows the `transcript` alone; the wall's one composer shows
+   * the `composer` alone for the selected chat; everywhere else a pane is the
+   * `full` chat. Two instances of the same chat may be on screen at once (a
+   * wall window and the composer); both read the same live run and cache.
+   */
+  surface?: 'full' | 'transcript' | 'composer';
   onRunningChange?: (running: boolean) => void;
   /**
    * An archived chat, opened to be read: the transcript renders as usual, but
@@ -565,7 +573,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // A small window (a cell on the Command Center wall, a sliver of a split)
   // folds the two control rows into one summary chip, so the transcript keeps
   // the room; the chip opens them again on demand.
-  const compact = useElementCompact(paneRef);
+  const compact = useElementCompact(paneRef) && surface !== 'composer';
   const [controlsOpen, setControlsOpen] = useState(false);
   const showControls = !compact || controlsOpen;
   // The armed skill lives in the store (per session) so the Context Inspector on
@@ -1955,11 +1963,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   );
 
   return (
-    <div ref={paneRef} className="flex h-full min-w-0 overflow-hidden">
+    <div ref={paneRef} className={`flex min-w-0 overflow-hidden ${surface === 'composer' ? '' : 'h-full'}`}>
       <section className="flex min-w-0 w-full flex-1 flex-col overflow-x-hidden">
         {/* One bar per window. Inside a workspace these ride in the frame's
             title strip, which already shows the chat's name; standalone, the
             chat still needs a header of its own. */}
+        {surface !== 'composer' && (
         <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} metadata={
             git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
@@ -2025,7 +2034,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             </button>
             )}
         </ChatHeader>
+        )}
 
+        {surface !== 'composer' && (
         <div className="relative flex min-h-0 w-full flex-1">
           <VirtualTranscript
             ref={transcriptRef}
@@ -2152,12 +2163,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             </button>
           )}
         </div>
+        )}
 
         {approval && <ApprovalBar approval={approval} onDecide={approve} />}
 
         {readOnly ? (
-          <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
-        ) : (
+          surface === 'transcript' ? null : <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
+        ) : surface === 'transcript' ? null : (
         <div ref={composerSectionRef} className={`relative ${commandCenter ? '' : 'px-4'} pb-4 pt-1.5`}>
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
@@ -2683,7 +2695,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       {/* The work rail, in the quarter the transcript gives back. Kept inside
           the chat pane (not the workbench's right panel) because everything in
           it belongs to this one conversation. */}
-      {planRailOpen && (
+      {surface !== 'composer' && planRailOpen && (
         <div className="w-1/4 min-w-[224px] max-w-[320px] shrink-0">
           <PlanRail
             sessionId={sessionId}
