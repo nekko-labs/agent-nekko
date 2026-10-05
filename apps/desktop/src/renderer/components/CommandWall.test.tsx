@@ -162,3 +162,12 @@ describe('focus full-height chat', () => {
     expect(source).toContain("approval && surface !== 'composer' && <ApprovalBar");
   });
 });
+
+
+it('keeps transcript-only surfaces from overwriting the shared composer draft', () => {
+  const source = readFileSync(new URL('./ChatPane.tsx', import.meta.url), 'utf8');
+  expect(source).toContain("if (readOnly || surface === 'transcript') return;");
+  expect(source).toContain("if (surface === 'transcript' || readOnly) return;");
+  expect(source).toContain('Layout cleanup flushes the outgoing composer before the incoming surface restores.');
+  expect(source).toContain('}, [sessionId, surface, readOnly]);');
+});
