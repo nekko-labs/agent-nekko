@@ -1,4 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { pickerPlacement } from './pickerPlacement.js';
+import { filteredModelGroups, isModelPickerEscape, nextFavoriteModels, shouldDismissModelPickerPointer } from './modelPickerInteractions.js';
 import type { AutoQuality, ModelInfo, ProviderConfig } from '@agent-nekko/shared';
 import {
   AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, blockLabel, formatModelPriceLabel,
@@ -58,15 +61,31 @@ export function ModelPicker({
   const limitsByToken = useAllProviderLimits(providers, open);
   const ref = useRef<HTMLDivElement>(null);
   const hintId = React.useId();
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [placement, setPlacement] = useState<React.CSSProperties>({});
+  useLayoutEffect(() => {
+    if (!open || expanded) return;
+    const position = () => {
+      if (ref.current) setPlacement(pickerPlacement(ref.current.getBoundingClientRect(), window.innerWidth, window.innerHeight));
+    };
+    position();
+    window.addEventListener('resize', position);
+    document.addEventListener('scroll', position, true);
+    const observer = new ResizeObserver(position);
+    if (ref.current) observer.observe(ref.current);
+    return () => {
+      window.removeEventListener('resize', position);
+      document.removeEventListener('scroll', position, true);
+      observer.disconnect();
+    };
+  }, [open, expanded]);
 
   useEffect(() => {
     if (!open || expanded) return;
     const onDoc = (e: MouseEvent) => {
-      // Context commands render in a portal outside the picker itself.
-      if ((e.target as Element).closest?.('[role="menu"]')) return;
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (shouldDismissModelPickerPointer(e.target, ref.current, popupRef.current)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (isModelPickerEscape(e)) setOpen(false); };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
@@ -87,20 +106,15 @@ export function ModelPicker({
 
   const favSet = new Set(settings?.favoriteModels ?? []);
   const toggleFavorite = async (key: string) => {
-    const next = new Set(settings?.favoriteModels ?? []);
-    next.has(key) ? next.delete(key) : next.add(key);
-    await window.nekko.updateSettings({ favoriteModels: [...next] });
+    const next = nextFavoriteModels(settings?.favoriteModels, key);
+    await window.nekko.updateSettings({ favoriteModels: next });
     refreshSettings();
   };
 
   const modelsOf = (pid: string): ModelInfo[] =>
     byProvider[pid] ?? (pid === providerId ? models : []);
   const q = query.trim().toLowerCase();
-  const matches = (m: ModelInfo) => !q || m.name.toLowerCase().includes(q) || m.id.toLowerCase().includes(q);
-
-  const groups = providers
-    .map((p) => ({ provider: p, models: modelsOf(p.id).filter(matches) }))
-    .filter((g) => g.models.length > 0);
+  const groups = filteredModelGroups(providers, modelsOf, query);
   const starred = groups.flatMap((g) =>
     g.models
       .filter((m) => favSet.has(`${g.provider.id}::${m.id}`) && !recent.includes(`${g.provider.id}::${m.id}`))
@@ -216,51 +230,8 @@ export function ModelPicker({
     <p className="px-2.5 pb-0.5 pt-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">{label}</p>
   );
 
-  return (
-    <div ref={ref} className={expanded ? 'h-full min-h-0 w-full min-w-0' : 'relative min-w-0 max-w-[240px]'}>
-      {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}><ContextAction onClick={() => { void window.nekko.updateSettings({defaultProviderId:menu.pid,defaultModelId:menu.mid}).then(() => refreshSettings()).catch(e => useStore.getState().pushToast('error', String(e))); setMenu(null); }}>Set as default</ContextAction></ContextMenu>}
-      {/* The nudge rides above the chip as a tooltip rather than a strip in the
-          composer: it says its piece without pushing the composer down, and the
-          menu it asks for opens into the same space, replacing it. */}
-      {hint && !open && (
-        <div
-          id={hintId}
-          role="tooltip"
-          className="fade-in pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-max max-w-[260px] rounded-xl border px-2.5 py-1.5 text-[11px] leading-snug shadow-lg"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
-            background: 'var(--surface)',
-          }}
-        >
-          <span className="font-medium text-accent">Choose a model</span>
-          <span className="text-ink-soft"> · {hint}</span>
-          <span
-            className="absolute bottom-[-5px] left-4 h-2 w-2 rotate-45 border-b border-r"
-            style={{
-              borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
-              background: 'var(--surface)',
-            }}
-          />
-        </div>
-      )}
-      {!expanded && <button
-        className="ctl-menu max-w-full"
-        style={needsChoice ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
-        onClick={() => setOpen(!open)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-describedby={hint && !open ? hintId : undefined}
-        title={needsChoice ? 'This chat has no model yet - pick one' : `Model: ${currentName} · ${providerLabel}`}
-      >
-        <span className="min-w-0 truncate">{needsChoice ? 'Choose a model' : currentName}</span>
-        <span className="ctl-menu-label hidden min-w-0 truncate md:inline">· {providerLabel}</span>
-        <span className="ctl-caret">▾</span>
-      </button>}
-      {/* The menu opens rightwards from the chip's own left edge: the picker is
-          the leftmost control of its row and the menu is wider than the chip, so
-          anchoring it right hung it outside the pane, over the sidebar. */}
-      {(open || expanded) && (
-        <div className={expanded ? 'card flex h-full min-h-0 w-full flex-col p-2 text-left' : 'card absolute bottom-full left-0 z-40 mb-2 flex max-h-96 w-[26rem] max-w-[calc(100vw-2rem)] flex-col p-1.5 shadow-lg'}>
+  const popup = (
+        <div ref={popupRef} style={expanded ? undefined : placement} className={expanded ? 'card flex h-full min-h-0 w-full flex-col p-2 text-left' : 'card fixed z-50 flex flex-col p-1.5 shadow-lg'}>
           {/* Wide enough for a local model's path to read under its name; still
               capped so it never runs off a narrow pane. */}
           {(expanded || total > 8) && (
@@ -325,6 +296,51 @@ export function ModelPicker({
             })}
           </div>
         </div>
+  );
+
+  return (
+    <div ref={ref} className={expanded ? 'h-full min-h-0 w-full min-w-0' : 'relative min-w-0 max-w-[240px]'}>
+      {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}><ContextAction onClick={() => { void window.nekko.updateSettings({defaultProviderId:menu.pid,defaultModelId:menu.mid}).then(() => refreshSettings()).catch(e => useStore.getState().pushToast('error', String(e))); setMenu(null); }}>Set as default</ContextAction></ContextMenu>}
+      {/* The nudge rides above the chip as a tooltip rather than a strip in the
+          composer: it says its piece without pushing the composer down, and the
+          menu it asks for opens into the same space, replacing it. */}
+      {hint && !open && (
+        <div
+          id={hintId}
+          role="tooltip"
+          className="fade-in pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-max max-w-[260px] rounded-xl border px-2.5 py-1.5 text-[11px] leading-snug shadow-lg"
+          style={{
+            borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
+            background: 'var(--surface)',
+          }}
+        >
+          <span className="font-medium text-accent">Choose a model</span>
+          <span className="text-ink-soft"> · {hint}</span>
+          <span
+            className="absolute bottom-[-5px] left-4 h-2 w-2 rotate-45 border-b border-r"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
+              background: 'var(--surface)',
+            }}
+          />
+        </div>
+      )}
+      {!expanded && <button
+        className="ctl-menu max-w-full"
+        style={needsChoice ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+        onClick={() => setOpen(!open)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-describedby={hint && !open ? hintId : undefined}
+        title={needsChoice ? 'This chat has no model yet - pick one' : `Model: ${currentName} · ${providerLabel}`}
+      >
+        <span className="min-w-0 truncate">{needsChoice ? 'Choose a model' : currentName}</span>
+        <span className="ctl-menu-label hidden min-w-0 truncate md:inline">· {providerLabel}</span>
+        <span className="ctl-caret">▾</span>
+      </button>}
+      {/* Portalled out of the pane's overflow clipping and clamped to the viewport. */}
+      {(open || expanded) && (
+        expanded ? popup : createPortal(popup, document.body)
       )}
     </div>
   );
