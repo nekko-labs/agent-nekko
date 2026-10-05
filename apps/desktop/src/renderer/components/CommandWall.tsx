@@ -252,7 +252,7 @@ export function CommandWall({
             </>
           }
           isActive={false}
-          ringColor={needsYou ? 'color-mix(in srgb, var(--warning) 70%, var(--line))' : flashing ? 'color-mix(in srgb, var(--accent) 60%, var(--line))' : undefined}
+          ringColor={flashing ? 'color-mix(in srgb, var(--accent) 60%, var(--line))' : undefined}
           stripStyle={needsYou ? { background: 'color-mix(in srgb, var(--warning) 10%, transparent)' } : undefined}
           addable={WALL_ADDABLE}
           closeTitle={openable ? 'Remove from the wall (the chat stays)' : 'Remove from the wall'}
@@ -268,6 +268,7 @@ export function CommandWall({
             setDragging(null);
           }}
         >
+          {needsYou && <div role="status" className="shrink-0 border-b border-line px-3 py-1 text-[11px]" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 6%, var(--surface))' }}>{status?.label ?? 'Needs your attention'}</div>}
           {openable && (
             <PaneActions>
               <button

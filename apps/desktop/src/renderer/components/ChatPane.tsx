@@ -2169,7 +2169,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
           <div className="composer-column mx-auto w-[90%]">
-            <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
             {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
               <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>
@@ -2219,7 +2218,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                 session={session}
                 isCloudModel={isCloudModel}
                 onChange={setSession}
-                leading={<ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
+                leading={<span className="chip text-[10px]">{imageMode ? 'Image creation' : 'Chat'}</span>}
               />
               </div>
               {!imageMode && (<>
@@ -2636,6 +2635,27 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                       }}
                     />
                   </div>
+                  </>)}
+                  <div className="flex-1" />
+                  {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
+                    <button
+                      className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
+                      onClick={() => void send()}
+                      disabled={imageMode ? streaming || !draft.trim() : (!draft.trim() && pendingImages.length === 0 && !activeSkill) || !hasProvider}
+                      title={streaming ? 'Add to queue after this reply' : 'Send'}
+                      aria-label={streaming ? 'Add to queue' : 'Send'}
+                    >
+                      <NekkoAvatar size={24} />
+                    </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
+        <div className="shrink-0 border-t border-line bg-surface px-3 py-1.5" aria-label="Chat actions and information">
+          <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
+          {!imageMode && <div className="flex flex-wrap items-center gap-2">
                   {modelControls}
                   <LiveContextGauge
                     sessionId={sessionId}
@@ -2658,24 +2678,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                     avoidedCosts={avoidedCosts}
                     running={streaming}
                   />
-                  </>)}
-                  <div className="flex-1" />
-                  {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
-                    <button
-                      className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
-                      onClick={() => void send()}
-                      disabled={imageMode ? streaming || !draft.trim() : (!draft.trim() && pendingImages.length === 0 && !activeSkill) || !hasProvider}
-                      title={streaming ? 'Add to queue after this reply' : 'Send'}
-                      aria-label={streaming ? 'Add to queue' : 'Send'}
-                    >
-                      <NekkoAvatar size={24} />
-                    </button>
-                </div>
-              </div>
-            </div>
-          </div>
+            <span className="ml-auto text-[10px] text-ink-faint">{session?.offline ? 'Offline' : 'Online'}</span>
+          </div>}
         </div>
-        )}
       </section>
 
       {/* The work rail, in the quarter the transcript gives back. Kept inside

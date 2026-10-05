@@ -190,6 +190,8 @@ export interface AppSettings {
   language?: string;
   /** Default tool-execution policy for new chats. */
   defaultChatMode?: import('./chat.js').ChatMode;
+  /** Chat pane's top-right action. Undefined means Complete (archive), not Delete. */
+  chatPaneAction?: 'complete' | 'delete';
   /** Path to the shell new terminals launch by default (undefined = auto-detect). */
   defaultShellPath?: string;
   /** How terminals draw. Undefined means the default (`xterm`). */
