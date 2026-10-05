@@ -67,6 +67,18 @@ export interface RunAgentOptions {
   pullSteering?: () => ChatMessage[];
   /** Pass response headers up to the host (rate-limit capture). */
   onHeaders?: (headers: Headers) => void;
+  /** Route-aware metering for hosts using failover; usage events alone do not identify a route. */
+  onUsage?: (usage: { providerId: string; modelId: string; inputTokens: number; outputTokens: number }) => void;
+  /** CP6 foundation: host-authorized replacement after transient retries exhaust.
+   * Absent by default. The host must enforce Auto opt-in/pool/privacy policy.
+   * One replacement per run; no completed tool is re-executed by this hook.
+   */
+  failover?: (error: unknown) => Promise<{
+    provider: Provider;
+    model: string;
+    onHeaders?: (headers: Headers) => void;
+    maxOutputTokens?: number;
+  } | null>;
 }
 
 let counter = 0;
@@ -163,6 +175,8 @@ function isEmptyTurn(t: Turn): boolean {
 
 export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEvent> {
   const tools = opts.tools ?? BUILTIN_TOOLS;
+  let route = { provider: opts.provider, model: opts.model, onHeaders: opts.onHeaders, maxOutputTokens: opts.maxOutputTokens };
+  let switched = false;
 
   // Stream one provider response, yielding its events and accumulating the
   // result into `turn`. `extraMessages` are appended to the sent history only
@@ -185,17 +199,17 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
     }
 
     try {
-      for await (const chunk of opts.provider.chat({
-        model: opts.model,
+      for await (const chunk of route.provider.chat({
+        model: route.model,
         messages: [...windowHistory(fromLatestCompaction(opts.history), opts.maxHistoryTurns).map(asSeenByChatModel), ...extraMessages],
         system: opts.system,
         tools: sendTools,
         temperature: opts.temperature,
         effort: opts.effort,
         think: opts.think,
-        maxOutputTokens: opts.maxOutputTokens,
+        maxOutputTokens: route.maxOutputTokens,
         signal: ctl.signal,
-        onHeaders: opts.onHeaders,
+        onHeaders: route.onHeaders,
       })) {
         switch (chunk.type) {
           case 'phase':
@@ -223,6 +237,7 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
             yield { type: 'tool_call', sessionId: opts.sessionId, call: chunk.call };
             break;
           case 'usage':
+            opts.onUsage?.({ providerId: route.provider.config.id, modelId: route.model, inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens });
             yield {
               type: 'usage',
               sessionId: opts.sessionId,
@@ -267,7 +282,21 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
         yield* stream(turn, extraMessages, sendTools);
         return;
       } catch (e) {
-        if (opts.signal?.aborted || attempt >= MAX_STREAM_ATTEMPTS || !isTransientProviderError(e)) throw e;
+        if (opts.signal?.aborted || !isTransientProviderError(e)) throw e;
+        if (attempt >= MAX_STREAM_ATTEMPTS) {
+          if (switched || !opts.failover) throw e;
+          const replacement = await opts.failover(e);
+          if (!replacement || opts.signal?.aborted || replacement.provider.config.id === route.provider.config.id) throw e;
+          switched = true;
+          const previous = route;
+          route = { ...replacement, onHeaders: replacement.onHeaders, maxOutputTokens: replacement.maxOutputTokens };
+          Object.assign(turn, before, { calls: [...before.calls] });
+          yield { type: 'retry', sessionId: opts.sessionId, attempt, maxAttempts: MAX_STREAM_ATTEMPTS, delayMs: 0, reason: 'Switching model after retry exhaustion' };
+          opts.history.push({ id: id('switch'), role: 'user', content: `[Model switched from ${previous.provider.config.id}/${previous.model} to ${route.provider.config.id}/${route.model} after retry exhaustion. Continue from the existing transcript and tool results; do not repeat completed work.]`, createdAt: Date.now() });
+          yield { type: 'steered', sessionId: opts.sessionId, messageId: opts.history[opts.history.length - 1].id };
+          attempt = 0;
+          continue;
+        }
         const delayMs = retryDelayMs(attempt, e instanceof ProviderHttpError ? e.retryAfterMs : undefined, Math.random, opts.retryBaseDelayMs);
         Object.assign(turn, before, { calls: [...before.calls] });
         yield {

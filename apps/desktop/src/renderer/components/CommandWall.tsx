@@ -332,9 +332,9 @@ export function CommandWall({
               {subAgents > 0 && <span className="chip shrink-0 text-[10px]" title={`${subAgents} sub-agent${subAgents === 1 ? '' : 's'}`}>+{subAgents}</span>}
             </>
           }
-          isActive={selected}
-          ringColor={needsYou ? 'color-mix(in srgb, var(--warning) 70%, var(--line))' : selected || flashing ? 'color-mix(in srgb, var(--accent) 75%, var(--line))' : undefined}
-          stripStyle={needsYou ? { background: 'color-mix(in srgb, var(--warning) 10%, transparent)' } : selected ? { background: 'color-mix(in srgb, var(--accent) 9%, transparent)' } : undefined}
+          isActive={false}
+          ringColor={flashing ? 'color-mix(in srgb, var(--accent) 60%, var(--line))' : undefined}
+          stripStyle={needsYou ? { background: 'color-mix(in srgb, var(--warning) 10%, transparent)' } : undefined}
           addable={WALL_ADDABLE}
           closeTitle={openable ? 'Remove from the wall (the chat stays)' : 'Remove from the wall'}
           dragging={dragging}
@@ -349,6 +349,7 @@ export function CommandWall({
             setDragging(null);
           }}
         >
+          {needsYou && <div role="status" className="shrink-0 border-b border-line px-3 py-1 text-[11px]" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 6%, var(--surface))' }}>{status?.label ?? 'Needs your attention'}</div>}
           {openable && (
             <PaneActions>
                <button className="command-wall-action" title={`Focus ${title}`} aria-label={`Focus ${title}`} aria-pressed={geometry.hero === pane.id} onClick={() => geometry.hero === pane.id ? setState(s => ({ ...s, layout: { ...s.layout, mode: 'grid' } })) : focusWindow(pane)}>{geometry.hero === pane.id ? 'Back to grid' : 'Focus'}</button>

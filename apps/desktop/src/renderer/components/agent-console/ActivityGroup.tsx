@@ -1,5 +1,7 @@
 import { memo } from 'react';
-import { summarizeThought, summarizeToolCall, truncateWords } from '@agent-nekko/shared';
+import { summarizeThought, summarizeToolCall, truncateWords, type LiveActivity } from '@agent-nekko/shared';
+import { ToolProgressChip } from './ToolProgressChip.js';
+import { toolQuietSince } from './toolProgress.js';
 import { ChatIcon, RobotIcon, ThoughtIcon, ToolStepIcon } from '../../icons.js';
 import { Markdown } from '../Markdown.js';
 import type { Activity } from './transcript.js';
@@ -18,7 +20,7 @@ import { useRowState } from './rowState.js';
  * collapses to the old one-liner, so a 40-step turn doesn't take over the
  * transcript.
  */
-export const ActivityGroup = memo(function ActivityGroup({ items, streaming = false }: { items: Activity[]; streaming?: boolean }) {
+export const ActivityGroup = memo(function ActivityGroup({ items, streaming = false, toolActivity }: { items: Activity[]; streaming?: boolean; toolActivity?: LiveActivity }) {
   // Open while the turn runs (watching it work is the point), folded away
   // afterwards so a finished transcript reads as answers. Remembered per row,
   // so scrolling a transcript row out of the window and back keeps it as left.
@@ -46,6 +48,10 @@ export const ActivityGroup = memo(function ActivityGroup({ items, streaming = fa
           </span>
         )}
         {streaming && <span className="dots" />}
+        {!open && tools.map(({ call }) => {
+          const since = toolQuietSince(toolActivity, call.id);
+          return since === undefined ? null : <ToolProgressChip key={call.id} since={since} />;
+        })}
       </button>
       {open && (
         <ol className="ml-[7px] mt-0.5 border-l border-line pl-2.5">
@@ -54,6 +60,7 @@ export const ActivityGroup = memo(function ActivityGroup({ items, streaming = fa
               key={stepKey(it, i)}
               index={i + 1}
               item={it}
+              quietSince={it.kind === 'tool' ? toolQuietSince(toolActivity, it.call.id) : undefined}
               // The last row of a live run is the one happening now.
               live={streaming && i === items.length - 1}
             />
@@ -69,7 +76,7 @@ export const ActivityGroup = memo(function ActivityGroup({ items, streaming = fa
  * thing. The headline is what a reader needs to follow the run without opening
  * anything, which for a thought means its conclusion, not its opening.
  */
-function StepRow({ index, item, live }: { index: number; item: Activity; live: boolean }) {
+function StepRow({ index, item, live, quietSince }: { index: number; item: Activity; live: boolean; quietSince?: number }) {
   const [open, setOpen] = useRowState(`step-${index}-open`, false);
 
   const kind =
@@ -107,6 +114,7 @@ function StepRow({ index, item, live }: { index: number; item: Activity; live: b
         <span className={`shrink-0 font-medium ${live ? 'text-accent' : 'text-ink-soft'}`}>{label}</span>
         {headline && <span className="min-w-0 truncate">· {headline}</span>}
         {live && <span className="dots" />}
+        {quietSince !== undefined && <ToolProgressChip since={quietSince} />}
       </button>
       {open && (
         item.kind === 'note' ? (
