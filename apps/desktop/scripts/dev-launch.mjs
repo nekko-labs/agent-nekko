@@ -14,12 +14,19 @@ export function prepareMacBundle() {
 
   const cache = resolve('.dev-runtime', require('electron/package.json').version);
   const bundle = join(cache, 'Agent Nekko.app');
-  const ready = join(cache, 'ready');
+  const ready = join(cache, 'ready-v2');
   if (!existsSync(ready)) {
     mkdirSync(cache, { recursive: true });
     cpSync(resolve(dirname(electron), '../..'), bundle, { recursive: true, verbatimSymlinks: true });
+    const iconset = join(cache, 'Agent Nekko.iconset');
+    mkdirSync(iconset, { recursive: true });
+    for (const size of [16, 32, 128, 256, 512]) for (const scale of [1, 2]) {
+      const target = join(iconset, `icon_${size}x${size}${scale === 2 ? '@2x' : ''}.png`);
+      if (spawnSync('/usr/bin/sips', ['-z', String(size * scale), String(size * scale), resolve('build/icon.png'), '--out', target]).status !== 0) throw Error('Could not prepare development icon');
+    }
+    if (spawnSync('/usr/bin/iconutil', ['-c', 'icns', iconset, '-o', join(bundle, 'Contents/Resources/Agent Nekko.icns')]).status !== 0) throw Error('Could not build development icon');
     const plist = join(bundle, 'Contents/Info.plist');
-    for (const [key, value] of Object.entries({ CFBundleName: 'Agent Nekko', CFBundleDisplayName: 'Agent Nekko', CFBundleIdentifier: 'com.agentnekko.desktop.dev' })) {
+    for (const [key, value] of Object.entries({ CFBundleName: 'Agent Nekko', CFBundleDisplayName: 'Agent Nekko', CFBundleIdentifier: 'com.agentnekko.desktop.dev', CFBundleIconFile: 'Agent Nekko.icns', NSMicrophoneUsageDescription: 'Agent Nekko uses the microphone for dictation.', NSCameraUsageDescription: 'Agent Nekko uses the camera only when you choose to share it.' })) {
       const result = spawnSync('/usr/libexec/PlistBuddy', ['-c', `Set :${key} ${value}`, plist]);
       if (result.status !== 0 && spawnSync('/usr/libexec/PlistBuddy', ['-c', `Add :${key} string ${value}`, plist]).status !== 0) throw new Error('Could not set development bundle identity: ' + key);
     }
@@ -37,13 +44,21 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 if (process.platform === 'darwin') { const prepared = prepareMacBundle(); env.ELECTRON_EXEC_PATH = prepared.launcher; ownedCache = prepared.cache; }
 const cli = resolve(dirname(require.resolve('electron-vite')), '../bin/electron-vite.js');
 const child = spawn(process.execPath, [cli, process.argv[2] || 'dev'], { env, stdio: 'inherit' });
-child.on('exit', code => process.exit(code ?? 1));
+let stopping = false;
+child.on('exit', code => { if (!stopping) process.exit(code ?? 1); });
 
 const stop = () => {
-  if (ownedCache) for (const name of readdirSync(ownedCache).filter(n => /^launch-.*\.json$/.test(n))) {
-    try { const receipt = JSON.parse(readFileSync(join(ownedCache, name), 'utf8')); if (receipt.owner === env.NEKKO_DEV_OWNER && Number.isInteger(receipt.pid) && receipt.pid > 0) process.kill(receipt.pid, 'SIGTERM'); } catch {}
-  }
-  child.kill();
+  if (stopping) return;
+  stopping = true;
+  const stopOwned = () => {
+    if (ownedCache) for (const name of readdirSync(ownedCache).filter(n => /^launch-.*\.json$/.test(n))) {
+      try { const receipt = JSON.parse(readFileSync(join(ownedCache, name), 'utf8')); if (receipt.owner === env.NEKKO_DEV_OWNER && Number.isInteger(receipt.pid) && receipt.pid > 0) process.kill(receipt.pid, 'SIGTERM'); } catch {}
+    }
+  };
+  stopOwned(); child.kill();
+  // Catch a launch that was still registering when shutdown arrived.
+  const timer = setInterval(stopOwned, 100);
+  setTimeout(() => { clearInterval(timer); process.exit(0); }, 5000);
 };
 process.on('SIGINT', stop);
 process.on('SIGTERM', stop);
