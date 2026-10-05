@@ -681,4 +681,12 @@ Dock minimization keeps the outgoing panel mounted for a 220ms shrinking transit
 
 The model dropdown renders in a viewport-positioned portal, outside the chat pane's overflow clipping. It fits available height, scrolls its model list, clamps horizontally, and opens above or below the trigger according to available space. Inline empty-chat selection remains inline. Acceptance: subscription usage with published prices has a nonzero API-equivalent total while billed usage remains zero; unknown pricing is not presented as free; filtering, selection, favorites, outside-click dismissal and Escape continue working in narrow composer and full-chat windows. No new network requests or credential access are introduced by the picker.
 
+## Development macOS identity
+
+Implemented, pending native verification: `npm run dev` and desktop `start` prepare a separate, locally ad-hoc-signed **Agent Nekko.app** development bundle and launch it through macOS LaunchServices, rather than modifying the shared Electron download or launching directly under Terminal. The native display name is Agent Nekko. Development uses `com.agentnekko.desktop.dev`, separate from the release identity. Existing macOS privacy grants are not reset or migrated; permission attribution, first-launch prompts, and restart behavior require native verification. No user profile data or grants may be changed for testing. Other platforms retain the normal Electron launcher.
+
+## Command Center header spacing
+
+Implemented, pending matched desktop visual verification: the Command Center title and toolbar share the existing top row with a 4px top inset (previously 20px), reclaiming 16px for the wall below. Preserve native title-bar clearance, control sizes, horizontal gutters, and narrow-screen wrapping; do not move controls into the native draggable title bar.
+
 Router decision integration tests bind port zero and read the actual listener port to avoid reserve/release races. Auth/CORS expectations are unchanged; platform execution is verified by CI.
