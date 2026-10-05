@@ -18,7 +18,8 @@ vi.mock('./PaneFrame.js', () => ({
   PaneFrame: ({ title, children }: { title: string; children: React.ReactNode }) => <section data-title={title}>{children}</section>,
   PaneActions: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-import { CommandWall, commandWallGeometry, workspaceCompanions } from './CommandWall.js';
+import { CommandWall, commandWallGeometry, companionTree, resizeCompanionSplit, workspaceCompanions } from './CommandWall.js';
+import { leafRects } from '../commandWall.js';
 
 const a: WbPane = { id: 'a', kind: 'chat', refId: 'chat-a' };
 const b: WbPane = { id: 'b', kind: 'chat', refId: 'chat-b' };
@@ -32,18 +33,48 @@ function wall(s: CommandWallState) {
 }
 
 describe('command wall geometry', () => {
+  it('converts an expanded divider resize back to saved ratios without cumulative widening', () => {
+    const expanded = new Set(['a']);
+    const resized = resizeCompanionSplit(root, expanded, 'split', 0, .6) as WbSplit;
+    const displayed = companionTree(resized, expanded) as WbSplit;
+    expect(displayed.sizes[0]).toBeCloseTo(.6);
+    expect(displayed.sizes[2]).toBeCloseTo((companionTree(root, expanded) as WbSplit).sizes[2]);
+    expect(companionTree(displayed, expanded, 1 / 1.9)).toEqual(resized);
+    expect(root.sizes).toEqual([.5, .3, .2]);
+  });
+  it('keeps the Add preview separate from every existing window', () => {
+    const g = commandWallGeometry(state(), 1000, 700, new Set(['a']));
+    for (const pane of g.panes.values()) {
+      const overlapWidth = Math.min(pane.x + pane.width, g.add.x + g.add.width) - Math.max(pane.x, g.add.x);
+      const overlapHeight = Math.min(pane.y + pane.height, g.add.y + g.add.height) - Math.max(pane.y, g.add.y);
+      expect(overlapWidth > 0 && overlapHeight > 0).toBe(false);
+    }
+  });
+  it('widens companion leaves without changing saved ratios', () => {
+    const before = JSON.stringify(root);
+    const widened = companionTree(root, new Set(['a'])) as WbSplit;
+    expect(widened.sizes[0] / widened.sizes[1]).toBeCloseTo((0.5 * 1.9) / 0.3);
+    expect(JSON.stringify(root)).toBe(before);
+  });
+
+  it('does not duplicate shared companions under a secondary chat', () => {
+    const shared = { ...workspace, root: { ...root, children: [a, b, ...companions], sizes: Array(7).fill(1 / 7) } };
+    expect(workspaceCompanions([shared], 'chat-b')).toEqual([]);
+    expect(workspaceCompanions([shared], 'chat-a')).toHaveLength(4);
+  });
   it('keeps narrow Focus transcripts and approval controls above stacked companions', () => {
     const g = commandWallGeometry(state({ layout: layout('focus'), hero: 'chat-a' }), 390, 300);
     expect(g.panes.get('a')!.height).toBe(960);
     expect(g.height).toBe(960);
     expect(g.panes.get('a')!.height * .65).toBeGreaterThan(600);
   });
+
   it('retains saved Grid ratios without mutating the source tree', () => {
     const s = state();
     const before = JSON.stringify(s);
     const g = commandWallGeometry(s, 1000, 700);
     expect(g.panes.get('a')).toEqual({ x: 0, y: 0, width: 496, height: 628 });
-    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 628 });
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 310 });
     expect(g.panes.get('t')).toEqual({ x: 804, y: 0, width: 196, height: 628 });
     expect(g.deck.size).toBe(0);
     expect(JSON.stringify(s)).toBe(before);
@@ -53,19 +84,26 @@ describe('command wall geometry', () => {
     for (const mode of ['grid', 'fixed', 'focus'] as const) {
       const s = state({ layout: layout(mode), hero: 'chat-a' });
       const g = commandWallGeometry(s, 1000, 700);
-      expect(commandWallGeometry({ ...s, folded: { 'chat-a': true, 'chat-b': true, term: true } }, 1000, 700)).toEqual(g);
+      const folded = commandWallGeometry({ ...s, folded: { 'chat-a': true, 'chat-b': true, term: true } }, 1000, 700);
+      expect(folded.panes).toEqual(g.panes);
+      expect(folded.deck).toEqual(g.deck);
+      expect(folded.hero).toEqual(g.hero);
+      expect(folded.add).toEqual(g.add);
       expect(g.deck.size).toBe(mode === 'focus' ? 2 : 0);
     }
   });
 
-  it('gives the Grid tree at least 560px plus a reachable Add cell', () => {
-    const g = commandWallGeometry(state(), 1000, 300);
-    expect(g.stageHeight).toBe(560);
-    expect(g.panes.get('a')!.height).toBe(560);
-    expect(g.add.y).toBe(568);
-    expect(g.add.height).toBeCloseTo(1000 / 3);
-    expect(g.add.width).toBeCloseTo(1000 / 3);
-    expect(g.height).toBeCloseTo(568 + 1000 / 3);
+  it('places the Grid Add cell at the same leaf addPane will use next', () => {
+    const g = commandWallGeometry(state(), 1000, 700);
+    const preview = leafRects(g.addGrid).get('__wall_add__')!;
+    expect(preview).toBeTruthy();
+    expect(g.stageHeight).toBe(628);
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 310 });
+    expect(g.add).toEqual({ x: 504, y: 318, width: 292, height: 310 });
+    expect(preview.x).toBeCloseTo(0.5);
+    expect(preview.y).toBeCloseTo(0.5);
+    expect(preview.width).toBeCloseTo(0.3);
+    expect(preview.height).toBeCloseTo(0.5);
   });
 
   it('uses Focus-only deck and falls back when the hero is missing or filtered', () => {

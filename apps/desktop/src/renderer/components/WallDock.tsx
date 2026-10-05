@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
-import type { AutomationTask, ProviderConfig, SessionSummary, UsageSummary } from '@agent-nekko/shared';
-import { formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor, sanitizeMonthlyBudgetUsd } from '@agent-nekko/shared';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
+import { RUNTIME_CAPABILITIES, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor, sanitizeMonthlyBudgetUsd } from '@agent-nekko/shared';
 import { DOCK_PANELS, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
+import { localRuntimeMetrics, recordedBudgetMetrics } from './wallDockMetrics.js';
 import { AutomationsPane } from './AutomationsPane.js';
 import { InsightsBox, type Vitals } from './InsightsBox.js';
 import { useMonitors, useResourceSample } from './ResourceMonitor.js';
@@ -109,9 +110,9 @@ export function WallDock(props: WallDockProps) {
             {p.key === 'vitals' && <InsightsBox {...insightProps} prefs={VITAL_PREFS} onPrefs={() => {}} />}
             {p.key === 'automations' && <AutomationsPane tasks={props.tasks} running={props.running} now={props.now} onOpen={props.onOpenChat} />}
             {p.key === 'utilization' && <Utilization providers={props.providers} usage={props.usage} now={props.now} onOpenModels={props.onOpenModels} />}
-            {p.key === 'budget' && <Budget usage={props.usage} now={props.now} />}
+            {p.key === 'budget' && <Budget usage={props.usage} sessions={props.sessions} providers={props.providers} now={props.now} />}
             {p.key === 'insights' && <InsightsBox {...insightProps} prefs={state.insights} onPrefs={insights} />}
-            {p.key === 'hardware' && <Hardware />}
+            {p.key === 'hardware' && <Hardware providers={props.providers} />}
           </div>}
         </section>)}
         {selectedPanels.length === 0 && <p className="wall-dock__empty">No panels selected. Use Configure to restore them.</p>}
@@ -158,7 +159,7 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
   </div>;
 }
 
-function Budget({ usage, now }: Pick<WallDockProps, 'usage' | 'now'>) {
+function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage' | 'now' | 'sessions' | 'providers'>) {
   const settings = useStore((s) => s.settings);
   const budget = sanitizeMonthlyBudgetUsd(settings?.monthlyBudgetUsd);
   const [draft, setDraft] = useState(budget == null ? '' : String(budget));
@@ -166,6 +167,7 @@ function Budget({ usage, now }: Pick<WallDockProps, 'usage' | 'now'>) {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { setDraft(budget == null ? '' : String(budget)); }, [budget]);
   const month = new Date(now).toISOString().slice(0, 7);
+  const recorded = recordedBudgetMetrics(usage, sessions, providers);
   const spend = usage?.daily.filter((d) => d.date.startsWith(`${month}-`)).reduce((sum, d) => sum + d.cost, 0);
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,18 +189,31 @@ function Budget({ usage, now }: Pick<WallDockProps, 'usage' | 'now'>) {
       <p>{spend > budget ? `${formatUSD(spend - budget)} over budget` : `${formatUSD(budget - spend)} remaining`}</p>
       {budget > 0 && <progress aria-label="Monthly budget used" max={budget} value={Math.min(spend, budget)} />}
     </>}
+    <p>Top agent · all-time recorded tokens: {recorded.topAgent}</p>
+    <p>Local providers · all-time recorded tokens: {recorded.localTokens}</p>
+    <p>Per-agent and local-provider monthly breakdowns are unavailable; these totals are not the monthly budget period.</p>
     <form onSubmit={save}><label>Monthly budget (USD)<input type="number" min="0" step="any" value={draft} placeholder="Not set" disabled={!settings || saving} onChange={(e) => setDraft(e.target.value)} /></label><button type="submit" disabled={!settings || saving}>{saving ? 'Saving…' : 'Save'}</button></form>
     {error && <p role="alert">{error}</p>}
     <p>Advisory only, not a spending limit or bill. Estimates cover recorded usage, not subscription fees. Leave blank to clear.</p>
   </div>;
 }
 
-function Hardware() {
+function Hardware({ providers }: { providers: ProviderConfig[] }) {
   const monitors = useMonitors();
   const { system, gpu } = useResourceSample();
+  const runtimeIds = providers.filter((p) => p.enabled && p.kind in RUNTIME_CAPABILITIES && RUNTIME_CAPABILITIES[p.kind as keyof typeof RUNTIME_CAPABILITIES].canLoad).map((p) => p.id);
+  const [statuses, setStatuses] = useState<Array<RuntimeStatus | null>>([]);
+  useEffect(() => {
+    let live = true;
+    const refresh = () => { void Promise.all(runtimeIds.map((id) => window.nekko.runtimeStatus(id).catch(() => null))).then((next) => { if (live) setStatuses(next); }); };
+    refresh();
+    const timer = setInterval(refresh, 6000);
+    return () => { live = false; clearInterval(timer); };
+  }, [runtimeIds.join('|')]);
   const util = gpu?.devices.map((d) => d.utilizationPct).filter((n): n is number => n != null && Number.isFinite(n)) ?? [];
   const gpuUtil = util.length ? Math.max(...util) : null;
   const memory = (used: number, total: number) => total > 0 ? `${(used / 1024).toFixed(1)} / ${(total / 1024).toFixed(1)} GiB (${Math.round(used / total * 100)}%)` : 'Unavailable';
+  const local = localRuntimeMetrics(statuses.filter((s): s is RuntimeStatus => !!s));
   const rows = [
     { label: 'CPU', value: !monitors.cpu ? null : system?.cpuPct ?? null, text: !monitors.cpu ? 'Monitor off' : system ? `${system.cpuPct}%` : 'Unavailable', color: 'var(--accent)' },
     { label: 'Memory', value: monitors.memory && system && system.memTotalMB > 0 ? system.memUsedMB / system.memTotalMB * 100 : null, text: !monitors.memory ? 'Monitor off' : system ? memory(system.memUsedMB, system.memTotalMB) : 'Unavailable', color: 'var(--accent-2)' },
@@ -212,6 +227,12 @@ function Hardware() {
         {row.value != null && <span style={{ width: `${Math.max(0, Math.min(100, row.value))}%`, background: row.color }} />}
       </div><span className="wall-dock__reading">{row.text}</span>
     </div>)}
+    <dl>
+      <dt>Loaded local models</dt><dd>{local.loadedModels}</dd>
+      <dt>Loaded model memory</dt><dd>{local.memoryLabel}</dd>
+      <dt>Last local tok/s</dt><dd>{local.lastTokPerSecond}</dd>
+    </dl>
+    {local.recent.length > 0 && <ul>{local.recent.map((r) => <li key={r.id}>{r.id}{r.placement ? ' · ' + r.placement : ''}{r.lastUsed ? ' · last used ' + r.lastUsed : ''}</li>)}</ul>}
     <p>Shared resource sampler · OS{gpu ? ` + ${gpu.source}` : ''}. Missing probes are unavailable, not zero. Monitor switches follow Settings.</p>
   </div>;
 }

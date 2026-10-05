@@ -1,3 +1,4 @@
+import { terminalExcerpt } from './terminalExcerpt.js';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { PendingInput, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
@@ -21,6 +22,7 @@ import {
   NARROW_WIDTH,
   WALL_KINDS,
   addPane,
+  addPanes,
   filterTree,
   leafRects,
   wallAgents,
@@ -38,9 +40,26 @@ import { DiffPane } from './DiffPane.js';
 /** Read the owning workspace, never synthesize or persist a second layout. */
 export function workspaceCompanions(workspaces: Workspace[], sessionId: string): WbPane[] {
   const workspace = workspaces.find((w) => w.anchor.kind === 'chat' && w.anchor.refId === sessionId)
-    ?? workspaces.find((w) => allPanes(w.root).some((p) => p.kind === 'chat' && p.refId === sessionId));
+    ?? workspaces.find((w) => {
+      const chats = allPanes(w.root).filter((p) => p.kind === 'chat');
+      return w.anchor.kind !== 'chat' && chats.length === 1 && chats[0].refId === sessionId;
+    });
   return allPanes(workspace?.root ?? null).filter((p) =>
     p.kind === 'file' || p.kind === 'files' || p.kind === 'browser' || (p.kind === 'diff' && p.refId === sessionId));
+}
+
+export function TerminalExcerpt({ terminalId }: { terminalId: string }) {
+  const [text, setText] = useState('Reading terminal output…');
+  useEffect(() => {
+    let disposed = false;
+    const refresh = () => { void window.nekko.terminalSnapshot(terminalId).then(snap => {
+      if (!disposed) setText(terminalExcerpt(snap?.buffer ?? ''));
+    }).catch(() => { if (!disposed) setText('Terminal output unavailable'); }); };
+    refresh();
+    const timer = setInterval(refresh, 3000);
+    return () => { disposed = true; clearInterval(timer); };
+  }, [terminalId]);
+  return <span className="font-mono whitespace-pre-wrap">{text}</span>;
 }
 
 function CompanionBody({ pane }: { pane: WbPane }) {
@@ -68,12 +87,26 @@ export interface WallGeometry {
   hero: string | null;
   height: number;
   add: { x: number; y: number; width: number; height: number };
+  /** Preview tree with one Add-cell placeholder inserted exactly where addPane would place the next window. */
+  addGrid: WbNode | null;
   grid: WbNode | null;
   stageHeight: number;
 }
 
+/** Expand companion-bearing leaves for display only; never write these ratios back. */
+export function companionTree(root: WbNode | null, expanded: Set<string>, factor = 1.9): WbNode | null {
+  if (!root || !isSplit(root)) return root;
+  const weights = root.children.map((child, i) => root.sizes[i] * (root.dir === 'row' && allPanes(child).some(p => expanded.has(p.id)) ? factor : 1));
+  const total = weights.reduce((a, b) => a + b, 0);
+  return { ...root, children: root.children.map(child => companionTree(child, expanded, factor)!), sizes: weights.map(w => w / total) };
+}
+
+export function resizeCompanionSplit(root: WbNode | null, expanded: Set<string>, id: string, index: number, fraction: number): WbNode | null {
+  return companionTree(resizeSplit(companionTree(root, expanded), id, index, fraction), expanded, 1 / 1.9);
+}
+
 /** Pixel geometry only; the saved split tree is never re-tiled by a mode switch. */
-export function commandWallGeometry(state: CommandWallState, width: number, height: number): WallGeometry {
+export function commandWallGeometry(state: CommandWallState, width: number, height: number, expanded = new Set<string>()): WallGeometry {
   const tree = filterTree(state.root, state.filter);
   const visible = allPanes(tree);
   const hero = state.layout.mode === 'focus'
@@ -89,6 +122,11 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const stageHeight = Math.max(minimum, height - (state.layout.mode === 'focus' ? 0 : 64 + gap));
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
+  const addPanePreview: WbPane = { id: '__wall_add__', kind: 'chat', refId: '__wall_add__' };
+  // Choose insertion from the saved tree before applying display-only weights.
+  const addGrid = companionTree(state.layout.mode === 'grid' && width >= NARROW_WIDTH
+    ? addPanes(grid, [addPanePreview], width > 0 && height > 0 ? width / height : DEFAULT_ASPECT)
+    : grid, expanded);
   let contentHeight = stageHeight;
   if (state.layout.mode === 'focus') {
     if (hero) panes.set(hero, { x: 0, y: 0, width, height: stageHeight });
@@ -103,12 +141,23 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     const i = active.length;
     const add = { x: (i % cols) * (cellWidth + gap), y: Math.floor(i / cols) * (rowHeight + gap), width: cellWidth, height: rowHeight };
     deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: contentHeight + gap, width: 240, height: 160 }));
-    return { panes, deck, hero, height: contentHeight + (deck.size ? 168 : 0), add, grid, stageHeight };
+    return { panes, deck, hero, height: contentHeight + (deck.size ? 168 : 0), add, addGrid: grid, grid, stageHeight };
   } else {
-    for (const [id, r] of leafRects(grid)) panes.set(id, { x: r.x * width + (r.x > 0 ? gap / 2 : 0), y: r.y * stageHeight + (r.y > 0 ? gap / 2 : 0), width: Math.max(0, r.width * width - (r.x > 0 ? gap / 2 : 0) - (r.x + r.width < 1 - 1e-6 ? gap / 2 : 0)), height: Math.max(0, r.height * stageHeight - (r.y > 0 ? gap / 2 : 0) - (r.y + r.height < 1 - 1e-6 ? gap / 2 : 0)) });
+    const rectOf = (r: { x: number; y: number; width: number; height: number }) => ({
+      x: r.x * width + (r.x > 0 ? gap / 2 : 0),
+      y: r.y * stageHeight + (r.y > 0 ? gap / 2 : 0),
+      width: Math.max(0, r.width * width - (r.x > 0 ? gap / 2 : 0) - (r.x + r.width < 1 - 1e-6 ? gap / 2 : 0)),
+      height: Math.max(0, r.height * stageHeight - (r.y > 0 ? gap / 2 : 0) - (r.y + r.height < 1 - 1e-6 ? gap / 2 : 0)),
+    });
+    for (const [id, r] of leafRects(addGrid)) { if (id !== addPanePreview.id) panes.set(id, rectOf(r)); }
+    const preview = leafRects(addGrid).get(addPanePreview.id);
+    if (preview) {
+      deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: stageHeight + gap, width: 240, height: 160 }));
+      return { panes, deck, hero, height: stageHeight + gap + deckHeight, add: rectOf(preview), addGrid, grid, stageHeight };
+    }
   }
   // Focus keeps other bodies warm but selects them through the row above the hero.
-  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, grid, stageHeight };
+  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, addGrid, grid, stageHeight };
 }
 
 /** Stable keyed windows across layouts keep transcripts, terminals and drafts warm. */
@@ -157,6 +206,8 @@ export function CommandWall({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [dragging, setDragging] = useState<string | null>(null);
+
+
 
   // The wall fills the window from where it starts down to the bottom and
   // re-measures when its box changes (the ribbon appearing, a resize).
@@ -219,11 +270,27 @@ export function CommandWall({
   const numberOf = useMemo(() => new Map(wallAgents(state.root).map((p, i) => [p.refId, i + 1])), [state.root]);
   const terminalById = useMemo(() => new Map(terminals.map((t) => [t.id, t])), [terminals]);
   const aspect = size.width > 0 && size.height > 0 ? size.width / size.height : DEFAULT_ASPECT;
-  const geometry = useMemo(() => commandWallGeometry(state, size.width, size.height), [state.root, state.filter, state.layout, state.hero, size]);
+  const { geometry, expanded } = useMemo(() => {
+    const base = commandWallGeometry(state, size.width, size.height);
+    if (state.layout.mode !== 'grid') return { geometry: base, expanded: new Set<string>() };
+    const expanded = new Set(wallAgents(state.root).filter(p => workspaceCompanions(workspaces, p.refId).length > 0 && !(state.folded[p.refId] ?? (numberOf.size > 4 || (base.panes.get(p.id)?.width ?? 0) < 700))).map(p => p.id));
+    return { geometry: expanded.size ? commandWallGeometry(state, size.width, size.height, expanded) : base, expanded };
+  }, [state.root, state.filter, state.layout, state.hero, state.folded, workspaces, numberOf, size]);
   const densityOf = (paneId: string): boolean | null => {
     const r = geometry.panes.get(paneId);
     return !r || size.width === 0 ? null : r.width < COMPACT_WIDTH || r.height - 32 < COMPACT_HEIGHT;
   };
+  const seenCompanions = useRef(new Map<string, number>());
+  const [companionNotice, setCompanionNotice] = useState<WbPane | null>(null);
+  useEffect(() => {
+    if (!size.width) return;
+    for (const pane of wallAgents(state.root)) {
+      const count = workspaceCompanions(workspaces, pane.refId).length;
+      const previous = seenCompanions.current.get(pane.refId) ?? 0;
+      if (count > previous && state.layout.mode === 'grid' && (geometry.panes.get(pane.id)?.width ?? 0) < 700) setCompanionNotice(pane);
+      seenCompanions.current.set(pane.refId, count);
+    }
+  }, [workspaces, state.root, state.layout.mode, geometry, size.width]);
   const focusWindow = (pane: WbPane) => {
     setState((s) => ({ ...s, layout: { ...s.layout, mode: 'focus' }, hero: pane.refId }));
     if (pane.kind === 'chat') onSelect(pane.refId);
@@ -364,8 +431,9 @@ export function CommandWall({
               </button>
             </PaneActions>
           )}
-          {inDeck && <button className="command-wall-card" onClick={() => focusWindow(pane)} aria-label={`Focus ${title}`}><span>{session?.lastReplyText || (terminal ? 'Open terminal to view output' : 'No reply yet')}</span><small>{session ? `${session.transcriptTokens.toLocaleString()} context tokens` : status?.label}</small></button>}
+          {inDeck && <button className="command-wall-card" onClick={() => focusWindow(pane)} aria-label={`Focus ${title}`}>{terminal ? <TerminalExcerpt terminalId={terminal.id} /> : <span>{session?.lastReplyText || 'No reply yet'}</span>}<small>{session ? `${session.modelId || 'Default model'} · ${session.transcriptTokens.toLocaleString()} context tokens` : status?.label}</small></button>}
           <div className="command-wall-content" inert={!rect || inDeck} aria-hidden={!rect || inDeck || undefined} data-companions-visible={showCompanions && companions.length > 0 || undefined} data-focus-chat={focusedChat || undefined}>
+
             <div className="command-wall-primary">
            {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter surface={focusedChat ? 'full' : 'transcript'} /></PaneDensityHint.Provider>
             : pane.kind === 'terminal' ? <TerminalPane key={pane.refId} terminalId={pane.refId} />
@@ -385,6 +453,9 @@ export function CommandWall({
 
   // Each divider retains its original split box as its parent so pointer and
   // keyboard resize fractions still address the saved tree, not the whole wall.
+  const sourceSplitIds = new Set<string>();
+  const collectSplits = (node: WbNode | null): void => { if (node && isSplit(node)) { sourceSplitIds.add(node.id); node.children.forEach(collectSplits); } };
+  collectSplits(state.root);
   const renderDividers = (node: WbNode, r = { x: 0, y: 0, width: size.width, height: geometry.stageHeight }): React.ReactNode => {
     if (!isSplit(node)) return null;
     let at = 0;
@@ -394,13 +465,13 @@ export function CommandWall({
       const childRect = node.dir === 'row' ? { ...r, x: r.x + at * r.width, width: share * r.width } : { ...r, y: r.y + at * r.height, height: share * r.height };
       at += share;
       return <React.Fragment key={child.id}>
-        {i > 0 && <div className="command-wall-divider-box" style={{ left: r.x, top: r.y, width: r.width, height: r.height,
+        {i > 0 && sourceSplitIds.has(node.id) && <div className="command-wall-divider-box" style={{ left: r.x, top: r.y, width: r.width, height: r.height,
           '--wall-divider-left': `${node.dir === 'row' ? fraction * r.width - 4 : 0}px`,
           '--wall-divider-top': `${node.dir === 'col' ? fraction * r.height - 4 : 0}px`,
           '--wall-divider-width': `${node.dir === 'row' ? 8 : r.width}px`,
           '--wall-divider-height': `${node.dir === 'col' ? 8 : r.height}px`,
         } as React.CSSProperties}>
-          <Divider splitId={node.id} index={i - 1} dir={node.dir} onResize={(id, index, value) => update((root) => resizeSplit(root, id, index, value))} />
+          <Divider splitId={node.id} index={i - 1} dir={node.dir} onResize={(id, index, value) => update((root) => resizeCompanionSplit(root, expanded, id, index, value))} />
         </div>}
         {renderDividers(child, childRect)}
       </React.Fragment>;
@@ -409,9 +480,10 @@ export function CommandWall({
 
   return (
     <div ref={wrapRef} className="command-wall-layout" data-command-wall="windows" data-wall-layout={state.layout.mode}>
+      {companionNotice && <div className="command-wall-notice" role="status">A companion opened in a narrow window. <button onClick={() => { focusWindow(companionNotice); setCompanionNotice(null); }}>Focus {titleOf(companionNotice)}</button><button aria-label="Dismiss companion notice" onClick={() => setCompanionNotice(null)}>×</button></div>}
       <div className="command-wall-stage" style={{ height: geometry.height, minWidth: state.layout.mode === 'focus' ? size.width : Math.max(size.width, geometry.add.x + geometry.add.width) }}>
         {allPanes(state.root).map(renderLeaf)}
-        {state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.grid && renderDividers(geometry.grid)}
+        {state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
         {state.layout.mode !== 'focus' && <button className="command-wall-add" style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: geometry.add.height }} onClick={onAddWindow} aria-label="Add window"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
         {!filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : 'No windows on the wall yet. Add a window to get started.'}</div>}
       </div>
