@@ -1956,7 +1956,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
               title="Open the agent's command log in a terminal window"
             >
-              Commands
+              Log
             </button>
             )}
             {!compact && !!session?.messages.length && (
