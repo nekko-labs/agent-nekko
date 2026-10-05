@@ -63,7 +63,7 @@ export function WallComposer({
   useLayoutEffect(() => {
     if (!agent) return;
     const id = requestAnimationFrame(() => {
-      const input = panelRef.current?.querySelector<HTMLElement>('.composer [contenteditable="true"], .composer textarea');
+      const input = panelRef.current?.querySelector<HTMLElement>('.composer [contenteditable]:not([contenteditable="false"]), .composer textarea');
       if (input && document.activeElement !== input && !panelRef.current?.contains(document.activeElement)) input.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(id);

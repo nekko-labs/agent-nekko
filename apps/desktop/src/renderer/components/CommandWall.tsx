@@ -82,8 +82,11 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const deck = new Set(deckPanes.map((p) => p.id));
   const panes: WallGeometry['panes'] = new Map();
   const gap = 8;
-  const deckHeight = state.layout.mode === 'focus' ? 0 : deck.size ? 160 : Math.max(240, Math.min(440, width / 3));
-  const stageHeight = Math.max(state.layout.mode === 'grid' ? 560 : 240, height - (state.layout.mode === 'focus' ? 0 : 64 + gap));
+  const deckHeight = state.layout.mode === 'focus' ? 0 : Math.max(240, Math.min(440, width / 3));
+  // A stacked Focus chat needs space for transcript, approval and composer
+  // above its companion. The wall scrolls when the viewport cannot fit them.
+  const minimum = state.layout.mode === 'focus' && width > 0 && width < 640 ? 960 : state.layout.mode === 'grid' ? 560 : 240;
+  const stageHeight = Math.max(minimum, height - (state.layout.mode === 'focus' ? 0 : 64 + gap));
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
   let contentHeight = stageHeight;
@@ -204,7 +207,7 @@ export function CommandWall({
     const el = wrapRef.current?.querySelector<HTMLElement>(`[data-wall-pane="${flash.paneId}"]`);
     if (!el) return;
     el.scrollIntoView({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    const input = el.querySelector<HTMLElement>('[contenteditable="true"], textarea');
+    const input = el.querySelector<HTMLElement>('[contenteditable]:not([contenteditable="false"]), textarea');
     input?.focus({ preventScroll: true });
   }, [flash]);
 
