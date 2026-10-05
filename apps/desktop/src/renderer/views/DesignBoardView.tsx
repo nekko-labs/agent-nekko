@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { PlusIcon, CloseIcon, ExternalIcon, TrashIcon } from '../icons.js';
 import { Modal } from '../components/primitives/index.js';
+import { ArtifactPreview, isolatedDocument } from '../components/ArtifactPreview.js';
 
 /**
  * Design board: create designs two ways, both first-class.
@@ -194,6 +195,7 @@ export function DesignBoardView() {
             onOpenBrowser={() => { useStore.getState().openBrowserPane(selectedPage.url); useStore.getState().setView('chat'); }}
             onOpenFile={selectedPage.file ? () => { useStore.getState().openFilePane(selectedPage.file!); useStore.getState().setView('chat'); } : undefined}
             onRefine={(text) => generate({ prompt: text, pageId: selectedPage.id })}
+            onRestore={async (html) => { setBoard(await window.nekko.updateDesignPage(wsId, selectedPage.id, { html })); }}
             onAddNote={async (text) => { if (wsId) setBoard(await window.nekko.addDesignNote(wsId, selectedPage.id, text)); }}
             onResolveNote={async (id) => { if (wsId) setBoard(await window.nekko.resolveDesignNote(wsId, selectedPage.id, id)); }}
             onComment={(text, run) => sendToChat(
@@ -291,9 +293,9 @@ function PageCard({
       <div className="relative cursor-pointer" style={{ height: H, background: '#fff' }} onClick={onOpen} title="Open notes & comments">
         <iframe
           key={`${page.id}:${reloadNonce}`}
-          {...(concept ? { srcDoc: page.html ?? '' } : { src: page.url })}
+          {...(concept ? { srcDoc: isolatedDocument(page.html ?? '') } : { src: page.url })}
           title={page.label}
-          sandbox={concept ? 'allow-scripts' : 'allow-scripts allow-same-origin'}
+          sandbox={concept ? '' : 'allow-scripts allow-same-origin'}
           style={{
             width: LOGICAL, height: Math.round(H / scale), border: 0,
             transform: `scale(${scale})`, transformOrigin: 'top left', pointerEvents: 'none',
@@ -576,7 +578,7 @@ function PromptStudio({ onCancel, onGenerate }: { onCancel: () => void; onGenera
 
 /** Right drawer for a page: refine (concepts), persistent notes, and comments. */
 function PageSheet({
-  page, refining, onClose, onRemove, onOpenBrowser, onOpenFile, onRefine, onAddNote, onResolveNote, onComment,
+  page, refining, onClose, onRemove, onOpenBrowser, onOpenFile, onRefine, onRestore, onAddNote, onResolveNote, onComment,
 }: {
   page: DesignPage;
   refining?: boolean;
@@ -584,6 +586,7 @@ function PageSheet({
   onRemove: () => void;
   onOpenBrowser: () => void;
   onOpenFile?: () => void;
+  onRestore: (html: string) => Promise<void>;
   onRefine: (text: string) => void | Promise<void>;
   onAddNote: (text: string) => void | Promise<void>;
   onResolveNote: (id: string) => void | Promise<void>;
@@ -616,6 +619,13 @@ function PageSheet({
         <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title="Close" onClick={onClose}><CloseIcon className="h-3.5 w-3.5" /></button>
       </div>
 
+      {concept && <ArtifactPreview source={page.html ?? ''} title={page.label} />}
+      {concept && (page.revisions?.length ?? 0) > 0 && <details className="p-3 text-[12px]">
+        <summary>Previous versions ({page.revisions?.length})</summary>
+        {page.revisions?.map((revision) => <button key={revision.id} className="chip chip-action my-1 block" onClick={() => { if (window.confirm('Restore this version? The current design will be kept in history.')) void onRestore(revision.html); }}>
+          Restore · {new Date(revision.createdAt).toLocaleString()}
+        </button>)}
+      </details>}
       <div className="px-3 py-3">
         {concept && (
           <>

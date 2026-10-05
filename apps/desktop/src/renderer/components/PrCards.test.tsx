@@ -24,7 +24,6 @@ describe('PR milestones and composer actions', () => {
     expect(markup).toContain('var(--merged-wash)');
     expect(markup).toContain('var(--merged-line)');
     expect(markup).toContain('color:var(--merged-ink)');
-    expect(markup).toContain('var(--merged-star)');
     // Light violets only read on dark paper; on light paper they vanish.
     expect(markup).not.toMatch(/violet-(50|100|200)|#c084fc|rgba\(147,\s*51,\s*234/);
   });
@@ -33,6 +32,15 @@ describe('PR milestones and composer actions', () => {
     expect(markup).toContain('var(--merged-chip)');
     expect(markup).toContain('var(--merged-ink)');
     expect(markup).not.toContain('#c084fc');
+  });
+  it('celebrates merges with static decorative autumn confetti', () => {
+    const markup = renderToStaticMarkup(<PrCard url={url} info={pr} event="merged" />);
+    expect(markup).toContain('🎃');
+    expect(markup).toContain('🍁');
+    expect(markup).toContain('aria-hidden="true"');
+    expect(markup).not.toContain('animate-pulse');
+    expect(markup).not.toContain('✦');
+    expect(renderToStaticMarkup(<PrCard url={url} info={pr} />)).not.toContain('🎃');
   });
   it('places actions and a non-destructive hide button on the open dock', () => {
     const markup = renderToStaticMarkup(<PrActionDock sessionId="s" prs={[pr]} urls={[url]} />);

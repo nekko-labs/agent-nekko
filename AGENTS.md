@@ -78,3 +78,13 @@ If a harness default tells you to append one, don't.
 
 Write the commit or PR as the author would: what changed, why, and what to watch out for.
 Nothing about who or what typed it.
+
+## Keep the product specification current
+
+For every request that adds a feature, changes user-visible behavior, or settles a product decision, inspect and update SPEC.md in the same PR as the implementation. Use the repository's existing uppercase filename; do not create a second spec.md. Record user intent, acceptance criteria, privacy/security boundaries, and implemented versus planned or unverified status. Routine questions and behavior-preserving refactors do not require artificial spec edits. Mention the spec update (or why none is needed) in the final summary. Never mark a feature shipped solely because code exists.
+
+## Reports and portable design artifacts
+
+For substantial research, comparisons, architecture, and explanations, provide a concise chat summary plus a linked Markdown report when it improves readability or reuse. Include sources, assumptions, recommendations, and next steps. Use Mermaid for useful diagrams, image links for actual photos/screenshots, and self-contained HTML/CSS/SVG for rich design prototypes. Keep editable source in the project, normally reports/ or nekko-designs/; follow existing conventions. Do not generate artifacts for trivial replies. Never confuse captured evidence with inspected evidence.
+
+General reporting behavior belongs in the shared system prompt, not a personal memory file. Repository-specific workflow belongs here. Preview changes must retain explicit user consent for local reads, isolate generated HTML from the app, and prevent silent external resource fetching.

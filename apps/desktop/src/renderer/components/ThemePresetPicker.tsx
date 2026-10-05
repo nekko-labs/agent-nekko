@@ -11,9 +11,12 @@ const GROUPS: Array<{ mode: ThemePreset['mode']; titleKey: string }> = [
   { mode: 'dark', titleKey: 'settings.themeDark' },
 ];
 
-/** The rainbow disc on the "Custom colors" tile. */
-const WHEEL_SWATCH =
-  'conic-gradient(from 0deg, #f87171, #fbbf24, #4ade80, #22d3ee, #818cf8, #e879f9, #f87171)';
+/** Hard stops show the actual palette colors without blended intermediate shades. */
+export function slicedSwatch(colors: readonly string[]): string {
+  return `conic-gradient(from 0deg, ${colors.map((color, i) => `${color} ${i * 100 / colors.length}% ${(i + 1) * 100 / colors.length}%`).join(', ')})`;
+}
+
+const WHEEL_SWATCH = slicedSwatch(['#f87171', '#fbbf24', '#4ade80', '#22d3ee', '#818cf8', '#e879f9']);
 
 /**
  * Grouped preset grid plus a color wheel, shared by Settings → Appearance and
@@ -85,7 +88,7 @@ export function ThemePresetPicker({
               <div className="mt-1.5 grid grid-cols-4 gap-2" role="radiogroup" aria-label={tr(group.titleKey)}>
                 {presets.map((preset) => {
                   const active = activeId === preset.id;
-                  const gradient = `conic-gradient(from 0deg, ${[...preset.swatch, preset.swatch[0]].join(', ')})`;
+                  const gradient = slicedSwatch(preset.swatch);
                   return (
                     <button
                       key={preset.id}
