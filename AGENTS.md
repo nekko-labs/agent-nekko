@@ -48,6 +48,42 @@ fails, report the failure and preserve the pending description locally. Keep wor
 with release blockers draft/unmerged; do not claim the notes are published or the
 work is ready to ship.
 
+## Continue through verification and landing
+
+Implementation, verification, evidence publication, and landing are one workflow.
+Do not stop at passing automated tests or opening a draft PR and ask the user to
+request the remaining work again. For UI changes:
+
+1. Run focused automated checks first; arrange base-revision captures before
+   changing visual surfaces (or use a separate unchanged-base sandbox).
+2. Automatically continue into isolated visual and interaction testing. Inspect
+   existing instances first; preserve user-owned apps and data. Reuse a matching
+   agent-owned sandbox or establish a separate profile with external side effects
+   disabled. A user-owned running instance is not itself a blocker.
+3. Capture and inspect matching before/after screenshots and a short recording
+   for motion changes, covering the affected surfaces, themes and viewports below.
+4. Upload evidence to the single shared **pr-media** GitHub pre-release using
+   `scripts/pr-media.mjs`; do not create a per-PR release. Read back the published
+   PR description and verify its media links, not just the local files.
+5. Continue through review and checks, fix failures, and merge when required
+   checks, reviews, evidence and release-blocker requirements are satisfied.
+   Never bypass required reviews, failing checks, or branch protections. The
+   example merge command above is not permission to override these gates.
+
+Keep verification plan steps pending/active until verified; recording missing
+screenshots in a draft PR does not complete the verification step. Pause only
+for a concrete blocker requiring user input, credentials, permission, or an action
+that cannot safely be performed, or when the user explicitly limits or pauses the
+work. Investigate safe alternatives first and report the attempted checks and
+precise unblock action. Do not risk user data to avoid reporting a blocker.
+
+When waiting on PR checks or other background work, register `agent_watch` before
+ending the turn if available, with a deadline and concrete continuation. Report
+the successfully registered watch id and wake condition; on wake inspect current
+status and re-arm if necessary. If unavailable or registration fails, report that
+limitation and the next manual step. Never use automatic continuation to bypass
+missing authorization, credentials, a user decision, or required human evidence.
+
 ## UI changes need visual evidence
 
 Any PR that changes what the app looks like ships the proof in its description:
