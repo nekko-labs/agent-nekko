@@ -2,8 +2,8 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 0 0 340px;
-  width: 340px;
+  flex: 0 0 var(--dock-width, 340px);
+  width: var(--dock-width, 340px);
   max-width: 100%;
   min-width: 0;
   min-height: 0;
@@ -99,3 +99,29 @@
   .wall-dock__panels { flex-direction: column; }
   .wall-dock__popover { right: auto; left: 0; }
 }
+
+.wall-dock__icon { width: 16px; height: 16px; }
+.wall-dock__panel-icon { display: grid; place-items: center; color: var(--ink-faint); }
+.wall-dock__panel-header button, .wall-dock__configure > button { display: grid; place-items: center; width: 26px; height: 26px; padding: 4px; border: 0; background: transparent; color: var(--ink-faint); }
+.wall-dock__minimized { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; border-bottom: 1px solid var(--line); }
+.wall-dock__minimized button { display: grid; place-items: center; width: 32px; height: 32px; color: var(--accent); animation: dock-icon-in 180ms ease-out; }
+@keyframes dock-icon-in { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+.wall-dock__hardware { gap: 18px; padding: 16px; }
+.wall-dock__meter { display: grid; gap: 7px; }
+.wall-dock__meter strong { font-size: 11px; font-weight: 500; color: var(--ink-soft); }
+.wall-dock__bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.wall-dock__bar > span { display: block; height: 100%; border-radius: inherit; }
+.wall-dock__reading { color: var(--ink-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.wall-dock__resize { position: absolute; top: 0; bottom: 0; left: -9px; width: 10px; cursor: col-resize; touch-action: none; }
+.wall-dock[data-dock-side='left'] .wall-dock__resize { left: auto; right: -9px; }
+.wall-dock__resize:hover, .wall-dock__resize:focus-visible { background: var(--accent-soft); outline: none; border-radius: 4px; }
+@media (max-width: 767px) { .wall-dock__resize { display: none; } }
+@media (prefers-reduced-motion: reduce) { .wall-dock__minimized button { animation: none; } }
+
+/* Keep the outgoing panel mounted until it shrinks into its restore control. */
+@keyframes wall-panel-collapse {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(.08); }
+}
+.wall-dock__panel--collapsing { transform-origin: top left; pointer-events: none; animation: wall-panel-collapse 220ms ease-in both; }
+@media (prefers-reduced-motion: reduce) { .wall-dock__panel--collapsing { animation: none; } }
