@@ -1663,3 +1663,14 @@
 .composer-summary-model { color: var(--ink); white-space: nowrap; flex: none; }
 .composer-summary-meta { color: var(--ink-faint); font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) { .pane-flash { animation: none; } }
+
+/* The wall's one composer and the agent it speaks for. */
+.wall-num {
+  display: inline-grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 5px; font-size: 10px; font-weight: 600; line-height: 1;
+  font-variant-numeric: tabular-nums; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.wall-composer { box-shadow: var(--shadow-md); }
+/* The composer surface of a chat is as tall as its content; the message box keeps its own ceiling. */
+.wall-composer .composer-column { width: 100% !important; }
