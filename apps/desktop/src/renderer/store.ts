@@ -1,3 +1,4 @@
+import { needsProviderSetup } from './components/providers/providerSetup.js';
 import { create } from 'zustand';
 import type { AppSettings, Session, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
 import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
@@ -482,6 +483,11 @@ export const useStore = create<UiState>((set, get) => ({
       return { monitorDockRect: r };
     }),
   newChat: async () => {
+    await get().refreshProviders();
+    if (needsProviderSetup(get().providers, get().activeModelId ?? get().models[0]?.id)) {
+      get().setView('models');
+      return;
+    }
     const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
     // The host already returned the full record: seed before opening the pane
     // so its first frame has the session and brain, without a round-trip.

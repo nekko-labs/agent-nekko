@@ -23,30 +23,24 @@ const CHECK_META: Record<PrChecks, { label: string; color: string; dot: string }
 
 const openExternally = (url: string) => window.nekko.openPath(url).catch(() => {});
 
-/** A few drifting stars for the merged-PR celebration background. */
-function Stars() {
-  const stars = [
-    { top: '18%', left: '8%', s: 7, d: '0s' },
-    { top: '62%', left: '18%', s: 5, d: '.7s' },
-    { top: '30%', left: '46%', s: 6, d: '1.3s' },
-    { top: '72%', left: '63%', s: 5, d: '.4s' },
-    { top: '22%', left: '82%', s: 7, d: '1s' },
-    { top: '55%', left: '92%', s: 5, d: '1.6s' },
-  ];
-  return (
-    <span aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {stars.map((st, i) => (
-        <span
-          key={i}
-          className="absolute animate-pulse text-violet-200"
-          style={{ top: st.top, left: st.left, fontSize: st.s, opacity: 0.5, animationDelay: st.d, animationDuration: '2.4s' }}
-        >
-          ✦
-        </span>
-      ))}
-    </span>
-  );
+/** Static autumn confetti stays decorative and never competes with the milestone text. */
+function AutumnConfetti() {
+  return <span aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+    {['🍂', '🎃', '🍁', '🍂', '🎃', '🍁'].map((symbol, i) => (
+      <span key={i} className="absolute" style={{ left: (8 + i * 16) + '%', top: i % 2 ? '58%' : '8%', fontSize: 12, opacity: 0.28, transform: 'rotate(' + (i % 2 ? -18 : 18) + 'deg)' }}>{symbol}</span>
+    ))}
+  </span>;
 }
+
+/**
+ * The merged banner's wash and border. Theme tokens rather than fixed colours:
+ * a light violet that reads on dark paper vanishes on light paper (styles.css,
+ * --merged-*).
+ */
+export const MERGED_CARD_STYLE: React.CSSProperties = {
+  borderColor: 'var(--merged-line)',
+  background: 'linear-gradient(270deg, var(--merged-wash), var(--merged-wash-soft) 70%, transparent)',
+};
 
 /** A historical milestone, never an action surface or a live status card. */
 export function PrCard({ url, info, event = 'created' }: { url: string; info?: PrInfo; event?: 'created' | 'open' | 'closed' | 'merged' }) {
@@ -55,12 +49,12 @@ export function PrCard({ url, info, event = 'created' }: { url: string; info?: P
   const merged = event === 'merged';
   return (
     <div className="relative my-2 overflow-hidden rounded-xl border px-4 py-3" data-pr-event={event}
-      style={merged ? { borderColor: 'rgba(168,85,247,0.45)', background: 'linear-gradient(270deg, rgba(147,51,234,0.38), rgba(88,28,135,0.14) 70%, transparent)' } : { borderColor: 'var(--line)', background: 'var(--surface)' }}>
-      {merged && <Stars />}
+      style={merged ? MERGED_CARD_STYLE : { borderColor: 'var(--line)', background: 'var(--surface)' }}>
+      {merged && <AutumnConfetti />}
       <div className="relative flex flex-wrap items-center gap-x-2 gap-y-1">
         <a href={url} className="min-w-0 truncate font-mono text-[12px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
         {info?.title && <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink-soft">{info.title}</span>}
-        <span className="ml-auto text-[12px] font-semibold" style={{ color: merged ? 'var(--accent)' : event === 'closed' ? 'var(--danger)' : 'var(--success)' }}>
+        <span className="ml-auto text-[12px] font-semibold" style={{ color: merged ? 'var(--merged-ink)' : event === 'closed' ? 'var(--danger)' : 'var(--success)' }}>
           {merged ? 'PR merged' : event === 'closed' ? 'PR closed' : 'PR created'}
         </span>
       </div>
@@ -93,7 +87,7 @@ export function PrActionCard({ url, info, sessionId, onDismiss }: { url: string;
   const check = info ? CHECK_META[info.checks] : CHECK_META.none;
   const actionClass = 'rounded-md px-2 py-1 text-[11px] font-medium hover:bg-surface-2 disabled:opacity-50';
   return (
-    <div className="mb-2 flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2" data-pr-actions={url}>
+    <div className="flex items-center gap-2 border-b border-line bg-surface px-3 py-1.5 last:border-b-0" data-pr-actions={url}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <a href={url} className="truncate font-mono text-[11px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
@@ -101,19 +95,19 @@ export function PrActionCard({ url, info, sessionId, onDismiss }: { url: string;
           {check.dot && <span className="text-[10px]" style={{ color: check.color }}>{check.dot} {check.label}</span>}
         </div>
         {info?.title && <p className="truncate text-[12px]">{info.title}</p>}
-        <div className="mt-1 flex flex-wrap items-center gap-1">
-          {(['approve', 'close', 'merge'] as const).map((action) => (
-            <button key={action} className={actionClass} disabled={!!busy || !info} onClick={() => void act(action)}
-              title={action === 'close' ? 'Close this PR without merging' : action === 'approve' ? 'Approve this PR' : 'Merge this PR'}>
-              {busy === action ? 'Working…' : confirm === action ? 'Confirm?' : action === 'approve' ? 'Approve' : action === 'close' ? 'Decline' : 'Merge'}
-            </button>
-          ))}
-          <button className={actionClass} onClick={() => openPrPane(url)}>Review</button>
-          <button className={actionClass} onClick={() => openExternally(url)} aria-label="Open on GitHub">↗</button>
-          {confirm && <button className={actionClass} onClick={() => setConfirm(null)}>Cancel</button>}
-        </div>
       </div>
-      <button className="ml-auto grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint hover:bg-surface-2 hover:text-ink"
+      <div className="flex max-w-[55%] shrink-0 flex-wrap items-center justify-end gap-0" data-pr-action-controls>
+        {(['approve', 'close', 'merge'] as const).map((action) => (
+          <button key={action} className={actionClass} disabled={!!busy || !info} onClick={() => void act(action)}
+            title={action === 'close' ? 'Close this PR without merging' : action === 'approve' ? 'Approve this PR' : 'Merge this PR'}>
+            {busy === action ? 'Working…' : confirm === action ? 'Confirm?' : action === 'approve' ? 'Approve' : action === 'close' ? 'Decline' : 'Merge'}
+          </button>
+        ))}
+        <button className={actionClass} onClick={() => openPrPane(url)}>Review</button>
+        <button className={actionClass} onClick={() => openExternally(url)} aria-label="Open on GitHub">↗</button>
+        {confirm && <button className={actionClass} onClick={() => setConfirm(null)}>Cancel</button>}
+      </div>
+      <button className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-ink-faint hover:bg-surface-2 hover:text-ink"
         onClick={onDismiss} aria-label={'Hide PR ' + label} title="Hide this PR panel (does not close the PR)"><CloseIcon className="h-3.5 w-3.5" /></button>
     </div>
   );
@@ -136,7 +130,7 @@ export function PrActionDock({ sessionId, prs, urls }: { sessionId: string; prs:
     setDismissed(next);
     try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* memory-only dismissal */ }
   };
-  return <section aria-label="Pending pull requests" className="max-h-60 overflow-y-auto">{active.map((url) => <PrActionCard key={url} url={url} info={byUrl.get(url)} sessionId={sessionId} onDismiss={() => dismiss(url)} />)}</section>;
+  return <section aria-label="Pending pull requests" className="mx-auto max-h-60 w-[80%] overflow-y-auto rounded-xl border border-line">{active.map((url) => <PrActionCard key={url} url={url} info={byUrl.get(url)} sessionId={sessionId} onDismiss={() => dismiss(url)} />)}</section>;
 }
 
 /** One line of a unified-diff hunk. */
@@ -258,7 +252,7 @@ export function PrBadge({ prs, compact = false }: { prs: PrInfo[]; compact?: boo
   }
   if (merged > 0 && (!compact || open === 0)) {
     chips.push(
-      <span key="merged" className="shrink-0 rounded-sm px-1 py-px text-[9px] font-medium leading-normal" style={{ background: 'rgba(147,51,234,0.18)', color: '#c084fc' }} title={`${merged} merged PR${merged === 1 ? '' : 's'}`}>
+      <span key="merged" className="shrink-0 rounded-sm px-1 py-px text-[9px] font-medium leading-normal" style={{ background: 'var(--merged-chip)', color: 'var(--merged-ink)' }} title={`${merged} merged PR${merged === 1 ? '' : 's'}`}>
         ✓ {merged}
       </span>,
     );

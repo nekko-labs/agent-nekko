@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { ApprovalBar } from './ApprovalBar.js';
+import { ApprovalBar, handleApprovalKey } from './ApprovalBar.js';
 
 const approval = { call: { id: 'approval', name: 'bash', input: { command: 'echo test' } }, reason: 'Confirm command', severity: 'medium' as const };
 
@@ -14,14 +14,13 @@ it('renders approval controls without automatic focus', () => {
 
 it('keeps keyboard decisions scoped to the approval surface', () => {
   const decide = vi.fn();
-  const surface = ApprovalBar({ approval, onDecide: decide });
   const preventDefault = vi.fn();
-  surface.props.onKeyDown({ key: 'a', preventDefault });
+  handleApprovalKey({ key: 'a', preventDefault }, decide);
   expect(decide).not.toHaveBeenCalled();
-  surface.props.onKeyDown({ key: 'Y', preventDefault });
+  handleApprovalKey({ key: 'Y', preventDefault }, decide);
   expect(decide).toHaveBeenLastCalledWith(true);
-  surface.props.onKeyDown({ key: 'n', preventDefault });
+  handleApprovalKey({ key: 'n', preventDefault }, decide);
   expect(decide).toHaveBeenLastCalledWith(false);
-  surface.props.onKeyDown({ key: 'Escape', preventDefault });
+  handleApprovalKey({ key: 'Escape', preventDefault }, decide);
   expect(decide).toHaveBeenLastCalledWith(false);
 });

@@ -492,3 +492,24 @@ footer a:hover { color: var(--ink); }
 .dl-pick:hover::after { animation-duration: 1.8s; }
 /* the open menu is busy enough; park the beam behind it */
 .dl-pick.open::after { display: none; }
+
+/* Pixel Nekko: stepped motion keeps the icon-inspired grid crisp. */
+.pixel-nekko { display: inline-block; overflow: visible; image-rendering: pixelated; animation: pixel-hop 4s steps(1, end) infinite; }
+.pixel-eyes-open { animation: pixel-open 8s steps(1, end) infinite; }
+.pixel-eyes-happy { opacity: 0; animation: pixel-happy 8s steps(1, end) infinite; }
+.pixel-eyes-closed { opacity: 0; animation: pixel-blink 8s steps(1, end) infinite; }
+.pixel-working .pixel-nekko { animation-duration: 1s; }
+.pixel-happy .pixel-eyes-open, .pixel-happy .pixel-eyes-closed,
+.pixel-sleeping .pixel-eyes-open, .pixel-sleeping .pixel-eyes-happy { animation: none; opacity: 0; }
+.pixel-happy .pixel-eyes-happy, .pixel-sleeping .pixel-eyes-closed { animation: none; opacity: 1; }
+.pixel-sleeping .pixel-nekko { animation-duration: 6s; }
+.pixel-mascot { border: 0; background: none; padding: 0; cursor: pointer; border-radius: 8px; }
+.pixel-mascot:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.pixel-paused, .pixel-paused * { animation-play-state: paused !important; }
+@keyframes pixel-hop { 0%, 40%, 100% { transform: translateY(0); } 45%, 55% { transform: translateY(-2px); } 50% { transform: translateY(-4px); } }
+@keyframes pixel-open { 0%, 35%, 39%, 74%, 91%, 100% { opacity: 1; } 36%, 38%, 75%, 90% { opacity: 0; } }
+@keyframes pixel-blink { 0%, 35%, 39%, 100% { opacity: 0; } 36%, 38% { opacity: 1; } }
+@keyframes pixel-happy { 0%, 74%, 91%, 100% { opacity: 0; } 75%, 90% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .pixel-nekko, .pixel-nekko * { animation: none !important; }
+}

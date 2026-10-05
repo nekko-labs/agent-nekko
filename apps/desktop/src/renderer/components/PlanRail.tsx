@@ -13,11 +13,19 @@ function queueLabel(item: QueuedPrompt): string {
   return bits.join(' · ');
 }
 
-export function PlanRail({ sessionId, session, streaming, onClose }: {
+export const PLAN_CHANGE_REQUEST = 'Please revise the current agent plan. I would like to change the approach as follows:\n';
+
+export function appendPlanChangeRequest(draft: string): string {
+  return draft.trim() ? `${draft}\n\n${PLAN_CHANGE_REQUEST}` : PLAN_CHANGE_REQUEST;
+}
+
+export function PlanRail({ sessionId, session, streaming, onClose, onChangePlan }: {
   sessionId: string;
   session: Session | null;
   streaming: boolean;
   onClose: () => void;
+  /** Opens an editable follow-up, never mutates or submits the plan directly. */
+  onChangePlan?: () => void;
 }) {
   const sessions = useStore((s) => s.sessions);
   const openChatPane = useStore((s) => s.openChatPane);
@@ -64,7 +72,7 @@ export function PlanRail({ sessionId, session, streaming, onClose }: {
               ))}
             </ol>
           ) : <p className="px-0.5 text-[11px] leading-snug text-ink-faint">{streaming ? 'Waiting for the agent to publish its plan.' : 'The agent’s plan will appear here when it starts work.'}</p>}
-          <p className="mt-2 px-0.5 text-[10px] leading-snug text-ink-faint">Want to change the approach? Send a follow-up asking the agent to adjust or remove a step.</p>
+          {!!agentPlan?.length && <button type="button" className="mt-2 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50" disabled={!onChangePlan} onClick={onChangePlan} title="Describe a plan adjustment in the composer before sending">Change plan</button>}
         </section>
         <section>
           <div className="mb-1.5 flex items-center gap-1.5">

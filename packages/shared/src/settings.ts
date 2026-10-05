@@ -93,6 +93,8 @@ export interface CommandWallSetting {
   filter: 'all' | 'chat' | 'terminal';
   insights: { panels: Record<string, boolean> };
   watermark: number;
+  /** Where the wall's one composer sits. */
+  composer?: { side: 'top' | 'bottom'; align: 'left' | 'center' | 'right' };
 }
 
 /**
@@ -152,6 +154,7 @@ export interface HookRule {
 }
 
 export interface AppSettings {
+  voice?: import('./voice.js').VoiceSettings;
   /** User-authored additions to the built-in system instructions. */
   systemInstructions?: string;
   /** Server-side instructions applied to every user turn. Empty disables them. */

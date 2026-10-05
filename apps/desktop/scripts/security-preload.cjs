@@ -1,0 +1,1 @@
+const {contextBridge,ipcRenderer}=require('electron');contextBridge.exposeInMainWorld('testPreview',source=>ipcRenderer.invoke('nekko:isolated-preview',source));

@@ -20,7 +20,7 @@
     "build:core": "npm run build -w @agent-nekko/shared && npm run build -w @agent-nekko/core",
     "build:web": "npm run build:core && npm run build -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run build -w @agent-nekko/desktop && npm run build -w @agent-nekko/server && npm run build -w @agent-nekko/cloud",
     "cloud": "npm run build:core && npm run build -w @agent-nekko/host && npm run build -w @agent-nekko/desktop && npm run build -w @agent-nekko/cloud && npm run start -w @agent-nekko/cloud",
-    "dev": "npm run dev -w @agent-nekko/desktop",
+    "dev": "npm run build && npm run dev -w @agent-nekko/desktop",
     "local": "npm run build:core && npm run build -w @agent-nekko/host && npm run build -w @agent-nekko/desktop && node apps/desktop/scripts/stage-daemon.mjs --optional && npm run start -w @agent-nekko/desktop",
     "web": "npm run build:web && npm run start -w @agent-nekko/server",
     "bundle:web": "npm run build:web && npm run bundle -w @agent-nekko/server",

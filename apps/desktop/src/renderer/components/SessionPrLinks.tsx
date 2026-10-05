@@ -18,7 +18,7 @@ export const MAX_INLINE_PRS = 3;
 
 /** The hue a PR's link takes from its state, as on GitHub. */
 export function prTone(pr: PrInfo): string {
-  if (pr.state === 'merged') return '#c084fc';
+  if (pr.state === 'merged') return 'var(--merged-ink)';
   if (pr.state === 'closed') return 'var(--danger)';
   if (pr.isDraft) return 'var(--ink-faint)';
   return 'var(--success)';
