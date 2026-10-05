@@ -1,4 +1,5 @@
-import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { revealEditorCaret } from './agent-console/editorCaret.js';
+import React, { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DictationButton } from './DictationButton.js';
 import { decideApproval, type ApprovalScope } from './agent-console/approval-decision.js';
@@ -40,11 +41,11 @@ import { ChatControls, MODE_LABEL } from './ChatControls.js';
 import { useElementCompact } from './agent-console/useElementWidth.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
-import { PrCard, PrBadge, PrActionDock } from './PrCard.js';
+import { PrCard, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -588,7 +589,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // that branch is going into. The same read the sidebar card makes (the host
   // caches it), so the header and the card never disagree.
   const git = useGitStatus(session ? `session:${session.id}` : undefined, session?.gitIsolation);
-  const headerPrs = git?.pr && !prs.some((p) => p.url === git.pr!.url) ? [git.pr, ...prs] : prs;
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
@@ -950,7 +950,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, setMascotMood]);
 
+  const finalizingReply = useRef(false);
   const endTurn = () => {
+    finalizingReply.current = true;
     streamingRef.current = false;
     setStreaming(false);
     // The turn is over. liveRuns has usually retired the run already (it hears
@@ -999,12 +1001,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     // then clear the held copy in the same commit, so the end of a reply never
     // flashes the answer out and back in.
     loadSession(sessionId).then((s) => {
+      finalizingReply.current = false;
       setSession(s);
       if (heldRef.current === final) {
         heldRef.current = null;
         setHeld(null);
       }
-    }).catch(() => {});
+    }).catch(() => { finalizingReply.current = false; });
     refreshSessions();
     // A reply may have created or updated a PR (e.g. `gh pr create`).
     useStore.getState().refreshSessionPrs(sessionId);
@@ -1047,22 +1050,23 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // Grow the composer with its content: reset to the 3-line minimum, then match
   // the scroll height (CSS max-height caps it and lets it scroll past that).
   // A composer the user has sized keeps that size and scrolls instead.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = composerRef.current;
-    if (!el) return;
-    if (composerH != null) {
-      el.style.height = `${composerH}px`;
-      return;
-    }
-    // An empty box is its two-row minimum, which is its natural height: no
-    // need to measure. Measuring reads layout, and doing that as a chat opens
-    // forced the whole pane to lay out inside the click that opened it.
-    if (!draft) {
-      el.style.height = '';
-      return;
-    }
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    const pane = paneRef.current;
+    const section = composerSectionRef.current;
+    if (!el || !pane || !section) return;
+    const resize = () => {
+      const chrome = section.getBoundingClientRect().height - el.getBoundingClientRect().height;
+      const limit = Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
+      el.style.maxHeight = limit + 'px';
+      el.style.height = 'auto';
+      el.style.height = Math.min(limit, Math.max(el.scrollHeight, composerH ?? 0)) + 'px';
+      revealEditorCaret(el);
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(pane);
+    return () => observer.disconnect();
   }, [draft, composerH]);
 
   /**
@@ -1083,7 +1087,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     const startH = ta.getBoundingClientRect().height;
     // Whatever in the composer is not the text box, which the drag cannot shrink.
     const chrome = section.getBoundingClientRect().height - startH;
-    const maxH = Math.max(COMPOSER_MIN_H, pane.getBoundingClientRect().height - chrome - TRANSCRIPT_MIN_H);
+    const maxH = Math.max(COMPOSER_MIN_H, Math.min(pane.getBoundingClientRect().height - chrome - TRANSCRIPT_MIN_H, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome));
     let latest = startH;
     const onMove = (ev: PointerEvent) => {
       latest = Math.round(Math.min(maxH, Math.max(COMPOSER_MIN_H, startH + (startY - ev.clientY))));
@@ -1643,8 +1647,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // read off the record itself. Dismissing it is remembered per reply.
   const [dismissedInterruption, setDismissedInterruption] = useState<string | null>(null);
   useEffect(() => {
-    if (streaming || errorNotice || !session || dismissedInterruption === lastMsgId) return;
-    if (shouldShowPersistedInterruption(session.messages, streaming, !!held)) setErrorNotice(PERSISTED_INTERRUPTION);
+    if (errorNotice || !session || dismissedInterruption === lastMsgId) return;
+    if (shouldShowPersistedInterruption(session.messages, streaming, !!held || finalizingReply.current)) setErrorNotice(PERSISTED_INTERRUPTION);
   }, [session, streaming, held, errorNotice, lastMsgId, dismissedInterruption]);
   // An interrupted turn needs a recovery action, not model-written follow-ups
   // that may have been generated before the failure.
@@ -1977,25 +1981,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
                 {session && <WorktreeChip session={session} git={git} disabled={hasLive} onChange={setSession} />}
-                <span
-                  className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
-                  style={{ background: 'color-mix(in srgb, var(--accent) 13%, transparent)', color: 'var(--accent)' }}
-                  title={git.branch ? `On branch ${git.branch}${git.dirtyCount ? ` · ${git.dirtyCount} uncommitted` : ''}` : `Detached at ${git.head}`}
-                >
-                  <BranchIcon className="h-3 w-3 shrink-0" />
-                  <span className="max-w-[16ch] truncate">{git.branch ?? git.head ?? 'detached'}</span>
-                </span>
               </span>
             )}>
-            {headerPrs.length > 0 && (
-              <button
-                className="btn btn-ghost px-2 py-1"
-                onClick={() => useStore.getState().openPrPane(headerPrs[0].url)}
-                title={git?.pr ? `Review #${git.pr.number}: ${git.pr.title}` : 'Review pull request'}
-              >
-                <PrBadge prs={headerPrs} />
-              </button>
-            )}
             {changeCount > 0 && (
               <button
                 className="btn btn-ghost px-2 py-1 text-[12px] font-medium text-accent"
@@ -2518,7 +2505,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   )}
                   <MarkdownEditor
                     ref={composerRef}
-                    className={`${composerH != null ? '' : 'max-h-60 '}relative ${compact ? 'min-h-[36px] py-2' : 'min-h-[52px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
+                    className={`relative ${compact ? 'min-h-[36px] py-2' : 'min-h-[52px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
                     placeholder={imageMode ? 'Describe the image you want…' : streaming ? 'Queue a follow-up… (Ctrl/⌘+Enter steers the running reply)' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
                     value={draft}
                     aria-expanded={slashMenuOpen || atMenuOpen}
