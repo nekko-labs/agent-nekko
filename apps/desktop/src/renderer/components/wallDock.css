@@ -1,0 +1,101 @@
+.wall-dock {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 340px;
+  width: 340px;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 12px;
+}
+.wall-dock[data-dock-side='left'] { order: -1; }
+.wall-dock[data-dock-side='right'] { order: 1; }
+.wall-dock[data-dock-side='top'],
+.wall-dock[data-dock-side='bottom'] {
+  flex: 0 0 auto;
+  width: 100%;
+  max-height: 360px;
+}
+.wall-dock[data-dock-side='top'] { order: -1; }
+.wall-dock[data-dock-side='bottom'] { order: 1; }
+.wall-dock__toolbar,
+.wall-dock__panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+}
+.wall-dock__toolbar { flex-shrink: 0; flex-wrap: wrap; }
+.wall-dock__count { margin-right: auto; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+.wall-dock button,
+.wall-dock input[type='number'] {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink);
+  padding: 4px 7px;
+  font: inherit;
+}
+.wall-dock button { cursor: pointer; }
+.wall-dock button:hover:not(:disabled) { background: var(--surface); }
+.wall-dock button:disabled { opacity: .5; cursor: default; }
+.wall-dock button:focus-visible,
+.wall-dock input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wall-dock__configure { position: relative; }
+.wall-dock__popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 380px;
+  max-width: calc(100vw - 24px);
+  max-height: min(420px, 60vh);
+  overflow: auto;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px #0003;
+}
+.wall-dock[data-dock-side='bottom'] .wall-dock__popover { top: auto; bottom: calc(100% + 6px); }
+.wall-dock__popover label { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+.wall-dock__popover fieldset { border: 0; border-top: 1px solid var(--line); margin-top: 8px; padding: 8px 0 0; }
+.wall-dock__popover legend { color: var(--ink-faint); }
+.wall-dock__popover fieldset:first-child { border-top: 0; margin-top: 0; padding-top: 0; }
+.wall-dock__positions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wall-dock__positions button[aria-pressed='true'] { border-color: var(--accent); background: var(--surface); }
+.wall-dock__popover input[type='checkbox'] { flex-shrink: 0; }
+.wall-dock__option { display: grid; gap: 2px; }
+.wall-dock__option > span { color: var(--ink-soft); white-space: nowrap; }
+.wall-dock__panels { display: flex; flex-direction: column; gap: 8px; padding: 8px; min-height: 0; overflow: auto; }
+.wall-dock__panel { flex: 0 0 auto; min-width: 0; border: 1px solid var(--line); border-radius: 8px; }
+.wall-dock__panel-header { justify-content: space-between; }
+.wall-dock__panel-header h2 { margin: 0 auto 0 0; font-size: 12px; font-weight: 600; }
+.wall-dock__body { max-height: 420px; overflow: auto; }
+.wall-dock__metrics { padding: 12px; display: grid; gap: 8px; }
+.wall-dock__metrics p { margin: 0; color: var(--ink-soft); overflow-wrap: anywhere; }
+.wall-dock__metrics p[role='alert'] { color: var(--danger); }
+.wall-dock__metrics dl { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0; }
+.wall-dock__metrics dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.wall-dock__metrics form { display: flex; align-items: end; gap: 8px; }
+.wall-dock__metrics form label { display: grid; gap: 6px; min-width: 0; flex: 1; }
+.wall-dock__metrics input[type='number'] { width: 100%; min-width: 0; }
+.wall-dock__metrics progress { width: 100%; height: 8px; accent-color: var(--accent); }
+.wall-dock__provider { padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.wall-dock__empty { margin: 4px; color: var(--ink-faint); }
+.wall-dock[data-dock-side='top'] .wall-dock__panels,
+.wall-dock[data-dock-side='bottom'] .wall-dock__panels { flex-direction: row; }
+.wall-dock[data-dock-side='top'] .wall-dock__panel,
+.wall-dock[data-dock-side='bottom'] .wall-dock__panel { width: 320px; max-width: 90vw; }
+.wall-dock__panel--minimized .wall-dock__panel-header { border-bottom: 0; }
+@media (max-width: 720px) {
+  .wall-dock { flex: 0 0 auto; width: 100%; max-height: 360px; }
+  .wall-dock__panels { flex-direction: column; }
+  .wall-dock__popover { right: auto; left: 0; }
+}

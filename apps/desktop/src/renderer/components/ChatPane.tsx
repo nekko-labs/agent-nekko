@@ -1,6 +1,7 @@
 import { needsProviderSetup } from './providers/providerSetup.js';
 import { SetupIllustration } from './providers/ProviderChoices.js';
-import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { revealEditorCaret } from './agent-console/editorCaret.js';
+import React, { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { DictationButton } from './DictationButton.js';
 import { decideApproval, type ApprovalScope } from './agent-console/approval-decision.js';
@@ -31,6 +32,7 @@ import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/Mark
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
 import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
+
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
@@ -42,11 +44,11 @@ import { ChatControls, MODE_LABEL } from './ChatControls.js';
 import { useElementCompact } from './agent-console/useElementWidth.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
-import { PrCard, PrBadge, PrActionDock } from './PrCard.js';
+import { PrCard, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, BranchIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -95,7 +97,7 @@ const NARROW_PANE = 620;
  * Unset means "grow with what's typed", which is where every composer starts.
  */
 const COMPOSER_H_KEY = 'nekko.composer.height';
-const COMPOSER_MIN_H = 52;
+const COMPOSER_MIN_H = 64;
 /** The conversation keeps at least this much of the pane, however tall the composer. */
 const TRANSCRIPT_MIN_H = 160;
 
@@ -515,9 +517,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // count) renders from this, one step behind the keystroke, so
   // a keypress paints the textarea before any of that work runs.
   const deferredDraft = useDeferredValue(draft);
-  const historyCursor = useRef<HistoryCursor | null>(null);
-  const sentPrompts = useMemo(() => promptHistory(session?.messages ?? []), [session?.messages]);
-  useEffect(() => { historyCursor.current = null; }, [sessionId, sentPrompts]);
   const [streaming, setStreaming] = useState(false);
   // Mirrors for the long-lived agent-event listener, so a token does not set
   // state that is already set.
@@ -590,14 +589,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // that branch is going into. The same read the sidebar card makes (the host
   // caches it), so the header and the card never disagree.
   const git = useGitStatus(session ? `session:${session.id}` : undefined, session?.gitIsolation);
-  const headerPrs = git?.pr && !prs.some((p) => p.url === git.pr!.url) ? [git.pr, ...prs] : prs;
   const [lightbox, setLightbox] = useState<string | null>(null);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
   const [changeCount, setChangeCount] = useState(0);
   const [doneSummary, setDoneSummary] = useState<string | null>(null);
-  // What the model thinks the user will say next: one-click follow-up chips and
-  // the composer's ghost text. Pinned to the reply it was written for (forId) so
+  // What the model thinks the user will say next: the composer's ghost text.
+  // Pinned to the reply it was written for (forId) so
   // a newer turn can't inherit stale suggestions.
   const [suggestions, setSuggestions] = useState<{ forId: string; options: string[]; next: string | null } | null>(null);
   // A failed reply stays in the transcript with a retry, instead of vanishing
@@ -952,7 +950,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, setMascotMood]);
 
+  const finalizingReply = useRef(false);
   const endTurn = () => {
+    finalizingReply.current = true;
     streamingRef.current = false;
     setStreaming(false);
     // The turn is over. liveRuns has usually retired the run already (it hears
@@ -1001,12 +1001,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     // then clear the held copy in the same commit, so the end of a reply never
     // flashes the answer out and back in.
     loadSession(sessionId).then((s) => {
+      finalizingReply.current = false;
       setSession(s);
       if (heldRef.current === final) {
         heldRef.current = null;
         setHeld(null);
       }
-    }).catch(() => {});
+    }).catch(() => { finalizingReply.current = false; });
     refreshSessions();
     // A reply may have created or updated a PR (e.g. `gh pr create`).
     useStore.getState().refreshSessionPrs(sessionId);
@@ -1016,7 +1017,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
    * Ask the model what the user might say next, then pin the answer to the
    * reply it was written for. Nice-to-have traffic: a provider hiccup, a
    * session with nothing to suggest from, or a malformed reply all just mean
-   * no chips this turn.
+   * no placeholder suggestion this turn.
    */
   const requestSuggestions = async () => {
     try {
@@ -1046,25 +1047,26 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     transcriptRef.current?.scrollToBottom('smooth');
   };
 
-  // Grow the composer with its content: reset to the 3-line minimum, then match
+  // Grow the composer with its content: reset to the two-line minimum, then match
   // the scroll height (CSS max-height caps it and lets it scroll past that).
   // A composer the user has sized keeps that size and scrolls instead.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = composerRef.current;
-    if (!el) return;
-    if (composerH != null) {
-      el.style.height = `${composerH}px`;
-      return;
-    }
-    // An empty box is its two-row minimum, which is its natural height: no
-    // need to measure. Measuring reads layout, and doing that as a chat opens
-    // forced the whole pane to lay out inside the click that opened it.
-    if (!draft) {
-      el.style.height = '';
-      return;
-    }
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    const pane = paneRef.current;
+    const section = composerSectionRef.current;
+    if (!el || !pane || !section) return;
+    const resize = () => {
+      const chrome = section.getBoundingClientRect().height - el.getBoundingClientRect().height;
+      const limit = Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
+      el.style.maxHeight = limit + 'px';
+      el.style.height = 'auto';
+      el.style.height = Math.min(limit, Math.max(el.scrollHeight, composerH ?? 0)) + 'px';
+      revealEditorCaret(el);
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(pane);
+    return () => observer.disconnect();
   }, [draft, composerH]);
 
   /**
@@ -1085,7 +1087,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     const startH = ta.getBoundingClientRect().height;
     // Whatever in the composer is not the text box, which the drag cannot shrink.
     const chrome = section.getBoundingClientRect().height - startH;
-    const maxH = Math.max(COMPOSER_MIN_H, pane.getBoundingClientRect().height - chrome - TRANSCRIPT_MIN_H);
+    const maxH = Math.max(COMPOSER_MIN_H, Math.min(pane.getBoundingClientRect().height - chrome - TRANSCRIPT_MIN_H, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome));
     let latest = startH;
     const onMove = (ev: PointerEvent) => {
       latest = Math.round(Math.min(maxH, Math.max(COMPOSER_MIN_H, startH + (startY - ev.clientY))));
@@ -1645,12 +1647,14 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // read off the record itself. Dismissing it is remembered per reply.
   const [dismissedInterruption, setDismissedInterruption] = useState<string | null>(null);
   useEffect(() => {
-    if (streaming || errorNotice || !session || dismissedInterruption === lastMsgId) return;
-    if (shouldShowPersistedInterruption(session.messages, streaming, !!held)) setErrorNotice(PERSISTED_INTERRUPTION);
+    if (errorNotice || !session || dismissedInterruption === lastMsgId) return;
+    if (shouldShowPersistedInterruption(session.messages, streaming, !!held || finalizingReply.current)) setErrorNotice(PERSISTED_INTERRUPTION);
   }, [session, streaming, held, errorNotice, lastMsgId, dismissedInterruption]);
-  // An interrupted turn needs a recovery action, not model-written follow-ups
-  // that may have been generated before the failure.
+  const canContinueWork = !streaming && !held && !session?.activeRun && !errorNotice &&
+    session?.messages.at(-1)?.role === 'assistant' && hasResumableProgress(session.messages);
+  // Suppress suggestions while recovery actions are visible.
   const suggestedOptions = errorNotice ? [] : liveSuggestions?.options ?? [];
+
   // The model's single most likely next message, shown as the composer's
   // placeholder while the box is empty; ArrowRight types it in.
   const ghostSuggestion = !draft && !errorNotice && liveSuggestions?.next ? liveSuggestions.next : null;
@@ -1679,22 +1683,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     }
     // → accepts the ghost suggestion while the box is empty (the box is empty
     // whenever a ghost is showing, so the caret is already at the end).
-    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
-        !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
-      const el = e.currentTarget;
-      const recalled = recallPrompt(sentPrompts, historyCursor.current, draft, e.key, el.selectionStart, el.selectionEnd);
-      if (recalled) {
-        e.preventDefault();
-        historyCursor.current = recalled;
-        setDraft(recalled.text);
-        setMenuClosed(true);
-        requestAnimationFrame(() => {
-          const caret = e.key === 'ArrowUp' ? 0 : el.value.length;
-          el.setSelectionRange(caret, caret);
-        });
-        return;
-      }
-    }
     if (e.key === 'ArrowRight' && ghostSuggestion && !e.currentTarget.value) {
       e.preventDefault();
       const el = e.currentTarget;
@@ -1979,25 +1967,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
                 {session && <WorktreeChip session={session} git={git} disabled={hasLive} onChange={setSession} />}
-                <span
-                  className="inline-flex min-w-0 items-center gap-1 rounded-sm px-1.5 py-px"
-                  style={{ background: 'color-mix(in srgb, var(--accent) 13%, transparent)', color: 'var(--accent)' }}
-                  title={git.branch ? `On branch ${git.branch}${git.dirtyCount ? ` · ${git.dirtyCount} uncommitted` : ''}` : `Detached at ${git.head}`}
-                >
-                  <BranchIcon className="h-3 w-3 shrink-0" />
-                  <span className="max-w-[16ch] truncate">{git.branch ?? git.head ?? 'detached'}</span>
-                </span>
               </span>
             )}>
-            {headerPrs.length > 0 && (
-              <button
-                className="btn btn-ghost px-2 py-1"
-                onClick={() => useStore.getState().openPrPane(headerPrs[0].url)}
-                title={git?.pr ? `Review #${git.pr.number}: ${git.pr.title}` : 'Review pull request'}
-              >
-                <PrBadge prs={headerPrs} />
-              </button>
-            )}
             {changeCount > 0 && (
               <button
                 className="btn btn-ghost px-2 py-1 text-[12px] font-medium text-accent"
@@ -2194,6 +2165,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           <div className={`composer-column mx-auto ${commandCenter ? 'w-[98%]' : 'w-[90%]'}`} style={commandCenter ? { width: '98%' } : undefined}>
             <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
+
             <div className="composer relative">
             {/* While the agent works, a violet→cyan beam laps the border. The
                 gradient is a square that rotates on the compositor, clipped
@@ -2435,29 +2407,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   )}
                 </div>
               )}
-            {/* Model-written follow-ups to the reply above: one click sends it
-                outright, and starting any turn clears them. */}
-            {!imageMode && (canContinueReply || suggestedOptions.length > 0) && !streaming && (
-              <div className="flex flex-wrap items-center gap-1.5 border-b border-line px-3 py-2.5" role="group" aria-label="Suggested replies">
-                {canContinueReply && (
-                  <button
-                    className={suggestedReplyClassName}
-                    title="Continue this reply, keeping the work already done"
-                    onClick={() => void resumeRun()}
-                  >
-                    Continue
-                  </button>
-                )}
-                {suggestedOptions.map((opt) => (
-                  <button
-                    key={opt}
-                    className={suggestedReplyClassName}
-                    title={`Send: ${opt}`}
-                    onClick={() => { setSuggestions(null); void send(opt); }}
-                  >
-                    {opt}
-                  </button>
-                ))}
+            {/* Recovery is separate from the placeholder suggestion. */}
+            {!imageMode && (canContinueReply || canContinueWork) && !streaming && (
+              <div className="flex items-center border-b border-line px-3 py-2.5">
+                <button
+                  className={canContinueReply ? suggestedReplyClassName : 'btn btn-outline py-1 text-[12px]'}
+                  title={canContinueReply ? 'Continue this reply, keeping the work already done' : 'Ask the agent to continue any remaining work from this conversation'}
+                  onClick={() => canContinueReply ? void resumeRun() : void send('Continue the remaining work from this conversation. Preserve what is already done; if the task is complete or blocked, explain that instead of repeating it.')}
+                >
+                  {canContinueReply ? 'Continue' : 'Continue work'}
+                </button>
               </div>
             )}
 
@@ -2520,7 +2479,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   )}
                   <MarkdownEditor
                     ref={composerRef}
-                    className={`${composerH != null ? '' : 'max-h-60 '}relative ${compact ? 'min-h-[36px] py-2' : 'min-h-[52px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
+                    className={`relative ${compact ? 'min-h-[36px] py-2' : 'min-h-[52px] py-3'} w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent px-3.5 text-sm text-ink caret-ink outline-hidden [scrollbar-gutter:stable] empty:before:content-[attr(data-placeholder)] empty:before:text-ink-faint`}
                     placeholder={imageMode ? 'Describe the image you want…' : streaming ? 'Queue a follow-up… (Ctrl/⌘+Enter steers the running reply)' : ghostSuggestion ?? (hasProvider ? 'Message Agent Nekko…  (/ for prompts, @ to attach files)' : 'Add a model provider in Model Providers first')}
                     value={draft}
                     aria-expanded={slashMenuOpen || atMenuOpen}
@@ -2690,7 +2649,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                       title={streaming ? 'Add to queue after this reply' : 'Send'}
                       aria-label={streaming ? 'Add to queue' : 'Send'}
                     >
-                      <NekkoAvatar size={24} />
+                      <NekkoAvatar size={24} wizardHat={settings?.themePreset === 'autumn'} />
                     </button>
                 </div>
               </div>
