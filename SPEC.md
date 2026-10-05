@@ -586,3 +586,5 @@ Availability: design and initial policy/discovery helpers only. App-control adap
 ### Competitor follow-ups: implementation and verification
 Running tool rows and collapsed activity groups show a conservative no-reported-progress duration after one minute. Updates occur at minute boundaries and hidden-pane timers pause. This is not a hang diagnosis; desktop/screen-reader verification remains outstanding.
 Mid-run failover has a tested, optional TS-loop hook and an Auto-pool-only selector foundation. It is not wired to production chats. Host pool verification, per-route usage accounting, exhaustion triggers, daemon support and context-budget checks remain unfinished. No automatic provider switch is enabled by this foundation.
+
+Daemon HTTP response handling checks for malformed/non-JSON bodies and reports channel plus HTTP status without echoing raw bodies. Valid JSON API error envelopes remain supported. Focused response tests verified; the original desktop failure and upstream cause are not reproduced. No visual change.
