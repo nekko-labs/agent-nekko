@@ -104,6 +104,9 @@ export function runHook(rule: HookRule, payload: HookPayload): Promise<HookOutco
       clearTimeout(timer);
       resolve({ rule, code, stdout, stderr, timedOut });
     });
+    // A hook may exit without reading stdin. Pipe writes can then emit EPIPE
+    // asynchronously; the process error/close handlers still own its outcome.
+    child.stdin?.on('error', () => {});
     try {
       child.stdin?.end(JSON.stringify(payload));
     } catch {

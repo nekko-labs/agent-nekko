@@ -80,4 +80,14 @@ describe('hooks', () => {
     expect(out.block).toBeUndefined();
     expect(out.notes).toEqual(['[hook slow timed out and was ignored]']);
   }, 15_000);
+
+  it('preserves the hook decision when it closes stdin before a large payload is written', async () => {
+    const out = await runHook(rule({ command: 'exit 2' }), {
+      event: 'PreToolUse', sessionId: 's1', cwd,
+      tool: { id: 'c1', name: 'bash', input: { text: 'x'.repeat(1024 * 1024) } },
+    });
+    expect(out.code).toBe(2);
+    expect(out.timedOut).toBe(false);
+    expect(decisionOf(out).block).toBe(true);
+  });
 });
