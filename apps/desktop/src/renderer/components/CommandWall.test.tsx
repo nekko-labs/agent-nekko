@@ -18,7 +18,7 @@ vi.mock('./PaneFrame.js', () => ({
   PaneFrame: ({ title, children }: { title: string; children: React.ReactNode }) => <section data-title={title}>{children}</section>,
   PaneActions: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-import { CommandWall, commandWallGeometry, companionTree, workspaceCompanions } from './CommandWall.js';
+import { CommandWall, commandWallGeometry, companionTree, resizeCompanionSplit, workspaceCompanions } from './CommandWall.js';
 import { leafRects } from '../commandWall.js';
 
 const a: WbPane = { id: 'a', kind: 'chat', refId: 'chat-a' };
@@ -33,6 +33,23 @@ function wall(s: CommandWallState) {
 }
 
 describe('command wall geometry', () => {
+  it('converts an expanded divider resize back to saved ratios without cumulative widening', () => {
+    const expanded = new Set(['a']);
+    const resized = resizeCompanionSplit(root, expanded, 'split', 0, .6) as WbSplit;
+    const displayed = companionTree(resized, expanded) as WbSplit;
+    expect(displayed.sizes[0]).toBeCloseTo(.6);
+    expect(displayed.sizes[2]).toBeCloseTo((companionTree(root, expanded) as WbSplit).sizes[2]);
+    expect(companionTree(displayed, expanded, 1 / 1.9)).toEqual(resized);
+    expect(root.sizes).toEqual([.5, .3, .2]);
+  });
+  it('keeps the Add preview separate from every existing window', () => {
+    const g = commandWallGeometry(state(), 1000, 700, new Set(['a']));
+    for (const pane of g.panes.values()) {
+      const overlapWidth = Math.min(pane.x + pane.width, g.add.x + g.add.width) - Math.max(pane.x, g.add.x);
+      const overlapHeight = Math.min(pane.y + pane.height, g.add.y + g.add.height) - Math.max(pane.y, g.add.y);
+      expect(overlapWidth > 0 && overlapHeight > 0).toBe(false);
+    }
+  });
   it('widens companion leaves without changing saved ratios', () => {
     const before = JSON.stringify(root);
     const widened = companionTree(root, new Set(['a'])) as WbSplit;

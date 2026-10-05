@@ -94,15 +94,19 @@ export interface WallGeometry {
 }
 
 /** Expand companion-bearing leaves for display only; never write these ratios back. */
-export function companionTree(root: WbNode | null, expanded: Set<string>): WbNode | null {
+export function companionTree(root: WbNode | null, expanded: Set<string>, factor = 1.9): WbNode | null {
   if (!root || !isSplit(root)) return root;
-  const weights = root.children.map((child, i) => root.sizes[i] * (root.dir === 'row' && allPanes(child).some(p => expanded.has(p.id)) ? 1.9 : 1));
+  const weights = root.children.map((child, i) => root.sizes[i] * (root.dir === 'row' && allPanes(child).some(p => expanded.has(p.id)) ? factor : 1));
   const total = weights.reduce((a, b) => a + b, 0);
-  return { ...root, children: root.children.map(child => companionTree(child, expanded)!), sizes: weights.map(w => w / total) };
+  return { ...root, children: root.children.map(child => companionTree(child, expanded, factor)!), sizes: weights.map(w => w / total) };
+}
+
+export function resizeCompanionSplit(root: WbNode | null, expanded: Set<string>, id: string, index: number, fraction: number): WbNode | null {
+  return companionTree(resizeSplit(companionTree(root, expanded), id, index, fraction), expanded, 1 / 1.9);
 }
 
 /** Pixel geometry only; the saved split tree is never re-tiled by a mode switch. */
-export function commandWallGeometry(state: CommandWallState, width: number, height: number): WallGeometry {
+export function commandWallGeometry(state: CommandWallState, width: number, height: number, expanded = new Set<string>()): WallGeometry {
   const tree = filterTree(state.root, state.filter);
   const visible = allPanes(tree);
   const hero = state.layout.mode === 'focus'
@@ -119,9 +123,10 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
   const addPanePreview: WbPane = { id: '__wall_add__', kind: 'chat', refId: '__wall_add__' };
-  const addGrid = state.layout.mode === 'grid' && width >= NARROW_WIDTH
+  // Choose insertion from the saved tree before applying display-only weights.
+  const addGrid = companionTree(state.layout.mode === 'grid' && width >= NARROW_WIDTH
     ? addPanes(grid, [addPanePreview], width > 0 && height > 0 ? width / height : DEFAULT_ASPECT)
-    : grid;
+    : grid, expanded);
   let contentHeight = stageHeight;
   if (state.layout.mode === 'focus') {
     if (hero) panes.set(hero, { x: 0, y: 0, width, height: stageHeight });
@@ -265,11 +270,11 @@ export function CommandWall({
   const numberOf = useMemo(() => new Map(wallAgents(state.root).map((p, i) => [p.refId, i + 1])), [state.root]);
   const terminalById = useMemo(() => new Map(terminals.map((t) => [t.id, t])), [terminals]);
   const aspect = size.width > 0 && size.height > 0 ? size.width / size.height : DEFAULT_ASPECT;
-  const geometry = useMemo(() => {
+  const { geometry, expanded } = useMemo(() => {
     const base = commandWallGeometry(state, size.width, size.height);
-    if (state.layout.mode !== 'grid') return base;
+    if (state.layout.mode !== 'grid') return { geometry: base, expanded: new Set<string>() };
     const expanded = new Set(wallAgents(state.root).filter(p => workspaceCompanions(workspaces, p.refId).length > 0 && !(state.folded[p.refId] ?? (numberOf.size > 4 || (base.panes.get(p.id)?.width ?? 0) < 700))).map(p => p.id));
-    return expanded.size ? commandWallGeometry({ ...state, root: companionTree(state.root, expanded) }, size.width, size.height) : base;
+    return { geometry: expanded.size ? commandWallGeometry(state, size.width, size.height, expanded) : base, expanded };
   }, [state.root, state.filter, state.layout, state.hero, state.folded, workspaces, numberOf, size]);
   const densityOf = (paneId: string): boolean | null => {
     const r = geometry.panes.get(paneId);
@@ -446,6 +451,9 @@ export function CommandWall({
 
   // Each divider retains its original split box as its parent so pointer and
   // keyboard resize fractions still address the saved tree, not the whole wall.
+  const sourceSplitIds = new Set<string>();
+  const collectSplits = (node: WbNode | null): void => { if (node && isSplit(node)) { sourceSplitIds.add(node.id); node.children.forEach(collectSplits); } };
+  collectSplits(state.root);
   const renderDividers = (node: WbNode, r = { x: 0, y: 0, width: size.width, height: geometry.stageHeight }): React.ReactNode => {
     if (!isSplit(node)) return null;
     let at = 0;
@@ -455,13 +463,13 @@ export function CommandWall({
       const childRect = node.dir === 'row' ? { ...r, x: r.x + at * r.width, width: share * r.width } : { ...r, y: r.y + at * r.height, height: share * r.height };
       at += share;
       return <React.Fragment key={child.id}>
-        {i > 0 && <div className="command-wall-divider-box" style={{ left: r.x, top: r.y, width: r.width, height: r.height,
+        {i > 0 && sourceSplitIds.has(node.id) && <div className="command-wall-divider-box" style={{ left: r.x, top: r.y, width: r.width, height: r.height,
           '--wall-divider-left': `${node.dir === 'row' ? fraction * r.width - 4 : 0}px`,
           '--wall-divider-top': `${node.dir === 'col' ? fraction * r.height - 4 : 0}px`,
           '--wall-divider-width': `${node.dir === 'row' ? 8 : r.width}px`,
           '--wall-divider-height': `${node.dir === 'col' ? 8 : r.height}px`,
         } as React.CSSProperties}>
-          <Divider splitId={node.id} index={i - 1} dir={node.dir} onResize={(id, index, value) => update((root) => resizeSplit(root, id, index, value))} />
+          <Divider splitId={node.id} index={i - 1} dir={node.dir} onResize={(id, index, value) => update((root) => resizeCompanionSplit(root, expanded, id, index, value))} />
         </div>}
         {renderDividers(child, childRect)}
       </React.Fragment>;
