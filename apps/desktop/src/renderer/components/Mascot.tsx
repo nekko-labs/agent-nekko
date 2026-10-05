@@ -29,13 +29,18 @@ function usePageHidden() {
 }
 
 
-export function NekkoAvatar({ size = 28, title }: { size?: number; title?: string }) {
+export function NekkoAvatar({ size = 28, title, wizardHat = false }: { size?: number; title?: string; wizardHat?: boolean }) {
   const hidden = usePageHidden();
   return (
     <svg className={`pixel-nekko${hidden ? ' pixel-paused' : ''}`} viewBox="0 0 32 32" width={size} height={size}
       shapeRendering="crispEdges" role={title ? 'img' : 'presentation'} aria-label={title}
       aria-hidden={title ? undefined : true} focusable="false">
       <PixelHead />
+      {wizardHat && <g data-part="orange-wizard-hat" strokeLinejoin="miter">
+        <polygon points="9,10 16,0 19,2 23,10" fill="#fb923c" stroke="#9a3412" strokeWidth="1" />
+        <rect x="8" y="9" width="17" height="3" fill="#ea580c" stroke="#9a3412" strokeWidth="1" />
+        <rect x="16" y="7" width="3" height="2" fill="#fde68a" />
+      </g>}
     </svg>
   );
 }

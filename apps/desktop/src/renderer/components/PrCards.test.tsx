@@ -1,7 +1,8 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('../store.js', () => ({ useStore: Object.assign(vi.fn(() => vi.fn()), { getState: vi.fn() }) }));
+const theme = vi.hoisted(() => ({ preset: 'autumn' as string | undefined }));
+vi.mock('../store.js', () => ({ useStore: Object.assign(vi.fn((selector) => selector({ settings: { themePreset: theme.preset }, openPrPane: vi.fn() })), { getState: vi.fn() }) }));
 import type { PrInfo } from '@agent-nekko/shared';
 import { PrCard, PrActionDock, PrBadge } from './PrCard.js';
 const url = 'https://github.com/o/r/pull/1';
@@ -42,6 +43,13 @@ describe('PR milestones and composer actions', () => {
     expect(markup).not.toContain('✦');
     expect(renderToStaticMarkup(<PrCard url={url} info={pr} />)).not.toContain('🎃');
   });
+  it('removes seasonal decorations when switching to another theme', () => {
+    theme.preset = 'autumn';
+    expect(renderToStaticMarkup(<PrCard url={url} event="merged" />)).toContain('🎃');
+    theme.preset = 'ember';
+    expect(renderToStaticMarkup(<PrCard url={url} event="merged" />)).not.toContain('🎃');
+    theme.preset = 'autumn';
+  });
   it('places actions and a non-destructive hide button on the open dock', () => {
     const markup = renderToStaticMarkup(<PrActionDock sessionId="s" prs={[pr]} urls={[url]} />);
     expect(markup).toContain('Pending pull requests');
@@ -51,12 +59,12 @@ describe('PR milestones and composer actions', () => {
     expect(markup).toContain('Hide PR o/r#1');
     expect(markup).toContain('does not close the PR');
   });
-  it('uses adjoining rows at 80% composer width with actions beside the PR details', () => {
+  it('uses an ownership-scoped deck with actions beside the PR details', () => {
     const second = { ...pr, url: 'https://github.com/o/r/pull/2', number: 2 };
     const markup = renderToStaticMarkup(<PrActionDock sessionId="s" prs={[pr, second]} urls={[url]} />);
-    expect(markup).toContain('mx-auto max-h-60 w-[80%]');
-    expect(markup.match(/data-pr-actions=/g)).toHaveLength(2);
-    expect(markup.match(/last:border-b-0/g)).toHaveLength(2);
+    expect(markup).toContain('pr-action-deck');
+    expect(markup.match(/data-pr-actions=/g)).toHaveLength(1);
+    expect(markup).not.toContain(second.url);
     expect(markup).not.toContain('mb-2');
     expect(markup).not.toContain('mt-1');
     expect(markup).toContain('justify-end gap-0');

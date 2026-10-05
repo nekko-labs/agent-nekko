@@ -40,7 +40,7 @@ describe('persisted interruption after completion', () => {
   it('ignores stale tool calls while the finished reply awaits its transcript', () => {
     expect(shouldShowPersistedInterruption(stale, true, false)).toBe(false);
     expect(shouldShowPersistedInterruption(stale, false, true)).toBe(false);
-    const finished = [...stale, { id: 'final', role: 'assistant' as const, content: 'Done.', createdAt: 2 }];
+    const finished = [...stale, { id: 'result', role: 'tool' as const, content: 'ok', toolResult: { toolCallId: 'call', output: 'ok' }, createdAt: 2 }, { id: 'final', role: 'assistant' as const, content: 'Done.', createdAt: 2 }];
     expect(shouldShowPersistedInterruption(finished, false, false)).toBe(false);
   });
   it('still detects a genuinely interrupted persisted reply', () => {
