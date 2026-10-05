@@ -931,12 +931,28 @@ export const useStore = create<UiState>((set, get) => ({
 
   deleteChatForever: async (sessionId) => {
     try {
+      await window.nekko.abortChat(sessionId);
+    } catch { /* nothing running */ }
+    try {
       await window.nekko.deleteSession(sessionId);
     } catch (e) {
       get().pushToast('error', `Could not delete the chat: ${(e as Error).message}`);
       return;
     }
-    set((s) => (s.archivedViewId === sessionId ? { archivedViewId: null, archiveOpen: false } : {}));
+    // Remove open views only after the host confirms permanent deletion.
+    for (const ws of get().workspaces) {
+      if (ws.anchor.kind === 'chat' && ws.anchor.refId === sessionId) {
+        get().closeWorkspace(ws.id);
+      } else {
+        for (const pane of allPanes(ws.root)) {
+          if (pane.kind === 'chat' && pane.refId === sessionId) get().closePane(pane.id);
+        }
+      }
+    }
+    set((s) => ({
+      ...(s.archivedViewId === sessionId ? { archivedViewId: null, archiveOpen: false } : {}),
+      ...(s.activeSessionId === sessionId ? { activeSessionId: null } : {}),
+    }));
     await get().refreshSessions();
   },
 

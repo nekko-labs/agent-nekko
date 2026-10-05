@@ -1,5 +1,106 @@
-import { describe, it, expect } from 'vitest';
-import { targetAt } from './PaneFrame.js';
+import React, { useState } from 'react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { PaneFrame, targetAt } from './PaneFrame.js';
+import { ContextAction, ContextMenu } from './ContextMenu.js';
+
+const state = vi.hoisted(() => ({
+  settings: null as { chatPaneAction?: 'complete' | 'delete' } | null,
+  archiveChat: vi.fn(),
+  deleteChatForever: vi.fn(),
+}));
+vi.mock('../store.js', () => ({ useStore: (select: (s: typeof state) => unknown) => select(state) }));
+vi.mock('react', async (original) => {
+  const actual = await original<typeof import('react')>();
+  return { ...actual, useState: vi.fn(actual.useState) };
+});
+
+afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); state.settings = null; });
+
+/** Inspect frame elements and invoke their actual event handlers without a DOM. */
+function frame(kind: 'chat' | 'terminal' = 'chat', menu = false, refId = 'session-1') {
+  vi.mocked(useState).mockImplementation((initial?: unknown) => [initial, vi.fn()] as never);
+  vi.mocked(useState).mockReturnValueOnce([null, vi.fn()]);
+  vi.mocked(useState).mockReturnValueOnce([menu ? { x: 10, y: 20 } : null, vi.fn()]);
+  const onClose = vi.fn();
+  const tree = PaneFrame({
+    pane: { id: 'pane-1', kind, refId }, title: 'My chat', icon: null,
+    isActive: true, dragging: null, canSplit: () => true, onSplit: vi.fn(),
+    onClose, onFocus: vi.fn(), onDragStart: vi.fn(), onDragEnd: vi.fn(), onDrop: vi.fn(), children: null,
+  });
+  const elements: React.ReactElement<Record<string, any>>[] = [];
+  const walk = (node: React.ReactNode) => {
+    React.Children.forEach(node, (child) => {
+      if (!React.isValidElement<Record<string, any>>(child)) return;
+      elements.push(child);
+      walk(child.props.children);
+    });
+  };
+  walk(tree);
+  return { elements, onClose, button: elements.find((e) => e.type === 'button')! };
+}
+
+describe('pane lifecycle controls', () => {
+  it('defaults chats to Complete using existing archive semantics, not Close', () => {
+    const { button, onClose } = frame();
+    expect(button.props['aria-label']).toBe('Complete My chat');
+    expect(button.props.title).toBe('Complete this chat');
+    button.props.onClick();
+    expect(state.archiveChat).toHaveBeenCalledWith('session-1');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(state.deleteChatForever).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])('confirms the Delete preference (approved=%s)', (approved) => {
+    state.settings = { chatPaneAction: 'delete' };
+    const confirm = vi.fn(() => approved);
+    vi.stubGlobal('window', { confirm });
+    const { button, onClose } = frame();
+    expect(button.props['aria-label']).toBe('Delete My chat');
+    button.props.onClick();
+    expect(confirm).toHaveBeenCalledWith('Delete this chat forever? It cannot be recovered.');
+    expect(state.deleteChatForever).toHaveBeenCalledTimes(approved ? 1 : 0);
+    if (approved) expect(state.deleteChatForever).toHaveBeenCalledWith('session-1');
+    expect(state.archiveChat).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('offers Complete, confirmed Delete, and non-destructive Close regardless of preference', () => {
+    state.settings = { chatPaneAction: 'delete' };
+    vi.stubGlobal('window', { confirm: vi.fn(() => false) });
+    const { elements, onClose } = frame('chat', true);
+    expect(elements.some((e) => e.type === ContextMenu)).toBe(true);
+    const actions = elements.filter((e) => e.type === ContextAction);
+    expect(actions.map((e) => e.props.children)).toEqual(['Complete', 'Delete', 'Close']);
+    actions[0].props.onClick();
+    expect(state.archiveChat).toHaveBeenCalledWith('session-1');
+    actions[1].props.onClick();
+    expect(window.confirm).toHaveBeenCalled();
+    expect(state.deleteChatForever).not.toHaveBeenCalled();
+    actions[2].props.onClick();
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('opens the title-bar menu without bubbling to parent menus', () => {
+    const { elements } = frame();
+    const strip = elements.find((e) => e.props.draggable)!;
+    const event = { preventDefault: vi.fn(), stopPropagation: vi.fn(), clientX: 30, clientY: 40 };
+    strip.props.onContextMenu(event);
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(event.stopPropagation).toHaveBeenCalledOnce();
+    expect(vi.mocked(useState).mock.results[1].value[1]).toHaveBeenCalledWith({ x: 30, y: 40 });
+  });
+
+  it.each([['terminal', 'terminal-1'], ['chat', '']] as const)('keeps Close for %s panes with ref %s', (kind, refId) => {
+    state.settings = { chatPaneAction: 'delete' };
+    const { button, elements, onClose } = frame(kind, true, refId);
+    expect(button.props['aria-label']).toBe('Close My chat');
+    button.props.onClick();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(elements.filter((e) => e.type === ContextAction).map((e) => e.props.children)).toEqual(['Close']);
+    expect(state.archiveChat).not.toHaveBeenCalled();
+    expect(state.deleteChatForever).not.toHaveBeenCalled();
+  });
+});
 
 /** A 200×100 window at the origin, the shape most drops land on. */
 const rect = { left: 0, top: 0, width: 200, height: 100, right: 200, bottom: 100, x: 0, y: 0 } as DOMRect;

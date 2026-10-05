@@ -598,9 +598,20 @@ Availability: design and initial policy/discovery helpers only. App-control adap
 ## Workspace context commands and connected composer
 
 - Right-click chat workspace cards and saved-chat rows for a read-only session identifier, Open, Mark as completed, Change model, Stop, Continue, and permanent Delete. Delete bypasses Completed and asks for confirmation.
+- Implemented: agent/chat `PaneFrame` top-right controls default to Complete using the existing archive flow (Completed retains chats for 60 days). Settings > Appearance offers Complete or Delete; Delete always requires confirmation. Right-click the title bar for Complete, Delete, and non-destructive Close (only removes the window, preserving the chat). Other pane kinds retain Close. Focused handler/store tests cover these actions. Wide/narrow light/dark full-app screenshots were directly inspected; isolated fixture checks verified Complete, cancelled/confirmed Delete, and Agent-tab selection on 2026-10-06.
 - Ctrl (or Command) toggles individual rows; Shift selects an inclusive range in visible sidebar order. Right-click a selected row applies commands to the selected chats. Stop skips idle chats, Continue skips running chats and uses non-destructive resume. Continue currently requires a saved specific model and an existing prompt; Auto chats ask the user to choose a model first. Failures are reported per chat.
 - Composer model pickers and model-provider catalogs offer Set as default on right-click. The default is labeled and pinned first; a missing default remains visible but disabled. Model changes update mounted chat composers immediately.
 - The composer uses 90% of the available pane width on desktop and full usable width on narrow screens. Questions extend from its upper center at 80% of composer width, with curved shoulders and no separate horizontal tray lines. They expand upward and retract on answer, with reduced-motion support.
+
+### Per-chat information strip (implemented and renderer verified)
+
+PR actions and model, effort, context, cost, and online/offline information are rendered below the chat composer in a per-session footer. Wall attention uses a slim local banner rather than an orange outer ring. The existing chat-type switch, dictation control and seasonal avatar are preserved when integrating the footer. Wide/narrow light/dark full-app screenshots and synthetic PR footer expand/tuck/dismiss behavior were directly inspected on 2026-10-06. Creation-time Image/Video selection and image/compact layout consolidation remain separate planned work; video generation is not implemented.
+
+### Competitor follow-ups: implementation and verification
+Running tool rows and collapsed activity groups show a conservative no-reported-progress duration after one minute. Updates occur at minute boundaries and hidden-pane timers pause. This is not a hang diagnosis. Renderer checks and inspected recording verify the one-minute boundary, expanded two-minute state, and reset on progress. Screen-reader verification is not claimed.
+Mid-run failover has a tested, optional TS-loop hook and an Auto-pool-only selector foundation. It is not wired to production chats. Host pool verification, per-route usage accounting, exhaustion triggers, daemon support and context-budget checks remain unfinished. No automatic provider switch is enabled by this foundation.
+
+Daemon HTTP response handling checks for malformed/non-JSON bodies and reports channel plus HTTP status without echoing raw bodies. Valid JSON API error envelopes remain supported. Focused response tests verified; the original desktop failure and upstream cause are not reproduced. No visual change.
 
 ## Experimental outbound resource queue
 
@@ -651,10 +662,8 @@ Safety boundaries: preserve user-owned instances and data, establish sandbox iso
 
 The Rust daemon prompt (`crates/nekko-context/src/prompt.rs`) carries the same automatic-verification guidance. Host and daemon context golden tests verify shared instruction parity; prompt changes must update both implementations and regenerate the shared fixture against the changed core. This closes a coverage gap in the initial policy change, whose core-only tests did not catch daemon/fixture drift.
 
-### Command wall release follow-up (in verification)
-The follow-up adds deck-only horizontal offset, model/context card labels, read-only terminal excerpt snapshots, a narrow companion Focus notice, and display-only 1.9x companion weighting. Companion ownership follows the anchored chat; a non-chat workspace is used only when it contains one chat, avoiding ambiguous duplication. Saved split ratios are not changed by display weighting. Full web build and npm test passed before the last ownership/widening batch; final component tests and typecheck passed, and quick perf passed all six CI gates. Actual-window evidence remains blocked by local capture/restore failure; metrics completeness and interaction acceptance remain unverified. Not release-complete.
 
-Budget top-agent and local-provider token totals use existing all-time recorded aggregates and are labeled as such; only daily spend is filtered to the UTC month. Monthly attribution and runtime throughput are unavailable in current telemetry and are not guessed.
+Engine router port zero uses an OS-assigned listener and reports its actual port in serving metadata. Decision-service integration tests use this to avoid reserve/release port races; auth and CORS checks remain unchanged. Six router tests pass locally; macOS CI confirmation pending. No visual change.
 
 ### Focus chat, numbered icons and single approval surface
 
@@ -678,11 +687,15 @@ Dock minimization keeps the outgoing panel mounted for a 220ms shrinking transit
 
 The model dropdown renders in a viewport-positioned portal, outside the chat pane's overflow clipping. It fits available height, scrolls its model list, clamps horizontally, and opens above or below the trigger according to available space. Inline empty-chat selection remains inline. Acceptance: subscription usage with published prices has a nonzero API-equivalent total while billed usage remains zero; unknown pricing is not presented as free; filtering, selection, favorites, outside-click dismissal and Escape continue working in narrow composer and full-chat windows. No new network requests or credential access are introduced by the picker.
 
-### Command wall release follow-up (in verification)
-The follow-up adds Grid Add placement preview, model/context card labels, read-only terminal excerpt snapshots, a narrow companion Focus notice, and display-only 1.9x companion weighting. The earlier Focus-deck horizontal scroller is obsolete under the full-height Focus design: Focus keeps the hero chat full-height with full controls, keeps other bodies warm, and selects them through the row above the hero rather than a scrollable in-wall deck. Companion ownership follows the anchored chat; a non-chat workspace is used only when it contains one chat, avoiding ambiguous duplication. Saved split ratios are not changed by display weighting. Full web build and npm test passed before the last ownership/widening batch; final component tests and typecheck passed, and quick perf passed all six CI gates. Actual-window evidence remains blocked by local capture/restore failure; metrics completeness and interaction acceptance remain unverified. Not release-complete.
 
-Budget top-agent and local-provider token totals use existing all-time recorded aggregates and are labeled as such; only daily spend is filtered to the UTC month. Monthly attribution and runtime throughput are unavailable in current telemetry and are not guessed.
-
-Terminal deck excerpts strip ANSI sequences and simulate carriage-return/backspace overwrite for a two-line read-only preview. Cursor positioning/erase sequences are not a full terminal emulator; actual terminal interaction remains in the terminal pane.
+Engine router port zero uses an OS-assigned listener and reports its actual port in serving metadata. Decision-service integration tests use this to avoid reserve/release port races; auth and CORS checks remain unchanged. Six router tests pass locally; macOS CI confirmation pending. No visual change.
 
 Router decision integration tests bind port zero and read the actual listener port to avoid reserve/release races. Auth/CORS expectations are unchanged; platform execution is verified by CI.
+
+### Command wall release follow-up (renderer verified)
+
+Focus selects warm chat/terminal bodies from an independently scrolling row above the full-height hero. Labels include model/context and read-only two-line terminal snapshots; ANSI styling is stripped and carriage-return/backspace overwrite is respected. Grid uses the same insertion preview for existing windows and the Add tile, preventing overlap. Companion ownership follows the anchored chat, with non-chat fallback only for a single-chat workspace. Display-only 1.9x weighting does not mutate saved ratios, and divider resizing converts displayed ratios back to saved ratios before persistence. A narrow companion notice offers Focus.
+
+Budget top-agent and local-provider totals are labeled all-time recorded aggregates; daily spend is filtered to the UTC month. Loaded runtime residency, reported model memory and recent use are shown. Missing throughput and monthly token attribution are explicitly unavailable rather than guessed.
+
+Wide/narrow light/dark full-app screenshots and companion/dock motion are verified with isolated fixtures. Selector scrolling preserves hero position, text/image drafts survive Grid/Focus, one approval surface remains, terminal selection works, and Grid/Focus/Fixed preserve the saved tree. Hardware/budget panel minimize/restore, pointer/keyboard reset and reduced motion retain the previously verified behavior. Native OS identity belongs to the separate development identity change.

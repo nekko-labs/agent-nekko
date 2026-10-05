@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Direction, DropTarget, PaneKind, WbPane } from '../layout.js';
-import { CloseIcon } from '../icons.js';
+import { CheckIcon, CloseIcon, TrashIcon } from '../icons.js';
+import { useStore } from '../store.js';
+import { ContextAction, ContextMenu } from './ContextMenu.js';
 import { SplitCompass } from './SplitCompass.js';
 
 /**
  * The chrome around one window in a workspace: a thin title strip that is also
  * the handle you drag it by, the compass that adds a window beside it, and a
- * close button.
+ * lifecycle button (Complete by default for chats, Close for other windows).
  *
  * While any window is being dragged every window covers itself with a target
  * that reads the pointer's nearest edge, because the thing you drop onto is
@@ -161,6 +163,18 @@ export function PaneFrame({
   children: React.ReactNode;
 }) {
   const [over, setOver] = useState<DropTarget | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const chatPaneAction = useStore((s) => s.settings?.chatPaneAction ?? 'complete');
+  const archiveChat = useStore((s) => s.archiveChat);
+  const deleteChatForever = useStore((s) => s.deleteChatForever);
+  const isChat = pane.kind === 'chat' && !!pane.refId;
+  const action = isChat ? chatPaneAction : 'close';
+  const complete = () => { void archiveChat(pane.refId); };
+  const deleteChat = () => {
+    if (window.confirm('Delete this chat forever? It cannot be recovered.')) {
+      void deleteChatForever(pane.refId);
+    }
+  };
   // Set once the strip is on screen, which is what lets the portal find it.
   const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null);
   const [metadataSlot, setMetadataSlot] = useState<HTMLElement | null>(null);
@@ -198,6 +212,11 @@ export function PaneFrame({
           onDragStart();
         }}
         onDragEnd={onDragEnd}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setMenu({ x: e.clientX, y: e.clientY });
+        }}
         title="Drag to move this window"
       >
         {icon}
@@ -217,13 +236,21 @@ export function PaneFrame({
         {!hideSplit && <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} addable={addable} />}
         <button
           className="rounded-sm p-1 text-ink-faint hover:text-ink"
-          title={closeTitle}
-          aria-label={`Close ${title}`}
-          onClick={onClose}
+          title={action === 'complete' ? 'Complete this chat' : action === 'delete' ? 'Delete this chat forever' : closeTitle}
+          aria-label={`${action === 'complete' ? 'Complete' : action === 'delete' ? 'Delete' : 'Close'} ${title}`}
+          onClick={action === 'complete' ? complete : action === 'delete' ? deleteChat : onClose}
         >
-          <CloseIcon className="h-3 w-3" />
+          {action === 'complete' ? <CheckIcon className="h-3 w-3" /> : action === 'delete' ? <TrashIcon className="h-3 w-3" /> : <CloseIcon className="h-3 w-3" />}
         </button>
       </div>
+
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
+          {isChat && <ContextAction onClick={() => { setMenu(null); complete(); }}>Complete</ContextAction>}
+          {isChat && <ContextAction onClick={() => { setMenu(null); deleteChat(); }}>Delete</ContextAction>}
+          <ContextAction onClick={() => { setMenu(null); onClose(); }}>Close</ContextAction>
+        </ContextMenu>
+      )}
 
       <div className="relative min-h-0 flex-1">
         {/* The body gets out of the way of an incoming drop rather than just
