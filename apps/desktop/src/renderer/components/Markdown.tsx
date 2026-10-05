@@ -544,8 +544,9 @@ function ImageRef({ alt, src, basePath }: { alt: string; src: string; basePath?:
  */
 export function safeHref(href: string): string | null {
   try {
-    const { protocol } = new URL(href, 'about:blank');
-    return protocol === 'http:' || protocol === 'https:' || protocol === 'mailto:' ? href : null;
+    const url = new URL(href, 'about:blank');
+    if (url.protocol !== 'http:' && url.protocol !== 'https:' && url.protocol !== 'mailto:') return null;
+    return href.replace(/[<>"'`]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
   } catch {
     return null;
   }
