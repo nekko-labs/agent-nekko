@@ -18,7 +18,7 @@ vi.mock('./PaneFrame.js', () => ({
   PaneFrame: ({ title, children }: { title: string; children: React.ReactNode }) => <section data-title={title}>{children}</section>,
   PaneActions: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-import { CommandWall, commandWallGeometry, workspaceCompanions } from './CommandWall.js';
+import { CommandWall, commandWallGeometry, companionTree, workspaceCompanions } from './CommandWall.js';
 
 const a: WbPane = { id: 'a', kind: 'chat', refId: 'chat-a' };
 const b: WbPane = { id: 'b', kind: 'chat', refId: 'chat-b' };
@@ -32,6 +32,17 @@ function wall(s: CommandWallState) {
 }
 
 describe('command wall geometry', () => {
+  it('widens companion leaves without changing saved ratios', () => {
+    const before = JSON.stringify(root);
+    const widened = companionTree(root, new Set(['a'])) as WbSplit;
+    expect(widened.sizes[0] / widened.sizes[1]).toBeCloseTo((0.5 * 1.9) / 0.3);
+    expect(JSON.stringify(root)).toBe(before);
+  });
+  it('does not duplicate shared companions under a secondary chat', () => {
+    const shared = { ...workspace, root: { ...root, children: [a, b, ...companions], sizes: Array(7).fill(1 / 7) } };
+    expect(workspaceCompanions([shared], 'chat-b')).toEqual([]);
+    expect(workspaceCompanions([shared], 'chat-a')).toHaveLength(4);
+  });
   it('retains saved Grid ratios without mutating the source tree', () => {
     const s = state();
     const before = JSON.stringify(s);

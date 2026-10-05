@@ -1154,3 +1154,9 @@ Technical approach: independent approval policy and session environment; default
 - [x] DK-1: Persisted state, migration, dock and view controls; 38 focused tests and desktop typecheck.
 - [ ] DK-2: Finish independent Focus deck scrolling, companion widening/ownership/toast and terminal metadata.
 - [ ] DK-3: Final build, broad tests, perf and inspected before/after plus motion evidence; draft until verified.
+
+### DK follow-up verification
+- [x] Deck-only scrolling offset, card metadata/terminal excerpt, narrow Focus notice, nonduplicating workspace ownership and temporary companion weighting.
+- [x] Full web build and npm test; final typecheck/component tests; quick perf six gates passed.
+- [ ] Actual-window before/after and motion evidence: capture fails for existing sandbox window; restore blocked by Windows script policy.
+- [ ] Finish exact Add tree placement, complete metric handover audit, and interactive acceptance before release.
