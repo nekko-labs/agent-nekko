@@ -69,13 +69,14 @@ describe('command wall geometry', () => {
     expect(g.panes.get('a')!.height * .65).toBeGreaterThan(600);
   });
 
-  it('previews balanced sequential Grid insertion without mutating saved ratios', () => {
+  it('retains saved Grid ratios and split identities without mutating the source tree', () => {
     const s = state();
     const before = JSON.stringify(s);
     const g = commandWallGeometry(s, 1000, 700);
-    expect(g.panes.get('a')).toEqual({ x: 0, y: 0, width: 496, height: 310 });
-    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 496, height: 310 });
-    expect(g.panes.get('t')).toEqual({ x: 0, y: 318, width: 496, height: 310 });
+    expect(g.panes.get('a')).toEqual({ x: 0, y: 0, width: 496, height: 628 });
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 628 });
+    expect(g.panes.get('t')).toEqual({ x: 804, y: 0, width: 196, height: 628 });
+    expect(g.addGrid!.id).toBe(root.id);
     expect(g.deck.size).toBe(0);
     expect(JSON.stringify(s)).toBe(before);
   });
@@ -93,17 +94,28 @@ describe('command wall geometry', () => {
     }
   });
 
-  it('places the Grid Add cell at the same leaf addPane will use next', () => {
+  it('reserves a compact Grid Add row without synthesizing split IDs', () => {
     const g = commandWallGeometry(state(), 1000, 700);
-    const preview = leafRects(g.addGrid).get('__wall_add__')!;
-    expect(preview).toBeTruthy();
+    expect(leafRects(g.addGrid).has('__wall_add__')).toBe(false);
     expect(g.stageHeight).toBe(628);
-    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 496, height: 310 });
-    expect(g.add).toEqual({ x: 504, y: 318, width: 496, height: 310 });
-    expect(preview.x).toBeCloseTo(0.5);
-    expect(preview.y).toBeCloseTo(0.5);
-    expect(preview.width).toBeCloseTo(0.5);
-    expect(preview.height).toBeCloseTo(0.5);
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 628 });
+    expect(g.add).toEqual({ x: 0, y: 636, width: 320, height: 64 });
+    expect(g.height).toBe(700);
+  });
+
+  it('displays a saved divider edit instead of re-balancing it on render', () => {
+    const resized = resizeCompanionSplit(root, new Set(), root.id, 0, .6);
+    const g = commandWallGeometry(state({ root: resized }), 1000, 700);
+    expect(g.panes.get('a')!.width).toBe(596);
+    expect(g.panes.get('b')!.x).toBe(604);
+    expect(g.panes.get('b')!.width).toBeCloseTo(192);
+    expect(g.addGrid!.id).toBe(root.id);
+  });
+
+  it('keeps the Grid Add row inside a shorter wide viewport', () => {
+    const g = commandWallGeometry(state(), 1000, 480);
+    expect(g.add.y + g.add.height).toBe(480);
+    expect(g.height).toBe(480);
   });
 
   it('uses Focus-only deck and falls back when the hero is missing or filtered', () => {

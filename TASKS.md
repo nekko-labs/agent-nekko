@@ -1160,3 +1160,5 @@ Technical approach: independent approval policy and session environment; default
 - [x] Full web build and npm test; final typecheck/component tests; quick perf six gates passed.
 - [ ] Actual-window before/after and motion evidence: capture fails for existing sandbox window; restore blocked by Windows script policy.
 - [ ] Finish exact Add tree placement, complete metric handover audit, and interactive acceptance before release.
+
+- [x] **Command Center sequential-grid integration**: keep real split identities and saved resize ratios while rendering Grid; place Add in a compact reserved row so virtual chat insertion cannot re-tile the display and hide dividers. Pointer/keyboard resize, reload and mode-switch persistence are verified. · Done: 2026-10-06
