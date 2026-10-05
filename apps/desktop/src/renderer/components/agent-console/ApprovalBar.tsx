@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import type { ToolCall } from '@agent-nekko/shared';
 import { ShieldIcon } from '../../icons.js';
 
@@ -10,11 +9,10 @@ export interface PendingApproval {
 
 /**
  * The tool-approval prompt: the highest-stakes moment in the app, so it gets a
- * deliberate entrance, keyboard focus (Deny by default), and Y / N / Esc keys.
+ * deliberate entrance without stealing focus from another chat. Y / N / Esc
+ * keys apply only when the user focuses a control inside the approval prompt.
  */
 export function ApprovalBar({ approval, onDecide }: { approval: PendingApproval; onDecide: (ok: boolean) => void }) {
-  const denyRef = useRef<HTMLButtonElement>(null);
-  useEffect(() => { denyRef.current?.focus(); }, []);
   const color =
     approval.severity === 'high' ? 'var(--danger)' : approval.severity === 'medium' ? 'var(--warning)' : 'var(--ink-faint)';
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -41,7 +39,7 @@ export function ApprovalBar({ approval, onDecide }: { approval: PendingApproval;
             {String((approval.call.input as Record<string, unknown>).command ?? JSON.stringify(approval.call.input))}
           </code>
         </div>
-        <button ref={denyRef} className="btn btn-outline" onClick={() => onDecide(false)} title="Deny (N or Esc)">Deny</button>
+        <button className="btn btn-outline" onClick={() => onDecide(false)} title="Deny (N or Esc)">Deny</button>
         <button className="btn btn-primary" onClick={() => onDecide(true)} title="Approve (Y)">Approve</button>
       </div>
     </div>

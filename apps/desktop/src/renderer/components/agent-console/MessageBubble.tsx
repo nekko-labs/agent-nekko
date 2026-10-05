@@ -5,6 +5,7 @@ import { ReasoningBlock } from './ReasoningBlock.js';
 import { ToolCard } from './ToolCard.js';
 import { fmtDateTime, fmtTime } from './transcript.js';
 import { useRowState } from './rowState.js';
+import { isRecoveryNotice, RecoveryNotice } from './RecoveryNotice.js';
 
 /**
  * One message. Memoized: a transcript row re-renders only when its message (or
@@ -42,6 +43,7 @@ export const MessageBubble = memo(function MessageBubble({
   const displayText = isUser && message.skill ? message.skill.input : message.content;
   const [draft, setDraft] = useRowState('edit-draft', displayText);
   if (message.role === 'tool') return null;
+  if (isRecoveryNotice(message)) return <RecoveryNotice />;
   // Animate only genuinely-new content (the optimistic user bubble and the live
   // stream). Persisted messages render statically, so the optimistic→saved and
   // live→saved swaps at the end of a turn don't replay the entrance.

@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, QueuePayload, QueuedPrompt } from '@agent-nekko/shared';
-import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, lastReplyInterrupted, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
+import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -26,7 +26,7 @@ import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console
 import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
-import { PERSISTED_INTERRUPTION, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
+import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail } from './PlanRail.js';
@@ -473,8 +473,9 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false }: {
   sessionId: string;
+  commandCenter?: boolean;
   onRunningChange?: (running: boolean) => void;
   /**
    * An archived chat, opened to be read: the transcript renders as usual, but
@@ -540,6 +541,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const [thinking, setThinking] = useState(false);
   const [atFiles, setAtFiles] = useState<IndexedFile[]>([]);
   const [cost, setCost] = useState(0);
+  const [avoidedCosts, setAvoidedCosts] = useState<import('@agent-nekko/shared').AvoidedCosts>();
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   // The + menu's Skill row expands its skills as a side flyout on hover (no
@@ -789,8 +791,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
     window.nekko.getUsageSummary().then((u) => {
       const s = u.bySession[sessionId];
       setCost(s ? (s.listCost ?? s.cost ?? 0) : 0);
-    }).catch(() => setCost(0));
-  }), [sessionId, session?.modelId, session?.messages.length]);
+      setAvoidedCosts(u.bySessionAvoidedCosts?.[sessionId]);
+    }).catch(() => { setCost(0); setAvoidedCosts(undefined); });
+  }), [sessionId, session?.modelId, session?.messages.length, settings?.localCostBenchmark]);
 
   // Keep the sidebar's per-workspace context readout fresh while a turn runs.
   // The pane already re-reads its context bundle per step (throttled to
@@ -1629,8 +1632,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
   const [dismissedInterruption, setDismissedInterruption] = useState<string | null>(null);
   useEffect(() => {
     if (streaming || errorNotice || !session || dismissedInterruption === lastMsgId) return;
-    if (lastReplyInterrupted(session.messages)) setErrorNotice(PERSISTED_INTERRUPTION);
-  }, [session, streaming, errorNotice, lastMsgId, dismissedInterruption]);
+    if (shouldShowPersistedInterruption(session.messages, streaming, !!held)) setErrorNotice(PERSISTED_INTERRUPTION);
+  }, [session, streaming, held, errorNotice, lastMsgId, dismissedInterruption]);
   // An interrupted turn needs a recovery action, not model-written follow-ups
   // that may have been generated before the failure.
   const suggestedOptions = errorNotice ? [] : liveSuggestions?.options ?? [];
@@ -1995,7 +1998,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
               onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
               title="Open the agent's command log in a terminal window"
             >
-              Commands
+              Log
             </button>
             )}
             {!compact && !!session?.messages.length && (
@@ -2155,7 +2158,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
         {readOnly ? (
           <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
         ) : (
-        <div ref={composerSectionRef} className="relative px-4 pb-4 pt-1.5">
+        <div ref={composerSectionRef} className={`relative ${commandCenter ? '' : 'px-4'} pb-4 pt-1.5`}>
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
           <div
@@ -2170,12 +2173,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
             <span className="absolute inset-x-0 top-[5px] h-0.5 opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'color-mix(in srgb, var(--accent) 45%, transparent)' }} />
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>
-          <div className="composer-column mx-auto w-[90%]">
+          <div className={`composer-column mx-auto ${commandCenter ? 'w-[98%]' : 'w-[90%]'}`} style={commandCenter ? { width: '98%' } : undefined}>
             <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
             <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
-            {Object.values(session?.gitWorktrees ?? {}).map((checkout) => (
-              <p key={checkout.path} role="status" className="mb-2 rounded-lg border border-line px-3 py-2 text-[11px] text-ink-soft">{checkout.notice}</p>
-            ))}
             <div className="composer relative">
             {/* While the agent works, a violet→cyan beam laps the border. The
                 gradient is a square that rotates on the compositor, clipped
@@ -2657,6 +2657,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false }: {
                     provider={activeProvider}
                     session={session ?? undefined}
                     cost={cost}
+                    avoidedCosts={avoidedCosts}
                     running={streaming}
                   />
                   </>)}
