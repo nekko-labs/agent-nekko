@@ -1148,3 +1148,9 @@ Technical approach: independent approval policy and session environment; default
 
 - [x] Bounded same-child recovery for transient delegation failures; preserve actual cause and checkpoint handoff. 80 host recovery/routing tests pass.
 - [ ] Durable restart reconciliation and completion-aware supervision; live-but-hung tools need phase-aware deadlines that never bypass approvals.
+
+
+## DK - Command Center dock and animated layouts
+- [x] DK-1: Persisted state, migration, dock and view controls; 38 focused tests and desktop typecheck.
+- [ ] DK-2: Finish independent Focus deck scrolling, companion widening/ownership/toast and terminal metadata.
+- [ ] DK-3: Final build, broad tests, perf and inspected before/after plus motion evidence; draft until verified.
