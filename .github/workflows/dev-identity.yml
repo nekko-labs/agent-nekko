@@ -10,9 +10,7 @@ permissions:
   contents: read
 jobs:
   macos-native:
-    # Same native identity/lifecycle checks, on the standard Intel macOS image.
-    # ARM runner acquisition repeatedly timed out before execution.
-    runs-on: macos-15-intel
+    runs-on: macos-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
