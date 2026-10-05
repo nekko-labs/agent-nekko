@@ -1,3 +1,5 @@
+import { FirstProviderSetup } from '../components/providers/FirstProviderSetup.js';
+import { needsProviderSetup } from '../components/providers/providerSetup.js';
 import React, { useEffect, useState } from 'react';
 import type { LimitWindow, ModelInfo, OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
 import { formatUSD, isLocalProvider, isRuntimeKind, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
@@ -51,6 +53,8 @@ export function ModelsView() {
       setView: s.setView,
     })),
   );
+  // Keep this flow mounted through saving so its completion step does not disappear.
+  const [firstSetup] = useState(() => needsProviderSetup(providers, useStore.getState().activeModelId ?? useStore.getState().models[0]?.id));
   const [adding, setAdding] = useState(false);
   const [discovering, setDiscovering] = useState(false);
 
@@ -75,6 +79,8 @@ export function ModelsView() {
   // provider card could never have carried it.
   const local = providers.filter((p) => isLocal(p.kind) && p.kind !== 'llamacpp');
   const cloud = providers.filter((p) => !isLocal(p.kind));
+
+  if (firstSetup) return <div className="h-full overflow-y-auto"><FirstProviderSetup /></div>;
 
   return (
     <div className="h-full overflow-y-auto">

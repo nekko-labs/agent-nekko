@@ -3,6 +3,7 @@ import type { OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind } from '@
 import { PROVIDER_DEFAULTS } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { SubscriptionSignIn } from '../SubscriptionSignIn.js';
+import { ProviderChoices } from './ProviderChoices.js';
 import { CheckIcon } from '../../icons.js';
 
 /** Provider kinds offered by the generic add form, local servers first. */
@@ -107,12 +108,14 @@ export function AddProvider({
   apiKeyOnly = false,
   optionalKey = false,
   bare = false,
+  onCancel,
 }: {
   onDone: () => void;
   fixedKind?: ProviderKind;
   apiKeyOnly?: boolean;
   optionalKey?: boolean;
   bare?: boolean;
+  onCancel?: () => void;
 }) {
   const pushToast = useStore((s) => s.pushToast);
   const [kind, setKind] = useState<ProviderKind>(fixedKind ?? 'ollama');
@@ -130,6 +133,7 @@ export function AddProvider({
   const oauthProvider = apiKeyOnly ? undefined : SUBSCRIPTION_KINDS[kind];
 
   const pick = (k: ProviderKind) => {
+    setResult(null);
     setKind(k);
     setBaseUrl(PROVIDER_DEFAULTS[k].baseUrl);
     setLabel(PROVIDER_DEFAULTS[k].label);
@@ -146,6 +150,7 @@ export function AddProvider({
   // fresh access token at request time.
   const connectSubscription = async (status: OAuthStatus) => {
     const chatgpt = status.provider === 'chatgpt' || kind === 'chatgpt';
+    try {
     await window.nekko.saveProvider(
       subscriptionProviderConfig(status, { kind, label, baseUrl, customModelId }),
     );
@@ -156,6 +161,9 @@ export function AddProvider({
         : `Signed in with your ${chatgpt ? 'ChatGPT' : 'Claude'} subscription.`,
     );
     onDone();
+    } catch (error) {
+      setResult({ ok: false, message: `Could not save connection: ${String(error)}` });
+    }
   };
 
   const draft = (): ProviderConfig => ({
@@ -170,36 +178,36 @@ export function AddProvider({
   const test = async () => {
     setTesting(true);
     setResult(null);
-    const r = await window.nekko.testProviderConfig(draft());
-    setResult(r);
-    setTesting(false);
+    try {
+      setResult(await window.nekko.testProviderConfig(draft()));
+    } catch (error) {
+      setResult({ ok: false, message: String(error) });
+    } finally { setTesting(false); }
   };
 
   const save = async () => {
-    await window.nekko.saveProvider(draft());
-    onDone();
+    setTesting(true);
+    try {
+      const config = draft();
+      const check = await window.nekko.testProviderConfig(config);
+      setResult(check);
+      if (!check.ok) return;
+      await window.nekko.saveProvider(config);
+      onDone();
+    } catch (error) {
+      setResult({ ok: false, message: String(error) });
+    } finally { setTesting(false); }
   };
 
   return (
     <div className={bare ? undefined : 'card mt-5 p-5'}>
       <div className="grid grid-cols-2 gap-3">
         {!fixedKind && (
-          <label className="col-span-2 text-[12px] font-medium text-ink-soft">
-            Provider type
-            <div className="mt-1 flex flex-wrap gap-2">
-              {ADD_PROVIDER_KINDS.map((k) => (
-                <button
-                  key={k}
-                  onClick={() => pick(k)}
-                  className={`chip ${kind === k ? 'text-white!' : ''}`}
-                  style={kind === k ? { background: 'var(--accent)' } : undefined}
-                >
-                  {PROVIDER_DEFAULTS[k].label}
-                </button>
-              ))}
-            </div>
-          </label>
+          <div className="col-span-2"><ProviderChoices value={kind} onPick={pick} /></div>
         )}
+        <details className="col-span-2">
+          <summary className="cursor-pointer text-[12px] text-ink-soft">Connection settings{ oauthProvider ? ' (optional)' : ' — server address and name'}</summary>
+          <div className="mt-3 grid grid-cols-2 gap-3">
         <label className="text-[12px] font-medium text-ink-soft">
           Label
           <input className="input mt-1" value={label} onChange={(e) => setLabel(e.target.value)} placeholder={PROVIDER_DEFAULTS[kind].label} />
@@ -208,6 +216,8 @@ export function AddProvider({
           Base URL
           <input className="input mt-1" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
         </label>
+          </div>
+        </details>
         {oauthProvider && (
           <div className="col-span-2 rounded-xl border p-4" style={{ borderColor: 'var(--line)', background: 'var(--surface-2)' }}>
             <p className="text-[13px] font-medium">
@@ -263,7 +273,7 @@ export function AddProvider({
           )}
         </div>
         <div className="flex shrink-0 gap-2">
-          <button className="btn btn-ghost" onClick={onDone}>Cancel</button>
+          <button className="btn btn-ghost" onClick={onCancel ?? onDone}>Cancel</button>
           {/* For Anthropic the subscription sign-in completes the add itself;
               test/save only make sense once the API-key path is revealed.
               ChatGPT has no API-key path, so its sign-in always completes.
@@ -273,7 +283,7 @@ export function AddProvider({
               <button className="btn btn-outline" onClick={test} disabled={testing}>
                 {testing ? 'Testing…' : 'Test connection'}
               </button>
-              <button className="btn btn-primary" onClick={save}>Save provider</button>
+              <button className="btn btn-primary" onClick={save} disabled={testing}>Connect provider</button>
             </>
           )}
         </div>
