@@ -122,15 +122,15 @@ export function UsageLimitsChip({
    */
   const liveTurn = running && turnCost > 0;
 
+  /**
+   * Always a price: the chat's cost at the model's published API rates, or
+   * Free for a local model. A subscription chat is priced the same way, so
+   * "what is this costing" has one answer whoever pays it; the plan's limit
+   * windows are in the popover.
+   */
   const chipText = () => {
-    if (local) return running ? 'Running · free' : 'Free';
-    if (liveTurn) return `${formatUSD(turnCost)} this reply`;
-    if (subscription) {
-      if (!provider.tokenKey) return 'Subscription · sign in';
-      if (!limits) return 'Limits · …';
-      if (!binding) return 'Limits · no data';
-      return `Limits ${Math.round(binding.usedPercent)}%`;
-    }
+    if (local) return 'Free';
+    if (liveTurn) return `${formatUSD(cost + turnCost)}`;
     return formatUSD(cost);
   };
 
@@ -145,12 +145,12 @@ export function UsageLimitsChip({
 
   const chipTitle = () => {
     if (local) return 'Local models run on this machine and cost nothing';
-    if (subscription) {
-      if (!provider.tokenKey) return 'Sign in to see subscription limits';
-      if (!binding) return 'Waiting for the first usage response';
-      return `${binding.label} window is ${Math.round(binding.usedPercent)}% used · resets ${resetTime(binding.resetAt, now)}`;
-    }
-    return `Estimated session cost at published list prices; your bill may differ`;
+    const limit = subscription && binding
+      ? ` · ${binding.label} window ${Math.round(binding.usedPercent)}% used, resets ${resetTime(binding.resetAt, now)}`
+      : '';
+    return subscription
+      ? `This chat at the model's API list prices; your plan covers it${limit}`
+      : 'Estimated chat cost at published list prices; your bill may differ';
   };
 
   const windowOrder: LimitWindow['scope'][] = ['session', 'weekly', 'model'];
@@ -168,11 +168,6 @@ export function UsageLimitsChip({
         style={chipColor() ? { color: chipColor(), background: `color-mix(in srgb, ${chipColor()} 14%, var(--surface-2))` } : undefined}
       >
         {chipText()}
-        {subscription && binding && (
-          <span className="ml-1 text-[10px] tabular-nums text-ink-faint">
-            {timeUntil(binding.resetAt - now)}
-          </span>
-        )}
       </button>
 
       {/* Hover/focus popover: every window, plus plan + credits. */}
@@ -211,6 +206,10 @@ export function UsageLimitsChip({
         )}
         {subscription ? (
           <>
+            <div className="mb-2 flex items-baseline justify-between border-b border-line pb-2">
+              <span className="text-ink-soft">This chat at API prices</span>
+              <span className="text-[13px] font-semibold tabular-nums">{formatUSD(cost + (liveTurn ? turnCost : 0))}</span>
+            </div>
             {sortedWindows.length === 0 ? (
               <p className="text-ink-faint">No limit windows reported yet. Send a message to refresh.</p>
             ) : (

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
-import { AUTO_MODEL_ID, archiveDaysLeft, archiveDeletesAt, isArchived, parsePrUrl } from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, archiveDaysLeft, archiveDeletesAt, parsePrUrl } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, type Workspace } from '../store.js';
 import { PaneVisibleContext, usePaneVisible } from '../paneVisibility.js';
@@ -18,7 +18,7 @@ import { ExplorerPane } from '../components/ExplorerPane.js';
 import { PaneFrame } from '../components/PaneFrame.js';
 import { Divider } from '../components/Divider.js';
 import { runningSessionIds } from '../liveRuns.js';
-import { StatusDot, WorkspaceCard, type AgentStatus } from '../components/WorkspaceCard.js';
+import { StatusIcon, WorkspaceCard, type AgentStatus } from '../components/WorkspaceCard.js';
 import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
@@ -27,6 +27,7 @@ import { ContextMenu, ContextAction } from '../components/ContextMenu.js';
 import { ModelPicker } from '../components/agent-console/ModelPicker.js';
 import { selectWorkspaceRows } from './workspaceSelection.js';
 import { unopenedChats } from './unopenedChats.js';
+import { completedDate, completedInGroup } from './completedChats.js';
 
 /** Short label for a window's title strip. */
 function paneTitle(pane: WbPane, sessions: SessionSummary[], terminals: TerminalInfo[]): string {
@@ -102,6 +103,14 @@ const MOUNTED_WORKSPACES = 3;
 
 /** Something being dragged in the sidebar (a project or a workspace). */
 type DragItem = { kind: 'project' | 'workspace'; id: string; ws: string | undefined };
+
+/**
+ * One active agent in a sidebar group: an open workspace, or a chat that is
+ * active but has no window open (`w` null). `key` is the workspace id, or
+ * `CHAT_KEY` + the chat id for the latter.
+ */
+type Entry = { key: string; w: Workspace | null; s: SessionSummary | null; t: TerminalInfo | null };
+const CHAT_KEY = 'chat:';
 
 /**
  * The workspace list's width, drag-resizable between a card's minimum and the
@@ -195,7 +204,7 @@ export function WorkspacesView() {
     refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal, newTerminalWorkspace,
     setActiveWorkspace, newChat, setActiveProject,
     reorderWorkspaces, layoutChats, layoutTerminals, contextPanelOpen,
-    archiveWorkspace, archiveChat, archiveOpen, setArchiveOpen, archivedViewId, setArchivedView,
+    archiveWorkspace, archiveChat, archiveOpen, archivedViewId,
   } = useStore(
     useShallow((s) => ({
       sessions: s.sessions,
@@ -220,9 +229,7 @@ export function WorkspacesView() {
       archiveWorkspace: s.archiveWorkspace,
       archiveChat: s.archiveChat,
       archiveOpen: s.archiveOpen,
-      setArchiveOpen: s.setArchiveOpen,
       archivedViewId: s.archivedViewId,
-      setArchivedView: s.setArchivedView,
     })),
   );
   const [selected, setSelected] = useState<string[]>([]);
@@ -231,7 +238,7 @@ export function WorkspacesView() {
   const selectRow = (e: React.MouseEvent, id: string) => {
     if (!e.shiftKey && !e.ctrlKey && !e.metaKey) { setSelected([]); anchor.current = id; return false; }
     e.preventDefault(); e.stopPropagation();
-    const order = buckets.filter(b => !collapsed.has(b.key)).flatMap(b => [...bucketWorkspaces(b.key).flatMap(w => sessionOf(w)?.id ? [sessionOf(w)!.id] : []), ...savedChats.filter(s => (settings?.workspaces.some(p => p.id === s.workspaceId) ? s.workspaceId : '__none') === b.key).map(s => s.id)]);
+    const order = buckets.filter(b => !collapsed.has(b.key)).flatMap(b => bucketEntries(b.key).flatMap(e => e.s ? [e.s.id] : []));
     setSelected(prev => selectWorkspaceRows(prev, order, id, anchor.current, e.shiftKey));
     if (!e.shiftKey) anchor.current = id;
     return true;
@@ -250,7 +257,8 @@ export function WorkspacesView() {
     }));
     await refreshSessions(); setSelected([]);
   };
-  const archivedCount = useMemo(() => sessions.filter(isArchived).length, [sessions]);
+  /** A completed chat is open in the read-only reader. */
+  const reading = archiveOpen && !!archivedViewId;
 
   // Seeded from the app-wide fold of agent events, so a chat already working
   // is marked so on the first frame; the host confirms on mount for runs that
@@ -271,6 +279,8 @@ export function WorkspacesView() {
     return () => window.clearInterval(timer);
   }, []);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  /** Groups whose completed chats are expanded under their active ones. */
+  const [showCompleted, setShowCompleted] = useState<Set<string>>(new Set());
   const [sidebarW, setSidebarW] = useState(readSidebarWidth);
   const saveSidebarW = (px: number) => {
     const w = clampSidebarWidth(px);
@@ -388,21 +398,25 @@ export function WorkspacesView() {
     ...(settings?.workspaces ?? []).map((w) => ({ ws: w, key: w.id, name: w.name })),
   ];
 
+  const chatGroupOf = (s: SessionSummary): string =>
+    settings?.workspaces.some((p) => p.id === s.workspaceId) ? (s.workspaceId as string) : '__none';
+
   /**
-   * The workspaces in a bucket, in the order their anchors were dragged into.
-   * A workspace has no order of its own — the chat or terminal it is about
-   * carries it — so dragging a card reorders that, and the list follows.
+   * Every active agent in a bucket: open workspaces and chats that are not
+   * open in one alike, in the order their chats or terminals were dragged
+   * into. A chat stays in this list until it is completed; closing its
+   * windows does not demote it to a second-class list.
    */
-  const bucketWorkspaces = (key: string): Workspace[] =>
-    workspaces
-      .filter((w) => projectOf(w) === key)
-      .map((w) => {
-        const s = sessionOf(w);
-        const t = terminalOf(w);
-        return { w, order: s?.order ?? t?.order, at: s ? -s.updatedAt : t?.createdAt ?? 0 };
-      })
+  const bucketEntries = (key: string): Entry[] =>
+    [
+      ...workspaces.filter((w) => projectOf(w) === key).map((w): Entry => ({ key: w.id, w, s: sessionOf(w), t: terminalOf(w) })),
+      ...savedChats.filter((s) => chatGroupOf(s) === key).map((s): Entry => ({ key: CHAT_KEY + s.id, w: null, s, t: null })),
+    ]
+      .map((e) => ({ e, order: e.s?.order ?? e.t?.order, at: e.s ? -e.s.updatedAt : e.t?.createdAt ?? 0 }))
       .sort(bySidebarOrder<{ order?: number; at: number }>((x) => x.at))
-      .map((x) => x.w);
+      .map((x) => x.e);
+  const findEntry = (key: string): Entry | null =>
+    buckets.flatMap((b) => bucketEntries(b.key)).find((e) => e.key === key) ?? null;
 
   // --- Sidebar drag-and-drop (reorder projects; reorder / re-file workspaces) ---
   const startDrag = (e: React.DragEvent, item: DragItem) => {
@@ -426,13 +440,11 @@ export function WorkspacesView() {
    * Persist a bucket's order after a drag. Chats and terminals are ordered by
    * separate host calls, so one drop writes the sequence of each kind it moved.
    */
-  const persistOrder = (b: Bucket, ordered: Workspace[], moved: Workspace | null) => {
-    const chats = ordered.map(sessionOf).filter((s): s is SessionSummary => !!s);
-    const terms = ordered.map(terminalOf).filter((t): t is TerminalInfo => !!t);
-    const movedChat = moved && sessionOf(moved);
-    const movedTerm = moved && terminalOf(moved);
-    void layoutChats(b.ws?.id, chats.map((c) => c.id), movedChat?.id ?? null);
-    void layoutTerminals(b.ws?.id, terms.map((t) => t.id), movedTerm?.id ?? null);
+  const persistOrder = (b: Bucket, ordered: Entry[], moved: Entry | null) => {
+    const chats = ordered.flatMap((e) => (e.s ? [e.s] : []));
+    const terms = ordered.flatMap((e) => (e.t ? [e.t] : []));
+    void layoutChats(b.ws?.id, chats.map((c) => c.id), moved?.s?.id ?? null);
+    void layoutTerminals(b.ws?.id, terms.map((t) => t.id), moved?.t?.id ?? null);
   };
 
   const dropOnBucket = (b: Bucket) => {
@@ -444,19 +456,19 @@ export function WorkspacesView() {
       else { const i = ids.indexOf(b.key); ids.splice(i < 0 ? ids.length : i, 0, d.id); }
       reorderWorkspaces(ids);
     } else {
-      const moved = workspaces.find((w) => w.id === d.id) ?? null;
-      const ordered = [...bucketWorkspaces(b.key).filter((w) => w.id !== d.id), ...(moved ? [moved] : [])];
+      const moved = findEntry(d.id);
+      const ordered = [...bucketEntries(b.key).filter((e) => e.key !== d.id), ...(moved ? [moved] : [])];
       persistOrder(b, ordered, d.ws !== b.ws?.id ? moved : null);
     }
     endDrag();
   };
 
-  const dropBeforeCard = (b: Bucket, targetId: string) => {
+  const dropBeforeCard = (b: Bucket, targetKey: string) => {
     const d = drag;
-    if (!d || d.kind !== 'workspace' || targetId === d.id) return endDrag();
-    const moved = workspaces.find((w) => w.id === d.id) ?? null;
-    const rest = bucketWorkspaces(b.key).filter((w) => w.id !== d.id);
-    const i = rest.findIndex((w) => w.id === targetId);
+    if (!d || d.kind !== 'workspace' || targetKey === d.id) return endDrag();
+    const moved = findEntry(d.id);
+    const rest = bucketEntries(b.key).filter((e) => e.key !== d.id);
+    const i = rest.findIndex((e) => e.key === targetKey);
     if (moved) rest.splice(i < 0 ? rest.length : i, 0, moved);
     persistOrder(b, rest, d.ws !== b.ws?.id ? moved : null);
     endDrag();
@@ -563,21 +575,13 @@ export function WorkspacesView() {
           )}
         </div>
       </div>
-      {archiveOpen ? (
-        <ArchivedList
-          sessions={sessions}
-          now={now}
-          activeId={archivedViewId}
-          onOpen={(id) => { setArchivedView(id); setMobileNav(false); }}
-        />
-      ) : (
       <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
         {buckets.map((b) => {
-          const items = bucketWorkspaces(b.key);
-          const saved = savedChats.filter((s) =>
-            (settings?.workspaces.some((p) => p.id === s.workspaceId) ? s.workspaceId : '__none') === b.key);
-          if (b.key === '__none' && items.length === 0 && saved.length === 0) return null;
+          const items = bucketEntries(b.key);
+          const done = completedInGroup(sessions, b.key, chatGroupOf);
+          if (b.key === '__none' && items.length === 0 && done.length === 0) return null;
           const isCollapsed = collapsed.has(b.key);
+          const completedOpen = showCompleted.has(b.key);
           const bucketActive = dropTarget === 'bucket:' + b.key;
           return (
             <div
@@ -600,9 +604,9 @@ export function WorkspacesView() {
                     viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
                   ><path d="M9 6l6 6-6 6" /></svg>
                   <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{b.name}</span>
-                  {isCollapsed && items.length + saved.length > 0 && (
+                  {isCollapsed && items.length > 0 && (
                     <span className="ml-1 shrink-0 rounded-full bg-surface-2 px-1.5 text-[10px] tabular-nums text-ink-faint">
-                      {items.length + saved.length}
+                      {items.length}
                     </span>
                   )}
                 </button>
@@ -615,37 +619,37 @@ export function WorkspacesView() {
               </div>
               <div className={`collapse-wrap ${isCollapsed ? 'collapsed' : ''}`}>
                 <div className="min-h-0 space-y-0.5 overflow-hidden pb-1">
-                  {items.length === 0 && saved.length === 0 && (
-                    <p className="px-3.5 py-1 text-[11px] text-ink-faint">No agents yet</p>
+                  {items.length === 0 && (
+                    <p className="px-3.5 py-1 text-[11px] text-ink-faint">No active agents</p>
                   )}
-                  {items.map((w) => {
-                    const s = sessionOf(w);
+                  {items.map((entry) => {
+                    const { w, s } = entry;
                     const kids = s ? childrenOf.get(s.id) ?? [] : [];
                     return (
                       <div
-                        key={w.id}
+                        key={entry.key}
                         {...(s ? { [COMPLETION_ROW_ATTR]: s.id } : {})}
                         onContextMenu={s ? (e) => contextRow(e, s.id) : undefined}
                         onClickCapture={s ? (e) => { if (selectRow(e, s.id)) e.stopPropagation(); } : undefined}
                         style={s && selected.includes(s.id) ? {background:'var(--accent-soft)', borderRadius:8, boxShadow:'inset 0 0 0 1px var(--accent)'} : undefined}
                         draggable
-                        onDragStart={(e) => startDrag(e, { kind: 'workspace', id: w.id, ws: b.ws?.id })}
+                        onDragStart={(e) => startDrag(e, { kind: 'workspace', id: entry.key, ws: b.ws?.id })}
                         onDragEnd={endDrag}
-                        onDragOver={(e) => overTarget(e, 'card:' + w.id, (d) => d.kind === 'workspace')}
-                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropBeforeCard(b, w.id); }}
-                        className={dropTarget === 'card:' + w.id ? 'rounded-lg ring-1 ring-accent/60' : ''}
+                        onDragOver={(e) => overTarget(e, 'card:' + entry.key, (d) => d.kind === 'workspace')}
+                        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropBeforeCard(b, entry.key); }}
+                        className={dropTarget === 'card:' + entry.key ? 'rounded-lg ring-1 ring-accent/60' : ''}
                       >
                         <WorkspaceCard
                           workspace={w}
                           session={s}
-                          terminal={terminalOf(w)}
+                          terminal={entry.t}
                           status={s ? statuses.get(s.id) : undefined}
-                          isActive={w.id === active?.id}
+                          isActive={!!w && w.id === active?.id}
                           now={now}
                           projects={settings?.workspaces ?? []}
                           subAgentCount={kids.length}
-                          onOpen={() => setActiveWorkspace(w.id)}
-                          onClose={() => archiveWorkspace(w.id)}
+                          onOpen={() => (w ? setActiveWorkspace(w.id) : s && openChatPane(s.id))}
+                          onClose={() => (w ? archiveWorkspace(w.id) : s ? archiveChat(s.id) : undefined)}
                         />
                         {/* Sub-agents this chat spawned, one line each. */}
                         {kids.map((kid) => (
@@ -660,31 +664,30 @@ export function WorkspacesView() {
                       </div>
                     );
                   })}
-                  {saved.length > 0 && (
-                    <div className="pt-2">
-                      <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Saved chats</p>
-                      {saved.map((s) => (
-                        <div key={s.id} {...{ [COMPLETION_ROW_ATTR]: s.id }} onContextMenu={(e) => contextRow(e,s.id)} onClickCapture={(e) => { if (selectRow(e,s.id)) e.stopPropagation(); }} style={selected.includes(s.id) ? {background:"var(--accent-soft)", boxShadow:"inset 0 0 0 1px var(--accent)"} : undefined} className="group flex items-center rounded-lg hover:bg-surface-2">
-                          <button
-                            className="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-left text-[12px] text-ink-soft"
-                            title={`Open ${s.title}`}
-                            onClick={() => openChatPane(s.id)}
-                          >
-                            <ChatIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                            <span className="min-w-0 flex-1 truncate">{s.title}</span>
-                          </button>
-                          <button
-                            className="mr-1.5 shrink-0 rounded-sm p-0.5 text-ink-faint opacity-0 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
-                            title="Complete this chat (kept for 60 days)"
-                            aria-label={`Complete ${s.title}`}
-                            onClick={(e) => completeWithExit(e.currentTarget.closest<HTMLElement>(`[${COMPLETION_ROW_ATTR}]`), async () => {
-                              await archiveChat(s.id);
-                              return useStore.getState().sessions.some((chat) => chat.id === s.id && chat.archivedAt);
-                            })}
-                          >
-                            <CheckIcon className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
+                  {/* Completed chats stay with their group, folded away under
+                      the active ones until asked for. */}
+                  {done.length > 0 && (
+                    <div className="pt-1">
+                      <button
+                        className="flex w-full items-center gap-1 rounded-md px-2 py-1 text-left text-[11px] text-ink-faint hover:bg-surface-2 hover:text-ink"
+                        aria-expanded={completedOpen}
+                        data-completed-toggle
+                        onClick={() => setShowCompleted((c) => { const n = new Set(c); n.has(b.key) ? n.delete(b.key) : n.add(b.key); return n; })}
+                      >
+                        <svg
+                          className={`h-2.5 w-2.5 shrink-0 transition-transform duration-200 ${completedOpen ? 'rotate-90' : ''}`}
+                          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+                        ><path d="M9 6l6 6-6 6" /></svg>
+                        {completedOpen ? 'Hide completed' : `Show completed (${done.length})`}
+                      </button>
+                      {completedOpen && done.map((s) => (
+                        <CompletedRow
+                          key={s.id}
+                          session={s}
+                          now={now}
+                          isActive={archiveOpen && archivedViewId === s.id}
+                          onOpen={() => { openChatPane(s.id); setMobileNav(false); }}
+                        />
                       ))}
                     </div>
                   )}
@@ -693,20 +696,6 @@ export function WorkspacesView() {
             </div>
           );
         })}
-      </div>
-      )}
-      {/* The archive's way in sits at the foot of the list, out of the path of
-          everyday work but always in the same place. */}
-      <div className="flex shrink-0 items-center justify-end border-t border-line px-2 py-1.5">
-        <button
-          className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] ${archiveOpen ? 'bg-accent-soft text-accent' : 'text-ink-faint hover:bg-surface-2 hover:text-ink'}`}
-          title={archiveOpen ? 'Back to the agents' : 'Show completed chats'}
-          aria-pressed={archiveOpen}
-          onClick={() => setArchiveOpen(!archiveOpen)}
-        >
-          <CheckIcon className="h-3.5 w-3.5" />
-          Completed{archivedCount > 0 ? ` (${archivedCount})` : ''}
-        </button>
       </div>
     </div>
   );
@@ -792,27 +781,18 @@ export function WorkspacesView() {
           <span className="text-[13px] font-semibold">Agents</span>
         </div>
 
-        {/* An archived chat being read takes the middle, over the workspaces,
-            which stay mounted underneath so closing it is instant. */}
-        {archiveOpen && archivedViewId && (
+        {/* A completed chat being read takes the middle, over the workspaces,
+            which stay mounted underneath so leaving it is instant. */}
+        {reading && (
           <div className="panel panel-ring flex min-h-0 flex-1 flex-col overflow-hidden">
             <ChatPane key={`archived:${archivedViewId}`} sessionId={archivedViewId} readOnly />
           </div>
         )}
-        {archiveOpen && !archivedViewId && (
-          <div className="panel panel-ring flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-            <CheckIcon className="h-6 w-6 text-ink-faint" />
-            <p className="text-[13px] text-ink-soft">Pick a completed chat to read it.</p>
-            <p className="max-w-sm text-[12px] text-ink-faint">
-              Completed chats are read-only. Restore one to keep working in it; anything left here is deleted 60 days after it was completed.
-            </p>
-          </div>
-        )}
-        {!archiveOpen && !active?.root && <EmptyState onNewChat={newChat} onNewTerminal={() => newTerminal()} />}
+        {!reading && !active?.root && <EmptyState onNewChat={newChat} onNewTerminal={() => newTerminal()} />}
         {mounted.length > 0 && (
           // The mounted workspaces share one box, stacked; the one on screen is
           // on top. See WorkspaceCanvas for how the others are kept.
-          <div className="relative min-h-0 flex-1" style={active?.root && !archiveOpen ? undefined : { display: 'none' }}>
+          <div className="relative min-h-0 flex-1" style={active?.root && !reading ? undefined : { display: 'none' }}>
             {mounted.map((w) => (
               <WorkspaceCanvas
                 key={w.id}
@@ -842,53 +822,36 @@ export function WorkspacesView() {
 }
 
 /**
- * The Archived list, in the sidebar's place while it is open: newest archive
- * first, each saying how long it has before it is deleted. The count turns to
- * the warning hue in the last week, so nothing goes without notice.
+ * A completed chat in its group's "Show completed" list: struck through and
+ * muted, led by a check so it can never be mistaken for active work, and dated
+ * by when it was completed. Opening it reads it in the middle, read-only.
  */
-function ArchivedList({
-  sessions, now, activeId, onOpen,
+function CompletedRow({
+  session: s, now, isActive, onOpen,
 }: {
-  sessions: SessionSummary[]; now: number; activeId: string | null; onOpen: (id: string) => void;
+  session: SessionSummary; now: number; isActive: boolean; onOpen: () => void;
 }) {
-  const archived = useMemo(
-    () => sessions.filter(isArchived).sort((a, b) => (b.archivedAt as number) - (a.archivedAt as number)),
-    [sessions],
-  );
+  const at = s.archivedAt as number;
+  const days = archiveDaysLeft(at, now);
   return (
-    <div className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-3">
-      <p className="px-1.5 pb-1 pt-0.5 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Completed</p>
-      {archived.length === 0 && (
-        <p className="px-1.5 py-1 text-[11px] text-ink-faint">Nothing completed. Complete a chat from its card to tidy the list without losing it.</p>
-      )}
-      {archived.map((s) => {
-        const days = archiveDaysLeft(s.archivedAt as number, now);
-        const isActive = s.id === activeId;
-        return (
-          <button
-            key={s.id}
-            onClick={() => onOpen(s.id)}
-            className={`w-full rounded-lg py-1.5 pl-2 pr-2 text-left transition-colors duration-150 ${isActive ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}
-            title={`${s.title}\nCompleted ${new Date(s.archivedAt as number).toLocaleString()}`}
-          >
-            <div className="flex items-center gap-1.5">
-              <CheckIcon className="h-3 w-3 shrink-0 text-ink-faint" />
-              <span className={`min-w-0 flex-1 truncate text-[13px] ${isActive ? 'font-medium text-ink' : 'text-ink-soft'}`}>{s.title}</span>
-            </div>
-            <div className="flex items-center gap-1 pl-[18px] text-[10px] leading-[15px] text-ink-faint">
-              <span className="min-w-0 flex-1 truncate">{s.exchangeCount} message{s.exchangeCount === 1 ? '' : 's'}</span>
-              <span
-                className="shrink-0 tabular-nums"
-                style={{ color: days <= 7 ? 'var(--warning)' : undefined }}
-                title={`Deleted on ${new Date(archiveDeletesAt(s.archivedAt as number)).toLocaleDateString()} unless restored`}
-              >
-                {days === 0 ? 'deleting today' : `${days} day${days === 1 ? '' : 's'} left`}
-              </span>
-            </div>
-          </button>
-        );
-      })}
-    </div>
+    <button
+      onClick={onOpen}
+      data-completed-row={s.id}
+      className={`flex w-full items-center gap-1.5 rounded-lg py-1 pl-2 pr-2 text-left transition-colors duration-150 ${isActive ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}
+      title={`${s.title}\nCompleted ${new Date(at).toLocaleString()}\nDeleted on ${new Date(archiveDeletesAt(at)).toLocaleDateString()} unless restored (${days} day${days === 1 ? '' : 's'} left)`}
+    >
+      <span className="inline-grid shrink-0 place-items-center" style={{ color: 'var(--success)' }} aria-label="Completed" role="img">
+        <CheckIcon className="h-3 w-3" />
+      </span>
+      <span className={`min-w-0 flex-1 truncate text-[12px] line-through ${isActive ? 'text-ink-soft' : 'text-ink-faint'}`}>{s.title}</span>
+      <time
+        className="shrink-0 text-[10px] tabular-nums"
+        style={{ color: days <= 7 ? 'var(--warning)' : 'var(--ink-faint)' }}
+        dateTime={new Date(at).toISOString()}
+      >
+        {completedDate(at, now)}
+      </time>
+    </button>
   );
 }
 
@@ -910,7 +873,7 @@ function SubAgentRow({
         className={`h-[5px] w-[5px] shrink-0 rounded-full bg-transparent ring-1 ${isActive ? 'ring-accent' : 'ring-ink-faint'}`}
       />
       <span className="min-w-0 flex-1 truncate">{session.title}</span>
-      {status && <StatusDot status={status} />}
+      {status && <StatusIcon status={status} />}
     </button>
   );
 }
@@ -1009,7 +972,7 @@ function WorkspaceCanvas({
                   {project}
                 </span>
               )}
-              {status && <StatusDot status={status} />}
+              {node.kind === 'chat' && <StatusIcon status={status} />}
             </>
           }
           isActive={node.id === workspace.activePaneId}

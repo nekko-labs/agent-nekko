@@ -4,8 +4,13 @@ import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@ag
 import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
 import { useGitStatus } from '../useGitStatus.js';
-import { CheckIcon, BranchIcon, CloseIcon, RobotIcon, TerminalIcon, WorktreeIcon } from '../icons.js';
+import {
+  CheckIcon, BranchIcon, CloseIcon, CompactIcon, QuestionIcon, RobotIcon, RocketIcon, SleepIcon, TerminalIcon,
+  WarningIcon, WorktreeIcon,
+} from '../icons.js';
 import { COMPLETION_ROW_ATTR, completeWithExit } from '../completionExit.js';
+import { useCompactionStore } from '../compactionStatus.js';
+import { fillTone } from './contextTone.js';
 import { SessionPrLinks } from './SessionPrLinks.js';
 
 /**
@@ -38,20 +43,39 @@ import { SessionPrLinks } from './SessionPrLinks.js';
 
 export type AgentStatus = 'working' | 'input' | 'error';
 
-const STATUS_META: Record<AgentStatus, { color: string; label: string; pulse: boolean }> = {
-  working: { color: 'var(--accent)', label: 'Working…', pulse: true },
-  input: { color: 'var(--warning)', label: 'Needs your input', pulse: true },
-  error: { color: 'var(--danger)', label: 'Stopped on an error', pulse: false },
-};
-
-export function StatusDot({ status, className = '' }: { status: AgentStatus; className?: string }) {
-  const m = STATUS_META[status];
+/**
+ * What an agent is doing, as a glyph rather than a dot, so the state reads by
+ * shape before colour: a rocket in flight while it works, a question mark when
+ * it is waiting on you, a warning when it stopped on an error, and "Zz" when it
+ * has finished and is idle. `undefined` is the idle state.
+ */
+export function StatusIcon({ status, className = '' }: { status: AgentStatus | undefined; className?: string }) {
+  const cls = `h-3 w-3 shrink-0 ${className}`;
+  if (status === 'working') {
+    return (
+      <span className={`status-rocket inline-grid place-items-center ${cls}`} title="Working…" role="img" aria-label="Working">
+        <RocketIcon className="h-3 w-3" />
+      </span>
+    );
+  }
+  if (status === 'input') {
+    return (
+      <span className={`inline-grid place-items-center ${cls}`} style={{ color: 'var(--warning)' }} title="Needs your input" role="img" aria-label="Needs your input">
+        <QuestionIcon className="h-3 w-3" />
+      </span>
+    );
+  }
+  if (status === 'error') {
+    return (
+      <span className={`inline-grid place-items-center ${cls}`} style={{ color: 'var(--danger)' }} title="Stopped on an error" role="img" aria-label="Stopped on an error">
+        <WarningIcon className="h-3 w-3" />
+      </span>
+    );
+  }
   return (
-    <span
-      className={`h-1.5 w-1.5 shrink-0 rounded-full ${m.pulse ? 'animate-pulse' : ''} ${className}`}
-      style={{ background: m.color }}
-      title={m.label}
-    />
+    <span className={`inline-grid place-items-center text-ink-faint ${cls}`} title="Done · idle" role="img" aria-label="Done, idle">
+      <SleepIcon className="h-3 w-3" />
+    </span>
   );
 }
 
@@ -88,14 +112,6 @@ function Fact({
       <span className={fluid ? 'min-w-0 truncate' : undefined}>{children}</span>
     </span>
   );
-}
-
-/** The colour a context window earns by how full it is. */
-function fillTone(percent: number): string {
-  if (percent >= 90) return 'var(--danger)';
-  if (percent >= 70) return 'var(--warning)';
-  if (percent >= 40) return 'var(--info)';
-  return 'var(--success)';
 }
 
 /** "4.5k" / "312k" / "1M" for a tight card line. */
@@ -153,7 +169,8 @@ function WorkspaceCardImpl({
   onOpen,
   onClose,
 }: {
-  workspace: Workspace;
+  /** The open workspace, or null for an active chat with no window open. */
+  workspace: Workspace | null;
   /** The chat the workspace is about, when it is about one. */
   session: SessionSummary | null;
   /** The terminal it is about instead, for a workspace opened from a shell. */
@@ -171,6 +188,7 @@ function WorkspaceCardImpl({
   const knownModels = useStore((s) => s.models);
   const mentionedPrs = useStore((s) => (session ? s.prsBySession[session.id] : undefined));
   const liveCtxEstimate = useStore((s) => (session ? s.sessionCtxEstimate[session.id] : undefined));
+  const compacting = useCompactionStore((s) => (session ? s.bySession[session.id]?.state === 'running' : false));
   const provider = providers.find((p) => p.id === session?.providerId);
 
   const folders = (session ? getSessionWorkspaceIds(session) : terminal?.workspaceId ? [terminal.workspaceId] : [])
@@ -193,7 +211,7 @@ function WorkspaceCardImpl({
   const ctxWindow = modelInfo?.contextLength ?? guessContextWindow(session?.modelId);
   const ctxPct = ctxWindow > 0 ? (ctxUsed / ctxWindow) * 100 : 0;
 
-  const windows = allPanes(workspace.root).length;
+  const windows = workspace ? allPanes(workspace.root).length : 0;
   const lastReply = session?.lastReplyAt;
   const title = session?.title ?? terminal?.title ?? 'Agent';
   const isChat = !!session;
@@ -236,15 +254,7 @@ function WorkspaceCardImpl({
       title={title}
     >
       <div className="flex items-center gap-1.5">
-        {status ? (
-          <StatusDot status={status} />
-        ) : (
-          <span
-            aria-hidden
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ background: isActive ? 'var(--accent)' : 'var(--ink-faint)' }}
-          />
-        )}
+        <StatusIcon status={status} />
         <span className={`min-w-0 flex-1 truncate text-[13px] ${isActive ? 'font-medium text-ink' : 'text-ink-soft'}`}>
           {title}
         </span>
@@ -290,6 +300,17 @@ function WorkspaceCardImpl({
         </Fact>
         {terminal && !terminal.running && (
           <Fact tone="var(--danger)" title="This shell has exited">exited</Fact>
+        )}
+        {compacting && (
+          <span
+            className="status-compacting inline-grid shrink-0 place-items-center"
+            style={{ color: 'var(--info)' }}
+            title="Compacting this chat's context"
+            role="img"
+            aria-label="Compacting context"
+          >
+            <CompactIcon className="h-2.5 w-2.5" />
+          </span>
         )}
         {isChat && ctxUsed > 0 && (
           <Fact

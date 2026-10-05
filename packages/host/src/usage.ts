@@ -43,7 +43,8 @@ export function usageSummary(): UsageSummary {
     // Subscription providers charge through the user's plan, not per API token.
     const provider = settings.providers.find((p) => p.id === r.providerId);
     const local = r.local ?? (provider ? isLocalProvider(provider.kind) : false);
-    const cost = local || r.auth === 'subscription' ? 0 : estimateCostUSD(r.modelId, r.inputTokens, r.outputTokens);
+    const listCost = estimateCostUSD(r.modelId, r.inputTokens, r.outputTokens);
+    const cost = local || r.auth === 'subscription' ? 0 : listCost;
     if (local || r.auth === 'subscription') {
       const tokens = { inputTokens: r.inputTokens, outputTokens: r.outputTokens };
       const exact = estimateCost(r.modelId, tokens);
@@ -76,6 +77,7 @@ export function usageSummary(): UsageSummary {
       bs.input += r.inputTokens;
       bs.output += r.outputTokens;
       bs.cost = (bs.cost ?? 0) + cost;
+      bs.listCost = (bs.listCost ?? 0) + listCost;
       summary.bySessionCost[r.sessionId] = (summary.bySessionCost[r.sessionId] ?? 0) + cost;
     }
 

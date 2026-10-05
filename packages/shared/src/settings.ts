@@ -359,7 +359,17 @@ export interface UsageSummary {
   byModel: Record<string, { input: number; output: number; cost?: number; subscription?: boolean }>;
   byProvider: Record<string, { input: number; output: number }>;
   /** Per-session token totals (keyed by sessionId) for per-chat cost. */
-  bySession: Record<string, { input: number; output: number; cost?: number }>;
+  bySession: Record<string, {
+    input: number;
+    output: number;
+    cost?: number;
+    /**
+     * What the same tokens would cost at the model's published API prices,
+     * subscription usage included. `cost` zeroes subscription usage because no
+     * bill follows; this answers "what is this chat worth in API terms".
+     */
+    listCost?: number;
+  }>;
   /** Per-session estimated spend (USD), accurate to the model used per record. */
   bySessionCost: Record<string, number>;
   /** Daily buckets (YYYY-MM-DD → tokens + estimated cost) for the charts. */
