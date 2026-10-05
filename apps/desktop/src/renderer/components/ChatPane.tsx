@@ -1130,38 +1130,44 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // composer once, on top of anything already parked for it.
   const composerSeed = useStore((s) => (s.composerSeed?.sessionId === sessionId ? s.composerSeed : null));
   useEffect(() => {
-    if (!composerSeed || readOnly) return;
+    if (!composerSeed || readOnly || surface === 'transcript') return;
     useStore.setState({ composerSeed: null });
     setDraft((d) => (d.trim() ? `${d}\n\n${composerSeed.text}` : composerSeed.text));
     if (composerSeed.images.length) setPendingImages((cur) => [...cur, ...composerSeed.images.filter((i) => !cur.includes(i))]);
-  }, [composerSeed, readOnly]);
+  }, [composerSeed, readOnly, surface]);
 
   useEffect(() => {
-    if (readOnly) return;
+    if (readOnly || surface === 'transcript') return;
     const t = setTimeout(() => saveDraft(sessionId, latestDraft.current), 400);
     return () => clearTimeout(t);
-  }, [sessionId, draft, pendingImages, readOnly]);
+  }, [sessionId, draft, pendingImages, readOnly, surface]);
 
   // Mirror the draft into the store so the Context Inspector on the right
   // counts what you're typing. Trailing by DRAFT_MIRROR_MS, so a keystroke
   // re-renders the composer and not every store subscriber; a cleared draft
   // (just sent) goes through at once so it is never counted twice.
   useEffect(() => {
+    if (surface === 'transcript') return;
     if (!draft) {
       useStore.getState().setSessionDraft(sessionId, draft);
       return;
     }
     const t = setTimeout(() => useStore.getState().setSessionDraft(sessionId, draft), DRAFT_MIRROR_MS);
     return () => clearTimeout(t);
-  }, [sessionId, draft]);
+  }, [sessionId, draft, surface]);
 
   // Flush on unmount (tab switch, leaving the Chat view) and on window close, so
   // the last keystrokes can't be lost inside the debounce window.
-  useEffect(() => {
+  useLayoutEffect(() => {
+    if (surface === 'transcript' || readOnly) return;
+    // Layout cleanup flushes the outgoing composer before the incoming surface restores.
+    const parked = loadDraft(sessionId);
+    setDraft(parked?.text ?? '');
+    setPendingImages(parked?.images ?? []);
     const flush = () => saveDraft(sessionId, latestDraft.current);
     window.addEventListener('beforeunload', flush);
     return () => { window.removeEventListener('beforeunload', flush); flush(); };
-  }, [sessionId]);
+  }, [sessionId, surface, readOnly]);
 
   // Focus the composer when a chat opens so you can start typing straight away,
   // caret after any restored draft. Runs once per chat, and never steals focus
@@ -2142,7 +2148,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         </div>
         )}
 
-        {approval && <ApprovalBar approval={approval} onDecide={approve} />}
+        {approval && surface !== 'composer' && <ApprovalBar approval={approval} onDecide={approve} />}
 
         {readOnly ? (
           surface === 'transcript' ? null : <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
