@@ -31,7 +31,7 @@ import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console
 import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
-import { PlanRail } from './PlanRail.js';
+import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
 import { ComposerQuestion } from './ComposerQuestion.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
@@ -2707,6 +2707,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             session={session}
             streaming={streaming}
             onClose={() => useStore.getState().togglePlanRail()}
+            onChangePlan={readOnly ? undefined : () => {
+              setDraft(appendPlanChangeRequest);
+              composerRef.current?.focus();
+            }}
           />
         </div>
       )}
