@@ -587,3 +587,6 @@ An off-by-default developer experiment adds a manual coordinator section to Nekk
 
 ### Chat PR ownership
 PR cards and session PR links track only successful PR creation calls made in that chat. Mentioned URLs, reviews, status lookups, edits and failed creations do not attach PRs. Ordinary message links remain clickable. Historical chats without creation evidence do not claim ownership.
+
+### Composer-connected PR deck
+Live PR actions appear in a centered, rounded deck at 90% of the composer text-box width, tucked into its top edge. A slim count header expands or retracts the deck; dismissed cards retract before removal. Reduced-motion users get effectively instant transitions. Transcript creation/merge milestones remain separate.

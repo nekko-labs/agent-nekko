@@ -91,9 +91,9 @@ export function PrActionCard({ url, info, sessionId, onDismiss }: { url: string;
     } finally { setBusy(null); }
   };
   const check = info ? CHECK_META[info.checks] : CHECK_META.none;
-  const actionClass = 'rounded-md px-2 py-1 text-[11px] font-medium hover:bg-surface-2 disabled:opacity-50';
+  const actionClass = 'rounded-md px-1.5 py-0.5 text-[11px] font-medium hover:bg-surface-2 disabled:opacity-50';
   return (
-    <div className="mb-2 flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2" data-pr-actions={url}>
+    <div className="pr-deck-card flex items-start gap-2 rounded-lg border border-line px-2.5 py-1.5" data-pr-actions={url}>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <a href={url} className="truncate font-mono text-[11px] font-medium hover:underline" onClick={(e) => { e.preventDefault(); openExternally(url); }}>{label}</a>
@@ -101,7 +101,7 @@ export function PrActionCard({ url, info, sessionId, onDismiss }: { url: string;
           {check.dot && <span className="text-[10px]" style={{ color: check.color }}>{check.dot} {check.label}</span>}
         </div>
         {info?.title && <p className="truncate text-[12px]">{info.title}</p>}
-        <div className="mt-1 flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-0.5">
           {(['approve', 'close', 'merge'] as const).map((action) => (
             <button key={action} className={actionClass} disabled={!!busy || !info} onClick={() => void act(action)}
               title={action === 'close' ? 'Close this PR without merging' : action === 'approve' ? 'Approve this PR' : 'Merge this PR'}>
@@ -126,17 +126,53 @@ export function PrActionDock({ sessionId, prs, urls }: { sessionId: string; prs:
     catch { return new Set<string>(); }
   };
   const [dismissed, setDismissed] = useState(load);
+  const [expanded, setExpanded] = useState(true);
+  const [closing, setClosing] = useState<Set<string>>(() => new Set());
   useEffect(() => { setDismissed(load()); }, [storageKey]);
   useEffect(() => subscribePrPolling(sessionId, () => useStore.getState().refreshSessionPrs(sessionId)), [sessionId]);
+  // Fallback for disabled animations, background tabs, or interrupted CSS motion.
+  useEffect(() => {
+    if (!closing.size) return;
+    const timer = setTimeout(() => {
+      setDismissed((previous) => {
+        const next = new Set([...previous, ...closing]);
+        try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* memory-only dismissal */ }
+        return next;
+      });
+      setClosing(new Set());
+    }, 260);
+    return () => clearTimeout(timer);
+  }, [closing, storageKey]);
   const byUrl = new Map(prs.map((p) => [p.url, p]));
-  const active = [...new Set([...urls, ...prs.map((p) => p.url)])].filter((url) => !dismissed.has(url) && (!byUrl.has(url) || byUrl.get(url)?.state === 'open'));
+  const active = [...new Set(urls)].filter((url) => !dismissed.has(url) && (!byUrl.has(url) || byUrl.get(url)?.state === 'open'));
   if (!active.length) return null;
   const dismiss = (url: string) => {
-    const next = new Set(dismissed).add(url);
-    setDismissed(next);
-    try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* memory-only dismissal */ }
+    setClosing((previous) => new Set(previous).add(url));
   };
-  return <section aria-label="Pending pull requests" className="max-h-60 overflow-y-auto">{active.map((url) => <PrActionCard key={url} url={url} info={byUrl.get(url)} sessionId={sessionId} onDismiss={() => dismiss(url)} />)}</section>;
+  const finishDismiss = (url: string) => {
+    if (!closing.has(url)) return;
+    setDismissed((previous) => {
+      const next = new Set(previous).add(url);
+      try { localStorage.setItem(storageKey, JSON.stringify([...next])); } catch { /* memory-only dismissal */ }
+      return next;
+    });
+    setClosing((previous) => { const next = new Set(previous); next.delete(url); return next; });
+  };
+  return <section aria-label="Pending pull requests" className="pr-action-deck" data-expanded={expanded}>
+    <button className="pr-deck-toggle" aria-expanded={expanded} aria-controls={'pr-deck-' + sessionId} onClick={() => setExpanded((value) => !value)}>
+      <BranchIcon className="h-3.5 w-3.5 shrink-0" />
+      <span>{active.length} pull request{active.length === 1 ? '' : 's'}</span>
+      <span className="ml-auto text-ink-faint">{expanded ? 'Tuck away' : 'Show actions'}</span>
+      <span aria-hidden className="pr-deck-chevron">⌃</span>
+    </button>
+    <div className="pr-deck-reveal" id={'pr-deck-' + sessionId} inert={!expanded}>
+      <div className="pr-deck-clip"><div className="pr-deck-list">
+        {active.map((url) => <div key={url} className="pr-deck-slot" data-closing={closing.has(url)} onAnimationEnd={(event) => { if (event.target === event.currentTarget && event.animationName === 'pr-deck-retract') finishDismiss(url); }}>
+          <PrActionCard url={url} info={byUrl.get(url)} sessionId={sessionId} onDismiss={() => dismiss(url)} />
+        </div>)}
+      </div></div>
+    </div>
+  </section>;
 }
 
 /** One line of a unified-diff hunk. */

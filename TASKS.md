@@ -1114,3 +1114,6 @@ Technical approach: independent approval policy and session environment; default
 - [ ] Visual evidence and live Fly/getsu test.
 
 - [x] Restrict chat PR discovery and native summaries to successful creation tool results; add regression tests for references and failed calls.
+
+- [x] Composer-attached slim PR deck and reduced-motion-safe expand/retract animations; rendering and ownership tests pass.
+- [ ] Capture matched before/after desktop evidence and short PR deck motion recording before merging.
