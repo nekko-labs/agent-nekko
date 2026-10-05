@@ -7,6 +7,7 @@ import { PaneActions, useInPaneFrame } from './PaneFrame.js';
 import { Badge, EmptyHint } from './primitives/index.js';
 import { CheckIcon, GearIcon, ServerIcon } from '../icons.js';
 import { EmptyArea, InsightsEmptyArt } from './EmptyIllustrations.js';
+import { INSIGHT_RANGES, insightDays, type InsightRange } from '../insightRanges.js';
 
 /** The machine's at-a-glance numbers, computed by the view from live state. */
 export interface Vitals {
@@ -218,26 +219,44 @@ function OptimizePanel({ tips, onOpenModels }: { tips: OptimizationTip[]; onOpen
   );
 }
 
+function RangeToggles({ range, onChange, chart }: { range: InsightRange; onChange: (range: InsightRange) => void; chart: string }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label={`${chart} time range`}>
+      {INSIGHT_RANGES.map((value) => (
+        <button key={value} type="button" aria-pressed={range === value} onClick={() => onChange(value)}
+          className={`rounded-md px-2 py-1 text-[11px] ${range === value ? 'bg-surface-2 font-semibold text-ink' : 'text-ink-faint hover:bg-surface-2 hover:text-ink'}`}>
+          {value}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function TokensPanel({ usage }: { usage: UsageSummary | null }) {
+  const [range, setRange] = useState<InsightRange>('1m');
   if (!usage) return null;
-  const max = Math.max(1, ...usage.daily.map((d) => d.input + d.output));
+  const daily = insightDays(usage.daily, range);
+  const input = daily.reduce((sum, d) => sum + d.input, 0);
+  const output = daily.reduce((sum, d) => sum + d.output, 0);
+  const max = Math.max(1, ...daily.map((d) => d.input + d.output));
   return (
     <div className="rounded-xl border border-line p-3.5">
-      <PanelTitle aside="last 30 days">Tokens</PanelTitle>
+      <PanelTitle>Tokens</PanelTitle>
+      <RangeToggles chart="Tokens" range={range} onChange={setRange} />
       <div className="mt-2 flex gap-5 text-[12.5px]">
-        <div><span className="text-ink-faint">Input</span> <span className="font-semibold tabular-nums">{usage.totalInput.toLocaleString()}</span></div>
-        <div><span className="text-ink-faint">Output</span> <span className="font-semibold tabular-nums">{usage.totalOutput.toLocaleString()}</span></div>
+        <div><span className="text-ink-faint">Input</span> <span className="font-semibold tabular-nums">{input.toLocaleString()}</span></div>
+        <div><span className="text-ink-faint">Output</span> <span className="font-semibold tabular-nums">{output.toLocaleString()}</span></div>
       </div>
-      {usage.daily.length > 0 ? (
+      {daily.length > 0 ? (
         <div className="mt-3 flex h-24 items-end gap-1">
-          {usage.daily.slice(-30).map((d) => (
-            <div key={d.date} className="flex flex-1 flex-col justify-end" title={`${d.date}: ${(d.input + d.output).toLocaleString()} tok`}>
+          {daily.map((d) => (
+            <div key={d.date} className="flex h-full min-w-0 flex-1 flex-col justify-end" title={`${d.date}: ${(d.input + d.output).toLocaleString()} tok`}>
               <div className="rounded-t" style={{ height: `${((d.input + d.output) / max) * 100}%`, background: 'var(--accent)', minHeight: 2 }} />
             </div>
           ))}
         </div>
       ) : (
-        <ChartEmpty message="No days recorded yet." />
+        <ChartEmpty message="No usage recorded in this range." />
       )}
     </div>
   );
@@ -331,6 +350,7 @@ function ChartEmpty({ message, bars = 12 }: { message: string; bars?: number }) 
 
 /** Cost: monthly actual + projection, the daily chart, the top agents, and the pricing reference. */
 function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null; sessions: SessionSummary[]; providers: ProviderConfig[] }) {
+  const [range, setRange] = useState<InsightRange>('1m');
   const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
   const hasData = !!usage && ((usage.totalCost ?? 0) > 0.0000001 || !!usage.hasSubscriptionUsage);
   const monthKey = new Date().toISOString().slice(0, 7);
@@ -344,7 +364,7 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
     [usage],
   );
   const maxAgent = Math.max(0.0001, ...topAgents.map(([, c]) => c));
-  const recentCost = (usage?.daily ?? []).slice(-30);
+  const recentCost = insightDays(usage?.daily ?? [], range);
   const maxDayCost = Math.max(0.0001, ...recentCost.map((d) => d.cost ?? 0));
   const subscriptionChats = useMemo(() => {
     if (!usage?.hasSubscriptionUsage) return [] as SessionSummary[];
@@ -358,6 +378,7 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
   return (
     <div className="rounded-xl border border-line p-3.5">
       <PanelTitle aside="est. · list prices · local models are free">Cost</PanelTitle>
+      <RangeToggles chart="Cost" range={range} onChange={setRange} />
       {!hasData ? (
         <ChartEmpty message="No spend yet. Once a cloud model answers, this month, the projection and the top agents show here." />
       ) : (
@@ -369,9 +390,11 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
             <StatDivider />
             <Stat value={formatUSD(usage!.totalCost ?? 0)} label="all time" />
           </div>
+          <div className="mt-2 text-[12px] text-ink-faint">Selected range <span className="font-semibold tabular-nums text-ink">{formatUSD(recentCost.reduce((sum, d) => sum + (d.cost ?? 0), 0))}</span></div>
+          {recentCost.length === 0 && <ChartEmpty message="No usage recorded in this range." />}
           <div className="mt-3 flex h-16 items-end gap-1">
             {recentCost.map((d) => (
-              <div key={d.date} className="flex flex-1 flex-col justify-end" title={`${d.date}: ${formatUSD(d.cost ?? 0)}`}>
+              <div key={d.date} className="flex h-full min-w-0 flex-1 flex-col justify-end" title={`${d.date}: ${formatUSD(d.cost ?? 0)}`}>
                 <div className="rounded-t" style={{ height: `${((d.cost ?? 0) / maxDayCost) * 100}%`, background: 'var(--warning)', minHeight: (d.cost ?? 0) > 0 ? 2 : 0 }} />
               </div>
             ))}
