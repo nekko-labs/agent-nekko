@@ -1107,3 +1107,8 @@ Technical approach: independent approval policy and session environment; default
 - [x] Add default-model context actions, pinned labels, and missing-default disabled rows. Done: 2026-10-03. Available/missing default render tests pass.
 - [x] Widen the composer and attach questions with opening/closing motion and reduced-motion support. Done: 2026-10-03. Desktop typecheck/build and question tests pass.
 - [ ] Complete matched base-branch screenshots for every changed surface, native smoke testing, and batch command integration verification before merge.
+
+## Resource queue foundation
+- [x] Experimental toggle, host outbound transport and manual queue UI implemented in draft.
+- [ ] OS secret storage, per-client identities, durable lease recovery and independent result verification.
+- [ ] Visual evidence and live Fly/getsu test.
