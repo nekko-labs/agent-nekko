@@ -68,6 +68,7 @@ export interface ExperimentalFlags {
   memory?: boolean;
   /** Listen on 127.0.0.1 for inbound workflow webhooks. */
   workflowLoopbackListener?: boolean;
+  resourceQueue?: boolean;
 }
 
 /**

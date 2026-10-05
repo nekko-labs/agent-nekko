@@ -1,6 +1,7 @@
 import React, { forwardRef, useLayoutEffect, useRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { composerMarkdownNodes } from './ComposerHighlight.js';
+import { revealEditorCaret } from './editorCaret.js';
 
 /** Textarea-compatible selection API, backed by the browser's visible editable text. */
 export type MarkdownEditorElement = HTMLDivElement & {
@@ -38,6 +39,7 @@ function select(el: HTMLElement, start: number, end: number) {
   const selection = window.getSelection();
   selection?.removeAllRanges();
   selection?.addRange(range);
+  requestAnimationFrame(() => revealEditorCaret(el));
 }
 
 export interface MarkdownEdit { text: string; start: number; end: number }

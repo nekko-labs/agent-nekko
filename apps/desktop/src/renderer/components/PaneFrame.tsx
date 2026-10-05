@@ -131,6 +131,8 @@ export function PaneFrame({
   stripStyle,
   addable,
   closeTitle = 'Close this window',
+  hideSplit = false,
+  locked = false,
   children,
 }: {
   pane: WbPane;
@@ -147,6 +149,8 @@ export function PaneFrame({
   addable?: PaneKind[];
   /** What the close button says it does: a workspace closes a window, the wall only takes it off. */
   closeTitle?: string;
+  hideSplit?: boolean;
+  locked?: boolean;
   /** The window currently being dragged anywhere in this workspace, if any. */
   dragging: string | null;
   canSplit: (dir: Direction) => boolean;
@@ -175,7 +179,7 @@ export function PaneFrame({
   const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null);
   const [metadataSlot, setMetadataSlot] = useState<HTMLElement | null>(null);
   // A window can't be dropped on itself, so it shows no target for its own drag.
-  const targeting = dragging !== null && dragging !== pane.id;
+  const targeting = !locked && dragging !== null && dragging !== pane.id;
 
   return (
     <div
@@ -189,6 +193,7 @@ export function PaneFrame({
       // whole pane read as a bright border framing the history. The mix still
       // says "this one" and still follows the user's accent, just quieter.
       style={{
+        '--panel-ring-width': locked ? '2px' : '1px',
         '--panel-ring-color': ringColor ?? (isActive
           ? 'color-mix(in srgb, var(--accent) 40%, var(--line))'
           : 'var(--line)'),
@@ -198,7 +203,7 @@ export function PaneFrame({
       <div
         className="flex shrink-0 items-center gap-1.5 border-b border-line px-2 py-1"
         style={{ background: isActive ? 'var(--surface-2)' : 'transparent', cursor: 'grab', ...stripStyle }}
-        draggable
+        draggable={!locked}
         onDragStart={(e) => {
           e.dataTransfer.effectAllowed = 'move';
           e.dataTransfer.setData(PANE_DRAG_TYPE, pane.id);
@@ -228,7 +233,7 @@ export function PaneFrame({
         {/* The pane's own actions, portalled in, so there is one bar per window
             rather than the frame's and the pane's stacked on each other. */}
         <div ref={setActionSlot} className="flex shrink-0 items-center gap-0.5" />
-        <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} addable={addable} />
+        {!hideSplit && <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} addable={addable} />}
         <button
           className="rounded-sm p-1 text-ink-faint hover:text-ink"
           title={action === 'complete' ? 'Complete this chat' : action === 'delete' ? 'Delete this chat forever' : closeTitle}

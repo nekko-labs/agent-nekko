@@ -1,3 +1,4 @@
+import { ResourceQueueSection } from '../components/server/ResourceQueueSection.js';
 import { useCallback, useEffect, useState } from 'react';
 import type { EngineMemory, LocalModel } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
@@ -24,6 +25,7 @@ import { ModelDetail } from '../components/engine/ModelDetail.js';
  */
 
 export function ModelServerView() {
+  const queueEnabled = useStore((s) => s.settings?.experimental?.resourceQueue === true);
   const refreshProviders = useStore((s) => s.refreshProviders);
   // The catalog model being read, if any. Held here rather than in the engine
   // section so the page it opens can use the whole view.
@@ -76,6 +78,8 @@ export function ModelServerView() {
             }}
           />
         </div>
+
+        {queueEnabled && <ResourceQueueSection />}
 
         <p className="mt-8 text-center text-[12px] text-ink-faint">
           Cloud keys and other machines' servers live in Model Providers.

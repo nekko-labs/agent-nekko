@@ -23,7 +23,7 @@ const withTranscript = (s: Session): Session => ({
   title: 'Refactor the parser',
   messages: [
     { id: 'u1', role: 'user', content: 'Review the parser and open a PR', createdAt: 1 },
-    { id: 'a1', role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'bash', input: {} }], createdAt: 2 },
+    { id: 'a1', role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'bash', input: { command: 'gh pr create' } }], createdAt: 2 },
     { id: 't1', role: 'tool', content: '', toolResult: { toolCallId: 'c1', output: 'https://github.com/o/r/pull/7' }, createdAt: 3 },
     { id: 'a2', role: 'assistant', content: 'Opened   the PR.\nAll green.', createdAt: 4 },
   ],

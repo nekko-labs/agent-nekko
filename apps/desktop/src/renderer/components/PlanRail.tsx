@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, QueuedPrompt, Session, SessionSummary } from '@agent-nekko/shared';
 import { DEFAULT_ORCHESTRATION, getStrategy, planProgress, queueItemPayload, summarizeToolCall } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
-import { CheckIcon, ChatIcon, CloseIcon, ListIcon, RobotIcon } from '../icons.js';
+import { CheckIcon, ChatIcon, CloseIcon, ListIcon, PencilIcon, RobotIcon } from '../icons.js';
 
 /** The agent's published plan, active delegates and queued follow-ups. */
 function queueLabel(item: QueuedPrompt): string {
@@ -72,7 +72,7 @@ export function PlanRail({ sessionId, session, streaming, onClose, onChangePlan 
               ))}
             </ol>
           ) : <p className="px-0.5 text-[11px] leading-snug text-ink-faint">{streaming ? 'Waiting for the agent to publish its plan.' : 'The agent’s plan will appear here when it starts work.'}</p>}
-          {!!agentPlan?.length && <button type="button" className="mt-2 rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-ink-soft hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50" disabled={!onChangePlan} onClick={onChangePlan} title="Describe a plan adjustment in the composer before sending">Change plan</button>}
+          {!!agentPlan?.length && <button type="button" className="mt-2 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium text-ink-soft hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50" disabled={!onChangePlan} onClick={onChangePlan} title="Describe a plan adjustment in the composer before sending"><PencilIcon className="h-3 w-3" />Change plan</button>}
         </section>
         <section>
           <div className="mb-1.5 flex items-center gap-1.5">

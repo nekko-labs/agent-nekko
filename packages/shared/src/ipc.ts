@@ -115,6 +115,7 @@ export const IpcChannels = {
   chatInterruptQueued: 'chat:interruptQueued',
   chatSteer: 'chat:steer',
   chatSuggest: 'chat:suggest',
+  resourceQueue: 'resource:queue',
   chatFillPrompt: 'chat:fillPrompt',
   toolApprove: 'tool:approve',
   chatAnswer: 'chat:answer',
@@ -526,6 +527,7 @@ export interface NekkoApi {
    * unattended run, no usable provider). Never persists anything.
    */
   suggestReplies(sessionId: string): Promise<ReplySuggestions | null>;
+  resourceQueue(action: string, input?: Record<string, unknown>): Promise<unknown>;
   /**
    * Model-drafted snippet for a prompt part the composer is missing (the
    * analyzer's click-to-fill chips). A sideband call on the chat's own provider
