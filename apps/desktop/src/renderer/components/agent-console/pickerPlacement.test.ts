@@ -1,0 +1,17 @@
+import { describe, expect, it } from 'vitest';
+import { pickerPlacement } from './pickerPlacement.js';
+
+describe('composer picker placement', () => {
+  it('opens above a bottom composer and clamps its right edge', () => {
+    expect(pickerPlacement({ left: 900, top: 650, bottom: 680 }, 1000, 720))
+      .toEqual({ left: 568, width: 416, maxHeight: 384, bottom: 78 });
+  });
+  it('opens below a trigger near the top', () => {
+    expect(pickerPlacement({ left: 80, top: 30, bottom: 60 }, 1000, 720))
+      .toEqual({ left: 80, width: 416, maxHeight: 384, top: 68 });
+  });
+  it('fits a narrow composer window without horizontal clipping', () => {
+    const placement = pickerPlacement({ left: 60, top: 170, bottom: 200 }, 320, 240);
+    expect(placement).toEqual({ left: 16, width: 288, maxHeight: 146, bottom: 78 });
+  });
+});
