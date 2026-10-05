@@ -143,3 +143,12 @@ describe('workspace companions and stable bodies', () => {
     expect(source).toContain("matches ? 'auto' : 'smooth'");
   });
 });
+
+describe('Command Center header spacing', () => {
+  it('keeps a compact top inset without changing gutters or toolbar wrapping', () => {
+    const source = readFileSync(new URL('../views/CommandCenterView.tsx', import.meta.url), 'utf8');
+    expect(source).toContain('gap-3 px-4 pb-4 pt-1 xl:px-6');
+    expect(source).toContain('flex flex-wrap items-center gap-x-4 gap-y-2');
+    expect(source).not.toContain('pb-4 pt-5');
+  });
+});
