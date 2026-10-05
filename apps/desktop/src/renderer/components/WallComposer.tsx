@@ -25,6 +25,7 @@ const ALIGN_LABEL: Record<ComposerAlign, string> = { left: 'left', center: 'cent
  * only their transcripts. It docks to one of six places around the wall while the selected window and its number identify who it speaks for.
  */
 export function WallComposer({
+  height,
   agent,
   agents,
   dock,
@@ -34,6 +35,7 @@ export function WallComposer({
   onNewAgent,
   panelRef,
 }: {
+  height?: number | null;
   agent: WallAgent | null;
   agents: WallAgent[];
   dock: ComposerDock;
@@ -71,7 +73,8 @@ export function WallComposer({
   return (
     <div
       ref={panelRef}
-      className={`panel wall-composer flex w-full max-w-[820px] shrink-0 flex-col ${alignClass}`}
+      style={height == null ? undefined : { height }}
+      className={`panel wall-composer flex shrink-0 flex-col ${alignClass}`}
       data-has-agent={agent ? true : undefined}
       data-wall-composer
       data-dock={`${dock.side}-${dock.align}`}
@@ -149,7 +152,7 @@ export function WallComposer({
         </div>
       </div>
       {agent ? (
-        <div className="min-h-0">
+        <div className="wall-composer-body min-h-0">
           <ChatPane key={agent.session.id} sessionId={agent.session.id} commandCenter surface="composer" />
         </div>
       ) : (
