@@ -580,3 +580,7 @@ Availability: design and initial policy/discovery helpers only. App-control adap
 - Ctrl (or Command) toggles individual rows; Shift selects an inclusive range in visible sidebar order. Right-click a selected row applies commands to the selected chats. Stop skips idle chats, Continue skips running chats and uses non-destructive resume. Continue currently requires a saved specific model and an existing prompt; Auto chats ask the user to choose a model first. Failures are reported per chat.
 - Composer model pickers and model-provider catalogs offer Set as default on right-click. The default is labeled and pinned first; a missing default remains visible but disabled. Model changes update mounted chat composers immediately.
 - The composer uses 90% of the available pane width on desktop and full usable width on narrow screens. Questions extend from its upper center at 80% of composer width, with curved shoulders and no separate horizontal tray lines. They expand upward and retract on answer, with reduced-motion support.
+
+## Experimental outbound resource queue
+
+An off-by-default developer experiment adds a manual coordinator section to Nekko Server. Register a local resource, inspect jobs, explicitly claim one and open its prompt in a new agent chat. Explicitly submit the final reply as untrusted output, never automatic approval. See docs/resource-queue.md for security and deployment gates.

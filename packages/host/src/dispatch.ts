@@ -104,6 +104,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.chatDequeue]: ([id, idx]) => host.dequeuePrompt(id, idx),
     [C.chatSteer]: ([id, text]) => host.steerChat(id, text),
     [C.chatInterruptQueued]: ([id, idx, brain]) => host.interruptQueuedPrompt(id, idx, brain),
+    [C.resourceQueue]: ([action, input]) => host.resourceQueue(action, input),
     [C.chatSuggest]: ([sid]) => host.suggestReplies(sid),
     [C.chatFillPrompt]: ([sid, part, draft]) => host.fillPromptPart(sid, part, draft),
     [C.toolApprove]: ([sid, tid, ok]) => host.approveTool(sid, tid, ok),
