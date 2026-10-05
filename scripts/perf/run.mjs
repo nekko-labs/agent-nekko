@@ -110,7 +110,7 @@ const wallState = (ids) => {
     rows.push(slice.length === 1 ? slice[0] : { id: `split_${(++seq).toString(36)}`, dir: 'row', children: slice, sizes: slice.map(() => 1 / slice.length) });
   }
   const root = rows.length === 0 ? null : rows.length === 1 ? rows[0] : { id: `split_${(++seq).toString(36)}`, dir: 'col', children: rows, sizes: rows.map(() => 1 / rows.length) };
-  return JSON.stringify({ root, autoAdd: false, filter: 'all', insights: { panels: {} }, watermark: Date.now() });
+  return JSON.stringify({ layout: { mode: 'grid', cols: 3, rows: 2 }, dock: { side: 'right', show: false, panels: {}, minimized: {} }, root, autoAdd: false, filter: 'all', insights: { panels: {} }, watermark: Date.now() });
 };
 
 /** One browser on the app, with the handful of gestures the scenarios need. */

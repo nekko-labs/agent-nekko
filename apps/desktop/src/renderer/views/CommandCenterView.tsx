@@ -6,12 +6,12 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
 import { Toggle } from '../components/primitives/index.js';
-import { BoltIcon, ChatIcon, GridIcon, LayoutIcon, PlusIcon, TerminalIcon } from '../icons.js';
+import { ChatIcon, GridIcon, PlusIcon, TerminalIcon } from '../icons.js';
 import { CommandWall } from '../components/CommandWall.js';
-import { WallComposer, WallTether, type WallAgent } from '../components/WallComposer.js';
+import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
-import { InsightsBox, type Vitals } from '../components/InsightsBox.js';
-import { AutomationsPane } from '../components/AutomationsPane.js';
+import { type Vitals } from '../components/InsightsBox.js';
+import { WallDock } from '../components/WallDock.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { allPanes, isSplit, type PaneKind } from '../layout.js';
 import {
@@ -210,7 +210,7 @@ export function CommandCenterView() {
     const ref = refId ?? (kind === 'chat' ? await newChat() : kind === 'terminal' ? await newTerminal() : kind);
     setWall((w) => (hasPane(w.root, kind, ref) ? w : { ...w, root: addPane(w.root, wallPane(kind, ref), aspectRef.current) }));
   };
-  const autoArrange = () => setWall((w) => ({ ...w, root: tileTree(allPanes(w.root), aspectRef.current) }));
+  const autoArrange = () => setWall((w) => w.layout.mode === 'grid' ? { ...w, root: tileTree(allPanes(w.root), aspectRef.current) } : w);
 
   // The ribbon's jump: the window is rung once and its composer focused.
   const [flash, setFlash] = useState<{ paneId: string; at: number } | null>(null);
@@ -230,17 +230,22 @@ export function CommandCenterView() {
   // The agent the composer speaks for: the window clicked last, or the first
   // on the wall. Ctrl+Tab / Ctrl+Shift+Tab walk the windows in reading order;
   // Ctrl+1…9 (or Alt+1…9) pick one by its number.
-  const [selected, setSelected] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [selected, setSelected] = useState<string | null>(() => wall.hero);
+  const selectAgent = useCallback((id: string | null) => {
+    setSelected(id);
+    setWall((w) => w.hero === id ? w : { ...w, hero: id });
+  }, [setWall]);
   const agentsOnWall = useMemo(() => wallAgents(wall.root), [wall.root]);
   useEffect(() => {
-    if (agentsOnWall.length === 0) { if (selected) setSelected(null); return; }
-    if (!selected || !agentsOnWall.some((p) => p.refId === selected)) setSelected(agentsOnWall[0].refId);
-  }, [agentsOnWall, selected]);
+    if (agentsOnWall.length === 0) { if (selected) selectAgent(null); return; }
+    if (!selected || !agentsOnWall.some((p) => p.refId === selected)) selectAgent(agentsOnWall.find((p) => p.refId === wall.hero)?.refId ?? agentsOnWall[0].refId);
+  }, [agentsOnWall, selected, wall.hero, selectAgent]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
-        setSelected((cur) => nextAgent(wall.root, cur, e.shiftKey ? -1 : 1));
+        selectAgent(nextAgent(wall.root, selected, e.shiftKey ? -1 : 1));
         return;
       }
       if ((e.ctrlKey || e.altKey) && !e.metaKey && /^[1-9]$/.test(e.key)) {
@@ -248,13 +253,12 @@ export function CommandCenterView() {
         const pick = agents[Number(e.key) - 1];
         if (!pick) return;
         e.preventDefault();
-        setSelected(pick.refId);
+        selectAgent(pick.refId);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [wall.root]);
-  const stageRef = useRef<HTMLDivElement>(null);
+  }, [wall.root, selected, selectAgent]);
   const composerRef = useRef<HTMLDivElement>(null);
   const agentList = useMemo<WallAgent[]>(() => agentsOnWall.flatMap((p, i) => {
     const session = sessions.find((x) => x.id === p.refId);
@@ -270,33 +274,20 @@ export function CommandCenterView() {
       agents={agentList}
       dock={wall.composer}
       onDock={(composer) => setWall((w) => ({ ...w, composer }))}
-      onSelect={setSelected}
+      onSelect={selectAgent}
       onOpen={openChat}
       onNewAgent={() => { void addFromToolbar('chat'); }}
       panelRef={composerRef}
     />
   );
 
-  const renderPanel = (kind: 'automations' | 'insights') =>
-    kind === 'automations' ? (
-      <AutomationsPane tasks={tasks} running={running} now={now} onOpen={openChat} />
-    ) : (
-      <InsightsBox
-        prefs={wall.insights}
-        onPrefs={(next) => setWall((w) => ({ ...w, insights: next }))}
-        usage={usage}
-        sessions={sessions}
-        providers={providers}
-        vitals={vitals}
-        onOpenModels={() => setView('models')}
-      />
-    );
-
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-5 xl:px-6">
-      <WallToolbar wall={wall} setWall={setWall} sessions={sessions} terminals={terminals} onAdd={addFromToolbar} onAutoArrange={autoArrange} />
+      <WallToolbar wall={wall} setWall={setWall} sessions={sessions} terminals={terminals} onAdd={addFromToolbar} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} />
       {needs.length > 0 && <NeedsYouRibbon needs={needs} onGo={goTo} />}
-      <div ref={stageRef} className="relative flex min-h-0 flex-1 flex-col gap-3">
+      <div className="wall-workspace" data-dock-side={wall.dock.side}>
+        <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
+        <div className="wall-column">
       {wall.composer.side === 'top' && composer}
       <CommandWall
         state={wall}
@@ -309,16 +300,16 @@ export function CommandCenterView() {
         projects={settings?.workspaces ?? []}
         flash={flash}
         selectedId={selected}
-        onSelect={setSelected}
+        onSelect={selectAgent}
         onAspect={onAspect}
         onOpenChat={openChat}
         onOpenTerminal={openTerminal}
         onNewChat={newChat}
         onNewTerminal={newTerminal}
-        renderPanel={renderPanel}
+        onAddWindow={() => setAddOpen(true)}
       />
       {wall.composer.side === 'bottom' && composer}
-      <WallTether stageRef={stageRef} from={composerRef} toSelector={selected ? `[data-grid-cell="chat:${selected}"]` : null} deps={[wall.root, wall.composer, wall.filter, selected]} />
+        </div>
       </div>
     </div>
   );
@@ -365,6 +356,8 @@ function WallToolbar({
   terminals,
   onAdd,
   onAutoArrange,
+  addOpen,
+  setAddOpen,
 }: {
   wall: CommandWallState;
   setWall: (update: (s: CommandWallState) => CommandWallState) => void;
@@ -372,8 +365,20 @@ function WallToolbar({
   terminals: import('@agent-nekko/shared').TerminalInfo[];
   onAdd: (kind: PaneKind, refId?: string) => Promise<void>;
   onAutoArrange: () => void;
+  addOpen: boolean;
+  setAddOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
-  const [addOpen, setAddOpen] = useState(false);
+  const [fixedOpen, setFixedOpen] = useState(false);
+  const [hoverSize, setHoverSize] = useState({ rows: wall.layout.rows, cols: wall.layout.cols });
+  const fixedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!fixedOpen) return;
+    const down = (e: MouseEvent) => { if (!fixedRef.current?.contains(e.target as Node)) setFixedOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setFixedOpen(false); };
+    window.addEventListener('mousedown', down);
+    window.addEventListener('keydown', key);
+    return () => { window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key); };
+  }, [fixedOpen]);
   const [busy, setBusy] = useState(false);
   const addRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -383,7 +388,7 @@ function WallToolbar({
     window.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
     return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
-  }, [addOpen]);
+  }, [addOpen, setAddOpen]);
 
   const panes = allPanes(wall.root);
   const counts = { chat: panes.filter((p) => p.kind === 'chat').length, terminal: panes.filter((p) => p.kind === 'terminal').length };
@@ -394,7 +399,7 @@ function WallToolbar({
     .slice(0, 8);
   const shells = terminals.filter((t) => !on('terminal', t.id) && !t.agentSessionId).slice(0, 6);
   const run = (kind: PaneKind, refId?: string) => { setAddOpen(false); setBusy(true); void onAdd(kind, refId).finally(() => setBusy(false)); };
-  const canArrange = !!wall.root && isSplit(wall.root);
+  const canArrange = wall.layout.mode === 'grid' && !!wall.root && isSplit(wall.root);
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -416,6 +421,27 @@ function WallToolbar({
             </button>
           ))}
         </div>
+        <div className="wall-layout-control" ref={fixedRef}>
+          <div className="wall-layout-segments" role="group" aria-label="Wall layout">
+            {(['grid', 'focus', 'fixed'] as const).map((mode) => (
+              <button key={mode} type="button" aria-pressed={wall.layout.mode === mode} aria-expanded={mode === 'fixed' ? fixedOpen : undefined} onClick={() => {
+                if (mode === 'fixed') { setHoverSize({ rows: wall.layout.rows, cols: wall.layout.cols }); setFixedOpen((open) => !open); }
+                else { setFixedOpen(false); setWall((w) => ({ ...w, layout: { ...w.layout, mode } })); }
+              }}>{mode[0].toUpperCase() + mode.slice(1)}</button>
+            ))}
+          </div>
+          {fixedOpen && <div className="wall-fixed-picker" role="dialog" aria-label="Fixed grid size">
+            <p>{hoverSize.cols} columns × {hoverSize.rows} rows</p>
+            <div className="wall-fixed-cells" onMouseLeave={() => setHoverSize({ rows: wall.layout.rows, cols: wall.layout.cols })}>
+              {Array.from({ length: 36 }, (_, i) => {
+                const rows = Math.floor(i / 6) + 1;
+                const cols = i % 6 + 1;
+                return <button key={i} type="button" aria-label={`${cols} columns by ${rows} rows`} className={rows <= hoverSize.rows && cols <= hoverSize.cols ? 'is-preview' : ''} onMouseEnter={() => setHoverSize({ rows, cols })} onFocus={() => setHoverSize({ rows, cols })} onClick={() => { setWall((w) => ({ ...w, layout: { mode: 'fixed', rows, cols } })); setFixedOpen(false); }} />;
+              })}
+            </div>
+          </div>}
+        </div>
+        <button type="button" className="btn btn-outline py-1 text-[12px]" aria-pressed={wall.dock.show} onClick={() => setWall((w) => ({ ...w, dock: { ...w.dock, show: !w.dock.show } }))}>Panels</button>
         <button
           className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
           title="Re-tile the wall into even rows and columns"
@@ -431,7 +457,7 @@ function WallToolbar({
             disabled={busy}
             aria-haspopup="menu"
             aria-expanded={addOpen}
-            title="Add an agent, a terminal, a panel, or a chat already running"
+            title="Add an agent, a terminal, or a chat already running"
           >
             <PlusIcon className="h-3.5 w-3.5" /> {busy ? 'Starting…' : 'Add window'}
           </button>
@@ -453,23 +479,6 @@ function WallToolbar({
                 </span>
                 <kbd className="kbd">{SHORTCUTS.newTerminal.label}</kbd>
               </button>
-              {(!on('automations') || !on('insights')) && (
-                <>
-                  <p className="px-2.5 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Panels</p>
-                  {!on('automations') && (
-                    <button className="create-row flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left" role="menuitem" onClick={() => run('automations')}>
-                      <BoltIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                      <span className="min-w-0 flex-1 truncate text-[12.5px]">Automations</span>
-                    </button>
-                  )}
-                  {!on('insights') && (
-                    <button className="create-row flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left" role="menuitem" onClick={() => run('insights')}>
-                      <LayoutIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                      <span className="min-w-0 flex-1 truncate text-[12.5px]">Insights</span>
-                    </button>
-                  )}
-                </>
-              )}
               {(chats.length > 0 || shells.length > 0) && (
                 <>
                   <p className="px-2.5 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Already running</p>

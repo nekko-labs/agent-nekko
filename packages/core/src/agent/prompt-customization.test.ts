@@ -36,3 +36,25 @@ it('omits empty customization sections', () => {
   expect(prompt).not.toContain('Server instructions for this user turn:');
   expect(prompt).not.toContain('About the user');
 });
+
+it('requires automatic UI verification and authorized landing, not a draft-PR handoff', () => {
+  const prompt = buildSystemPrompt({ workspaces: [], platform: 'darwin', contextBlock: '' });
+  for (const rule of [
+    'automatically continue into isolated visual and interaction testing',
+    'unchanged base revision in a separate sandbox',
+    'Capture and inspect matching before/after screenshots',
+    'record a short video for motion or timing changes',
+    'verify the published links',
+    'Missing evidence is unfinished work',
+    'A draft PR is a checkpoint, not a stopping condition',
+    'When the user or repository authorizes landing',
+    'never bypass protections or approval requirements',
+    'Investigate available isolation and verification paths',
+    'A user-requested pause or narrower scope always takes precedence',
+    'register agent_watch when available before ending the turn',
+    'If unavailable or registration fails',
+    'Do not schedule continuations to bypass',
+  ]) expect(prompt).toContain(rule);
+  // GitHub release naming is repository policy, not a global side effect.
+  expect(prompt).not.toContain('pr-media');
+});
