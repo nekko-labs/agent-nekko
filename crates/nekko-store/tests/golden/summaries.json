@@ -452,11 +452,7 @@
         "at": 1790000000002
       }
     ],
-    "prUrls": [
-      "https://github.com/nekko-labs/agent-nekko/pull/219",
-      "https://github.com/o/r/pull/7",
-      "https://github.com/o/r/pull/8"
-    ],
+    "prUrls": [],
     "imageCount": 0
   }
 }

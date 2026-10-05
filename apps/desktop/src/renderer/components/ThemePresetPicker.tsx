@@ -5,10 +5,11 @@ import { useT } from '../i18n.js';
 import { ColorWheel } from './ColorWheel.js';
 
 /** Preset groups, so light and dark looks sit under their own headings. */
-const GROUPS: Array<{ mode: ThemePreset['mode']; titleKey: string }> = [
+const GROUPS: Array<{ mode: ThemePreset['mode']; titleKey: string; fun?: boolean }> = [
   { mode: 'system', titleKey: 'settings.themeAuto' },
   { mode: 'light', titleKey: 'settings.themeLight' },
   { mode: 'dark', titleKey: 'settings.themeDark' },
+  { mode: 'dark', titleKey: 'Fun!', fun: true },
 ];
 
 /** Hard stops show the actual palette colors without blended intermediate shades. */
@@ -78,14 +79,14 @@ export function ThemePresetPicker({
 
       <div className={showLabel ? 'mt-2 space-y-3' : 'space-y-3'}>
         {GROUPS.map((group) => {
-          const presets = THEME_PRESETS.filter((p) => p.mode === group.mode);
+          const presets = THEME_PRESETS.filter((p) => group.fun ? p.id === 'autumn' : p.mode === group.mode && p.id !== 'autumn');
           if (presets.length === 0) return null;
           return (
-            <div key={group.mode}>
+            <div key={group.titleKey}>
               <span className="text-[11px] font-medium tracking-wide text-ink-faint uppercase">
-                {tr(group.titleKey)}
+                {group.fun ? 'Fun!' : tr(group.titleKey)}
               </span>
-              <div className="mt-1.5 grid grid-cols-4 gap-2" role="radiogroup" aria-label={tr(group.titleKey)}>
+              <div className="mt-1.5 grid grid-cols-4 gap-2" role="radiogroup" aria-label={group.fun ? 'Fun!' : tr(group.titleKey)}>
                 {presets.map((preset) => {
                   const active = activeId === preset.id;
                   const gradient = slicedSwatch(preset.swatch);

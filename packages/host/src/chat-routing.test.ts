@@ -487,6 +487,31 @@ describe('reply suggestions', () => {
     expect(requests).toEqual([]);
   });
 
+  it('checks bounded past user replies even when assistant messages fill the recent tail', async () => {
+    const session = replied();
+    session.messages = [
+      ...Array.from({ length: 10 }, (_, i) => ({
+        id: `user-${i}`, role: 'user' as const,
+        content: `Preference ${i}: ${'x'.repeat(900)}`, createdAt: i,
+      })),
+      ...Array.from({ length: 7 }, (_, i) => ({
+        id: `assistant-${i}`, role: 'assistant' as const,
+        content: `Progress ${i}`, createdAt: 10 + i,
+      })),
+    ];
+    saveSession(session);
+    await suggestReplies(session.id);
+    const prompt = suggestRequests[0].request.messages.at(-1)?.content ?? '';
+    expect(prompt).toContain('Past user replies (oldest first):');
+    expect(prompt).toContain('Preference 2:');
+    expect(prompt).toContain('Preference 9:');
+    expect(prompt).not.toContain('Preference 1:');
+    expect(prompt).not.toContain('x'.repeat(801));
+    expect(prompt).toContain('already answered, rejected');
+    expect(prompt).toContain('{"options":[],"next":"..."}');
+    expect(prompt.split('Recent conversation:')[1]).not.toContain('Preference');
+  });
+
   it('returns null when there is no reply to suggest from', async () => {
     const session = createSession();
     session.providerId = 'frontier';
@@ -670,5 +695,29 @@ describe('session titles', () => {
     await settle();
     expect(titleRequests).toEqual([]);
     expect(getSession(session.id)?.title).toBe('My chat');
+  });
+});
+
+
+describe('child checkpoint recovery', () => {
+  it('resumes a lost child on the same route without creating a duplicate session', async () => {
+    delegate({ task: 'finish the delegated work' });
+    rounds.push(new Error('The engine stopped driving this reply.'), [{ type: 'text', delta: 'Recovered child result.' }, { type: 'done' }]);
+    const { session, result } = await run();
+    expect(children(session)).toHaveLength(1);
+    const child = getSession(children(session)[0].id)!;
+    expect(child.messages.filter(m => m.role === 'user')).toHaveLength(1);
+    expect(child.messages.at(-1)?.content).toBe('Recovered child result.');
+    expect(result?.type === 'tool_result' && result.result.output).toContain('Recovered child result.');
+    expect(requests.every(r => r.providerId === 'frontier')).toBe(true);
+  });
+  it('hands the parent the real failure and child ID when the recovery budget is exhausted', async () => {
+    delegate({ task: 'finish the delegated work' });
+    rounds.push(new Error('The engine stopped driving this reply.'), new Error('The engine stopped driving this reply.'));
+    const { session, result } = await run();
+    expect(children(session)).toHaveLength(1);
+    expect(result?.type === 'tool_result' && result.result.isError).toBe(true);
+    expect(result?.type === 'tool_result' && result.result.output).toContain(children(session)[0].id);
+    expect(result?.type === 'tool_result' && result.result.output).toContain('Continue the delegated task directly');
   });
 });

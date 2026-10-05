@@ -602,6 +602,16 @@ Availability: design and initial policy/discovery helpers only. App-control adap
 - Composer model pickers and model-provider catalogs offer Set as default on right-click. The default is labeled and pinned first; a missing default remains visible but disabled. Model changes update mounted chat composers immediately.
 - The composer uses 90% of the available pane width on desktop and full usable width on narrow screens. Questions extend from its upper center at 80% of composer width, with curved shoulders and no separate horizontal tray lines. They expand upward and retract on answer, with reduced-motion support.
 
+## Experimental outbound resource queue
+
+An off-by-default developer experiment adds a manual coordinator section to Nekko Server. Register a local resource, inspect jobs, explicitly claim one and open its prompt in a new agent chat. Explicitly submit the final reply as untrusted output, never automatic approval. See docs/resource-queue.md for security and deployment gates.
+
+### Chat PR ownership
+PR cards and session PR links track only successful PR creation calls made in that chat. Mentioned URLs, reviews, status lookups, edits and failed creations do not attach PRs. Ordinary message links remain clickable. Historical chats without creation evidence do not claim ownership.
+
+### Composer-connected PR deck
+Live PR actions appear in a centered, rounded deck at 90% of the composer text-box width, tucked into its top edge. A slim count header expands or retracts the deck; dismissed cards retract before removal. Reduced-motion users get effectively instant transitions. Transcript creation/merge milestones remain separate.
+
 ## Rich responses, reports, and design workspace
 
 ### User intent
@@ -617,6 +627,18 @@ Any configured capable model should be able to create rich, portable deliverable
 
 ### Acceptance and follow-up
 Security tests must cover isolation, no silent local reads, raster bounds/signatures, unsafe URL handling, and broken diagram fallback. UI review must cover chat file links, inline image loading, source/preview editing, viewport controls, and actual prototype interaction. HTML artifacts can now be explicitly imported from the file pane into a chosen project board, creating an editable copy under nekko-designs/. Refinements and restores keep up to ten previous HTML snapshots; restore requires confirmation and saves the current document as a new history entry. This import/restore UI is implemented but not yet end-to-end visually verified. Native mobile parity, direct chat-to-board shortcuts, element-level visual editing, and export to external design formats remain follow-up work; this initial change must not claim them complete. Rendering an image to the user does not itself give the model vision input: multimodal tool-result delivery is a separate requirement.
+
+### Spooky theme
+The seasonal preset is displayed as Spooky in a dedicated Fun! group below the standard theme preset groups. Its persisted autumn ID remains compatible with existing settings. Seasonal merged-PR confetti is only shown while Spooky is active and disappears on theme changes. Only the composer bottom-right avatar wears a small orange wizard hat; shared avatars and the sidebar mascot remain undecorated.
+
+### Visible continuation turns
+Explicit typed continuation text remains a saved user message even when a request resumes an interrupted run. Newly persisted user turns emit session metadata before streaming, so a separate wall transcript sees input sent by the shared composer. Empty resume-button clicks still add no synthetic user text.
+
+PR ownership discovery fails closed on shell provenance: only direct gh creation commands returning one bare PR URL qualify. Scripts containing creation examples, shell batches, and mixed/multiple-URL outputs do not attach PRs. This conservative rule may omit real PRs created in batches.
+
+### Delegated interruption recovery
+Implemented: after an interrupted child turn exhausts stream retries, known transient network/stream or lost-engine failures receive at most one checkpoint resume on the same child session and provider/model. Empty resume input adds no duplicate user task. Cancellation, approval, credentials, permanent request/model errors and unknown errors are not retried. Exhaustion returns the child ID, actual error and bounded saved-progress excerpt to the parent so it can continue directly or report a blocker. No route fallback or new authority is granted. Verified with scripted host tests; the layout incident was not located in checked local stores.
+Planned/unverified: durable parent-child reconciliation after app restart, detection of live-but-hung tools/daemon probes, completion-aware parent supervision and end-to-end desktop recovery. Normal model completion is not proof the entire user task is finished.
 
 
 ### Automatic verification and authorized landing

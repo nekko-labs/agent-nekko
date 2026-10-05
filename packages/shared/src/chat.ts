@@ -387,8 +387,15 @@ export function formatRate(tokensPerSecond: number): string {
 export function lastReplyInterrupted(history: ChatMessage[]): boolean {
   const last = history[history.length - 1];
   if (!last || last.role === 'user') return false;
-  if (last.role === 'assistant') return !!last.interrupted || !!last.toolCalls?.length;
-  return false;
+  // Explicit interruption markers remain authoritative, including a partial
+  // assistant reply followed by results from tools that were already running.
+  let turnStart = history.length - 1;
+  while (turnStart >= 0 && history[turnStart].role !== 'user') turnStart--;
+  const turn = history.slice(turnStart + 1);
+  const lastAssistant = [...turn].reverse().find((m) => m.role === 'assistant');
+  if (lastAssistant?.interrupted) return true;
+  const results = new Set(turn.flatMap((m) => m.toolResult ? [m.toolResult.toolCallId] : []));
+  return turn.some((m) => m.role === 'assistant' && m.toolCalls?.some((call) => !results.has(call.id)));
 }
 
 export function hasResumableProgress(history: ChatMessage[]): boolean {
