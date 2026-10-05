@@ -33,6 +33,7 @@ import { useStore, type Workspace } from '../store.js';
 import { ChatPane } from './ChatPane.js';
 import { FilePane } from './FilePane.js';
 import { ExplorerPane } from './ExplorerPane.js';
+import { NumberedChatIcon } from './NumberedChatIcon.js';
 import { BrowserPane } from './BrowserPane.js';
 import { DiffPane } from './DiffPane.js';
 
@@ -110,8 +111,11 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const deck = new Set(deckPanes.map((p) => p.id));
   const panes: WallGeometry['panes'] = new Map();
   const gap = 8;
-  const deckHeight = deck.size ? 160 : Math.max(240, Math.min(440, width / 3));
-  const stageHeight = Math.max(state.layout.mode === 'grid' ? 560 : 240, height - (state.layout.mode === 'focus' ? (deck.size ? 160 : 64) : 64) - gap);
+  const deckHeight = state.layout.mode === 'focus' ? 0 : Math.max(240, Math.min(440, width / 3));
+  // A stacked Focus chat needs space for transcript, approval and composer
+  // above its companion. The wall scrolls when the viewport cannot fit them.
+  const minimum = state.layout.mode === 'focus' && width > 0 && width < 640 ? 960 : state.layout.mode === 'grid' ? 560 : 240;
+  const stageHeight = Math.max(minimum, height - (state.layout.mode === 'focus' ? 0 : 64 + gap));
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
   const addPanePreview: WbPane = { id: '__wall_add__', kind: 'chat', refId: '__wall_add__' };
@@ -147,8 +151,8 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
       return { panes, deck, hero, height: stageHeight + gap + deckHeight, add: rectOf(preview), addGrid, grid, stageHeight };
     }
   }
-  deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: contentHeight + gap, width: 240, height: 160 }));
-  return { panes, deck, hero, height: contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, addGrid, grid, stageHeight };
+  // Focus keeps other bodies warm but selects them through the row above the hero.
+  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, addGrid, grid, stageHeight };
 }
 
 /** Stable keyed windows across layouts keep transcripts, terminals and drafts warm. */
@@ -197,17 +201,17 @@ export function CommandWall({
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [dragging, setDragging] = useState<string | null>(null);
-  const [deckOffset, setDeckOffset] = useState(0);
-  useEffect(() => setDeckOffset(0), [state.layout.mode]);
 
   // The wall fills the window from where it starts down to the bottom and
   // re-measures when its box changes (the ribbon appearing, a resize).
   const measure = useCallback(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const width = Math.round(rect.width);
-    const height = Math.round(rect.height);
+    // Geometry lives inside the padded stage. Including its padding feeds
+    // intrinsic narrow-layout height back into ResizeObserver on every frame.
+    const style = getComputedStyle(el);
+    const width = Math.round(el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight));
+    const height = Math.round(el.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom));
     // Hidden behind another view the wall measures nothing; keep the last real
     // size so its windows stay mounted and warm until it is shown again.
     if (width === 0 || height === 0) return;
@@ -249,7 +253,7 @@ export function CommandWall({
     const el = wrapRef.current?.querySelector<HTMLElement>(`[data-wall-pane="${flash.paneId}"]`);
     if (!el) return;
     el.scrollIntoView({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-    const input = el.querySelector<HTMLElement>('[contenteditable="true"], textarea');
+    const input = el.querySelector<HTMLElement>('[contenteditable]:not([contenteditable="false"]), textarea');
     input?.focus({ preventScroll: true });
   }, [flash]);
 
@@ -354,15 +358,16 @@ export function CommandWall({
     const n = pane.kind === 'chat' ? numberOf.get(pane.refId) : undefined;
 
     const rect = geometry.panes.get(pane.id);
-    const folded = state.folded[pane.refId] ?? (state.layout.mode !== 'focus' && (numberOf.size > 4 || (rect?.width ?? 0) < 700));
+    const focusedChat = pane.kind === 'chat' && state.layout.mode === 'focus' && geometry.hero === pane.id;
+    const folded = state.folded[pane.refId] ?? (!focusedChat && (numberOf.size > 4 || (state.layout.mode === 'grid' && (rect?.width ?? 0) < 700)));
     const companions = pane.kind === 'chat' ? workspaceCompanions(workspaces, pane.refId) : [];
-    const showCompanions = !folded && (state.layout.mode === 'grid' || (state.layout.mode === 'focus' && geometry.hero === pane.id));
+    const showCompanions = focusedChat ? !(state.folded[pane.refId] ?? false) : !folded && state.layout.mode === 'grid';
     const inDeck = geometry.deck.has(pane.id);
     return (
       <div
         key={pane.id}
         className={`command-wall-window ${inDeck ? 'command-wall-deck-window' : ''} ${flashing ? 'pane-flash' : ''}`}
-        style={rect ? { left: rect.x - (inDeck ? deckOffset : 0), top: rect.y, width: rect.width, height: rect.height } : { display: 'none' }}
+        style={rect ? { left: rect.x, top: rect.y, width: rect.width, height: rect.height } : { display: 'none' }}
         data-wall-deck={inDeck || undefined}
         data-wall-hero={geometry.hero === pane.id || undefined}
         data-wall-pane={pane.id}
@@ -372,10 +377,9 @@ export function CommandWall({
         <PaneFrame
           pane={pane}
           title={title}
-          icon={iconOf(pane.kind)}
+          icon={pane.kind === 'chat' ? <NumberedChatIcon number={n} /> : iconOf(pane.kind)}
           badge={
             <>
-              {n != null && n <= 9 && <span className="wall-num" title={`Window ${n}: Ctrl+${n} talks to it`}>{n}</span>}
               {/* The project only when there is more than one to tell apart:
                   on a one-project wall it is the same word on every strip. */}
               {project && projects.length > 1 && !densityOf(pane.id) && <span className="chip hidden shrink-0 text-[10px] sm:inline">{project.name}</span>}
@@ -420,9 +424,10 @@ export function CommandWall({
             </PaneActions>
           )}
           {inDeck && <button className="command-wall-card" onClick={() => focusWindow(pane)} aria-label={`Focus ${title}`}>{terminal ? <TerminalExcerpt terminalId={terminal.id} /> : <span>{session?.lastReplyText || 'No reply yet'}</span>}<small>{session ? `${session.modelId || 'Default model'} · ${session.transcriptTokens.toLocaleString()} context tokens` : status?.label}</small></button>}
-          <div className="command-wall-content" inert={!rect || inDeck} aria-hidden={!rect || inDeck || undefined} data-companions-visible={showCompanions && companions.length > 0 || undefined}>
+          <div className="command-wall-content" inert={!rect || inDeck} aria-hidden={!rect || inDeck || undefined} data-companions-visible={showCompanions && companions.length > 0 || undefined} data-focus-chat={focusedChat || undefined}>
+
             <div className="command-wall-primary">
-           {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter surface="transcript" /></PaneDensityHint.Provider>
+           {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter surface={focusedChat ? 'full' : 'transcript'} /></PaneDensityHint.Provider>
             : pane.kind === 'terminal' ? <TerminalPane key={pane.refId} terminalId={pane.refId} />
             : null}
            </div>
@@ -465,11 +470,11 @@ export function CommandWall({
   return (
     <div ref={wrapRef} className="command-wall-layout" data-command-wall="windows" data-wall-layout={state.layout.mode}>
       {companionNotice && <div className="command-wall-notice" role="status">A companion opened in a narrow window. <button onClick={() => { focusWindow(companionNotice); setCompanionNotice(null); }}>Focus {titleOf(companionNotice)}</button><button aria-label="Dismiss companion notice" onClick={() => setCompanionNotice(null)}>×</button></div>}
-      <div className="command-wall-stage" style={{ height: geometry.height + (state.layout.mode === 'focus' ? 20 : 0), width: size.width }}>
-        {state.layout.mode === 'focus' && <div className="command-wall-deck-scroll" aria-label="Scroll other windows" tabIndex={0} style={{ top: geometry.height }} onScroll={e => setDeckOffset(e.currentTarget.scrollLeft)}><div style={{ width: geometry.add.x + geometry.add.width, height: 1 }} /></div>}
+      <div className="command-wall-stage" style={{ height: geometry.height, minWidth: state.layout.mode === 'focus' ? size.width : Math.max(size.width, geometry.add.x + geometry.add.width) }}>
         {allPanes(state.root).map(renderLeaf)}
         {state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
-        <button className="command-wall-add" style={{ left: geometry.add.x - (state.layout.mode === 'focus' ? deckOffset : 0), top: geometry.add.y, width: geometry.add.width, height: geometry.add.height }} onClick={onAddWindow} aria-label="Add window"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>
+        {state.layout.mode !== 'focus' && <button className="command-wall-add" style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: geometry.add.height }} onClick={onAddWindow} aria-label="Add window"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
+
         {!filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : 'No windows on the wall yet. Add a window to get started.'}</div>}
       </div>
     </div>
