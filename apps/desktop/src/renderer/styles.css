@@ -1645,6 +1645,41 @@
   .completion-stardust { display: none; }
 }
 
+/* Agent status: a working agent's rocket hovers in flight, its colour
+   breathing between the accent and a lighter tint, the flame flickering and
+   the speed streaks sliding past. Kept small and slow: it sits in a dense list. */
+.status-rocket { color: var(--accent); animation: rocket-breathe 2.4s ease-in-out infinite; }
+.status-rocket svg { animation: rocket-hover 1.2s ease-in-out infinite; overflow: visible; }
+.status-rocket .rocket-flame { animation: rocket-flame .35s ease-in-out infinite alternate; transform-origin: 12px 18px; }
+.status-rocket .rocket-streak { opacity: .55; animation: rocket-streak .9s linear infinite; }
+@keyframes rocket-breathe {
+  0%, 100% { color: var(--accent); }
+  50% { color: color-mix(in srgb, var(--accent) 55%, white); }
+}
+@keyframes rocket-hover {
+  0%, 100% { transform: translateY(0.4px); }
+  50% { transform: translateY(-0.8px); }
+}
+@keyframes rocket-flame {
+  from { transform: scaleY(.75); opacity: .7; }
+  to { transform: scaleY(1.15); opacity: 1; }
+}
+@keyframes rocket-streak {
+  0% { transform: translateY(-3px); opacity: 0; }
+  40% { opacity: .6; }
+  100% { transform: translateY(4px); opacity: 0; }
+}
+/* Compaction under way on a card: the squeeze glyph pulses in and out. */
+.status-compacting svg { animation: compact-squeeze 1.1s ease-in-out infinite; }
+@keyframes compact-squeeze {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(.7); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-rocket, .status-rocket svg, .status-rocket .rocket-flame, .status-rocket .rocket-streak,
+  .status-compacting svg { animation: none; }
+}
+
 /* The question grows out of the composer rather than occupying a separate tray. */
 .composer-question { width: 80%; margin: 0 auto -1px; position: relative; transform-origin: bottom center; z-index: 1; }
 .composer-question-body > div { border: 0; border-radius: 16px 16px 0 0; background: var(--surface) !important; }

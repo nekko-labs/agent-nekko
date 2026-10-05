@@ -37,7 +37,8 @@ export function usageSummary(): UsageSummary {
       continue;
     }
     // Subscription providers charge through the user's plan, not per API token.
-    const cost = r.auth === 'subscription' ? 0 : estimateCostUSD(r.modelId, r.inputTokens, r.outputTokens);
+    const listCost = estimateCostUSD(r.modelId, r.inputTokens, r.outputTokens);
+    const cost = r.auth === 'subscription' ? 0 : listCost;
     summary.totalInput += r.inputTokens;
     summary.totalOutput += r.outputTokens;
     summary.totalCost += cost;
@@ -57,6 +58,7 @@ export function usageSummary(): UsageSummary {
       bs.input += r.inputTokens;
       bs.output += r.outputTokens;
       bs.cost = (bs.cost ?? 0) + cost;
+      bs.listCost = (bs.listCost ?? 0) + listCost;
       summary.bySessionCost[r.sessionId] = (summary.bySessionCost[r.sessionId] ?? 0) + cost;
     }
 

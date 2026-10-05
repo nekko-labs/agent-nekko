@@ -14,4 +14,11 @@ describe('context token formatting', () => {
     expect(html).not.toContain('1000k');
     expect(html).toContain('177,000 of 1,000,000 tokens in use');
   });
+  it.each([[600000, 'accent'], [700000, 'warning'], [900000, 'danger']])
+    ('retains the filled gauge at %i tokens with %s tone', (tokens, tone) => {
+      const html = renderToStaticMarkup(<ContextGauge bundle={null} draftTokens={Number(tokens)} contextWindow={1000000} />);
+      expect(html).toContain(` / ~1m`);
+      expect(html).toContain(`color-mix(in srgb, var(--${tone}) 28%, transparent)`);
+      expect(html).toContain('absolute inset-y-0 left-0 transition-[width] duration-300');
+    });
 });
