@@ -1145,3 +1145,6 @@ Technical approach: independent approval policy and session environment; default
 - [x] Preserve explicit text on resume and announce saved user turns to wall transcript panes. Checkpoint and transcript tests pass; interactive wall reproduction remains unverified.
 
 - [x] Reject quoted/scripted creation examples and mixed shell results; reconcile host/native ownership golden fixtures. 28 source-routed TS tests and 12 Rust tests pass.
+
+- [x] Bounded same-child recovery for transient delegation failures; preserve actual cause and checkpoint handoff. 80 host recovery/routing tests pass.
+- [ ] Durable restart reconciliation and completion-aware supervision; live-but-hung tools need phase-aware deadlines that never bypass approvals.

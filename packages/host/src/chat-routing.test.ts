@@ -679,3 +679,27 @@ describe('session titles', () => {
     expect(getSession(session.id)?.title).toBe('My chat');
   });
 });
+
+
+describe('child checkpoint recovery', () => {
+  it('resumes a lost child on the same route without creating a duplicate session', async () => {
+    delegate({ task: 'finish the delegated work' });
+    rounds.push(new Error('The engine stopped driving this reply.'), [{ type: 'text', delta: 'Recovered child result.' }, { type: 'done' }]);
+    const { session, result } = await run();
+    expect(children(session)).toHaveLength(1);
+    const child = getSession(children(session)[0].id)!;
+    expect(child.messages.filter(m => m.role === 'user')).toHaveLength(1);
+    expect(child.messages.at(-1)?.content).toBe('Recovered child result.');
+    expect(result?.type === 'tool_result' && result.result.output).toContain('Recovered child result.');
+    expect(requests.every(r => r.providerId === 'frontier')).toBe(true);
+  });
+  it('hands the parent the real failure and child ID when the recovery budget is exhausted', async () => {
+    delegate({ task: 'finish the delegated work' });
+    rounds.push(new Error('The engine stopped driving this reply.'), new Error('The engine stopped driving this reply.'));
+    const { session, result } = await run();
+    expect(children(session)).toHaveLength(1);
+    expect(result?.type === 'tool_result' && result.result.isError).toBe(true);
+    expect(result?.type === 'tool_result' && result.result.output).toContain(children(session)[0].id);
+    expect(result?.type === 'tool_result' && result.result.output).toContain('Continue the delegated task directly');
+  });
+});

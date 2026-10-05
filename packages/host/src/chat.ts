@@ -1,3 +1,4 @@
+import { canResumeChildFailure, MAX_CHILD_RESUMES } from './delegation-recovery.js';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, QueuedPrompt, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
@@ -694,21 +695,29 @@ async function runSubAgent(
   child.offline = parent.offline;
   child.incognito = parent.incognito;
   saveSession(child);
-  let failed = false;
+  let failure: string | undefined;
   // Stopping the parent stops the child: otherwise the parent's turn sat on
   // this await until the orphaned sub-agent finished on its own.
   const stopChild = () => abortChat(child.id);
   signal?.addEventListener('abort', stopChild, { once: true });
   try {
-    await sendChat({ sessionId: child.id, providerId: targetProviderId, modelId: targetModelId, text: task }, (event) => {
-      if (event.sessionId === child.id && event.type === 'error') failed = true;
-      send(event);
-    });
+    for (let attempt = 0; attempt <= MAX_CHILD_RESUMES; attempt++) {
+      failure = undefined;
+      await sendChat({ sessionId: child.id, providerId: targetProviderId, modelId: targetModelId, text: attempt ? '' : task, ...(attempt ? { resume: true } : {}) }, (event) => {
+        if (event.sessionId === child.id && event.type === 'error') failure = event.message;
+        send(event);
+      });
+      if (signal?.aborted || !failure || !canResumeChildFailure(failure)) break;
+    }
   } finally {
     signal?.removeEventListener('abort', stopChild);
   }
   if (signal?.aborted) throw new Error('Stopped with the chat.');
-  if (failed) throw new Error('The sub-agent failed on the selected provider/model. No fallback was used.');
+  if (failure) {
+    const checkpoint = getSession(child.id);
+    const progress = [...(checkpoint?.messages ?? [])].reverse().find(m => m.role === 'assistant' && m.content.trim())?.content.slice(-2000);
+    throw new Error(`Child session ${child.id} interrupted: ${failure}. Saved work remains in the shared project. No provider/model fallback was used. Continue the delegated task directly from its checkpoint, or explain the concrete blocker; do not assume it is complete.${progress ? '\nLast saved progress:\n' + progress : ''}`);
+  }
   const done = getSession(child.id);
   const last = [...(done?.messages ?? [])].reverse().find((m) => m.role === 'assistant' && m.content.trim());
   return last?.content ?? 'Sub-agent finished without producing a written answer.';
