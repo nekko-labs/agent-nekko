@@ -24,6 +24,7 @@ import {
   filterTree,
   hasPane,
   leafRects,
+  wallAgents,
   wallPane,
   type CommandWallState,
 } from '../commandWall.js';
@@ -61,6 +62,8 @@ export function CommandWall({
   childrenOf,
   projects,
   flash,
+  selectedId,
+  onSelect,
   onAspect,
   onOpenChat,
   onOpenTerminal,
@@ -78,6 +81,9 @@ export function CommandWall({
   projects: WorkspaceFolder[];
   /** The window the ribbon just jumped to, flashed once. */
   flash: { paneId: string; at: number } | null;
+  /** The agent the wall's composer is speaking for. */
+  selectedId: string | null;
+  onSelect: (sessionId: string) => void;
   /** The stage's width over height as it is measured, for placing windows nobody pointed at a side for. */
   onAspect: (aspect: number) => void;
   onOpenChat: (id: string) => void;
@@ -145,6 +151,9 @@ export function CommandWall({
   }, [flash]);
 
   const sessionById = useMemo(() => new Map(sessions.map((s) => [s.id, s])), [sessions]);
+  // The agent windows' numbers, in reading order of the whole wall (not the
+  // filtered view), so a number means the same window whatever is shown.
+  const numberOf = useMemo(() => new Map(wallAgents(state.root).map((p, i) => [p.refId, i + 1])), [state.root]);
   const terminalById = useMemo(() => new Map(terminals.map((t) => [t.id, t])), [terminals]);
   const aspect = size.width > 0 && size.height > 0 ? size.width / size.height : DEFAULT_ASPECT;
   const narrow = size.width > 0 && size.width < NARROW_WIDTH;
@@ -225,6 +234,8 @@ export function CommandWall({
     const title = titleOf(pane);
     const flashing = flash?.paneId === pane.id;
     const openable = pane.kind === 'chat' || pane.kind === 'terminal';
+    const selected = pane.kind === 'chat' && pane.refId === selectedId;
+    const n = pane.kind === 'chat' ? numberOf.get(pane.refId) : undefined;
 
     return (
       <div
@@ -233,6 +244,7 @@ export function CommandWall({
         style={stacked ? { height: NARROW_ROW_H, flex: 'none' } : undefined}
         data-wall-pane={pane.id}
         data-grid-cell={`${pane.kind}:${pane.refId}`}
+        data-wall-selected={selected || undefined}
       >
         <PaneFrame
           pane={pane}
@@ -240,9 +252,10 @@ export function CommandWall({
           icon={iconOf(pane.kind)}
           badge={
             <>
+              {n != null && n <= 9 && <span className="wall-num" title={`Window ${n}: Ctrl+${n} talks to it`}>{n}</span>}
               {/* The project only when there is more than one to tell apart:
                   on a one-project wall it is the same word on every strip. */}
-              {project && projects.length > 1 && <span className="chip hidden shrink-0 text-[10px] sm:inline">{project.name}</span>}
+              {project && projects.length > 1 && !densityOf(pane.id, stacked) && <span className="chip hidden shrink-0 text-[10px] sm:inline">{project.name}</span>}
               {status && (
                 <span className="flex min-w-0 items-center gap-1 text-[11px]" style={{ color: status.tone }} title={status.label}>
                   {status.live && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full" style={{ background: status.tone }} />}
@@ -252,16 +265,16 @@ export function CommandWall({
               {subAgents > 0 && <span className="chip shrink-0 text-[10px]" title={`${subAgents} sub-agent${subAgents === 1 ? '' : 's'}`}>+{subAgents}</span>}
             </>
           }
-          isActive={false}
-          ringColor={needsYou ? 'color-mix(in srgb, var(--warning) 70%, var(--line))' : flashing ? 'color-mix(in srgb, var(--accent) 60%, var(--line))' : undefined}
-          stripStyle={needsYou ? { background: 'color-mix(in srgb, var(--warning) 10%, transparent)' } : undefined}
+          isActive={selected}
+          ringColor={needsYou ? 'color-mix(in srgb, var(--warning) 70%, var(--line))' : selected || flashing ? 'color-mix(in srgb, var(--accent) 60%, var(--line))' : undefined}
+          stripStyle={needsYou ? { background: 'color-mix(in srgb, var(--warning) 10%, transparent)' } : selected ? { background: 'color-mix(in srgb, var(--accent) 9%, transparent)' } : undefined}
           addable={WALL_ADDABLE}
           closeTitle={openable ? 'Remove from the wall (the chat stays)' : 'Remove from the wall'}
           dragging={dragging}
           canSplit={(dir) => !stacked && canSplit(state.root, pane.id, dir)}
           onSplit={(dir, kind) => { void addWindow(kind, { paneId: pane.id, dir }); }}
           onClose={() => update((root) => removePane(root, pane.id))}
-          onFocus={() => {}}
+          onFocus={() => { if (pane.kind === 'chat') onSelect(pane.refId); }}
           onDragStart={() => setDragging(pane.id)}
           onDragEnd={() => setDragging(null)}
           onDrop={(target) => {
@@ -307,7 +320,7 @@ export function CommandWall({
               </button>
             </PaneActions>
           )}
-          {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id, stacked)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter /></PaneDensityHint.Provider>
+          {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id, stacked)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter surface="transcript" /></PaneDensityHint.Provider>
             : pane.kind === 'terminal' ? <TerminalPane key={pane.refId} terminalId={pane.refId} />
             : renderPanel(pane.kind as 'automations' | 'insights' | 'subscriptions' | 'resources')}
         </PaneFrame>

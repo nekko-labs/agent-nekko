@@ -1,10 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
+import { join, extname } from 'path';
 import { randomUUID } from 'crypto';
 import { createProvider } from '@agent-nekko/core';
 import type { DesignBoard, DesignPage, GenerateDesignInput } from '@agent-nekko/shared';
 import { dataDir, getSettings } from './store.js';
 import { resolveSubscriptionProvider } from './oauth.js';
+import { readFile } from './files.js';
+import { reviseDesign } from './design-revisions.js';
 
 /**
  * Design board persistence + AI design generation. The board is a Figma-style
@@ -49,6 +51,23 @@ export function getDesignBoard(workspaceId: string): DesignBoard {
 export function addDesignPage(workspaceId: string, label: string, url: string): DesignBoard {
   const store = load();
   const now = Date.now();
+  // A file import is an explicit user action, not a model-triggered read.
+  if (/^(?:[a-z]:[\\/]|\/)/i.test(url) && /\.html?$/i.test(extname(url))) {
+    if (!existsSync(url)) throw new Error('Design file does not exist.');
+    const file = readFile(url);
+    if (file.binary || file.truncated) throw new Error('Import requires a complete HTML file under 1 MB.');
+    const workspace = getSettings().workspaces.find((w) => w.id === workspaceId);
+    if (!workspace) throw new Error('Choose an existing project.');
+    const id = randomUUID();
+    const directory = join(workspace.path, 'nekko-designs');
+    mkdirSync(directory, { recursive: true });
+    const copy = join(directory, `import-${id}.html`);
+    writeFileSync(copy, file.content, 'utf8');
+    const page: DesignPage = { id, label: label.trim() || 'Imported design', url: '', kind: 'concept', html: file.content, file: copy, notes: [], createdAt: now, updatedAt: now };
+    store[workspaceId] = [...(store[workspaceId] ?? []), page];
+    save(store);
+    return board(workspaceId, store);
+  }
   const page: DesignPage = { id: randomUUID(), label: label.trim() || url, url: url.trim(), notes: [], createdAt: now, updatedAt: now };
   store[workspaceId] = [...(store[workspaceId] ?? []), page];
   save(store);
@@ -58,12 +77,15 @@ export function addDesignPage(workspaceId: string, label: string, url: string): 
 export function updateDesignPage(
   workspaceId: string,
   pageId: string,
-  patch: Partial<Pick<DesignPage, 'label' | 'url'>>,
+  patch: Partial<Pick<DesignPage, 'label' | 'url' | 'html'>>,
 ): DesignBoard {
   const store = load();
-  store[workspaceId] = (store[workspaceId] ?? []).map((p) =>
-    p.id === pageId ? { ...p, ...patch, updatedAt: Date.now() } : p,
-  );
+  store[workspaceId] = (store[workspaceId] ?? []).map((p) => {
+    if (p.id !== pageId) return p;
+    const updated = reviseDesign(p, patch);
+    if (patch.html !== undefined && p.file) writeFileSync(p.file, patch.html, 'utf8');
+    return updated;
+  });
   save(store);
   return board(workspaceId, store);
 }
@@ -170,7 +192,7 @@ export async function generateDesign(workspaceId: string, input: GenerateDesignI
   const now = Date.now();
   if (existing) {
     store[workspaceId] = (store[workspaceId] ?? []).map((p) =>
-      p.id === existing.id ? { ...p, html: out, prompt: prompt || p.prompt, file: filePath, updatedAt: now } : p,
+      p.id === existing.id ? { ...reviseDesign(p, { html: out }), prompt: prompt || p.prompt, file: filePath, updatedAt: now } : p,
     );
   } else {
     const page: DesignPage = {

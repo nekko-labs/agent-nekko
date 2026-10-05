@@ -12,6 +12,8 @@ export interface DirEntry {
 /** A file's text content for the viewer/editor. */
 export interface FileContent {
   content: string;
+  /** Bounded, validated raster image for explicit user-initiated previews. */
+  imageDataUrl?: string;
   /** True if the file was longer than the read cap and content is partial. */
   truncated: boolean;
   /** True if the file looks binary (not shown as text). */
