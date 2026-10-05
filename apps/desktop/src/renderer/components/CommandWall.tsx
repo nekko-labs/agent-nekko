@@ -109,8 +109,8 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const deck = new Set(deckPanes.map((p) => p.id));
   const panes: WallGeometry['panes'] = new Map();
   const gap = 8;
-  const deckHeight = deck.size ? 160 : 64;
-  const stageHeight = Math.max(state.layout.mode === 'grid' ? 560 : 240, height - (state.layout.mode === 'focus' ? deckHeight : 64) - gap);
+  const deckHeight = deck.size ? 160 : Math.max(240, Math.min(440, width / 3));
+  const stageHeight = Math.max(state.layout.mode === 'grid' ? 560 : 240, height - (state.layout.mode === 'focus' ? (deck.size ? 160 : 64) : 64) - gap);
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
   const addPanePreview: WbPane = { id: '__wall_add__', kind: 'chat', refId: '__wall_add__' };
@@ -147,7 +147,7 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     }
   }
   deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: contentHeight + gap, width: 240, height: 160 }));
-  return { panes, deck, hero, height: contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(240, width), height: deckHeight }, addGrid, grid, stageHeight };
+  return { panes, deck, hero, height: contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, addGrid, grid, stageHeight };
 }
 
 /** Stable keyed windows across layouts keep transcripts, terminals and drafts warm. */
