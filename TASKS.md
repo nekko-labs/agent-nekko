@@ -1167,7 +1167,6 @@ Technical approach: independent approval policy and session environment; default
 
 - [x] 2026-10-06 PR sweep CI hardening: handle asynchronous hook stdin pipe closure without uncaught errors; preserve explicit block decisions with a large-payload regression test (623 host tests).
 
-
 ### Panel design parity (2026-10-06)
 
 - [x] PD1: Restore panel backgrounds, six-cell Vitals, compact Utilization with quota windows/reset/credits, and Budget spend/savings. Remove monthly-budget form; 408px dock and content-bounded vertical resizing. Focus-first icons, adjacent icon-only arrange, Settings-only auto-add. See SPEC.md Command Center panel design parity. Implemented 2026-10-06.
@@ -1179,3 +1178,11 @@ Technical approach: independent approval policy and session environment; default
 
 VC1 verification: full application regression suite, full workspace typecheck and build:web passed; Rust provider tests and clippy passed. Real Windows hidden-page and off-screen native PNGs were inspected; foreground handle remained unchanged. Exact captured PNG bytes reached a local provider fixture. Live model inference was not exercised. CI covers Windows native/background capture and macOS hidden owned-page capture; third-party OS capture limits remain explicit.
 
+### Bug fix: adding Plan must preserve an in-progress prompt
+
+User report: selecting Plan while typing deleted the entire prompt. T106/T108 documented draft persistence and skill discovery but did not test a nonempty draft at skill selection.
+
+- [x] Consume only a lone slash query (`/` plus one token) in `ChatPane.armSkill`, from either menu; use a functional draft update so selection sees the latest text. Ordinary skills preserve other text exactly; Goal prefixes rather than replaces its condition and leaves `/goal ` for a bare query. Pending images and chip removal remain untouched.
+- [x] Add `composerSkills.test.ts` regression coverage for Plan, multiline Markdown/Unicode/whitespace, replacement and installed skills, slash-query consumption, and Goal condition/prefix handling. Desktop typecheck and all 576 desktop tests pass.
+- [x] Explicitly document the draft-preservation acceptance criteria and privacy boundaries in [SPEC.md](SPEC.md#skill-selection-preserves-in-progress-prompts).
+- [x] Manual verification by the user: adding Plan through + → Skill keeps the in-progress prompt. Before/after recordings attached to PR #346. · Done: 2026-10-06
