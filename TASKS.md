@@ -1164,3 +1164,12 @@ Technical approach: independent approval policy and session environment; default
 - [x] **Command Center sequential-grid integration**: keep real split identities and saved resize ratios while rendering Grid; place Add in a compact reserved row so virtual chat insertion cannot re-tile the display and hide dividers. Pointer/keyboard resize, reload and mode-switch persistence are verified. · Done: 2026-10-06
 
 - [x] 2026-10-06 PR sweep CI hardening: handle asynchronous hook stdin pipe closure without uncaught errors; preserve explicit block decisions with a large-payload regression test (623 host tests).
+
+### Bug fix: adding Plan must preserve an in-progress prompt
+
+User report: selecting Plan while typing deleted the entire prompt. T106/T108 documented draft persistence and skill discovery but did not test a nonempty draft at skill selection.
+
+- [x] Separate + menu attachment from slash-menu query consumption in `ChatPane.armSkill`; use a functional draft update so selection sees the latest text. Ordinary skills preserve exact text; Goal prefixes rather than replaces its condition. Pending images and chip removal remain untouched.
+- [x] Add `composerSkills.test.ts` regression coverage for Plan, multiline Markdown/Unicode/whitespace, replacement and installed skills, slash-query consumption, and Goal condition/prefix handling. Desktop typecheck/build and all 571 desktop tests pass.
+- [x] Explicitly document the draft-preservation acceptance criteria and privacy boundaries in [SPEC.md](SPEC.md#skill-selection-preserves-in-progress-prompts).
+- [ ] User-owned manual verification (requested instead of automated visual verification): type a multiline prompt, add Plan through + → Skill, replace/remove its chip, check attachments and draft restoration, and confirm slash/Goal compatibility. No inspected visual evidence is available; record the result before marking this fix verified or landing.

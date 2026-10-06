@@ -19,6 +19,7 @@ import { chatWelcomeState } from './agent-console/chatWelcome.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { indentListSelection } from '../composerLists.js';
+import { draftAfterSkillSelection, type SkillSelectionSource } from '../composerSkills.js';
 import {
   ActivityGroup, ApprovalBar, AutoQualityMenu, MessageBubble, ModelPicker,
   ReplyStatus, useElementWidth,
@@ -1612,21 +1613,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     skillsFlyTimer.current = window.setTimeout(() => setSkillsHover(false), 140);
   };
 
-  const armSkill = (sk: SkillDef) => {
-    if (sk.kind === 'goal') {
-      setActiveSkill(null);
-      setDraft('/goal ');
-    } else {
-      setActiveSkill(sk);
-      setDraft('');
-    }
+  const armSkill = (sk: SkillDef, source: SkillSelectionSource) => {
+    setActiveSkill(sk.kind === 'goal' ? null : sk);
+    setDraft((current) => draftAfterSkillSelection(current, sk, source));
     composerRef.current?.focus();
   };
 
   // Pick a slash-menu row by its combined index (skills first, then prompts).
   const pickSlashIndex = (i: number) => {
     if (i < skillMatches.length) {
-      armSkill(skillMatches[i]);
+      armSkill(skillMatches[i], 'slash-menu');
       return;
     }
     const p = slashMatches[i - skillMatches.length];
@@ -2378,7 +2374,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                           role="option"
                           aria-selected={i === menuSel}
                           className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2 ${i === menuSel ? 'bg-surface-2' : ''}`}
-                          onClick={() => armSkill(sk)}
+                          onClick={() => armSkill(sk, 'slash-menu')}
                           onMouseEnter={() => setMenuSel(i)}
                           title={sk.description}
                         >
@@ -2584,7 +2580,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                                     key={sk.id}
                                     role="menuitem"
                                     className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2"
-                                    onClick={() => { closeAttachMenu(); armSkill(sk); }}
+                                    onClick={() => { closeAttachMenu(); armSkill(sk, 'attach-menu'); }}
                                     title={sk.description}
                                   >
                                     {sk.highlighted && <span className="shrink-0 text-[12px] text-accent">&#9733;</span>}
