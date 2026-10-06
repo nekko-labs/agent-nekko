@@ -6,6 +6,7 @@ import { ChatIcon, RobotIcon, ThoughtIcon, ToolStepIcon } from '../../icons.js';
 import { Markdown } from '../Markdown.js';
 import type { Activity } from './transcript.js';
 import { stepKey } from './transcript.js';
+import { SubagentCue, subagentTitle } from './SubagentCue.js';
 import { useRowState } from './rowState.js';
 
 /**
@@ -27,6 +28,7 @@ export const ActivityGroup = memo(function ActivityGroup({ items, streaming = fa
   const [open, setOpen] = useRowState('group-open', streaming);
   const tools = items.filter((it): it is Extract<Activity, { kind: 'tool' }> => it.kind === 'tool');
   const toolCount = tools.length;
+  const agents = tools.filter((it) => it.call.name === 'spawn_agent');
   const summary = streaming
     ? (toolCount ? `Working · ${tools[tools.length - 1].call.name}` : 'Thinking')
     : (toolCount
@@ -40,13 +42,14 @@ export const ActivityGroup = memo(function ActivityGroup({ items, streaming = fa
         aria-expanded={open}
       >
         <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
-        <ToolStepIcon className="h-3 w-3 shrink-0 text-accent" />
+        {agents.length ? <SubagentCue /> : <ToolStepIcon className="h-3 w-3 shrink-0 text-accent" />}
         <span className="font-medium text-ink-soft">{summary}</span>
         {!streaming && toolCount > 0 && (
           <span className="min-w-0 truncate text-ink-faint">
             · {Array.from(new Set(tools.map((t) => t.call.name))).join(', ')}
           </span>
         )}
+        {agents.length > 0 && <span className="min-w-0 truncate text-accent" title={agents.map(({ call }) => subagentTitle(call)).join(', ')}>· {agents.length} subagent{agents.length === 1 ? '' : 's'} · {agents.map(({ call }) => subagentTitle(call)).join(', ')}</span>}
         {streaming && <span className="dots" />}
         {!open && tools.map(({ call }) => {
           const since = toolQuietSince(toolActivity, call.id);
@@ -102,7 +105,7 @@ function StepRow({ index, item, live, quietSince }: { index: number; item: Activ
           : <ToolStepIcon className="h-3 w-3 shrink-0 text-ink-faint" />;
 
   return (
-    <li className="list-none">
+    <li className={kind === 'agent' ? 'list-none border-l-2 border-accent/40 pl-2' : 'list-none'}>
       <button
         className="flex w-full items-baseline gap-1.5 py-0.5 text-left text-ink-faint hover:text-ink-soft"
         onClick={() => setOpen((o) => !o)}
@@ -117,7 +120,14 @@ function StepRow({ index, item, live, quietSince }: { index: number; item: Activ
         {quietSince !== undefined && <ToolProgressChip since={quietSince} />}
       </button>
       {open && (
-        item.kind === 'note' ? (
+        kind === 'agent' && item.kind === 'tool' ? (
+          <div className="ml-[34px] space-y-2 py-1 pl-2">
+            <div className="flex items-center gap-1.5 text-accent"><SubagentCue /><span>To subagent · {subagentTitle(item.call)}</span></div>
+            <pre className="max-h-60 overflow-auto whitespace-pre-wrap text-ink-soft">{typeof item.call.input.task === 'string' ? item.call.input.task : JSON.stringify(item.call.input, null, 2)}</pre>
+            <div className="flex items-center gap-1.5 text-accent"><SubagentCue /><span>{item.result?.isError ? 'Subagent failed' : item.result ? 'From subagent' : live ? 'Subagent running' : 'No subagent result recorded'}</span></div>
+            {item.result && <div className="font-sans text-[13px] text-ink-soft"><Markdown text={item.result.output} /></div>}
+          </div>
+        ) : item.kind === 'note' ? (
           <div className="ml-[34px] border-l border-line py-0.5 pl-2 font-sans text-[13px] text-ink-soft">
             <Markdown text={item.text} />
           </div>

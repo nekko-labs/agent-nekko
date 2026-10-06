@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ToolCall } from '@agent-nekko/shared';
-import { RobotIcon } from '../../icons.js';
+import { SubagentCue, subagentTitle } from './SubagentCue.js';
 
 /**
  * One tool invocation, collapsed to a single line. Neutral coloring on
@@ -18,8 +18,8 @@ export function ToolCard({ call }: { call: ToolCall }) {
         aria-expanded={open}
       >
         <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
-        {isSpawn && <RobotIcon className="h-3 w-3 shrink-0 text-accent" />}
-        <span className="font-medium">Used <span className="font-mono text-ink-soft">{call.name}</span> tool</span>
+        {isSpawn && <SubagentCue />}
+        <span className="font-medium">{isSpawn ? `To subagent · ${subagentTitle(call)}` : <>Used <span className="font-mono text-ink-soft">{call.name}</span> tool</>}</span>
       </button>
       {open && <pre className="ml-[18px] mt-0.5 overflow-x-auto whitespace-pre-wrap border-l border-line pl-2 text-ink-faint">{JSON.stringify(call.input, null, 2)}</pre>}
     </div>

@@ -1,4 +1,4 @@
-import type { ChatMessage, ToolCall, PrInfo, PrState } from '@agent-nekko/shared';
+import type { ChatMessage, ToolCall, ToolResult, PrInfo, PrState } from '@agent-nekko/shared';
 
 /**
  * Pure transcript model for the agent console: how a raw message list folds
@@ -9,7 +9,7 @@ import type { ChatMessage, ToolCall, PrInfo, PrState } from '@agent-nekko/shared
 /** One step of an assistant turn: a tool call, a reasoning block, or a bit of
  *  narration text between tools. Grouped into a single collapsible section. */
 export type Activity =
-  | { kind: 'tool'; call: ToolCall }
+  | { kind: 'tool'; call: ToolCall; result?: ToolResult }
   | { kind: 'reasoning'; text: string; duration: number | null }
   | { kind: 'note'; text: string };
 
@@ -26,6 +26,7 @@ export type StreamBlock =
  * of a wall of "Used <tool>" rows. Only the final answer stays a bubble.
  */
 export function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
+  const results = new Map(messages.flatMap((m) => m.toolResult ? [[m.toolResult.toolCallId, m.toolResult] as const] : []));
   const blocks: StreamBlock[] = [];
   let run: Activity[] = [];
   let runKey = '';
@@ -68,7 +69,7 @@ export function toStreamBlocks(messages: ChatMessage[]): StreamBlock[] {
       // Narration is written out in full as part of the conversation, and it
       // splits the run in two: what led up to it, and what it went on to do.
       if (m.content.trim() && !isFinalAnswer) say(m, i);
-      m.toolCalls.forEach((c) => run.push({ kind: 'tool', call: c }));
+      m.toolCalls.forEach((c) => run.push({ kind: 'tool', call: c, ...(c.name === 'spawn_agent' && results.has(c.id) ? { result: results.get(c.id) } : {}) }));
       if (isFinalAnswer) { flush(); blocks.push({ type: 'msg', message: m }); }
     } else {
       flush();
