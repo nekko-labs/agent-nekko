@@ -172,7 +172,7 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
   const todayTokens = usage?.daily.filter((d) => d.date === today).reduce((sum, d) => sum + d.input + d.output, 0);
   const weekDays = usage?.daily.filter((d) => d.date >= week && d.date <= today);
   const compact = (n: number) => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
-  return <div className="wall-dock__metrics">
+  return <div className="wall-dock__metrics wall-dock__utilization">
     {enabled.length === 0 && <p>No cloud providers enabled.</p>}
     {enabled.map((provider) => {
       const key = limitsKeyFor(provider);
@@ -192,7 +192,7 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
         </div>)}
         {limits?.creditsState === 'balance' && limits.creditsBalance != null && <div className="wall-dock__metric-row"><span>API usage credits</span><strong>{formatUSD(limits.creditsBalance)}</strong></div>}
         {limits?.creditsState === 'disabled' && <p className="wall-dock__note">Extra usage credits disabled</p>}
-        {limits && now - limits.updatedAt > limits.staleAfterMs && <p className="wall-dock__note">Stale quota · awaiting refresh</p>}
+        {limits && now - limits.updatedAt > limits.staleAfterMs && <p className="wall-dock__note" title={`Last quota update: ${new Date(limits.updatedAt).toLocaleString()}. These values may have changed; this is not a rate-limit warning.`}>Quota may be outdated</p>}
       </div>;
     })}
     <div><div className="wall-dock__metric-row"><span>Tokens today</span><strong title={todayTokens?.toLocaleString()}>{todayTokens == null ? 'Unavailable' : compact(todayTokens)}</strong></div>
