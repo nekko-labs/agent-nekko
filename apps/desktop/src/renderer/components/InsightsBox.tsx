@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ProviderConfig, RemoteStatus, ReplyStop, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType, OptimizationTip } from '@agent-nekko/shared';
-import { estimateCostUSD, formatUSD, isLocalProvider, MODEL_PRICING, optimizationTips } from '@agent-nekko/shared';
+import { estimateCostUSD, formatUSD, isLocalProvider, DEFAULT_LOCAL_COST_BENCHMARK, MODEL_PRICING, optimizationTips } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { INSIGHT_PANELS, type InsightPanel, type InsightsPrefs } from '../commandWall.js';
 import { PaneActions, useInPaneFrame } from './PaneFrame.js';
@@ -353,7 +353,7 @@ function ChartEmpty({ message, bars = 12 }: { message: string; bars?: number }) 
 function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null; sessions: SessionSummary[]; providers: ProviderConfig[] }) {
   const [range, setRange] = useState<InsightRange>('1m');
   const titleOf = (id: string) => sessions.find((s) => s.id === id)?.title ?? 'Chat';
-  const benchmark = useStore((s) => s.settings?.localCostBenchmark ?? '');
+  const benchmark = useStore((s) => s.settings?.localCostBenchmark ?? DEFAULT_LOCAL_COST_BENCHMARK);
   const avoided = usage?.avoidedCosts;
   const hasData = !!usage && (usage.totalInput + usage.totalOutput > 0 || !!usage.hasSubscriptionUsage);
   const monthKey = new Date().toISOString().slice(0, 7);

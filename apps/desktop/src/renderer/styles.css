@@ -1770,3 +1770,4 @@
 .wall-composer .composer-editing-body { display: flex; flex: 1; flex-direction: column; min-height: 0; }
 .wall-composer .composer-editor-wrap { flex: 1; min-height: 52px; overflow: hidden; }
 .wall-composer .composer > :not(.composer-editing-body), .wall-composer .composer-editing-body > :not(.composer-editor-wrap) { flex-shrink: 0; }
+.wall-layout-segments button { display: inline-flex; align-items: center; gap: 6px; }

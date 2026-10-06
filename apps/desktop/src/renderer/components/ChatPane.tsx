@@ -19,6 +19,7 @@ import { chatWelcomeState } from './agent-console/chatWelcome.js';
 import { useAllProviderLimits, useProviderLimits } from '../useLimits.js';
 import { clearDraft, loadDraft, saveDraft } from '../composerDrafts.js';
 import { indentListSelection } from '../composerLists.js';
+import { draftAfterSkillSelection } from '../composerSkills.js';
 import {
   ActivityGroup, ApprovalBar, AutoQualityMenu, MessageBubble, ModelPicker,
   ReplyStatus, useElementWidth,
@@ -1615,13 +1616,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   };
 
   const armSkill = (sk: SkillDef) => {
-    if (sk.kind === 'goal') {
-      setActiveSkill(null);
-      setDraft('/goal ');
-    } else {
-      setActiveSkill(sk);
-      setDraft('');
-    }
+    setActiveSkill(sk.kind === 'goal' ? null : sk);
+    setDraft((current) => draftAfterSkillSelection(current, sk));
     composerRef.current?.focus();
   };
 

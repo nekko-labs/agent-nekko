@@ -12,6 +12,8 @@ export interface ToolResult {
   toolCallId: string;
   /** Text or JSON-serializable output shown back to the model. */
   output: string;
+  /** Approved screenshot PNG data URLs delivered to the selected model. */
+  images?: string[];
   isError?: boolean;
 }
 
