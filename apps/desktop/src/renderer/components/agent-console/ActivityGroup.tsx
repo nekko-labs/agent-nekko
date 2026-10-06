@@ -43,8 +43,8 @@ export const ActivityGroup = memo(function ActivityGroup({ items, streaming = fa
       >
         <span className="w-3 shrink-0 text-[10px]">{open ? '▾' : '▸'}</span>
         {agents.length ? <SubagentCue /> : <ToolStepIcon className="h-3 w-3 shrink-0 text-accent" />}
-        <span className="font-medium text-ink-soft">{summary}</span>
-        {!streaming && toolCount > 0 && (
+        <span className="shrink-0 whitespace-nowrap font-medium text-ink-soft">{summary}</span>
+        {!streaming && toolCount > 0 && agents.length === 0 && (
           <span className="min-w-0 truncate text-ink-faint">
             · {Array.from(new Set(tools.map((t) => t.call.name))).join(', ')}
           </span>
