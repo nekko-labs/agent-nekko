@@ -2,6 +2,7 @@ import React, { forwardRef, useLayoutEffect, useRef } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { composerMarkdownNodes } from './ComposerHighlight.js';
 import { revealEditorCaret } from './editorCaret.js';
+import { ComposerEditingTools } from './ComposerEditingTools.js';
 
 /** Textarea-compatible selection API, backed by the browser's visible editable text. */
 export type MarkdownEditorElement = HTMLDivElement & {
@@ -115,7 +116,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorElement, {
     previous.current = edit.text;
     onChange(edit.text);
   };
-  return <div {...props}
+  return <><div {...props}
     ref={(el) => {
       if (el && !Object.getOwnPropertyDescriptor(el, 'value')) {
         Object.defineProperties(el, {
@@ -172,5 +173,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorElement, {
       const pasted = e.clipboardData.getData('text/plain').replace(/\r\n?/g, '\n');
       apply(el, { text: el.value.slice(0, start) + pasted + el.value.slice(el.selectionEnd), start: start + pasted.length, end: start + pasted.length });
     }}
-  />;
+  />
+    <ComposerEditingTools editor={local} disabled={disabled} value={value} apply={apply} onPaste={onPaste} composing={composing} />
+  </>;
 });
