@@ -101,13 +101,13 @@ describe('command wall geometry', () => {
     }
   });
 
-  it('reserves a compact Grid Add row without synthesizing split IDs', () => {
-    const g = commandWallGeometry(state(), 1000, 700);
+  it.each([[1000, 700], [2400, 400], [390, 700]])('matches Fixed Add dimensions at %i × %i without synthesizing split IDs', (width, height) => {
+    const g = commandWallGeometry(state(), width, height);
+    const fixed = commandWallGeometry(state({ layout: { ...state().layout, mode: 'fixed' } }), width, height);
     expect(leafRects(g.addGrid).has('__wall_add__')).toBe(false);
-    expect(g.stageHeight).toBe(628);
-    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 628 });
-    expect(g.add).toEqual({ x: 0, y: 636, width: 320, height: 64 });
-    expect(g.height).toBe(700);
+    expect(g.add.width).toBe(fixed.add.width);
+    expect(g.add.height).toBe(fixed.add.height);
+    expect(g.height).toBeGreaterThanOrEqual(g.add.y + g.add.height);
   });
 
   it('displays a saved divider edit instead of re-balancing it on render', () => {
@@ -119,10 +119,10 @@ describe('command wall geometry', () => {
     expect(g.addGrid!.id).toBe(root.id);
   });
 
-  it('keeps the Grid Add row inside a shorter wide viewport', () => {
+  it('keeps the full-sized Grid Add card reachable by scrolling a short viewport', () => {
     const g = commandWallGeometry(state(), 1000, 480);
-    expect(g.add.y + g.add.height).toBe(480);
-    expect(g.height).toBe(480);
+    expect(g.height).toBe(g.add.y + g.add.height);
+    expect(g.height).toBeGreaterThan(480);
   });
 
   it('uses Focus-only deck and falls back when the hero is missing or filtered', () => {

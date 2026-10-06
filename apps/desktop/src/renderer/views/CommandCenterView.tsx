@@ -12,6 +12,7 @@ import { CommandWall, TerminalExcerpt } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
 import { type Vitals } from '../components/InsightsBox.js';
+import { ContextMenu, ContextAction } from '../components/ContextMenu.js';
 import { WallDock } from '../components/WallDock.js';
 
 import { allPanes, isSplit, type PaneKind } from '../layout.js';
@@ -232,7 +233,8 @@ export function CommandCenterView() {
   /** A window from the toolbar, with no side pointed at: beside the biggest window. */
   const addFromToolbar = async (kind: PaneKind, refId?: string) => {
     const ref = refId ?? (kind === 'chat' ? await newChat() : kind === 'terminal' ? await newTerminal() : kind);
-    setWall((w) => (hasPane(w.root, kind, ref) ? w : { ...w, root: addPane(w.root, wallPane(kind, ref), aspectRef.current) }));
+    setWall((w) => ({ ...w, root: hasPane(w.root, kind, ref) ? w.root : addPane(w.root, wallPane(kind, ref), aspectRef.current), ...(kind === 'chat' ? { hero: ref } : {}) }));
+    if (kind === 'chat') setSelected(ref);
   };
   const autoArrange = () => setWall((w) => w.layout.mode === 'grid' ? { ...w, root: tileTree(allPanes(w.root), aspectRef.current) } : w);
 
@@ -240,6 +242,9 @@ export function CommandCenterView() {
   // on the wall. Ctrl+Tab / Ctrl+Shift+Tab walk the windows in reading order;
   // Ctrl+1…9 (or Alt+1…9) pick one by its number.
   const [addOpen, setAddOpen] = useState(false);
+  const [tabsMenu, setTabsMenu] = useState<{ x: number; y: number } | null>(null);
+  const closeTabsMenu = useCallback(() => setTabsMenu(null), []);
+  const openTabsMenu = (e: React.MouseEvent) => { e.preventDefault(); setTabsMenu({ x: e.clientX, y: e.clientY }); };
   const [selected, setSelected] = useState<string | null>(() => wall.hero);
   const selectAgent = useCallback((id: string | null) => {
     setSelected(id);
@@ -302,10 +307,12 @@ export function CommandCenterView() {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
       <WallToolbar wall={wall} setWall={setWall} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} />
+      <div className="flex items-center gap-2"><button className="btn btn-ghost text-[12px]" aria-haspopup="menu" onContextMenu={openTabsMenu} onClick={(e) => setTabsMenu({ x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().bottom })}>Agent tabs: {wall.tabs ?? 'top'}</button></div>
+      {tabsMenu && <ContextMenu x={tabsMenu.x} y={tabsMenu.y} onClose={closeTabsMenu}>{(['top', 'left', 'hidden'] as const).map((tabs) => <ContextAction key={tabs} onClick={() => { setWall(w => ({ ...w, tabs })); closeTabsMenu(); }}>{(wall.tabs ?? 'top') === tabs ? '✓ ' : ''}{tabs === 'top' ? 'Top tabs' : tabs === 'left' ? 'Vertical tabs (left)' : 'Hide tab panel'}</ContextAction>)}</ContextMenu>}
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
-        <div className="wall-column">
-      {wall.layout.mode === 'focus' && <div className="wall-focus-agents" role="toolbar" aria-label="Focus agents">
+        <div className="wall-agent-workspace" data-tabs={wall.tabs ?? 'top'}>
+      {wall.tabs !== 'hidden' && <div className="wall-focus-agents" role="toolbar" aria-label="Focus agents" onContextMenu={openTabsMenu}>
         {agentList.map((agent) => <button key={agent.session.id} className="wall-focus-agent" aria-pressed={wall.hero === agent.session.id} onClick={() => selectAgent(agent.session.id)}>
           <NumberedChatIcon number={agent.n} /><span className="min-w-0 text-left"><span className="block truncate">{agent.session.title}</span><small className="block truncate text-ink-faint">{agent.session.modelId || 'Default model'} · {agent.session.transcriptTokens.toLocaleString()} context tokens</small></span>
           {agent.status && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: agent.status.tone }} />}
@@ -313,6 +320,7 @@ export function CommandCenterView() {
         {allPanes(wall.root).filter(p => p.kind === 'terminal').map(p => <button key={p.id} className="wall-focus-agent" aria-pressed={wall.hero === p.refId} aria-label={`Focus terminal ${p.refId}`} onClick={() => setWall(w => ({ ...w, hero: p.refId }))}><TerminalIcon className="h-4 w-4 shrink-0" /><span className="min-w-0 text-left"><span className="block truncate">{terminals.find(t => t.id === p.refId)?.title || 'Terminal'}</span><TerminalExcerpt terminalId={p.refId} /></span></button>)}
         <button className="wall-focus-agent" onClick={() => { void addFromToolbar('chat'); }}>+ New agent</button>
       </div>}
+      <div className="wall-column">
       {wall.layout.mode !== 'focus' && wall.composer.side === 'top' && <>{composer}{composerSplit}</>}
       <CommandWall
         state={wall}
@@ -341,6 +349,7 @@ export function CommandCenterView() {
       />
       {wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{composerSplit}{composer}</>}
         </div>
+      </div>
       </div>
     </div>
   );

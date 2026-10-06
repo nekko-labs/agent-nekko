@@ -87,6 +87,7 @@ export interface CommandWallState {
   /** Chats created after this moment are auto-added; 0 until the wall has been seeded once. */
   watermark: number;
   composer: ComposerDock;
+  tabs?: 'top' | 'left' | 'hidden';
 }
 
 /** Below this width the wall stacks its windows one above the other: a phone, or a very narrow window. */
@@ -115,6 +116,7 @@ export const DEFAULT_WALL_STATE: CommandWallState = {
   insights: DEFAULT_INSIGHTS,
   watermark: 0,
   composer: DEFAULT_COMPOSER_DOCK,
+  tabs: 'top',
 };
 
 export const WALL_STATE_KEY = 'nekko.commandWall';
@@ -481,6 +483,7 @@ export function loadWallState(storage: Pick<Storage, 'getItem'> | undefined, set
       insights: readPanels(record(saved.insights).panels),
       watermark: readWatermark(saved.watermark),
       composer: readDock(saved.composer),
+      tabs: saved.tabs === 'left' || saved.tabs === 'hidden' ? saved.tabs : 'top',
     };
   } catch {
     return DEFAULT_WALL_STATE;
@@ -497,7 +500,7 @@ export function saveWallState(storage: Pick<Storage, 'setItem'> | undefined, sta
 
 /** The wall as the setting stores it: the same fields, typed loosely for the shared schema. */
 export function toWallSetting(state: CommandWallState): CommandWallSetting {
-  return { layout: state.layout, dock: state.dock, hero: state.hero, folded: state.folded, root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark, composer: state.composer };
+  return { layout: state.layout, dock: state.dock, hero: state.hero, folded: state.folded, root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark, composer: state.composer, tabs: state.tabs };
 }
 
 /* ---------- the ribbon ---------- */

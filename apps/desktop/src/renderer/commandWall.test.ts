@@ -315,3 +315,16 @@ describe('wall preferences and panel migration', () => {
     expect(loadWallState(undefined, toWallSetting(state))).toEqual(state);
   });
 });
+
+ describe('agent tab placement', () => {
+  it('persists each choice and defaults invalid values to top', () => {
+    for (const tabs of ['top', 'left', 'hidden'] as const) {
+      const state = { ...DEFAULT_WALL_STATE, tabs };
+      expect(loadWallState(undefined, toWallSetting(state)).tabs).toBe(tabs);
+      let raw = '';
+      saveWallState({ setItem: (_, value) => { raw = value; } }, state);
+      expect(loadWallState({ getItem: () => raw }).tabs).toBe(tabs);
+    }
+    expect(loadWallState({ getItem: () => JSON.stringify({ tabs: 'invalid' }) }).tabs).toBe('top');
+  });
+});
