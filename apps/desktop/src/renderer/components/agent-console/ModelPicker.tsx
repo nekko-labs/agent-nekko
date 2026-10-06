@@ -30,6 +30,7 @@ export function ModelPicker({
   onModel,
   expanded = false,
   recent = [],
+  readOnly = false,
 }: {
   providers: ProviderConfig[];
   providerId: string | null;
@@ -47,6 +48,8 @@ export function ModelPicker({
   /** Render the list inline in an empty conversation instead of in a popover. */
   expanded?: boolean;
   recent?: string[];
+  /** Allow model selection without changing favorites or default settings. */
+  readOnly?: boolean;
 }) {
   const [menu, setMenu] = useState<{x: number; y: number; pid: string; mid: string} | null>(null);
   const settings = useStore((s) => s.settings);
@@ -171,7 +174,7 @@ export function ModelPicker({
     return (
       <div
         key={key}
-        onContextMenu={(e) => { e.preventDefault(); setMenu({x:e.clientX,y:e.clientY,pid:p.id,mid:m.id}); }}
+        onContextMenu={readOnly ? undefined : (e) => { e.preventDefault(); setMenu({x:e.clientX,y:e.clientY,pid:p.id,mid:m.id}); }}
         className={`flex w-full items-center rounded-lg hover:bg-surface-2 ${selected ? 'text-accent' : ''}`}
       >
         <button
@@ -213,7 +216,7 @@ export function ModelPicker({
             {blocked ? why : sub ?? price}
           </span>
         </button>
-        <button
+        {!readOnly && <button
           className={`shrink-0 rounded-sm p-1.5 ${fav ? 'text-accent' : 'text-ink-faint hover:text-ink'}`}
           title={fav ? 'Unstar' : 'Star (pin to the top of this list)'}
           aria-label={fav ? `Unstar ${m.name}` : `Star ${m.name}`}
@@ -221,7 +224,7 @@ export function ModelPicker({
           onClick={() => toggleFavorite(key)}
         >
           <StarIcon className="h-3.5 w-3.5" filled={fav} />
-        </button>
+        </button>}
       </div>
     );
   };

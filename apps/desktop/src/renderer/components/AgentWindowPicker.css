@@ -1,0 +1,54 @@
+.agent-window-picker {
+  container-type: inline-size;
+  width: 100%;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+}
+.agent-window-picker *, .agent-window-picker { box-sizing: border-box; }
+.agent-window-picker h2, .agent-window-picker h3, .agent-window-picker p { margin: 0; }
+.agent-window-picker h2 { font-size: 20px; font-weight: 650; }
+.agent-window-picker h3 { font-size: 15px; font-weight: 650; }
+.agent-window-picker p { color: var(--ink-soft); line-height: 1.5; }
+.agent-window-picker button {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.agent-window-picker button:hover:not(:disabled) { background: var(--surface-2); border-color: var(--accent); }
+.agent-window-picker button:focus-visible, .agent-window-picker input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.agent-window-picker button:disabled { cursor: not-allowed; opacity: .6; }
+.agent-window-picker__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.agent-window-picker__header p { margin-top: 5px; }
+.agent-window-picker .agent-window-picker__back { margin-bottom: 16px; }
+.agent-window-picker__options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.agent-window-picker .agent-window-picker__option { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 20px; }
+.agent-window-picker__option span, .agent-window-picker__list span { color: var(--ink-soft); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.agent-window-picker__cat { width: 72px; height: 72px; color: var(--accent); flex-shrink: 0; }
+.agent-window-picker__columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+.agent-window-picker__column { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
+.agent-window-picker__models { border: 0; padding: 0; margin: 0; min-width: 0; height: 320px; }
+.agent-window-picker__models button { border: 0; padding: 6px 10px; border-radius: 8px; }
+.agent-window-picker__models button:disabled { opacity: .6; }
+.agent-window-picker__list { display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; padding: 4px; }
+.agent-window-picker__list button { display: flex; flex-direction: column; gap: 4px; }
+.agent-window-picker__list strong { overflow-wrap: anywhere; }
+.agent-window-picker .agent-window-picker__primary { background: var(--accent); color: var(--accent-ink, var(--surface)); border-color: var(--accent); text-align: center; }
+.agent-window-picker .agent-window-picker__primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 85%, var(--ink)); }
+.agent-window-picker .agent-window-picker__error { color: var(--danger); margin-top: 16px; overflow-wrap: anywhere; }
+.agent-window-picker > [role="status"] { margin-top: 16px; }
+.agent-window-picker__sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@container (max-width: 540px) {
+  .agent-window-picker__options, .agent-window-picker__columns { grid-template-columns: minmax(0, 1fr); }
+  .agent-window-picker .agent-window-picker__option { padding: 16px; }
+  .agent-window-picker__header { gap: 8px; }
+}

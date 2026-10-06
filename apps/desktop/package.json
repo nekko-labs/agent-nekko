@@ -16,6 +16,7 @@
     "build": "electron-vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "test:command-center": "node scripts/command-center-integration.cjs",
     "prestart": "node scripts/ensure-electron.mjs",
     "start": "node scripts/dev-launch.mjs preview",
     "dist": "npm run build:app --prefix ../cli && electron-vite build && node scripts/stage-daemon.mjs && electron-builder",
