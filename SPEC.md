@@ -714,7 +714,6 @@ Budget top-agent and local-provider totals are labeled all-time recorded aggrega
 
 Wide/narrow light/dark full-app screenshots and companion/dock motion are verified with isolated fixtures. Selector scrolling preserves hero position, text/image drafts survive Grid/Focus, one approval surface remains, terminal selection works, and Grid/Focus/Fixed preserve the saved tree. Hardware/budget panel minimize/restore, pointer/keyboard reset and reduced motion retain the previously verified behavior. Native OS identity belongs to the separate development identity change.
 
-
 ## Command Center panel design parity (2026-10-06)
 
 The side dock uses the app background with separate surface-colored panels, a 408px default width (20% wider), a visible Configure control and six-cell Vitals grid. Each panel has a pointer/keyboard vertical resize handle. Its maximum follows its measured content, including expanded pricing details; Home shrinks, End or double-click fits content. Panel sizes remain local to the mounted view. Narrow layouts retain the scrollable wall/dock column.
@@ -735,3 +734,8 @@ A dedicated agent browser starts hidden, uses an isolated session, and stays hid
 
 Screenshots are saved to new paths inside the chat project. By default their pixels (up to 5 MB) are also attached to the selected chat model for inspection, with the disclosure included in capture approval. `inspect=false` saves locally without sending pixels. Vision support is required; Nekko never silently changes models or claims image inspection merely because a file was saved. Oversized images and videos remain saved evidence with explicit inspection limits. Approved screenshot attachments remain in the chat transcript under its normal retention policy. TypeScript and Rust provider adapters deliver evidence after all tool results in a batch, with captured text treated as untrusted content.
 
+### Skill selection preserves in-progress prompts
+
+[Implemented and manually verified] Adding an ordinary skill (including Plan) through the composer's **+ → Skill** menu arms or replaces the usage chip without changing any unsent text, Markdown, whitespace, line breaks, or pending image attachments. Removing the chip also leaves the draft intact. A skill selection alone never sends, queues, or starts work. A draft that is only a slash query (`/` plus one token) is consumed by any skill selection; Goal leaves `/goal `. Saved-prompt replacement behavior is unchanged. Selecting Goal through the + menu keeps the original draft as its condition after a single `/goal ` prefix, preserving existing background-task dispatch.
+
+Acceptance: a multiline prompt remains byte-for-byte unchanged after adding Plan; replacing/removing an ordinary skill preserves text and images; text/images remain per-chat and survive composer handoff and draft save/restore; any skill selection still arms the skill without leaking a slash search query; Goal retains its condition. Selection introduces no additional storage, network calls, or external execution. The reported Plan draft-loss regression is covered by focused transition tests; manual verification by the user is recorded in PR #346.
