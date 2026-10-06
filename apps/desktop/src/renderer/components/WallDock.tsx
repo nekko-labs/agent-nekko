@@ -178,6 +178,7 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
       const key = limitsKeyFor(provider);
       const limits = key ? byToken[key] : undefined;
       const windows = limits?.windows ?? [];
+      const showRemaining = provider.kind === 'openai' && provider.auth === 'subscription';
       const status = provider.auth === 'subscription' && !provider.tokenKey ? 'Not signed in.'
         : !key ? 'Usage API unavailable.'
         : !limits ? (answered.has(key) ? 'Quota unavailable.' : 'Reading provider quota…')
@@ -185,11 +186,16 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
       return <div key={provider.id} className="wall-dock__provider">
         <strong>{provider.label}</strong>
         {status && <p>{status}</p>}
-        {windows.map((w, i) => <div className="wall-dock__quota" key={`${w.label}-${i}`}>
-          <div className="wall-dock__metric-row"><span>{w.label}</span><strong>{Number.isFinite(w.usedPercent) ? `${Math.round(w.usedPercent)}%` : 'Unavailable'}</strong></div>
-          {Number.isFinite(w.usedPercent) && <div className="wall-dock__bar" role="meter" aria-label={`${provider.label} ${w.label} used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.max(0, Math.min(100, w.usedPercent))}><span style={{ width: `${Math.max(0, Math.min(100, w.usedPercent))}%`, background: w.usedPercent >= 80 ? 'var(--danger)' : w.usedPercent >= 40 ? 'var(--warning)' : 'var(--success)' }} /></div>}
+        {windows.map((w, i) => {
+          const used = Math.max(0, Math.min(100, w.usedPercent));
+          const percent = showRemaining ? 100 - used : used;
+          const meaning = showRemaining ? 'left' : 'used';
+          return <div className="wall-dock__quota" key={`${w.label}-${i}`}>
+          <div className="wall-dock__metric-row"><span>{w.label}</span><strong>{Number.isFinite(percent) ? `${Math.round(percent)}% ${meaning}` : 'Unavailable'}</strong></div>
+          {Number.isFinite(percent) && <div className="wall-dock__bar" role="meter" aria-label={`${provider.label} ${w.label} ${meaning}`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}><span style={{ width: `${percent}%`, background: used >= 80 ? 'var(--danger)' : used >= 40 ? 'var(--warning)' : 'var(--success)' }} /></div>}
           <p className="wall-dock__note">{w.resetAt ? w.resetAt <= now ? 'Reset due · awaiting refresh' : `Resets in ${resetPeriod(w.resetAt - now)} · ${new Date(w.resetAt).toLocaleString()}` : 'Reset time unavailable'}</p>
-        </div>)}
+        </div>;
+        })}
         {limits?.creditsState === 'balance' && limits.creditsBalance != null && <div className="wall-dock__metric-row"><span>API usage credits</span><strong>{formatUSD(limits.creditsBalance)}</strong></div>}
         {limits?.creditsState === 'disabled' && <p className="wall-dock__note">Extra usage credits disabled</p>}
         {limits && now - limits.updatedAt > limits.staleAfterMs && <p className="wall-dock__note">Stale quota · awaiting refresh</p>}
