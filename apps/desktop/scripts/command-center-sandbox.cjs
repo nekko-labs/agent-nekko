@@ -16,7 +16,17 @@ app.whenReady().then(async () => {
   win.webContents.on('console-message', e => { if (e.level === 'error') report.errors.push(e.message); });
   const run = s => win.webContents.executeJavaScript(s, true);
   const check = async (name, expression) => { await sleep(180); if (!await run(expression)) throw Error(name); report.checks.push(name); };
-  const click = async (text, scope = 'document') => { await run(`(() => { const b = [...${scope}.querySelectorAll('button')].find(b => b.textContent.trim() === ${JSON.stringify(text)}); if (!b) throw Error('Missing button '+${JSON.stringify(text)}); b.focus(); b.click(); })()`); await sleep(180); };
+  const click = async (text, selector = null) => {
+    await run(`(() => {
+      const scope = ${JSON.stringify(selector)};
+      const root = scope === null ? document : document.querySelector(scope);
+      const text = ${JSON.stringify(text)};
+      const b = [...root.querySelectorAll('button')].find(b => b.textContent.trim() === text);
+      if (!b) throw Error('Missing button ' + text);
+      b.focus(); b.click();
+    })()`);
+    await sleep(180);
+  };
   const reset = async () => { await run('window.integration.reset()'); await sleep(350); };
   const open = async category => { await click('Add window'); if (category) { await run(`[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(category)}).click()`); await sleep(180); } };
   const image = async () => { await open('Media'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()"); await sleep(200); };
