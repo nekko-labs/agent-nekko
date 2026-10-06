@@ -42,13 +42,23 @@ app.whenReady().then(async () => {
     await win.reload(); await sleep(1400);
     await check('Auto restores after cold reload', "document.querySelector('.command-wall-window').textContent.includes('Auto')");
     if (current) {
-      await check('no model picker in shared composer', "!document.querySelector('[data-wall-composer] [role=listbox]') && !document.querySelector('[data-wall-composer]').textContent.includes('No model') && !document.querySelector('[data-wall-composer]').textContent.includes('Auto ·')");
+      await check('no model picker in shared composer', "!document.querySelector('[data-wall-composer] [role=listbox]') && !document.querySelector('[data-wall-composer]').textContent.includes('No model') && !document.querySelector('[data-wall-composer]').textContent.includes('Auto ï¿½')");
       await run('integration.ask()'); await sleep(500);
       await check('question belongs to agent window', "!!document.querySelector('.command-wall-window .composer-question') && !document.querySelector('[data-wall-composer] .composer-question')");
       await run("document.querySelector('.command-wall-window .composer-question [role=group]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))"); await sleep(500);
       await check('question answer targets owning session', "integration.calls.some(c=>c.method==='answer'&&c.id==='existing'&&c.callId==='ask-fixture')");
       await run("window.startEditor=document.querySelector('[data-wall-composer] [contenteditable]').getBoundingClientRect().height; document.querySelector('[aria-label=\"Resize composer versus wall\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}))"); await sleep(500);
       await check('resize grows editor', "document.querySelector('[data-wall-composer] [contenteditable]').getBoundingClientRect().height>window.startEditor");
+      await run("window.copiedChat=null; Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedChat=text}}}); document.querySelector('.command-wall-window [data-chat-surface]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:150,clientY:150}))");
+      await check('transcript menu contains copy and export', "document.querySelector('[role=menu]').textContent.includes('Copy chat') && document.querySelector('[role=menu]').textContent.includes('Export as Markdown')");
+      await click('Copy chat', '[role=menu]');
+      await check('copy writes Markdown transcript', "window.copiedChat.startsWith('# Existing conversation') && !document.querySelector('[role=menu]')");
+      await run("window.exportedName=null; window.exportedBlob=null; URL.createObjectURL=blob=>{window.exportedBlob=blob;return 'blob:fixture'}; URL.revokeObjectURL=()=>{}; HTMLAnchorElement.prototype.click=function(){window.exportedName=this.download}; document.querySelector('.command-wall-window [data-chat-surface]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:150,clientY:150}))");
+      await click('Export as Markdown', '[role=menu]');
+      await check('export uses same Markdown payload', "(async()=>window.exportedName==='Existing-conversation.md' && await window.exportedBlob.text()===window.copiedChat)()");
+      await run("document.querySelector('[data-wall-composer] [contenteditable]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:150,clientY:150}))");
+      await check('editor keeps native context menu', "!document.querySelector('[role=menu]')");
+      await check('footer exposes all reply measurements', "(()=>{const e=document.querySelector('.command-wall-window [aria-label=\"Chat actions and information\"]');return e.textContent.includes('tok/s') && e.textContent.includes('total tokens') && e.textContent.includes('Time unavailable')})()");
     }
     for (const theme of ['light', 'dark']) {
       await run(`document.documentElement.dataset.theme='${theme}'`);
