@@ -29,6 +29,7 @@ export interface Vitals {
  * anywhere else it draws its own header.
  */
 export function InsightsBox({
+  budgetPanelPresent = false,
   prefs,
   onPrefs,
   usage,
@@ -37,6 +38,7 @@ export function InsightsBox({
   vitals,
   onOpenModels,
 }: {
+  budgetPanelPresent?: boolean;
   prefs: InsightsPrefs;
   onPrefs: (next: InsightsPrefs) => void;
   usage: UsageSummary | null;
@@ -57,10 +59,11 @@ export function InsightsBox({
     return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
   }, [gearOpen]);
 
-  const on = (key: InsightPanel) => prefs.panels[key];
+  const on = (key: InsightPanel) => prefs.panels[key] && !(budgetPanelPresent && (key === 'cost' || key === 'optimize'));
+  const availablePanels = INSIGHT_PANELS.filter(p => !budgetPanelPresent || (p.key !== 'cost' && p.key !== 'optimize'));
   const toggle = (key: InsightPanel) => onPrefs({ ...prefs, panels: { ...prefs.panels, [key]: !prefs.panels[key] } });
   const hasUsage = !!usage && (usage.totalInput + usage.totalOutput > 0 || !!usage.hasSubscriptionUsage);
-  const shown = INSIGHT_PANELS.filter((p) => on(p.key)).length;
+  const shown = availablePanels.filter((p) => on(p.key)).length;
 
   const framed = useInPaneFrame();
   const gear = (
@@ -77,7 +80,7 @@ export function InsightsBox({
       {gearOpen && (
         <div className="card absolute right-0 top-9 z-30 w-72 p-2 shadow-lg" style={{ background: 'var(--paper)' }} role="menu">
           <p className="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Show</p>
-          {INSIGHT_PANELS.map((p) => (
+          {availablePanels.map((p) => (
             <label key={p.key} className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-surface-2">
               <input type="checkbox" className="mt-0.5" checked={on(p.key)} onChange={() => toggle(p.key)} />
               <span className="min-w-0">
@@ -103,7 +106,7 @@ export function InsightsBox({
         </div>
       )}
 
-      {on('vitals') && <VitalsStrip vitals={vitals} />}
+      {on('vitals') && <VitalsStrip vitals={vitals} hideCost={budgetPanelPresent} />}
       {framed && shown === 0 && <p className="text-[12px] text-ink-faint">Nothing selected. Open the gear in this window's strip to pick stats and charts.</p>}
 
       {!hasUsage && shown > (on('vitals') ? 1 : 0) ? (
@@ -115,7 +118,7 @@ export function InsightsBox({
           {on('optimize') && hasUsage && <div style={{ gridColumn: '1 / -1' }}><OptimizePanel tips={tips} onOpenModels={onOpenModels} /></div>}
           {on('cost') && hasUsage && <CostPanel usage={usage} sessions={sessions} providers={providers} />}
           {on('tokens') && hasUsage && <TokensPanel usage={usage} />}
-          {on('models') && hasUsage && <ModelsPanel usage={usage} />}
+          {on('models') && hasUsage && <ModelsPanel usage={usage} hideCost={budgetPanelPresent} />}
           {on('replies') && hasUsage && <RepliesPanel usage={usage} sessions={sessions} />}
           {on('services') && <div style={{ gridColumn: '1 / -1' }}><ServicesPanel providers={providers} usage={usage} /></div>}
         </div>
@@ -126,7 +129,7 @@ export function InsightsBox({
 
 /* ---------- vitals ---------- */
 
-function VitalsStrip({ vitals }: { vitals: Vitals }) {
+function VitalsStrip({ vitals, hideCost = false }: { vitals: Vitals; hideCost?: boolean }) {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 border-y border-line py-2.5 text-[12px] text-ink-faint">
       <Stat live={vitals.working > 0} value={vitals.working} label={vitals.working === 1 ? 'agent working' : 'agents working'} />
@@ -139,7 +142,7 @@ function VitalsStrip({ vitals }: { vitals: Vitals }) {
       <StatDivider />
       <Stat value={vitals.tokensToday.toLocaleString()} label="tokens today" />
       <StatDivider />
-      <Stat value={vitals.spend} label="est. spend" />
+      {!hideCost && <Stat value={vitals.spend} label="est. spend" />}
       {vitals.fleet.length > 0 && (
         <span className="ml-auto flex flex-wrap items-center gap-x-2.5 gap-y-1">
           {vitals.fleet.map((g) => (
@@ -263,7 +266,7 @@ function TokensPanel({ usage }: { usage: UsageSummary | null }) {
   );
 }
 
-function ModelsPanel({ usage }: { usage: UsageSummary | null }) {
+function ModelsPanel({ usage, hideCost = false }: { usage: UsageSummary | null; hideCost?: boolean }) {
   const entries = Object.entries(usage?.byModel ?? {}).sort((a, b) => b[1].input + b[1].output - (a[1].input + a[1].output));
   return (
     <div className="rounded-xl border border-line p-3.5">
@@ -280,7 +283,7 @@ function ModelsPanel({ usage }: { usage: UsageSummary | null }) {
                 <span className="truncate font-mono text-ink-soft" title={v.subscription ? 'Included in a subscription plan' : undefined}>{model}</span>
                 <span className="shrink-0 tabular-nums text-ink-faint">
                   {(v.input + v.output).toLocaleString()} tok
-                  <span className="ml-2 text-ink">{costLabel}</span>
+                  {!hideCost && <span className="ml-2 text-ink">{costLabel}</span>}
                 </span>
               </div>
             );

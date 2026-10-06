@@ -187,7 +187,7 @@ describe('workspace companions and stable bodies', () => {
       expect(html).toContain('data-browser="https://example.com"');
       expect(html).toContain('data-diff="chat-a"');
       expect(html).toContain('aria-label="Add window"');
-      expect(html).toContain('aria-label="Focus Chat"');
+      expect(html).not.toContain('class="command-wall-action" title="Focus');
       expect(html).toContain('aria-label="Open Chat in the Agent tab"');
     } finally { fixture.workspaces = []; }
   });

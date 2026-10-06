@@ -746,7 +746,7 @@ export interface NekkoApi {
   saveGuardrail(rule: GuardrailRule): Promise<GuardrailRule[]>;
 
   getUsageSummary(): Promise<UsageSummary>;
-  getLimits(tokenKey: string): Promise<SubscriptionLimits | undefined>;
+  getLimits(tokenKey: string, refresh?: boolean): Promise<SubscriptionLimits | undefined>;
 
   oauthBegin(provider: OAuthProvider): Promise<OAuthSessionInfo>;
   oauthFinish(sessionId: string, pasted: string): Promise<OAuthStatus>;

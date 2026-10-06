@@ -177,6 +177,8 @@ export function appendAgentTerminal(sessionId: string, workspaceId: string | und
     state = { info, proc: null as unknown as nodePty.IPty, buffer: '', cols: 80, rows: 24 };
     terms.set(id, state);
   }
+  state.info.running = true;
+  delete state.info.exitCode;
   state.buffer = (state.buffer + data).slice(-MAX_BUFFER);
   emit({ type: 'data', terminalId: id, data });
   return id;

@@ -384,7 +384,7 @@ function WallToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <h1 className="text-gradient text-2xl font-semibold">Command Center</h1>
+      <h1 className="text-gradient text-2xl font-semibold">Agents</h1>
       <span className="text-[12px] text-ink-faint">
         {counts.chat} agent{counts.chat === 1 ? '' : 's'} · {counts.terminal} terminal{counts.terminal === 1 ? '' : 's'} on the wall
       </span>

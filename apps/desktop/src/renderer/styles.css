@@ -1285,6 +1285,21 @@
 .pixel-sleeping .pixel-nekko { animation-duration: 6s; }
 .pixel-mascot { border: 0; background: none; padding: 0; cursor: pointer; border-radius: 8px; }
 .pixel-mascot:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Navigation is a still icon; only the corner mascot gets the quiet cycle. */
+.pixel-stationary, .pixel-stationary * { animation: none !important; }
+.pixel-quiet .pixel-mouth { display: none; }
+.pixel-mascot .pixel-quiet { animation: pixel-quiet-hop 30s steps(1, end) infinite; }
+.pixel-mascot .pixel-quiet .pixel-eyes-open { opacity: 0; animation: pixel-quiet-open 24s steps(1, end) infinite; }
+.pixel-mascot .pixel-quiet .pixel-eyes-closed { opacity: 0; animation: pixel-quiet-blink 24s steps(1, end) infinite; }
+.pixel-mascot .pixel-quiet .pixel-eyes-happy { opacity: 0; animation: none; }
+.pixel-mascot.pixel-happy .pixel-quiet .pixel-eyes-open,
+.pixel-mascot.pixel-happy .pixel-quiet .pixel-eyes-closed { animation: none; opacity: 0; }
+.pixel-mascot.pixel-happy .pixel-quiet .pixel-eyes-happy { opacity: 1; }
+.pixel-mascot.pixel-sleeping .pixel-quiet .pixel-eyes-open,
+.pixel-mascot.pixel-sleeping .pixel-quiet .pixel-eyes-closed { animation: none; opacity: 0; }
+@keyframes pixel-quiet-hop { 0%, 90%, 100% { transform: translateY(0); } 92%, 96% { transform: translateY(-2px); } 94% { transform: translateY(-4px); } }
+@keyframes pixel-quiet-open { 0%, 79%, 96%, 100% { opacity: 0; } 80%, 87%, 90%, 95% { opacity: 1; } 88%, 89% { opacity: 0; } }
+@keyframes pixel-quiet-blink { 0%, 87%, 90%, 100% { opacity: 0; } 88%, 89% { opacity: 1; } }
 .pixel-paused, .pixel-paused * { animation-play-state: paused !important; }
 @keyframes pixel-hop { 0%, 40%, 100% { transform: translateY(0); } 45%, 55% { transform: translateY(-2px); } 50% { transform: translateY(-4px); } }
 @keyframes pixel-open { 0%, 35%, 39%, 74%, 91%, 100% { opacity: 1; } 36%, 38%, 75%, 90% { opacity: 0; } }

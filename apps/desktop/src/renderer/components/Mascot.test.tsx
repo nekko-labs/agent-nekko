@@ -80,6 +80,19 @@ describe('Pixel Nekko', () => {
     expect(mobile).toContain("AppState.addEventListener('change'");
   });
 
+  it('keeps navigation still and limits the quiet face to the corner mascot', () => {
+    expect(renderToStaticMarkup(<NekkoAvatar stationary />)).toContain('pixel-stationary');
+    expect(renderToStaticMarkup(<NekkoAvatar />)).not.toContain('pixel-quiet');
+    expect(renderToStaticMarkup(<Mascot mood="idle" enabled />)).toContain('pixel-quiet');
+    const css = source('../styles.css');
+    expect(css).toContain('.pixel-stationary, .pixel-stationary * { animation: none !important; }');
+    expect(css).toContain('.pixel-quiet .pixel-mouth { display: none; }');
+    expect(css).toContain('pixel-quiet-hop 30s steps(1, end) infinite');
+    expect(css).toContain('pixel-quiet-open 24s steps(1, end) infinite');
+    expect(css).toContain('.pixel-mascot .pixel-quiet .pixel-eyes-open { opacity: 0;');
+    expect(css).toContain('.pixel-mascot .pixel-quiet .pixel-eyes-closed { opacity: 0;');
+  });
+
   it('preserves translated mascot settings', () => {
     for (const { code } of LANGUAGES) expect(translate(code, 'settings.mascot')).toContain('Nekko');
   });

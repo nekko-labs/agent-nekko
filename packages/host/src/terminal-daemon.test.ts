@@ -90,6 +90,21 @@ describe('terminals under the engine daemon', () => {
     expect(snapshot?.buffer).toContain('command output');
   });
 
+  it('returns null before the first command and preserves output across subsequent turns', async () => {
+    useTerminalDaemon({ url: await fakeDaemon(), token: TOKEN });
+    expect(await terminalSnapshot('agent_s-lazy')).toBeNull();
+    appendAgentTerminal('s-lazy', undefined, '$ first\r\nfirst output\r\n');
+    finishAgentTerminal('s-lazy');
+    appendAgentTerminal('s-lazy', undefined, '$ second\r\nsecond output\r\n');
+    const snapshot = await terminalSnapshot('agent_s-lazy');
+    expect(snapshot?.info.running).toBe(true);
+    expect(snapshot?.info.exitCode).toBeUndefined();
+    expect(snapshot?.buffer).toBe('$ first\r\nfirst output\r\n$ second\r\nsecond output\r\n');
+    expect(calls).toEqual([]);
+    finishAgentTerminal('s-lazy');
+    expect((await terminalSnapshot('agent_s-lazy'))?.info.running).toBe(false);
+  });
+
   it('keeps agent logs local and forwards everything else', async () => {
     useTerminalDaemon({ url: await fakeDaemon(), token: TOKEN });
     appendAgentTerminal('s-local', undefined, 'local output');

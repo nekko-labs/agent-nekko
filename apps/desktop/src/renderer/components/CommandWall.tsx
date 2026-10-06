@@ -430,7 +430,6 @@ export function CommandWall({
           {needsYou && <div role="status" className="shrink-0 border-b border-line px-3 py-1 text-[11px]" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 6%, var(--surface))' }}>{status?.label ?? 'Needs your attention'}</div>}
           {openable && (
             <PaneActions>
-               <button className="command-wall-action" title={`Focus ${title}`} aria-label={`Focus ${title}`} aria-pressed={geometry.hero === pane.id} onClick={() => geometry.hero === pane.id ? setState(s => ({ ...s, layout: { ...s.layout, mode: 'grid' } })) : focusWindow(pane)}>{geometry.hero === pane.id ? 'Back to grid' : 'Focus'}</button>
                {companions.length > 0 && <button className="command-wall-action" title={`${folded ? 'Expand' : 'Fold'} companions (${companions.length})`} aria-label={`${folded ? 'Expand' : 'Fold'} companions for ${title} (${companions.length})`} aria-expanded={showCompanions} onClick={() => setState((s) => ({ ...s, folded: { ...s.folded, [pane.refId]: !folded } }))}>⧉ {companions.length}</button>}
               <button
                 className="rounded-sm p-1 text-ink-faint hover:text-ink"

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import { RUNTIME_CAPABILITIES, MODEL_PRICING, DEFAULT_LOCAL_COST_BENCHMARK, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
-import { DOCK_PANELS, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
+import { DOCK_PANELS, normalizeDockPanelOrder, reorderDockPanel, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
 import { localRuntimeMetrics, recordedBudgetMetrics } from './wallDockMetrics.js';
@@ -34,6 +34,13 @@ const DEFAULT_DOCK_WIDTH = 408;
 export function WallDock(props: WallDockProps) {
   const { state, setState } = props;
   const { dock } = state;
+  const reorderDrag = useRef<WallDockPanel | null>(null);
+  const [reorderAnnouncement, setReorderAnnouncement] = useState('');
+  const sideDock = dock.side === 'left' || dock.side === 'right';
+  const reorder = (key: WallDockPanel, target: WallDockPanel) => {
+    setState((s) => ({ ...s, dock: { ...s.dock, panelOrder: reorderDockPanel(s.dock.panelOrder, key, target) } }));
+    setReorderAnnouncement(`${DOCK_PANELS.find(p => p.key === key)!.label} moved ${normalizeDockPanelOrder(dock.panelOrder).indexOf(key) < normalizeDockPanelOrder(dock.panelOrder).indexOf(target) ? 'down' : 'up'}.`);
+  };
   const [width, setWidth] = useState(DEFAULT_DOCK_WIDTH);
   const drag = useRef<{ x: number; width: number } | null>(null);
   const size = (value: number) => { const next = Math.max(260, Math.min(600, value)); setWidth(Math.abs(next - DEFAULT_DOCK_WIDTH) <= 20 ? DEFAULT_DOCK_WIDTH : next); };
@@ -79,7 +86,8 @@ export function WallDock(props: WallDockProps) {
 
   // The wall toolbar owns visibility and restores the hidden dock.
   if (!dock.show) return null;
-  const selectedPanels = DOCK_PANELS.filter((p) => dock.panels[p.key]);
+  const selectedPanels = normalizeDockPanelOrder(dock.panelOrder).map(key => DOCK_PANELS.find(p => p.key === key)!).filter((p) => dock.panels[p.key]);
+  const expandedPanels = selectedPanels.filter((p) => !dock.minimized[p.key]);
   return (
     <aside ref={dockRef} className="wall-dock" style={{ '--dock-width': `${width}px` } as React.CSSProperties} data-dock-side={dock.side} aria-label="Dashboard dock">
       {(dock.side === 'left' || dock.side === 'right') && <div className="wall-dock__resize" role="separator" tabIndex={0} aria-label="Resize panels" aria-orientation="vertical" aria-valuemin={260} aria-valuemax={600} aria-valuenow={width} title="Drag to resize panels; double-click to reset"
@@ -90,6 +98,7 @@ export function WallDock(props: WallDockProps) {
       <header className="wall-dock__toolbar">
         <strong>Panels</strong>
         <span className="wall-dock__count">{selectedPanels.length} of {DOCK_PANELS.length}</span>
+        <span role="status" aria-live="polite" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)' }}>{reorderAnnouncement}</span>
         <div className="wall-dock__configure" ref={configureRef}>
           <button type="button" ref={configureButton} aria-expanded={configure} onClick={() => setConfigure((v) => !v)} title="Configure panels" aria-label="Configure panels"><GearIcon className="wall-dock__icon" /> Configure</button>
           {configure && <div className="wall-dock__popover" role="group" aria-label="Dock configuration">
@@ -104,14 +113,37 @@ export function WallDock(props: WallDockProps) {
         {selectedPanels.filter((p) => dock.minimized[p.key]).map((p) => { const Icon = PANEL_ICONS[p.key]; return <button key={p.key} type="button" title={`Restore ${p.label}`} aria-label={`Expand ${p.label} panel`} aria-expanded={false} onClick={() => minimize(p.key, false)}><Icon className="wall-dock__icon" /></button>; })}
       </div>}
       <div className="wall-dock__panels">
-        {selectedPanels.filter((p) => !dock.minimized[p.key]).map((p) => <section className={`wall-dock__panel${collapsing === p.key ? ' wall-dock__panel--collapsing' : ''}`} key={p.key} aria-label={`${p.label} dock panel`}>
-          <header className="wall-dock__panel-header"><span className="wall-dock__panel-icon">{React.createElement(PANEL_ICONS[p.key], { className: 'wall-dock__icon' })}</span><h2>{p.label}</h2><button type="button" title={`Minimize ${p.label}`} aria-label={`Minimize ${p.label} panel`} aria-expanded={true} disabled={collapsing !== null} onClick={() => minimize(p.key, true)}><DownloadIcon className="wall-dock__icon" /></button><button type="button" title={`Remove ${p.label}`} aria-label={`Remove ${p.label} panel`} onClick={() => panel(p.key, false)}><CloseIcon className="wall-dock__icon" /></button></header>
+        {expandedPanels.map((p) => <section className={`wall-dock__panel${collapsing === p.key ? ' wall-dock__panel--collapsing' : ''}`} key={p.key} aria-label={`${p.label} dock panel`}>
+          <header className="wall-dock__panel-header" draggable={sideDock && collapsing === null} tabIndex={sideDock ? 0 : undefined}
+            aria-label={sideDock ? `${p.label} panel header; use Alt+ArrowUp or Alt+ArrowDown to reorder` : undefined}
+            title={sideDock ? 'Drag header to reorder; Alt+ArrowUp/Down moves this panel' : undefined}
+            onDragStart={(e) => {
+              if (!sideDock || collapsing !== null || (e.target as HTMLElement).closest('button')) { e.preventDefault(); return; }
+              reorderDrag.current = p.key;
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('application/x-nekko-dock-panel', p.key);
+              e.stopPropagation();
+            }}
+            onDragOver={(e) => { if (sideDock && reorderDrag.current && reorderDrag.current !== p.key) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.stopPropagation(); } }}
+            onDrop={(e) => {
+              if (!sideDock || !reorderDrag.current) return;
+              e.preventDefault(); e.stopPropagation();
+              if (reorderDrag.current !== p.key) reorder(reorderDrag.current, p.key);
+              reorderDrag.current = null;
+            }}
+            onDragEnd={() => { reorderDrag.current = null; }}
+            onKeyDown={(e) => {
+              if (!sideDock || collapsing !== null || e.target !== e.currentTarget || !e.altKey || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+              e.preventDefault(); e.stopPropagation();
+              const target = expandedPanels[expandedPanels.findIndex(panel => panel.key === p.key) + (e.key === 'ArrowDown' ? 1 : -1)];
+              if (target) reorder(p.key, target.key);
+            }}><span className="wall-dock__panel-icon">{React.createElement(PANEL_ICONS[p.key], { className: 'wall-dock__icon' })}</span><h2>{p.label}</h2><button type="button" title={`Minimize ${p.label}`} aria-label={`Minimize ${p.label} panel`} aria-expanded={true} disabled={collapsing !== null} onClick={() => minimize(p.key, true)}><DownloadIcon className="wall-dock__icon" /></button><button type="button" title={`Remove ${p.label}`} aria-label={`Remove ${p.label} panel`} onClick={() => panel(p.key, false)}><CloseIcon className="wall-dock__icon" /></button></header>
           <ResizablePanelBody label={p.label}>
             {p.key === 'vitals' && <VitalsGrid vitals={props.vitals} />}
             {p.key === 'automations' && <AutomationsPane tasks={props.tasks} running={props.running} now={props.now} onOpen={props.onOpenChat} />}
             {p.key === 'utilization' && <Utilization providers={props.providers} usage={props.usage} now={props.now} onOpenModels={props.onOpenModels} />}
             {p.key === 'budget' && <Budget usage={props.usage} sessions={props.sessions} providers={props.providers} now={props.now} />}
-            {p.key === 'insights' && <InsightsBox {...insightProps} prefs={state.insights} onPrefs={insights} />}
+            {p.key === 'insights' && <InsightsBox budgetPanelPresent {...insightProps} prefs={state.insights} onPrefs={insights} />}
             {p.key === 'hardware' && <Hardware providers={props.providers} />}
           </ResizablePanelBody>
         </section>)}
@@ -164,7 +196,9 @@ function VitalsGrid({ vitals }: { vitals: Vitals }) {
 
 function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps, 'providers' | 'usage' | 'now' | 'onOpenModels'>) {
   const enabled = providers.filter((p) => p.enabled && !isLocalProvider(p.kind));
-  const { byToken, answered } = useProviderLimitsPortfolio(enabled);
+  const { byToken, answered, refresh } = useProviderLimitsPortfolio(enabled);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const today = new Date(now).toISOString().slice(0, 10);
   const weekStart = new Date(`${today}T00:00:00Z`);
   weekStart.setUTCDate(weekStart.getUTCDate() - (weekStart.getUTCDay() + 6) % 7);
@@ -173,6 +207,8 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
   const weekDays = usage?.daily.filter((d) => d.date >= week && d.date <= today);
   const compact = (n: number) => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
   return <div className="wall-dock__metrics wall-dock__utilization">
+    <button type="button" className="wall-dock__text-button justify-self-end" aria-label="Refresh provider quota" title="Pull latest provider quota (provider refreshes are rate limited)" disabled={refreshing} onClick={() => { setRefreshing(true); setRefreshError(null); void refresh().catch(e => setRefreshError(String(e))).finally(() => setRefreshing(false)); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-2l2 3M4 16l2 3a7 7 0 0 0 12-2" /></svg></button>
+    {refreshError && <p role="alert">Could not refresh quota: {refreshError}</p>}
     {enabled.length === 0 && <p>No cloud providers enabled.</p>}
     {enabled.map((provider) => {
       const key = limitsKeyFor(provider);
@@ -192,7 +228,6 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
         </div>)}
         {limits?.creditsState === 'balance' && limits.creditsBalance != null && <div className="wall-dock__metric-row"><span>API usage credits</span><strong>{formatUSD(limits.creditsBalance)}</strong></div>}
         {limits?.creditsState === 'disabled' && <p className="wall-dock__note">Extra usage credits disabled</p>}
-        {limits && now - limits.updatedAt > limits.staleAfterMs && <p className="wall-dock__note" title={`Last quota update: ${new Date(limits.updatedAt).toLocaleString()}. These values may have changed; this is not a rate-limit warning.`}>Quota may be outdated</p>}
       </div>;
     })}
     <div><div className="wall-dock__metric-row"><span>Tokens today</span><strong title={todayTokens?.toLocaleString()}>{todayTokens == null ? 'Unavailable' : compact(todayTokens)}</strong></div>
@@ -255,19 +290,9 @@ function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage'
 function Hardware({ providers }: { providers: ProviderConfig[] }) {
   const monitors = useMonitors();
   const { system, gpu } = useResourceSample();
-  const runtimeIds = providers.filter((p) => p.enabled && p.kind in RUNTIME_CAPABILITIES && RUNTIME_CAPABILITIES[p.kind as keyof typeof RUNTIME_CAPABILITIES].canLoad).map((p) => p.id);
-  const [statuses, setStatuses] = useState<Array<RuntimeStatus | null>>([]);
-  useEffect(() => {
-    let live = true;
-    const refresh = () => { void Promise.all(runtimeIds.map((id) => window.nekko.runtimeStatus(id).catch(() => null))).then((next) => { if (live) setStatuses(next); }); };
-    refresh();
-    const timer = setInterval(refresh, 6000);
-    return () => { live = false; clearInterval(timer); };
-  }, [runtimeIds.join('|')]);
   const util = gpu?.devices.map((d) => d.utilizationPct).filter((n): n is number => n != null && Number.isFinite(n)) ?? [];
   const gpuUtil = util.length ? Math.max(...util) : null;
   const memory = (used: number, total: number) => total > 0 ? `${(used / 1024).toFixed(1)} / ${(total / 1024).toFixed(1)} GiB (${Math.round(used / total * 100)}%)` : 'Unavailable';
-  const local = localRuntimeMetrics(statuses.filter((s): s is RuntimeStatus => !!s));
   const rows = [
     { label: 'CPU', value: !monitors.cpu ? null : system?.cpuPct ?? null, text: !monitors.cpu ? 'Monitor off' : system ? `${system.cpuPct}%` : 'Unavailable', color: 'var(--accent)' },
     { label: 'Memory', value: monitors.memory && system && system.memTotalMB > 0 ? system.memUsedMB / system.memTotalMB * 100 : null, text: !monitors.memory ? 'Monitor off' : system ? memory(system.memUsedMB, system.memTotalMB) : 'Unavailable', color: 'var(--accent-2)' },
@@ -281,12 +306,5 @@ function Hardware({ providers }: { providers: ProviderConfig[] }) {
         {row.value != null && <span style={{ width: `${Math.max(0, Math.min(100, row.value))}%`, background: row.color }} />}
       </div><span className="wall-dock__reading">{row.text}</span>
     </div>)}
-    <dl>
-      <dt>Loaded local models</dt><dd>{local.loadedModels}</dd>
-      <dt>Loaded model memory</dt><dd>{local.memoryLabel}</dd>
-      <dt>Last local tok/s</dt><dd>{local.lastTokPerSecond}</dd>
-    </dl>
-    {local.recent.length > 0 && <ul>{local.recent.map((r) => <li key={r.id}>{r.id}{r.placement ? ' · ' + r.placement : ''}{r.lastUsed ? ' · last used ' + r.lastUsed : ''}</li>)}</ul>}
-    <p>Shared resource sampler · OS{gpu ? ` + ${gpu.source}` : ''}. Missing probes are unavailable, not zero. Monitor switches follow Settings.</p>
   </div>;
 }

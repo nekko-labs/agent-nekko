@@ -616,6 +616,22 @@ describe('getLimits', () => {
     expect(limits!.windows).toHaveLength(1);
   });
 
+  it('explicit refresh polls a fresh snapshot but retains provider throttling', async () => {
+    const key = 'chatgpt:manual-refresh';
+    setToken(key, { provider: 'chatgpt', accessToken: 'synthetic', accountId: 'manual', expiresAt: Date.now() + 120000, obtainedAt: Date.now() });
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(JSON.stringify({ plan_type: 'plus', rate_limit: { primary_window: { used_percent: 5, limit_window_seconds: 18000, reset_at: 1778670307 } } }), { status: 200 }));
+    initLimits(new EventEmitter());
+    await getLimits(key);
+    fetchMock.mockClear();
+    await getLimits(key);
+    expect(fetchMock).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(31000);
+    await getLimits(key, true);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    await getLimits(key, true);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('polls when the stored state is stale', async () => {
     const tokenKey = 'chatgpt:stale';
     setToken(tokenKey, {

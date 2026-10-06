@@ -19,9 +19,9 @@ describe('wall dock presentation', () => {
     const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: false, automations: false, utilization: true, budget: false, insights: false, hardware: false } } };
     const html = renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={5000} sessions={[]} providers={[{ id: 'plan', kind: 'chatgpt', label: 'Plan', baseUrl: '', enabled: true, auth: 'subscription', tokenKey: 'plan' }]} usage={null} vitals={{ working: 0, waiting: 0, automations: 0, terminals: 0, tokensToday: 0, spend: '$0', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
     expect(html).toContain('wall-dock__utilization');
-    expect(html).toContain('Quota may be outdated');
-    expect(html).toContain('Last quota update:');
-    expect(html).toContain('not a rate-limit warning');
+    expect(html).toContain('Refresh provider quota');
+    expect(html).not.toContain('Quota may be outdated');
+    expect(html).not.toContain('Last quota update:');
     expect(html).not.toContain('Stale quota · awaiting refresh');
     quota.byToken = {};
   });
