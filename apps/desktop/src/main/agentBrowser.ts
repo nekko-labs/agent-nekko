@@ -35,7 +35,7 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
       const { sessionId, action, url, selector, value } = input;
       if (input.tool === 'capture') {
         if (typeof sessionId !== 'string' || !sessionId || sessionId.length > 200) throw new Error('Invalid capture session');
-        reply(200, await captureWindow(sessionId, input, recorderUrl)); return;
+        reply(200, await captureWindow(sessionId, input, recorderUrl, windows.get(sessionId))); return;
       }
       if (typeof sessionId !== 'string' || !sessionId || !['navigate', 'inspect', 'click', 'fill', 'close'].includes(action)) throw new Error('Invalid browser request.');
       let win = windows.get(sessionId);
@@ -45,11 +45,14 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
       }
       if (action === 'navigate' && !/^https?:\/\//i.test(url)) throw new Error('Only HTTP(S) pages can be opened.');
       if (['click', 'fill'].includes(action) && (typeof selector !== 'string' || !selector || selector.length > 500)) throw new Error('A CSS selector is required.');
+      if (input.visible !== undefined && typeof input.visible !== 'boolean') throw new Error('visible must be a boolean.');
       if (!win) {
         win = new BrowserWindow({
           width: 1100, height: 760, title: 'Nekko Browser',
-          parent: BrowserWindow.getAllWindows().find(w => ![...windows.values()].includes(w)),
-          webPreferences: { partition: `nekko-browser-${randomBytes(16).toString('hex')}`, sandbox: true, contextIsolation: true, nodeIntegration: false },
+          show: false, skipTaskbar: true,
+          // On Linux, focusable=false changes window-manager stacking behavior.
+          ...(process.platform !== 'linux' ? { focusable: false } : {}),
+          webPreferences: { partition: `nekko-browser-${randomBytes(16).toString('hex')}`, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, disableDialogs: true },
         });
         const owned = win;
         windows.set(sessionId, win);
@@ -61,7 +64,9 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
         win.webContents.session.setPermissionCheckHandler(() => false);
         win.webContents.session.on('will-download', event => event.preventDefault());
       }
-      win.show();
+      // Visibility is explicit and never activates the window or OS input.
+      if (input.visible === true) win.showInactive();
+      if (input.visible === false) win.hide();
       if (action === 'navigate') await win.loadURL(url);
       if (action === 'click' || action === 'fill') {
         // JSON encoding keeps user-supplied selectors and values out of executable source.

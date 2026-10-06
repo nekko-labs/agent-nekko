@@ -1,4 +1,5 @@
 import { createMlxRuntime, mlxSupported } from './mlx.js';
+import { readGgufMetadata } from './gguf.js';
 import { engineDaemon } from './daemon.js';
 import type { GpuAdapter } from '../gpu-adapters.js';
 import { freemem, totalmem } from 'os';
@@ -250,7 +251,6 @@ export function createEngine(deps: EngineDeps) {
         : async (path) => {
             // A GGUF that will not parse is a failed download wearing the right
             // extension, and catching it here means the library never lists one.
-            const { readGgufMetadata } = await import('./gguf.js');
             return (await readGgufMetadata(path)) ? null : 'The downloaded file is not a readable GGUF.';
           },
     });

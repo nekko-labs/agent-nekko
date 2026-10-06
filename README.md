@@ -108,6 +108,7 @@ changes while working on it:
 ```bash
 npm install
 npm run local        # builds everything, then launches the desktop app
+npm run dev          # full build (including nekkod), then launches with hot reload
 ```
 
 **3. Run it in Docker.** Safest option: the app, its file tools, and your

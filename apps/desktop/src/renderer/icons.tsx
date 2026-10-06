@@ -1,6 +1,8 @@
 import React from 'react';
 
 type P = { className?: string };
+export const FocusLayoutIcon = (p: P) => <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M16 4v16M16 10h5M16 15h5" /><path d="m8 9 4 3-4 3z" /></S>;
+export const FixedLayoutIcon = (p: P) => <S {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18M15 3v18M3 9h18M3 15h18" /></S>;
 const S = (props: { children: React.ReactNode } & P) => (
   <svg
     viewBox="0 0 24 24"

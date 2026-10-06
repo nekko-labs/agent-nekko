@@ -1761,3 +1761,5 @@
 .wall-composer-split::after { content: ""; width: 48px; height: 3px; border-radius: 3px; background: var(--line); }
 .wall-composer-split:hover::after, .wall-composer-split:focus-visible::after { background: var(--accent); }
 .wall-composer > .wall-composer-body { overflow: auto; min-height: 0; }
+
+.wall-layout-segments button { display: inline-flex; align-items: center; gap: 6px; }
