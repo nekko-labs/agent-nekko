@@ -4,22 +4,31 @@ const selections = new Map<string, Map<string, string>>();
 let recording = false;
 
 /** Window-only capture. Source capabilities are scoped to the requesting chat. */
-export async function captureWindow(sessionId: string, input: Record<string, unknown>, recorderUrl?: string): Promise<unknown> {
+export async function captureWindow(sessionId: string, input: Record<string, unknown>, recorderUrl?: string, ownedWindow?: BrowserWindow): Promise<unknown> {
   const action = input.action;
   if (!['list', 'screenshot', 'record'].includes(String(action))) throw new Error('Invalid capture action');
   if (action === 'list') {
     const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 }, fetchWindowIcons: false });
-    selections.set(sessionId, new Map(sources.map((s) => [s.id, s.name])));
-    return { windows: sources.map((s) => ({ id: s.id, title: s.name })) };
+    const windows = sources.map((s) => ({ id: s.id, title: s.name }));
+    if (ownedWindow && !ownedWindow.isDestroyed()) windows.push({ id: `nekko:${ownedWindow.id}`, title: 'Nekko Browser (owned by this chat)' });
+    selections.set(sessionId, new Map(windows.map((s) => [s.id, s.title])));
+    return { windows };
   }
   const id = String(input.window_id ?? '');
   const title = selections.get(sessionId)?.get(id);
   if (!title) throw new Error('List windows first and select an id belonging to this chat');
+  if (id.startsWith('nekko:')) {
+    if (!ownedWindow || ownedWindow.isDestroyed() || id !== `nekko:${ownedWindow.id}`) throw new Error('Owned window disappeared; list windows again');
+    if (action !== 'screenshot') throw new Error('Hidden owned windows support PNG screenshots only; recordings require an OS-listed window');
+    const image = await ownedWindow.capturePage(undefined, { stayHidden: true, stayAwake: false });
+    if (image.isEmpty()) throw new Error('Owned window did not produce a frame; retry after the page finishes rendering');
+    return { title, window_id: id, capturedAt: Date.now(), ...image.getSize(), mime: 'image/png', data: image.toPNG().toString('base64'), source: 'owned-page', background: true };
+  }
   if (action === 'screenshot') {
     const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 3840, height: 2160 }, fetchWindowIcons: false });
     const source = sources.find((s) => s.id === id && s.name === title);
-    if (!source || source.thumbnail.isEmpty()) throw new Error('Selected window disappeared or could not be captured; restore it and check OS capture permissions');
-    return { title, window_id: id, capturedAt: Date.now(), ...source.thumbnail.getSize(), mime: 'image/png', data: source.thumbnail.toPNG().toString('base64') };
+    if (!source || source.thumbnail.isEmpty()) throw new Error('Selected window disappeared or could not be captured in the background. Hidden/minimized/protected windows depend on OS support; no window was restored or focused. Check OS capture permissions.');
+    return { title, window_id: id, capturedAt: Date.now(), ...source.thumbnail.getSize(), mime: 'image/png', data: source.thumbnail.toPNG().toString('base64'), source: 'native-window', background: true };
   }
   const seconds = Number(input.seconds ?? 5);
   if (!Number.isFinite(seconds) || seconds < 1 || seconds > 15) throw new Error('Recording duration must be 1–15 seconds');

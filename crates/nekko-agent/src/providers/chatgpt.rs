@@ -332,7 +332,7 @@ impl ChatGptProvider {
 /// message in history is covered by `instructions` and dropped here.
 fn to_response_items(req: &ChatRequest) -> Vec<Value> {
     let mut out = Vec::new();
-    for m in &req.messages {
+    for m in &crate::types::with_tool_images(&req.messages) {
         if let (Role::Tool, Some(r)) = (m.role, &m.tool_result) {
             out.push(json!({ "type": "function_call_output", "call_id": r.tool_call_id, "output": r.output }));
         } else if m.role == Role::Assistant {

@@ -1,3 +1,4 @@
+import { withToolImages } from './tool-images.js';
 import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import { effectiveEffort } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk, ToolSpec } from './types.js';
@@ -287,7 +288,7 @@ export class OpenAICompatProvider implements Provider {
   private toOpenAIMessages(req: ChatRequest) {
     const out: any[] = [];
     if (req.system) out.push({ role: 'system', content: req.system });
-    for (const m of req.messages) {
+    for (const m of withToolImages(req.messages)) {
       if (m.role === 'tool' && m.toolResult) {
         out.push({ role: 'tool', tool_call_id: m.toolResult.toolCallId, content: m.toolResult.output });
       } else if (m.role === 'assistant' && m.toolCalls?.length) {

@@ -38,7 +38,32 @@ describe('window capture tool', () => {
     expect(readFileSync(join(root, '.shots/after.png'), 'utf8')).toBe('png-bytes');
     expect(result.output).toContain('Other project');
     expect(result.output).not.toContain('data');
+    expect(result.images).toEqual([`data:image/png;base64,${Buffer.from('png-bytes').toString('base64')}`]);
+    expect(opts.requestApproval).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('selected chat model'), 'high');
     expect(fetch.mock.calls[0]).toBeDefined();
+  });
+  it('saves locally without sending pixels when inspection is disabled', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ mime: 'image/png', data: Buffer.from('png-bytes').toString('base64') }) })));
+    const result = await executeTool(call({ action: 'screenshot', window_id: 'window:1', path: 'local.png', inspect: false }), opts);
+    expect(result.images).toBeUndefined();
+    expect(result.output).toContain('without model inspection');
+    expect(opts.requestApproval).not.toHaveBeenCalledWith(expect.anything(), expect.stringContaining('selected chat model'), 'high');
+  });
+  it('preserves oversized evidence with an explicit inspection limit', async () => {
+    const bytes = Buffer.alloc(5 * 1024 * 1024 + 1, 1);
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ mime: 'image/png', data: bytes.toString('base64') }) })));
+    const result = await executeTool(call({ action: 'screenshot', window_id: 'window:1', path: 'large.png' }), opts);
+    expect(result.images).toBeUndefined();
+    expect(result.output).toContain('too large');
+    expect(readFileSync(join(root, 'large.png')).equals(bytes)).toBe(true);
+  });
+  it('does not publish pixels or files after cancellation', async () => {
+    const abort = new AbortController(); opts.signal = abort.signal;
+    vi.stubGlobal('fetch', vi.fn(async () => { abort.abort(); return { ok: true, json: async () => ({ mime: 'image/png', data: Buffer.from('png').toString('base64') }) }; }));
+    const result = await executeTool(call({ action: 'screenshot', window_id: 'window:1', path: 'cancelled.png' }), opts);
+    expect(result.isError).toBe(true);
+    expect(result.images).toBeUndefined();
+    expect(() => readFileSync(join(root, 'cancelled.png'))).toThrow();
   });
   it.each([
     { action: 'screenshot', window_id: 'window:1', path: '../escape.png' },
