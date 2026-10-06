@@ -1711,7 +1711,10 @@
 }
 .wall-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; gap: 12px; }
 .wall-workspace[data-dock-side='top'], .wall-workspace[data-dock-side='bottom'] { flex-direction: column; }
-.wall-column { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; gap: 0; }
+.wall-column { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; gap: 0; overflow-y: auto; }
+/* A tall composer must not collapse the transcript wall out of view. Short
+   viewports scroll the column rather than allowing composer content to cover it. */
+.wall-column > .command-wall-layout { flex: 1 0 280px; }
 .wall-composer { width: 75%; max-width: none; flex-shrink: 0; background: var(--win); box-shadow: var(--shadow-md); }
 .command-wall-window > .panel { background: var(--win); }
 .command-wall-window[data-wall-selected] > .panel {
