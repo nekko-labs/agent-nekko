@@ -112,6 +112,8 @@ export function sanitizeMonthlyBudgetUsd(value: unknown): number | undefined {
 
 /** The saved Command Center wall; `root` is the renderer's split tree (`layout.ts`), checked on load. */
 export interface CommandWallSetting {
+  /** Agent tab placement, independent of window layout. */
+  tabs?: 'top' | 'left' | 'hidden';
   layout?: WallLayout;
   dock?: WallDock;
   hero?: string | null;
