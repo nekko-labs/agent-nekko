@@ -50,6 +50,17 @@ export default defineConfig({
         input: { index: resolve(__dirname, 'src/renderer/index.html') },
       },
     },
-    plugins: [react()],
+    plugins: [react(), {
+      name: 'preserve-elk-bundle',
+      apply: 'build',
+      enforce: 'post',
+      transform(_code, id) {
+        // ELK is already bundled upstream. Walking its generated layout engine
+        // for tree shaking dominates build time without removing useful code.
+        if (id.replace(/\\/g, '/').includes('/node_modules/elkjs/lib/elk.bundled.js')) {
+          return { moduleSideEffects: 'no-treeshake' as const };
+        }
+      },
+    }],
   },
 });
