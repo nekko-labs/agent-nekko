@@ -41,6 +41,7 @@ describe('private Electron browser bridge', () => {
       expect(await result.json()).toEqual({ output: 'Example\nBody' });
       const win = fake.windows[0];
       expect(win.opts).toMatchObject({ show: false, skipTaskbar: true });
+      if (process.platform !== 'linux') expect(win.opts.focusable).toBe(false);
       expect(win.show).not.toHaveBeenCalled();
       expect(win.showInactive).not.toHaveBeenCalled();
       await post(headers, JSON.stringify({ sessionId: 'chat', action: 'inspect', visible: true }));
@@ -48,7 +49,7 @@ describe('private Electron browser bridge', () => {
       await post(headers, JSON.stringify({ sessionId: 'chat', action: 'inspect', visible: false }));
       expect(win.hide).toHaveBeenCalledOnce();
       expect(win.show).not.toHaveBeenCalled();
-      expect(win.opts.webPreferences).toMatchObject({ sandbox: true, contextIsolation: true, nodeIntegration: false });
+      expect(win.opts.webPreferences).toMatchObject({ sandbox: true, contextIsolation: true, nodeIntegration: false, disableDialogs: true });
       expect(win.opts.webPreferences.partition).not.toContain('persist:');
       expect(win.webContents.setWindowOpenHandler.mock.calls[0][0]()).toEqual({ action: 'deny' });
       const callback = vi.fn();

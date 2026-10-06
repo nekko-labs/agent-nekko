@@ -50,7 +50,9 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
         win = new BrowserWindow({
           width: 1100, height: 760, title: 'Nekko Browser',
           show: false, skipTaskbar: true,
-          webPreferences: { partition: `nekko-browser-${randomBytes(16).toString('hex')}`, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false },
+          // On Linux, focusable=false changes window-manager stacking behavior.
+          ...(process.platform !== 'linux' ? { focusable: false } : {}),
+          webPreferences: { partition: `nekko-browser-${randomBytes(16).toString('hex')}`, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, disableDialogs: true },
         });
         const owned = win;
         windows.set(sessionId, win);
