@@ -15,8 +15,8 @@ type Dict = Record<string, string>;
 
 // English is the source of truth; other locales fall back to it per-key.
 const en: Dict = {
-  'nav.command': 'Command Center',
-  'nav.chat': 'Agents',
+  'nav.command': 'Agents',
+  'nav.chat': 'Chat',
   'nav.design': 'Design',
   'nav.skills': 'Skills',
   'nav.training': 'Training',
@@ -57,8 +57,8 @@ const en: Dict = {
 };
 
 const es: Dict = {
-  'nav.command': 'Centro de mando',
-  'nav.chat': 'Agentes',
+  'nav.command': 'Agentes',
+  'nav.chat': 'Chat',
   'nav.models': 'Proveedores',
   'nav.modelserver': 'Servidor de modelos',
   'nav.connectors': 'Conectores',
@@ -93,8 +93,8 @@ const es: Dict = {
 };
 
 const fr: Dict = {
-  'nav.command': 'Centre de commande',
-  'nav.chat': 'Agents',
+  'nav.command': 'Agents',
+  'nav.chat': 'Chat',
   'nav.models': 'Fournisseurs',
   'nav.modelserver': 'Serveur de modèles',
   'nav.connectors': 'Connecteurs',
@@ -129,8 +129,8 @@ const fr: Dict = {
 };
 
 const de: Dict = {
-  'nav.command': 'Kommandozentrale',
-  'nav.chat': 'Agenten',
+  'nav.command': 'Agenten',
+  'nav.chat': 'Chat',
   'nav.models': 'Anbieter',
   'nav.modelserver': 'Modellserver',
   'nav.connectors': 'Konnektoren',
@@ -165,8 +165,8 @@ const de: Dict = {
 };
 
 const pt: Dict = {
-  'nav.command': 'Central de comando',
-  'nav.chat': 'Agentes',
+  'nav.command': 'Agentes',
+  'nav.chat': 'Chat',
   'nav.models': 'Provedores',
   'nav.modelserver': 'Servidor de modelos',
   'nav.connectors': 'Conectores',
@@ -201,8 +201,8 @@ const pt: Dict = {
 };
 
 const ja: Dict = {
-  'nav.command': 'コマンドセンター',
-  'nav.chat': 'エージェント',
+  'nav.command': 'エージェント',
+  'nav.chat': 'チャット',
   'nav.models': 'モデル提供元',
   'nav.modelserver': 'モデルサーバー',
   'nav.connectors': 'コネクタ',
@@ -237,8 +237,8 @@ const ja: Dict = {
 };
 
 const zh: Dict = {
-  'nav.command': '指挥中心',
-  'nav.chat': '智能体',
+  'nav.command': '智能体',
+  'nav.chat': '聊天',
   'nav.models': '模型来源',
   'nav.modelserver': '模型服务器',
   'nav.connectors': '连接器',

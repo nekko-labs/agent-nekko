@@ -33,10 +33,11 @@ function wall(s: CommandWallState) {
 }
 
 describe('command wall geometry', () => {
-  it.each(['grid', 'fixed'] as const)('keeps %s chat windows at least 4:3 on wide short stages', (mode) => {
+  it.each(['grid', 'fixed'] as const)('fits %s windows into the space remaining above the composer', (mode) => {
     const before = JSON.stringify(root);
-    const g = commandWallGeometry(state({ layout: { mode, cols: 3, rows: 2 } }), 2400, 400);
-    for (const pane of g.panes.values()) expect(pane.height).toBeGreaterThanOrEqual(pane.width * .75);
+    const g = commandWallGeometry(state({ layout: { mode, cols: 3, rows: 2 } }), 2400, 600);
+    expect(g.stageHeight).toBeLessThanOrEqual(600);
+    for (const pane of g.panes.values()) expect(pane.y + pane.height).toBeLessThanOrEqual(600);
     expect(JSON.stringify(root)).toBe(before);
   });
   it('converts an expanded divider resize back to saved ratios without cumulative widening', () => {
@@ -186,7 +187,7 @@ describe('workspace companions and stable bodies', () => {
       expect(html).toContain('data-browser="https://example.com"');
       expect(html).toContain('data-diff="chat-a"');
       expect(html).toContain('aria-label="Add window"');
-      expect(html).toContain('aria-label="Focus Chat"');
+      expect(html).not.toContain('class="command-wall-action" title="Focus');
       expect(html).toContain('aria-label="Open Chat in the Agent tab"');
     } finally { fixture.workspaces = []; }
   });

@@ -38,11 +38,13 @@ export const EXPERIMENTAL_VIEWS = ['training', 'design', 'memory'] as const;
 export type ExperimentalView = (typeof EXPERIMENTAL_VIEWS)[number];
 
 /**
- * Whether a nav destination is reachable. Experimental views need their flag
- * on; everything else is always available. Settings that haven't loaded yet
+ * Whether a nav destination is reachable. Chat needs its Developer flag and
+ * experimental views need their flag on; everything else is always available.
+ * Settings that haven't loaded yet
  * count as all-flags-off.
  */
 export function viewEnabled(view: View, settings: AppSettings | null | undefined): boolean {
+  if (view === 'chat') return settings?.developer?.chat === true;
   if (!(EXPERIMENTAL_VIEWS as readonly string[]).includes(view)) return true;
   return settings?.experimental?.[view as ExperimentalView] === true;
 }

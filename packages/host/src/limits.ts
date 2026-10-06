@@ -110,9 +110,9 @@ export function get(tokenKey: string): SubscriptionLimits | undefined {
  * If the cached snapshot is stale and the poll cannot refresh it, this
  * returns `undefined` rather than handing back the stale snapshot as fresh.
  */
-export async function getLimits(tokenKey: string): Promise<SubscriptionLimits | undefined> {
+export async function getLimits(tokenKey: string, refresh = false): Promise<SubscriptionLimits | undefined> {
   const state = get(tokenKey);
-  if (state && state.updatedAt + state.staleAfterMs > Date.now()) {
+  if (!refresh && state && state.updatedAt + state.staleAfterMs > Date.now()) {
     return state;
   }
   const polled = await poll(tokenKey);

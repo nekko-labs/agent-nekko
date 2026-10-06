@@ -507,7 +507,7 @@ export interface Host {
 
   classifyCommand(command: string): GuardrailDecision;
   usageSummary(): UsageSummary;
-  getLimits(tokenKey: string): Promise<SubscriptionLimits | undefined>;
+  getLimits(tokenKey: string, refresh?: boolean): Promise<SubscriptionLimits | undefined>;
 
   /** Expose this machine over a relay so paired devices can reach it. */
   enableRemote(relayUrl: string): RemoteStatus;
@@ -1080,7 +1080,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
 
     classifyCommand: (command) => classifyCommand(command, getSettings().guardrails),
     usageSummary,
-    getLimits: (tokenKey) => getLimits(tokenKey),
+    getLimits: (tokenKey, refresh) => getLimits(tokenKey, refresh),
 
     enableRemote: (relayUrl) => host.remote.enable(relayUrl),
     disableRemote: () => host.remote.disable(),

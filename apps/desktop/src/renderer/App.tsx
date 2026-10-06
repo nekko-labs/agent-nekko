@@ -44,11 +44,11 @@ import {
 } from './navIcons.js';
 
 /** The Agent destination wears Aphelion herself, so the cat is the way in. */
-const AgentCatIcon = (_p: { className?: string }) => <NekkoAvatar size={22} />;
+const AgentCatIcon = (_p: { className?: string }) => <NekkoAvatar size={22} stationary />;
 
 const NAV: Array<{ view: View; labelKey: string; Icon: (p: { className?: string }) => React.JSX.Element }> = [
-  { view: 'chat', labelKey: 'nav.chat', Icon: AgentCatIcon },
-  { view: 'command', labelKey: 'nav.command', Icon: CommandHudIcon },
+  { view: 'command', labelKey: 'nav.command', Icon: AgentCatIcon },
+  { view: 'chat', labelKey: 'nav.chat', Icon: CommandHudIcon },
   { view: 'skills', labelKey: 'nav.skills', Icon: SkillsColorIcon },
   { view: 'training', labelKey: 'nav.training', Icon: TrainingColorIcon },
   { view: 'workflows', labelKey: 'nav.workflows', Icon: WorkflowsColorIcon },
@@ -61,7 +61,7 @@ const NAV: Array<{ view: View; labelKey: string; Icon: (p: { className?: string 
 ];
 
 /** Phone bottom-tab destinations (the remote-control essentials). */
-const MOBILE_NAV: View[] = ['chat', 'command', 'training', 'workflows', 'settings'];
+const MOBILE_NAV: View[] = ['command', 'chat', 'training', 'workflows', 'settings'];
 
 export function App() {
   const { view, setView, mascotMood, settings, settingsLoaded, providers, onboardingOpen, refreshSettings, refreshProviders, refreshSessions, refreshTerminals } = useStore(

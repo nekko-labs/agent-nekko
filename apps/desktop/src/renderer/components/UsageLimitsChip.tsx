@@ -133,10 +133,10 @@ export function UsageLimitsChip({
    */
   const chipText = () => {
     if (local) return 'Free';
-    if (unpriced && cost + turnCost === 0) return 'No estimate';
-    if (unpriced) return `${formatUSD(cost + (liveTurn ? turnCost : 0))}+`;
-    if (liveTurn) return `${formatUSD(cost + turnCost)}`;
-    return formatUSD(cost);
+    const estimate = unpriced && cost + turnCost === 0
+      ? 'No estimate'
+      : `${formatUSD(cost + (liveTurn ? turnCost : 0))}${unpriced ? '+' : ''}`;
+    return subscription ? `Subscription (${estimate})` : estimate;
   };
 
   const chipColor = () => {

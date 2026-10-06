@@ -4,6 +4,12 @@ import { describe, expect, it } from 'vitest';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 const provider = { id: 'plan', kind: 'chatgpt' as const, label: 'ChatGPT', baseUrl: '', enabled: true, auth: 'subscription' as const };
 describe('composer API-equivalent cost', () => {
+  it('labels subscription estimates without changing metered amounts', () => {
+    expect(renderToStaticMarkup(<UsageLimitsChip provider={provider} cost={4.89} />)).toContain('Subscription ($4.89)');
+    const metered = renderToStaticMarkup(<UsageLimitsChip provider={{ ...provider, auth: 'apikey' }} cost={4.89} />);
+    expect(metered).toContain('$4.89');
+    expect(metered).not.toContain('Subscription ($4.89)');
+  });
   it('shows a list-price total rather than the zero subscription bill', () => {
     const html = renderToStaticMarkup(<UsageLimitsChip provider={provider} cost={24} turnCost={2} running />);
     expect(html).toContain('$26.00');

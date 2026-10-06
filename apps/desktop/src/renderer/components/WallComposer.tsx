@@ -99,12 +99,7 @@ export function WallComposer({
           {agents.length > 1 ? 'Ctrl+Tab cycles windows · Ctrl+1…9 picks one' : agents.length === 1 ? '' : ''}
         </span>
         <div className="min-w-0 flex-1" />
-        {agent && (
-          <button className="rounded-sm p-1 text-ink-faint hover:text-ink" title={`Open ${agent.session.title} in the Agent tab`} aria-label={`Open ${agent.session.title} in the Agent tab`} onClick={() => onOpen(agent.session.id)}>
-            <ExternalIcon className="h-3 w-3" />
-          </button>
-        )}
-        <div className="relative" ref={pickerRef}>
+<div className="relative" ref={pickerRef}>
           <button
             className={`flex items-center gap-1 rounded-sm p-1 text-ink-faint hover:text-ink ${pickerOpen ? 'text-ink' : ''}`}
             title={`Composer docked ${DOCK_LABEL[dock.side].toLowerCase()} ${ALIGN_LABEL[dock.align]}. Click to move it.`}

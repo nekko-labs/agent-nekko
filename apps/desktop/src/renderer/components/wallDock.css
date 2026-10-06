@@ -140,6 +140,12 @@
 .wall-dock__provider { display: grid; gap: 10px; padding-bottom: 12px; }
 .wall-dock__quota { display: grid; gap: 5px; }
 .wall-dock__quota .wall-dock__note { margin-top: 0; }
+/* Compact only the quota panel; retain every meter and reset detail. */
+.wall-dock__utilization { padding: 10px 12px; gap: 8px; }
+.wall-dock__utilization .wall-dock__provider { gap: 6px; padding-bottom: 8px; }
+.wall-dock__utilization .wall-dock__quota { gap: 3px; }
+.wall-dock__utilization .wall-dock__note { margin-top: 2px; line-height: 1.35; }
+.wall-dock__utilization .wall-dock__quota .wall-dock__note { margin-top: 0; }
 .wall-dock__savings { display: grid; gap: 10px; border-top: 1px solid var(--line); padding-top: 14px; }
 .wall-dock__savings strong { color: var(--success); }
 .wall-dock__benchmark { display: grid; gap: 6px; margin: 10px 0; font-size: 11px; color: var(--ink-soft); }

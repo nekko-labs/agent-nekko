@@ -173,13 +173,13 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     completed: [...document.querySelectorAll('[data-completed-row]')].length,
   }))()`);
 
-  await waitFor(`!!document.querySelector('nav button[aria-label="Command Center"]')`, 'the app shell');
+  await waitFor(`!!document.querySelector('nav button[aria-label="Agents"]')`, 'the app shell');
   await cdp.evaluate(INSTALL);
 
   /** Open a seeded chat from the Command Center (setup, not measured). */
   /** `marker` is what the newest reply must contain; '' accepts any (a chat that has grown since seeding). */
   const openChat = async (i, marker = lastMarker(i)) => {
-    await clickEl('nav button[aria-label="Command Center"]', null, 'the Command Center nav');
+    await clickEl('nav button[aria-label="Agents"]', null, 'the Command Center nav');
     const title = chatTitle(i);
     const openSel = `button[title="Open ${title}"]`;
     // Each chat is a live window on the wall; its strip's "Open" button takes it to the Agent tab.
