@@ -21,9 +21,9 @@ const ALIGN_LABEL: Record<ComposerAlign, string> = { left: 'left', center: 'cent
 /**
  * The one composer for the whole wall. It belongs to whichever agent window
  * is selected (a click on the window, Ctrl+Tab, or Ctrl+1…9), and shows that
- * chat's own controls: model, mode, tools, image settings when it is an image
- * chat, the queue, the question it is asking. The windows themselves show
- * only their transcripts. It docks to one of six places around the wall while the selected window and its number identify who it speaks for.
+ * chat's drafting controls: mode, tools, image settings when it is an image
+ * chat, and the queue. Model selection, questions and approvals stay in the
+ * corresponding agent window. It docks to one of six places around the wall while the selected window and its number identify who it speaks for.
  */
 export function WallComposer({
   height,
@@ -74,7 +74,7 @@ export function WallComposer({
   return (
     <div
       ref={panelRef}
-      style={height == null ? undefined : { height }}
+      style={{ height: height ?? 320 }}
       className={`panel wall-composer flex shrink-0 flex-col ${alignClass}`}
       data-has-agent={agent ? true : undefined}
       data-wall-composer
