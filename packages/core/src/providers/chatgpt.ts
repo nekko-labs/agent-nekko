@@ -1,3 +1,4 @@
+import { withToolImages } from './tool-images.js';
 import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import { effectiveEffort } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
@@ -310,7 +311,7 @@ export class ChatGptProvider implements Provider {
 /** Map normalized chat history onto Responses API input items. */
 function toResponseItems(req: ChatRequest) {
   const out: any[] = [];
-  for (const m of req.messages) {
+  for (const m of withToolImages(req.messages)) {
     if (m.role === 'tool' && m.toolResult) {
       out.push({
         type: 'function_call_output',

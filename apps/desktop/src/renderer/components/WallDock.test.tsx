@@ -13,6 +13,19 @@ function render(minimized = false) {
   return renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={0} sessions={[]} providers={[]} usage={null} vitals={{ working: 0, waiting: 0, automations: 0, terminals: 0, tokensToday: 0, spend: '$0', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
 }
 describe('wall dock presentation', () => {
+  it('exposes both savings separately and never asks for a monthly budget', () => {
+    const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: true, automations: false, utilization: false, budget: true, insights: false, hardware: false } } };
+    const usage = { totalInput: 0, totalOutput: 0, totalCost: 0, byModel: {}, bySession: {}, byProvider: {}, bySessionCost: {}, daily: [], avoidedCosts: { local: 1.23, subscription: 4.56, benchmarkTokens: 100, unpricedTokens: 200 } };
+    const html = renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={0} sessions={[]} providers={[]} usage={usage} vitals={{ working: 3, waiting: 1, automations: 2, terminals: 1, tokensToday: 212000, spend: 'Included in plan', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
+    expect(html).toContain('212K');
+    expect(html).toContain('Local AI saved');
+    expect(html).toContain('$1.23');
+    expect(html).toContain('Subscription saved');
+    expect(html).toContain('$4.56');
+    expect(html).toContain('200 unpriced tokens excluded');
+    expect(html).toContain('Resize Budget panel height');
+    expect(html).not.toContain('Monthly budget (USD)');
+  });
   it('uses named icon controls and meters with exact numbers below', () => {
     const html = render();
     expect(html).toContain('aria-label="Minimize Hardware panel"');

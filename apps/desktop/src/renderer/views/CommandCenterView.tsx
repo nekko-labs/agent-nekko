@@ -7,8 +7,7 @@ import { AUTO_MODEL_ID, classifyAgent, classifySession, formatUSD, summarizeSess
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
-import { Toggle } from '../components/primitives/index.js';
-import { GridIcon, PlusIcon, TerminalIcon } from '../icons.js';
+import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, WandIcon } from '../icons.js';
 import { CommandWall, TerminalExcerpt } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
@@ -57,6 +56,11 @@ export function CommandCenterView() {
     })),
   );
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  useEffect(() => {
+    const refresh = () => { void window.nekko.getUsageSummary().then(setUsage).catch(() => {}); };
+    window.addEventListener('nekko:usage-refresh', refresh);
+    return () => window.removeEventListener('nekko:usage-refresh', refresh);
+  }, []);
   // Which chats are mid-turn. Seeded from the app-wide fold of agent events,
   // so a chat that was already working shows as working on the first frame
   // rather than idle until its next token; the host confirms the set on
@@ -400,11 +404,11 @@ function WallToolbar({
         </div>
         <div className="wall-layout-control" ref={fixedRef}>
           <div className="wall-layout-segments" role="group" aria-label="Wall layout">
-            {(['grid', 'focus', 'fixed'] as const).map((mode) => (
+            {(['focus', 'grid', 'fixed'] as const).map((mode) => (
               <button key={mode} type="button" aria-pressed={wall.layout.mode === mode} aria-expanded={mode === 'fixed' ? fixedOpen : undefined} onClick={() => {
                 if (mode === 'fixed') { setHoverSize({ rows: wall.layout.rows, cols: wall.layout.cols }); setFixedOpen((open) => !open); }
                 else { setFixedOpen(false); setWall((w) => ({ ...w, layout: { ...w.layout, mode } })); }
-              }}>{mode[0].toUpperCase() + mode.slice(1)}</button>
+              }}>{React.createElement(mode === 'focus' ? FocusLayoutIcon : mode === 'grid' ? GridIcon : FixedLayoutIcon, { className: 'h-4 w-4' })}{mode[0].toUpperCase() + mode.slice(1)}</button>
             ))}
           </div>
           {fixedOpen && <div className="wall-fixed-picker" role="dialog" aria-label="Fixed grid size">
@@ -418,15 +422,16 @@ function WallToolbar({
             </div>
           </div>}
         </div>
-        <button type="button" className="btn btn-outline py-1 text-[12px]" aria-pressed={wall.dock.show} onClick={() => setWall((w) => ({ ...w, dock: { ...w.dock, show: !w.dock.show } }))}>Panels</button>
         <button
           className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
           title="Re-tile the wall into even rows and columns"
+          aria-label="Auto-arrange"
           onClick={onAutoArrange}
           disabled={!canArrange}
         >
-          <GridIcon className="h-3.5 w-3.5" /> Auto-arrange
+          <WandIcon className="h-4 w-4" />
         </button>
+        <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-pressed={wall.dock.show} onClick={() => setWall((w) => ({ ...w, dock: { ...w.dock, show: !w.dock.show } }))}><PanelIcon className="h-4 w-4" />Panels</button>
         <div className="relative">
           <button
             className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
@@ -438,10 +443,6 @@ function WallToolbar({
             <PlusIcon className="h-3.5 w-3.5" /> Add window
           </button>
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-soft" title="Every chat that starts, sub-agents included, joins the wall">
-          <Toggle value={wall.autoAdd} onChange={(v) => setWall((w) => ({ ...w, autoAdd: v }))} label="Auto-add new agents" />
-          <span>Auto-add new agents</span>
-        </label>
       </div>
     </div>
   );

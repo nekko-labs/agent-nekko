@@ -19,6 +19,25 @@ describe('actual desktop window capture', () => {
     fake.sources.mockResolvedValue([]);
     await expect(captureWindow('gone', { action: 'screenshot', window_id: source.id })).rejects.toThrow('disappeared');
   });
+  it('captures only this chat owned hidden page without showing or focusing it', async () => {
+    const owned = { id: 7, isDestroyed: () => false, capturePage: vi.fn(async () => source.thumbnail), show: vi.fn(), focus: vi.fn() };
+    const win = owned as unknown as import('electron').BrowserWindow;
+    const list = await captureWindow('hidden', { action: 'list' }, undefined, win);
+    expect(list).toMatchObject({ windows: expect.arrayContaining([{ id: 'nekko:7', title: 'Nekko Browser (owned by this chat)' }]) });
+    const shot = await captureWindow('hidden', { action: 'screenshot', window_id: 'nekko:7' }, undefined, win);
+    expect(shot).toMatchObject({ source: 'owned-page', background: true });
+    expect(owned.capturePage).toHaveBeenCalledWith(undefined, { stayHidden: true, stayAwake: false });
+    expect(owned.show).not.toHaveBeenCalled();
+    expect(owned.focus).not.toHaveBeenCalled();
+    await expect(captureWindow('different', { action: 'screenshot', window_id: 'nekko:7' }, undefined, win)).rejects.toThrow('List windows first');
+    await expect(captureWindow('hidden', { action: 'screenshot', window_id: 'nekko:7' })).rejects.toThrow('disappeared');
+    await expect(captureWindow('hidden', { action: 'record', window_id: 'nekko:7' }, undefined, win)).rejects.toThrow('PNG screenshots only');
+  });
+  it('reports unavailable native frames without restoring the target', async () => {
+    await captureWindow('empty', { action: 'list' });
+    fake.sources.mockResolvedValue([{ ...source, thumbnail: { isEmpty: () => true } }]);
+    await expect(captureWindow('empty', { action: 'screenshot', window_id: source.id })).rejects.toThrow('no window was restored or focused');
+  });
   it('validates recording duration before creating a recorder', async () => {
     await captureWindow('record', { action: 'list' });
     await expect(captureWindow('record', { action: 'record', window_id: source.id, seconds: 30 })).rejects.toThrow('1–15');
