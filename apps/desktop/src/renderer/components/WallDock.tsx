@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
-import { RUNTIME_CAPABILITIES, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor, sanitizeMonthlyBudgetUsd } from '@agent-nekko/shared';
+import { RUNTIME_CAPABILITIES, MODEL_PRICING, DEFAULT_LOCAL_COST_BENCHMARK, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
 import { DOCK_PANELS, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
@@ -28,15 +28,15 @@ export interface WallDockProps {
   onOpenModels: () => void;
 }
 
-const VITAL_PREFS: InsightsPrefs = { panels: { vitals: true, optimize: false, cost: false, tokens: false, models: false, replies: false, services: false } };
+const DEFAULT_DOCK_WIDTH = 408;
 
 /** A flow-layout sibling of the wall stage. The parent places it using data-dock-side. */
 export function WallDock(props: WallDockProps) {
   const { state, setState } = props;
   const { dock } = state;
-  const [width, setWidth] = useState(340);
+  const [width, setWidth] = useState(DEFAULT_DOCK_WIDTH);
   const drag = useRef<{ x: number; width: number } | null>(null);
-  const size = (value: number) => { const next = Math.max(260, Math.min(600, value)); setWidth(Math.abs(next - 340) <= 20 ? 340 : next); };
+  const size = (value: number) => { const next = Math.max(260, Math.min(600, value)); setWidth(Math.abs(next - DEFAULT_DOCK_WIDTH) <= 20 ? DEFAULT_DOCK_WIDTH : next); };
   const [collapsing, setCollapsing] = useState<WallDockPanel | null>(null);
   const dockRef = useRef<HTMLElement>(null);
   const focusPanel = useRef<{ key: WallDockPanel; minimized: boolean } | null>(null);
@@ -85,13 +85,13 @@ export function WallDock(props: WallDockProps) {
       {(dock.side === 'left' || dock.side === 'right') && <div className="wall-dock__resize" role="separator" tabIndex={0} aria-label="Resize panels" aria-orientation="vertical" aria-valuemin={260} aria-valuemax={600} aria-valuenow={width} title="Drag to resize panels; double-click to reset"
         onPointerDown={(e) => { drag.current = { x: e.clientX, width }; e.currentTarget.setPointerCapture(e.pointerId); }}
         onPointerMove={(e) => { if (drag.current) size(Math.min((e.currentTarget.parentElement?.parentElement?.clientWidth ?? 1000) - 240, drag.current.width + (e.clientX - drag.current.x) * (dock.side === 'left' ? 1 : -1))); }}
-        onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onDoubleClick={() => setWidth(340)}
-        onKeyDown={(e) => { if (e.key === 'Home') { e.preventDefault(); setWidth(340); } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); size(width + (e.key === 'ArrowRight' ? 24 : -24) * (dock.side === 'left' ? 1 : -1)); } }} />}
+        onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onDoubleClick={() => setWidth(DEFAULT_DOCK_WIDTH)}
+        onKeyDown={(e) => { if (e.key === 'Home') { e.preventDefault(); setWidth(DEFAULT_DOCK_WIDTH); } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); size(width + (e.key === 'ArrowRight' ? 24 : -24) * (dock.side === 'left' ? 1 : -1)); } }} />}
       <header className="wall-dock__toolbar">
         <strong>Panels</strong>
         <span className="wall-dock__count">{selectedPanels.length} of {DOCK_PANELS.length}</span>
         <div className="wall-dock__configure" ref={configureRef}>
-          <button type="button" ref={configureButton} aria-expanded={configure} onClick={() => setConfigure((v) => !v)} title="Configure panels" aria-label="Configure panels"><GearIcon className="wall-dock__icon" /></button>
+          <button type="button" ref={configureButton} aria-expanded={configure} onClick={() => setConfigure((v) => !v)} title="Configure panels" aria-label="Configure panels"><GearIcon className="wall-dock__icon" /> Configure</button>
           {configure && <div className="wall-dock__popover" role="group" aria-label="Dock configuration">
             <fieldset><legend>Position</legend><div className="wall-dock__positions">
               {(['left', 'right', 'top', 'bottom'] as const).map((side) => <button type="button" key={side} aria-pressed={dock.side === side} onClick={() => patch({ side })}>{side[0].toUpperCase() + side.slice(1)}</button>)}
@@ -106,14 +106,14 @@ export function WallDock(props: WallDockProps) {
       <div className="wall-dock__panels">
         {selectedPanels.filter((p) => !dock.minimized[p.key]).map((p) => <section className={`wall-dock__panel${collapsing === p.key ? ' wall-dock__panel--collapsing' : ''}`} key={p.key} aria-label={`${p.label} dock panel`}>
           <header className="wall-dock__panel-header"><span className="wall-dock__panel-icon">{React.createElement(PANEL_ICONS[p.key], { className: 'wall-dock__icon' })}</span><h2>{p.label}</h2><button type="button" title={`Minimize ${p.label}`} aria-label={`Minimize ${p.label} panel`} aria-expanded={true} disabled={collapsing !== null} onClick={() => minimize(p.key, true)}><DownloadIcon className="wall-dock__icon" /></button><button type="button" title={`Remove ${p.label}`} aria-label={`Remove ${p.label} panel`} onClick={() => panel(p.key, false)}><CloseIcon className="wall-dock__icon" /></button></header>
-          {!dock.minimized[p.key] && <div className="wall-dock__body">
-            {p.key === 'vitals' && <InsightsBox {...insightProps} prefs={VITAL_PREFS} onPrefs={() => {}} />}
+          <ResizablePanelBody label={p.label}>
+            {p.key === 'vitals' && <VitalsGrid vitals={props.vitals} />}
             {p.key === 'automations' && <AutomationsPane tasks={props.tasks} running={props.running} now={props.now} onOpen={props.onOpenChat} />}
             {p.key === 'utilization' && <Utilization providers={props.providers} usage={props.usage} now={props.now} onOpenModels={props.onOpenModels} />}
             {p.key === 'budget' && <Budget usage={props.usage} sessions={props.sessions} providers={props.providers} now={props.now} />}
             {p.key === 'insights' && <InsightsBox {...insightProps} prefs={state.insights} onPrefs={insights} />}
             {p.key === 'hardware' && <Hardware providers={props.providers} />}
-          </div>}
+          </ResizablePanelBody>
         </section>)}
         {selectedPanels.length === 0 && <p className="wall-dock__empty">No panels selected. Use Configure to restore them.</p>}
       </div>
@@ -121,83 +121,137 @@ export function WallDock(props: WallDockProps) {
   );
 }
 
+/** Measure natural content independently of the viewport so expansion stops at its end. */
+function ResizablePanelBody({ label, children }: { label: string; children: React.ReactNode }) {
+  const content = useRef<HTMLDivElement>(null);
+  const viewport = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ y: number; height: number } | null>(null);
+  const [natural, setNatural] = useState(420);
+  const [requested, setRequested] = useState<number | null>(null);
+  useEffect(() => {
+    const node = content.current;
+    if (!node) return;
+    const measure = () => setNatural(Math.ceil(node.getBoundingClientRect().height));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const min = Math.min(96, natural);
+  const height = Math.max(min, Math.min(requested ?? 420, natural));
+  const resize = (value: number) => setRequested(Math.max(min, Math.min(natural, value)));
+  return <>
+    <div ref={viewport} className="wall-dock__body" style={{ height }}><div ref={content}>{children}</div></div>
+    <div className="wall-dock__panel-resize" role="separator" tabIndex={0} aria-label={`Resize ${label} panel height`} aria-orientation="horizontal" aria-valuemin={min} aria-valuemax={natural} aria-valuenow={height} title="Drag to resize; double-click to fit content"
+      onPointerDown={(e) => { drag.current = { y: e.clientY, height: viewport.current?.clientHeight ?? height }; e.currentTarget.setPointerCapture(e.pointerId); }}
+      onPointerMove={(e) => { if (drag.current) resize(drag.current.height + e.clientY - drag.current.y); }}
+      onPointerUp={() => { drag.current = null; }} onPointerCancel={() => { drag.current = null; }} onDoubleClick={() => setRequested(natural)}
+      onKeyDown={(e) => { if (['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(e.key)) { e.preventDefault(); resize(e.key === 'Home' ? min : e.key === 'End' ? natural : height + (e.key === 'ArrowDown' ? 24 : -24)); } }} />
+  </>;
+}
+
+function VitalsGrid({ vitals }: { vitals: Vitals }) {
+  const cells = [
+    { value: vitals.working, label: 'working', tone: 'var(--info)' },
+    { value: vitals.waiting, label: 'waiting on you', tone: 'var(--warning)' },
+    { value: vitals.automations, label: 'automations active' },
+    { value: vitals.terminals, label: 'terminals live' },
+    { value: new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(vitals.tokensToday), label: 'tokens today' },
+    { value: vitals.spend === 'Included in plan' ? 'Included' : vitals.spend, label: 'est. spend' },
+  ];
+  return <div className="wall-dock__vitals">{cells.map(c => <div key={c.label}><strong style={{ color: c.tone }} title={c.label === 'tokens today' ? vitals.tokensToday.toLocaleString() : undefined}>{c.value}</strong><span>{c.label}</span></div>)}</div>;
+}
+
 function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps, 'providers' | 'usage' | 'now' | 'onOpenModels'>) {
-  const enabled = providers.filter((p) => p.enabled);
+  const enabled = providers.filter((p) => p.enabled && !isLocalProvider(p.kind));
   const { byToken, answered } = useProviderLimitsPortfolio(enabled);
   const today = new Date(now).toISOString().slice(0, 10);
   const weekStart = new Date(`${today}T00:00:00Z`);
   weekStart.setUTCDate(weekStart.getUTCDate() - (weekStart.getUTCDay() + 6) % 7);
   const week = weekStart.toISOString().slice(0, 10);
   const todayTokens = usage?.daily.filter((d) => d.date === today).reduce((sum, d) => sum + d.input + d.output, 0);
-  const weekTokens = usage?.daily.filter((d) => d.date >= week && d.date <= today).reduce((sum, d) => sum + d.input + d.output, 0);
+  const weekDays = usage?.daily.filter((d) => d.date >= week && d.date <= today);
+  const compact = (n: number) => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
   return <div className="wall-dock__metrics">
-    <p>Recorded tokens today (UTC): {todayTokens == null ? 'Unavailable' : todayTokens.toLocaleString()}</p>
-    <p>Recorded tokens this week (Monday–today, UTC): {weekTokens == null ? 'Unavailable' : weekTokens.toLocaleString()}</p>
-    <p>Input + output from daily recorded usage; not unrecorded provider activity.</p>
-    {enabled.length === 0 && <p>No enabled providers.</p>}
+    {enabled.length === 0 && <p>No cloud providers enabled.</p>}
     {enabled.map((provider) => {
       const key = limitsKeyFor(provider);
       const limits = key ? byToken[key] : undefined;
       const windows = limits?.windows ?? [];
-      const status = isLocalProvider(provider.kind) ? 'Local provider — no quota API.'
-        : provider.auth === 'subscription' && !provider.tokenKey ? 'Not signed in.'
+      const status = provider.auth === 'subscription' && !provider.tokenKey ? 'Not signed in.'
         : !key ? 'Usage API unavailable.'
-        : !limits ? (answered.has(key) ? 'Quota unavailable (not reported or read failed).' : 'Reading provider quota…')
+        : !limits ? (answered.has(key) ? 'Quota unavailable.' : 'Reading provider quota…')
         : windows.length === 0 ? 'No quota windows reported.' : null;
-      return <div key={provider.id} className="wall-dock__provider"><strong>{provider.label}</strong>
+      return <div key={provider.id} className="wall-dock__provider">
+        <strong>{provider.label}</strong>
         {status && <p>{status}</p>}
-        {limits?.creditsState === 'balance' && limits.creditsBalance != null && <p>Reported credit balance: {formatUSD(limits.creditsBalance)}</p>}
-        {limits?.creditsState === 'disabled' && <p>Extra usage credits disabled.</p>}
-        {limits && <p>Snapshot: {new Date(limits.updatedAt).toLocaleString()}{now - limits.updatedAt > limits.staleAfterMs ? ' · stale, awaiting refresh' : ''}</p>}
-        {windows.map((w, i) => <div key={`${w.label}-${i}`}><p>{w.label}: {Number.isFinite(w.usedPercent) ? `${Math.round(w.usedPercent)}% used` : 'Usage unavailable'}{w.resetAt ? ` · resets ${new Date(w.resetAt).toLocaleString()}` : ''}{w.resetAt && w.resetAt <= now ? ' (awaiting refresh)' : ''}</p>
-          {Number.isFinite(w.usedPercent) && <progress aria-label={`${provider.label} ${w.label} used`} max={100} value={Math.max(0, Math.min(100, w.usedPercent))} />}
+        {windows.map((w, i) => <div className="wall-dock__quota" key={`${w.label}-${i}`}>
+          <div className="wall-dock__metric-row"><span>{w.label}</span><strong>{Number.isFinite(w.usedPercent) ? `${Math.round(w.usedPercent)}%` : 'Unavailable'}</strong></div>
+          {Number.isFinite(w.usedPercent) && <div className="wall-dock__bar" role="meter" aria-label={`${provider.label} ${w.label} used`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.max(0, Math.min(100, w.usedPercent))}><span style={{ width: `${Math.max(0, Math.min(100, w.usedPercent))}%`, background: w.usedPercent >= 80 ? 'var(--danger)' : w.usedPercent >= 40 ? 'var(--warning)' : 'var(--success)' }} /></div>}
+          <p className="wall-dock__note">{w.resetAt ? w.resetAt <= now ? 'Reset due · awaiting refresh' : `Resets in ${resetPeriod(w.resetAt - now)} · ${new Date(w.resetAt).toLocaleString()}` : 'Reset time unavailable'}</p>
         </div>)}
+        {limits?.creditsState === 'balance' && limits.creditsBalance != null && <div className="wall-dock__metric-row"><span>API usage credits</span><strong>{formatUSD(limits.creditsBalance)}</strong></div>}
+        {limits?.creditsState === 'disabled' && <p className="wall-dock__note">Extra usage credits disabled</p>}
+        {limits && now - limits.updatedAt > limits.staleAfterMs && <p className="wall-dock__note">Stale quota · awaiting refresh</p>}
       </div>;
     })}
-    <p>Provider-reported quotas, not billing or model throughput.</p>
-    <button type="button" onClick={onOpenModels}>Manage models &amp; providers</button>
+    <div><div className="wall-dock__metric-row"><span>Tokens today</span><strong title={todayTokens?.toLocaleString()}>{todayTokens == null ? 'Unavailable' : compact(todayTokens)}</strong></div>
+      <p className="wall-dock__note">{weekDays ? `${compact(weekDays.reduce((sum, d) => sum + d.input, 0))} in · ${compact(weekDays.reduce((sum, d) => sum + d.output, 0))} out this week` : 'Weekly usage unavailable'} · UTC</p></div>
+    <button type="button" className="wall-dock__text-button" onClick={onOpenModels}>Manage providers</button>
   </div>;
+}
+
+function resetPeriod(ms: number): string {
+  const minutes = Math.max(1, Math.ceil(ms / 60000));
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
+  return `${Math.floor(minutes / 1440)} days ${Math.floor(minutes % 1440 / 60)} hr`;
 }
 
 function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage' | 'now' | 'sessions' | 'providers'>) {
-  const settings = useStore((s) => s.settings);
-  const budget = sanitizeMonthlyBudgetUsd(settings?.monthlyBudgetUsd);
-  const [draft, setDraft] = useState(budget == null ? '' : String(budget));
-  const [saving, setSaving] = useState(false);
+  const benchmark = useStore((s) => s.settings?.localCostBenchmark ?? DEFAULT_LOCAL_COST_BENCHMARK);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setDraft(budget == null ? '' : String(budget)); }, [budget]);
+  const [saving, setSaving] = useState(false);
   const month = new Date(now).toISOString().slice(0, 7);
   const recorded = recordedBudgetMetrics(usage, sessions, providers);
   const spend = usage?.daily.filter((d) => d.date.startsWith(`${month}-`)).reduce((sum, d) => sum + d.cost, 0);
-  const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const value = draft.trim() === '' ? undefined : Number(draft);
-    if (value !== undefined && sanitizeMonthlyBudgetUsd(value) === undefined) { setError('Enter a finite, non-negative USD amount.'); return; }
+  const avoided = usage?.avoidedCosts;
+  const top = Object.entries(usage?.bySessionCost ?? {}).sort((a, b) => b[1] - a[1])[0];
+  const price = MODEL_PRICING.find(p => p.match === benchmark);
+  const changeBenchmark = async (value: string) => {
     setSaving(true); setError(null);
     try {
-      // Explicit null survives the web JSON bridge; undefined would omit the patch.
-      // The settings sanitizer treats null as unset (the public setting is optional).
-      await window.nekko.updateSettings({ monthlyBudgetUsd: value ?? (null as unknown as undefined) });
+      await window.nekko.updateSettings({ localCostBenchmark: value });
       await useStore.getState().refreshSettings();
-    } catch { setError('Could not save or refresh the budget. Please try again.'); }
+      window.dispatchEvent(new Event('nekko:usage-refresh'));
+    } catch { setError('Could not update cloud comparison. Please try again.'); }
     finally { setSaving(false); }
   };
-  return <div className="wall-dock__metrics">
-    <p><strong>{spend == null ? 'Spend unavailable' : formatUSD(spend)}</strong> estimated recorded spend · {month} (UTC)</p>
-    <p>{budget == null ? 'No monthly budget set.' : `Advisory budget: ${formatUSD(budget)}`}</p>
-    {spend != null && budget != null && <>
-      <p>{spend > budget ? `${formatUSD(spend - budget)} over budget` : `${formatUSD(budget - spend)} remaining`}</p>
-      {budget > 0 && <progress aria-label="Monthly budget used" max={budget} value={Math.min(spend, budget)} />}
-    </>}
-    <p>Top agent · all-time recorded tokens: {recorded.topAgent}</p>
-    <p>Local providers · all-time recorded tokens: {recorded.localTokens}</p>
-    <p>Per-agent and local-provider monthly breakdowns are unavailable; these totals are not the monthly budget period.</p>
-    <form onSubmit={save}><label>Monthly budget (USD)<input type="number" min="0" step="any" value={draft} placeholder="Not set" disabled={!settings || saving} onChange={(e) => setDraft(e.target.value)} /></label><button type="submit" disabled={!settings || saving}>{saving ? 'Saving…' : 'Save'}</button></form>
+  return <div className="wall-dock__metrics wall-dock__budget">
+    <div><div className="wall-dock__metric-row"><span>{new Date(now).toLocaleString(undefined, { month: 'long', timeZone: 'UTC' })} spend</span><strong>{spend == null ? 'Unavailable' : formatUSD(spend)}</strong></div><p className="wall-dock__note">Estimated recorded API spend · UTC · excludes subscriptions</p></div>
+    <div className="wall-dock__metric-row"><span>Top agent <small>(all time)</small></span><strong>{top && top[1] > 0 ? `${sessions.find(s => s.id === top[0])?.title ?? 'Chat'} · ${formatUSD(top[1])}` : 'No API spend'}</strong></div>
+    <div className="wall-dock__metric-row"><span>Local models</span><strong>{usage ? '$0 API' : 'Unavailable'} · {recorded.localTokens} tokens</strong></div>
+    <div className="wall-dock__savings">
+      <div className="wall-dock__metric-row"><span>Local AI saved <small>(est.)</small></span><strong>{avoided ? formatUSD(avoided.local) : 'Unavailable'}</strong></div>
+      <div className="wall-dock__metric-row"><span>Subscription saved <small>(est.)</small></span><strong>{avoided ? formatUSD(avoided.subscription) : 'Unavailable'}</strong></div>
+      <p className="wall-dock__note">All-time API equivalents, before plan fees, hardware and electricity.</p>
+    </div>
+    <details><summary>Cloud pricing comparison</summary>
+      <label className="wall-dock__benchmark">Fallback for unpriced local models
+        <select value={benchmark} disabled={saving} onChange={(e) => void changeBenchmark(e.target.value)}>
+          <option value="">None (leave unpriced)</option>
+          {MODEL_PRICING.map(p => <option key={p.match} value={p.match}>{p.match} · ${p.input} in / ${p.output} out</option>)}
+        </select>
+      </label>
+      <p className="wall-dock__note">USD per million tokens. Matched models use their published price; the fallback is a comparison, not the same model.</p>
+      {price && <p className="wall-dock__note">Fallback: ${price.input} input / ${price.output} output per 1M tokens.</p>}
+      <p className="wall-dock__note"><a href="https://openrouter.ai/qwen/qwen3-32b" target="_blank" rel="noreferrer">Qwen3 32B: DeepInfra via OpenRouter</a> · checked Oct 6, 2026. <a href="https://platform.claude.com/docs/en/about-claude/pricing" target="_blank" rel="noreferrer">Anthropic prices</a></p>
+      {!!avoided?.benchmarkTokens && <p className="wall-dock__note">{avoided.benchmarkTokens.toLocaleString()} local tokens use the fallback.</p>}
+    </details>
+    {!!avoided?.unpricedTokens && <p className="wall-dock__note">{avoided.unpricedTokens.toLocaleString()} unpriced tokens excluded from savings.</p>}
     {error && <p role="alert">{error}</p>}
-    <p>Advisory only, not a spending limit or bill. Estimates cover recorded usage, not subscription fees. Leave blank to clear.</p>
   </div>;
 }
-
 function Hardware({ providers }: { providers: ProviderConfig[] }) {
   const monitors = useMonitors();
   const { system, gpu } = useResourceSample();

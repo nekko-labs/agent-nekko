@@ -210,7 +210,7 @@ export interface AppSettings {
   mascotEnabled: boolean;
   /** How hard the model works per turn (an effort rung or a temperature). */
   effort?: EffortLevel;
-  /** Cloud comparison for local models without published prices; unset means no estimate. */
+  /** Cloud comparison for unpriced local models; unset uses the default, empty opts out. */
   localCostBenchmark?: string;
   /** Advisory monthly USD budget; read through sanitizeMonthlyBudgetUsd. */
   monthlyBudgetUsd?: number;

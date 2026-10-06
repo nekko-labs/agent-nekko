@@ -49,6 +49,22 @@ it('infers locality for old records but respects recorded locality after provide
   expect(usageSummary().avoidedCosts?.local).toBe(18);
 });
 
+it('uses the published local cloud fallback by default and lets users opt out', () => {
+  root = mkdtempSync(join(tmpdir(), 'nekko-savings-'));
+  setDataDir(root);
+  saveSettings({ providers: [] });
+  record('unlisted-local-model', { local: true });
+  record('qwen3:32b', { local: true });
+  const summary = usageSummary();
+  expect(summary.totalCost).toBe(0);
+  expect(summary.avoidedCosts?.local).toBeCloseTo(0.72);
+  expect(summary.avoidedCosts?.benchmarkTokens).toBe(2_000_000);
+  expect(summary.avoidedCosts?.unpricedTokens).toBe(0);
+  saveSettings({ localCostBenchmark: '' });
+  expect(usageSummary().avoidedCosts?.local).toBeCloseTo(0.36);
+  expect(usageSummary().avoidedCosts?.unpricedTokens).toBe(2_000_000);
+});
+
 describe('usageSummary', () => {
   it('prices subscription usage at list prices per session without billing it', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nekko-usage-'));

@@ -86,7 +86,11 @@ export interface ModelPricing {
  * Unknown / local models have no entry, so the UI can honestly say "no
  * estimate" while usage accounting falls back to $0.
  */
+export const DEFAULT_LOCAL_COST_BENCHMARK = 'qwen3-32b';
+
 export const MODEL_PRICING: ModelPricing[] = [
+  // DeepInfra via OpenRouter, verified 2026-10-06: https://openrouter.ai/qwen/qwen3-32b
+  { match: 'qwen3-32b', input: 0.08, output: 0.28 },
   { match: 'claude-opus', input: 5, output: 25, cacheWrite: 6.25, cacheRead: 0.50 },
   { match: 'claude-sonnet', input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 },
   { match: 'claude-fable', input: 3, output: 15, cacheWrite: 3.75, cacheRead: 0.30 },
@@ -117,7 +121,7 @@ export const MODEL_PRICING: ModelPricing[] = [
 /** Find the pricing entry whose match is the longest substring of `modelId`. */
 export function getModelPrice(modelId: string | undefined): ModelPricing | undefined {
   if (!modelId) return undefined;
-  const id = modelId.toLowerCase();
+  const id = modelId.toLowerCase().replace(/^qwen3:32b(?=$|[-_])/, 'qwen3-32b');
   // Only the published GPT-5 API ids have these prices. Subscription-only
   // Codex variants and later generations must not inherit the base price.
   if (/(?:^|\/)gpt-[5-9](?:[.\-]|$)/.test(id) &&

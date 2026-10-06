@@ -1167,8 +1167,15 @@ Technical approach: independent approval policy and session environment; default
 
 - [x] 2026-10-06 PR sweep CI hardening: handle asynchronous hook stdin pipe closure without uncaught errors; preserve explicit block decisions with a large-payload regression test (623 host tests).
 
+
+### Panel design parity (2026-10-06)
+
+- [x] PD1: Restore panel backgrounds, six-cell Vitals, compact Utilization with quota windows/reset/credits, and Budget spend/savings. Remove monthly-budget form; 408px dock and content-bounded vertical resizing. Focus-first icons, adjacent icon-only arrange, Settings-only auto-add. See SPEC.md Command Center panel design parity. Implemented 2026-10-06.
+- [x] PD2: Final visual/interaction confirmation, usage tests and full build passed 2026-10-06. Matching light/dark wide/narrow screenshots and resize recording published in PR #345; CI and landing status tracked there.
+
 ### Background visual evidence (2026-10-06)
 
 - [x] **VC1**, Native screenshot feedback and background capture. Preserve per-chat selection, private bridge, approval/disclosure, immutable project paths and cancellation. Carry approved PNG evidence through TS and Rust providers after tool batches. Dedicated browser windows start hidden with JavaScript dialogs disabled and focusability off on Windows/macOS; explicit visibility uses showInactive, hidden screenshot uses capturePage with stayHidden. Label native-window versus owned-page provenance. Verify real captures and foreground ownership, provider parity, denial/local-only/oversized behavior. Native third-party minimized/hidden capture is OS-dependent; shell-launched apps and permission dialogs are outside focus control. [Spec](SPEC.md#background-visual-evidence). Added: 2026-10-06.
 
 VC1 verification: full application regression suite, full workspace typecheck and build:web passed; Rust provider tests and clippy passed. Real Windows hidden-page and off-screen native PNGs were inspected; foreground handle remained unchanged. Exact captured PNG bytes reached a local provider fixture. Live model inference was not exercised. CI covers Windows native/background capture and macOS hidden owned-page capture; third-party OS capture limits remain explicit.
+

@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import type { UsageRecord, UsageSummary } from '@agent-nekko/shared';
-import { estimateCost, estimateCostUSD, isLocalProvider } from '@agent-nekko/shared';
+import { DEFAULT_LOCAL_COST_BENCHMARK, estimateCost, estimateCostUSD, isLocalProvider } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 import { dataDir } from './store.js';
 import { clearReplies, replyStats } from './replies.js';
@@ -48,7 +48,7 @@ export function usageSummary(): UsageSummary {
     if (local || r.auth === 'subscription') {
       const tokens = { inputTokens: r.inputTokens, outputTokens: r.outputTokens };
       const exact = estimateCost(r.modelId, tokens);
-      const benchmark = local && exact == null ? estimateCost(settings.localCostBenchmark, tokens) : undefined;
+      const benchmark = local && exact == null ? estimateCost(settings.localCostBenchmark ?? DEFAULT_LOCAL_COST_BENCHMARK, tokens) : undefined;
       const equivalent = exact ?? benchmark;
       const buckets = [summary.avoidedCosts];
       if (r.sessionId) buckets.push(summary.bySessionAvoidedCosts[r.sessionId] ??= { subscription: 0, local: 0, unpricedTokens: 0, benchmarkTokens: 0 });
