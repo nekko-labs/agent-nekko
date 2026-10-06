@@ -559,6 +559,86 @@
           "createdAt": 1790000000039
         }
       ]
+    },
+    "capture-evidence": {
+      "model": "m",
+      "messages": [
+        {
+          "id": "u",
+          "role": "user",
+          "content": "Inspect the app screenshot",
+          "createdAt": 1
+        },
+        {
+          "id": "a",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 2,
+          "toolCalls": [
+            {
+              "id": "shot",
+              "name": "capture",
+              "input": {
+                "action": "screenshot",
+                "window_id": "window:1",
+                "path": ".shots/after.png"
+              }
+            },
+            {
+              "id": "read",
+              "name": "read_file",
+              "input": {
+                "path": "README.md"
+              }
+            },
+            {
+              "id": "failed",
+              "name": "capture",
+              "input": {
+                "action": "screenshot",
+                "path": "denied.png"
+              }
+            }
+          ]
+        },
+        {
+          "id": "t1",
+          "role": "tool",
+          "content": "",
+          "createdAt": 3,
+          "toolResult": {
+            "toolCallId": "shot",
+            "output": "{\"path\":\".shots/after.png\",\"source\":\"native-window\"}",
+            "images": [
+              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="
+            ]
+          }
+        },
+        {
+          "id": "t2",
+          "role": "tool",
+          "content": "",
+          "createdAt": 4,
+          "toolResult": {
+            "toolCallId": "read",
+            "output": "Project instructions"
+          }
+        },
+        {
+          "id": "t3",
+          "role": "tool",
+          "content": "",
+          "createdAt": 5,
+          "toolResult": {
+            "toolCallId": "failed",
+            "output": "Not approved",
+            "isError": true,
+            "images": [
+              "data:image/png;base64,eA=="
+            ]
+          }
+        }
+      ]
     }
   }
 }

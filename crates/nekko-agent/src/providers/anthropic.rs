@@ -240,7 +240,7 @@ fn to_anthropic_messages(req: &ChatRequest) -> Vec<Value> {
         }
         out.push(msg);
     }
-    for m in &req.messages {
+    for m in &crate::types::with_tool_images(&req.messages) {
         if let (Role::Tool, Some(r)) = (m.role, &m.tool_result) {
             push(
                 &mut out,

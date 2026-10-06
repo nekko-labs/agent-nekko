@@ -138,7 +138,7 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
   },
   {
     name: 'browser',
-    description: 'Control a visible local Chromium browser. Each action requires approval unless the user has enabled allow-all (YOLO) for this chat. Dedicated mode opens an isolated in-app Nekko browser window (use this by default); existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
+    description: 'Control a local Chromium browser. Dedicated windows run hidden by default without taking focus. Set visible=true only when the user needs to see the window; it shows without activation. Each action requires approval unless the user has enabled allow-all (YOLO) for this chat. Dedicated mode opens an isolated in-app Nekko browser window (use this by default); existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
     parameters: {
       type: 'object',
       properties: {
@@ -148,13 +148,14 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
         port: { type: 'number', description: 'Existing Chromium localhost CDP port, commonly 9222.' },
         selector: { type: 'string', description: 'CSS selector for click or fill.' },
         value: { type: 'string', description: 'Text to enter for fill.' },
+        visible: { type: 'boolean', description: 'Dedicated mode only: true shows without activation, false hides, omitted keeps current visibility. New windows start hidden.' },
       },
       required: ['mode', 'action'],
     },
   },
   {
     name: 'capture',
-    description: 'Capture an actual local app window, including apps launched by terminal commands in any project. Desktop only; each action requires approval unless the user has enabled allow-all (YOLO) for this chat. First list windows, then select its window_id for a PNG screenshot or a 1–15 second silent WebM recording. No browser substitution or whole-screen capture. Restore minimized windows before capture. Output files must be new paths inside the chat project; report the path and inspect the evidence before claiming visual verification.',
+    description: 'Capture an actual local app window, including apps launched by terminal commands in any project. Desktop only; each action requires approval unless the user has enabled allow-all (YOLO) for this chat. First list windows, then select its window_id for a PNG screenshot or a 1–15 second silent WebM recording. No browser substitution or whole-screen capture. Prefer native capture for app evidence. Capture never focuses, raises, or restores windows. Hidden/minimized/protected third-party windows depend on OS support; report unavailable frames instead of interrupting the user. List includes the hidden dedicated browser owned by this chat, whose PNG is page content only, without native OS chrome. Output files must be new paths inside the chat project; PNG pixels go to the selected model by default (requires vision support, 5 MB maximum); inspect=false saves locally only. Approval names this disclosure. Recordings are saved only and are not inspected automatically. Report the path and inspect actual evidence before claiming visual verification; never silently switch models.',
     parameters: {
       type: 'object',
       properties: {
@@ -162,6 +163,7 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
         window_id: { type: 'string', description: 'Exact id returned by list for the desired app window.' },
         path: { type: 'string', description: 'New workspace-relative output path ending in .png or .webm.' },
         seconds: { type: 'number', description: 'Recording duration, 1–15 seconds; default 5.' },
+        inspect: { type: 'boolean', description: 'Screenshots only: send pixels to the selected model (default true). False saves locally without sending pixels.' },
       },
       required: ['action'],
     },
