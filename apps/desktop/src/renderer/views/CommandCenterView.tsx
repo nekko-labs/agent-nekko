@@ -389,19 +389,6 @@ function WallToolbar({
         {counts.chat} agent{counts.chat === 1 ? '' : 's'} · {counts.terminal} terminal{counts.terminal === 1 ? '' : 's'} on the wall
       </span>
       <div className="ml-auto flex flex-wrap items-center gap-3">
-        <div className="inline-flex rounded-lg border border-line p-0.5" role="tablist" aria-label="Show">
-          {FILTERS.map((f) => (
-            <button
-              key={f.key}
-              role="tab"
-              aria-selected={wall.filter === f.key}
-              className={`rounded-md px-2.5 py-1 text-[12px] transition-colors ${wall.filter === f.key ? 'bg-surface-2 font-medium text-ink' : 'text-ink-faint hover:text-ink'}`}
-              onClick={() => setWall((w) => ({ ...w, filter: f.key }))}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
         <div className="wall-layout-control" ref={fixedRef}>
           <div className="wall-layout-segments" role="group" aria-label="Wall layout">
             {(['focus', 'grid', 'fixed'] as const).map((mode) => (
@@ -422,9 +409,22 @@ function WallToolbar({
             </div>
           </div>}
         </div>
+        <div className="inline-flex rounded-lg border border-line p-0.5" role="tablist" aria-label="Show">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              role="tab"
+              aria-selected={wall.filter === f.key}
+              className={`rounded-md px-2.5 py-1 text-[12px] transition-colors ${wall.filter === f.key ? 'bg-surface-2 font-medium text-ink' : 'text-ink-faint hover:text-ink'}`}
+              onClick={() => setWall((w) => ({ ...w, filter: f.key }))}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <button
           className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
-          title="Re-tile the wall into even rows and columns"
+          title="Fit windows above the composer in even rows and columns"
           aria-label="Auto-arrange"
           onClick={onAutoArrange}
           disabled={!canArrange}

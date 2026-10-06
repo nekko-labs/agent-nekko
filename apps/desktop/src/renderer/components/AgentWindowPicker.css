@@ -36,7 +36,11 @@
 .agent-window-picker__cat { width: 72px; height: 72px; color: var(--accent); flex-shrink: 0; }
 .agent-window-picker__columns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
 .agent-window-picker__column { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
-.agent-window-picker__models { border: 0; padding: 0; margin: 0; min-width: 0; height: 320px; }
+.agent-window-picker__models { border: 0; padding: 0; margin: 0; min-width: 0; min-height: 0; height: 320px; flex: 0 0 320px; overflow: hidden; }
+/* Fieldset's anonymous content box otherwise expands to the catalog's intrinsic
+   height, defeating the nested flex list's scrolling and covering Create chat. */
+.agent-window-picker__models > div { height: 100%; overflow: hidden; }
+.agent-window-picker__models [role="listbox"] { min-height: 0; overflow-y: auto; }
 .agent-window-picker__models button { border: 0; padding: 6px 10px; border-radius: 8px; }
 .agent-window-picker__models button:disabled { opacity: .6; }
 .agent-window-picker__list { display: flex; flex-direction: column; gap: 8px; max-height: 380px; overflow-y: auto; padding: 4px; }

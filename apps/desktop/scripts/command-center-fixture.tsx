@@ -10,7 +10,7 @@ import '../src/renderer/styles.css';
 
 // Synthetic records only. This fixture never connects to a host or daemon.
 const provider = { id: 'fixture', kind: 'openai', enabled: true, label: 'Fixture provider' };
-const models = [{ id: 'fixture-model', providerId: 'fixture', name: 'Fixture model', contextWindow: 128000 }];
+const models = [{ id: 'fixture-model', providerId: 'fixture', name: 'Fixture model', contextWindow: 128000 }, ...Array.from({ length: 40 }, (_, i) => ({ id: `catalog-${i}`, providerId: 'fixture', name: `Catalog model ${i}`, contextWindow: 128000 }))];
 const makeSession = (id: string) => ({ id, title: id === 'existing' ? 'Existing conversation' : `Synthetic ${id}`, createdAt: Date.now(), updatedAt: Date.now(), providerId: 'fixture', modelId: 'fixture-model', mode: 'agent', chatType: 'multimodal', messages: [], attachments: [], queuedPrompts: [] });
 let records: any[] = [];
 let terminals: any[] = [];

@@ -125,18 +125,14 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   // Keep real split identities and user ratios. A virtual chat insertion would
   // re-tile every render and hide dividers whose IDs no longer match the source.
   const addGrid = companionTree(grid, expanded);
-  if (state.layout.mode === 'grid' && width >= NARROW_WIDTH) {
-    // Preserve split ratios while giving each chat at least a 4:3 footprint.
-    for (const r of leafRects(addGrid).values()) {
-      if (r.height > 0) stageHeight = Math.max(stageHeight, (r.width * width * .75 + gap) / r.height);
-    }
-  }
+  // Use the measured space remaining beside/above the composer, not a
+  // width-derived aspect floor that makes wide windows overflow the viewport.
   let contentHeight = stageHeight;
   if (state.layout.mode === 'focus') {
     if (hero) panes.set(hero, { x: 0, y: 0, width, height: stageHeight });
   } else if (state.layout.mode === 'fixed' || width < NARROW_WIDTH) {
     const cols = width < NARROW_WIDTH ? 1 : state.layout.cols;
-    const rowHeight = width < NARROW_WIDTH ? NARROW_ROW_H : Math.max(160, ((width - gap * (cols - 1)) / cols) * .75, (stageHeight - gap * (state.layout.rows - 1)) / state.layout.rows);
+    const rowHeight = width < NARROW_WIDTH ? NARROW_ROW_H : Math.max(160, (stageHeight - gap * (state.layout.rows - 1)) / state.layout.rows);
     const cellWidth = Math.max(0, (width - gap * (cols - 1)) / cols);
     // Fixed overflow adds rows rather than hiding live windows beyond capacity.
     const slots = active.length + 1;

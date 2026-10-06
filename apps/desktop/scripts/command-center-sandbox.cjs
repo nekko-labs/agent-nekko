@@ -56,6 +56,8 @@ app.whenReady().then(async () => {
     await click('Focus'); await check('Grid to Focus', "!!document.querySelector('[aria-label=\"Focus agents\"]')");
     await click('Grid'); await check('Focus to Grid', "!document.querySelector('[aria-label=\"Focus agents\"]')");
     await reset(); await open('Chat');
+    await check('long catalog scrolls inside fieldset without covering Create chat', "(()=>{const list=document.querySelector('.agent-window-picker [role=listbox]');const field=document.querySelector('.agent-window-picker__models');const create=document.querySelector('.agent-window-picker__primary');return list.scrollHeight>list.clientHeight&&list.getBoundingClientRect().bottom<=field.getBoundingClientRect().bottom+1&&field.getBoundingClientRect().bottom<=create.getBoundingClientRect().top;})()");
+    await check('layout toggle precedes agent filter', "!!(document.querySelector('[aria-label=\"Wall layout\"]').compareDocumentPosition(document.querySelector('[aria-label=\"Show\"]')) & Node.DOCUMENT_POSITION_FOLLOWING)");
     await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Fixture model')).click()"); await sleep(180); await click('Create chat');
     await check('chat model creation configures selected provider/model', "integration.calls.some(c=>c.method==='options'&&c.options.providerId==='fixture'&&c.options.modelId==='fixture-model'&&c.options.autoModel===false) && !document.querySelector('.agent-window-picker')");
     await reset(); await open('Terminal'); await click('Create terminal');
@@ -71,6 +73,7 @@ app.whenReady().then(async () => {
       for (const [width, label] of [[1200, 'desktop'], [400, 'narrow']]) {
         win.setContentSize(width, 900); await reset(); await capture(`full-grid-${theme}-${label}`);
         await open(); await capture(`full-picker-${theme}-${label}`);
+        await run("[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent==='Chat').click()"); await capture(`long-catalog-${theme}-${label}`);
         await click('Add window'); await click('Focus'); await capture(`full-focus-${theme}-${label}`);
         await run("integration.route('workspace')"); await sleep(500);
         await run("(()=>{const b=document.querySelector('[title=\"New agent with a terminal\"]'); b.focus(); b.dispatchEvent(new FocusEvent('focusin',{bubbles:true}));})()"); await capture(`workspace-image-menu-${theme}-${label}`);
