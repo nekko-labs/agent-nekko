@@ -11,7 +11,7 @@ import '../src/renderer/styles.css';
 // Synthetic records only. This fixture never connects to a host or daemon.
 const provider = { name: 'Fixture provider', id: 'fixture', kind: 'openai', enabled: true, label: 'Fixture provider' };
 const models = [{ id: 'fixture-model', providerId: 'fixture', name: 'Fixture model', contextWindow: 128000 }, { id:'fixture-fast',providerId:'fixture',name:'Fast fixture',contextWindow:32000 }];
-const makeSession = (id: string) => ({ id, title: id === 'existing' ? 'Existing conversation' : `Synthetic ${id}`, createdAt: Date.now(), updatedAt: Date.now(), providerId: 'fixture', modelId: 'fixture-model', mode: 'agent', chatType: 'multimodal', messages: [], attachments: [], queuedPrompts: [] });
+const makeSession = (id: string) => ({ id, title: id === 'existing' ? 'Existing conversation' : `Synthetic ${id}`, createdAt: Date.now(), updatedAt: Date.now(), providerId: 'fixture', modelId: 'fixture-model', mode: 'agent', chatType: 'multimodal', messages: [{ id: 'synthetic-user', role: 'user', content: 'Please verify the chat actions.', createdAt: 1 }, { id: 'synthetic-reply', role: 'assistant', content: 'The verification reply is complete.', createdAt: 2 }], attachments: [], queuedPrompts: [] });
 let pending: any = {};
 const listeners = new Set<(e: any) => void>();
 let records: any[] = [];
@@ -28,7 +28,7 @@ const bridge: any = {
   getSession: async (id: string) => records.find(s => s.id === id), listModels: async () => models,
   getUsageSummary: async () => null, pendingInput: async () => pending, onAgentEvent: (fn: any) => {listeners.add(fn);return () => listeners.delete(fn)}, answerQuestion: async (id: string, callId: string, answers: any) => {calls.push({method:'answer',id,callId,answers});pending={};listeners.forEach(fn=>fn({type:'question_resolved',sessionId:id,callId}));}, runningSessions: async () => [],
   listTasks: async () => [], listShells: async () => [], listChanges: async () => [], listFiles: async () => [],
-  previewContext: async () => ({ items: [], totalTokens: 0, budget: 128000 }), getGitStatus: async () => ({ repo: false }),
+  previewContext: async () => ({ items: [], totalTokens: 0, budget: 128000 }), getGitStatus: async () => ({ repo: true, branch: 'synthetic-branch', worktree: { name: 'synthetic-worktree', path: '/synthetic/worktree' } }),
   getLimits: async () => null, listTools: async () => [], getMcpStatus: async () => [], listSkills: async () => [],
   terminalRead: async () => '', readTerminal: async () => '', updateSettings: async () => null,
 };
