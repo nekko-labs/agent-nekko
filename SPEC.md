@@ -87,6 +87,14 @@ Agent Nekko ships the **same engine + same React UI** in several runtimes; from 
 - **Docker**: `docker compose up`, workspaces as mounted volumes, local models reachable via `host.docker.internal`.
 - **Agent Nekko Cloud** (paid), managed hosting with subscriptions, an always-available **Zero-Data-Retention** mode, cloud chat-history + file management, and **phone connectivity to your locally-running model** via a secure relay.
 
+### Inline agent-window creation
+
+Implemented in source (2026-10-06; desktop visual acceptance still unverified): the wall Add tile moves to the top and reveals inline Chat, Media and Terminal choices, rather than a toolbar dropdown. Existing panes move below the measured picker; narrow, grid and focus layouts keep the picker within the wall width. CSS animates placement/reveal and honors reduced motion. Keyboard opening focuses a choice; Escape/Close dismisses and restores the opener. Pending creation rejects double activation and disables picker dismissal; failures stay visible for retry. Chat selection uses the shared Auto model sentinel, never a literal model named `auto`. Failed chat configuration deletes the newly created record before retry; wall entries and session lists deduplicate by id.
+
+Chat offers an inline model catalog and existing non-archived chats; Media creates a dedicated image session; Terminal creates or opens a shell. The workspace creation menu also offers New image session. The composer no longer switches an existing conversation between image and chat types; image parameters remain available within image sessions. No model inference, download or shell starts merely by opening the picker, and selection does not edit provider defaults or favorites.
+
+Acceptance still pending: visually inspect matching base/after desktop-window screenshots and motion, exercise actual CommandCenterView creation/failure/focus wiring and workspace image entry, and verify remaining platforms. Full-styled isolated component captures and focused tests are not proof of full-app acceptance. Video is **planned, unavailable and disabled**; no video generation or shipped status is claimed.
+
 ### Chat suggestions, progress and code access
 
 Updated 2026-10-02. Suggested follow-up replies sit inside the top of the message box, above attachments and the draft. They keep their one-click send behavior and the Right Arrow draft suggestion. Image chats do not show reply suggestions.

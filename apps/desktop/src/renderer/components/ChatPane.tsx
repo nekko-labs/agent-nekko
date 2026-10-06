@@ -25,7 +25,7 @@ import {
 } from './agent-console/index.js';
 import type { PendingApproval } from './agent-console/index.js';
 import { LiveTurn, producedTokens, useProducedTokens } from './agent-console/LiveTurn.js';
-import { ChatTypeToggle, ImageModeControls } from './agent-console/ImageModeControls.js';
+import { ImageModeControls } from './agent-console/ImageModeControls.js';
 import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
 import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
@@ -2052,7 +2052,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {welcomeState.modelChoice && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
                   <div className="flex items-center justify-between gap-2 px-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Choose a model</span>
-                    {session && <ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
+
                   </div>
                   {imageMode && session ? <ImageModeControls session={session} onChange={setSession} busy={streaming} /> :
                     <ModelPicker providers={providers} providerId={providerId} models={models} modelId={modelId}
@@ -2216,7 +2216,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 session={session}
                 isCloudModel={isCloudModel}
                 onChange={setSession}
-                leading={<ChatTypeToggle session={session} onChange={setSession} disabled={streaming} />}
               />
               </div>
               {!imageMode && (<>

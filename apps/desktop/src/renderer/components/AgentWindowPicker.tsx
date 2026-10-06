@@ -1,0 +1,137 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { isArchived } from '@agent-nekko/shared';
+import { useStore } from '../store.js';
+import { ModelPicker } from './agent-console/ModelPicker.js';
+import './AgentWindowPicker.css';
+
+/** No refId means create; refId means open an existing session or terminal. */
+export type AgentWindowSelection = {
+  kind: 'chat' | 'terminal';
+  refId?: string;
+  chatType?: 'multimodal' | 'image';
+  providerId?: string;
+  modelId?: string;
+};
+
+export interface AgentWindowPickerProps {
+  onAdd: (selection: AgentWindowSelection) => Promise<void>;
+  onClose: () => void;
+}
+
+type Category = 'chat' | 'media' | 'terminal';
+
+function CatIcon({ kind }: { kind: Category }) {
+  return (
+    <svg className="agent-window-picker__cat" viewBox="0 0 80 80" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 43V17l17 10a35 35 0 0 1 16 0l17-10v26c0 16-11 24-25 24S15 59 15 43Z" fill="var(--surface-2)" />
+      <path d="M27 40v3m26-3v3M36 49l4 3 4-3m-4 3v5m-18-9-10-2m10 8-10 2m46-8 10-2m-10 8 10 2" />
+      {kind === 'chat' && <><path d="M48 58h25v13H61l-7 5v-5h-6Z" fill="var(--surface)" /><path d="M54 64h13" /></>}
+      {kind === 'media' && <><rect x="47" y="56" width="27" height="20" rx="3" fill="var(--surface)" /><circle cx="66" cy="62" r="2" /><path d="m50 73 8-9 6 6 4-4 4 7" /></>}
+      {kind === 'terminal' && <><rect x="46" y="56" width="29" height="20" rx="3" fill="var(--surface)" /><path d="m52 62 4 4-4 4m9 0h7" /></>}
+    </svg>
+  );
+}
+
+/** Inline surface: the host owns placement, data loading, creation and dismissal. */
+export function AgentWindowPicker({ onAdd, onClose }: AgentWindowPickerProps) {
+  const sessions = useStore((s) => s.sessions);
+  const terminals = useStore((s) => s.terminals);
+  const providers = useStore((s) => s.providers);
+  const models = useStore((s) => s.models);
+  const activeProviderId = useStore((s) => s.activeProviderId);
+  const [category, setCategory] = useState<Category | null>(null);
+  const [choice, setChoice] = useState<{ providerId: string; modelId: string } | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const adding = useRef(false);
+  const surface = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement as HTMLElement | null;
+    surface.current?.querySelector<HTMLButtonElement>('.agent-window-picker__option')?.focus({ preventScroll: true });
+    return () => { if (previous?.isConnected) previous.focus({ preventScroll: true }); };
+  }, []);
+  const enabledProviders = useMemo(() => providers.filter((p) => p.enabled), [providers]);
+  const availableSessions = sessions.filter((s) => !isArchived(s));
+
+  const add = async (selection: AgentWindowSelection) => {
+    if (adding.current) return;
+    adding.current = true;
+    setPending(true);
+    setError(null);
+    try {
+      await onAdd(selection);
+      // The host decides whether successful addition dismisses this surface.
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      adding.current = false;
+      setPending(false);
+    }
+  };
+
+  return (
+    <section ref={surface} className="agent-window-picker" aria-label="Add agent window" aria-busy={pending} onKeyDown={(event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!adding.current) onClose();
+      }
+    }}>
+      <header className="agent-window-picker__header">
+        <div>
+          <h2>{category ? { chat: 'Chat', media: 'Media', terminal: 'Terminal' }[category] : 'Add a window'}</h2>
+          <p>{category ? 'Create something new or pick up where you left off.' : 'Choose how you want to work.'}</p>
+        </div>
+        <button type="button" onClick={onClose} disabled={pending} aria-label="Close window picker">Close</button>
+      </header>
+      {category && <button type="button" className="agent-window-picker__back" disabled={pending} onClick={() => { setCategory(null); setError(null); }}>← All window types</button>}
+      {!category && (
+        <div className="agent-window-picker__options">
+          {(['chat', 'media', 'terminal'] as const).map((kind) => (
+            <button type="button" className="agent-window-picker__option" key={kind} onClick={() => setCategory(kind)}>
+              <CatIcon kind={kind} />
+              <strong>{{ chat: 'Chat', media: 'Media', terminal: 'Terminal' }[kind]}</strong>
+              <span>{{ chat: 'Choose a model or open a conversation', media: 'Generate images · video planned', terminal: 'Start a shell or open a terminal' }[kind]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {category === 'chat' && (
+        <div className="agent-window-picker__columns">
+          <section className="agent-window-picker__column" aria-label="New chat">
+            <h3>New chat</h3><p>Choose a model, then create your chat.</p>
+            <fieldset className="agent-window-picker__models" disabled={pending}>
+              <legend className="agent-window-picker__sr-only">Choose a chat model</legend>
+              <ModelPicker expanded readOnly open providers={enabledProviders} providerId={choice?.providerId ?? activeProviderId} models={!choice || choice.providerId === activeProviderId ? models : []} modelId={choice?.modelId ?? null} needsChoice={!choice} onOpenChange={() => {}} onProvider={() => {}} onModel={(providerId, modelId) => setChoice({ providerId, modelId })} />
+            </fieldset>
+            <button type="button" className="agent-window-picker__primary" disabled={pending || !choice} onClick={() => choice && void add({ kind: 'chat', chatType: 'multimodal', ...(choice.providerId ? { providerId: choice.providerId } : {}), modelId: choice.modelId })}>Create chat</button>
+          </section>
+          <section className="agent-window-picker__column" aria-label="Existing chats">
+            <h3>Existing chats</h3>
+            <div className="agent-window-picker__list">
+              {availableSessions.length === 0 && <p>No existing chats.</p>}
+              {availableSessions.map((session) => <button type="button" key={session.id} disabled={pending} onClick={() => void add({ kind: 'chat', refId: session.id, chatType: session.chatType ?? 'multimodal' })}><strong>{session.title || 'Untitled chat'}</strong><span>{session.chatType === 'image' ? 'Image session' : 'Chat'}</span></button>)}
+            </div>
+          </section>
+        </div>
+      )}
+      {category === 'media' && (
+        <div className="agent-window-picker__options">
+          <button type="button" className="agent-window-picker__option" disabled={pending} onClick={() => void add({ kind: 'chat', chatType: 'image' })}><CatIcon kind="media" /><strong>Create image session</strong><span>Generate images in a new conversation.</span></button>
+          <button type="button" className="agent-window-picker__option" disabled><CatIcon kind="media" /><strong>Video · Planned</strong><span>Unavailable — video creation is not implemented.</span></button>
+        </div>
+      )}
+      {category === 'terminal' && (
+        <div className="agent-window-picker__columns">
+          <section className="agent-window-picker__column"><h3>New terminal</h3><p>Start a new shell session.</p><button type="button" className="agent-window-picker__primary" disabled={pending} onClick={() => void add({ kind: 'terminal' })}>Create terminal</button></section>
+          <section className="agent-window-picker__column" aria-label="Existing terminals"><h3>Existing terminals</h3><div className="agent-window-picker__list">
+            {terminals.length === 0 && <p>No existing terminals.</p>}
+            {terminals.map((terminal) => <button type="button" key={terminal.id} disabled={pending} onClick={() => void add({ kind: 'terminal', refId: terminal.id })}><strong>{terminal.title || 'Untitled terminal'}</strong><span>{terminal.running ? 'Running' : 'Exited'} · {terminal.cwd}</span></button>)}
+          </div></section>
+        </div>
+      )}
+      {pending && <p role="status">Adding window…</p>}
+      {error !== null && <p className="agent-window-picker__error" role="alert">Could not add window: {error || 'Unknown error'}</p>}
+    </section>
+  );
+}

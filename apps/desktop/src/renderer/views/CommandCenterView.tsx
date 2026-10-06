@@ -1,19 +1,20 @@
+import { AgentWindowPicker, type AgentWindowSelection } from '../components/AgentWindowPicker.js';
 import { NumberedChatIcon } from '../components/NumberedChatIcon.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, AutomationTask, PendingInput, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType } from '@agent-nekko/shared';
-import { classifyAgent, classifySession, formatUSD, summarizeSession } from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, classifyAgent, classifySession, formatUSD, summarizeSession } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
 import { Toggle } from '../components/primitives/index.js';
-import { ChatIcon, GridIcon, PlusIcon, TerminalIcon } from '../icons.js';
+import { GridIcon, PlusIcon, TerminalIcon } from '../icons.js';
 import { CommandWall, TerminalExcerpt } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
 import { type Vitals } from '../components/InsightsBox.js';
 import { WallDock } from '../components/WallDock.js';
-import { SHORTCUTS } from '../shortcuts.js';
+
 import { allPanes, isSplit, type PaneKind } from '../layout.js';
 import {
   DEFAULT_ASPECT,
@@ -193,14 +194,24 @@ export function CommandCenterView() {
 
   // Starting work from the wall keeps you on the wall: the new chat or shell
   // becomes a window here rather than switching to the Agent tab.
-  const newChat = async (): Promise<string> => {
-    const s = await window.nekko.createSession(activeProjectId ?? undefined);
-    useStore.setState((state) => ({ sessions: [summarizeSession(s), ...state.sessions] }));
+  const newChat = async (selection?: AgentWindowSelection): Promise<string> => {
+    let s = await window.nekko.createSession(activeProjectId ?? undefined);
+    if (selection) {
+      try {
+      const updated = await window.nekko.setSessionOptions(s.id, { chatType: selection.chatType ?? 'multimodal', ...(selection.providerId ? { providerId: selection.providerId } : {}), ...(selection.modelId ? { modelId: selection.modelId, autoModel: selection.modelId === AUTO_MODEL_ID } : {}) });
+      if (!updated) throw new Error('Could not configure the new agent window.');
+      s = updated;
+      } catch (error) {
+        await window.nekko.deleteSession(s.id);
+        throw error;
+      }
+    }
+    useStore.setState((state) => ({ sessions: [summarizeSession(s), ...state.sessions.filter((existing) => existing.id !== s.id)] }));
     return s.id;
   };
   const newTerminal = async (): Promise<string> => {
     const t = await window.nekko.createTerminal({ workspaceId: activeProjectId ?? undefined });
-    await refreshTerminals();
+    useStore.setState((state) => ({ terminals: [t, ...state.terminals.filter((existing) => existing.id !== t.id)] }));
     return t.id;
   };
   /** A window from the toolbar, with no side pointed at: beside the biggest window. */
@@ -275,7 +286,7 @@ export function CommandCenterView() {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
-      <WallToolbar wall={wall} setWall={setWall} sessions={sessions} terminals={terminals} onAdd={addFromToolbar} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} />
+      <WallToolbar wall={wall} setWall={setWall} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} />
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
         <div className="wall-column">
@@ -305,7 +316,13 @@ export function CommandCenterView() {
         onOpenTerminal={openTerminal}
         onNewChat={newChat}
         onNewTerminal={newTerminal}
-        onAddWindow={() => setAddOpen(true)}
+        onAddWindow={() => setAddOpen((open) => !open)}
+        addContent={addOpen ? <AgentWindowPicker onClose={() => setAddOpen(false)} onAdd={async (selection) => {
+          const ref = selection.refId ?? (selection.kind === 'chat' ? await newChat(selection) : await newTerminal());
+          await addFromToolbar(selection.kind, ref);
+          if (selection.kind === 'chat') selectAgent(ref);
+          setAddOpen(false);
+        }} /> : undefined}
       />
       {wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{composerSplit}{composer}</>}
         </div>
@@ -325,18 +342,12 @@ const FILTERS: Array<{ key: WallFilter; label: string }> = [
 function WallToolbar({
   wall,
   setWall,
-  sessions,
-  terminals,
-  onAdd,
   onAutoArrange,
   addOpen,
   setAddOpen,
 }: {
   wall: CommandWallState;
   setWall: (update: (s: CommandWallState) => CommandWallState) => void;
-  sessions: SessionSummary[];
-  terminals: import('@agent-nekko/shared').TerminalInfo[];
-  onAdd: (kind: PaneKind, refId?: string) => Promise<void>;
   onAutoArrange: () => void;
   addOpen: boolean;
   setAddOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -352,26 +363,8 @@ function WallToolbar({
     window.addEventListener('keydown', key);
     return () => { window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key); };
   }, [fixedOpen]);
-  const [busy, setBusy] = useState(false);
-  const addRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!addOpen) return;
-    const onDown = (e: MouseEvent) => { if (!addRef.current?.contains(e.target as Node)) setAddOpen(false); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setAddOpen(false); };
-    window.addEventListener('mousedown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => { window.removeEventListener('mousedown', onDown); window.removeEventListener('keydown', onKey); };
-  }, [addOpen, setAddOpen]);
-
   const panes = allPanes(wall.root);
   const counts = { chat: panes.filter((p) => p.kind === 'chat').length, terminal: panes.filter((p) => p.kind === 'terminal').length };
-  const on = (kind: PaneKind, refId: string = kind) => panes.some((p) => p.kind === kind && p.refId === refId);
-  const chats = sessions
-    .filter((s) => !s.archivedAt && !s.taskId && !s.trainingRunId && !on('chat', s.id))
-    .sort((a, b) => b.updatedAt - a.updatedAt)
-    .slice(0, 8);
-  const shells = terminals.filter((t) => !on('terminal', t.id) && !t.agentSessionId).slice(0, 6);
-  const run = (kind: PaneKind, refId?: string) => { setAddOpen(false); setBusy(true); void onAdd(kind, refId).finally(() => setBusy(false)); };
   const canArrange = wall.layout.mode === 'grid' && !!wall.root && isSplit(wall.root);
 
   return (
@@ -423,56 +416,16 @@ function WallToolbar({
         >
           <GridIcon className="h-3.5 w-3.5" /> Auto-arrange
         </button>
-        <div className="relative" ref={addRef}>
+        <div className="relative">
           <button
             className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
             onClick={() => setAddOpen((o) => !o)}
-            disabled={busy}
-            aria-haspopup="menu"
+            aria-controls="wall-window-picker"
             aria-expanded={addOpen}
             title="Add an agent, a terminal, or a chat already running"
           >
-            <PlusIcon className="h-3.5 w-3.5" /> {busy ? 'Starting…' : 'Add window'}
+            <PlusIcon className="h-3.5 w-3.5" /> Add window
           </button>
-          {addOpen && (
-            <div className="card absolute right-0 top-9 z-30 w-72 max-h-[70vh] overflow-y-auto p-1.5 shadow-lg" style={{ background: 'var(--paper)' }} role="menu">
-              <button className="create-row create-row-hero flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left" role="menuitem" onClick={() => run('chat')}>
-                <span className="create-tile create-tile-brand"><ChatIcon className="h-4 w-4" /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-semibold">New agent</span>
-                  <span className="block text-[11px] text-ink-faint">A fresh chat, right here on the wall</span>
-                </span>
-                <kbd className="kbd">{SHORTCUTS.newAgent.label}</kbd>
-              </button>
-              <button className="create-row flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left" role="menuitem" onClick={() => run('terminal')}>
-                <span className="create-tile" style={{ color: 'var(--success)' }}><TerminalIcon className="h-4 w-4" /></span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-semibold">New terminal</span>
-                  <span className="block text-[11px] text-ink-faint">A shell in the active project</span>
-                </span>
-                <kbd className="kbd">{SHORTCUTS.newTerminal.label}</kbd>
-              </button>
-              {(chats.length > 0 || shells.length > 0) && (
-                <>
-                  <p className="px-2.5 pb-0.5 pt-2 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Already running</p>
-                  {chats.map((s) => (
-                    <button key={s.id} className="create-row flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left" role="menuitem" onClick={() => run('chat', s.id)}>
-                      <ChatIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                      <span className="min-w-0 flex-1 truncate text-[12.5px]">{s.title}</span>
-                      {s.parentSessionId && <span className="chip shrink-0 text-[10px]">sub-agent</span>}
-                    </button>
-                  ))}
-                  {shells.map((t) => (
-                    <button key={t.id} className="create-row flex w-full items-center gap-2.5 rounded-xl px-2.5 py-1.5 text-left" role="menuitem" onClick={() => run('terminal', t.id)}>
-                      <TerminalIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                      <span className="min-w-0 flex-1 truncate text-[12.5px]">{t.title}</span>
-                      <span className="shrink-0 text-[11px]" style={{ color: t.running ? 'var(--success)' : 'var(--ink-faint)' }}>{t.running ? 'live' : 'exited'}</span>
-                    </button>
-                  ))}
-                </>
-              )}
-            </div>
-          )}
         </div>
         <label className="flex cursor-pointer items-center gap-2 text-[12px] text-ink-soft" title="Every chat that starts, sub-agents included, joins the wall">
           <Toggle value={wall.autoAdd} onChange={(v) => setWall((w) => ({ ...w, autoAdd: v }))} label="Auto-add new agents" />

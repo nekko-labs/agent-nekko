@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_IMAGE_CHAT_PARAMS,
-  type ChatType,
   type ImageChatParams,
   type ImageCompanionStatus,
   type LocalModel,
@@ -11,36 +10,6 @@ import { useStore } from '../../store.js';
 
 const SIZES = ['512x512', '768x768', '1024x1024', '1024x768', '768x1024', '1344x768', '768x1344'];
 const gb = (bytes: number) => `${(bytes / 1e9).toFixed(1)} GB`;
-
-/**
- * The chat's type: a conversation with a chat model, or a stream of pictures
- * from an image model. Lives at the head of the composer's brain row, because
- * it decides what every other control on that row means.
- */
-export function ChatTypeToggle({ session, onChange, disabled }: { session: Session | null; onChange: (s: Session) => void; disabled?: boolean }) {
-  const type: ChatType = session?.chatType ?? 'multimodal';
-  const pick = (t: ChatType) => {
-    if (!session || t === type) return;
-    window.nekko.setSessionOptions(session.id, { chatType: t }).then((s) => { if (s) onChange(s); }).catch(() => {});
-  };
-  return (
-    <div role="radiogroup" aria-label="Chat type" className="inline-flex shrink-0 rounded-lg border border-line p-0.5">
-      {(['multimodal', 'image'] as const).map((t) => (
-        <button
-          key={t}
-          role="radio"
-          aria-checked={type === t}
-          disabled={disabled || !session}
-          onClick={() => pick(t)}
-          title={t === 'multimodal' ? 'Chat with a model: text and images in, text out' : 'Generate images with a local image model'}
-          className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${type === t ? 'bg-surface-2 text-ink' : 'text-ink-faint hover:text-ink'}`}
-        >
-          {t === 'multimodal' ? 'MultiModal' : 'Image'}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 /**
  * The image chat's brain row: which image model, and how it samples. Each
