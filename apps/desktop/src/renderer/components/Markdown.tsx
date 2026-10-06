@@ -507,7 +507,7 @@ function Ref({ href, basePath, children }: { href: string; basePath?: string; ch
       className="wrap-break-word underline"
       style={{ color: 'var(--accent)' }}
       title={`Open ${target}`}
-      onClick={() => { void import('../store.js').then(({ useStore }) => useStore.getState().openFilePane(target)); }}
+      onClick={() => { useStore.getState().openFilePane(target); }}
     >
       {children}
     </button>

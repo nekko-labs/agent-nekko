@@ -30,6 +30,10 @@ The mascot redesign is in draft review: an icon-inspired 8-bit cat head in cream
 
 ## Why It Exists
 
+### Development build workflow
+
+`npm run dev` runs the complete build, including the Rust daemon, before starting the desktop development server with hot reload. A failed build prevents startup. Production renderer builds retain lazy diagram loading and all supported Mermaid layouts; build optimizations must preserve diagram rendering and normal application tree shaking.
+
 People who want to run AI models locally are stuck choosing between two kinds of tool, each blind in its own way:
 
 - **Local chat UIs (LM Studio, Ollama front-ends)** are *chat-only*, a great model runner with a chat box, but with no awareness of your files or projects. The model can talk about your work but can't actually do it.
