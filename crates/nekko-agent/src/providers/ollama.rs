@@ -195,7 +195,7 @@ fn to_ollama_messages(req: &ChatRequest) -> Vec<Value> {
     if let Some(system) = req.system.as_deref().filter(|s| !s.is_empty()) {
         out.push(json!({ "role": "system", "content": system }));
     }
-    for m in &req.messages {
+    for m in &crate::types::with_tool_images(&req.messages) {
         if let (Role::Tool, Some(r)) = (m.role, &m.tool_result) {
             out.push(json!({ "role": "tool", "content": r.output }));
         } else if let (Role::Assistant, Some(calls)) = (m.role, m.calls()) {

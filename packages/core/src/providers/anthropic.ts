@@ -1,3 +1,4 @@
+import { withToolImages } from './tool-images.js';
 import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
@@ -380,7 +381,7 @@ export class AnthropicProvider implements Provider {
       }
       out.push(msg);
     };
-    for (const m of req.messages) {
+    for (const m of withToolImages(req.messages)) {
       if (m.role === 'tool' && m.toolResult) {
         push({
           role: 'user',

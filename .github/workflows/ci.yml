@@ -49,6 +49,34 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
 
+  capture:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:core
+      - run: npm run build -w @agent-nekko/host
+      - name: Hidden owned-window screenshots
+        if: runner.os != 'Windows'
+        run: node apps/desktop/scripts/capture-smoke.mjs capture-results
+      - name: Hidden and actual native captures without foreground activation
+        if: runner.os == 'Windows'
+        run: node apps/desktop/scripts/capture-smoke.mjs capture-results --native
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: capture-${{ runner.os }}
+          path: capture-results/
+          if-no-files-found: error
+
   # The speed contract (SPEC.md, "Speed & responsiveness"): headless Chrome over
   # the DevTools protocol against the web edition and a scripted model. Fails
   # when a p95 exceeds its budget; the report is uploaded either way so a

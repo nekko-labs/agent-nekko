@@ -714,6 +714,7 @@ Budget top-agent and local-provider totals are labeled all-time recorded aggrega
 
 Wide/narrow light/dark full-app screenshots and companion/dock motion are verified with isolated fixtures. Selector scrolling preserves hero position, text/image drafts survive Grid/Focus, one approval surface remains, terminal selection works, and Grid/Focus/Fixed preserve the saved tree. Hardware/budget panel minimize/restore, pointer/keyboard reset and reduced motion retain the previously verified behavior. Native OS identity belongs to the separate development identity change.
 
+
 ## Command Center panel design parity (2026-10-06)
 
 The side dock uses the app background with separate surface-colored panels, a 408px default width (20% wider), a visible Configure control and six-cell Vitals grid. Each panel has a pointer/keyboard vertical resize handle. Its maximum follows its measured content, including expanded pricing details; Home shrinks, End or double-click fits content. Panel sizes remain local to the mounted view. Narrow layouts retain the scrollable wall/dock column.
@@ -725,3 +726,12 @@ Local models use matching published prices when available. Unpriced local models
 The layout selector orders Focus, Grid, Fixed and gives each a distinct SVG icon. Auto-arrange is an adjacent icon-only action with an accessible name; Panels has its own icon. Auto-add new agents is available only in Settings and preserves the rest of the saved wall configuration.
 
 Verification: shared renderer web build and desktop typecheck pass; isolated wide/narrow light/dark fixtures and pointer/keyboard panel resizing inspected. Usage-accounting regression tests cover default comparison, exact Qwen/Ollama identifiers, opt-out and separate subscription/local amounts. Full desktop/daemon build also passed. Published evidence and CI/landing status are tracked in PR #345.
+
+### Background visual evidence
+
+Desktop chats prefer native app-window capture for visual evidence. Listing and capturing windows never raises, focuses, restores, or sends OS keyboard/mouse input to the target. Background capture of obscured, hidden, minimized or protected third-party windows depends on the OS and app; unavailable frames are reported without changing the user's workspace. Applications launched through arbitrary shell commands can still choose to activate themselves. Nekko does not promise to suppress those applications or OS permission dialogs.
+
+A dedicated agent browser starts hidden, uses an isolated session, and stays hidden during navigation and DOM interactions. Explicit visibility shows it without activation. JavaScript dialogs are disabled; on Windows/macOS the owned window cannot receive OS focus, so its shown state is a preview and interactions use DOM actions. Linux retains normal focusability to avoid changing window-manager stacking. Its hidden PNG captures contain rendered page content, clearly identified as owned-page evidence; they do not prove native title bars, menus, Dock or OS dialogs. Actual native-window captures remain separately identified. Hidden owned windows support screenshots, while recordings require an OS-listed source.
+
+Screenshots are saved to new paths inside the chat project. By default their pixels (up to 5 MB) are also attached to the selected chat model for inspection, with the disclosure included in capture approval. `inspect=false` saves locally without sending pixels. Vision support is required; Nekko never silently changes models or claims image inspection merely because a file was saved. Oversized images and videos remain saved evidence with explicit inspection limits. Approved screenshot attachments remain in the chat transcript under its normal retention policy. TypeScript and Rust provider adapters deliver evidence after all tool results in a batch, with captured text treated as untrusted content.
+

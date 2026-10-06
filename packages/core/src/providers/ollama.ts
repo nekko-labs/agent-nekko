@@ -1,3 +1,4 @@
+import { withToolImages } from './tool-images.js';
 import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import { httpError } from './errors.js';
 import { readWithIdle } from './sse.js';
@@ -174,7 +175,7 @@ export class OllamaProvider implements Provider {
   private toOllamaMessages(req: ChatRequest) {
     const out: any[] = [];
     if (req.system) out.push({ role: 'system', content: req.system });
-    for (const m of req.messages) {
+    for (const m of withToolImages(req.messages)) {
       if (m.role === 'tool' && m.toolResult) {
         out.push({ role: 'tool', content: m.toolResult.output });
       } else if (m.role === 'assistant' && m.toolCalls?.length) {

@@ -109,6 +109,7 @@ async function controlBrowser(call: ToolCall, opts: ToolHostOptions): Promise<To
   const input = call.input as Record<string, unknown>;
   const mode = input.mode;
   const action = input.action;
+  if (input.visible !== undefined && (typeof input.visible !== 'boolean' || mode !== 'dedicated')) return err(call, 'visible is a boolean for dedicated mode only.');
   if (mode !== 'dedicated' && mode !== 'existing') return err(call, 'Choose dedicated or existing browser mode.');
   if (!['navigate', 'inspect', 'click', 'fill', 'close'].includes(String(action))) return err(call, 'Unsupported browser action.');
   const port = mode === 'existing' ? Number(input.port ?? 9222) : undefined;
@@ -169,6 +170,7 @@ async function captureApp(call: ToolCall, opts: ToolHostOptions): Promise<ToolRe
   if (!opts.allowBrowserControl || !opts.sessionId) return err(call, 'Window capture is available only in a local desktop chat.');
   const input = call.input as Record<string, unknown>;
   if (!['list', 'screenshot', 'record'].includes(String(input.action))) return err(call, 'Choose list, screenshot, or record.');
+  if (input.inspect !== undefined && typeof input.inspect !== 'boolean') return err(call, 'inspect must be a boolean.');
   const root = realpathSync(opts.defaultCwd ?? opts.settings.workspaces[0]?.path ?? process.cwd());
   let outputPath: string | undefined;
   if (input.action !== 'list') {
@@ -185,7 +187,8 @@ async function captureApp(call: ToolCall, opts: ToolHostOptions): Promise<ToolRe
     if (existsSync(outputPath)) return err(call, 'Capture output already exists; choose a new path.');
     if (input.action === 'record' && (!Number.isFinite(Number(input.seconds ?? 5)) || Number(input.seconds ?? 5) < 1 || Number(input.seconds ?? 5) > 15)) return err(call, 'Recording duration must be 1–15 seconds.');
   }
-  const approved = await opts.requestApproval(call, `Window capture: ${input.action}${input.window_id ? ` ${input.window_id}` : ''}${outputPath ? ` → ${outputPath}` : ''}. Window content may contain private information.`, 'high');
+  const inspect = input.action === 'screenshot' && input.inspect !== false;
+  const approved = await opts.requestApproval(call, `Window capture: ${input.action}${input.window_id ? ` ${input.window_id}` : ''}${outputPath ? ` → ${outputPath}` : ''}. Window content may contain private information.${inspect ? ' Screenshot pixels will also be sent to the selected chat model for inspection.' : ''}`, 'high');
   if (!approved) return err(call, 'Window capture not approved.');
   if (opts.signal?.aborted) return err(call, 'Capture cancelled.');
   const url = process.env.NEKKO_BROWSER_URL;
@@ -209,7 +212,14 @@ async function captureApp(call: ToolCall, opts: ToolHostOptions): Promise<ToolRe
   if (finalRelative.startsWith('..') || isAbsolute(finalRelative)) return err(call, 'Capture output directory escaped the chat project.');
   writeFileSync(outputPath, media, { flag: 'wx' });
   const { data: _data, ...metadata } = result;
-  return ok(call, JSON.stringify({ ...metadata, path: outputPath, bytes: media.length }, null, 2));
+  const attached = inspect && media.length <= 5 * 1024 * 1024;
+  return {
+    ...ok(call, JSON.stringify({ ...metadata, path: outputPath, bytes: media.length,
+      inspection: attached ? 'Pixels attached to the selected model; vision support is required. Capture alone does not prove verification.'
+        : inspect ? 'Saved, but too large for model inspection (5 MB limit). No pixels attached.' : 'Saved without model inspection.',
+    }, null, 2)),
+    ...(attached ? { images: [`data:image/png;base64,${media.toString('base64')}`] } : {}),
+  };
 }
 
 /** Execute one tool call, enforcing sandbox + guardrails. */
