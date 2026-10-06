@@ -1058,17 +1058,19 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     if (!el || !pane || !section) return;
     const resize = () => {
       const chrome = section.getBoundingClientRect().height - el.getBoundingClientRect().height;
-      const limit = Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
+      const limit = surface === 'composer'
+        ? Math.max(52, el.parentElement?.clientHeight ?? 52)
+        : Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
       el.style.maxHeight = limit + 'px';
       el.style.height = 'auto';
-      el.style.height = Math.min(limit, Math.max(el.scrollHeight, composerH ?? 0)) + 'px';
+      el.style.height = Math.min(limit, Math.max(el.scrollHeight, surface === 'composer' ? limit : composerH ?? 0)) + 'px';
       revealEditorCaret(el);
     };
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(pane);
     return () => observer.disconnect();
-  }, [draft, composerH]);
+  }, [draft, composerH, surface]);
 
   /**
    * Drag the line between the conversation and the composer to trade one for
@@ -1959,7 +1961,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   );
 
   return (
-    <div ref={paneRef} className={`flex min-w-0 overflow-hidden ${surface === 'composer' ? '' : 'h-full'}`}>
+    <div ref={paneRef} data-chat-surface={surface} className="flex h-full min-h-0 min-w-0 overflow-hidden">
       <section className="flex min-w-0 w-full flex-1 flex-col overflow-x-hidden">
         {/* One bar per window. Inside a workspace these ride in the frame's
             title strip, which already shows the chat's name; standalone, the
@@ -2045,7 +2047,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {!hasProvider ? (
                   <button className="btn btn-primary" onClick={() => useStore.getState().setView('models')}>Set up my first agent →</button>
                 ) : null}
-                {welcomeState.modelChoice && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
+                {surface !== 'transcript' && welcomeState.modelChoice && <div className="mt-4 flex h-[min(50vh,440px)] w-full max-w-xl flex-col gap-2 text-left">
                   <div className="flex items-center justify-between gap-2 px-2">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Choose a model</span>
 
@@ -2145,11 +2147,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         )}
 
         {approval && surface !== 'composer' && <ApprovalBar approval={approval} onDecide={approve} />}
+        {surface === 'transcript' && question && <div className="max-h-[60%] shrink-0 overflow-y-auto px-3"><ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} /></div>}
 
         {readOnly ? (
           surface === 'transcript' ? null : <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
         ) : surface === 'transcript' ? null : (
-        <div ref={composerSectionRef} className={`relative ${commandCenter ? '' : 'px-4'} pb-4 pt-1.5`}>
+        <div ref={composerSectionRef} className={`composer-section relative ${commandCenter ? '' : 'px-4'} pb-4 pt-1.5`}>
           {/* The resize grip rides the composer's top border: a wide invisible
               hit area over a hairline that lights up on hover. */}
           {surface !== 'composer' && <div
@@ -2165,7 +2168,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             <span className="absolute left-1/2 top-[3px] h-1.5 w-10 -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100" style={{ background: 'var(--accent)' }} />
           </div>}
           <div className={`composer-column mx-auto ${commandCenter ? 'w-[98%]' : 'w-[90%]'}`} style={commandCenter ? { width: '98%' } : undefined}>
-            <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />
+            {surface !== 'composer' && <ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} />}
 
             <div className="composer relative">
             {/* While the agent works, a violet→cyan beam laps the border. The
@@ -2330,7 +2333,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             />
             )}
 
-            <div className="relative w-full">
+            <div className="composer-editing-body relative w-full">
               {atMenuOpen && (
                 <div
                   className="card absolute bottom-full left-0 z-40 mb-2 w-full max-w-md overflow-hidden p-1.5 shadow-lg"
@@ -2466,7 +2469,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     </span>
                   </div>
                 )}
-                <div className="relative">
+                <div className="composer-editor-wrap relative">
                   {/* The → badge announces the ghost-accept key, top-right in the
                       textarea's padding so it never overlaps the text. */}
                   {ghostSuggestion && (
@@ -2637,7 +2640,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         <div className="shrink-0 border-t border-line bg-surface px-3 py-1.5" aria-label="Chat actions and information">
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
           {!imageMode && <div className="flex flex-wrap items-center gap-2">
-                  {modelControls}
+                  {surface !== 'composer' && modelControls}
                   <LiveContextGauge
                     sessionId={sessionId}
                     marks={marks}

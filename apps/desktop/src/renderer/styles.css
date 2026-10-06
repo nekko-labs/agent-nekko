@@ -1711,7 +1711,7 @@
 }
 .wall-workspace { display: flex; flex: 1; min-width: 0; min-height: 0; gap: 12px; }
 .wall-workspace[data-dock-side='top'], .wall-workspace[data-dock-side='bottom'] { flex-direction: column; }
-.wall-column { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; gap: 12px; }
+.wall-column { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; gap: 0; }
 .wall-composer { width: 75%; max-width: none; flex-shrink: 0; background: var(--win); box-shadow: var(--shadow-md); }
 .command-wall-window > .panel { background: var(--win); }
 .command-wall-window[data-wall-selected] > .panel {
@@ -1762,4 +1762,12 @@
 .wall-composer-split:hover::after, .wall-composer-split:focus-visible::after { background: var(--accent); }
 .wall-composer > .wall-composer-body { overflow: auto; min-height: 0; }
 
+/* Resizing the shared composer gives space to the editor, not an empty footer. */
+.wall-composer > .wall-composer-body { flex: 1; }
+.wall-composer [data-chat-surface="composer"] .composer-section { display: flex; flex: 1; min-height: 0; padding: 0; }
+.wall-composer .composer-column, .wall-composer .composer { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.wall-composer .composer-editor-wrap > [contenteditable] { height: 100% !important; max-height: 100% !important; }
+.wall-composer .composer-editing-body { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.wall-composer .composer-editor-wrap { flex: 1; min-height: 52px; overflow: hidden; }
+.wall-composer .composer > :not(.composer-editing-body), .wall-composer .composer-editing-body > :not(.composer-editor-wrap) { flex-shrink: 0; }
 .wall-layout-segments button { display: inline-flex; align-items: center; gap: 6px; }
