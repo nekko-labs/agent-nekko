@@ -724,4 +724,4 @@ Local models use matching published prices when available. Unpriced local models
 
 The layout selector orders Focus, Grid, Fixed and gives each a distinct SVG icon. Auto-arrange is an adjacent icon-only action with an accessible name; Panels has its own icon. Auto-add new agents is available only in Settings and preserves the rest of the saved wall configuration.
 
-Verification: shared renderer web build and desktop typecheck pass; isolated wide/narrow light/dark fixtures and pointer/keyboard panel resizing inspected. Usage-accounting regression tests cover default comparison, exact Qwen/Ollama identifiers, opt-out and separate subscription/local amounts. PR CI and landing remain pending.
+Verification: shared renderer web build and desktop typecheck pass; isolated wide/narrow light/dark fixtures and pointer/keyboard panel resizing inspected. Usage-accounting regression tests cover default comparison, exact Qwen/Ollama identifiers, opt-out and separate subscription/local amounts. Full desktop/daemon build also passed. Published evidence and CI/landing status are tracked in PR #345.

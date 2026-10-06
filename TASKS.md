@@ -1170,4 +1170,4 @@ Technical approach: independent approval policy and session environment; default
 ### Panel design parity (2026-10-06)
 
 - [x] PD1: Restore panel backgrounds, six-cell Vitals, compact Utilization with quota windows/reset/credits, and Budget spend/savings. Remove monthly-budget form; 408px dock and content-bounded vertical resizing. Focus-first icons, adjacent icon-only arrange, Settings-only auto-add. See SPEC.md Command Center panel design parity. Implemented 2026-10-06.
-- [ ] PD2: Complete final visual/interaction confirmation, usage tests, full build and PR CI; publish matching light/dark wide/narrow screenshots and resize recording; merge after green checks.
+- [x] PD2: Final visual/interaction confirmation, usage tests and full build passed 2026-10-06. Matching light/dark wide/narrow screenshots and resize recording published in PR #345; CI and landing status tracked there.
