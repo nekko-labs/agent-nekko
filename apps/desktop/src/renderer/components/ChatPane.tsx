@@ -1,3 +1,5 @@
+import { ContextMenu, ContextAction } from './ContextMenu.js';
+import { CopyIcon } from '../icons.js';
 import { needsProviderSetup } from './providers/providerSetup.js';
 import { SetupIllustration } from './providers/ProviderChoices.js';
 import { revealEditorCaret } from './agent-console/editorCaret.js';
@@ -594,6 +596,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
   const [changeCount, setChangeCount] = useState(0);
+  const [chatMenu, setChatMenu] = useState<{ x: number; y: number } | null>(null);
   const [doneSummary, setDoneSummary] = useState<string | null>(null);
   // What the model thinks the user will say next: the composer's ghost text.
   // Pinned to the reply it was written for (forId) so
@@ -1530,12 +1533,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     void editResend(lastUser.id, lastUser.content);
   };
 
-  const exportChat = () => {
-    if (!session) return;
+  const chatMarkdown = () => {
+    if (!session) return '';
     const lines = session.messages
       .filter((m) => m.role === 'user' || m.role === 'assistant')
       .map((m) => `## ${m.role === 'user' ? 'You' : 'Agent Nekko'}\n\n${m.content}`);
-    const md = `# ${session.title}\n\n${lines.join('\n\n')}\n`;
+    return `# ${session.title}\n\n${lines.join('\n\n')}\n`;
+  };
+  const exportChat = () => {
+    if (!session) return;
+    const md = chatMarkdown();
     const blob = new Blob([md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1927,7 +1934,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // The model and its effort sit in the bottom bar, between the attach button
   // and the context gauge, where the eye already is when sending.
   const modelControls = (
-    <div className="flex min-w-0 shrink items-center rounded-lg">
+    <div className="flex min-w-0 shrink items-center gap-2 rounded-lg">
     <ModelPicker
       providers={providers}
       providerId={providerId}
@@ -1961,7 +1968,11 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   );
 
   return (
-    <div ref={paneRef} data-chat-surface={surface} className="flex h-full min-h-0 min-w-0 overflow-hidden">
+    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-chat-surface={surface} className="flex h-full min-h-0 min-w-0 overflow-hidden">
+      {chatMenu && <ContextMenu x={chatMenu.x} y={chatMenu.y} onClose={() => setChatMenu(null)}>
+        <ContextAction onClick={() => { void navigator.clipboard.writeText(chatMarkdown()).catch(() => useStore.getState().pushToast('error', "Couldn't copy chat.")); setChatMenu(null); }}><CopyIcon className="mr-2 inline h-3.5 w-3.5" />Copy chat</ContextAction>
+        <ContextAction onClick={() => { exportChat(); setChatMenu(null); }}><DownloadIcon className="mr-2 inline h-3.5 w-3.5" />Export as Markdown</ContextAction>
+      </ContextMenu>}
       <section className="flex min-w-0 w-full flex-1 flex-col overflow-x-hidden">
         {/* One bar per window. Inside a workspace these ride in the frame's
             title strip, which already shows the chat's name; standalone, the
@@ -1991,9 +2002,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               Logs
             </button>
             )}
-            {!compact && !!session?.messages.length && (
-              <button className="btn btn-ghost px-2 py-1" onClick={exportChat} title="Export chat as Markdown"><DownloadIcon /></button>
-            )}
+
             {!compact && wideEnoughForRail && (
               <button
                 className={`btn btn-ghost px-2 py-1 ${planRailOpen ? 'text-accent' : ''}`}
@@ -2122,15 +2131,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   streaming={streaming}
                   onCompacted={onCompacted}
                 />
-                <LiveReplyStatus
-                  sessionId={sessionId}
-                  startedAt={turnStart.current}
-                  streaming={streaming}
-                  tps={tps}
-                  out={turnOut}
-                  last={lastTurn}
-                  done={doneSummary}
-                />
+
               </>
             }
           />
@@ -2638,6 +2639,15 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         </div>
         )}
         <div className="shrink-0 border-t border-line bg-surface px-3 py-1.5" aria-label="Chat actions and information">
+          {surface !== 'composer' && (<LiveReplyStatus
+                  sessionId={sessionId}
+                  startedAt={turnStart.current}
+                  streaming={streaming}
+                  tps={tps}
+                  out={turnOut}
+                  last={lastTurn}
+                  done={doneSummary}
+                />)}
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
           {!imageMode && <div className="flex flex-wrap items-center gap-2">
                   {surface !== 'composer' && modelControls}

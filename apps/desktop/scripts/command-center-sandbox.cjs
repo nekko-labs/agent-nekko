@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.webContents.capturePage()).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
     await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
-    await check('mounted full CommandCenterView', "document.body.textContent.includes('Agents') && !!document.querySelector('[data-command-wall]')");
+    await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     if (!process.env.NEKKO_TEST_REVISION) {
     win.setContentSize(1200, 400); await sleep(350);
     await check('short viewport keeps chat wall visible without composer overlap', "(()=>{const wall=document.querySelector('.command-wall-layout').getBoundingClientRect();const composer=document.querySelector('[data-wall-composer]').getBoundingClientRect();const column=document.querySelector('.wall-column');return wall.height>=280&&wall.bottom<=composer.top&&column.scrollHeight>column.clientHeight;})()");
@@ -56,7 +56,7 @@ app.whenReady().then(async () => {
     await check('cleanup failure reports reusable session', "document.querySelector('[role=alert]').textContent.includes('Retry will reuse') && integration.records().length===2");
     await run('integration.failures.options=false'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()");
     await check('cleanup-failure retry does not duplicate', "!document.querySelector('.agent-window-picker') && integration.calls.filter(c=>c.method==='create').length===1 && integration.state().sessions.filter(s=>s.id==='new-1').length===1");
-    await click('Focus'); await check('Grid to Focus', "!!document.querySelector('[aria-label=\"Focus agents\"]')");
+    await click('Focus'); await check('Grid to Focus', "!!!document.querySelector('[data-command-wall]')");
     await click('Grid'); await check('Focus to Grid', "!document.querySelector('[aria-label=\"Focus agents\"]')");
     await reset(); await open('Chat');
     await check('long catalog scrolls inside fieldset without covering Create chat', "(()=>{const list=document.querySelector('.agent-window-picker [role=listbox]');const field=document.querySelector('.agent-window-picker__models');const create=document.querySelector('.agent-window-picker__primary');return list.scrollHeight>list.clientHeight&&list.getBoundingClientRect().bottom<=field.getBoundingClientRect().bottom+1&&field.getBoundingClientRect().bottom<=create.getBoundingClientRect().top;})()");

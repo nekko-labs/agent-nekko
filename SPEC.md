@@ -778,6 +778,10 @@ Utilization removes the outdated-quota note and offers an accessible refresh ico
 
 Acceptance pending: inspect matching light/dark, wide/narrow evidence for all altered surfaces, record mascot/reorder motion, exercise actual desktop drag/drop and offline/refresh interactions. Provider refresh keeps existing credential boundaries; sandbox verification uses synthetic records and no external connections. Command Logs now disclose missing/failed snapshots and reactivate when commands append after a finished turn. Backend restart still clears memory-only logs; persistent retention is not implemented and previously lost output cannot be recovered.
 
+## Chat actions and persistent reply measurements
+
+[Implemented; desktop visual/interaction verification pending] Git checkout options sit below the explanatory notices and each starts with its worktree or branch icon. Chat transcript right-click menus provide Copy chat (the full Markdown transcript) and Export as Markdown; export is no longer a header button. Message Copy actions include a copy icon and To composer actions are removed. Completed persisted assistant replies show a checkmarked Done. subtext, excluding live, interrupted and tool-call messages. Agent-window footer measurements always expose output tokens/s, total generated output tokens and elapsed time during a run and afterward; missing historical measurements are explicitly unavailable, never fabricated. Model and effort controls have an explicit gap. Copy only writes to the clipboard on an explicit click, and export downloads locally. Acceptance requires clipboard/export interaction checks and matched wide/narrow light/dark desktop evidence. Historical measurement persistence remains unsupported by this renderer-only change.
+
 ### Command Center agent tabs (implemented; release verification in progress)
 
 - Creating an agent from the wall's New agent controls selects the new session and its focus window/composer without leaving Command Center.
