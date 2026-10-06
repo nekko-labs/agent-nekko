@@ -12,7 +12,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 app.whenReady().then(async () => {
   session.defaultSession.webRequest.onBeforeRequest((d, done) => done({ cancel: !/^(file:|data:|blob:)/.test(d.url) }));
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, done) => done(false));
-  const win = new BrowserWindow({ width: 1200, height: 900, useContentSize: true, show: false, title: 'Synthetic Command Center verification', webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
+  const win = new BrowserWindow({ width: 1200, height: 900, useContentSize: true, show: false, focusable: false, skipTaskbar: true, x: -10000, y: -10000, title: 'Synthetic Command Center verification', webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
   win.webContents.on('console-message', e => { if (e.level === 'error') report.errors.push(e.message); });
   const run = s => win.webContents.executeJavaScript(s, true);
   const check = async (name, expression) => { await sleep(180); if (!await run(expression)) throw Error(name); report.checks.push(name); };
@@ -32,7 +32,7 @@ app.whenReady().then(async () => {
   const image = async () => { await open('Media'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()"); await sleep(200); };
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.webContents.capturePage()).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
-    await win.loadFile(path.join(out, 'index.html')); await sleep(900);
+    await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
     await check('mounted full CommandCenterView', "document.body.textContent.includes('Command Center') && !!document.querySelector('[data-command-wall]')");
     if (!process.env.NEKKO_TEST_REVISION) {
     await open();
