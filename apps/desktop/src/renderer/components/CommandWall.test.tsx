@@ -33,6 +33,12 @@ function wall(s: CommandWallState) {
 }
 
 describe('command wall geometry', () => {
+  it.each(['grid', 'fixed'] as const)('keeps %s chat windows at least 4:3 on wide short stages', (mode) => {
+    const before = JSON.stringify(root);
+    const g = commandWallGeometry(state({ layout: { mode, cols: 3, rows: 2 } }), 2400, 400);
+    for (const pane of g.panes.values()) expect(pane.height).toBeGreaterThanOrEqual(pane.width * .75);
+    expect(JSON.stringify(root)).toBe(before);
+  });
   it('converts an expanded divider resize back to saved ratios without cumulative widening', () => {
     const expanded = new Set(['a']);
     const resized = resizeCompanionSplit(root, expanded, 'split', 0, .6) as WbSplit;
