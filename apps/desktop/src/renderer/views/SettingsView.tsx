@@ -12,6 +12,7 @@ import { VoiceSettings } from '../components/VoiceSettings.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
 import { DelegationRouteSettings } from '../components/DelegationRouteSettings.js';
 import { useT, LANGUAGES } from '../i18n.js';
+import { loadWallState, saveWallState, toWallSetting } from '../commandWall.js';
 
 const SANDBOX_OPTS: Array<{ value: SandboxMode; label: string; desc: string }> = [
   { value: 'workspace-jail', label: 'Workspace jail', desc: 'File access is confined to your added folders.' },
@@ -124,6 +125,17 @@ export function SettingsView() {
           </div>
         </section>
 
+        <section className="card mt-5 p-5">
+          <h2 className="font-semibold">Command Center</h2>
+          <label className="mt-3 flex items-center justify-between gap-3 text-[13px]">Auto-add new agents
+            <input type="checkbox" checked={loadWallState(localStorage, settings.commandWall).autoAdd} onChange={async (e) => {
+              const wall = { ...loadWallState(localStorage, settings.commandWall), autoAdd: e.target.checked };
+              await update({ commandWall: toWallSetting(wall) });
+              saveWallState(localStorage, wall);
+            }} />
+          </label>
+          <p className="mt-1 text-[12px] text-ink-faint">Add newly created top-level agents to the wall automatically.</p>
+        </section>
         <CustomizationSection settings={settings} update={update} />
         <GitManagementSection settings={settings} update={update} />
         <VoiceSettings />

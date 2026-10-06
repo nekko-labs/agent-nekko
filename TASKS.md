@@ -1166,3 +1166,8 @@ Technical approach: independent approval policy and session environment; default
 - [x] **Command Center sequential-grid integration**: keep real split identities and saved resize ratios while rendering Grid; place Add in a compact reserved row so virtual chat insertion cannot re-tile the display and hide dividers. Pointer/keyboard resize, reload and mode-switch persistence are verified. · Done: 2026-10-06
 
 - [x] 2026-10-06 PR sweep CI hardening: handle asynchronous hook stdin pipe closure without uncaught errors; preserve explicit block decisions with a large-payload regression test (623 host tests).
+
+### Panel design parity (2026-10-06)
+
+- [x] PD1: Restore panel backgrounds, six-cell Vitals, compact Utilization with quota windows/reset/credits, and Budget spend/savings. Remove monthly-budget form; 408px dock and content-bounded vertical resizing. Focus-first icons, adjacent icon-only arrange, Settings-only auto-add. See SPEC.md Command Center panel design parity. Implemented 2026-10-06.
+- [ ] PD2: Complete final visual/interaction confirmation, usage tests, full build and PR CI; publish matching light/dark wide/narrow screenshots and resize recording; merge after green checks.
