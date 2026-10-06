@@ -98,17 +98,18 @@ export function WorktreeChip({ session, git, disabled, onChange }: {
           : <p>This chat uses the project’s current Git branch, including local changes. Other chats using this checkout share its files.</p>}
       </div>
       {git.worktree && isolated && <p className="mt-2 break-all text-[11px] text-ink-faint">{git.worktree.path}</p>}
+
+      <p className="mt-2 text-[11px] text-ink-faint">Applies to this chat and new chats. Existing worktrees are kept; edits and commits are not moved between checkouts.</p>
+      {disabled && <p className="mt-2 text-[11px] text-ink-faint">Stop the current run before switching.</p>}
+      {error && <p role="alert" className="mt-2 text-[11px] text-danger">{error}</p>}
       <div className="mt-3 space-y-1">
         {[{ value: true, label: 'Use worktrees' }, { value: false, label: 'Use current Git branch' }].map(({ value, label }) =>
           <button key={label} type="button" disabled={disabled || busy} aria-pressed={(session.gitIsolation !== false) === value}
             className="flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-ink hover:bg-surface-2 focus-visible:bg-surface-2 disabled:opacity-40"
             onClick={() => void switchMode(value)}>
-            {label}{(session.gitIsolation !== false) === value && <CheckIcon className="h-3 w-3" />}
+            <span className="flex items-center gap-2">{value ? <WorktreeIcon className="h-3.5 w-3.5" /> : <BranchIcon className="h-3.5 w-3.5" />}{label}</span>{(session.gitIsolation !== false) === value && <CheckIcon className="h-3 w-3" />}
           </button>)}
       </div>
-      <p className="mt-2 text-[11px] text-ink-faint">Applies to this chat and new chats. Existing worktrees are kept; edits and commits are not moved between checkouts.</p>
-      {disabled && <p className="mt-2 text-[11px] text-ink-faint">Stop the current run before switching.</p>}
-      {error && <p role="alert" className="mt-2 text-[11px] text-danger">{error}</p>}
     </div>, document.body)}
   </>;
 }
