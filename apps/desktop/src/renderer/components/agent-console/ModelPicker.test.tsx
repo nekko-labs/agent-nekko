@@ -10,6 +10,13 @@ import { useStore } from '../../store.js';
 import { ModelPicker } from './ModelPicker.js';
 
 describe('default model in the picker', () => {
+  it('hides settings mutation controls in read-only mode', () => {
+    const props = { expanded: true, open: true, providers: [{ id: 'p', kind: 'openai' as const, label: 'Provider', enabled: true, baseUrl: 'http://localhost' }], providerId: 'p', modelId: 'm', models: [{ id: 'm', providerId: 'p', name: 'Model' }], onOpenChange: () => {}, onProvider: () => {}, onModel: () => {} };
+    expect(renderToStaticMarkup(<ModelPicker {...props} />)).toContain('Star Model');
+    const out = renderToStaticMarkup(<ModelPicker {...props} readOnly />);
+    expect(out).not.toContain('Star Model');
+    expect(out).toContain('role="option"');
+  });
   it('pins a missing default as disabled above other models', () => {
     const prev = useStore.getState().settings;
     useStore.setState({ settings: { ...prev, defaultProviderId: 'p', defaultModelId: 'missing' } as NonNullable<typeof prev> });
