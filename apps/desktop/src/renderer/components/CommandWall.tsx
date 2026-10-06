@@ -153,7 +153,7 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     // Match Fixed's cell footprint without inserting a virtual pane into saved splits.
     const cellWidth = Math.max(0, (width - gap * (state.layout.cols - 1)) / state.layout.cols);
     const fixedStageHeight = Math.max(240, height - 64 - gap);
-    const cellHeight = Math.max(160, cellWidth * .75, (fixedStageHeight - gap * (state.layout.rows - 1)) / state.layout.rows);
+    const cellHeight = Math.max(160, (fixedStageHeight - gap * (state.layout.rows - 1)) / state.layout.rows);
     return { panes, deck, hero, height: stageHeight + gap + cellHeight, add: { x: 0, y: stageHeight + gap, width: cellWidth, height: cellHeight }, addGrid, grid, stageHeight };
   }
   // Focus keeps other bodies warm but selects them through the row above the hero.
