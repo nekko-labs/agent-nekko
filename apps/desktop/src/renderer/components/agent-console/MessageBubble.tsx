@@ -6,6 +6,7 @@ import { ToolCard } from './ToolCard.js';
 import { fmtDateTime, fmtTime } from './transcript.js';
 import { useRowState } from './rowState.js';
 import { isRecoveryNotice, RecoveryNotice } from './RecoveryNotice.js';
+import { RobotIcon } from '../../icons.js';
 
 /**
  * One message. Memoized: a transcript row re-renders only when its message (or
@@ -108,6 +109,9 @@ export const MessageBubble = memo(function MessageBubble({
   return (
     <div className={`group ${entering ? 'fade-in ' : ''}flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div className={isUser ? 'msg-user' : 'msg-ai'}>
+        {isUser && /^\[Agent watch [^\]\n]+\]\n/.test(message.content) && (
+          <div className="mb-2 flex items-center gap-1.5 border-l-2 border-accent/40 pl-2 text-[12px] font-medium text-accent" title="Automated watch continuation, not a subagent reply"><RobotIcon className="h-4 w-4" />Agent watch · automated wake-up</div>
+        )}
         {isUser && message.skill && (
           <span className="skill-pill mb-2 inline-flex text-[11px]">
             <span className="skill-pill-slash">/</span>{message.skill.name}

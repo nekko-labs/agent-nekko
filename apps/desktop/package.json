@@ -16,6 +16,7 @@
     "build": "electron-vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "test:subagents": "node scripts/subagent-integration.cjs",
     "test:wall-controls": "node scripts/wall-controls-integration.cjs",
     "test:command-center": "node scripts/command-center-integration.cjs",
     "prestart": "node scripts/ensure-electron.mjs",
