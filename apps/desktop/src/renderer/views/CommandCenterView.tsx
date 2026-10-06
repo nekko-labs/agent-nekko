@@ -194,18 +194,29 @@ export function CommandCenterView() {
 
   // Starting work from the wall keeps you on the wall: the new chat or shell
   // becomes a window here rather than switching to the Agent tab.
+  // Retain an unconfigured session when host cleanup fails, so retrying does
+  // not create a second orphan. Clear it only after configuration or deletion.
+  const unfinishedChat = useRef<Awaited<ReturnType<typeof window.nekko.createSession>> | null>(null);
   const newChat = async (selection?: AgentWindowSelection): Promise<string> => {
-    let s = await window.nekko.createSession(activeProjectId ?? undefined);
+    let s = unfinishedChat.current ?? await window.nekko.createSession(activeProjectId ?? undefined);
+    if (unfinishedChat.current && !selection) selection = { kind: 'chat', chatType: 'multimodal' };
     if (selection) {
       try {
-      const updated = await window.nekko.setSessionOptions(s.id, { chatType: selection.chatType ?? 'multimodal', ...(selection.providerId ? { providerId: selection.providerId } : {}), ...(selection.modelId ? { modelId: selection.modelId, autoModel: selection.modelId === AUTO_MODEL_ID } : {}) });
-      if (!updated) throw new Error('Could not configure the new agent window.');
-      s = updated;
+        const updated = await window.nekko.setSessionOptions(s.id, { chatType: selection.chatType ?? 'multimodal', ...(selection.providerId ? { providerId: selection.providerId } : {}), ...(selection.modelId ? { modelId: selection.modelId, autoModel: selection.modelId === AUTO_MODEL_ID } : {}) });
+        if (!updated) throw new Error('Could not configure the new agent window.');
+        s = updated;
       } catch (error) {
-        await window.nekko.deleteSession(s.id);
+        unfinishedChat.current = s;
+        try {
+          await window.nekko.deleteSession(s.id);
+          unfinishedChat.current = null;
+        } catch (cleanupError) {
+          throw new Error(`${error instanceof Error ? error.message : String(error)} Cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}. Retry will reuse this session.`);
+        }
         throw error;
       }
     }
+    unfinishedChat.current = null;
     useStore.setState((state) => ({ sessions: [summarizeSession(s), ...state.sessions.filter((existing) => existing.id !== s.id)] }));
     return s.id;
   };
