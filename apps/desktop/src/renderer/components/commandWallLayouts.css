@@ -100,3 +100,15 @@
 @media (prefers-reduced-motion: reduce) {
   .command-wall-content[data-focus-chat] .command-wall-primary, .command-wall-content[data-focus-chat] .command-wall-companions { transition: none; transform: none; }
 }
+
+/* Inline creation pushes windows down rather than covering them with a menu. */
+.command-wall-pane-stage { transition: top 260ms ease; }
+.command-wall-create { animation: wall-create-reveal 260ms ease both; }
+@keyframes wall-create-reveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .command-wall-create { animation: none; }
+  .command-wall-pane-stage { transition: none; }
+}
