@@ -2099,6 +2099,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {imageMode
                   ? <ImageLiveTurn sessionId={sessionId} streaming={streaming} />
                   : <LiveTurn sessionId={sessionId} held={held} onImageClick={setLightbox} />}
+                <LiveReplyStatus
+                  sessionId={sessionId}
+                  startedAt={turnStart.current}
+                  streaming={streaming}
+                  tps={tps}
+                  out={turnOut}
+                  last={lastTurn}
+                  done={doneSummary}
+                  blocked={errorNotice ? 'Needs attention' : approval ? 'Waiting for approval' : question ? 'Waiting for your answer' : null}
+                />
                 {errorNotice && !question && !streaming && (() => {
                   // A stop the user asked for is not a failure, so it doesn't wear
                   // the failure colour. Either way the run is resumable whenever it
@@ -2651,16 +2661,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         </div>
         )}
         <div className="shrink-0 border-t border-line bg-surface px-3 py-1.5" aria-label="Chat actions and information">
-          {surface !== 'composer' && (<LiveReplyStatus
-                  sessionId={sessionId}
-                  startedAt={turnStart.current}
-                  streaming={streaming}
-                  tps={tps}
-                  out={turnOut}
-                  last={lastTurn}
-                  done={doneSummary}
-                  blocked={errorNotice ? 'Needs attention' : approval ? 'Waiting for approval' : question ? 'Waiting for your answer' : null}
-                />)}
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
           {!imageMode && <div className="flex flex-wrap items-center gap-2">
                   {surface !== 'composer' && modelControls}
