@@ -720,6 +720,14 @@
   white-space: nowrap;
 }
 .titlebar-mac .developer-server-controls { margin-right: 10px; }
+/* The Agents controls share the title bar row. Keep them clear of the
+   Windows/Linux caption buttons unless the developer controls already do. */
+.titlebar:not(.titlebar-mac):not(:has(.developer-server-controls)) #command-titlebar-slot { margin-right: 138px; }
+.titlebar-mac:not(:has(.developer-server-controls)) #command-titlebar-slot { margin-right: 10px; }
+#command-titlebar-slot > .wall-toolbar-titlebar { flex: 1; min-width: 0; flex-wrap: nowrap; }
+#command-titlebar-slot .wall-fixed-picker { z-index: 60; }
+#command-titlebar-slot > .wall-toolbar-titlebar > div { flex-wrap: nowrap; }
+#command-titlebar-slot .btn, #command-titlebar-slot .wall-layout-segments button, #command-titlebar-slot [role='tab'] { padding-top: 2px; padding-bottom: 2px; }
 
 .titlebar-updater {
   position: relative;
@@ -1801,3 +1809,62 @@
 
 /* Keep the send cat clear of the composer edge. */
 .send-avatar { margin-right: 4px; }
+
+/* The wall composer's panel clips its overflow, so the composer's outer
+   focus halo and drop shadow were cut into a band along the bottom edge and
+   slivers at the top corners. Inside it the ring is drawn inset instead. */
+.wall-composer .composer { box-shadow: none; }
+.wall-composer .composer:focus-within { box-shadow: inset 0 0 0 1px var(--accent); }
+.wall-composer .composer-beam-ring { inset: 0; }
+
+/* Prompt suggestions as one chip among the composer's actions. */
+.composer-suggestions-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 6px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2);
+  font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; flex-shrink: 0;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.composer-suggestions-chip:hover, .composer-suggestions-chip.is-open { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--ink); }
+.composer-suggestions-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The composer row: the composer plus Add window at its right, whose elbow
+   arrow points to the wall's bottom-right corner where a new window lands. */
+.wall-composer-row { position: relative; display: flex; align-items: stretch; gap: 12px; flex-shrink: 0; min-width: 0; padding-inline: 8px; overflow-x: clip; overflow-clip-margin: 0; }
+/* A centred composer stays centred: an empty spacer balances the launch. */
+.wall-composer-row[data-dock$='-center']::before { content: ''; flex: 1 1 0; min-width: 0; }
+.wall-composer-row > .wall-composer { align-self: auto; min-width: 0; flex-shrink: 1; max-width: calc(100% - 172px); }
+.wall-add-launch { position: relative; display: flex; align-items: flex-end; flex: 1 1 0; min-width: 160px; padding-bottom: 12px; }
+.wall-composer-row[data-dock$='-right'] > .wall-add-launch { flex: 0 0 auto; }
+.wall-add-launch[data-side='top'] { align-items: flex-start; padding-bottom: 0; padding-top: 12px; }
+.wall-add-button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 14px;
+  background: var(--brand-grad); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.wall-add-button:hover { filter: brightness(1.08) saturate(1.05); transform: translateY(-1px); }
+.wall-add-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.wall-add-button[aria-expanded='true'] { filter: brightness(0.95); }
+/* Right from the button, then a right angle up the wall's right edge, ending
+   in a head at the wall's bottom-right corner, where a new window lands. */
+.wall-add-arrow {
+  order: 2; position: relative; flex: 1 1 auto; min-width: 24px; align-self: stretch;
+  margin: 0 12px 17px 8px; pointer-events: none;
+  border-right: 2px dashed color-mix(in srgb, var(--accent) 65%, transparent);
+  border-bottom: 2px dashed color-mix(in srgb, var(--accent) 65%, transparent);
+  border-bottom-right-radius: 12px;
+}
+.wall-add-arrow::after {
+  content: ''; position: absolute; right: -7px; top: 0; width: 12px; height: 12px;
+  border-top: 2px solid var(--accent); border-left: 2px solid var(--accent); transform: rotate(45deg);
+}
+.wall-add-launch[data-side='top'] .wall-add-arrow { margin: 17px 12px 0 8px; border-bottom: 0; border-top: 2px dashed color-mix(in srgb, var(--accent) 65%, transparent); border-bottom-right-radius: 0; border-top-right-radius: 12px; }
+.wall-add-launch[data-side='top'] .wall-add-arrow::after { top: auto; bottom: -2px; transform: rotate(-135deg); }
+.wall-add-launch:has(.wall-add-button[aria-expanded='true']) .wall-add-arrow { opacity: 0.35; }
+@media (max-width: 767px) {
+  .wall-composer-row { flex-direction: column; align-items: stretch; }
+  .wall-composer-row::before { display: none; }
+  .wall-composer-row > .wall-composer { max-width: 100%; }
+  .wall-add-launch { flex: none; justify-content: flex-end; min-width: 0; padding: 0; }
+  .wall-add-arrow { display: none; }
+}

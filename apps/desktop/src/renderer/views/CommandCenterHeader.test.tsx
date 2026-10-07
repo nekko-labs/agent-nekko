@@ -14,7 +14,7 @@ vi.mock('../components/WallComposer.js', () => ({ WallComposer: () => null }));
 vi.mock('../components/WallDock.js', () => ({ WallDock: () => null }));
 import { TitleBar } from '../components/TitleBar.js';
 import { DEFAULT_WALL_STATE } from '../commandWall.js';
-import { WallToolbar } from './CommandCenterView.js';
+import { LAYOUT_LABEL, WallToolbar } from './CommandCenterView.js';
 
 const toolbar = () => renderToStaticMarkup(<WallToolbar wall={DEFAULT_WALL_STATE} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />);
 
@@ -44,6 +44,22 @@ describe('Agents header placement', () => {
     expect(html).not.toContain('on the wall');
     expect(html).not.toContain('0 agents');
     expect(html).not.toContain('0 terminals');
-    for (const label of ['Wall layout', 'Focus', 'Grid', 'Fixed', 'Show', 'Auto-arrange', 'Panels', 'Add window']) expect(html).toContain(label);
+    for (const label of ['Wall layout', 'Focus', 'Dynamic', 'Grid', 'Show', 'Auto-arrange', 'Panels']) expect(html).toContain(label);
+    expect(html).not.toContain('>Fixed<');
+    // Add window rides beside the composer; the toolbar keeps it only in Focus.
+    expect(html).not.toContain('Add window');
+    const focus = renderToStaticMarkup(<WallToolbar wall={DEFAULT_WALL_STATE} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} showAdd />);
+    expect(focus).toContain('Add window');
+  });
+  it('names the saved layout modes Focus, Dynamic and Grid without migrating keys', () => {
+    expect(LAYOUT_LABEL).toEqual({ focus: 'Focus', grid: 'Dynamic', fixed: 'Grid' });
+    const html = toolbar();
+    expect(html).toContain('title="Dynamic (Ctrl+Shift+2)"');
+    expect(html).toContain('title="Grid (Ctrl+Shift+3)"');
+  });
+  it('offers the agent panel back from the toolbar once it is closed', () => {
+    const closed = { ...DEFAULT_WALL_STATE, agentPanel: { show: false, orientation: 'vertical' as const } };
+    expect(renderToStaticMarkup(<WallToolbar wall={closed} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />)).toContain('aria-label="Show the agent panel"');
+    expect(toolbar()).not.toContain('Show the agent panel');
   });
 });

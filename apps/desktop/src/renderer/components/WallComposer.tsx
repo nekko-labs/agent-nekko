@@ -79,12 +79,36 @@ export function WallComposer({
     return () => cancelAnimationFrame(id);
   }, [agent?.session.id, panelRef]);
 
+  // Attachments and an armed skill add rows above the editor. The panel grows
+  // by their height rather than taking it from the text box.
+  const [extra, setExtra] = useState(0);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel || typeof ResizeObserver === 'undefined') return;
+    let observed: Element[] = [];
+    const ro = new ResizeObserver(() => measure());
+    const measure = () => {
+      const rows = [...panel.querySelectorAll('[data-composer-attachments], [data-composer-skill]')];
+      if (rows.length !== observed.length || rows.some((r, i) => r !== observed[i])) {
+        observed.forEach((r) => ro.unobserve(r));
+        rows.forEach((r) => ro.observe(r));
+        observed = rows;
+      }
+      const next = Math.round(rows.reduce((sum, r) => sum + r.getBoundingClientRect().height, 0));
+      setExtra((prev) => (prev === next ? prev : next));
+    };
+    const mo = new MutationObserver(measure);
+    mo.observe(panel, { childList: true, subtree: true });
+    measure();
+    return () => { mo.disconnect(); ro.disconnect(); };
+  }, [panelRef, agent?.session.id]);
+
   const alignClass = dock.align === 'left' ? 'self-start' : dock.align === 'right' ? 'self-end' : 'self-center';
 
   return (
     <div
       ref={panelRef}
-      style={{ height: height ?? 320, width: width ?? undefined }}
+      style={{ height: (height ?? 320) + extra, width: width ?? undefined }}
       className={`panel wall-composer flex shrink-0 flex-col ${alignClass}`}
       data-has-agent={agent ? true : undefined}
       data-wall-composer

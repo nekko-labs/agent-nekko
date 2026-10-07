@@ -19,7 +19,7 @@ import { PaneFrame } from '../components/PaneFrame.js';
 import { Divider } from '../components/Divider.js';
 import { runningSessionIds } from '../liveRuns.js';
 import { StatusIcon, WorkspaceCard, type AgentStatus } from '../components/WorkspaceCard.js';
-import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
+import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon, CloseIcon, RowsIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 import { COMPLETION_ROW_ATTR, completeWithExit, findCompletionRow } from '../completionExit.js';
@@ -198,18 +198,27 @@ function statusFromEvent(type: AgentEvent['type']): AgentStatus | null {
   }
 }
 
+/** How the Agents tab lays out its panel of agent cards. */
+export type AgentPanelOrientation = 'vertical' | 'horizontal';
+
 type SidebarActions = {
   onOpenChat: (id: string) => void;
   onOpenTerminal: (id: string) => void;
   selectedId: string | null;
   onCreate: (kind: 'chat' | 'image' | 'terminal', projectId?: string, shell?: string) => Promise<void>;
+  /** A column beside the wall, or a row of cards above it. */
+  orientation?: AgentPanelOrientation;
+  onOrientation?: (orientation: AgentPanelOrientation) => void;
+  /** Hide the panel; the Agents toolbar offers it back. */
+  onClosePanel?: () => void;
 };
 
 export function AgentSidebar(props: SidebarActions) {
   return <WorkspacesView sidebarOnly {...props} />;
 }
 
-export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal, selectedId, onCreate }: Partial<SidebarActions> & { sidebarOnly?: boolean } = {}) {
+export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal, selectedId, onCreate, orientation = 'vertical', onOrientation, onClosePanel }: Partial<SidebarActions> & { sidebarOnly?: boolean } = {}) {
+  const horizontal = sidebarOnly && orientation === 'horizontal';
   const {
     sessions, terminals, workspaces, activeWorkspaceId, settings, activeSessionId,
     refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal: storeNewTerminal, newTerminalWorkspace: storeNewTerminalWorkspace,
@@ -521,10 +530,33 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
   const Sidebar = (
     // `min()` guards the mobile overlay, where the chosen width could be wider
     // than the screen it slides over.
-    <div className="panel panel-ring flex h-full flex-col" style={{ width: `min(${sidebarW}px, 82vw)` }}>
-      <div className="flex items-center justify-between px-3 py-2.5">
-        <span className="text-sm font-semibold">Agents</span>
-        <div className="relative" ref={newMenuRef}>
+    <div
+      className={`panel panel-ring flex ${horizontal ? 'h-auto w-full flex-row items-stretch' : 'h-full flex-col'}`}
+      style={horizontal ? undefined : { width: `min(${sidebarW}px, 82vw)` }}
+      data-agent-panel={sidebarOnly || undefined}
+      data-orientation={sidebarOnly ? orientation : undefined}
+    >
+      <div className={horizontal ? 'flex shrink-0 flex-col items-center justify-center gap-1 border-r border-line px-1.5 py-2' : `flex items-center ${sidebarOnly ? 'justify-end' : 'justify-between'} px-3 py-2.5`}>
+        {!sidebarOnly && <span className="text-sm font-semibold">Agents</span>}
+        <div className={`relative flex items-center ${horizontal ? 'flex-col gap-1' : 'gap-0.5'}`} ref={newMenuRef}>
+          {sidebarOnly ? (<>
+            <button
+              className="rounded-sm p-1.5 text-ink-faint hover:text-ink"
+              title={horizontal ? 'Show agents in a column' : 'Show agents in a row'}
+              aria-label={horizontal ? 'Show agents in a column' : 'Show agents in a row'}
+              onClick={() => onOrientation?.(horizontal ? 'vertical' : 'horizontal')}
+            >
+              {horizontal ? <PanelIcon className="h-3.5 w-3.5" /> : <RowsIcon className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              className="rounded-sm p-1.5 text-ink-faint hover:text-ink"
+              title="Close the agent panel"
+              aria-label="Close the agent panel"
+              onClick={() => onClosePanel?.()}
+            >
+              <CloseIcon className="h-3.5 w-3.5" />
+            </button>
+          </>) : (
           <button
             className={`rounded-sm p-1.5 ${contextPanelOpen ? 'bg-surface-2 text-accent' : 'text-ink-faint hover:text-ink'}`}
             title={`${contextPanelOpen ? 'Hide' : 'Show'} the folders, files & context panel (${SHORTCUTS.contextPanel.label})`}
@@ -533,7 +565,7 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
             onClick={() => useStore.getState().toggleContextPanel()}
           >
             <PanelIcon className="h-3.5 w-3.5" />
-          </button>
+          </button>)}
           <button
             className={`btn btn-ghost px-2 py-1 ${newMenuOpen ? 'text-accent' : ''}`}
             title="New agent with a terminal"
@@ -601,7 +633,7 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
           )}
         </div>
       </div>
-      <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
+      <div className={horizontal ? 'agent-panel-row flex min-w-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-hidden px-2 py-1.5' : 'flex-1 space-y-1 overflow-y-auto px-2 pb-3'}>
         {buckets.map((b) => {
           const items = bucketEntries(b.key);
           const done = completedInGroup(sessions, b.key, chatGroupOf);
@@ -738,9 +770,11 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
     // sidebar, the windows, the inspector. They used to be three different
     // things — two full-bleed columns on paper with a tray of rounded windows
     // between them — which is why the middle read as the only real panel.
+    // As the Agents tab's panel it is one panel among the wall's, not a field of
+    // its own: no tinted frame around it, which read as a stray border.
     <div
-      className={`flex h-full min-w-0 overflow-hidden ${sidebarOnly ? 'shrink-0' : ''}`}
-      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)', ...(sidebarOnly ? { height: 'auto', minHeight: 0 } : {}) }}
+      className={`flex min-w-0 ${sidebarOnly ? `shrink-0 ${horizontal ? 'w-full' : ''}` : 'h-full overflow-hidden'}`}
+      style={sidebarOnly ? { gap: 'var(--pane-gap)', minHeight: 0 } : { background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
     >
       {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
         <div className="select-text break-all px-2.5 py-2 font-mono text-[10px] text-ink-faint">{menu.ids.length === 1 ? menu.ids[0] : menu.ids.length + ' sessions selected'}</div>
@@ -754,7 +788,9 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
         </>}
       </ContextMenu>}
       {sidebarOnly && mobileNav && <div className="absolute inset-0 z-20 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} />}
-      {sidebarOnly && <><div className="md:hidden"><button className="btn btn-ghost" aria-label="Open agent list" onClick={() => setMobileNav(true)}>Agents</button></div><aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
+      {/* A row of cards needs no drawer on a narrow screen: it is already out of the way. */}
+      {horizontal && <aside className="flex w-full min-w-0">{Sidebar}</aside>}
+      {sidebarOnly && !horizontal && <><div className="md:hidden"><button className="btn btn-ghost" aria-label="Open agent list" onClick={() => setMobileNav(true)}>Agents</button></div><aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
       {/* The handle sits inside the gap itself (negative margins) so the list
           and the windows keep their one-gap rhythm, grabbed like the window
           dividers: pointer capture, arrow keys, double-click resets. */}

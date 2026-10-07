@@ -25,8 +25,10 @@ export function TitleBar() {
     <div className={`titlebar ${isMacChrome ? 'titlebar-mac' : ''}`}>
       <span className="titlebar-word"><BrandMark size={16} className="titlebar-mark" />Agent Nekko</span>
       <UpdateControl />
-      <div id="command-titlebar-slot" className="ml-4 flex min-w-0 flex-1 items-center">
-        {view === 'command' && <h1 className="text-gradient truncate text-sm font-semibold">Agents</h1>}
+      {/* The Agents view portals its layout controls into this slot, after the
+          heading, so they share the title bar's row instead of a row below. */}
+      <div id="command-titlebar-slot" className="ml-4 flex min-w-0 flex-1 items-center gap-3">
+        {view === 'command' && <h1 className="text-gradient shrink-0 truncate text-sm font-semibold">Agents</h1>}
       </div>
       <DeveloperServerControls />
     </div>
