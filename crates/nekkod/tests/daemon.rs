@@ -235,10 +235,53 @@ async fn authenticated_loop_run_http_body_exceeds_old_limit_without_truncation()
     assert_eq!(status, 400, "{body}");
     assert!(body["error"].as_str().unwrap().starts_with("provider:"), "{body}");
 
-    let (status, _) = post(d.port, "loop:run", args.clone(), None).await;
-    assert_eq!(status, 401);
-    let (status, body) = post(d.port, "loop:tool", args, Some(TOKEN)).await;
-    assert_eq!(status, 413, "{body}");
+    // Authentication rejects before reading the body; keep this request small so
+    // the server cannot close the socket while reqwest is still uploading it.
+    let (status, body) = post(d.port, "loop:run", json!([]), None).await;
+    assert_eq!(status, 401, "{body}");
+    assert_eq!(body["error"], "unauthorized");
+
+    // Send exactly one byte beyond the 2 MiB limit, then read the actual HTTP
+    // response. A larger reqwest upload can race the early 413 and fail with
+    // BrokenPipe on Linux before reqwest exposes the response at all.
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
+    let limit = 2 * 1024 * 1024;
+    let mut stream = tokio::net::TcpStream::connect(("127.0.0.1", d.port)).await.unwrap();
+    stream
+        .write_all(
+            format!(
+                "POST /api/loop:tool HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nAuthorization: Bearer {TOKEN}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                d.port,
+                limit + 1
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    stream.write_all(&vec![b' '; limit]).await.unwrap();
+    stream.write_all(b" ").await.unwrap();
+    let mut response = tokio::io::BufReader::new(stream);
+    let (status_line, body) = tokio::time::timeout(Duration::from_secs(5), async {
+        let mut status_line = String::new();
+        response.read_line(&mut status_line).await.unwrap();
+        let mut content_length = None;
+        loop {
+            let mut header = String::new();
+            assert!(response.read_line(&mut header).await.unwrap() > 0, "response headers ended early");
+            if header == "\r\n" {
+                break;
+            }
+            if let Some(length) = header.to_ascii_lowercase().strip_prefix("content-length: ") {
+                content_length = Some(length.trim().parse::<usize>().unwrap());
+            }
+        }
+        let mut body = vec![0; content_length.expect("JSON response has a content length")];
+        response.read_exact(&mut body).await.unwrap();
+        (status_line, serde_json::from_slice::<Value>(&body).unwrap())
+    })
+    .await
+    .expect("timed out waiting for the 413 JSON response");
+    assert_eq!(status_line.split_whitespace().nth(1), Some("413"), "{status_line}: {body}");
     assert_eq!(body["error"], "body too large");
 }
 
