@@ -15,6 +15,7 @@ import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
 import { type Vitals } from '../components/InsightsBox.js';
 import { ContextMenu, ContextAction } from '../components/ContextMenu.js';
 import { WallDock } from '../components/WallDock.js';
+import { hasAppChrome } from '../chrome.js';
 
 import { allPanes, isSplit, type PaneKind } from '../layout.js';
 import {
@@ -306,13 +307,14 @@ export function CommandCenterView() {
   const composerDrag = useRef<{ y: number; height: number } | null>(null);
   const composerSplit = <div className="wall-composer-split" role="separator" tabIndex={0} aria-label="Resize composer versus wall" aria-orientation="horizontal" title="Drag to resize composer versus wall; double-click to reset"
     onPointerDown={(e) => { composerDrag.current = { y: e.clientY, height: composerRef.current?.offsetHeight ?? 240 }; e.currentTarget.setPointerCapture(e.pointerId); }}
-    onPointerMove={(e) => { const drag = composerDrag.current; if (!drag) return; const available = e.currentTarget.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, drag.height + (e.clientY - drag.y) * (wall.composer.side === 'top' ? 1 : -1)))); }}
+    onPointerMove={(e) => { const drag = composerDrag.current; if (!drag) return; const available = composerRef.current?.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, drag.height + (e.clientY - drag.y) * (wall.composer.side === 'top' ? 1 : -1)))); }}
     onPointerUp={() => { composerDrag.current = null; }} onPointerCancel={() => { composerDrag.current = null; }}
     onDoubleClick={() => setComposerHeight(null)}
-    onKeyDown={(e) => { if (e.key === 'Home') { e.preventDefault(); setComposerHeight(null); } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const available = e.currentTarget.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, (composerHeight ?? composerRef.current?.offsetHeight ?? 240) + (e.key === 'ArrowUp' ? 20 : -20) * (wall.composer.side === 'top' ? -1 : 1)))); } }} />;
+    onKeyDown={(e) => { if (e.key === 'Home') { e.preventDefault(); setComposerHeight(null); } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const available = composerRef.current?.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, (composerHeight ?? composerRef.current?.offsetHeight ?? 240) + (e.key === 'ArrowUp' ? 20 : -20) * (wall.composer.side === 'top' ? -1 : 1)))); } }} />;
   const composer = (
     <WallComposer
       height={composerHeight}
+      resizeHandle={composerSplit}
       agent={selectedAgent}
       agents={agentList}
       dock={wall.composer}
@@ -347,7 +349,7 @@ export function CommandCenterView() {
         }
       }} onOpenTerminal={(id) => { setCompletedId(null); void addFromToolbar('terminal', id); }} />
       <div className="wall-column">
-      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && <>{composer}{composerSplit}</>}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composer}
       {completedId ? <div className="panel panel-ring flex min-h-0 flex-1 flex-col overflow-hidden"><button className="btn btn-ghost self-start" onClick={() => setCompletedId(null)}>Back to active agents</button><ChatPane key={completedId} sessionId={completedId} readOnly /></div> : <CommandWall
         state={wall}
         setState={setWall}
@@ -373,7 +375,7 @@ export function CommandCenterView() {
           setAddOpen(false);
         }} /> : undefined}
       />}
-      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{composerSplit}{composer}</>}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composer}
         </div>
       </div>
       </div>
@@ -389,7 +391,7 @@ const FILTERS: Array<{ key: WallFilter; label: string }> = [
   { key: 'terminal', label: 'Terminals' },
 ];
 
-function WallToolbar({
+export function WallToolbar({
   wall,
   setWall,
   onAutoArrange,
@@ -413,16 +415,11 @@ function WallToolbar({
     window.addEventListener('keydown', key);
     return () => { window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key); };
   }, [fixedOpen]);
-  const panes = allPanes(wall.root);
-  const counts = { chat: panes.filter((p) => p.kind === 'chat').length, terminal: panes.filter((p) => p.kind === 'terminal').length };
   const canArrange = wall.layout.mode === 'grid' && !!wall.root && isSplit(wall.root);
 
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-      <h1 className="text-gradient text-2xl font-semibold">Agents</h1>
-      <span className="text-[12px] text-ink-faint">
-        {counts.chat} agent{counts.chat === 1 ? '' : 's'} · {counts.terminal} terminal{counts.terminal === 1 ? '' : 's'} on the wall
-      </span>
+      {!hasAppChrome && <h1 className="text-gradient text-2xl font-semibold">Agents</h1>}
       <div className="ml-auto flex flex-wrap items-center gap-3">
         <div className="wall-layout-control" ref={fixedRef}>
           <div className="wall-layout-segments" role="group" aria-label="Wall layout">

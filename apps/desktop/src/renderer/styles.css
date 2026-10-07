@@ -1730,7 +1730,7 @@
 /* A tall composer must not collapse the transcript wall out of view. Short
    viewports scroll the column rather than allowing composer content to cover it. */
 .wall-column > .command-wall-layout { flex: 1 0 280px; }
-.wall-composer { width: 75%; max-width: none; flex-shrink: 0; background: transparent; box-shadow: none; }
+.wall-composer { position: relative; width: 75%; max-width: 100%; flex-shrink: 0; background: transparent; box-shadow: none; }
 .command-wall-window > .panel { background: var(--win); }
 .command-wall-window[data-wall-selected] > .panel {
   --panel-ring-color: color-mix(in srgb, var(--accent) 75%, var(--line)) !important;
@@ -1775,7 +1775,14 @@
 }
 
 @media (max-width: 767px) { .wall-composer { width: 100%; } }
-.wall-composer-split { flex: 0 0 10px; width: 100%; cursor: row-resize; touch-action: none; display: grid; place-items: center; }
+.wall-composer-split { position: absolute; left: 0; right: 0; height: 10px; z-index: 2; cursor: row-resize; touch-action: none; display: grid; place-items: center; }
+.wall-composer[data-dock^="bottom"] > .wall-composer-split { top: -8px; }
+.wall-composer[data-dock^="top"] > .wall-composer-split { bottom: -8px; }
+.wall-composer-side { position: absolute; top: 0; bottom: 0; width: 10px; z-index: 2; cursor: col-resize; touch-action: none; }
+.wall-composer-side[data-edge="left"] { left: -5px; }
+.wall-composer-side[data-edge="right"] { right: -5px; }
+.wall-composer-side::after { content: ""; position: absolute; top: calc(50% - 24px); left: 4px; width: 3px; height: 48px; border-radius: 3px; background: var(--line); }
+.wall-composer-side:hover::after, .wall-composer-side:focus-visible::after { background: var(--accent); }
 .wall-composer-split::after { content: ""; width: 48px; height: 3px; border-radius: 3px; background: var(--line); }
 .wall-composer-split:hover::after, .wall-composer-split:focus-visible::after { background: var(--accent); }
 .wall-composer > .wall-composer-body { display: flex; flex: 1; min-height: 0; overflow-y: auto; }
