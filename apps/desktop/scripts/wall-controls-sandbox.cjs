@@ -42,7 +42,11 @@ app.whenReady().then(async () => {
     if (current) {
       await check('model change explains next-request context', "!!document.querySelector('[role=dialog]') && document.body.textContent.includes('open a new chat')");
       await capture('model-context-notice');
-      await click('Got it');
+      await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true}))");
+      await check('context notice traps keyboard focus', "document.querySelector('[role=dialog]').contains(document.activeElement)");
+      await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+      await check('context notice dismisses with Escape', "!document.querySelector('[role=dialog]')");
+      await check('context notice returns focus to model control', "document.activeElement===document.querySelector('.command-wall-window button[aria-haspopup=listbox]')");
     }
     await win.reload(); await sleep(1400);
     await check('Auto restores after cold reload', "document.querySelector('.command-wall-window').textContent.includes('Auto')");
@@ -69,10 +73,33 @@ app.whenReady().then(async () => {
       await check('footer exposes all reply measurements', "(()=>{const e=document.querySelector('.command-wall-window [aria-label=\"Chat actions and information\"]');return e.textContent.includes('tok/s') && e.textContent.includes('total tokens') && e.textContent.includes('Time unavailable')})()");
     }
       }
+    if (current) {
+      await reset(); await run('integration.fail()'); await sleep(350);
+      await check('failed request offers one non-destructive retry', "(()=>{const a=document.querySelector('[role=alert]');return a&&[...a.querySelectorAll('button')].filter(b=>b.textContent.trim()==='Retry').length===1&&!a.textContent.includes('Start over')})()");
+      await check('estimate uses the assembled included context', "document.querySelector('[role=alert]').textContent.includes(integration.contextBundle().totalTokens.toLocaleString())");
+      await run("window.savedTranscript=JSON.stringify(integration.records()[0].messages)");
+      await click('Retry','[role=alert]');
+      await check('retry sends resume and retains saved transcript', "integration.calls.some(c=>c.method==='send'&&c.options.sessionId==='existing'&&c.options.resume===true&&c.options.text==='')&&JSON.stringify(integration.records()[0].messages)===window.savedTranscript");
+    }
+    if (current) {
+      await run('integration.noProgress()'); await sleep(400); await run('integration.fail()');
+      await check('no-progress failure describes saved-conversation retry', "document.querySelector('[role=alert]').textContent.includes('No resumable progress')");
+      await click('Retry','[role=alert]');
+      await check('no-progress retry preserves user turn', "integration.calls.some(c=>c.method==='send'&&c.options.resume===true&&c.options.text==='')&&integration.records()[0].messages.length===1");
+      await run("sessionStorage.removeItem('fixture-record')");
+    }
     for (const theme of ['light', 'dark']) {
       await run(`document.documentElement.dataset.theme='${theme}'`);
       for (const [width, label] of [[1200, 'desktop'], [400, 'narrow']]) {
         win.setContentSize(width, 900); await run("sessionStorage.removeItem('fixture-record')"); await reset(); await capture(`full-grid-${theme}-${label}`);
+        await run('integration.fail()'); await sleep(250); await run("document.querySelector('[role=alert]')?.scrollIntoView({block:'end'})"); await capture(`retry-${theme}-${label}`);
+        await run('integration.ask()'); await capture(`waiting-${theme}-${label}`);
+        await reset();
+        await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').focus();document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(250);
+        await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Auto')).click()"); await sleep(300);
+        await capture(`context-${theme}-${label}`);
+        if (current) { await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))"); }
+        await reset();
         await run("document.querySelector('.command-wall-window [data-chat-surface]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:180,clientY:200}))"); await capture(`chat-menu-${theme}-${label}`);
         await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
         await run("document.querySelector('[aria-label=\"Git checkout options\"]')?.click()"); await capture(`checkout-modal-${theme}-${label}`);
