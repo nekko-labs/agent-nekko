@@ -18,7 +18,13 @@ app.whenReady().then(async () => {
   win.webContents.on('console-message', e => { if (e.level === 'error') report.errors.push(e.message); });
   const run = code => win.webContents.executeJavaScript(code, true);
   const capture = async name => { await sleep(250); const file = path.join(runDir, name + '.png'); fs.writeFileSync(file, (await win.webContents.capturePage()).toPNG()); report.captures.push(file); };
-  const click = async text => { await run(`(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.includes(${JSON.stringify(text)})); if (!b) throw Error('Missing button: ' + ${JSON.stringify(text)}); b.click(); })()`); await sleep(180); };
+  // Fixed expressions only: never interpolate labels into executable code.
+  const clicks = {
+    group: "(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Worked on')); if (!b) throw Error('Missing group button'); b.click(); })()",
+    beforeTask: "(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.includes('spawn_agent')); if (!b) throw Error('Missing task button'); b.click(); })()",
+    afterTask: "(() => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.includes('Spawned subagent')); if (!b) throw Error('Missing task button'); b.click(); })()",
+  };
+  const click = async key => { await run(clicks[key]); await sleep(180); };
   try {
     await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(650);
     if (!await run("document.body.textContent.includes('Delegation steps') && document.body.textContent.includes('Reply states')")) throw Error('Component fixture did not mount: ' + await run('document.body.textContent.slice(0,500)'));
@@ -33,21 +39,21 @@ app.whenReady().then(async () => {
       for (const [width,label] of [[1200,'wide'],[400,'narrow']]) {
         win.setContentSize(width,800);
         await capture(`${theme}-${label}-collapsed`);
-        await click('Worked on');
+        await click('group');
         await capture(`${theme}-${label}-expanded`);
         const buttons = await run("[...document.querySelectorAll('li button')].map(b=>b.textContent)");
         if (buttons.length !== 4) throw Error('Missing activity steps: ' + buttons);
-        await click(kind === 'before' ? 'spawn_agent' : 'Spawned subagent');
+        await click(kind === 'before' ? 'beforeTask' : 'afterTask');
         const text = await run('document.body.textContent');
         if (!text.includes('All integration checks passed')) throw Error('Result disclosure failed');
         report.checks.push(`${theme} ${label}: group and task/result disclosure`);
         await capture(`${theme}-${label}-result`);
-        await click('Worked on');
+        await click('group');
       }
     }
     const motion = path.join(runDir, 'motion'); fs.mkdirSync(motion, { recursive: true });
     win.setContentSize(1200,800);
-    for (let i=0;i<12;i++) { if(i===3 || i===8) await click('Worked on'); fs.writeFileSync(path.join(motion, `${String(i).padStart(3,'0')}.png`), (await win.webContents.capturePage()).toPNG()); await sleep(100); }
+    for (let i=0;i<12;i++) { if(i===3 || i===8) await click('group'); fs.writeFileSync(path.join(motion, `${String(i).padStart(3,'0')}.png`), (await win.webContents.capturePage()).toPNG()); await sleep(100); }
     cp.execFileSync('ffmpeg', ['-y','-framerate','10','-i',path.join(motion,'%03d.png'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p',path.join(runDir,'disclosure.mp4')], { stdio: 'ignore' });
     report.success = !report.errors.length;
   } catch (e) { report.errors.push(String(e)); report.success = false; }
