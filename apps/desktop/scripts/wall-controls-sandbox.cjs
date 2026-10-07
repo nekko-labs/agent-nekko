@@ -255,7 +255,8 @@ app.whenReady().then(async () => {
       await run("document.querySelector('[data-wall-composer] [contenteditable]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:150,clientY:150}))");
       await check('editor excludes transcript actions', "![...document.querySelectorAll('[role=menu]')].some(m=>m.textContent.includes('Copy chat')||m.textContent.includes('Export as Markdown'))");
       await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
-      await check('footer exposes all reply measurements', "(()=>{const e=document.querySelector('.command-wall-window [aria-label=\"Chat actions and information\"]');return e.textContent.includes('tok/s') && e.textContent.includes('total tokens') && e.textContent.includes('Time unavailable')})()");
+      await check('transcript exposes subtle inline reply measurements', "(()=>{const e=document.querySelector('.command-wall-window [data-chat-surface] [role=status]');return e?.classList.contains('text-ink-faint') && e.textContent.includes('tok/s') && e.textContent.includes('total tokens') && e.textContent.includes('Time unavailable')})()");
+      await check('fixed footer excludes reply measurements', "!document.querySelector('.command-wall-window [aria-label=\"Chat actions and information\"] [role=status]')");
     }
       }
     if (current) {
