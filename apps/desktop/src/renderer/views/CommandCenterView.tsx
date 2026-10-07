@@ -34,6 +34,18 @@ import {
 
 const HOUR = 60 * 60_000;
 
+/** Physical digits also work when Shift produces !, @, or #. */
+export function wallLayoutShortcut(e: Pick<KeyboardEvent, 'code' | 'key' | 'ctrlKey' | 'metaKey' | 'shiftKey' | 'altKey' | 'repeat' | 'isComposing' | 'defaultPrevented'>) {
+  if (e.defaultPrevented || e.repeat || e.isComposing || e.altKey || !e.shiftKey || !(e.ctrlKey || e.metaKey) || (e.ctrlKey && e.metaKey)) return null;
+  const digit = /^Digit[1-3]$/.test(e.code) ? e.code.slice(-1) : /^[1-3]$/.test(e.key) ? e.key : null;
+  return digit === '1' ? 'focus' : digit === '2' ? 'grid' : digit === '3' ? 'fixed' : null;
+}
+
+function layoutShortcutLabel(mode: 'focus' | 'grid' | 'fixed') {
+  const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+  return `${mac ? '⌘' : 'Ctrl'}+Shift+${mode === 'focus' ? 1 : mode === 'grid' ? 2 : 3}`;
+}
+
 /**
  * The Command Center: every agent and terminal as a live window on one wall,
  * arranged in the same split tree the Agent tab uses, with the automations
@@ -56,6 +68,7 @@ export function CommandCenterView() {
       refreshTerminals: s.refreshTerminals,
     })),
   );
+  const viewRef = useRef<HTMLDivElement>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   useEffect(() => {
     const refresh = () => { void window.nekko.getUsageSummary().then(setUsage).catch(() => {}); };
@@ -257,12 +270,19 @@ export function CommandCenterView() {
   }, [agentsOnWall, selected, wall.hero, selectAgent]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (useStore.getState().view !== 'command' || document.visibilityState === 'hidden' || !viewRef.current?.getClientRects().length || e.defaultPrevented || e.repeat || e.isComposing) return;
+      const mode = wallLayoutShortcut(e);
+      if (mode) {
+        e.preventDefault();
+        setWall((w) => ({ ...w, layout: { ...w.layout, mode } }));
+        return;
+      }
       if (e.key === 'Tab' && e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         selectAgent(nextAgent(wall.root, selected, e.shiftKey ? -1 : 1));
         return;
       }
-      if ((e.ctrlKey || e.altKey) && !e.metaKey && /^[1-9]$/.test(e.key)) {
+      if ((e.ctrlKey || e.altKey) && !e.shiftKey && !e.metaKey && !(e.ctrlKey && e.altKey) && /^[1-9]$/.test(e.key)) {
         const agents = wallAgents(wall.root);
         const pick = agents[Number(e.key) - 1];
         if (!pick) return;
@@ -272,7 +292,7 @@ export function CommandCenterView() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [wall.root, selected, selectAgent]);
+  }, [wall.root, selected, selectAgent, setWall]);
   const composerRef = useRef<HTMLDivElement>(null);
   const agentList = useMemo<WallAgent[]>(() => agentsOnWall.flatMap((p, i) => {
     const session = sessions.find((x) => x.id === p.refId);
@@ -299,13 +319,17 @@ export function CommandCenterView() {
       onDock={(composer) => setWall((w) => ({ ...w, composer }))}
       onSelect={selectAgent}
       onOpen={openChat}
+      onFocus={(id) => {
+        selectAgent(id);
+        setWall((w) => ({ ...w, hero: id, layout: { ...w.layout, mode: 'focus' } }));
+      }}
       onNewAgent={() => { void addFromToolbar('chat'); }}
       panelRef={composerRef}
     />
   );
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
+    <div ref={viewRef} className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
       <WallToolbar wall={wall} setWall={setWall} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} />
       <div className="flex items-center gap-2"><button className="btn btn-ghost text-[12px]" aria-haspopup="menu" onContextMenu={openTabsMenu} onClick={(e) => setTabsMenu({ x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().bottom })}>Agent tabs: {wall.tabs ?? 'top'}</button></div>
       {tabsMenu && <ContextMenu x={tabsMenu.x} y={tabsMenu.y} onClose={closeTabsMenu}>{(['top', 'left', 'hidden'] as const).map((tabs) => <ContextAction key={tabs} onClick={() => { setWall(w => ({ ...w, tabs })); closeTabsMenu(); }}>{(wall.tabs ?? 'top') === tabs ? '✓ ' : ''}{tabs === 'top' ? 'Top tabs' : tabs === 'left' ? 'Vertical tabs (left)' : 'Hide tab panel'}</ContextAction>)}</ContextMenu>}
@@ -401,13 +425,14 @@ function WallToolbar({
         <div className="wall-layout-control" ref={fixedRef}>
           <div className="wall-layout-segments" role="group" aria-label="Wall layout">
             {(['focus', 'grid', 'fixed'] as const).map((mode) => (
-              <button key={mode} type="button" aria-pressed={wall.layout.mode === mode} aria-expanded={mode === 'fixed' ? fixedOpen : undefined} onClick={() => {
+              <button key={mode} type="button" title={`${mode[0].toUpperCase() + mode.slice(1)} (${layoutShortcutLabel(mode)})`} aria-pressed={wall.layout.mode === mode} aria-expanded={mode === 'fixed' ? fixedOpen : undefined} onClick={() => {
                 if (mode === 'fixed') { setHoverSize({ rows: wall.layout.rows, cols: wall.layout.cols }); setFixedOpen((open) => !open); }
                 else { setFixedOpen(false); setWall((w) => ({ ...w, layout: { ...w.layout, mode } })); }
               }}>{React.createElement(mode === 'focus' ? FocusLayoutIcon : mode === 'grid' ? GridIcon : FixedLayoutIcon, { className: 'h-4 w-4' })}{mode[0].toUpperCase() + mode.slice(1)}</button>
             ))}
           </div>
           {fixedOpen && <div className="wall-fixed-picker" role="dialog" aria-label="Fixed grid size">
+            <p className="wall-fixed-shortcut">{layoutShortcutLabel('fixed')} · Fixed view</p>
             <p>{hoverSize.cols} columns × {hoverSize.rows} rows</p>
             <div className="wall-fixed-cells" onMouseLeave={() => setHoverSize({ rows: wall.layout.rows, cols: wall.layout.cols })}>
               {Array.from({ length: 36 }, (_, i) => {

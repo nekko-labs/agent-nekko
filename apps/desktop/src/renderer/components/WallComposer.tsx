@@ -2,7 +2,7 @@ import { NumberedChatIcon } from './NumberedChatIcon.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { SessionSummary } from '@agent-nekko/shared';
 import { ChatPane } from './ChatPane.js';
-import { ChatIcon, ExternalIcon, LayoutIcon } from '../icons.js';
+import { ChatIcon, FocusLayoutIcon, LayoutIcon } from '../icons.js';
 import { type ComposerDock, type ComposerAlign, type ComposerSide } from '../commandWall.js';
 
 /** One agent window the composer can be pointed at: its number on the wall and what it is doing. */
@@ -33,6 +33,7 @@ export function WallComposer({
   onDock,
   onSelect,
   onOpen,
+  onFocus,
   onNewAgent,
   panelRef,
 }: {
@@ -43,6 +44,7 @@ export function WallComposer({
   onDock: (dock: ComposerDock) => void;
   onSelect: (sessionId: string) => void;
   onOpen: (sessionId: string) => void;
+  onFocus: (sessionId: string) => void;
   onNewAgent: () => void;
   /** The composer panel, used to focus the selected chat input. */
   panelRef: React.RefObject<HTMLDivElement | null>;
@@ -96,10 +98,11 @@ export function WallComposer({
           <span className="text-ink-faint" data-composer-title>No agent selected</span>
         )}
         <span className="hidden text-[11px] text-ink-faint md:inline" style={{ marginLeft: 8 }}>
-          {agents.length > 1 ? 'Ctrl+Tab cycles windows · Ctrl+1…9 picks one' : agents.length === 1 ? '' : ''}
+          {agents.length > 1 ? 'Ctrl+Tab cycles windows · Ctrl+1…9 selects a window' : agents.length === 1 ? '' : ''}
         </span>
         <div className="min-w-0 flex-1" />
-<div className="relative" ref={pickerRef}>
+        {agent && <button type="button" className="rounded-sm p-1 text-ink-faint hover:text-ink" title="Show selected chat in Focus" aria-label="Show selected chat in Focus" onClick={() => onFocus(agent.session.id)}><FocusLayoutIcon className="h-3.5 w-3.5" /></button>}
+        <div className="relative" ref={pickerRef}>
           <button
             className={`flex items-center gap-1 rounded-sm p-1 text-ink-faint hover:text-ink ${pickerOpen ? 'text-ink' : ''}`}
             title={`Composer docked ${DOCK_LABEL[dock.side].toLowerCase()} ${ALIGN_LABEL[dock.align]}. Click to move it.`}

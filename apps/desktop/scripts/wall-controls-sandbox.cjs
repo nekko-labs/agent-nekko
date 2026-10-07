@@ -13,7 +13,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onBeforeRequest((d, done) => done({ cancel: !/^(file:|data:|blob:)/.test(d.url) }));
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, done) => done(false));
   const win = new BrowserWindow({ width: 1200, height: 900, useContentSize: true, show: false, focusable: false, skipTaskbar: true, x: -10000, y: -10000, title: 'Synthetic Command Center verification', webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
-  win.webContents.on('console-message', e => { if (e.level === 'error') report.errors.push(e.message); });
+  win.webContents.on('console-message', e => { if (e.level === 'error') report.errors.push(e.message); else if (process.env.NEKKO_WALL_EVIDENCE) console.log(e.message); });
   const run = s => win.webContents.executeJavaScript(s, true);
   const check = async (name, expression) => { await sleep(180); if (!await run(expression)) throw Error(name); report.checks.push(name); };
   const click = async (text, selector = null) => {
@@ -35,6 +35,54 @@ app.whenReady().then(async () => {
     await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (current && process.env.NEKKO_WALL_EVIDENCE) {
+      await run("integration.state().view='command'; document.querySelector('[data-wall-composer] [aria-label=\"Show selected chat in Focus\"]').click()");
+      await check('composer Focus selects hero', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='focus'");
+      await run("window.dispatchEvent(new KeyboardEvent('keydown',{key:'@',code:'Digit2',ctrlKey:true,shiftKey:true,bubbles:true}))");
+      await check('Grid keyboard shortcut', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='grid'");
+      await run("window.dispatchEvent(new KeyboardEvent('keydown',{key:'#',code:'Digit3',ctrlKey:true,shiftKey:true,bubbles:true}))");
+      await check('Fixed keyboard shortcut', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='fixed'");
+      await reset();
+    }
+    if (process.env.NEKKO_WALL_EVIDENCE) {
+      await run("integration.state().view='command'");
+      for (const theme of ['light', 'dark']) {
+        for (const [width, label] of [[1200, 'desktop'], [400, 'narrow']]) {
+          win.setContentSize(width, 900); await reset();
+          await run(`document.documentElement.dataset.theme='${theme}'`);
+          await capture(`wall-idle-${theme}-${label}`);
+          if (current) {
+            await check('editor stays inside composer frame', "(()=>{const p=document.querySelector('[data-wall-composer]').getBoundingClientRect(), e=document.querySelector('[data-wall-composer] [contenteditable]').getBoundingClientRect();return e.top>=p.top&&e.bottom<=p.bottom+1})()");
+            await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+            await sleep(400);
+            // Off-screen Windows compositor can defer CSS transitions. Settle
+            // finite transitions for endpoint assertions; motion captures below
+            // explicitly sample the timeline rather than treating timeouts as proof.
+            await run("document.getAnimations().filter(a=>a instanceof CSSTransition).forEach(a=>a.finish())");
+            await check('edge hover opens non-overlapping preview', "(()=>{const a=document.querySelector('.command-wall-add[data-preview]');if(!a||a.hasAttribute('data-solid'))return false;const r=a.getBoundingClientRect();return [...document.querySelectorAll('.command-wall-window')].every(p=>{const s=p.getBoundingClientRect();return Math.min(r.right,s.right)-Math.max(r.left,s.left)<=1||Math.min(r.bottom,s.bottom)-Math.max(r.top,s.top)<=1})})()");
+            if (width < 720) await run("document.querySelector('.command-wall-add').scrollIntoView({block:'nearest'})");
+            await capture(`wall-liquid-${theme}-${label}`);
+            await run("document.querySelector('.command-wall-add-zone').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))");
+            await sleep(100);
+            await check('pointer exit restores compact strips', "!document.querySelector('.command-wall-add[data-preview]')");
+            await run("document.querySelector('.command-wall-add-rail-right').focus(); document.querySelector('.command-wall-add-rail-right').dispatchEvent(new FocusEvent('focusin',{bubbles:true}))"); await sleep(100);
+            await check('keyboard focus previews Add', "!!document.querySelector('.command-wall-add[data-preview]')");
+            await run("document.querySelector('.command-wall-add-fill').click()");
+            await check('click solidifies add slot', "!!document.querySelector('.command-wall-add[data-solid] #wall-window-picker')");
+            await run("document.getAnimations().filter(a=>a instanceof CSSTransition).forEach(a=>a.finish())");
+            await capture(`wall-solid-${theme}-${label}`);
+            await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+          }
+          await click('Fixed'); await capture(`wall-fixed-hint-${theme}-${label}`);
+          await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+        }
+      }
+      if (process.env.NEKKO_WALL_HOLD) {
+        win.setContentSize(1200,900); await reset(); await run("document.documentElement.dataset.theme='dark'");
+        console.log('Evidence sandbox ready for native capture');
+        await new Promise(resolve => setTimeout(resolve, 110000));
+      }
+    }
     await check('cold session model hydrates', "document.querySelector('.command-wall-window').textContent.includes('Fixture model')");
     await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(500);
     await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Auto')).click()"); await sleep(500);
@@ -77,6 +125,19 @@ app.whenReady().then(async () => {
         await run("integration.route('workspace')"); await sleep(500);
         await run("(()=>{const b=document.querySelector('[title=\"New agent with a terminal\"]'); b.focus(); b.dispatchEvent(new FocusEvent('focusin',{bubbles:true}));})()"); await capture(`workspace-image-menu-${theme}-${label}`);
       }
+    }
+    if (process.env.NEKKO_WALL_EVIDENCE && current) {
+      win.setContentSize(1200,900); await reset(); await run("document.documentElement.dataset.theme='dark'");
+      const motion = path.join(runDir, 'liquid-motion'); fs.mkdirSync(motion);
+      for (let frame = 0; frame < 48; frame++) {
+        if (frame === 5) await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+        if (frame === 31) await run("document.querySelector('.command-wall-add-fill').click()");
+        await run(`document.getAnimations().filter(a=>a instanceof CSSTransition).forEach(a=>{a.currentTime=${frame < 31 ? Math.max(0, frame - 5) * 100 : (frame - 31) * 100}})`);
+        fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.webContents.capturePage()).toPNG()); await sleep(100);
+      }
+      const encoded = require('node:child_process').spawnSync('ffmpeg', ['-y','-framerate','10','-i',path.join(motion,'%03d.png'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p',path.join(runDir,'liquid-add-motion.mp4')],{encoding:'utf8'});
+      if (encoded.status !== 0) throw Error(encoded.stderr);
+      report.captures.push(path.join(runDir,'liquid-add-motion.mp4'));
     }
     // Timed PNG frames form a portable motion recording without screen permissions.
     win.setContentSize(1200, 900); await reset(); await run("document.documentElement.dataset.theme='light'");
