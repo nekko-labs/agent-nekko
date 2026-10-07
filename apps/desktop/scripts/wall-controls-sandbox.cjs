@@ -12,7 +12,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 app.whenReady().then(async () => {
   session.defaultSession.webRequest.onBeforeRequest((d, done) => done({ cancel: !/^(file:|data:|blob:)/.test(d.url) }));
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, done) => done(false));
-  const win = new BrowserWindow({ width: 1200, height: 900, useContentSize: true, show: false, focusable: false, skipTaskbar: true, x: -10000, y: -10000, title: 'Synthetic Command Center verification', webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
+  const win = new BrowserWindow({ width: 1200, height: 900, useContentSize: true, show: false, focusable: false, skipTaskbar: true, x: process.env.NEKKO_WALL_REALTIME ? 40 : -10000, y: process.env.NEKKO_WALL_REALTIME ? 40 : -10000, title: 'Synthetic Command Center verification', webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
   win.webContents.on('console-message', e => { if (e.level === 'error') report.errors.push(e.message); else if (process.env.NEKKO_WALL_EVIDENCE) console.log(e.message); });
   const run = s => win.webContents.executeJavaScript(s, true);
   const check = async (name, expression) => { await sleep(180); if (!await run(expression)) throw Error(name); report.checks.push(name); };
@@ -35,6 +35,27 @@ app.whenReady().then(async () => {
     await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_WALL_REALTIME) {
+      win.setAlwaysOnTop(true, 'floating');
+      await sleep(500);
+      const rail = await run("(()=>{const r=document.querySelector('.command-wall-add-rail-right').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()");
+      const motion = path.join(runDir, 'realtime'); fs.mkdirSync(motion);
+      win.webContents.sendInputEvent({type:'mouseMove',...rail});
+      for (let frame=0; frame<20; frame++) {
+        fs.writeFileSync(path.join(motion, `${String(frame).padStart(3,'0')}.png`), (await win.webContents.capturePage()).toPNG());
+        await sleep(50);
+      }
+      await check('real-time hover transition finishes', "(()=>{const a=document.querySelector('.command-wall-add[data-preview]');if(!a)return false;const r=a.getBoundingClientRect();return r.height>100&&[...document.querySelectorAll('.command-wall-window')].every(p=>{const s=p.getBoundingClientRect();return Math.min(r.right,s.right)-Math.max(r.left,s.left)<=1||Math.min(r.bottom,s.bottom)-Math.max(r.top,s.top)<=1})})()");
+      await capture('sweep-realtime-hover');
+      win.webContents.sendInputEvent({type:'mouseMove',x:5,y:5});
+      await sleep(500);
+      await check('real-time pointer exit removes preview', "!document.querySelector('.command-wall-add[data-preview]')");
+      const encoded=require('node:child_process').spawnSync('ffmpeg',['-y','-framerate','10','-i',path.join(motion,'%03d.png'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p',path.join(runDir,'sweep-realtime-hover.mp4')],{encoding:'utf8'});
+      if(encoded.status!==0) throw Error(encoded.stderr);
+      report.captures.push(path.join(runDir,'sweep-realtime-hover.mp4'));
+      win.setAlwaysOnTop(false);
+      if(process.env.NEKKO_REALTIME_ONLY) { report.success=true; return; }
+    }
     if (current && process.env.NEKKO_WALL_EVIDENCE) {
       await run("integration.state().view='command'; document.querySelector('[data-wall-composer] [aria-label=\"Show selected chat in Focus\"]').click()");
       await check('composer Focus selects hero', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='focus'");
