@@ -21,13 +21,13 @@ export function describeInterruption(message: string, canContinue: boolean) {
     paused: paused || interrupted,
     reason: detail,
     title: paused ? 'Reply paused' : interrupted ? 'Reply interrupted' : 'Reply failed',
-    detail: `${detail} ${canContinue ? 'The work so far is saved; Continue picks up from here.' : 'No resumable progress was saved. You can start over.'}`,
+    detail: `${detail} ${canContinue ? 'The work so far is saved; Retry picks up from here.' : 'No resumable progress was saved. Retry uses the saved conversation.'}`,
   };
 }
 
 export const suggestedReplyClassName = 'max-w-full truncate rounded-full border border-accent/25 bg-accent/10 px-3 py-1.5 text-left text-[12px] font-medium text-ink-soft hover:border-accent/50 hover:bg-accent/20 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 /** A held reply means the final transcript is still loading; the record is stale. */
-export function shouldShowPersistedInterruption(history: ChatMessage[], streaming: boolean, awaitingTranscript: boolean): boolean {
-  return !streaming && !awaitingTranscript && lastReplyInterrupted(history);
+export function shouldShowPersistedInterruption(history: ChatMessage[], streaming: boolean, awaitingTranscript: boolean, awaitingQuestion = false): boolean {
+  return !streaming && !awaitingTranscript && !awaitingQuestion && lastReplyInterrupted(history);
 }

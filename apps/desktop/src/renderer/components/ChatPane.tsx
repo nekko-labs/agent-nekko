@@ -648,6 +648,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // The model menu's open state lives here so the nudge below the transcript can
   // open the very picker it points at.
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [contextChangeNotice, setContextChangeNotice] = useState(false);
+  const contextNoticeTrigger = useRef<HTMLElement | null>(null);
+  const closeContextNotice = () => {
+    setContextChangeNotice(false);
+    requestAnimationFrame(() => contextNoticeTrigger.current?.focus());
+  };
   // The "choose a model" tooltip is a one-shot nudge: opening the picker means
   // the point landed, so it retires for this chat instead of hanging around.
   const [modelHintDone, setModelHintDone] = useState(false);
@@ -933,6 +939,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           setMascotMood('thinking');
           break;
         case 'question':
+          setErrorNotice(null);
           setQuestion(e.request);
           setMascotMood('thinking');
           break;
@@ -1521,7 +1528,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
 
   // Carry on from a reply that stopped part-way. The transcript is left exactly
   // as it is: every step already taken, and every tool result it produced, stays
-  // and is not run again. This is the non-destructive counterpart to startOver.
+  // and is retained for the retry.
   const resumeRun = async () => {
     // Resolve the model against the prompt this run is still working on, so Auto
     // mode picks the same tier it picked when the run started.
@@ -1537,15 +1544,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       text: '',
       resume: true,
     });
-  };
-
-  // Re-run the last user message from scratch, discarding what the failed turn
-  // produced. Destructive, so it's the secondary action next to Resume.
-  const startOver = () => {
-    const lastUser = [...(session?.messages ?? [])].reverse().find((m) => m.role === 'user');
-    if (!lastUser) return;
-    setErrorNotice(null);
-    void editResend(lastUser.id, lastUser.content);
   };
 
   const chatMarkdown = () => {
@@ -1667,15 +1665,15 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // latest word; anything newer retires them.
   const lastMsgId = session?.messages[session.messages.length - 1]?.id;
   const liveSuggestions = suggestions && suggestions.forId === lastMsgId ? suggestions : null;
-  const canContinueReply = !!errorNotice && !streaming && hasResumableProgress(session?.messages ?? []);
+  const canContinueReply = !!errorNotice && !question && !streaming && hasResumableProgress(session?.messages ?? []);
   // A transcript that ends on a cut-off reply (the app was closed mid-run, the
   // host restarted) has no `error` event left to announce it, so the notice is
   // read off the record itself. Dismissing it is remembered per reply.
   const [dismissedInterruption, setDismissedInterruption] = useState<string | null>(null);
   useEffect(() => {
     if (errorNotice || !session || dismissedInterruption === lastMsgId) return;
-    if (shouldShowPersistedInterruption(session.messages, streaming, !!held || finalizingReply.current)) setErrorNotice(PERSISTED_INTERRUPTION);
-  }, [session, streaming, held, errorNotice, lastMsgId, dismissedInterruption]);
+    if (shouldShowPersistedInterruption(session.messages, streaming, !!held || finalizingReply.current, !!question)) setErrorNotice(PERSISTED_INTERRUPTION);
+  }, [session, streaming, held, errorNotice, lastMsgId, dismissedInterruption, question]);
   const canContinueWork = !streaming && !held && !session?.activeRun && !errorNotice &&
     session?.messages.at(-1)?.role === 'assistant' && hasResumableProgress(session.messages);
   // Suppress suggestions while recovery actions are visible.
@@ -1961,6 +1959,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       hint={modelHint}
       onProvider={setProviderId}
       onModel={(pid, v) => {
+        if (session?.messages.length && (pid !== providerId || v !== modelId)) {
+          contextNoticeTrigger.current = paneRef.current?.querySelector('button[aria-haspopup="listbox"]') ?? null;
+          setContextChangeNotice(true);
+        }
         if (pid) setProviderId(pid);
         setModelId(v);
         // Park the pick on the chat itself. Switching tabs unmounts
@@ -1978,12 +1980,19 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           .catch(() => {});
       }}
     />
-    <EffortSlider modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
+    <EffortSlider onChanged={() => { if (session?.messages.length) { contextNoticeTrigger.current = document.activeElement as HTMLElement; setContextChangeNotice(true); } }} modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
     </div>
   );
 
   return (
     <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-chat-surface={surface} className="flex h-full min-h-0 min-w-0 overflow-hidden">
+      {contextChangeNotice && <Modal title="Context on your next reply" zIndex={100} overlayClassName="p-4" className="w-full max-w-md rounded-xl border border-line bg-surface p-5 text-ink shadow-xl" onClose={closeContextNotice}>
+            <h2 className="font-semibold">Context on your next reply</h2>
+            <p className="mt-3 text-sm text-ink-soft">Your selection is saved. Changing the model or effort does not send a request now or change an already-running reply. The next reply sends the assembled chat context again, as ordinary follow-up replies do.</p>
+            <p className="mt-3 text-sm text-ink-soft">{ctx ? 'Estimated input context: ~' + ctxUsed.toLocaleString() + ' tokens.' : 'Input context estimate is unavailable.'} History may be compacted or trimmed; caching and billing depend on the provider. A different model may not reuse cached context. Effort applies to all chats.</p>
+            <p className="mt-3 text-sm text-ink-soft">To reduce input tokens, you can open a new chat instead and include only the information it needs.</p>
+            <button className="btn btn-primary mt-4" onClick={closeContextNotice}>Got it</button>
+      </Modal>}
       {chatMenu && <ContextMenu x={chatMenu.x} y={chatMenu.y} onClose={() => setChatMenu(null)}>
         <ContextAction onClick={() => { void navigator.clipboard.writeText(chatMarkdown()).catch(() => useStore.getState().pushToast('error', "Couldn't copy chat.")); setChatMenu(null); }}><CopyIcon className="mr-2 inline h-3.5 w-3.5" />Copy chat</ContextAction>
         <ContextAction onClick={() => { exportChat(); setChatMenu(null); }}><DownloadIcon className="mr-2 inline h-3.5 w-3.5" />Export as Markdown</ContextAction>
@@ -2090,7 +2099,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {imageMode
                   ? <ImageLiveTurn sessionId={sessionId} streaming={streaming} />
                   : <LiveTurn sessionId={sessionId} held={held} onImageClick={setLightbox} />}
-                {errorNotice && !streaming && (() => {
+                {errorNotice && !question && !streaming && (() => {
                   // A stop the user asked for is not a failure, so it doesn't wear
                   // the failure colour. Either way the run is resumable whenever it
                   // left something behind: the steps it finished are on disk, so
@@ -2100,7 +2109,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   const tone = interruption.paused ? 'var(--warning)' : 'var(--danger)';
                   return (
                   <div
-                    className="fade-in flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[12px]"
+                    className="fade-in flex flex-wrap items-center gap-2.5 rounded-xl border px-3 py-2 text-[12px]"
                     style={{
                       borderColor: `color-mix(in srgb, ${tone} 35%, transparent)`,
                       background: `color-mix(in srgb, ${tone} 7%, transparent)`,
@@ -2110,25 +2119,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     <span className="shrink-0 font-medium" style={{ color: tone }}>
                       {interruption.title}
                     </span>
-                    <span className="min-w-0 flex-1 text-ink-soft">
-                      {interruption.detail}
+                    <span className="min-w-0 basis-48 flex-1 text-ink-soft">
+                      {interruption.detail} Retrying sends approximately {ctx ? ctxUsed.toLocaleString() : 'an unavailable number of'} input context tokens. Provider caching and billing vary.
                     </span>
-                    {canResume && (
-                      <button
-                        className="btn btn-primary shrink-0 px-2.5 py-0.5 text-[11px]"
-                        title="Carry on from here, keeping every step already done"
-                        onClick={() => void resumeRun()}
-                      >
-                        Continue
-                      </button>
-                    )}
                     {session?.messages.some((m) => m.role === 'user') && (
-                      <button
-                        className="btn btn-outline shrink-0 px-2.5 py-0.5 text-[11px]"
-                        title="Discard this reply and answer the prompt again from scratch"
-                        onClick={startOver}
-                      >
-                        Start over
+                      <button className="btn btn-primary shrink-0 px-2.5 py-0.5 text-[11px]"
+                        title="Retry using the saved conversation and work" onClick={() => void resumeRun()}>
+                        Retry
                       </button>
                     )}
                     <button className="shrink-0 rounded-sm p-0.5 text-ink-faint hover:text-ink" title="Dismiss" onClick={() => { setDismissedInterruption(lastMsgId ?? null); setErrorNotice(null); }}>
@@ -2434,7 +2431,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   title={canContinueReply ? 'Continue this reply, keeping the work already done' : 'Ask the agent to continue any remaining work from this conversation'}
                   onClick={() => canContinueReply ? void resumeRun() : void send('Continue the remaining work from this conversation. Preserve what is already done; if the task is complete or blocked, explain that instead of repeating it.')}
                 >
-                  {canContinueReply ? 'Continue' : 'Continue work'}
+                  {canContinueReply ? 'Retry' : 'Continue work'}
                 </button>
               </div>
             )}

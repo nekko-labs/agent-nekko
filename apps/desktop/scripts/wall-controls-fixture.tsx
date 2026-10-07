@@ -1,3 +1,4 @@
+import { assembleContext } from '@fixture/context';
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useStore } from '../src/renderer/store';
@@ -19,7 +20,9 @@ let terminals: any[] = [];
 let serial = 0;
 const calls: any[] = [];
 const failures = { create: false, options: false, cleanup: false };
+const contextBundle = () => assembleContext({ attached: [{path:'synthetic.txt',content:'context '.repeat(100)}], guidelines:[{path:'AGENTS.md',content:'Preserve existing work.'}], memory:[], connectorSnippets:[], indexSnippets:[], history:records[0]?.messages ?? [], systemText:'Synthetic system instructions', contextWindow:128000 });
 const bridge: any = {
+  sendChat: async (options: any) => { calls.push({method:'send',options}); },
   createSession: async (workspaceId: string) => { calls.push({ method: 'create', workspaceId }); if (failures.create) throw Error('Synthetic creation failure'); const s = { ...makeSession(`new-${++serial}`), workspaceId }; records.push(s); return s; },
   setSessionOptions: async (id: string, options: any) => { calls.push({ method: 'options', id, options }); if (failures.options) throw Error('Synthetic options failure'); const s = records.find(s => s.id === id); Object.assign(s, options); sessionStorage.setItem('fixture-record', JSON.stringify(s)); return {...s}; },
   deleteSession: async (id: string) => { calls.push({ method: 'cleanup', id }); if (failures.cleanup) throw Error('Synthetic cleanup failure'); records = records.filter(s => s.id !== id); },
@@ -28,7 +31,7 @@ const bridge: any = {
   getSession: async (id: string) => records.find(s => s.id === id), listModels: async () => models,
   getUsageSummary: async () => null, pendingInput: async () => pending, onAgentEvent: (fn: any) => {listeners.add(fn);return () => listeners.delete(fn)}, answerQuestion: async (id: string, callId: string, answers: any) => {calls.push({method:'answer',id,callId,answers});pending={};listeners.forEach(fn=>fn({type:'question_resolved',sessionId:id,callId}));}, runningSessions: async () => [],
   listTasks: async () => [], listShells: async () => [], listChanges: async () => [], listFiles: async () => [],
-  previewContext: async () => ({ items: [], totalTokens: 0, budget: 128000 }), getGitStatus: async () => ({ repo: true, branch: 'synthetic-branch', worktree: { name: 'synthetic-worktree', path: '/synthetic/worktree' } }),
+  previewContext: async () => contextBundle(), getGitStatus: async () => ({ repo: true, branch: 'synthetic-branch', worktree: { name: 'synthetic-worktree', path: '/synthetic/worktree' } }),
   getLimits: async () => null, listTools: async () => [], getMcpStatus: async () => [], listSkills: async () => [],
   terminalRead: async () => '', readTerminal: async () => '', updateSettings: async () => null,
 };
@@ -43,7 +46,7 @@ function Fixture() {
     useStore.setState({ providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: 'synthetic-project', settings: { providers: [provider], workspaceFolders: [], workspaces: [], theme: 'light', experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root: records.length > 1 ? { id: 'synthetic-split', dir: 'row', children: records.map((s,i) => ({id:`synthetic-pane-${i}`,kind:'chat',refId:s.id})), sizes: records.map(() => 1/records.length) } : { id: 'synthetic-pane', kind: 'chat', refId: 'existing' }, autoAdd: false, watermark: Date.now(), dock: { ...DEFAULT_WALL_STATE.dock, show: false } } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
     setRoute('command'); setEpoch(e => e + 1);
   };
-  Object.assign(window, { integration: { reset, ask: () => { const request = {callId:'ask-fixture',askedAt:Date.now(),questions:[{id:'choice',header:'Choice',question:'Which verification path?',options:[{label:'Focused tests'},{label:'Full suite'}]}]}; pending={existing:{question:request}}; listeners.forEach(fn=>fn({type:'question',sessionId:'existing',request})); }, calls, failures, route: setRoute, state: () => useStore.getState(), records: () => records } });
+  Object.assign(window, { integration: { reset, noProgress: () => { const s=makeSession('existing'); s.messages=s.messages.slice(0,1); sessionStorage.setItem('fixture-record',JSON.stringify(s)); reset(); }, contextBundle, fail: () => listeners.forEach(fn=>fn({type:'error',sessionId:'existing',message:'Synthetic request failed'})), ask: () => { const request = {callId:'ask-fixture',askedAt:Date.now(),questions:[{id:'choice',header:'Choice',question:'Which verification path?',options:[{label:'Focused tests'},{label:'Full suite'}]}]}; pending={existing:{question:request}}; listeners.forEach(fn=>fn({type:'question',sessionId:'existing',request})); }, calls, failures, route: setRoute, state: () => useStore.getState(), records: () => records } });
   React.useEffect(reset, []);
   return <main style={{ height: '100vh' }} key={epoch}>{route === 'command' ? <CommandCenterView /> : <WorkspacesView />}</main>;
 }

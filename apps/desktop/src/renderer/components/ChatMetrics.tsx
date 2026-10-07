@@ -160,7 +160,7 @@ const EFFORT_LABEL: Record<EffortLevel, string> = {
 };
 
 /** Model-specific effort rungs on a compact slider beside the model picker. */
-export function EffortSlider({ modelId }: { modelId?: string }) {
+export function EffortSlider({ modelId, onChanged }: { modelId?: string; onChanged?: () => void }) {
   const settings = useStore((s) => s.settings);
   const saved = settings?.effort ?? 'normal';
   const levels = modelEffortLevels(modelId);
@@ -170,6 +170,8 @@ export function EffortSlider({ modelId }: { modelId?: string }) {
   // saved `xhigh` on a temperature model runs as `high`, and says so.
   const effective = effectiveEffort(saved, modelId);
   const pick = (level: EffortLevel) => {
+    if (level === saved) return;
+    onChanged?.();
     void window.nekko.updateSettings({ effort: level }).then(() => useStore.getState().refreshSettings());
   };
 
