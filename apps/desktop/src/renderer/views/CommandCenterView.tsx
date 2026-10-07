@@ -1,5 +1,6 @@
 import { AgentWindowPicker, type AgentWindowSelection } from '../components/AgentWindowPicker.js';
-import { NumberedChatIcon } from '../components/NumberedChatIcon.js';
+import { AgentSidebar } from './WorkspacesView.js';
+import { ChatPane } from '../components/ChatPane.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, AutomationTask, PendingInput, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType } from '@agent-nekko/shared';
@@ -8,7 +9,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
 import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, WandIcon } from '../icons.js';
-import { CommandWall, TerminalExcerpt } from '../components/CommandWall.js';
+import { CommandWall } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
 import { type Vitals } from '../components/InsightsBox.js';
@@ -216,8 +217,8 @@ export function CommandCenterView() {
   // Retain an unconfigured session when host cleanup fails, so retrying does
   // not create a second orphan. Clear it only after configuration or deletion.
   const unfinishedChat = useRef<Awaited<ReturnType<typeof window.nekko.createSession>> | null>(null);
-  const newChat = async (selection?: AgentWindowSelection): Promise<string> => {
-    let s = unfinishedChat.current ?? await window.nekko.createSession(activeProjectId ?? undefined);
+  const newChat = async (selection?: AgentWindowSelection, projectId = activeProjectId ?? undefined): Promise<string> => {
+    let s = unfinishedChat.current ?? await window.nekko.createSession(projectId);
     if (unfinishedChat.current && !selection) selection = { kind: 'chat', chatType: 'multimodal' };
     if (selection) {
       try {
@@ -239,8 +240,8 @@ export function CommandCenterView() {
     useStore.setState((state) => ({ sessions: [summarizeSession(s), ...state.sessions.filter((existing) => existing.id !== s.id)] }));
     return s.id;
   };
-  const newTerminal = async (): Promise<string> => {
-    const t = await window.nekko.createTerminal({ workspaceId: activeProjectId ?? undefined });
+  const newTerminal = async (workspaceId = activeProjectId ?? undefined, shell?: string): Promise<string> => {
+    const t = await window.nekko.createTerminal({ workspaceId, shell });
     useStore.setState((state) => ({ terminals: [t, ...state.terminals.filter((existing) => existing.id !== t.id)] }));
     return t.id;
   };
@@ -256,11 +257,10 @@ export function CommandCenterView() {
   // on the wall. Ctrl+Tab / Ctrl+Shift+Tab walk the windows in reading order;
   // Ctrl+1…9 (or Alt+1…9) pick one by its number.
   const [addOpen, setAddOpen] = useState(false);
-  const [tabsMenu, setTabsMenu] = useState<{ x: number; y: number } | null>(null);
-  const closeTabsMenu = useCallback(() => setTabsMenu(null), []);
-  const openTabsMenu = (e: React.MouseEvent) => { e.preventDefault(); setTabsMenu({ x: e.clientX, y: e.clientY }); };
+  const [completedId, setCompletedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(() => wall.hero);
   const selectAgent = useCallback((id: string | null) => {
+    setCompletedId(null);
     setSelected(id);
     setWall((w) => w.hero === id ? w : { ...w, hero: id });
   }, [setWall]);
@@ -333,22 +333,24 @@ export function CommandCenterView() {
   return (
     <div ref={viewRef} className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
       <WallToolbar wall={wall} setWall={setWall} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} />
-      <div className="flex items-center gap-2"><button className="btn btn-ghost text-[12px]" aria-haspopup="menu" onContextMenu={openTabsMenu} onClick={(e) => setTabsMenu({ x: e.currentTarget.getBoundingClientRect().left, y: e.currentTarget.getBoundingClientRect().bottom })}>Agent tabs: {wall.tabs ?? 'top'}</button></div>
-      {tabsMenu && <ContextMenu x={tabsMenu.x} y={tabsMenu.y} onClose={closeTabsMenu}>{(['top', 'left', 'hidden'] as const).map((tabs) => <ContextAction key={tabs} onClick={() => { setWall(w => ({ ...w, tabs })); closeTabsMenu(); }}>{(wall.tabs ?? 'top') === tabs ? '✓ ' : ''}{tabs === 'top' ? 'Top tabs' : tabs === 'left' ? 'Vertical tabs (left)' : 'Hide tab panel'}</ContextAction>)}</ContextMenu>}
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
-        <div className="wall-agent-workspace" data-tabs={wall.tabs ?? 'top'}>
-      {wall.tabs !== 'hidden' && <div className="wall-focus-agents" role="toolbar" aria-label="Focus agents" onContextMenu={openTabsMenu}>
-        {agentList.map((agent) => <button key={agent.session.id} className="wall-focus-agent" aria-pressed={wall.hero === agent.session.id} onClick={() => selectAgent(agent.session.id)}>
-          <NumberedChatIcon number={agent.n} /><span className="min-w-0 text-left"><span className="block truncate">{agent.session.title}</span><small className="block truncate text-ink-faint">{agent.session.modelId || 'Default model'} · {agent.session.transcriptTokens.toLocaleString()} context tokens</small></span>
-          {agent.status && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: agent.status.tone }} />}
-        </button>)}
-        {allPanes(wall.root).filter(p => p.kind === 'terminal').map(p => <button key={p.id} className="wall-focus-agent" aria-pressed={wall.hero === p.refId} aria-label={`Focus terminal ${p.refId}`} onClick={() => setWall(w => ({ ...w, hero: p.refId }))}><TerminalIcon className="h-4 w-4 shrink-0" /><span className="min-w-0 text-left"><span className="block truncate">{terminals.find(t => t.id === p.refId)?.title || 'Terminal'}</span><TerminalExcerpt terminalId={p.refId} /></span></button>)}
-        <button className="wall-focus-agent" onClick={() => { void addFromToolbar('chat'); }}>+ New agent</button>
-      </div>}
+        <div className="wall-agent-workspace" data-tabs="left">
+      <AgentSidebar onCreate={async (kind, projectId, shell) => {
+        const id = kind === 'terminal' ? await newTerminal(projectId, shell) : await newChat({ kind: 'chat', chatType: kind === 'image' ? 'image' : 'multimodal' }, projectId);
+        await addFromToolbar(kind === 'terminal' ? 'terminal' : 'chat', id);
+        setCompletedId(null);
+      }} selectedId={completedId ?? selected} onOpenChat={(id) => {
+        if (sessions.find((session) => session.id === id)?.archivedAt) setCompletedId(id);
+        else {
+          void addFromToolbar('chat', id);
+          selectAgent(id);
+          setWall((w) => ({ ...w, hero: id, layout: { ...w.layout, mode: 'focus' } }));
+        }
+      }} onOpenTerminal={(id) => { setCompletedId(null); void addFromToolbar('terminal', id); }} />
       <div className="wall-column">
-      {wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composer}
-      <CommandWall
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composer}
+      {completedId ? <div className="panel panel-ring flex min-h-0 flex-1 flex-col overflow-hidden"><button className="btn btn-ghost self-start" onClick={() => setCompletedId(null)}>Back to active agents</button><ChatPane key={completedId} sessionId={completedId} readOnly /></div> : <CommandWall
         state={wall}
         setState={setWall}
         sessions={sessions}
@@ -372,8 +374,8 @@ export function CommandCenterView() {
           if (selection.kind === 'chat') selectAgent(ref);
           setAddOpen(false);
         }} /> : undefined}
-      />
-      {wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composer}
+      />}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composer}
         </div>
       </div>
       </div>

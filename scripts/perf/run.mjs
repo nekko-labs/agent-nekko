@@ -181,15 +181,22 @@ async function openApp({ appUrl, cdpPort, vsync }) {
   const openChat = async (i, marker = lastMarker(i)) => {
     await clickEl('nav button[aria-label="Agents"]', null, 'the Command Center nav');
     const title = chatTitle(i);
-    const openSel = `button[title="Open ${title}"]`;
-    // Each chat is a live window on the wall; its strip's "Open" button takes it to the Agent tab.
-    await waitFor(`!!document.querySelector('button[title^="Open Perf chat"]')`, 'the wall');
-    // Setup is not measured. Dispatch on the exact Open control rather than
-    // sampling coordinates while the wall is still settling its geometry.
-    await cdp.call((selector) => document.querySelector(selector)?.click(), openSel);
-    // The wall already contains this transcript. It cannot prove the Open
-    // gesture navigated to the Agent tab, whose sidebar switching is measured.
-    await waitFor("!!document.querySelector('button[data-sidebar-group]')", 'the Agent tab sidebar');
+    // Setup selects the exact grouped card on Agents; Chat no longer owns this list.
+    await waitFor("!!document.querySelector('button[data-sidebar-group]')", 'the Agents sidebar');
+    await showAllCards();
+    await cdp.call((title) => [...document.querySelectorAll('div[role="button"]')].find(card => card.getAttribute('title')?.includes(title))?.click(), title);
+    // Setup is not a measured sidebar switch. The separate frame-work browser
+    // opens a chat modified by the latency phase; explicitly request its newest
+    // reply rather than depending on scroll restoration from a transient Grid.
+    if (marker === '') {
+      await waitFor("!!document.querySelector('.msg-ai')", 'loaded frame-work transcript');
+      await cdp.call((t) => {
+        const p = window.__perf.panel(t);
+        const newest = [...(p?.querySelectorAll('.msg-ai') ?? [])].pop();
+        const scroller = newest?.closest('.overflow-y-auto');
+        if (scroller) scroller.scrollTop = scroller.scrollHeight;
+      }, title);
+    }
     const ok = await cdp.call((t, m) => window.__perf.waitForChat(t, m, 30000), title, marker);
     if (!ok) {
       const seen = await cdp.call((t, m) => {

@@ -198,11 +198,22 @@ function statusFromEvent(type: AgentEvent['type']): AgentStatus | null {
   }
 }
 
-export function WorkspacesView() {
+type SidebarActions = {
+  onOpenChat: (id: string) => void;
+  onOpenTerminal: (id: string) => void;
+  selectedId: string | null;
+  onCreate: (kind: 'chat' | 'image' | 'terminal', projectId?: string, shell?: string) => Promise<void>;
+};
+
+export function AgentSidebar(props: SidebarActions) {
+  return <WorkspacesView sidebarOnly {...props} />;
+}
+
+export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal, selectedId, onCreate }: Partial<SidebarActions> & { sidebarOnly?: boolean } = {}) {
   const {
     sessions, terminals, workspaces, activeWorkspaceId, settings, activeSessionId,
-    refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal, newTerminalWorkspace,
-    setActiveWorkspace, newChat, setActiveProject,
+    refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal: storeNewTerminal, newTerminalWorkspace: storeNewTerminalWorkspace,
+    setActiveWorkspace, newChat: storeNewChat, setActiveProject,
     reorderWorkspaces, layoutChats, layoutTerminals, contextPanelOpen,
     archiveWorkspace, archiveChat, archiveOpen, archivedViewId,
   } = useStore(
@@ -232,6 +243,11 @@ export function WorkspacesView() {
       archivedViewId: s.archivedViewId,
     })),
   );
+  const newChat = () => sidebarOnly && onCreate ? onCreate('chat', activeProjectId()) : storeNewChat();
+  const activeProjectId = () => useStore.getState().activeProjectId ?? undefined;
+  const newTerminal = (projectId?: string) => sidebarOnly && onCreate ? onCreate('terminal', projectId) : storeNewTerminal(projectId);
+  const newTerminalWorkspace = (projectId?: string, shell?: string) => sidebarOnly && onCreate ? onCreate('terminal', projectId ?? activeProjectId(), shell) : storeNewTerminalWorkspace(projectId, shell);
+  const newImageChat = () => sidebarOnly && onCreate ? onCreate('image', activeProjectId()) : useStore.getState().newImageChat('');
   const [selected, setSelected] = useState<string[]>([]);
   const anchor = useRef<string | null>(null);
   const [menu, setMenu] = useState<{x: number; y: number; ids: string[]; model?: boolean} | null>(null);
@@ -331,7 +347,7 @@ export function WorkspacesView() {
   // Open the active session as a workspace if there are none (e.g. arriving
   // from the Command Center or command palette).
   useEffect(() => {
-    if (workspaces.length === 0 && activeSessionId) openChatPane(activeSessionId);
+    if (!sidebarOnly && workspaces.length === 0 && activeSessionId) openChatPane(activeSessionId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -500,7 +516,7 @@ export function WorkspacesView() {
     });
   });
   // In the sidebar's own order, so a switch never moves a mounted canvas in the DOM.
-  const mounted = workspaces.filter((w) => w.root && (recent.current.includes(w.id) || leaving.current.includes(w.id)));
+  const mounted = (sidebarOnly ? [] : workspaces).filter((w) => w.root && (recent.current.includes(w.id) || leaving.current.includes(w.id)));
 
   const Sidebar = (
     // `min()` guards the mobile overlay, where the chosen width could be wider
@@ -556,7 +572,7 @@ export function WorkspacesView() {
                 tone="var(--accent)"
                 icon={<ChatIcon className="h-4 w-4" />}
                 label="New image session"
-                onClick={() => { closeNewMenu(); void useStore.getState().newImageChat('').catch((e: Error) => useStore.getState().pushToast('error', e.message)); }}
+                onClick={() => { closeNewMenu(); void newImageChat().catch((e: Error) => useStore.getState().pushToast('error', e.message)); }}
               />
               <div className="flex items-center justify-between gap-2 px-2.5 pb-0.5 pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Terminal</p>
@@ -654,11 +670,18 @@ export function WorkspacesView() {
                           session={s}
                           terminal={entry.t}
                           status={s ? statuses.get(s.id) : undefined}
-                          isActive={!!w && w.id === active?.id}
+                          isActive={sidebarOnly ? (s?.id ?? entry.t?.id) === selectedId : !!w && w.id === active?.id}
                           now={now}
                           projects={settings?.workspaces ?? []}
                           subAgentCount={kids.length}
-                          onOpen={() => (w ? setActiveWorkspace(w.id) : s && openChatPane(s.id))}
+                          onOpen={() => {
+                            if (sidebarOnly) {
+                              if (s) onOpenChat?.(s.id);
+                              else if (entry.t) onOpenTerminal?.(entry.t.id);
+                              setMobileNav(false);
+                            } else if (w) setActiveWorkspace(w.id);
+                            else if (s) openChatPane(s.id);
+                          }}
                           onClose={() => (w ? archiveWorkspace(w.id) : s ? archiveChat(s.id) : undefined)}
                         />
                         {/* Sub-agents this chat spawned, one line each. */}
@@ -667,8 +690,8 @@ export function WorkspacesView() {
                             key={kid.id}
                             session={kid}
                             status={statuses.get(kid.id)}
-                            isActive={kid.id === activeSessionId}
-                            onOpen={() => openChatPane(kid.id)}
+                            isActive={kid.id === (sidebarOnly ? selectedId : activeSessionId)}
+                            onOpen={() => sidebarOnly ? onOpenChat?.(kid.id) : openChatPane(kid.id)}
                           />
                         ))}
                       </div>
@@ -695,8 +718,8 @@ export function WorkspacesView() {
                           key={s.id}
                           session={s}
                           now={now}
-                          isActive={archiveOpen && archivedViewId === s.id}
-                          onOpen={() => { openChatPane(s.id); setMobileNav(false); }}
+                          isActive={sidebarOnly ? selectedId === s.id : archiveOpen && archivedViewId === s.id}
+                          onOpen={() => { if (sidebarOnly) onOpenChat?.(s.id); else openChatPane(s.id); setMobileNav(false); }}
                         />
                       ))}
                     </div>
@@ -716,13 +739,13 @@ export function WorkspacesView() {
     // things — two full-bleed columns on paper with a tray of rounded windows
     // between them — which is why the middle read as the only real panel.
     <div
-      className="flex h-full min-w-0 overflow-hidden"
-      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
+      className={`flex h-full min-w-0 overflow-hidden ${sidebarOnly ? 'shrink-0' : ''}`}
+      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)', ...(sidebarOnly ? { height: 'auto', minHeight: 0 } : {}) }}
     >
       {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
         <div className="select-text break-all px-2.5 py-2 font-mono text-[10px] text-ink-faint">{menu.ids.length === 1 ? menu.ids[0] : menu.ids.length + ' sessions selected'}</div>
         {menu.model ? <div className="h-72"><ModelPicker expanded open providers={useStore.getState().providers} providerId={null} modelId={null} models={[]} onOpenChange={() => {}} onProvider={() => {}} onModel={(pid, mid) => { const ids = menu.ids; setMenu(null); void Promise.allSettled(ids.map(async id => { const s = await window.nekko.setSessionOptions(id,{providerId:pid,modelId:mid,autoModel:mid===AUTO_MODEL_ID}); if (!s) throw new Error('Chat no longer exists'); window.dispatchEvent(new CustomEvent('nekko-session-brain', {detail:{id,session:s}})); })).then(results => { results.forEach((r,i) => { if(r.status==='rejected') useStore.getState().pushToast('error',ids[i]+': '+String(r.reason)); }); void refreshSessions(); }); }} /></div> : <>
-          <ContextAction onClick={() => { menu.ids.forEach(id => openChatPane(id)); setMenu(null); }}>Open{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
+          <ContextAction onClick={() => { menu.ids.forEach(id => sidebarOnly ? onOpenChat?.(id) : openChatPane(id)); setMenu(null); }}>Open{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
           <ContextAction onClick={() => void runAction('complete',menu.ids)}>Mark as completed</ContextAction>
           <ContextAction onClick={() => setMenu({...menu, model:true})}>Change model</ContextAction>
           <ContextAction disabled={!menu.ids.some(id => statuses.has(id))} onClick={() => void runAction('stop',menu.ids)}>Stop{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
@@ -730,8 +753,8 @@ export function WorkspacesView() {
           <ContextAction onClick={() => void runAction('delete',menu.ids)}>Delete permanently</ContextAction>
         </>}
       </ContextMenu>}
-      {mobileNav && <div className="absolute inset-0 z-20 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} />}
-      <aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
+      {sidebarOnly && mobileNav && <div className="absolute inset-0 z-20 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} />}
+      {sidebarOnly && <><div className="md:hidden"><button className="btn btn-ghost" aria-label="Open agent list" onClick={() => setMobileNav(true)}>Agents</button></div><aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
       {/* The handle sits inside the gap itself (negative margins) so the list
           and the windows keep their one-gap rhythm, grabbed like the window
           dividers: pointer capture, arrow keys, double-click resets. */}
@@ -781,11 +804,11 @@ export function WorkspacesView() {
           aria-hidden
           className="pane-grip absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
         />
-      </div>
+      </div></>}
 
-      <main className="flex min-w-0 flex-1 flex-col">
+      {!sidebarOnly && <main className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-line px-2 py-1.5 md:hidden">
-          <button className="btn btn-ghost px-2 py-1" onClick={() => setMobileNav(true)} aria-label="Open sidebar">
+          <button className="btn btn-ghost px-2 py-1" onClick={() => useStore.getState().setView('command')} aria-label="Open Agents">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
           <span className="text-[13px] font-semibold">Agents</span>
@@ -816,13 +839,13 @@ export function WorkspacesView() {
             ))}
           </div>
         )}
-      </main>
+      </main>}
 
       {/* The right panel: folders + file explorer over the context breakdown. It
           belongs to the app rather than to one window, so opening a file from
           the explorer doesn't take the explorer away with it. It follows the
           active chat, and says so when there isn't one. */}
-      {contextPanelOpen && (
+      {!sidebarOnly && contextPanelOpen && (
         <aside className="panel panel-ring hidden shrink-0 lg:block">
           <ContextInspector sessionId={activeSessionId} />
         </aside>
