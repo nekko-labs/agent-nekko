@@ -35,6 +35,10 @@ jobs:
           -configuration Debug -sdk iphonesimulator
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO build
+      - name: Verify launch screen survives project generation
+        run: |
+          test "$(/usr/libexec/PlistBuddy -c 'Print :UILaunchStoryboardName' apps/ios/DerivedData/Build/Products/Debug-iphonesimulator/NekkoNative.app/Info.plist)" = LaunchScreen
+          test -d apps/ios/DerivedData/Build/Products/Debug-iphonesimulator/NekkoNative.app/LaunchScreen.storyboardc
       - name: Isolated simulator launch and appearance evidence
         working-directory: apps/ios
         run: |

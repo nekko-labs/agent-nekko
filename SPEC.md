@@ -802,3 +802,5 @@ Acceptance: matched main/current captures and sampled mascot/reorder motion fram
 - Below 720px, the left preference renders as a horizontal strip to preserve editor width; the saved preference remains left.
 - Acceptance: new-agent selection, all placement choices, right-click access, recovery, and setting/local/reload persistence pass isolated Electron checks. Desktop/light/dark and narrow visual evidence must be inspected before release.
 - Privacy: placement changes only UI settings; they neither send prompts nor create/delete sessions.
+
+Native iOS first-run sizing: the generated Xcode project consumes the checked-in Info.plist directly so the launch storyboard survives generation and iPhone does not enter legacy letterboxed compatibility mode. CI checks the built launch-screen metadata and compiled storyboard before simulator captures.

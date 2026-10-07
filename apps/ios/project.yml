@@ -20,14 +20,13 @@ targets:
     platform: iOS
     sources:
       - path: App
-    info:
-      path: Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.nekko.native.ios
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Info.plist
     dependencies:
       - package: NekkoProtocol
 schemes:
