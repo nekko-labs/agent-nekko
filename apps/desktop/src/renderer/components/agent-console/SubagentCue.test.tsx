@@ -11,11 +11,17 @@ import type { ChatMessage, ToolCall } from '@agent-nekko/shared';
 const call: ToolCall = { id: 'child', name: 'spawn_agent', input: { title: 'Integration checks', task: 'Run tests' } };
 it('keeps delegation identifiable in collapsed groups and tool cards', () => {
   const html = renderToStaticMarkup(<ActivityGroup items={[{ kind: 'tool', call }]} />);
-  expect(html).toContain('1 subagent');
-  expect(html).toContain('Integration checks');
+  expect(html).toContain('Spawned subagent · Run tests');
+  expect(html).not.toContain('border-accent');
+  expect(html).not.toContain('border-l border-line');
   expect(html.match(/<svg/g)).toHaveLength(2);
-  expect(renderToStaticMarkup(<ToolCard call={call} />)).toContain('To subagent · Integration checks');
+  expect(renderToStaticMarkup(<ToolCard call={call} />)).toContain('Spawned subagent · Run tests');
   expect(renderToStaticMarkup(<ActivityGroup items={[{kind:'tool',call:{...call,name:'read_file'}}]} />)).not.toContain('subagent');
+});
+it('summarizes task text rather than titles, and retains a title fallback', () => {
+  const long = { ...call, input: { ...call.input, task: '  Check  the\nplatform  ' } };
+  expect(renderToStaticMarkup(<ToolCard call={long} />)).toContain('Spawned subagent · Check the platform');
+  expect(renderToStaticMarkup(<ToolCard call={{ ...call, input: { title: 'Integration checks' } }} />)).toContain('Spawned subagent · Integration checks');
 });
 it('attaches only the matching delegation result, including errors, to the persisted step', () => {
   const messages: ChatMessage[] = [

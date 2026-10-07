@@ -134,6 +134,7 @@ const api: NekkoApi = {
   getSystemStats: () => inv(IpcChannels.systemStats),
 
   listSessions: () => inv(IpcChannels.sessionsList),
+  nextAgentWatchAt: (sessionId) => inv(IpcChannels.sessionNextWatch, sessionId),
   listSessionSummaries: () => inv(IpcChannels.sessionsSummaries),
   createSession: (workspaceId) => inv(IpcChannels.sessionCreate, workspaceId),
   getSession: (id) => inv(IpcChannels.sessionGet, id),
