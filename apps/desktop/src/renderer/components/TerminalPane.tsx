@@ -219,7 +219,7 @@ export function TerminalPane({ terminalId }: { terminalId: string }) {
       });
 
       if (!streamed) {
-        // Agent logs are created lazily and live only in backend memory. A
+        // Agent logs are created lazily and restored from session sidecars. A
         // missing snapshot is not a broken renderer (or a persisted chat log).
         let receivedData = false;
         let showingNotice = false;
@@ -232,7 +232,7 @@ export function TerminalPane({ terminalId }: { terminalId: string }) {
         window.nekko.terminalSnapshot(terminalId).then((snap) => {
           if (disposed) return;
           if (!snap) {
-            if (readOnly) notice('No command output available. Only shell commands appear here; logs are kept in memory and cleared when the backend restarts.');
+            if (readOnly) notice('No command output available. Only shell commands appear here; new command logs are saved alongside this session.');
             return;
           }
           setInfo(snap.info);

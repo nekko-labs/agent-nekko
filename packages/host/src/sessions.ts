@@ -5,6 +5,7 @@ import { join } from 'path';
 import type { QueuePayload, QueuedPrompt, Session, SessionSummary } from '@agent-nekko/shared';
 import { archiveExpired, queueItemsEqual, summarizeSession } from '@agent-nekko/shared';
 import { dataDir, getSettings } from './store.js';
+import { deleteAgentLog } from './agent-log.js';
 
 function sessionsDir(): string {
   const dir = join(dataDir(), 'sessions');
@@ -164,6 +165,7 @@ export function deleteSession(id: string): void {
   const file = pathFor(id);
   summaryCache.delete(file);
   if (existsSync(file)) rmSync(file);
+  deleteAgentLog(id);
 }
 
 export function setSessionWorkspace(id: string, workspaceId?: string): Session | null {

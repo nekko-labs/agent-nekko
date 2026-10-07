@@ -53,7 +53,7 @@ describe('agent command log attachment', () => {
   it('explains missing lazy or restarted logs and replaces the notice on first output', async () => {
     const { api, emit } = await mount(Promise.resolve(null));
     expect(api.openTerminalStream).not.toHaveBeenCalled();
-    expect(fixture.write).toHaveBeenCalledWith(expect.stringContaining('logs are kept in memory'));
+    expect(fixture.write).toHaveBeenCalledWith(expect.stringContaining('new command logs are saved alongside this session'));
     emit({ type: 'data', terminalId: 'agent_other', data: 'unrelated' });
     expect(fixture.reset).not.toHaveBeenCalled();
     emit({ type: 'data', terminalId: 'agent_test', data: '$ echo hello\r\nhello\r\n' });
