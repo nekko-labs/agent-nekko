@@ -11,13 +11,14 @@ export function sleepingLabel(nextWakeAt: number, now: number): string {
 }
 
 /** Keep the measurements visible during generation and after completion. */
-export function ReplyStatus({ streaming, status, elapsed, tps, out, last, done, nextWakeAt, now = Date.now(), blocked }: {
+export function ReplyStatus({ streaming, status, elapsed, tps, out, last, done, nextWakeAt, now = Date.now(), blocked, estimatedRate = false }: {
   streaming: boolean; status: string; elapsed: number; tps: number; out: number;
   last: { out: number; tps: number; secs: number } | null;
   done?: string | null;
   nextWakeAt?: number | null;
   now?: number;
   blocked?: string | null;
+  estimatedRate?: boolean;
 }) {
   const measured = streaming ? { out, tps, secs: elapsed } : last;
   return (
@@ -31,7 +32,7 @@ export function ReplyStatus({ streaming, status, elapsed, tps, out, last, done, 
       ) : (done || last) ? (
         <span className="flex items-center gap-1" title={done ?? undefined}><CheckIcon className="h-3 w-3" />Done.</span>
       ) : <span>Reply stats</span>}
-      <span title="Output tokens per second while the model was generating">· {measured && measured.tps > 0 ? formatRate(measured.tps) : '—'} tok/s</span>
+      <span title={estimatedRate ? "Estimated tokens per second from streamed text and reasoning; replaced by provider usage when available" : "Output tokens per second while the model was generating"}>· {estimatedRate ? "~" : ""}{measured && measured.tps > 0 ? formatRate(measured.tps) : '—'} tok/s</span>
       <span>· {measured ? fmtTok(measured.out) : '—'} total tokens</span>
       <span>· {measured ? `${measured.secs}s` : 'Time unavailable'}</span>
     </div>

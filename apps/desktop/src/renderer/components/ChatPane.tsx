@@ -29,6 +29,7 @@ import {
 } from './agent-console/index.js';
 import type { PendingApproval } from './agent-console/index.js';
 import { LiveTurn, producedTokens, useProducedTokens } from './agent-console/LiveTurn.js';
+import { liveTokenRate } from './agent-console/liveTokenRate.js';
 import { ImageModeControls } from './agent-console/ImageModeControls.js';
 import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
@@ -452,8 +453,9 @@ const LiveReplyStatus = memo(function LiveReplyStatus({
     const t = setInterval(tick, 500);
     return () => clearInterval(t);
   }, [status.streaming, startedAt]);
+  const liveRate = status.streaming ? liveTokenRate(run) : null;
   const label = status.streaming ? shortLiveStatus(run?.activity) || 'Working' : '';
-  return <ReplyStatus {...status} status={label} elapsed={status.streaming ? elapsed : 0} nextWakeAt={nextWakeAt} now={now} />;
+  return <ReplyStatus {...status} tps={liveRate?.rate ?? status.tps} estimatedRate={!!liveRate} status={label} elapsed={status.streaming ? elapsed : 0} nextWakeAt={nextWakeAt} now={now} />;
 });
 
 /**
