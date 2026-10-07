@@ -8,7 +8,7 @@ import { localRuntimeMetrics, recordedBudgetMetrics } from './wallDockMetrics.js
 import { AutomationsPane } from './AutomationsPane.js';
 import { InsightsBox, type Vitals } from './InsightsBox.js';
 import { useMonitors, useResourceSample } from './ResourceMonitor.js';
-import { BoltIcon, BrainIcon, ServerIcon, GridIcon, ListIcon, GearIcon, CloseIcon, DownloadIcon } from '../icons.js';
+import { BoltIcon, BrainIcon, ServerIcon, GridIcon, ListIcon, GearIcon, CloseIcon, MinimizeIcon } from '../icons.js';
 import './wallDock.css';
 import { dockMinimizeTransition } from './dockMinimize.js';
 
@@ -137,7 +137,7 @@ export function WallDock(props: WallDockProps) {
               e.preventDefault(); e.stopPropagation();
               const target = expandedPanels[expandedPanels.findIndex(panel => panel.key === p.key) + (e.key === 'ArrowDown' ? 1 : -1)];
               if (target) reorder(p.key, target.key);
-            }}><span className="wall-dock__panel-icon">{React.createElement(PANEL_ICONS[p.key], { className: 'wall-dock__icon' })}</span><h2>{p.label}</h2><button type="button" title={`Minimize ${p.label}`} aria-label={`Minimize ${p.label} panel`} aria-expanded={true} disabled={collapsing !== null} onClick={() => minimize(p.key, true)}><DownloadIcon className="wall-dock__icon" /></button><button type="button" title={`Remove ${p.label}`} aria-label={`Remove ${p.label} panel`} onClick={() => panel(p.key, false)}><CloseIcon className="wall-dock__icon" /></button></header>
+            }}><span aria-hidden="true" title="Drag to reorder" className="text-ink-faint">⠿</span><span className="wall-dock__panel-icon">{React.createElement(PANEL_ICONS[p.key], { className: 'wall-dock__icon' })}</span><h2>{p.label}</h2><button type="button" title={`Minimize ${p.label}`} aria-label={`Minimize ${p.label} panel`} aria-expanded={true} disabled={collapsing !== null} onClick={() => minimize(p.key, true)}><MinimizeIcon className="wall-dock__icon" /></button><button type="button" title={`Remove ${p.label}`} aria-label={`Remove ${p.label} panel`} onClick={() => panel(p.key, false)}><CloseIcon className="wall-dock__icon" /></button></header>
           <ResizablePanelBody label={p.label}>
             {p.key === 'vitals' && <VitalsGrid vitals={props.vitals} />}
             {p.key === 'automations' && <AutomationsPane tasks={props.tasks} running={props.running} now={props.now} onOpen={props.onOpenChat} />}

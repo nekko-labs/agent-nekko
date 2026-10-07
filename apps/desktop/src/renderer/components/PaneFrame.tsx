@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Direction, DropTarget, PaneKind, WbPane } from '../layout.js';
-import { CheckIcon, CloseIcon, TrashIcon } from '../icons.js';
+import { CheckIcon, CloseIcon, TrashIcon, MinimizeIcon } from '../icons.js';
 import { useStore } from '../store.js';
 import { ContextAction, ContextMenu } from './ContextMenu.js';
 import { SplitCompass } from './SplitCompass.js';
@@ -117,6 +117,7 @@ export function PaneFrame({
   pane,
   title,
   icon,
+  statusIndicator,
   badge,
   isActive,
   dragging,
@@ -139,6 +140,7 @@ export function PaneFrame({
   pane: WbPane;
   title: string;
   icon: React.ReactNode;
+  statusIndicator?: React.ReactNode;
   /** Optional trailing chip (the project a chat belongs to, a status dot). */
   badge?: React.ReactNode;
   isActive: boolean;
@@ -223,6 +225,7 @@ export function PaneFrame({
         title="Drag to move this window"
       >
         {icon}
+        {statusIndicator}
         <span className="min-w-0 max-w-[35%] truncate text-[12px]" style={{ fontWeight: isActive ? 500 : 400 }}>
           {title}
         </span>
@@ -244,7 +247,7 @@ export function PaneFrame({
           aria-label={`Minimize ${title}`}
           onClick={onMinimize}
         >
-          <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true"><path d="M3 11h10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          <MinimizeIcon className="h-3 w-3" />
         </button>}
         <button
           className="rounded-sm p-1 text-ink-faint hover:text-ink"

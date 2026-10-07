@@ -40,11 +40,11 @@ export type { WallLayout, WallLayoutMode, WallDock, WallDockSide, WallDockPanel 
 export { DEFAULT_WALL_LAYOUT, DEFAULT_WALL_DOCK };
 export const DOCK_PANELS: Array<{ key: WallDockPanel; label: string; blurb: string }> = [
   { key: 'vitals', label: 'Vitals', blurb: 'Agents working and waiting on you' },
-  { key: 'automations', label: 'Automations', blurb: 'Scheduled and running automations' },
+  { key: 'hardware', label: 'Hardware', blurb: 'Local resource monitors' },
   { key: 'utilization', label: 'Utilization', blurb: 'Tokens and model usage' },
   { key: 'budget', label: 'Budget', blurb: 'Monthly spend against your advisory budget' },
+  { key: 'automations', label: 'Automations', blurb: 'Scheduled and running automations' },
   { key: 'insights', label: 'Insights', blurb: 'Usage trends and optimization tips' },
-  { key: 'hardware', label: 'Hardware', blurb: 'Local resource monitors' },
 ];
 
 export type InsightPanel = 'vitals' | 'optimize' | 'cost' | 'tokens' | 'models' | 'replies' | 'services';
