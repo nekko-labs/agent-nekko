@@ -1604,13 +1604,13 @@
 /* Agent status: a working agent's rocket hovers in flight, its colour
    breathing between the accent and a lighter tint, the flame flickering and
    the speed streaks sliding past. Kept small and slow: it sits in a dense list. */
-.status-rocket { color: var(--accent); animation: rocket-breathe 2.4s ease-in-out infinite; }
+.status-rocket { color: var(--success); animation: rocket-breathe 2.4s ease-in-out infinite; }
 .status-rocket svg { animation: rocket-hover 1.2s ease-in-out infinite; overflow: visible; }
 .status-rocket .rocket-flame { animation: rocket-flame .35s ease-in-out infinite alternate; transform-origin: 12px 18px; }
 .status-rocket .rocket-streak { opacity: .55; animation: rocket-streak .9s linear infinite; }
 @keyframes rocket-breathe {
-  0%, 100% { color: var(--accent); }
-  50% { color: color-mix(in srgb, var(--accent) 55%, white); }
+  0%, 100% { color: var(--success); }
+  50% { color: color-mix(in srgb, var(--success) 75%, white); }
 }
 @keyframes rocket-hover {
   0%, 100% { transform: translateY(0.4px); }

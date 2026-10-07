@@ -17,7 +17,7 @@ vi.mock('react', async (original) => {
 afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); state.settings = null; });
 
 /** Inspect frame elements and invoke their actual event handlers without a DOM. */
-function frame(kind: 'chat' | 'terminal' = 'chat', menu = false, refId = 'session-1') {
+function frame(kind: 'chat' | 'terminal' = 'chat', menu = false, refId = 'session-1', onMinimize?: () => void) {
   vi.mocked(useState).mockImplementation((initial?: unknown) => [initial, vi.fn()] as never);
   vi.mocked(useState).mockReturnValueOnce([null, vi.fn()]);
   vi.mocked(useState).mockReturnValueOnce([menu ? { x: 10, y: 20 } : null, vi.fn()]);
@@ -25,7 +25,7 @@ function frame(kind: 'chat' | 'terminal' = 'chat', menu = false, refId = 'sessio
   const tree = PaneFrame({
     pane: { id: 'pane-1', kind, refId }, title: 'My chat', icon: null,
     isActive: true, dragging: null, canSplit: () => true, onSplit: vi.fn(),
-    onClose, onFocus: vi.fn(), onDragStart: vi.fn(), onDragEnd: vi.fn(), onDrop: vi.fn(), children: null,
+    onClose, onMinimize, onFocus: vi.fn(), onDragStart: vi.fn(), onDragEnd: vi.fn(), onDrop: vi.fn(), children: null,
   });
   const elements: React.ReactElement<Record<string, any>>[] = [];
   const walk = (node: React.ReactNode) => {
@@ -40,6 +40,21 @@ function frame(kind: 'chat' | 'terminal' = 'chat', menu = false, refId = 'sessio
 }
 
 describe('pane lifecycle controls', () => {
+  it('places wall minimize immediately before Complete without archiving or deleting', () => {
+    const minimize = vi.fn();
+    const { elements } = frame('chat', false, 'session-1', minimize);
+    const buttons = elements.filter((e) => e.type === 'button');
+    expect(buttons.map((e) => e.props['aria-label'])).toEqual(['Minimize My chat', 'Complete My chat']);
+    buttons[0].props.onClick();
+    expect(minimize).toHaveBeenCalledOnce();
+    expect(state.archiveChat).not.toHaveBeenCalled();
+    expect(state.deleteChatForever).not.toHaveBeenCalled();
+  });
+
+  it('does not expose chat minimize on terminal windows', () => {
+    const { elements } = frame('terminal', false, 'terminal-1', vi.fn());
+    expect(elements.some((e) => e.props['aria-label'] === 'Minimize My chat')).toBe(false);
+  });
   it('defaults chats to Complete using existing archive semantics, not Close', () => {
     const { button, onClose } = frame();
     expect(button.props['aria-label']).toBe('Complete My chat');

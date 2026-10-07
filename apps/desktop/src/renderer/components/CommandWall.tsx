@@ -33,6 +33,7 @@ import { useStore, type Workspace } from '../store.js';
 import { ChatPane } from './ChatPane.js';
 import { FilePane } from './FilePane.js';
 import { ExplorerPane } from './ExplorerPane.js';
+import { WorkingSubagents } from './WorkingSubagents.js';
 import { NumberedChatIcon } from './NumberedChatIcon.js';
 import { BrowserPane } from './BrowserPane.js';
 import { DiffPane } from './DiffPane.js';
@@ -373,7 +374,6 @@ export function CommandWall({
     } else if (terminal) {
       status = terminal.running ? { label: 'live', tone: 'var(--success)' } : { label: 'exited', tone: 'var(--ink-faint)' };
     }
-    const subAgents = session ? (childrenOf.get(session.id)?.length ?? 0) : 0;
     const title = titleOf(pane);
     const flashing = flash?.paneId === pane.id;
     const openable = pane.kind === 'chat' || pane.kind === 'terminal';
@@ -401,18 +401,12 @@ export function CommandWall({
           pane={pane}
           title={title}
           icon={pane.kind === 'chat' ? <NumberedChatIcon number={n} /> : iconOf(pane.kind)}
+          statusIndicator={status && <span role="img" aria-label={status.label} title={status.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: needsYou ? 'var(--warning)' : status.live ? 'var(--success)' : 'var(--ink-faint)' }} />}
           badge={
             <>
               {/* The project only when there is more than one to tell apart:
                   on a one-project wall it is the same word on every strip. */}
               {project && projects.length > 1 && !densityOf(pane.id) && <span className="chip hidden shrink-0 text-[10px] sm:inline">{project.name}</span>}
-              {status && (
-                <span className="flex min-w-0 items-center gap-1 text-[11px]" style={{ color: status.tone }} title={status.label}>
-                  {status.live && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full" style={{ background: status.tone }} />}
-                  <span className="truncate">{status.label}</span>
-                </span>
-              )}
-              {subAgents > 0 && <span className="chip shrink-0 text-[10px]" title={`${subAgents} sub-agent${subAgents === 1 ? '' : 's'}`}>+{subAgents}</span>}
             </>
           }
           isActive={false}
@@ -424,6 +418,7 @@ export function CommandWall({
           canSplit={(dir) => state.layout.mode === 'grid' && !inDeck && size.width >= NARROW_WIDTH && canSplit(state.root, pane.id, dir)}
           onSplit={(dir, kind) => { void addWindow(kind, { paneId: pane.id, dir }); }}
           onClose={() => update((root) => removePane(root, pane.id))}
+          onMinimize={pane.kind === 'chat' ? () => update((root) => removePane(root, pane.id)) : undefined}
           onFocus={() => { if (pane.kind === 'chat') onSelect(pane.refId); }}
           onDragStart={() => setDragging(pane.id)}
           onDragEnd={() => setDragging(null)}
@@ -462,6 +457,7 @@ export function CommandWall({
               </section>)}
             </div>
           </div>
+          {session && <WorkingSubagents children={childrenOf.get(session.id) ?? []} running={running} pending={pending} onOpen={(id) => { update((root) => allPanes(root).some(p => p.kind === 'chat' && p.refId === id) ? root : addPane(root, wallPane('chat', id), aspect)); onSelect(id); }} />}
         </PaneFrame>
       </div>
     );

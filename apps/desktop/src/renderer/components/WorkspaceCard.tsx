@@ -54,7 +54,7 @@ export function StatusIcon({ status, className = '' }: { status: AgentStatus | u
   if (status === 'working') {
     return (
       <span className={`status-rocket inline-grid place-items-center ${cls}`} title="Working…" role="img" aria-label="Working">
-        <RocketIcon className="h-3 w-3" />
+        <RocketIcon className="h-4 w-4" />
       </span>
     );
   }
