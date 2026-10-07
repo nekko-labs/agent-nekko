@@ -28,7 +28,16 @@ app.whenReady().then(async () => {
     })()`);
     await sleep(180);
   };
-  const reset = async () => { await run('window.integration.reset()'); await sleep(350); };
+  const reset = async () => {
+    await run('window.integration.reset()');
+    // Reset remounts cold ChatPanes. Hidden macOS rendering can finish loading
+    // later than a fixed sleep; wait for the controls the next step needs.
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if (await run("!!document.querySelector('[data-wall-composer] .ctl-menu')")) return;
+      await sleep(100);
+    }
+    throw Error('Reset did not finish mounting shared composer controls');
+  };
   const open = async category => { await click('Add window'); if (category) { await run(`[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(category)}).click()`); await sleep(180); } };
   const image = async () => { await open('Media'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()"); await sleep(200); };
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
