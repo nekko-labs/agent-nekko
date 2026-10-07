@@ -19,7 +19,7 @@ if (!process.versions.electron) {
     }
   } finally { fs.unlinkSync(baseline); }
   const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
-  const result = cp.spawnSync(require('electron'), [__filename], { cwd: root, encoding: 'utf8', env, timeout: 90000 });
+  const result = cp.spawnSync(require('electron'), [__filename], { cwd: root, windowsHide: true, encoding: 'utf8', env, timeout: 90000 });
   console.log(result.stdout); console.error(result.stderr); process.exit(result.status ?? 1);
 } else {
   const { app, BrowserWindow, session } = require('electron');
@@ -34,7 +34,7 @@ if (!process.versions.electron) {
     isolated.webRequest.onBeforeRequest((d, done) => done({ cancel: !/^(file:|data:|blob:)/.test(d.url) }));
     isolated.setPermissionCheckHandler((_w, permission) => { permissions.push({ kind: 'check', permission }); return false; });
     isolated.setPermissionRequestHandler((_w, permission, done) => { permissions.push({ kind: 'request', permission }); done(false); });
-    const win = new BrowserWindow({ width: 900, height: 600, show: false, title: 'Isolated composer verification', webPreferences: { partition, sandbox: true, contextIsolation: true, nodeIntegration: false } });
+    const win = new BrowserWindow({ width: 900, height: 600, show: false, focusable: false, skipTaskbar: true, x: -10000, y: -10000, title: 'Isolated composer verification', webPreferences: { partition, backgroundThrottling: false, sandbox: true, contextIsolation: true, nodeIntegration: false } });
     const run = text => win.webContents.executeJavaScript(text, true);
     const wait = () => new Promise(r => setTimeout(r, 150));
     const checks = [];
@@ -66,7 +66,7 @@ if (!process.versions.electron) {
           for (const width of [900, 400]) {
             win.setContentSize(width, 600); await select(0, 5);
             if (name === 'after') await context();
-            fs.writeFileSync(path.join(out, `${name}-${theme}-${width}.png`), (await win.webContents.capturePage()).toPNG());
+            fs.writeFileSync(path.join(out, `${name}-${theme}-${width}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG());
             if (name === 'after') { await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))"); await wait(); }
           }
         }

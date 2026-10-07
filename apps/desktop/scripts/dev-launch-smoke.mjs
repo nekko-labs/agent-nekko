@@ -7,6 +7,7 @@ import { build } from 'esbuild';
 import { prepareMacBundle } from './dev-launch.mjs';
 import { seedDataDir } from '../../../scripts/perf/lib/seed.mjs';
 
+if (!process.env.CI && process.env.NEKKO_VISIBLE_VERIFICATION !== '1') throw Error('Native branding/permission verification opens foreground windows. Run on a disposable CI desktop, or obtain explicit user approval before setting NEKKO_VISIBLE_VERIFICATION=1.');
 if (process.platform !== 'darwin') throw Error('This smoke check requires macOS');
 const out = resolve(process.argv[2] || 'native-smoke');
 mkdirSync(out, { recursive: true });

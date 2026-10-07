@@ -843,3 +843,7 @@ Privacy: files contain potentially sensitive command output, remain local with t
 ### Selected native window capture
 
 Native screenshot enumeration requests no thumbnails. Only the chat-selected window is granted to an isolated hidden, non-focusable capture helper, which encodes one native video frame as PNG and stops the stream. This avoids capturing unrelated windows and their Windows Graphics Capture errors. Acquisition and first-frame waits are bounded; unavailable targets fail without restoring or focusing them, changing capture permissions, or substituting another source. Hidden owned-page capture remains separate.
+
+### Background verification
+
+Routine development verification preserves the active desktop: isolated renderer fixtures stay hidden or off-screen and non-focusable, including timed motion captures. Native capture fixtures remain off-screen and non-focusable. Tests requiring real foreground branding or OS permission dialogs run on a disposable CI desktop; local foreground tests require an explicit user request. Hidden evidence is renderer evidence, not proof of native chrome. Minimized third-party capture remains OS-dependent and must not silently restore the target.

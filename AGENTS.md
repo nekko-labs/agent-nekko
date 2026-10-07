@@ -146,3 +146,7 @@ text synchronized. Regenerate `crates/nekko-context/tests/golden/expected.json`
 with the host context golden test (`UPDATE_GOLDEN=1`) against the changed core,
 then rerun that test without regeneration and `cargo test -p nekko-context --locked`.
 Core-only prompt tests do not prove host/daemon parity.
+
+## Verification must preserve the user desktop
+
+Routine agent verification must run hidden, with non-focusable windows and isolated profiles. Full viewport/virtualization fixtures may stay mapped off-screen, with showInactive, when hidden rendering changes layout or animation behavior. Never place them over any user monitor. Use capturePage with stayHidden:true for renderer evidence and DOM/CDP interaction rather than OS input. Native-window evidence may use an off-screen, non-focusable owned fixture with showInactive; never position it over the active desktop, minimize/restore user windows, or claim hidden renderer pixels prove OS chrome. Launch child processes with windowsHide:true on Windows. Do not launch the normal app or run foreground native branding/permission tests during local verification. Use a disposable CI desktop for OS focus/permission behavior; local visible verification requires an explicit user request. Timing/motion modes and inspection holds must preserve the same background constraints.

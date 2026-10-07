@@ -1210,3 +1210,5 @@ User report: selecting Plan while typing deleted the entire prompt. T106/T108 do
 
 - [x] Retry integration sweep (2026-10-07): preserve current-main behavior, wrap recovery at narrow widths, restore model/effort focus after notice dismissal, and verify assembled context plus resumable/no-progress payloads. See SPEC.md, Retry and model-change context transparency.
 - [x] 2026-10-07: Native screenshots capture only the selected window through an isolated stream; enumerate without thumbnails, bound acquisition/frame waits, clean up helper and stream on failure. See [selected native window capture](SPEC.md#selected-native-window-capture). Verification results recorded in the PR.
+
+- [x] 2026-10-07: Keep renderer verification hidden or mapped off-screen without focus, remove on-screen motion/inspection positioning, make native capture fixtures non-focusable/off-screen, and gate local foreground native verification. See [background verification](SPEC.md#background-verification).
