@@ -80,9 +80,9 @@ describe('command wall geometry', () => {
     const s = state();
     const before = JSON.stringify(s);
     const g = commandWallGeometry(s, 1000, 700);
-    expect(g.panes.get('a')).toEqual({ x: 0, y: 0, width: 496, height: 628 });
-    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 628 });
-    expect(g.panes.get('t')).toEqual({ x: 804, y: 0, width: 196, height: 628 });
+    expect(g.panes.get('a')).toEqual({ x: 0, y: 0, width: 496, height: 664 });
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 664 });
+    expect(g.panes.get('t')).toEqual({ x: 804, y: 0, width: 196, height: 664 });
     expect(g.addGrid!.id).toBe(root.id);
     expect(g.deck.size).toBe(0);
     expect(JSON.stringify(s)).toBe(before);
@@ -101,13 +101,19 @@ describe('command wall geometry', () => {
     }
   });
 
-  it.each([[1000, 700], [2400, 400], [390, 700]])('matches Fixed Add dimensions at %i × %i without synthesizing split IDs', (width, height) => {
-    const g = commandWallGeometry(state(), width, height);
-    const fixed = commandWallGeometry(state({ layout: { ...state().layout, mode: 'fixed' } }), width, height);
-    expect(leafRects(g.addGrid).has('__wall_add__')).toBe(false);
-    expect(g.add.width).toBe(fixed.add.width);
-    expect(g.add.height).toBe(fixed.add.height);
-    expect(g.height).toBeGreaterThanOrEqual(g.add.y + g.add.height);
+  it.each([[1000, 700], [2400, 400], [390, 700]])('keeps Add compact until preview at %i × %i', (width, height) => {
+    const before = JSON.stringify(root);
+    const idle = commandWallGeometry(state(), width, height);
+    const preview = commandWallGeometry(state(), width, height, new Set(), true);
+    expect(idle.add.height).toBe(28);
+    expect(preview.add.height).toBeGreaterThan(28);
+    expect(preview.panes.has('__wall_add__')).toBe(false);
+    expect(JSON.stringify(root)).toBe(before);
+    for (const pane of preview.panes.values()) {
+      const overlapWidth = Math.min(pane.x + pane.width, preview.add.x + preview.add.width) - Math.max(pane.x, preview.add.x);
+      const overlapHeight = Math.min(pane.y + pane.height, preview.add.y + preview.add.height) - Math.max(pane.y, preview.add.y);
+      expect(overlapWidth > 0 && overlapHeight > 0).toBe(false);
+    }
   });
 
   it('displays a saved divider edit instead of re-balancing it on render', () => {
@@ -119,10 +125,10 @@ describe('command wall geometry', () => {
     expect(g.addGrid!.id).toBe(root.id);
   });
 
-  it('keeps the full-sized Grid Add card reachable by scrolling a short viewport', () => {
+  it('does not reserve a full Add card in a short viewport', () => {
     const g = commandWallGeometry(state(), 1000, 480);
     expect(g.height).toBe(g.add.y + g.add.height);
-    expect(g.height).toBeGreaterThan(480);
+    expect(g.height).toBe(480);
   });
 
   it('uses Focus-only deck and falls back when the hero is missing or filtered', () => {
@@ -137,8 +143,8 @@ describe('command wall geometry', () => {
 
   it('keeps Fixed overflow and Add reachable without a deck', () => {
     const g = commandWallGeometry(state({ layout: layout('fixed') }), 1000, 700);
-    expect(g.add).toEqual({ x: 504, y: 636, width: 496, height: 628 });
-    expect(g.height).toBe(1264);
+    expect(g.add).toEqual({ x: 0, y: 1344, width: 1000, height: 28 });
+    expect(g.height).toBe(1372);
     expect(g.deck.size).toBe(0);
   });
 
@@ -187,7 +193,7 @@ describe('workspace companions and stable bodies', () => {
       expect(html).toContain('data-browser="https://example.com"');
       expect(html).toContain('data-diff="chat-a"');
       expect(html).toContain('aria-label="Add window"');
-      expect(html).not.toContain('class="command-wall-action" title="Focus');
+      expect(html).toContain('aria-label="Focus Chat"');
       expect(html).toContain('aria-label="Open Chat in the Agent tab"');
     } finally { fixture.workspaces = []; }
   });

@@ -1778,14 +1778,16 @@
 .wall-composer-split { flex: 0 0 10px; width: 100%; cursor: row-resize; touch-action: none; display: grid; place-items: center; }
 .wall-composer-split::after { content: ""; width: 48px; height: 3px; border-radius: 3px; background: var(--line); }
 .wall-composer-split:hover::after, .wall-composer-split:focus-visible::after { background: var(--accent); }
-.wall-composer > .wall-composer-body { overflow: auto; min-height: 0; }
+.wall-composer > .wall-composer-body { display: flex; flex: 1; min-height: 0; overflow-y: auto; }
 
-/* Resizing the shared composer gives space to the editor, not an empty footer. */
-.wall-composer > .wall-composer-body { flex: 1; }
+/* Bound every flex step. If controls exceed the panel, scroll the surface
+   instead of clipping the editor or letting it paint beneath the frame. */
+.wall-composer [data-chat-surface="composer"] { flex: 1; overflow: visible; }
+.wall-composer [data-chat-surface="composer"] > section { min-height: 0; overflow: visible; }
 .wall-composer [data-chat-surface="composer"] .composer-section { display: flex; flex: 1; min-height: 0; padding: 0; }
 .wall-composer .composer-column, .wall-composer .composer { display: flex; flex: 1; flex-direction: column; min-height: 0; }
-.wall-composer .composer-editor-wrap > [contenteditable] { height: 100% !important; max-height: 100% !important; }
+.wall-composer .composer-editor-wrap > [contenteditable] { flex: 1; min-height: 52px; height: 0 !important; max-height: none !important; overflow-y: auto; }
 .wall-composer .composer-editing-body { display: flex; flex: 1; flex-direction: column; min-height: 0; }
-.wall-composer .composer-editor-wrap { flex: 1; min-height: 52px; overflow: hidden; }
+.wall-composer .composer-editor-wrap { display: flex; flex-direction: column; flex: 1; min-height: 52px; }
 .wall-composer .composer > :not(.composer-editing-body), .wall-composer .composer-editing-body > :not(.composer-editor-wrap) { flex-shrink: 0; }
 .wall-layout-segments button { display: inline-flex; align-items: center; gap: 6px; }

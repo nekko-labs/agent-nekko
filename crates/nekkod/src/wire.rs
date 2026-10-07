@@ -15,8 +15,9 @@
 
 use crate::routes::{Ctx, route};
 use axum::Router;
+use axum::body::to_bytes;
 use axum::extract::ws::{CloseFrame, Message, WebSocket, WebSocketUpgrade};
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, Query, Request, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -84,6 +85,15 @@ async fn health() -> impl IntoResponse {
     axum::Json(json!({ "ok": true, "app": "nekkod", "version": env!("CARGO_PKG_VERSION") }))
 }
 
+// An inline image expands to base64 in a transcript. The full transcript is
+// needed to save checkpoints, even if the model later uses a smaller window.
+const CALL_BODY_LIMIT: usize = 2 * 1024 * 1024;
+const LOOP_RUN_BODY_LIMIT: usize = 64 * 1024 * 1024;
+
+fn body_limit(channel: &str) -> usize {
+    if channel == "loop:run" { LOOP_RUN_BODY_LIMIT } else { CALL_BODY_LIMIT }
+}
+
 #[derive(Deserialize)]
 struct CallBody {
     #[serde(default)]
@@ -95,11 +105,17 @@ async fn call(
     Path(channel): Path<String>,
     Query(query): Query<HashMap<String, String>>,
     headers: HeaderMap,
-    body: axum::body::Bytes,
+    request: Request,
 ) -> Response {
     if let Err(code) = check(&app, &headers, &query) {
         return (code, axum::Json(json!({ "error": "unauthorized" }))).into_response();
     }
+    let body = match to_bytes(request.into_body(), body_limit(&channel)).await {
+        Ok(body) => body,
+        Err(_) => {
+            return (StatusCode::PAYLOAD_TOO_LARGE, axum::Json(json!({ "error": "body too large" }))).into_response();
+        }
+    };
     let args = if body.is_empty() {
         Vec::new()
     } else {
@@ -328,5 +344,21 @@ mod tests {
         assert!(token_eq("abcdef0123456789", "abcdef0123456789"));
         assert!(!token_eq("abcdef0123456789", "abcdef012345678"));
         assert!(!token_eq("abcdef0123456789", "abcdef012345678x"));
+    }
+
+    #[tokio::test]
+    async fn loop_run_accepts_image_bodies_above_axum_default_but_other_calls_do_not() {
+        assert_eq!(body_limit("loop:run"), 64 * 1024 * 1024);
+        assert_eq!(body_limit("loop:tool"), CALL_BODY_LIMIT);
+        let image = axum::body::Body::from(vec![b'x'; CALL_BODY_LIMIT + 1]);
+        assert!(to_bytes(image, body_limit("loop:run")).await.is_ok());
+        let image = axum::body::Body::from(vec![b'x'; CALL_BODY_LIMIT + 1]);
+        assert!(to_bytes(image, body_limit("loop:tool")).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn loop_run_still_rejects_oversized_bodies() {
+        let body = axum::body::Body::from(vec![b'x'; LOOP_RUN_BODY_LIMIT + 1]);
+        assert!(to_bytes(body, body_limit("loop:run")).await.is_err());
     }
 }
