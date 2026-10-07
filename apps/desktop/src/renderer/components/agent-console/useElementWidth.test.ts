@@ -37,7 +37,7 @@ it('uses delivered widths without DOM reads, retaining cold bootstrap and hidden
   // A DOM width read during delivery would force layout (or fail this test).
   read.mockImplementation(() => { throw new Error('unexpected layout read'); });
   const resize = (target: HTMLElement, width: number) => deliver([
-    { target, contentRect: { width } } as ResizeObserverEntry,
+    { target, contentRect: { width } } as unknown as ResizeObserverEntry,
   ], {} as ResizeObserver);
   resize(el, 640.4);
   expect(hooks.setWidth).toHaveBeenLastCalledWith(640);
