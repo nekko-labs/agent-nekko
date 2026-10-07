@@ -2,9 +2,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const cp = require('node:child_process');
 const repo = path.resolve(__dirname, '../../..');
-const modules = 'C:/Users/phili/code/agent-nekko/node_modules';
+const modules = process.env.NEKKO_TEST_MODULES || path.join(repo, 'node_modules');
 const out = path.join(repo, '.shots/subagent-component');
 async function main() {
+  require('./check-sandbox-syntax.cjs').checkSandboxSyntax(path.join(__dirname, 'subagent-component-sandbox.cjs'));
   fs.mkdirSync(out, { recursive: true });
   let entry = path.join(__dirname, 'subagent-component-fixture.tsx');
   let shared = path.join(repo, 'packages/shared/src/index.ts');

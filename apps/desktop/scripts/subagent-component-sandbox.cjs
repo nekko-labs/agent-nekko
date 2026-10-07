@@ -52,4 +52,4 @@ app.whenReady().then(async () => {
     report.success = !report.errors.length;
   } catch (e) { report.errors.push(String(e)); report.success = false; }
   finally { fs.writeFileSync(path.join(runDir, 'status.json'), JSON.stringify(report, null, 2)); console.log(JSON.stringify({runDir,...report},null,2)); win.destroy(); app.exit(report.success ? 0 : 1); }
-});\n
+});
