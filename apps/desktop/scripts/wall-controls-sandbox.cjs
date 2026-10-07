@@ -76,11 +76,11 @@ app.whenReady().then(async () => {
           const states=[];for(let i=0;i<40;i++){states.push(await run("(()=>{const e=document.querySelector('[data-command-wall]');return [e.clientWidth,e.clientHeight,e.scrollWidth,e.scrollHeight].join(',')})()"));await sleep(30);}
           if(new Set(states.slice(10)).size!==1)throw Error('Scrollbar geometry failed to settle: '+states);report.checks.push('stable scrollbar frames '+theme+' '+width);
         }
-        await run("document.querySelector('.command-wall-add-rail-bottom').click()"); await sleep(450); await capture(`layout-${theme}-${width}-clicked`);
+        await run("(document.querySelector('[data-wall-add-button]')||[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add window')).click()"); await sleep(450); await capture(`layout-${theme}-${width}-clicked`);
       }
       win.setContentSize(1200,900);await reset();await run("document.documentElement.dataset.theme='dark'");await sleep(500);
       const frames=path.join(runDir,'motion');fs.mkdirSync(frames);
-      for(let i=0;i<35;i++) { if(fixed&&i>=5&&i<20)await run("document.querySelector('.wall-composer-side[data-edge=right]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}))");if(i===23)await run("document.querySelector('.command-wall-add-rail-bottom').click()");fs.writeFileSync(path.join(frames,String(i).padStart(3,'0')+'.png'),(await win.capturePage(undefined,{stayHidden:true})).toPNG());await sleep(65); }
+      for(let i=0;i<35;i++) { if(fixed&&i>=5&&i<20)await run("document.querySelector('.wall-composer-side[data-edge=right]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}))");if(i===23)await run("(document.querySelector('[data-wall-add-button]')||[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add window')).click()");fs.writeFileSync(path.join(frames,String(i).padStart(3,'0')+'.png'),(await win.capturePage(undefined,{stayHidden:true})).toPNG());await sleep(65); }
       report.success=true;
       if(process.env.NEKKO_EVIDENCE_HOLD){fs.writeFileSync(path.join(runDir,'gallery.html'),'<html><body style="margin:0;background:#888;display:grid;grid-template-columns:repeat(4,1fr)">'+report.captures.map(p=>'<div><small>'+path.basename(p)+'</small><img style="width:100%" src="'+path.basename(p)+'"></div>').join('')+'</body></html>');await win.loadFile(path.join(runDir,'gallery.html'));win.setContentSize(1600,1500);console.log('EVIDENCE_GALLERY '+runDir);await sleep(90000);}
       return;
@@ -94,12 +94,12 @@ app.whenReady().then(async () => {
         await capture(`chrome-${theme}-${width}-rest`);
         const rects = "JSON.stringify([...document.querySelectorAll('.command-wall-window')].map(e=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]}))";
         const before = await run(rects);
-        await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(400);
+        await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(400);
         const after = await run(rects);
         if (fixed && before !== after) throw Error('Hover changed wall geometry');
         report.checks.push({ name: `hover keeps geometry ${theme} ${width}`, passed: before === after });
         await capture(`chrome-${theme}-${width}-hover`);
-        await run("document.querySelector('.command-wall-add-rail-right').click()"); await sleep(400);
+        await run("(document.querySelector('[data-wall-add-button]')||[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add window')).click()"); await sleep(400);
         await check('click opens insertion card', "!!document.querySelector('.command-wall-add-tile .agent-window-picker')");
         await capture(`chrome-${theme}-${width}-clicked`);
         await reset(); await run(`document.documentElement.dataset.theme='${theme}'`); await sleep(300);
@@ -111,9 +111,9 @@ app.whenReady().then(async () => {
       }
       win.setContentSize(1200, 900); await reset(); await sleep(400);
       const frames = path.join(runDir, 'motion'); fs.mkdirSync(frames);
-      await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+      await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
       for (let i=0; i<25; i++) {
-        if (i===10) await run("document.querySelector('.command-wall-add-rail-right').click()");
+        if (i===10) await run("(document.querySelector('[data-wall-add-button]')||[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add window')).click()");
         fs.writeFileSync(path.join(frames, `${String(i).padStart(3,'0')}.png`), (await win.capturePage(undefined, {stayHidden:true})).toPNG()); await sleep(60);
       }
       report.success = true;
@@ -203,7 +203,7 @@ app.whenReady().then(async () => {
     if (process.env.NEKKO_WALL_REALTIME) {
       await sleep(500);
       const motion = path.join(runDir, 'realtime'); fs.mkdirSync(motion);
-      await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+      await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
       for (let frame=0; frame<20; frame++) {
         fs.writeFileSync(path.join(motion, `${String(frame).padStart(3,'0')}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG());
         await sleep(50);
@@ -236,7 +236,7 @@ app.whenReady().then(async () => {
           await capture(`wall-idle-${theme}-${label}`);
           if (current) {
             await check('editor stays inside composer frame', "(()=>{const p=document.querySelector('[data-wall-composer]').getBoundingClientRect(), e=document.querySelector('[data-wall-composer] [contenteditable]').getBoundingClientRect();return e.top>=p.top&&e.bottom<=p.bottom+1})()");
-            await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+            await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
             await sleep(400);
             // Off-screen Windows compositor can defer CSS transitions. Settle
             // finite transitions for endpoint assertions; motion captures below
@@ -248,7 +248,7 @@ app.whenReady().then(async () => {
             await run("document.querySelector('.command-wall-add-zone').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))");
             await sleep(100);
             await check('pointer exit restores compact strips', "!document.querySelector('.command-wall-add[data-preview]')");
-            await run("document.querySelector('.command-wall-add-rail-right').focus(); document.querySelector('.command-wall-add-rail-right').dispatchEvent(new FocusEvent('focusin',{bubbles:true}))"); await sleep(100);
+            await run("document.querySelector('.command-wall-add-rail-right')?.focus(); document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new FocusEvent('focusin',{bubbles:true}))"); await sleep(100);
             await check('keyboard focus previews Add', "!!document.querySelector('.command-wall-add[data-preview]')");
             await run("document.querySelector('.command-wall-add-fill').click()");
             await check('click solidifies add slot', "!!document.querySelector('.command-wall-add[data-solid] #wall-window-picker')");
@@ -256,7 +256,7 @@ app.whenReady().then(async () => {
             await capture(`wall-solid-${theme}-${label}`);
             await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
           }
-          await click('Fixed'); await capture(`wall-fixed-hint-${theme}-${label}`);
+          await click('Grid'); await capture(`wall-fixed-hint-${theme}-${label}`);
           await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
         }
       }
@@ -347,7 +347,7 @@ app.whenReady().then(async () => {
       win.setContentSize(1200,900); await reset(); await run("document.documentElement.dataset.theme='dark'");
       const motion = path.join(runDir, 'liquid-motion'); fs.mkdirSync(motion);
       for (let frame = 0; frame < 48; frame++) {
-        if (frame === 5) await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+        if (frame === 5) await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
         if (frame === 31) await run("document.querySelector('.command-wall-add-fill').click()");
         await run(`document.getAnimations().filter(a=>a instanceof CSSTransition).forEach(a=>{a.currentTime=${frame < 31 ? Math.max(0, frame - 5) * 100 : (frame - 31) * 100}})`);
         fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG()); await sleep(100);
@@ -364,7 +364,7 @@ app.whenReady().then(async () => {
       await check('attachment editor remains inside frame', "(()=>{const p=document.querySelector('[data-wall-composer]').getBoundingClientRect(),e=document.querySelector('[data-wall-composer] [contenteditable]').getBoundingClientRect();return e.bottom<=p.bottom+1})()");
       await capture('wall-multi-attachment');
       await check('multi-chat selection hint', "document.querySelector('[data-wall-composer]').textContent.includes('selects a window')");
-      await run("document.querySelector('.command-wall-add-rail-bottom').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(150);
+      await run("document.querySelector('.command-wall-add-rail-bottom')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(150);
       await run("document.getAnimations().filter(a=>a instanceof CSSTransition).forEach(a=>a.finish())");
       await capture('wall-multi-hover');
       await run("document.querySelector('.command-wall-add-fill').click()"); await sleep(200);
@@ -377,7 +377,7 @@ app.whenReady().then(async () => {
     for (let frame = 0; frame < 36; frame++) {
       if (frame === 4 || frame === 16) await run("document.querySelector('[aria-label=\"Resize composer versus wall\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}))");
       if (frame === 22) await click('Focus');
-      if (frame === 29) await click('Grid');
+      if (frame === 29) await click('Dynamic');
       fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG());
       await sleep(100);
     }
@@ -387,7 +387,7 @@ app.whenReady().then(async () => {
     if (current) {
       win.setContentSize(900,480); await reset();
       await check('short grid remains scrollable', "(()=>{const stage=document.querySelector('.command-wall-stage');return stage && stage.scrollHeight>0 && document.querySelector('[data-wall-composer] [contenteditable]').clientHeight>=36})()");
-      await click('Fixed');
+      await click('Grid');
       await check('short fixed layout retains accessible editor', "document.querySelector('[data-wall-composer] [contenteditable]').clientHeight>=36 && document.documentElement.scrollWidth<=innerWidth");
     }
     if (win.isFocused() || screen.getAllDisplays().some(d => { const b=win.getBounds(); return b.x < d.bounds.x+d.bounds.width && b.x+b.width > d.bounds.x && b.y < d.bounds.y+d.bounds.height && b.y+b.height > d.bounds.y; }) || report.errors.some(e => /Verification window/.test(e))) throw Error('Background verification visibility/focus invariant failed');

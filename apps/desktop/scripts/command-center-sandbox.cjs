@@ -58,7 +58,7 @@ app.whenReady().then(async () => {
     await run('integration.failures.options=false'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()");
     await check('cleanup-failure retry does not duplicate', "!document.querySelector('.agent-window-picker') && integration.calls.filter(c=>c.method==='create').length===1 && integration.state().sessions.filter(s=>s.id==='new-1').length===1");
     await click('Focus'); await check('Grid to Focus', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='focus'");
-    await click('Grid'); await check('Focus to Grid', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='grid'");
+    await click('Dynamic'); await check('Focus to Grid', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='grid'");
     await reset(); await open('Chat');
     await check('long catalog scrolls inside fieldset without covering Create chat', "(()=>{const list=document.querySelector('.agent-window-picker [role=listbox]');const field=document.querySelector('.agent-window-picker__models');const create=document.querySelector('.agent-window-picker__primary');return list.scrollHeight>list.clientHeight&&list.getBoundingClientRect().bottom<=field.getBoundingClientRect().bottom+1&&field.getBoundingClientRect().bottom<=create.getBoundingClientRect().top;})()");
     await check('layout toggle precedes agent filter', "!!(document.querySelector('[aria-label=\"Wall layout\"]').compareDocumentPosition(document.querySelector('[aria-label=\"Show\"]')) & Node.DOCUMENT_POSITION_FOLLOWING)");
@@ -126,7 +126,7 @@ app.whenReady().then(async () => {
     for (let frame = 0; frame < 36; frame++) {
       if (frame === 4 || frame === 16) await click('Add window');
       if (frame === 22) await click('Focus');
-      if (frame === 29) await click('Grid');
+      if (frame === 29) await click('Dynamic');
       fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG());
       await sleep(100);
     }
