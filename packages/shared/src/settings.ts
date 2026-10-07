@@ -104,7 +104,7 @@ export const DEFAULT_WALL_LAYOUT: WallLayout = { mode: 'grid', cols: 3, rows: 2 
 export const DEFAULT_WALL_DOCK: WallDock = {
   side: 'right', show: true,
   panelOrder: ['vitals', 'hardware', 'utilization', 'budget', 'automations', 'insights'],
-  minimized: { vitals: false, automations: false, utilization: false, budget: false, insights: false, hardware: false },
+  minimized: { vitals: false, hardware: false, utilization: false, budget: false, automations: false, insights: false },
   panels: { vitals: true, hardware: true, utilization: true, budget: true, automations: true, insights: false },
 };
 
