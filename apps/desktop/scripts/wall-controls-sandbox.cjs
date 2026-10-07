@@ -39,6 +39,44 @@ app.whenReady().then(async () => {
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_CHROME_FIXES) {
+      await win.loadFile(path.join(out, 'index.html'), { search: 'multi' }); await sleep(900);
+      const fixed = !process.env.NEKKO_TEST_REVISION;
+      for (const theme of ['light', 'dark']) for (const width of [1200, 400]) {
+        win.setContentSize(width, 900); await reset();
+        await run(`document.documentElement.dataset.theme='${theme}'`); await sleep(500);
+        await capture(`chrome-${theme}-${width}-rest`);
+        const rects = "JSON.stringify([...document.querySelectorAll('.command-wall-window')].map(e=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]}))";
+        const before = await run(rects);
+        await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(400);
+        const after = await run(rects);
+        if (fixed && before !== after) throw Error('Hover changed wall geometry');
+        report.checks.push({ name: `hover keeps geometry ${theme} ${width}`, passed: before === after });
+        await capture(`chrome-${theme}-${width}-hover`);
+        await run("document.querySelector('.command-wall-add-rail-right').click()"); await sleep(400);
+        await check('click opens insertion card', "!!document.querySelector('.command-wall-add-tile .agent-window-picker')");
+        await capture(`chrome-${theme}-${width}-clicked`);
+        await reset(); await run(`document.documentElement.dataset.theme='${theme}'`); await sleep(300);
+        if (fixed) {
+          await check('composer wrapper is transparent', "getComputedStyle(document.querySelector('[data-wall-composer]')).backgroundColor==='rgba(0, 0, 0, 0)'");
+          await check('composer wrapper has no shadow', "getComputedStyle(document.querySelector('[data-wall-composer]')).boxShadow==='none'");
+          await check('send cat has right inset', "parseFloat(getComputedStyle(document.querySelector('.send-avatar')).marginRight)>=4");
+        }
+      }
+      win.setContentSize(1200, 900); await reset(); await sleep(400);
+      const frames = path.join(runDir, 'motion'); fs.mkdirSync(frames);
+      await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+      for (let i=0; i<25; i++) {
+        if (i===10) await run("document.querySelector('.command-wall-add-rail-right').click()");
+        fs.writeFileSync(path.join(frames, `${String(i).padStart(3,'0')}.png`), (await win.capturePage(undefined, {stayHidden:true})).toPNG()); await sleep(60);
+      }
+      report.success = true;
+      if (process.env.NEKKO_EVIDENCE_HOLD) {
+        fs.writeFileSync(path.join(runDir, 'gallery.html'), '<html><body style="margin:0;background:#888;display:grid;grid-template-columns:repeat(3,1fr)">'+report.captures.map(p=>'<div><small>'+path.basename(p)+'</small><img style="width:100%" src="'+path.basename(p)+'"></div>').join('')+'</body></html>');
+        await win.loadFile(path.join(runDir, 'gallery.html')); win.setContentSize(1500, 1300); console.log('EVIDENCE_GALLERY '+runDir); await sleep(90000);
+      }
+      return;
+    }
     if (process.env.NEKKO_GRID_BUGS) {
       const clearEditor = async () => {
         await run("(()=>{const e=document.querySelector('.composer [contenteditable]');if(e){e.textContent='';e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'deleteContentBackward'}))}})()");

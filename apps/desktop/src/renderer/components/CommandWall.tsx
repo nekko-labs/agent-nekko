@@ -123,7 +123,7 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   let stageHeight = Math.max(minimum, height - (state.layout.mode === 'focus' ? 0 : rail + gap));
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
-  // Idle geometry keeps saved ratios. Hover uses display-only insertion;
+  // Idle geometry keeps saved ratios. Clicking uses display-only insertion;
   // never persist the preview tree or expose its synthetic dividers.
   const previewPane: WbPane = { id: '__wall_add__', kind: 'chat', refId: '__wall_add__' };
   const addGrid = companionTree(preview && state.layout.mode === 'grid' ? addPane(grid, previewPane, width / Math.max(1, stageHeight)) : grid, expanded);
@@ -208,8 +208,6 @@ export function CommandWall({
   const workspaces = useStore((s) => s.workspaces);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [addPreview, setAddPreview] = useState(false);
-  useEffect(() => { setAddPreview(false); }, [state.root, state.layout.mode]);
   const [dragging, setDragging] = useState<string | null>(null);
   const createRef = useRef<HTMLDivElement>(null);
   const [createHeight, setCreateHeight] = useState(0);
@@ -289,11 +287,11 @@ export function CommandWall({
   const terminalById = useMemo(() => new Map(terminals.map((t) => [t.id, t])), [terminals]);
   const aspect = size.width > 36 && size.height > 36 ? (size.width - 36) / (size.height - 36) : DEFAULT_ASPECT;
   const { geometry, expanded } = useMemo(() => {
-    const base = commandWallGeometry(state, Math.max(0, size.width - (state.layout.mode === 'focus' ? 0 : 36)), size.height, new Set(), addPreview || !!addContent);
+    const base = commandWallGeometry(state, Math.max(0, size.width - (state.layout.mode === 'focus' ? 0 : 36)), size.height, new Set(), !!addContent);
     if (state.layout.mode !== 'grid') return { geometry: base, expanded: new Set<string>() };
     const expanded = new Set(wallAgents(state.root).filter(p => workspaceCompanions(workspaces, p.refId).length > 0 && !(state.folded[p.refId] ?? (numberOf.size > 4 || (base.panes.get(p.id)?.width ?? 0) < 700))).map(p => p.id));
-    return { geometry: expanded.size ? commandWallGeometry(state, Math.max(0, size.width - 36), size.height, expanded, addPreview || !!addContent) : base, expanded };
-  }, [state.root, state.filter, state.layout, state.hero, state.folded, workspaces, numberOf, size, addPreview, !!addContent]);
+    return { geometry: expanded.size ? commandWallGeometry(state, Math.max(0, size.width - 36), size.height, expanded, !!addContent) : base, expanded };
+  }, [state.root, state.filter, state.layout, state.hero, state.folded, workspaces, numberOf, size, !!addContent]);
   const densityOf = (paneId: string): boolean | null => {
     const r = geometry.panes.get(paneId);
     return !r || size.width === 0 ? null : r.width < COMPACT_WIDTH || r.height - 32 < COMPACT_HEIGHT;
@@ -502,13 +500,13 @@ export function CommandWall({
       <div className="command-wall-stage" style={{ height: Math.max(geometry.height, addContent ? geometry.add.y + createHeight + 64 : 0), width: size.width }}>
         <div className="command-wall-pane-stage" style={{ position: 'absolute', inset: 0, top: 0 }}>
         {allPanes(state.root).map(renderLeaf)}
-        {!addPreview && !addContent && state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
+        {!addContent && state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
         </div>
-        {(state.layout.mode !== 'focus' || addContent) && <div className="command-wall-add-zone" onMouseLeave={() => setAddPreview(false)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAddPreview(false); }}>
+        {(state.layout.mode !== 'focus' || addContent) && <div className="command-wall-add-zone">
           {!addContent && <>
-            {(['bottom', 'right'] as const).map(edge => <button key={edge} className={`command-wall-add-rail command-wall-add-rail-${edge}`} style={edge === 'bottom' ? { left: 0, top: geometry.height - 28, width: Math.max(0, size.width - 36), height: 28 } : { left: Math.max(0, size.width - 28), top: 0, width: 28, height: geometry.stageHeight }} onMouseEnter={() => setAddPreview(true)} onFocus={() => setAddPreview(true)} onBlur={(e) => { if (!e.currentTarget.parentElement?.contains(e.relatedTarget as Node | null)) setAddPreview(false); }} onClick={onAddWindow} aria-label={`Add window from ${edge} edge`} aria-controls="wall-window-picker">+</button>)}
+            {(['bottom', 'right'] as const).map(edge => <button key={edge} className={`command-wall-add-rail command-wall-add-rail-${edge}`} style={edge === 'bottom' ? { left: 0, top: geometry.height - 28, width: Math.max(0, size.width - 36), height: 28 } : { left: Math.max(0, size.width - 28), top: 0, width: 28, height: geometry.stageHeight }} onClick={onAddWindow} aria-label={`Add window from ${edge} edge`} aria-controls="wall-window-picker">+</button>)}
           </>}
-          {<section className={`command-wall-add${addContent ? ' command-wall-add-tile' : ''}`} data-preview={addPreview || !!addContent || undefined} data-solid={!!addContent || undefined} style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: addContent ? Math.max(createHeight + 64, geometry.add.height) : geometry.add.height, position: 'absolute' }}>
+          {<section className={`command-wall-add${addContent ? ' command-wall-add-tile' : ''}`} data-preview={!!addContent || undefined} data-solid={!!addContent || undefined} style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: addContent ? Math.max(createHeight + 64, geometry.add.height) : geometry.add.height, position: 'absolute' }}>
             {addContent ? <><div className="command-wall-add-heading">Add to the wall</div><div ref={createRef} id="wall-window-picker" className="command-wall-create">{addContent}</div></> : <button className="command-wall-add-fill" onClick={onAddWindow} aria-label="Add window" aria-expanded={false}><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
           </section>}
         </div>}
