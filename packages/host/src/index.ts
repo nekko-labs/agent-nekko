@@ -13,3 +13,4 @@ export { defaultUserDataDir, legacyUserDataDirs, migrateUserData, prepareUserDat
 export { listAgentTerminals, useTerminalDaemon } from './terminal.js';
 export { useEngineDaemon } from './engine/daemon.js';
 export { reviewRepository, parseRepositoryVerdict, type RepositoryReviewer, type RepositoryReviewInput, type RepositoryReviewVerdict } from './repository-review.js';
+export { flushAgentLogs } from './agent-log.js';
