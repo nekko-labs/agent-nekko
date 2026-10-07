@@ -1082,16 +1082,23 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     const el = composerRef.current;
     const pane = paneRef.current;
     const section = composerSectionRef.current;
-    if (!el || !pane || !section) return;
+    if (!el || !pane || !section || surface === 'composer') return;
+    // Empty drafts already have their minimum height in CSS. Warm switching
+    // should not force layout merely to rediscover that same empty-editor size.
+    if (!draft && composerH === null) {
+      el.style.height = '';
+      el.style.maxHeight = '';
+      return;
+    }
+    // The shared wall composer uses flex sizing in CSS, including its editor.
+    // Measuring and rewriting that height forces layout without affecting it.
     const resize = () => {
       const chrome = section.getBoundingClientRect().height - el.getBoundingClientRect().height;
-      const limit = surface === 'composer'
-        ? Math.max(52, el.parentElement?.clientHeight ?? 52)
-        : Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
+      const limit = Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
       el.style.maxHeight = limit + 'px';
       el.style.height = 'auto';
-      el.style.height = Math.min(limit, Math.max(el.scrollHeight, surface === 'composer' ? limit : composerH ?? 0)) + 'px';
-      revealEditorCaret(el);
+      el.style.height = Math.min(limit, Math.max(el.scrollHeight, composerH ?? 0)) + 'px';
+      if (document.activeElement === el) revealEditorCaret(el);
     };
     resize();
     const observer = new ResizeObserver(resize);
