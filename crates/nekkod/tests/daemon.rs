@@ -29,6 +29,10 @@ fn fake_backend() {
         let token = std::env::var("NEKKO_BACKEND_TOKEN").unwrap();
         assert!(std::env::var("NEKKOD_URL").unwrap().starts_with("http://127.0.0.1:"));
         let t1 = token.clone();
+        let completions = std::sync::Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+        let recorded = completions.clone();
+        // Checkpoint events and loop:end carry the same image-bearing transcript.
+        // The fake host must accept it rather than silently rejecting >2 MiB JSON.
         let app = axum::Router::new()
             .route(
                 "/api/{channel}",
@@ -40,6 +44,14 @@ fn fake_backend() {
                         }
                         match channel.as_str() {
                             "settings:get" => (axum::http::StatusCode::OK, axum::Json(json!({ "workspaces": [] }))),
+                            "loop:end" => {
+                                recorded.lock().unwrap().push(body.0["args"].clone());
+                                (axum::http::StatusCode::OK, axum::Json(Value::Null))
+                            }
+                            "test:completions" => (
+                                axum::http::StatusCode::OK,
+                                axum::Json(json!(recorded.lock().unwrap().clone())),
+                            ),
                             "terminals:list:agent" => (
                                 axum::http::StatusCode::OK,
                                 axum::Json(json!([{ "id": "agent_s1", "title": "Agent commands" }])),
@@ -87,7 +99,8 @@ fn fake_backend() {
                         })
                     }
                 }),
-            );
+            )
+            .layer(axum::extract::DefaultBodyLimit::max(64 * 1024 * 1024));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
         println!("NEKKO_BACKEND_READY {}", json!({ "port": port }));
@@ -227,6 +240,103 @@ async fn authenticated_loop_run_http_body_exceeds_old_limit_without_truncation()
     let (status, body) = post(d.port, "loop:tool", args, Some(TOKEN)).await;
     assert_eq!(status, 413, "{body}");
     assert_eq!(body["error"], "body too large");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn large_image_reply_completes_and_followup_starts_with_local_provider() {
+    use axum::routing::post as route_post;
+
+    // The only model endpoint is this ephemeral loopback listener. No provider
+    // credentials, user files, external service, or paid model are involved.
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let provider_port = listener.local_addr().unwrap().port();
+    let provider = axum::Router::new()
+        .route(
+            "/v1/chat/completions",
+            route_post(|axum::Json(request): axum::Json<Value>| async move {
+                let messages = request["messages"].as_array().unwrap();
+                let image = messages
+                    .iter()
+                    .find_map(|m| m["content"].as_array()?.iter().find_map(|part| part["image_url"]["url"].as_str()));
+                let Some(url) = image else {
+                    return (axum::http::StatusCode::BAD_REQUEST, "missing synthetic image".to_string());
+                };
+                if request["model"] != "synthetic"
+                    || url != format!("data:image/png;base64,{}", "A".repeat(2 * 1024 * 1024))
+                {
+                    return (axum::http::StatusCode::BAD_REQUEST, "invalid synthetic image".to_string());
+                }
+                let answer = if messages.last().is_some_and(|m| m["content"] == "followup") {
+                    "synthetic-followup".to_string()
+                } else if messages.last().is_some_and(|m| m["role"] == "user") {
+                    format!("synthetic-image-{}", url.len())
+                } else {
+                    return (axum::http::StatusCode::BAD_REQUEST, "unexpected synthetic request".to_string());
+                };
+                let sse = format!(
+                    "data: {}\n\ndata: [DONE]\n\n",
+                    json!({ "choices": [{ "delta": { "content": answer }, "finish_reason": "stop" }] })
+                );
+                (axum::http::StatusCode::OK, sse)
+            }),
+        )
+        .layer(axum::extract::DefaultBodyLimit::max(64 * 1024 * 1024));
+    let server = tokio::spawn(async move { axum::serve(listener, provider).await.unwrap() });
+    let d = start(true);
+    let (backend_status, backend_body) = post(d.port, "test:completions", json!([]), Some(TOKEN)).await;
+    assert_eq!(backend_status, 200, "backend not ready: {backend_body}");
+    let config = json!({
+        "id": "synthetic-local", "kind": "openai-compat", "baseUrl": format!("http://127.0.0.1:{provider_port}/v1"),
+        "enabled": true
+    });
+    let image = format!("data:image/png;base64,{}", "A".repeat(2 * 1024 * 1024));
+    let first = json!({
+        "runId": "synthetic-large", "sessionId": "synthetic-session", "provider": config,
+        "model": "synthetic", "history": [{ "role": "user", "content": "image", "images": [image.clone()] }]
+    });
+    let (status, started) = post(d.port, "loop:run", json!([first]), Some(TOKEN)).await;
+    assert_eq!(status, 200, "{started}");
+    assert_eq!(started["started"], true);
+
+    async fn completion(port: u16, run_id: &str) -> Value {
+        tokio::time::timeout(Duration::from_secs(30), async {
+            loop {
+                let (status, results) = post(port, "test:completions", json!([]), Some(TOKEN)).await;
+                assert_eq!(status, 200, "{results}");
+                if let Some(entry) = results.as_array().unwrap().iter().find(|entry| entry[0] == run_id) {
+                    return entry[1].clone();
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        })
+        .await
+        .expect("daemon did not deliver loop:end to backend")
+    }
+
+    let ended = completion(d.port, "synthetic-large").await;
+    let history = ended["history"].as_array().unwrap();
+    assert_eq!(ended["sessionId"], "synthetic-session");
+    assert_eq!(history[0]["images"][0], image);
+    assert_eq!(history.last().unwrap()["content"], format!("synthetic-image-{}", image.len()));
+    assert_eq!(history.last().unwrap()["role"], "assistant");
+    assert_ne!(history.last().unwrap()["interrupted"], true);
+
+    let next = json!({
+        "runId": "synthetic-next", "sessionId": "synthetic-session", "provider": config,
+        "model": "synthetic", "history": [
+            { "role": "user", "content": "image", "images": [image] },
+            { "role": "assistant", "content": format!("synthetic-image-{}", 2 * 1024 * 1024 + "data:image/png;base64,".len()) },
+            { "role": "user", "content": "followup" }
+        ]
+    });
+    let (status, started) = post(d.port, "loop:run", json!([next]), Some(TOKEN)).await;
+    assert_eq!(status, 200, "{started}");
+    assert_eq!(started["started"], true);
+    let ended = completion(d.port, "synthetic-next").await;
+    assert_eq!(ended["history"][3]["content"], "synthetic-followup");
+    assert_eq!(ended["history"][3]["role"], "assistant");
+    assert_ne!(ended["history"][3]["interrupted"], true);
+    server.abort();
 }
 
 #[tokio::test(flavor = "multi_thread")]
