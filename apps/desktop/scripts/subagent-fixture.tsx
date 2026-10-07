@@ -31,7 +31,8 @@ let records: any[] = [];
 let terminals: any[] = [];
 let serial = 0;
 const calls: any[] = [];
-const failures = { create: false, options: false, cleanup: false };
+const failures = { create: false, options: false, cleanup: false, send: false };
+let nextWakeAt: number | null = null;
 const bridge: any = {
   createSession: async (workspaceId: string) => { calls.push({ method: 'create', workspaceId }); if (failures.create) throw Error('Synthetic creation failure'); const s = { ...makeSession(`new-${++serial}`), workspaceId }; records.push(s); return s; },
   setSessionOptions: async (id: string, options: any) => { calls.push({ method: 'options', id, options }); if (failures.options) throw Error('Synthetic options failure'); const s = records.find(s => s.id === id); Object.assign(s, options); sessionStorage.setItem('fixture-record', JSON.stringify(s)); return {...s}; },
@@ -40,6 +41,8 @@ const bridge: any = {
   listSessionSummaries: async () => records.map(summarizeSession), listTerminals: async () => terminals,
   getSession: async (id: string) => records.find(s => s.id === id), listModels: async () => models,
   getUsageSummary: async () => null, pendingInput: async () => pending, onAgentEvent: (fn: any) => {listeners.add(fn);return () => listeners.delete(fn)}, answerQuestion: async (id: string, callId: string, answers: any) => {calls.push({method:'answer',id,callId,answers});pending={};listeners.forEach(fn=>fn({type:'question_resolved',sessionId:id,callId}));}, runningSessions: async () => [],
+  nextAgentWatchAt: async (id: string) => { calls.push({method:'nextWake',id}); return nextWakeAt; },
+  sendChat: async (input: any) => { calls.push({method:'send',input}); if (failures.send) { listeners.forEach(fn=>fn({type:'error',sessionId:input.sessionId,message:'Synthetic request failure'})); return; } const s=records.find(s=>s.id===input.sessionId); if(s && input.text) { s.messages=[...s.messages,{id:`sent-${++serial}`,role:'user',content:input.text,createdAt:Date.now()}]; listeners.forEach(fn=>fn({type:'message',sessionId:input.sessionId,message:s.messages.at(-1)})); } listeners.forEach(fn=>fn({type:'done',sessionId:input.sessionId})); },
   listTasks: async () => [], listShells: async () => [], listChanges: async () => [], listFiles: async () => [],
   previewContext: async () => ({ items: [], totalTokens: 0, budget: 128000 }), getGitStatus: async () => ({ repo: false }),
   getLimits: async () => null, listTools: async () => [], getMcpStatus: async () => [], listSkills: async () => [],
@@ -50,13 +53,13 @@ function Fixture() {
   const [epoch, setEpoch] = useState(0);
   const [route, setRoute] = useState('command');
   const reset = () => {
-    records = [JSON.parse(sessionStorage.getItem('fixture-record') || 'null') || makeSession('existing')]; __resetSessionCache(); pending = {}; terminals = []; serial = 0; calls.length = 0;
-    Object.assign(failures, { create: false, options: false, cleanup: false });
+    records = [JSON.parse(sessionStorage.getItem('fixture-record') || 'null') || makeSession('existing')]; __resetSessionCache(); pending = {}; terminals = []; serial = 0; calls.length = 0; nextWakeAt = null;
+    Object.assign(failures, { create: false, options: false, cleanup: false, send: false });
     localStorage.clear();
     useStore.setState({ providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: 'synthetic-project', settings: { providers: [provider], workspaceFolders: [], workspaces: [], theme: 'light', experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root: { id: 'synthetic-pane', kind: 'chat', refId: 'existing' }, autoAdd: false, watermark: Date.now(), dock: { ...DEFAULT_WALL_STATE.dock, show: false } } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
     setRoute('command'); setEpoch(e => e + 1);
   };
-  Object.assign(window, { integration: { reset, ask: () => { const request = {callId:'ask-fixture',askedAt:Date.now(),questions:[{id:'choice',header:'Choice',question:'Which verification path?',options:[{label:'Focused tests'},{label:'Full suite'}]}]}; pending={existing:{question:request}}; listeners.forEach(fn=>fn({type:'question',sessionId:'existing',request})); }, calls, failures, route: setRoute, state: () => useStore.getState(), records: () => records } });
+  Object.assign(window, { integration: { reset, ask: () => { const request = {callId:'ask-fixture',askedAt:Date.now(),questions:[{id:'choice',header:'Choice',question:'Which verification path?',options:[{label:'Focused tests'},{label:'Full suite'}]}]}; pending={existing:{question:request}}; listeners.forEach(fn=>fn({type:'question',sessionId:'existing',request})); }, calls, failures, wake: (at: number | null) => { nextWakeAt = at; listeners.forEach(fn=>fn({type:'tool_result',sessionId:'existing'})); }, restore: () => { sessionStorage.removeItem('fixture-record'); reset(); }, clean: () => { const s=makeSession('existing'); s.messages = [{id:'clean-user',role:'user',content:'Ready for another turn',createdAt:1},{id:'clean-answer',role:'assistant',content:'Ready.',createdAt:2}]; sessionStorage.setItem('fixture-record',JSON.stringify(s)); reset(); }, route: setRoute, state: () => useStore.getState(), inbox: (text: string) => useStore.setState({composerInbox:{sessionId:'existing',text,run:true}}), records: () => records } });
   React.useEffect(reset, []);
   return <main style={{ height: '100vh' }} key={epoch}>{route === 'command' ? <CommandCenterView /> : <WorkspacesView />}</main>;
 }

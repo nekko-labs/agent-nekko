@@ -39,6 +39,9 @@ interface Run {
   end: (history?: ChatMessage[]) => void;
 }
 
+// Match the daemon's bounded loop:run HTTP body (crates/nekkod/src/wire.rs).
+const LOOP_RUN_BODY_LIMIT = 64 * 1024 * 1024;
+
 const runs = new Map<string, Run>();
 
 let owned: Promise<string[]> | undefined;
@@ -215,7 +218,7 @@ export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): As
   let canProbe: boolean | undefined;
   let strikes = 0;
   try {
-    await call('loop:run', {
+    const spec = {
       runId,
       sessionId: opts.sessionId,
       provider: opts.provider,
@@ -230,7 +233,13 @@ export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): As
       maxHistoryTurns: opts.maxHistoryTurns,
       maxOutputTokens: opts.maxOutputTokens,
       resume: opts.resume,
-    });
+    };
+    // Do not discard older turns or images: the daemon needs the full history
+    // for checkpoints, and the model's history window is applied separately.
+    if (Buffer.byteLength(JSON.stringify({ args: [spec] })) > LOOP_RUN_BODY_LIMIT) {
+      throw new Error('This reply exceeds the engine request limit (64 MiB). Reduce attached images or compact the conversation before retrying.');
+    }
+    await call('loop:run', spec);
     if (opts.signal?.aborted) onAbort();
     for (;;) {
       const item = queue.shift();

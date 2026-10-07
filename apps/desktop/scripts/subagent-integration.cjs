@@ -6,6 +6,7 @@ const repo = path.resolve(__dirname, '../../..');
 const modules = process.env.NEKKO_TEST_MODULES || path.join(repo, 'node_modules');
 const out = path.join(repo, '.shots/subagent-integration');
 async function main() {
+  require('./check-sandbox-syntax.cjs').checkSandboxSyntax(path.join(__dirname, 'subagent-sandbox.cjs'));
   fs.mkdirSync(out, { recursive: true });
   let entry = path.join(__dirname, 'subagent-fixture.tsx');
   let shared = path.join(repo, 'packages/shared/src/index.ts');
