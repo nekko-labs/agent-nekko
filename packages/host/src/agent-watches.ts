@@ -61,6 +61,13 @@ export class AgentWatchService {
     if (!Array.isArray(parsed)) throw new Error('Invalid agent watch state');
     return parsed.filter((w: AgentWatch) => !sessionId || w.sessionId === sessionId);
   }
+  /** Earliest deadline for an armed watch; never expose continuation prompts to the UI. */
+  nextWakeAt(sessionId: string): number | null {
+    const deadlines = this.list(sessionId)
+      .filter((w) => w.status === 'active')
+      .map((w) => w.deadlineAt);
+    return deadlines.length ? Math.min(...deadlines) : null;
+  }
   private save(watches: AgentWatch[]): void { writeJsonAtomic(this.path(), watches); }
   private patch(id: string, patch: Partial<AgentWatch>): void {
     const watches = this.list();
@@ -149,4 +156,7 @@ export function configureAgentWatches(deps: WatchDependencies): AgentWatchServic
 export async function agentWatchTool(sessionId: string, input: Record<string, unknown>): Promise<string> {
   if (!service) throw new Error('Agent watch scheduler is unavailable');
   return service.tool(sessionId, input);
+}
+export function nextAgentWatchAt(sessionId: string): number | null {
+  return service?.nextWakeAt(sessionId) ?? null;
 }

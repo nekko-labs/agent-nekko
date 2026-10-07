@@ -430,6 +430,20 @@ const LiveReplyStatus = memo(function LiveReplyStatus({
 }: Omit<React.ComponentProps<typeof ReplyStatus>, 'status' | 'elapsed'> & { sessionId: string; startedAt: number }) {
   const run = useLiveRun(sessionId, !usePaneVisible());
   const [elapsed, setElapsed] = useState(0);
+  const [nextWakeAt, setNextWakeAt] = useState<number | null>(null);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    let live = true;
+    const refresh = () => { void window.nekko.nextAgentWatchAt(sessionId).then((wake) => {
+      if (live) { setNextWakeAt(wake); setNow(Date.now()); }
+    }).catch(() => { if (live) setNextWakeAt(null); }); };
+    refresh();
+    const interval = setInterval(refresh, 15_000);
+    const off = window.nekko.onAgentEvent((e) => {
+      if (e.sessionId === sessionId && (e.type === 'tool_result' || e.type === 'done' || e.type === 'error')) refresh();
+    });
+    return () => { live = false; clearInterval(interval); off(); };
+  }, [sessionId]);
   useEffect(() => {
     if (!status.streaming) return;
     const tick = () => { if (startedAt) setElapsed(Math.round((Date.now() - startedAt) / 1000)); };
@@ -438,7 +452,7 @@ const LiveReplyStatus = memo(function LiveReplyStatus({
     return () => clearInterval(t);
   }, [status.streaming, startedAt]);
   const label = status.streaming ? shortLiveStatus(run?.activity) || 'Working' : '';
-  return <ReplyStatus {...status} status={label} elapsed={status.streaming ? elapsed : 0} />;
+  return <ReplyStatus {...status} status={label} elapsed={status.streaming ? elapsed : 0} nextWakeAt={nextWakeAt} now={now} />;
 });
 
 /**
@@ -2647,6 +2661,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   out={turnOut}
                   last={lastTurn}
                   done={doneSummary}
+                  blocked={errorNotice ? 'Needs attention' : approval ? 'Waiting for approval' : question ? 'Waiting for your answer' : null}
                 />)}
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
           {!imageMode && <div className="flex flex-wrap items-center gap-2">

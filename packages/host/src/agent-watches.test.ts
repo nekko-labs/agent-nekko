@@ -26,6 +26,21 @@ describe('durable agent watches', () => {
     expect(deps.resume).toHaveBeenCalledTimes(1);
     expect(service.list()[0].status).toBe('done');
   });
+  it('reports only active deadlines from disk across restart, cancellation and wake', async () => {
+    expect(service.nextWakeAt('s')).toBeNull();
+    await service.tool('s', { action: 'create', kind: 'timer', prompt: 'Later', delay_seconds: 600 });
+    await service.tool('s', { action: 'create', kind: 'timer', prompt: 'Soon', delay_seconds: 60 });
+    await service.tool('other', { action: 'create', kind: 'timer', prompt: 'Elsewhere', delay_seconds: 60 });
+    const soon = service.list('s').find((w) => w.prompt === 'Soon')!;
+    service = new AgentWatchService(() => join(dir, 'watches.json'), deps, () => now);
+    expect(service.nextWakeAt('s')).toBe(now + 60000);
+    await service.tool('s', { action: 'cancel', id: soon.id });
+    expect(service.nextWakeAt('s')).toBe(now + 600000);
+    now += 601000;
+    await service.tick();
+    expect(service.nextWakeAt('s')).toBeNull();
+    expect(service.nextWakeAt('other')).toBeNull();
+  });
   it('defers busy chats and wakes only on a changed PR snapshot', async () => {
     await service.tool('s', pr);
     now += 61000;
