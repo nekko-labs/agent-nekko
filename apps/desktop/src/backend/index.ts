@@ -19,7 +19,7 @@
  * - `NEKKOD_URL` / `NEKKOD_TOKEN`: set when the daemon started us; the ptys are
  *   then the daemon's, and this host forwards terminal calls to it.
  */
-import { createHost, useEngineDaemon, useTerminalDaemon } from '@agent-nekko/host';
+import { createHost, flushAgentLogs, useEngineDaemon, useTerminalDaemon } from '@agent-nekko/host';
 import { closeApiServer } from '../main/api-server.js';
 import { startLocalAccess, stopLocalAccess, type AppLike } from '../main/local-access.js';
 import { closeWorkflowLoopbackListener, manageWorkflowLoopbackListener } from '../main/workflow-listener.js';
@@ -82,7 +82,7 @@ async function main(): Promise<void> {
   const wire = await startWire({ host, token, overrides: desktopChannels(app, host), origins });
 
   let stopping = false;
-  const shutdown = (code: number) => {
+  const shutdown = async (code: number) => {
     if (stopping) return;
     stopping = true;
     try {
@@ -91,6 +91,8 @@ async function main(): Promise<void> {
       stopLocalAccess(host);
       wire.close();
     } finally {
+      try { await flushAgentLogs(); }
+      catch (error) { console.error('Command log shutdown drain failed:', error); code = 1; }
       // 'exit' handlers (runtime supervisors, model server children) run here.
       process.exit(code);
     }
