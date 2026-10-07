@@ -3,6 +3,7 @@ import { existsSync } from 'fs';
 import type { TerminalInfo, TerminalEvent, TerminalSnapshot, ShellOption } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 import { getSession } from './sessions.js';
+import { appendAgentLog, readAgentLog } from './agent-log.js';
 
 /**
  * Terminal sessions are real pseudo-terminals (PTYs), one shell per terminal.
@@ -181,6 +182,7 @@ export function appendAgentTerminal(sessionId: string, workspaceId: string | und
   delete state.info.exitCode;
   state.buffer = (state.buffer + data).slice(-MAX_BUFFER);
   emit({ type: 'data', terminalId: id, data });
+  appendAgentLog(sessionId, data);
   return id;
 }
 
@@ -219,6 +221,15 @@ export async function updateTerminal(id: string, patch: { workspaceId?: string |
 export async function terminalSnapshot(id: string): Promise<TerminalSnapshot | null> {
   if (daemon && !isAgentLog(id)) return daemonCall('terminal:snapshot', id);
   const t = terms.get(id);
+  if (isAgentLog(id)) {
+    const sessionId = id.slice('agent_'.length);
+    const persisted = await readAgentLog(sessionId, MAX_BUFFER);
+    if (t) return { info: t.info, buffer: persisted ?? t.buffer, cols: t.cols, rows: t.rows };
+    if (persisted !== null) return {
+      info: { id, title: 'Agent commands', shell: 'agent', agentSessionId: sessionId, cwd: '', createdAt: getSession(sessionId)?.createdAt ?? 0, running: false },
+      buffer: persisted, cols: 80, rows: 24,
+    };
+  }
   return t ? { info: t.info, buffer: t.buffer, cols: t.cols, rows: t.rows } : null;
 }
 
