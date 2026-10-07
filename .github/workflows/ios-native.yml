@@ -49,6 +49,7 @@ jobs:
           trap 'xcrun simctl shutdown "$DEVICE" || true; xcrun simctl delete "$DEVICE" || true' EXIT
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
+          xcodebuild -project NekkoNative.xcodeproj -scheme NekkoNative -configuration Debug -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO test
           xcrun simctl install "$DEVICE" DerivedData/Build/Products/Debug-iphonesimulator/NekkoNative.app
           xcrun simctl launch "$DEVICE" com.nekko.native.ios
           sleep 5

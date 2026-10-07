@@ -29,8 +29,30 @@ targets:
         INFOPLIST_FILE: Info.plist
     dependencies:
       - package: NekkoProtocol
+  NekkoNativeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: NekkoNative
+  NekkoNativeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: NekkoNative
 schemes:
   NekkoNative:
     build:
       targets:
         NekkoNative: all
+    test:
+      targets:
+        - NekkoNativeTests
+        - NekkoNativeUITests
