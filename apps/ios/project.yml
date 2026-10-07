@@ -1,0 +1,58 @@
+name: NekkoNative
+options:
+  minimumXcodeGenVersion: 2.38.0
+  xcodeVersion: "15.4"
+  projectFormat: xcode15_3
+  deploymentTarget:
+    iOS: "16.0"
+packages:
+  NekkoProtocol:
+    path: Protocol
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  NekkoNative:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nekko.native.ios
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Info.plist
+    dependencies:
+      - package: NekkoProtocol
+  NekkoNativeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: NekkoNative
+  NekkoNativeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: NekkoNative
+schemes:
+  NekkoNative:
+    build:
+      targets:
+        NekkoNative: all
+    test:
+      targets:
+        - NekkoNativeTests
+        - NekkoNativeUITests

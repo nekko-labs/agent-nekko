@@ -28,11 +28,16 @@ const root: WbSplit = { id: 'split', dir: 'row', children: [a, b, t], sizes: [0.
 const state = (patch: Partial<CommandWallState> = {}): CommandWallState => ({ ...DEFAULT_WALL_STATE, root, layout: { mode: 'grid', cols: 3, rows: 2 }, folded: {}, ...patch });
 const layout = (mode: 'grid' | 'focus' | 'fixed') => ({ mode, cols: 2, rows: 1 });
 
-function wall(s: CommandWallState) {
-  return <CommandWall state={s} setState={vi.fn()} sessions={[]} terminals={[]} running={new Set()} pending={{}} childrenOf={new Map()} projects={[]} flash={null} selectedId={null} onSelect={vi.fn()} onAspect={vi.fn()} onOpenChat={vi.fn()} onOpenTerminal={vi.fn()} onNewChat={vi.fn()} onNewTerminal={vi.fn()} onAddWindow={vi.fn()} />;
+function wall(s: CommandWallState, addContent?: React.ReactNode) {
+  return <CommandWall state={s} setState={vi.fn()} sessions={[]} terminals={[]} running={new Set()} pending={{}} childrenOf={new Map()} projects={[]} flash={null} selectedId={null} onSelect={vi.fn()} onAspect={vi.fn()} onOpenChat={vi.fn()} onOpenTerminal={vi.fn()} onNewChat={vi.fn()} onNewTerminal={vi.fn()} onAddWindow={vi.fn()} addContent={addContent} />;
 }
 
 describe('command wall geometry', () => {
+  it('nests creation details inside the Add tile without a pane-stage offset', () => {
+    const html = renderToStaticMarkup(wall(state(), <div>New chat details</div>));
+    expect(html).toMatch(/command-wall-add-tile[^]*?wall-window-picker[^]*?New chat details[^]*?<\/section>/);
+    expect(html).not.toContain('top:80px');
+  });
   it.each(['grid', 'fixed'] as const)('fits %s windows into the space remaining above the composer', (mode) => {
     const before = JSON.stringify(root);
     const g = commandWallGeometry(state({ layout: { mode, cols: 3, rows: 2 } }), 2400, 600);
@@ -136,7 +141,9 @@ describe('command wall geometry', () => {
     expect(g.hero).toBe('b');
     expect(g.panes.get('b')).toEqual({ x: 0, y: 0, width: 1000, height: 700 });
     expect([...g.deck]).toEqual(['a', 't']);
-    expect(g.add.x).toBe(496);
+    expect(g.add.x).toBe(0);
+    expect(g.add.width).toBeLessThanOrEqual(1000);
+    expect(g.add.height).toBe(240);
     expect(commandWallGeometry(state({ layout: layout('focus'), hero: 'missing' }), 1000, 700).hero).toBe('a');
     expect(commandWallGeometry(state({ layout: layout('focus'), filter: 'terminal' }), 1000, 700).hero).toBe('t');
   });

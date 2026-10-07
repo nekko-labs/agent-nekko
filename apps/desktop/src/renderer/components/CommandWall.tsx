@@ -158,7 +158,7 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     return { panes, deck, hero, height: stageHeight + gap + rail, add, addGrid, grid, stageHeight };
   }
   // Focus keeps other bodies warm but selects them through the row above the hero.
-  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, addGrid, grid, stageHeight };
+  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: 0, y: contentHeight + gap, width: Math.min(width, Math.max(280, width / 3)), height: 240 }, addGrid, grid, stageHeight };
 }
 
 /** Stable keyed windows across layouts keep transcripts, terminals and drafts warm. */
@@ -499,7 +499,7 @@ export function CommandWall({
   return (
     <div ref={wrapRef} className="command-wall-layout" data-command-wall="windows" data-wall-layout={state.layout.mode}>
       {companionNotice && <div className="command-wall-notice" role="status">A companion opened in a narrow window. <button onClick={() => { focusWindow(companionNotice); setCompanionNotice(null); }}>Focus {titleOf(companionNotice)}</button><button aria-label="Dismiss companion notice" onClick={() => setCompanionNotice(null)}>×</button></div>}
-      <div className="command-wall-stage" style={{ height: Math.max(geometry.height, addContent ? geometry.add.y + createHeight : 0), width: size.width }}>
+      <div className="command-wall-stage" style={{ height: Math.max(geometry.height, addContent ? geometry.add.y + createHeight + 64 : 0), width: size.width }}>
         <div className="command-wall-pane-stage" style={{ position: 'absolute', inset: 0, top: 0 }}>
         {allPanes(state.root).map(renderLeaf)}
         {!addPreview && !addContent && state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
@@ -508,9 +508,9 @@ export function CommandWall({
           {!addContent && <>
             {(['bottom', 'right'] as const).map(edge => <button key={edge} className={`command-wall-add-rail command-wall-add-rail-${edge}`} style={edge === 'bottom' ? { left: 0, top: geometry.height - 28, width: Math.max(0, size.width - 36), height: 28 } : { left: Math.max(0, size.width - 28), top: 0, width: 28, height: geometry.stageHeight }} onMouseEnter={() => setAddPreview(true)} onFocus={() => setAddPreview(true)} onBlur={(e) => { if (!e.currentTarget.parentElement?.contains(e.relatedTarget as Node | null)) setAddPreview(false); }} onClick={onAddWindow} aria-label={`Add window from ${edge} edge`} aria-controls="wall-window-picker">+</button>)}
           </>}
-          {<div className="command-wall-add" data-preview={addPreview || !!addContent || undefined} data-solid={!!addContent || undefined} style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: addContent ? Math.max(createHeight, geometry.add.height) : geometry.add.height, position: 'absolute' }}>
-            {addContent ? <div ref={createRef} id="wall-window-picker" className="command-wall-create">{addContent}</div> : <button className="command-wall-add-fill" onClick={onAddWindow} aria-label="Add window" aria-expanded={false}><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
-          </div>}
+          {<section className={`command-wall-add${addContent ? ' command-wall-add-tile' : ''}`} data-preview={addPreview || !!addContent || undefined} data-solid={!!addContent || undefined} style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: addContent ? Math.max(createHeight + 64, geometry.add.height) : geometry.add.height, position: 'absolute' }}>
+            {addContent ? <><div className="command-wall-add-heading">Add to the wall</div><div ref={createRef} id="wall-window-picker" className="command-wall-create">{addContent}</div></> : <button className="command-wall-add-fill" onClick={onAddWindow} aria-label="Add window" aria-expanded={false}><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
+          </section>}
         </div>}
         {!addContent && !filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : 'No windows on the wall yet. Add a window to get started.'}</div>}
       </div>

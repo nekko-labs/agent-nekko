@@ -61,6 +61,8 @@ app.whenReady().then(async () => {
     await reset(); await open('Chat');
     await check('long catalog scrolls inside fieldset without covering Create chat', "(()=>{const list=document.querySelector('.agent-window-picker [role=listbox]');const field=document.querySelector('.agent-window-picker__models');const create=document.querySelector('.agent-window-picker__primary');return list.scrollHeight>list.clientHeight&&list.getBoundingClientRect().bottom<=field.getBoundingClientRect().bottom+1&&field.getBoundingClientRect().bottom<=create.getBoundingClientRect().top;})()");
     await check('layout toggle precedes agent filter', "!!(document.querySelector('[aria-label=\"Wall layout\"]').compareDocumentPosition(document.querySelector('[aria-label=\"Show\"]')) & Node.DOCUMENT_POSITION_FOLLOWING)");
+    await check('creation details share the Add tile', "!!document.querySelector('.command-wall-add-tile #wall-window-picker')");
+    await check('creation does not offset pane stage', "getComputedStyle(document.querySelector('.command-wall-pane-stage')).top==='0px'");
     await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Fixture model')).click()"); await sleep(180); await click('Create chat');
     await check('chat model creation configures selected provider/model', "integration.calls.some(c=>c.method==='options'&&c.options.providerId==='fixture'&&c.options.modelId==='fixture-model'&&c.options.autoModel===false) && !document.querySelector('.agent-window-picker')");
     await reset(); await open('Terminal'); await click('Create terminal');
@@ -79,6 +81,11 @@ app.whenReady().then(async () => {
         await run('integration.dashboard()'); await sleep(900); await capture(`dashboard-${theme}-${label}`); await run("document.querySelector('[aria-label=\"Utilization dock panel\"]').scrollIntoView({block:'start'})"); await capture(`quota-${theme}-${label}`); await run("document.querySelector('[aria-label=\"Hardware dock panel\"]').scrollIntoView({block:'end'})"); await capture(`monitors-${theme}-${label}`); await reset();
         await open(); await capture(`full-picker-${theme}-${label}`);
         await run("[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent==='Chat').click()"); await capture(`long-catalog-${theme}-${label}`);
+        for (const [key,code,mode] of [['2','Digit2','grid'],['3','Digit3','fixed'],['1','Digit1','focus']]) {
+          await click(mode[0].toUpperCase()+mode.slice(1)); if (mode === 'fixed') await run("document.querySelector('[aria-label=\"3 columns by 2 rows\"]')?.click()"); await sleep(400);
+          await run("(document.querySelector('.command-wall-add-tile') || document.querySelector('#wall-window-picker'))?.scrollIntoView({block:'start'})"); await capture(`create-${mode}-${theme}-${label}`);
+          await run("document.querySelector('.agent-window-picker__primary')?.scrollIntoView({block:'end'})"); await capture(`create-${mode}-actions-${theme}-${label}`);
+        }
         await click('Add window'); await click('Focus'); await capture(`full-focus-${theme}-${label}`);
         await run("integration.route('workspace')"); await sleep(500);
         await run("(()=>{const b=document.querySelector('[title=\"New agent with a terminal\"]'); b.focus(); b.dispatchEvent(new FocusEvent('focusin',{bubbles:true}));})()"); await capture(`workspace-image-menu-${theme}-${label}`);

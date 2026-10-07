@@ -137,3 +137,12 @@
   .wall-agent-workspace[data-tabs='left'] > .wall-focus-agents { flex-direction: row; width: 100%; overflow-x: auto; overflow-y: hidden; }
   .wall-agent-workspace[data-tabs='left'] .wall-focus-agent { width: auto; }
 }
+
+/* Keep creation details nested inside the reserved, solid Add slot. */
+.command-wall-add-tile { gap: 0; justify-content: flex-start; }
+.command-wall-add-heading { display: flex; align-items: center; flex: none; width: 100%; height: 64px; padding: 0 16px; font-weight: 600; border-bottom: 1px solid var(--line); }
+.command-wall-add-tile > .command-wall-create { flex: none; min-width: 0; width: 100%; }
+.command-wall-create .agent-window-picker { border: 0; border-radius: 0; box-shadow: none; container-type: inline-size; }
+@container (max-width: 600px) {
+  .command-wall-create .agent-window-picker__options, .command-wall-create .agent-window-picker__columns { grid-template-columns: minmax(0, 1fr); }
+}

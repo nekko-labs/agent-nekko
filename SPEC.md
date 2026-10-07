@@ -283,6 +283,18 @@ The user opens **Settings → Remote access**, hits Enable (the managed relay is
 
 Security is layered: the local agent dials out to the relay (no inbound ports), every payload is end-to-end encrypted (the relay routes only ciphertext, so relayed local-model use is inherently zero-data-retention), and on top of the transport every device must pass a handshake against the machine's **device registry**: unknown devices are denied unless they present a live pairing code, each device can be **renamed or revoked** (revocation kicks it mid-connection), and **Rotate secret** is the cryptographic kill switch that unpairs everything. Remote access survives restarts; the agent reconnects on boot. Full guide: [docs/REMOTE.md](docs/REMOTE.md).
 
+### Native phone implementation decision (2026-10-07)
+
+**Target:** actual platform-specific apps: SwiftUI on iOS first, Kotlin/Jetpack Compose on Android second. The existing Expo/React Native app is a migration reference, not the target implementation. Preserve it until native parity is verified. The pocket-app behavior below remains the acceptance target, not a claim that the new SwiftUI app already supports it.
+
+**Foundation implemented; simulator verification passed:** macOS CI passed five Foundation tests, a simulator build, two Keychain/host-binding tests and a first-run UI test with ad hoc signing. Full-height light/dark simulator captures were inspected. Live authenticated-host and physical-device acceptance remain unverified.  apps/ios contains a SwiftUI read-only host client and a Foundation protocol/test package, XcodeGen app definition and macOS build/test workflow. The user explicitly connects to a user-configured HTTPS origin using a host bearer; system TLS trust and redirect rejection prevent silent insecure routing. Bearer is saved only in device-only Keychain, bound to its origin; no automatic connection on launch, no provider settings/API-key fetch or persistence. Disconnect clears in-memory connection/chat state; Forget also removes the saved bearer and origin. This limited direct-host development path does not implement or replace the end-to-end encrypted relay boundary. Sending, pairing, notifications and phone inference are unavailable and labeled as such.
+
+**Acceptance/release gates:** real authenticated-host integration, native iPad screenshots, VoiceOver/Dynamic Type/lifecycle tests and physical-device testing remain required. This Windows implementation is not marked shipped. Then implement relay crypto parity and pairing/revocation, streaming/reconciliation and exact approvals/questions before enabling send, and finally offline Metal inference and signed TestFlight distribution. Android follows using the same fixture-backed wire, not a web wrapper. See TASKS.md for ordered tasks and credential/device dependencies.
+
+### Wall new-chat details placement
+
+New-chat details belong **inside the same bordered Add to the wall box**, never in a full-width section above existing windows. Grid/Fixed retain the tile position and width while it grows vertically as needed; Focus exposes an equivalent tile below the hero when opened from the toolbar. Details, model choice, errors and existing sessions stay contained at narrow/wide widths and in both themes. Opening/closing must not change existing window coordinates or saved layout. Close/Escape and creation/retry retain existing behavior. Implementation and evidence status are recorded in TASKS.md.
+
 ### Your agent in your pocket (the iOS and Android app)
 
 `[in build 2026-10-03]` A native app for iPhone and Android with three tabs: **Chats**, **On this phone**, and **Computers**. It is built for one-handed check-ins rather than as a copy of the desktop.
@@ -801,6 +813,11 @@ Acceptance: matched main/current captures and sampled mascot/reorder motion fram
 - Acceptance: new-agent selection, all placement choices, right-click access, recovery, and setting/local/reload persistence pass isolated Electron checks. Desktop/light/dark and narrow visual evidence must be inspected before release.
 - Privacy: placement changes only UI settings; they neither send prompts nor create/delete sessions.
 
+Native iOS first-run sizing: the generated Xcode project consumes the checked-in Info.plist directly so the launch storyboard survives generation and iPhone does not enter legacy letterboxed compatibility mode. CI checks the built launch-screen metadata and compiled storyboard before simulator captures.
+
+### October 7 integration verification
+
+The inline creation picker remains inside its Add tile, with a 64px heading and measured content height, while preserving the compact edge rails and preview behavior. The existing wall panes retain their zero top offset. Focused wall tests and isolated full-view creation, retry, dismissal, keyboard and reduced-motion checks pass. Native iOS remains a read-only direct-HTTPS development foundation: protocol, ad hoc signed simulator Keychain/host-binding and first-run UI tests pass. The generated app retains its launch storyboard and renders full-height in inspected light/dark simulator captures. Live authenticated hosts, physical devices, iPad, encrypted pairing/relay, send/approvals, inference and signed distribution remain separate acceptance gates tracked in #360.
 ### Retry and model-change context transparency (2026-10-07)
 
 [Implemented; isolated renderer interactions and matched visual evidence verified] A pending ask_user question is a normal waiting state, not an interrupted reply. Persisted-interruption detection and the recovery banner are suppressed while that question is pending. Recovery exposes one non-destructive **Retry** action (formerly Continue); Start over is removed. Retry resumes against saved conversation/work and displays approximate input-context tokens from included Context Inspector items, or explicitly unavailable when no bundle exists. This is not a billable-token or cost guarantee: live changes, tool schemas, compaction, truncation, provider tokenization and caching can alter the request or charges.
