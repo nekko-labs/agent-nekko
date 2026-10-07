@@ -814,3 +814,7 @@ Acceptance: matched main/current captures and sampled mascot/reorder motion fram
 - Privacy: placement changes only UI settings; they neither send prompts nor create/delete sessions.
 
 Native iOS first-run sizing: the generated Xcode project consumes the checked-in Info.plist directly so the launch storyboard survives generation and iPhone does not enter legacy letterboxed compatibility mode. CI checks the built launch-screen metadata and compiled storyboard before simulator captures.
+
+### October 7 integration verification
+
+The inline creation picker remains inside its Add tile, with a 64px heading and measured content height, while preserving the compact edge rails and preview behavior. The existing wall panes retain their zero top offset. Focused wall tests and isolated full-view creation, retry, dismissal, keyboard and reduced-motion checks pass. Native iOS remains a read-only direct-HTTPS development foundation: protocol, ad hoc signed simulator Keychain/host-binding and first-run UI tests pass. The generated app retains its launch storyboard and renders full-height in inspected light/dark simulator captures. Live authenticated hosts, physical devices, iPad, encrypted pairing/relay, send/approvals, inference and signed distribution remain separate acceptance gates tracked in #360.

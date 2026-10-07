@@ -18,8 +18,8 @@ Product decision: platform-native **SwiftUI iOS**, then **Kotlin / Jetpack Compo
 
 ### Ordered implementation and acceptance gates
 
-1. **Foundation (code implemented; build/runtime unverified):** SwiftUI shell, Foundation protocol package and tests, HTTPS-only direct-host chat reader, explicit Connect, device-only Keychain bearer, Disconnect/Forget. XcodeGen and macOS CI build/test workflow. No provider settings requests, insecure transport exceptions, or automatic connection on launch.
-2. **iOS validation (partially verified):** five Foundation Swift tests and unsigned simulator build passed on macOS CI. Added isolated fresh-simulator first-run launch and light/dark evidence capture (pending run/inspection); no credentials, host connection, or user profile. Still pending: macOS Swift tests and unsigned simulator build; verify URLSession/Keychain, authenticated host integration, accessibility/Dynamic Type and matching light/dark iPhone/iPad evidence. New surface has no before state. Add simulator interaction tests and publish evidence before claiming release readiness.
+1. **Foundation (implemented; simulator build, protocol and credential tests verified):** SwiftUI shell, Foundation protocol package and tests, HTTPS-only direct-host chat reader, explicit Connect, device-only Keychain bearer, Disconnect/Forget. XcodeGen and macOS CI build/test workflow. No provider settings requests, insecure transport exceptions, or automatic connection on launch.
+2. **iOS validation (partially verified):** Foundation tests, simulator build, two device-Keychain/host-binding tests and a first-run UI test pass in CI. Full-height light/dark simulator captures inspected. XcodeGen preserves the launch storyboard; simulator runtime tests use ad hoc signing for Keychain access. Still pending: authenticated live host, iPad/physical device, accessibility/Dynamic Type and signed distribution acceptance.
 3. **Encrypted remote access (planned):** port PBKDF2/AES-GCM wire and relay v2 state machine from shared/mobile references; fixture parity tests; QR/paste pairing, one-time code consumption, Keychain identity, reconnect/revocation, multi-computer switching. No insecure direct-host fallback.
 4. **Chat operations (planned):** streaming events, transcript reconciliation after sleep, new chat/provider model/project choice, queue/stop, pending approvals/questions and exact risk payloads. Sending stays disabled until approvals and event lifecycle are proven.
 5. **On-device models (planned):** audited llama.cpp Swift bridge with Metal, memory-fit catalog, cancel/resume downloads with integrity validation, backup-excluded model storage, offline phone chat persistence, one loaded model and thermal/background handling. No remote fallback.
@@ -29,7 +29,7 @@ Product decision: platform-native **SwiftUI iOS**, then **Kotlin / Jetpack Compo
 ### Wall creation placement
 
 - [x] Implemented: keep all new-chat details inside the Add to the wall tile in Grid/Fixed/Focus, including model choice, errors and existing-chat selection; existing pane coordinates must not shift.
-- [ ] Automated containment/creation/retry/Escape/Close/focus-return checks passed in isolated Electron fixtures; 26 wall tests pass. Wide/narrow light/dark before/after captures and motion recorded. Only one native after capture inspected so far; finish matched visual inspection and publish evidence.
+- [x] Automated containment/creation/retry/Escape/Close/focus-return checks passed in isolated Electron fixtures; 26 wall tests pass. Matched light/dark wide/narrow creation captures and native full-height simulator captures inspected. Public evidence and remaining platform scope are recorded in #357; follow-ups in #360.
 
 ## Part 1, Plan (how we build it)
 
