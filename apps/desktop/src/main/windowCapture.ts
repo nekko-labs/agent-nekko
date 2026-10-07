@@ -24,31 +24,50 @@ export async function captureWindow(sessionId: string, input: Record<string, unk
     if (image.isEmpty()) throw new Error('Owned window did not produce a frame; retry after the page finishes rendering');
     return { title, window_id: id, capturedAt: Date.now(), ...image.getSize(), mime: 'image/png', data: image.toPNG().toString('base64'), source: 'owned-page', background: true };
   }
-  if (action === 'screenshot') {
-    const sources = await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 3840, height: 2160 }, fetchWindowIcons: false });
-    const source = sources.find((s) => s.id === id && s.name === title);
-    if (!source || source.thumbnail.isEmpty()) throw new Error('Selected window disappeared or could not be captured in the background. Hidden/minimized/protected windows depend on OS support; no window was restored or focused. Check OS capture permissions.');
-    return { title, window_id: id, capturedAt: Date.now(), ...source.thumbnail.getSize(), mime: 'image/png', data: source.thumbnail.toPNG().toString('base64'), source: 'native-window', background: true };
-  }
   const seconds = Number(input.seconds ?? 5);
-  if (!Number.isFinite(seconds) || seconds < 1 || seconds > 15) throw new Error('Recording duration must be 1–15 seconds');
-  if (recording) throw new Error('Another window recording is in progress');
+  if (action === 'record' && (!Number.isFinite(seconds) || seconds < 1 || seconds > 15)) throw new Error('Recording duration must be 1–15 seconds');
+  if (recording) throw new Error('Another window capture is in progress');
+  if (!recorderUrl || !recorderUrl.startsWith('http://127.0.0.1:')) throw new Error('Local recorder page is unavailable');
   recording = true;
-  const win = new BrowserWindow({ show: false, width: 1, height: 1, webPreferences: { partition: `capture-${sessionId}-${Date.now()}`, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+  let win: BrowserWindow | undefined;
   try {
-    const source = (await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 } })).find((s) => s.id === id && s.name === title);
+    win = new BrowserWindow({ show: false, focusable: false, skipTaskbar: true, width: 1, height: 1, webPreferences: { partition: `capture-${sessionId}-${Date.now()}`, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+    const source = (await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 }, fetchWindowIcons: false })).find((s) => s.id === id && s.name === title);
     if (!source) throw new Error('Selected window disappeared; list windows again');
     // Only this isolated, temporary recorder gets a display-media grant. It
     // never opens remote content, exposes a preload, or requests audio.
     win.webContents.session.setDisplayMediaRequestHandler((_request, callback) => callback({ video: source }));
-    if (!recorderUrl || !recorderUrl.startsWith('http://127.0.0.1:')) throw new Error('Local recorder page is unavailable');
     await win.loadURL(recorderUrl);
     const result = await win.webContents.executeJavaScript(`(async () => {
       const acquire = navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: false });
       let acquisitionTimer;
-      const stream = await Promise.race([acquire, new Promise((_, reject) => { acquisitionTimer = setTimeout(() => reject(new Error('OS window capture did not start within 5 seconds')), 5000); })]).finally(() => clearTimeout(acquisitionTimer));
+      let expired = false;
+      acquire.then(stream => { if (expired) stream.getTracks().forEach(t => t.stop()); }, () => {});
+      const stream = await Promise.race([acquire, new Promise((_, reject) => { acquisitionTimer = setTimeout(() => { expired = true; reject(new Error('OS window capture did not start within 5 seconds; no window was restored or focused')); }, 5000); })]).finally(() => clearTimeout(acquisitionTimer));
       try {
         const track = stream.getVideoTracks()[0];
+        if (${action === 'screenshot'}) {
+          const video = document.createElement('video');
+          video.muted = true;
+          video.srcObject = stream;
+          let frameTimer;
+          try {
+            await Promise.race([
+              new Promise((resolve, reject) => {
+                track.onended = () => reject(new Error('Selected window could not be captured in the background; no window was restored or focused'));
+                video.requestVideoFrameCallback(() => resolve());
+                video.play().catch(reject);
+              }),
+              new Promise((_, reject) => { frameTimer = setTimeout(() => reject(new Error('Selected window did not produce a frame within 5 seconds; no window was restored or focused')), 5000); })
+            ]);
+            const width = video.videoWidth, height = video.videoHeight;
+            if (!width || !height) throw new Error('Selected window produced an empty frame');
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            return { data: canvas.toDataURL('image/png').split(',')[1], width, height };
+          } finally { clearTimeout(frameTimer); video.pause(); video.srcObject = null; }
+        }
         const recorder = new MediaRecorder(stream, { mimeType: 'video/webm', videoBitsPerSecond: 2000000 });
         const chunks = [];
         const blob = await new Promise((resolve, reject) => {
@@ -65,10 +84,13 @@ export async function captureWindow(sessionId: string, input: Record<string, unk
         return { data, width, height };
       } finally { stream.getTracks().forEach(t => t.stop()); }
     })()`, true);
-    return { ...result, title, window_id: id, capturedAt: Date.now(), seconds, mime: 'video/webm' };
+    return { ...result, title, window_id: id, capturedAt: Date.now(), ...(action === 'screenshot' ? { mime: 'image/png', source: 'native-window', background: true } : { seconds, mime: 'video/webm' }) };
   } finally {
-    win.webContents.session.setDisplayMediaRequestHandler(null);
-    win.destroy();
-    recording = false;
+    try {
+      if (win && !win.isDestroyed()) {
+        try { win.webContents.session.setDisplayMediaRequestHandler(null); }
+        finally { win.destroy(); }
+      }
+    } finally { recording = false; }
   }
 }
