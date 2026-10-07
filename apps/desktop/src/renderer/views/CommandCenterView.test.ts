@@ -5,6 +5,7 @@ vi.mock('../components/InsightsBox.js', () => ({}));
 vi.mock('../components/CommandWall.js', () => ({ CommandWall: () => null, TerminalExcerpt: () => null }));
 vi.mock('../components/WallComposer.js', () => ({ WallComposer: () => null }));
 vi.mock('../components/WallDock.js', () => ({ WallDock: () => null }));
+vi.mock('../chrome.js', () => ({ hasAppChrome: false }));
 import { wallLayoutShortcut } from './CommandCenterView.js';
 
 const key = { code: 'Digit1', key: '!', ctrlKey: true, metaKey: false, shiftKey: true, altKey: false, repeat: false, isComposing: false, defaultPrevented: false };

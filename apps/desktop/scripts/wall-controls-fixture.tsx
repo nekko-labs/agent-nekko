@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { useStore } from '../src/renderer/store';
 import { putCachedSession, __resetSessionCache } from '../src/renderer/sessionCache';
+import { TitleBar } from '../src/renderer/components/TitleBar';
+import { UpdateProvider } from '../src/renderer/components/UpdateBanner';
 import { CommandCenterView } from '../src/renderer/views/CommandCenterView';
 import { WorkspacesView } from '../src/renderer/views/WorkspacesView';
 import { DEFAULT_WALL_STATE } from '../src/renderer/commandWall';
@@ -22,6 +24,7 @@ const calls: any[] = [];
 const failures = { create: false, options: false, cleanup: false };
 const contextBundle = () => assembleContext({ attached: [{path:'synthetic.txt',content:'context '.repeat(100)}], guidelines:[{path:'AGENTS.md',content:'Preserve existing work.'}], memory:[], connectorSnippets:[], indexSnippets:[], history:records[0]?.messages ?? [], systemText:'Synthetic system instructions', contextWindow:128000 });
 const bridge: any = {
+  getAppInfo: async () => ({ version: '0.8.0', packaged: false, platform: 'win32' }),
   sendChat: async (options: any) => { calls.push({method:'send',options}); },
   createSession: async (workspaceId: string) => { calls.push({ method: 'create', workspaceId }); if (failures.create) throw Error('Synthetic creation failure'); const s = { ...makeSession(`new-${++serial}`), workspaceId }; records.push(s); return s; },
   setSessionOptions: async (id: string, options: any) => { calls.push({ method: 'options', id, options }); if (failures.options) throw Error('Synthetic options failure'); const s = records.find(s => s.id === id); Object.assign(s, options); sessionStorage.setItem('fixture-record', JSON.stringify(s)); return {...s}; },
@@ -43,7 +46,7 @@ function Fixture() {
     records = [JSON.parse(sessionStorage.getItem('fixture-record') || 'null') || makeSession('existing'), ...(new URLSearchParams(location.search).has('multi') ? [makeSession('second'), makeSession('third')] : [])]; __resetSessionCache(); pending = {}; terminals = []; serial = 0; calls.length = 0;
     Object.assign(failures, { create: false, options: false, cleanup: false });
     localStorage.clear();
-    useStore.setState({ providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: 'synthetic-project', settings: { providers: [provider], workspaceFolders: [], workspaces: [], theme: 'light', experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root: records.length > 1 ? { id: 'synthetic-split', dir: 'row', children: records.map((s,i) => ({id:`synthetic-pane-${i}`,kind:'chat',refId:s.id})), sizes: records.map(() => 1/records.length) } : { id: 'synthetic-pane', kind: 'chat', refId: 'existing' }, autoAdd: false, watermark: Date.now(), dock: { ...DEFAULT_WALL_STATE.dock, show: false } } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
+    useStore.setState({ view: 'command', providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: 'synthetic-project', settings: { providers: [provider], workspaceFolders: [], workspaces: [], theme: 'light', experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root: records.length > 1 ? { id: 'synthetic-split', dir: 'row', children: records.map((s,i) => ({id:`synthetic-pane-${i}`,kind:'chat',refId:s.id})), sizes: records.map(() => 1/records.length) } : { id: 'synthetic-pane', kind: 'chat', refId: 'existing' }, autoAdd: false, watermark: Date.now(), dock: { ...DEFAULT_WALL_STATE.dock, show: false } } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
     setRoute('command'); setEpoch(e => e + 1);
   };
   Object.assign(window, { integration: { reset, pointerTarget: (kind: string, scroll: boolean) => {
@@ -54,6 +57,6 @@ function Fixture() {
     const r=el.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2};
   }, providerKind: (kind: string) => { const providers=[{...provider,kind}]; useStore.setState({providers,settings:{...useStore.getState().settings,providers}} as any); }, blank: () => { sessionStorage.setItem('fixture-record', JSON.stringify({...makeSession('existing'), providerId: undefined, modelId: undefined, messages: []})); reset(); }, noProgress: () => { const s=makeSession('existing'); s.messages=s.messages.slice(0,1); sessionStorage.setItem('fixture-record',JSON.stringify(s)); reset(); }, contextBundle, fail: () => listeners.forEach(fn=>fn({type:'error',sessionId:'existing',message:'Synthetic request failed'})), ask: () => { const request = {callId:'ask-fixture',askedAt:Date.now(),questions:[{id:'choice',header:'Choice',question:'Which verification path?',options:[{label:'Focused tests'},{label:'Full suite'}]}]}; pending={existing:{question:request}}; listeners.forEach(fn=>fn({type:'question',sessionId:'existing',request})); }, calls, failures, route: setRoute, state: () => useStore.getState(), records: () => records } });
   React.useEffect(reset, []);
-  return <main style={{ height: '100vh' }} key={epoch}>{route === 'command' ? <CommandCenterView /> : <WorkspacesView />}</main>;
+  return <main style={{ height: '100vh', display: 'flex', flexDirection: 'column' }} key={epoch}><TitleBar /><div style={{ flex: 1, minHeight: 0 }}>{route === 'command' ? <CommandCenterView /> : <WorkspacesView />}</div></main>;
 }
-createRoot(document.getElementById('root')!).render(<Fixture />);
+createRoot(document.getElementById('root')!).render(<UpdateProvider><Fixture /></UpdateProvider>);
