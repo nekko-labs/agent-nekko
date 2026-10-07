@@ -424,6 +424,7 @@ export function CommandWall({
           canSplit={(dir) => state.layout.mode === 'grid' && !inDeck && size.width >= NARROW_WIDTH && canSplit(state.root, pane.id, dir)}
           onSplit={(dir, kind) => { void addWindow(kind, { paneId: pane.id, dir }); }}
           onClose={() => update((root) => removePane(root, pane.id))}
+          onMinimize={pane.kind === 'chat' ? () => update((root) => removePane(root, pane.id)) : undefined}
           onFocus={() => { if (pane.kind === 'chat') onSelect(pane.refId); }}
           onDragStart={() => setDragging(pane.id)}
           onDragEnd={() => setDragging(null)}

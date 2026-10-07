@@ -123,6 +123,7 @@ export function PaneFrame({
   canSplit,
   onSplit,
   onClose,
+  onMinimize,
   onFocus,
   onDragStart,
   onDragEnd,
@@ -156,6 +157,8 @@ export function PaneFrame({
   canSplit: (dir: Direction) => boolean;
   onSplit: (dir: Direction, kind: WbPane['kind']) => void;
   onClose: () => void;
+  /** Remove only the wall window, without completing or deleting its chat. */
+  onMinimize?: () => void;
   onFocus: () => void;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -234,6 +237,15 @@ export function PaneFrame({
             rather than the frame's and the pane's stacked on each other. */}
         <div ref={setActionSlot} className="flex shrink-0 items-center gap-0.5" />
         {!hideSplit && <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} addable={addable} />}
+        {isChat && onMinimize && <button
+          type="button"
+          className="rounded-sm p-1 text-ink-faint hover:text-ink"
+          title="Minimize this window (keep chat incomplete)"
+          aria-label={`Minimize ${title}`}
+          onClick={onMinimize}
+        >
+          <svg viewBox="0 0 16 16" className="h-3 w-3" aria-hidden="true"><path d="M3 11h10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+        </button>}
         <button
           className="rounded-sm p-1 text-ink-faint hover:text-ink"
           title={action === 'complete' ? 'Complete this chat' : action === 'delete' ? 'Delete this chat forever' : closeTitle}
