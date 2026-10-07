@@ -33,9 +33,89 @@ app.whenReady().then(async () => {
   const image = async () => { await open('Media'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()"); await sleep(200); };
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
-    await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
+    await win.loadFile(path.join(out, 'index.html'));
+    // macOS can move resized mapped windows back onto a display; keep this fixture hidden.
+    if (process.platform !== 'darwin' || !process.env.NEKKO_GRID_BUGS) win.showInactive();
+    await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_GRID_BUGS) {
+      const clearEditor = async () => {
+        await run("(()=>{const e=document.querySelector('.composer [contenteditable]');if(e){e.textContent='';e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'deleteContentBackward'}))}})()");
+        await sleep(100);
+      };
+      const assertFixed = !process.env.NEKKO_TEST_REVISION;
+      const hit = async target => {
+        const commands = {
+          grid: ["integration.pointerTarget('grid',true)","integration.pointerTarget('grid',false)"],
+          mode: ["integration.pointerTarget('mode',true)","integration.pointerTarget('mode',false)"],
+          ask: ["integration.pointerTarget('ask',true)","integration.pointerTarget('ask',false)"],
+          item: ["integration.pointerTarget('item',true)","integration.pointerTarget('item',false)"],
+        };
+        const command=commands[target];if(!command)throw Error('Unknown pointer target');
+        await run(command[0]); await sleep(100);
+        const point=await run(command[1]);
+        if (!win.webContents.debugger.isAttached()) win.webContents.debugger.attach('1.3');
+        await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mousePressed',button:'left',clickCount:1,...point});
+        await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mouseReleased',button:'left',clickCount:1,...point});
+        await sleep(180);
+      };
+      for (const theme of ['light','dark']) for (const [width,label] of [[1200,'desktop'],[400,'narrow']]) {
+        win.setContentSize(width,900);
+        await clearEditor(); await run('integration.blank()'); await sleep(600);
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(300);
+        await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Fast fixture')).click()"); await sleep(450);
+        await capture(`grid-model-${theme}-${label}`);
+        await run("(()=>{const e=document.querySelector('[data-wall-composer] [contenteditable]');e.textContent='Hello';e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:'Hello'}))})()");
+        await run("document.querySelector('[data-wall-composer] button[title^=Send]').click()"); await sleep(200);
+        const sent = await run("integration.calls.some(c=>c.method==='send'&&c.options.sessionId==='existing'&&c.options.providerId==='fixture'&&c.options.modelId==='fixture-fast')");
+        report.checks.push({name: 'Grid model choice reaches send '+theme+' '+label, passed:sent});
+        if(assertFixed && !sent) throw Error('Grid composer did not receive selected model');
+        await run("sessionStorage.removeItem('fixture-record')"); await clearEditor(); await reset();
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        await hit('grid');
+        await capture(`grid-mode-${theme}-${label}`);
+        const reachable = await run("(()=>{const e=document.querySelector('[role=menuitemradio]');if(!e)return false;const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))})()");
+        report.checks.push({name:'Grid guardrails menu receives pointer '+theme+' '+label,passed:reachable});
+        if(assertFixed && !reachable) throw Error('Grid mode menu clipped');
+        if(reachable) {
+          await hit('item');
+          await check('mode saves owning session',"integration.calls.some(c=>c.method==='options'&&c.id==='existing'&&c.options.mode==='ask')");
+          if(assertFixed) await check('mode selection returns focus',"document.activeElement?.textContent.includes('Mode')");
+        }
+        await run("sessionStorage.removeItem('fixture-record')"); await clearEditor(); await reset(); if(width<720)win.setContentSize(width,1400); await click('Focus');
+        await run("document.querySelector('.composer-summary-chip')?.click()");
+        if(width<720) {
+          await run("document.querySelector('button[title=\"Run freely; ask/deny per guardrail rules.\"]').focus()");
+          await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
+          await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+          await sleep(180);
+        } else await hit('mode');
+        await capture(`focus-mode-${theme}-${label}`);
+        if(assertFixed) {
+          await hit('item');
+          await check('Focus mode still saves',"integration.calls.some(c=>c.method==='options'&&c.id==='existing'&&c.options.mode==='ask')");
+          await hit('ask');
+          await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+          await check('Escape dismisses mode menu',"!document.querySelector('[aria-label=\"Chat mode\"]')");
+        }
+      }
+      for (const kind of ['anthropic','llamacpp']) {
+        await clearEditor(); await run('integration.blank()'); await sleep(500);
+        await run(`integration.providerKind('${kind}')`); await sleep(200);
+        await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(300);
+        await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Fast fixture')).click()"); await sleep(350);
+        await run("(()=>{const e=document.querySelector('[data-wall-composer] [contenteditable]');e.textContent='Hello';e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:'Hello'}))})()");
+        await run("document.querySelector('[data-wall-composer] button[title=Send]').click()"); await sleep(200);
+        const sent=await run("integration.calls.some(c=>c.method==='send'&&c.options.sessionId==='existing'&&c.options.modelId==='fixture-fast')");
+        report.checks.push({name:'fresh Grid '+kind+' sends selected model',passed:sent});
+        if(assertFixed&&!sent)throw Error(kind+' model was not sent');
+      }
+      report.background={hidden:!win.isVisible(),focused:win.isFocused(),offscreen:win.getBounds().x+win.getBounds().width<=Math.min(...screen.getAllDisplays().map(d=>d.bounds.x))};
+      if(report.background.focused || (!report.background.hidden && !report.background.offscreen)) throw Error('Background invariant failed');
+      report.success=true; return;
+    }
     if (process.env.NEKKO_WALL_REALTIME) {
       await sleep(500);
       const motion = path.join(runDir, 'realtime'); fs.mkdirSync(motion);

@@ -4,9 +4,7 @@
 //! Ports of `sse.ts` and Ollama's line loop, quirks included, because the
 //! chunks a provider yields depend on them:
 //!
-//! - Events split on a blank line written as `\n\n` only. A stream framed
-//!   with `\r\n\r\n` never contains that, so the TS parser buffers it all and
-//!   yields nothing; so does this one (a golden fixture pins it).
+//! - Events accept LF and CRLF framing, even when a CR/LF pair crosses chunks.
 //! - Every `data:` line is its own payload; lines of one event are not joined.
 //! - `[DONE]` ends the stream at once, even mid-event.
 //! - Whatever is left in the buffer when the body ends (an event with no
@@ -77,6 +75,7 @@ pub(crate) struct SseParser {
 impl SseParser {
     pub(crate) fn feed(&mut self, bytes: &[u8]) -> SseBatch {
         self.buffer.push_str(&self.utf8.decode(bytes));
+        self.buffer = self.buffer.replace("\r\n", "\n");
         let mut batch = SseBatch::default();
         while let Some(idx) = self.buffer.find("\n\n") {
             let raw: String = self.buffer[..idx].to_string();
@@ -151,9 +150,10 @@ mod tests {
     }
 
     #[test]
-    fn crlf_framing_never_splits() {
+    fn crlf_framing_handles_split_line_endings() {
         let mut p = SseParser::default();
-        assert_eq!(p.feed(b"data: a\r\n\r\ndata: b\r\n\r\n"), SseBatch::default());
+        assert_eq!(p.feed(b"data: a\r"), SseBatch::default());
+        assert_eq!(p.feed(b"\n\r\ndata: b\r\n\r\n"), SseBatch { data: vec!["a".into(), "b".into()], done: false });
     }
 
     #[test]

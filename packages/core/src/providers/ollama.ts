@@ -132,6 +132,7 @@ export class OllamaProvider implements Provider {
         } catch {
           continue;
         }
+        if (msg.error) throw new Error(`Ollama stream failed: ${String(msg.error)}`);
         if (msg.message?.thinking) {
           decode.mark();
           yield { type: 'reasoning', delta: msg.message.thinking as string };

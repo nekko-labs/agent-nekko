@@ -64,6 +64,8 @@ jobs:
       - run: npm ci
       - run: npm run build:core
       - run: npm run build -w @agent-nekko/host
+      - name: Grid model selection and mode-menu regressions
+        run: npm run test:grid-bugs -w @agent-nekko/desktop
       - name: Hidden owned-window screenshots
         if: runner.os != 'Windows'
         run: node apps/desktop/scripts/capture-smoke.mjs capture-results
@@ -74,7 +76,9 @@ jobs:
         if: always()
         with:
           name: capture-${{ runner.os }}
-          path: capture-results/
+          path: |
+            capture-results/
+            .shots/wall-controls-integration/
           if-no-files-found: error
 
   # The speed contract (SPEC.md, "Speed & responsiveness"): headless Chrome over

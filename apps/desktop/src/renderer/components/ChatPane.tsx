@@ -1976,8 +1976,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             ...(pid ? { providerId: pid } : {}),
             ...(auto ? {} : { modelId: v }),
           })
-          .then((s) => { if (s) setSession(s); })
-          .catch(() => {});
+          .then((s) => { if (s) window.dispatchEvent(new CustomEvent('nekko-session-brain', { detail: { id: sessionId, session: s } })); })
+          .catch((e) => useStore.getState().pushToast('error', String(e)));
       }}
     />
     <EffortSlider onChanged={() => { if (session?.messages.length) { contextNoticeTrigger.current = document.activeElement as HTMLElement; setContextChangeNotice(true); } }} modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
@@ -2089,7 +2089,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     <ModelPicker providers={providers} providerId={providerId} models={models} modelId={modelId}
                       open={false} onOpenChange={openModelMenu} expanded
                       recent={recentModels}
-                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) setSession(s); }); }} />}
+                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) window.dispatchEvent(new CustomEvent('nekko-session-brain', { detail: { id: sessionId, session: s } })); }).catch((e) => useStore.getState().pushToast('error', String(e))); }} />}
                 </div>}
               </div>
             ) : undefined}
