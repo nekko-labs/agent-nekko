@@ -111,6 +111,9 @@ impl AnthropicProvider {
                 .collect();
             body.insert("tools".into(), Value::Array(tools));
         }
+        if req.prompt_caching != Some(false) {
+            super::prompt_caching::anthropic_prefix(&mut body);
+        }
         HttpRequest::post(format!("{}/v1/messages", self.config.base_url), self.headers(), Value::Object(body))
     }
 
@@ -292,6 +295,8 @@ struct OpenTool {
 struct EventParser {
     tool: Option<OpenTool>,
     input_tokens: u64,
+    cache_read_tokens: Option<u64>,
+    cache_write_tokens: Option<u64>,
     /// From the first generated token to the `message_delta` that reports
     /// the output count.
     decode: DecodeClock,
@@ -299,7 +304,7 @@ struct EventParser {
 
 impl EventParser {
     fn new(decode: DecodeClock) -> Self {
-        Self { tool: None, input_tokens: 0, decode }
+        Self { tool: None, input_tokens: 0, cache_read_tokens: None, cache_write_tokens: None, decode }
     }
 
     fn event(&mut self, data: &str) -> (Vec<ProviderChunk>, Option<End>) {
@@ -316,6 +321,11 @@ impl EventParser {
                 return (out, Some(End::Error(ProviderError::new(format!("anthropic stream error: {message}")))));
             }
             Some("message_start") => {
+                self.cache_read_tokens =
+                    ev.pointer("/message/usage/cache_read_input_tokens").and_then(super::prompt_caching::token_count);
+                self.cache_write_tokens = ev
+                    .pointer("/message/usage/cache_creation_input_tokens")
+                    .and_then(super::prompt_caching::token_count);
                 self.input_tokens = ev.pointer("/message/usage/input_tokens").and_then(Value::as_u64).unwrap_or(0);
             }
             Some("content_block_start") => {
@@ -355,6 +365,8 @@ impl EventParser {
                     self.decode.stop();
                     out.push(ProviderChunk::Usage {
                         input_tokens: self.input_tokens,
+                        cache_read_tokens: self.cache_read_tokens,
+                        cache_write_tokens: self.cache_write_tokens,
                         output_tokens: output.as_u64().unwrap_or(0),
                         output_ms: self.decode.elapsed(),
                     });

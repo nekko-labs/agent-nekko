@@ -267,6 +267,8 @@ export type AgentEvent =
       type: 'usage';
       sessionId: string;
       inputTokens: number;
+      cacheReadTokens?: number;
+      cacheWriteTokens?: number;
       outputTokens: number;
       /**
        * Milliseconds the model spent generating `outputTokens` (decode only, no

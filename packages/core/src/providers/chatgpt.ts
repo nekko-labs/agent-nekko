@@ -1,3 +1,4 @@
+import { cacheUsage } from './prompt-caching.js';
 import { withToolImages } from './tool-images.js';
 import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import { effectiveEffort } from '@agent-nekko/shared';
@@ -270,7 +271,7 @@ export class ChatGptProvider implements Provider {
           if (usage) {
             yield {
               type: 'usage',
-              inputTokens: usage.input_tokens ?? 0,
+              ...cacheUsage(usage, 'input_tokens'),
               outputTokens: usage.output_tokens ?? 0,
               outputMs: decode.elapsed(),
             };
@@ -285,7 +286,7 @@ export class ChatGptProvider implements Provider {
           if (usage) {
             yield {
               type: 'usage',
-              inputTokens: usage.input_tokens ?? 0,
+              ...cacheUsage(usage, 'input_tokens'),
               outputTokens: usage.output_tokens ?? 0,
               outputMs: decode.elapsed(),
             };

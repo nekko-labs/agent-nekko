@@ -69,6 +69,7 @@ async fn folds_a_steering_message_in_at_the_next_tool_boundary() {
             temperature: None,
             effort: None,
             think: None,
+            prompt_caching: None,
             max_history_turns: None,
             max_output_tokens: None,
             resume: false,

@@ -135,10 +135,13 @@ pub const OWNED: &[&str] = &[
     // hands runs only to a daemon that says so, because daemons built before
     // the limit was removed read the host's budget as a real cap.
     "loop:unbounded",
+    // Caching policy and usage counters survive every loop/provider boundary.
+    "loop:prompt-caching",
     "loop:abort",
     "loop:alive",
     "loop:steer",
     "provider:complete",
+    "provider:prompt-caching",
     "changes:list",
     "changes:accept",
     "changes:acceptAll",
@@ -374,6 +377,8 @@ mod tests {
         // host keeps every run in process.
         assert!(OWNED.contains(&"loop:run"));
         assert!(OWNED.contains(&"loop:unbounded"));
+        assert!(OWNED.contains(&"loop:prompt-caching"));
+        assert!(OWNED.contains(&"provider:prompt-caching"));
     }
 
     #[test]

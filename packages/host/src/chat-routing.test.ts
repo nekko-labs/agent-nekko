@@ -101,6 +101,18 @@ beforeEach(() => {
 
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+it('propagates off through chat and sideband calls and preserves cache usage', async () => {
+  saveSettings({ promptCaching: false });
+  rounds = [[{ type: 'usage', inputTokens: 10, outputTokens: 2, cacheReadTokens: 30, cacheWriteTokens: 20 }, { type: 'text', delta: 'done' }, { type: 'done' }]];
+  const { session, events } = await run();
+  expect(requests[0].request.promptCaching).toBe(false);
+  expect(events.find(e => e.type === 'usage')).toMatchObject({ cacheReadTokens: 30, cacheWriteTokens: 20 });
+  await suggestReplies(session.id);
+  await fillPromptPart(session.id, 'Role', 'review');
+  expect(suggestRequests[0].request.promptCaching).toBe(false);
+  expect(fillRequests[0].request.promptCaching).toBe(false);
+});
+
 function delegate(input: unknown) {
   rounds = [[{ type: 'tool_call', call: { id: 'spawn1', name: 'spawn_agent', input: input as Record<string, unknown> } }, { type: 'done' }]];
 }

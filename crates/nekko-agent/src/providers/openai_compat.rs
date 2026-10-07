@@ -106,6 +106,17 @@ impl OpenAiCompatProvider {
         body.insert("model".into(), json!(req.model));
         body.insert("stream".into(), json!(true));
         body.insert("stream_options".into(), json!({ "include_usage": true }));
+        if self.config.kind == ProviderKind::Llamacpp && self.config.managed_cache_prompt == Some(true) {
+            body.insert("cache_prompt".into(), json!(req.prompt_caching.unwrap_or(true)));
+        }
+        // OpenRouter Claude requires an opt-in directive, unlike implicit OpenAI caching.
+        let model = req.model.strip_prefix('~').unwrap_or(&req.model);
+        if self.config.kind == ProviderKind::Openrouter
+            && model.strip_prefix("anthropic/claude-").is_some_and(|suffix| !suffix.is_empty())
+            && req.prompt_caching != Some(false)
+        {
+            body.insert("cache_control".into(), json!({ "type": "ephemeral" }));
+        }
         if knob.is_none() {
             body.insert("temperature".into(), json!(req.temperature.unwrap_or(0.7)));
         }
@@ -118,6 +129,12 @@ impl OpenAiCompatProvider {
             body.insert(field.into(), json!(max));
         }
         body.insert("messages".into(), Value::Array(to_openai_messages(req)));
+        if self.config.kind == ProviderKind::Openrouter
+            && super::prompt_caching::gemini_model(&req.model)
+            && req.prompt_caching != Some(false)
+        {
+            super::prompt_caching::gemini_prefix(&mut body);
+        }
         if let Some(tools) = &req.tools {
             body.insert("tools".into(), tools.iter().map(openai_tool).collect());
         }
@@ -613,8 +630,12 @@ impl ChatParser {
         }
         if let Some(usage) = chunk.get("usage").filter(|u| js::truthy(Some(u))) {
             self.decode.stop();
+            let (input_tokens, cache_read_tokens, cache_write_tokens) =
+                super::prompt_caching::usage(usage, "prompt_tokens");
             out.push(ProviderChunk::Usage {
-                input_tokens: usage.get("prompt_tokens").and_then(Value::as_u64).unwrap_or(0),
+                input_tokens,
+                cache_read_tokens,
+                cache_write_tokens,
                 output_tokens: usage.get("completion_tokens").and_then(Value::as_u64).unwrap_or(0),
                 output_ms: self.decode.elapsed(),
             });
@@ -652,6 +673,88 @@ impl ChatParser {
         }
         if let Some(args) = tc.pointer("/function/arguments").filter(|v| js::truthy(Some(v))) {
             cur.args.push_str(&js::display(args));
+        }
+    }
+}
+
+#[cfg(test)]
+mod cache_policy_tests {
+    use super::*;
+
+    #[test]
+    fn routed_claude_cache_directive_is_gated_and_preserves_context() {
+        let fixtures: Value = serde_json::from_str(include_str!("../../tests/golden/request-cases.json")).unwrap();
+        for kind in ["openrouter", "openai", "openai-compat", "lmstudio", "vllm", "llamacpp"] {
+            // Even a generic server pointing at OpenRouter must not receive the directive.
+            let config = json!({ "id": "p", "kind": kind, "label": "P", "baseUrl": "https://openrouter.ai/api/v1", "enabled": true });
+            let provider = OpenAiCompatProvider::new(serde_json::from_value(config).unwrap(), Io::default());
+            for model in [
+                "anthropic/claude-sonnet-4.5",
+                "~anthropic/claude-sonnet-latest",
+                "anthropic/claude-sonnet-4.5:thinking",
+                "anthropic/claude-",
+                "anthropic/not-claude",
+                "claude-sonnet-4.5",
+                "openai/gpt-5",
+                "google/gemini-2.5-pro",
+                "google/gemini-2.0-flash-001",
+                "openrouter/auto",
+            ] {
+                let mut req: ChatRequest =
+                    serde_json::from_value(fixtures["requests"]["cache-default"].clone()).unwrap();
+                req.model = model.into();
+                let mut bodies = Vec::new();
+                for policy in [None, Some(true), Some(false)] {
+                    req.prompt_caching = policy;
+                    bodies.push(provider.chat_request(&req).body.unwrap());
+                }
+                assert_eq!(bodies[0], bodies[1]);
+                let supported = kind == "openrouter"
+                    && model.trim_start_matches('~').strip_prefix("anthropic/claude-").is_some_and(|s| !s.is_empty());
+                if supported {
+                    assert_eq!(bodies[0]["cache_control"], json!({ "type": "ephemeral" }));
+                } else if kind == "openrouter" && super::super::prompt_caching::gemini_model(model) {
+                    assert_eq!(bodies[0]["messages"][0]["content"][0]["cache_control"], json!({ "type": "ephemeral" }));
+                    // Compare complete context after normalizing only marker-bearing text blocks.
+                    for message in bodies[0]["messages"].as_array_mut().unwrap() {
+                        if let Some(blocks) = message["content"].as_array_mut() {
+                            for block in blocks.iter_mut() {
+                                block.as_object_mut().unwrap().remove("cache_control");
+                            }
+                            if blocks.len() == 1 && blocks[0]["type"] == "text" {
+                                message["content"] = blocks[0]["text"].clone();
+                            }
+                        }
+                    }
+                } else {
+                    assert!(!bodies[0].to_string().contains("cache_control"), "{kind}/{model}");
+                }
+                assert!(!bodies[2].to_string().contains("cache_control"));
+                bodies[0].as_object_mut().unwrap().remove("cache_control");
+                assert_eq!(bodies[0], bodies[2], "{kind}/{model}");
+            }
+        }
+    }
+
+    #[test]
+    fn only_managed_llama_gets_an_explicit_cache_policy_including_off() {
+        for kind in ["llamacpp", "openai-compat", "lmstudio", "vllm", "openai", "openrouter"] {
+            for managed in [None, Some(false), Some(true)] {
+                let mut config = json!({ "id": "p", "kind": kind, "label": "P", "baseUrl": "http://localhost:1/v1", "enabled": true });
+                if let Some(managed) = managed {
+                    config["managedCachePrompt"] = json!(managed);
+                }
+                let provider = OpenAiCompatProvider::new(serde_json::from_value(config).unwrap(), Io::default());
+                for policy in [None, Some(true), Some(false)] {
+                    let request = ChatRequest { model: "gemma".into(), prompt_caching: policy, ..Default::default() };
+                    let body = provider.chat_request(&request).body.unwrap();
+                    if kind == "llamacpp" && managed == Some(true) {
+                        assert_eq!(body["cache_prompt"], policy.unwrap_or(true));
+                    } else {
+                        assert!(body.get("cache_prompt").is_none(), "{kind}: {body}");
+                    }
+                }
+            }
         }
     }
 }

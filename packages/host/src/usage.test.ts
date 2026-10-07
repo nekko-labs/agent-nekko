@@ -65,6 +65,18 @@ it('uses the published local cloud fallback by default and lets users opt out', 
   expect(usageSummary().avoidedCosts?.unpricedTokens).toBe(2_000_000);
 });
 
+it('counts and prices persisted cache tokens separately', () => {
+  setup();
+  record('claude-sonnet', { outputTokens: 0, cacheReadTokens: 1_000_000, cacheWriteTokens: 1_000_000 });
+  const s = usageSummary();
+  expect(s.totalInput).toBe(3_000_000);
+  expect(s.totalCacheRead).toBe(1_000_000);
+  expect(s.totalCacheWrite).toBe(1_000_000);
+  expect(s.totalCost).toBeCloseTo(7.05);
+  expect(s.bySession.s.listCost).toBeCloseTo(7.05);
+  expect(s.daily[0].input).toBe(3_000_000);
+});
+
 describe('usageSummary', () => {
   it('prices subscription usage at list prices per session without billing it', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nekko-usage-'));

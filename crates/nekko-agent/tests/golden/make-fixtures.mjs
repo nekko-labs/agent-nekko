@@ -24,6 +24,7 @@ const providers = {
   vllm: cfg('vllm', 'vllm', 'http://localhost:8000/v1/'),
   // Bare host: `/v1` is appended.
   llamacpp: cfg('llamacpp', 'llamacpp', 'http://127.0.0.1:11500', { apiKey: 'engine-token' }),
+  managed: cfg('managed', 'llamacpp', 'http://127.0.0.1:11500', { managedCachePrompt: true }),
   // Padded, trailing slash, and an empty key (no Authorization header).
   'openai-compat': cfg('openai-compat', 'openai-compat', '  http://10.5.0.2:1338/  ', { apiKey: '' }),
   // The OpenAI-compatible URL pasted into an Ollama provider.
@@ -153,6 +154,21 @@ const requests = {
   },
   purpose: { model: 'm', purpose: 'title', maxOutputTokens: 32, messages: [user('Name this chat')] },
 };
+
+requests['cache-default'] = { model: 'm', system: 'reusable system', tools, messages: roundTrip };
+requests['cache-on'] = { ...requests['cache-default'], promptCaching: true };
+requests['cache-off'] = { ...requests['cache-default'], promptCaching: false };
+// Routed Claude uses a directive; supported Gemini uses explicit content markers.
+for (const [name, model] of Object.entries({
+  claude: 'anthropic/claude-sonnet-4.5',
+  'claude-alias': '~anthropic/claude-sonnet-latest',
+  gemini: 'google/gemini-2.5-pro',
+  'gemini-legacy': 'google/gemini-2.0-flash-001',
+})) {
+  for (const policy of ['default', 'on', 'off']) {
+    requests[`cache-${name}-${policy}`] = { ...requests[`cache-${policy}`], model };
+  }
+}
 
 // ------------------------------------------------------------------ streams
 
@@ -629,6 +645,17 @@ const streams = [
   { name: 'ol-http-500', provider: 'ollama', responses: [{ status: 500, body: '{"error":"model not found"}' }] },
   { name: 'ol-network-error', provider: 'ollama', responses: [{ networkError: 'fetch failed' }] },
 ];
+
+for (const request of ['cache-on', 'cache-off']) {
+  for (const provider of ['openai', 'openrouter', 'lmstudio', 'vllm', 'llamacpp', 'openai-compat', 'managed']) {
+    streams.push({ name: provider + '-' + request, provider, request, responses: [{ chunks: [finish('stop', { prompt_tokens: 100, completion_tokens: 5, prompt_tokens_details: { cached_tokens: 60, cache_write_tokens: 10 } }), sse('[DONE]')] }] });
+  }
+  streams.push({ name: 'anthropic-' + request, provider: 'anthropic', request, responses: [{ chunks: [ev('message_start', { message: { usage: { input_tokens: 30, cache_read_input_tokens: 60, cache_creation_input_tokens: 10 } } }), ev('message_delta', { usage: { output_tokens: 5 } }), ev('message_stop', {})] }] });
+  for (const type of ['response.completed', 'response.incomplete']) {
+    streams.push({ name: 'chatgpt-' + type + '-' + request, provider: 'chatgpt', request, responses: [{ chunks: [sse({ type, response: { usage: { input_tokens: 100, output_tokens: 5, input_tokens_details: { cached_tokens: 60 } } } })] }] });
+  }
+  streams.push({ name: 'ollama-' + request, provider: 'ollama', request, responses: [{ chunks: [nd({ done: true, prompt_eval_count: 30, eval_count: 5 })] }] });
+}
 
 // ------------------------------------------------------------------- models
 

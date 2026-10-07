@@ -188,6 +188,8 @@ export interface HookRule {
 }
 
 export interface AppSettings {
+  /** Default on: request provider prompt/KV reuse, never store prompts on disk. */
+  promptCaching?: boolean;
   voice?: import('./voice.js').VoiceSettings;
   /** User-authored additions to the built-in system instructions. */
   systemInstructions?: string;
@@ -332,12 +334,20 @@ export function clampMaxOutputTokens(n: number | undefined): number {
   return Math.min(MAX_OUTPUT_TOKENS_RANGE.max, Math.max(MAX_OUTPUT_TOKENS_RANGE.min, Math.round(n)));
 }
 
+/** Older settings omit the switch and keep reuse enabled. */
+export function promptCachingEnabled(settings: Pick<AppSettings, 'promptCaching'>): boolean {
+  return settings.promptCaching !== false;
+}
+
 /** One usage event appended to a JSONL log for analytics. */
 export interface UsageRecord {
   ts: number;
   providerId: string;
   modelId: string;
+  /** Noncached tokens; cache counts are separate. */
   inputTokens: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
   outputTokens: number;
   sessionId: string;
   /** Persist provider locality so later configuration changes do not rewrite history. */
@@ -394,6 +404,8 @@ export interface UsageSummary {
   /** Reply endings (loop detector observation). Absent with no log. */
   replies?: ReplyStats;
   totalInput: number;
+  totalCacheRead?: number;
+  totalCacheWrite?: number;
   totalOutput: number;
   /** Estimated total spend (USD) over all recorded usage. */
   totalCost: number;

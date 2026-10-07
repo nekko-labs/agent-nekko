@@ -24,6 +24,32 @@ function scriptedProvider(rounds: ProviderChunk[][]): Provider {
 }
 
 describe('runAgent', () => {
+  it.each([
+    { cacheReadTokens: 30 },
+    { cacheWriteTokens: 20 },
+    { cacheReadTokens: 0, cacheWriteTokens: 0 },
+    { cacheReadTokens: 30, cacheWriteTokens: 20 },
+    {},
+  ])('forwards cache counters unchanged to accounting and events (%j)', async (counters) => {
+    const onUsage = vi.fn();
+    const usage: Extract<ProviderChunk, { type: 'usage' }> = {
+      type: 'usage', inputTokens: 0, outputTokens: 0, outputMs: 10, ...counters,
+    };
+    const events = [];
+    for await (const event of runAgent({
+      sessionId: 's', provider: scriptedProvider([[usage, { type: 'done' }]]), model: 'm',
+      system: 'sys', history: [msg('user', 'go')], onUsage,
+      executeTool: async () => ({ toolCallId: 'x', output: '' }),
+    })) events.push(event);
+    expect(onUsage).toHaveBeenCalledExactlyOnceWith({
+      providerId: 'p', modelId: 'm', inputTokens: 0, outputTokens: 0,
+      cacheReadTokens: usage.cacheReadTokens, cacheWriteTokens: usage.cacheWriteTokens,
+    });
+    expect(events.filter((event) => event.type === 'usage')).toEqual([{
+      ...usage, sessionId: 's', cacheReadTokens: usage.cacheReadTokens, cacheWriteTokens: usage.cacheWriteTokens,
+    }]);
+  });
+
   it('continues beyond the former 1000-step cap', async () => {
     const rounds: ProviderChunk[][] = Array.from({ length: 1001 }, (_, i) => [
       { type: 'tool_call', call: { id: `c${i}`, name: 'read_file', input: { path: `file-${i}` } } },

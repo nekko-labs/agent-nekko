@@ -33,6 +33,8 @@ export interface ProviderConfig {
   discovered?: boolean;
   /** Free-text model id override, currently used by the ChatGPT provider. */
   customModelId?: string;
+  /** Host-only assertion for a trusted managed llama.cpp endpoint. Never trust persisted input. */
+  managedCachePrompt?: boolean;
   enabled: boolean;
 }
 

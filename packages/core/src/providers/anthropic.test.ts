@@ -71,7 +71,7 @@ describe('AnthropicProvider subscription auth', () => {
     expect(headers['x-api-key']).toBe('sk-ant-test');
     expect(headers.Authorization).toBeUndefined();
     expect(headers['anthropic-beta']).toBeUndefined();
-    expect(body.system).toBe('be terse');
+    expect(body.system).toEqual([{ type: 'text', text: 'be terse', cache_control: { type: 'ephemeral' } }]);
   });
 
   it('sends a Bearer token plus the oauth beta header in subscription mode', async () => {

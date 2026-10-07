@@ -1,3 +1,4 @@
+import { anthropicCachePrefix, tokenCount } from './prompt-caching.js';
 import { withToolImages } from './tool-images.js';
 import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels } from '@agent-nekko/shared';
@@ -262,7 +263,7 @@ export class AnthropicProvider implements Provider {
       fetch(`${this.config.baseUrl}/v1/messages`, {
         method: 'POST',
         headers: this.headers(),
-        body: JSON.stringify({
+        body: JSON.stringify(anthropicCachePrefix({
           model: req.model,
           // Required here, so a chat with no cap of its own runs to the
           // model's ceiling (see outputCapFor); a 400 naming a lower one is
@@ -273,7 +274,7 @@ export class AnthropicProvider implements Provider {
           system: this.systemParam(req.system),
           messages: this.toAnthropicMessages(req),
           tools: req.tools?.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })),
-        }),
+        }, req.promptCaching)),
         signal: req.signal,
       });
 
@@ -312,6 +313,8 @@ export class AnthropicProvider implements Provider {
 
     let curTool: { id: string; name: string; json: string } | null = null;
     let inputTokens = 0;
+    let cacheReadTokens: number | undefined;
+    let cacheWriteTokens: number | undefined;
     // Times the decode phase for the tok/s figure: from the first generated
     // token to the `message_delta` that reports the output count.
     const decode = new DecodeClock();
@@ -331,6 +334,8 @@ export class AnthropicProvider implements Provider {
           throw new Error(`anthropic stream error: ${ev.error?.message ?? 'unknown error'}`);
         case 'message_start':
           inputTokens = ev.message?.usage?.input_tokens ?? 0;
+          cacheReadTokens = tokenCount(ev.message?.usage?.cache_read_input_tokens);
+          cacheWriteTokens = tokenCount(ev.message?.usage?.cache_creation_input_tokens);
           break;
         case 'content_block_start':
           if (ev.content_block?.type === 'tool_use') {
@@ -357,7 +362,14 @@ export class AnthropicProvider implements Provider {
         case 'message_delta':
           if (ev.usage?.output_tokens != null) {
             decode.stop();
-            yield { type: 'usage', inputTokens, outputTokens: ev.usage.output_tokens, outputMs: decode.elapsed() };
+            yield {
+              type: 'usage',
+              inputTokens,
+              ...(cacheReadTokens === undefined ? {} : { cacheReadTokens }),
+              ...(cacheWriteTokens === undefined ? {} : { cacheWriteTokens }),
+              outputTokens: ev.usage.output_tokens,
+              outputMs: decode.elapsed(),
+            };
           }
           break;
         case 'message_stop':

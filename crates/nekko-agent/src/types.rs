@@ -59,6 +59,9 @@ pub struct ProviderConfig {
     pub custom_model_id: Option<String>,
     #[serde(default)]
     pub enabled: bool,
+    /// Asserted only by an explicitly managed llama.cpp runtime.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub managed_cache_prompt: Option<bool>,
 }
 
 impl ProviderConfig {
@@ -251,6 +254,9 @@ pub struct ChatRequest {
     /// suppresses it, `None` leaves the model default.
     #[serde(default)]
     pub think: Option<bool>,
+    /// None is enabled; false omits explicit cache requests.
+    #[serde(default)]
+    pub prompt_caching: Option<bool>,
     /// Hard cap on generated tokens, so a looping model cannot stream until
     /// its context window fills.
     #[serde(default)]
@@ -295,6 +301,10 @@ pub enum ProviderChunk {
     #[serde(rename_all = "camelCase")]
     Usage {
         input_tokens: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cache_read_tokens: Option<u64>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        cache_write_tokens: Option<u64>,
         output_tokens: u64,
         /// Milliseconds spent generating `output_tokens` (decode only, see
         /// `DecodeClock`). `None` when there was nothing to measure.

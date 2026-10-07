@@ -101,6 +101,8 @@ impl ChunkStream for Script {
         } else if let Some(u) = step.get("usage").and_then(Value::as_array) {
             Chunk::Usage {
                 input_tokens: u[0].as_f64().unwrap(),
+                cache_read_tokens: u.get(3).and_then(Value::as_f64),
+                cache_write_tokens: u.get(4).and_then(Value::as_f64),
                 output_tokens: u[1].as_f64().unwrap(),
                 output_ms: u.get(2).and_then(Value::as_f64),
             }
@@ -126,6 +128,8 @@ impl ModelClient for Fake {
             *c += 1;
             *c - 1
         };
+        // All scripted paths (retry, nudge, commentary, and wrap-up) preserve off.
+        assert_eq!(req.prompt_caching, Some(false));
         let tools: Vec<Value> = req.tools.iter().map(|t| t["name"].clone()).collect();
         self.requests
             .lock()
@@ -186,6 +190,7 @@ async fn every_scripted_run_matches_the_ts_loop() {
                 temperature: None,
                 effort: None,
                 think: None,
+                prompt_caching: Some(false),
                 max_history_turns: s.get("maxHistoryTurns").and_then(Value::as_f64),
                 max_output_tokens: None,
                 resume: s.get("resume") == Some(&json!(true)),
@@ -242,6 +247,7 @@ async fn a_progressing_run_has_no_step_limit() {
             temperature: None,
             effort: None,
             think: None,
+            prompt_caching: None,
             max_history_turns: None,
             max_output_tokens: None,
             resume: false,
