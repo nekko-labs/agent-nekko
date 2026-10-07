@@ -185,6 +185,18 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     await waitFor("!!document.querySelector('button[data-sidebar-group]')", 'the Agents sidebar');
     await showAllCards();
     await cdp.call((title) => [...document.querySelectorAll('div[role="button"]')].find(card => card.getAttribute('title')?.includes(title))?.click(), title);
+    // Setup is not a measured sidebar switch. The separate frame-work browser
+    // opens a chat modified by the latency phase; explicitly request its newest
+    // reply rather than depending on scroll restoration from a transient Grid.
+    if (marker === '') {
+      await waitFor("!!document.querySelector('.msg-ai')", 'loaded frame-work transcript');
+      await cdp.call((t) => {
+        const p = window.__perf.panel(t);
+        const newest = [...(p?.querySelectorAll('.msg-ai') ?? [])].pop();
+        const scroller = newest?.closest('.overflow-y-auto');
+        if (scroller) scroller.scrollTop = scroller.scrollHeight;
+      }, title);
+    }
     const ok = await cdp.call((t, m) => window.__perf.waitForChat(t, m, 30000), title, marker);
     if (!ok) {
       const seen = await cdp.call((t, m) => {
