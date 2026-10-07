@@ -8,7 +8,7 @@ describe('describeInterruption', () => {
       title: 'Reply paused',
       reason: 'You stopped this reply.',
     });
-    expect(describeInterruption('Stopped', true).detail).toContain('Continue picks up from here');
+    expect(describeInterruption('Stopped', true).detail).toContain('Retry picks up from here');
   });
 
   it('explains terminated without inventing a cause or calling it a pause', () => {
@@ -26,7 +26,7 @@ describe('describeInterruption', () => {
   it('only promises continuation when progress can be resumed', () => {
     const result = describeInterruption('Stopped', false);
     expect(result.detail).toContain('No resumable progress was saved');
-    expect(result.detail).not.toContain('Continue picks up');
+    expect(result.detail).not.toContain('Retry picks up');
   });
 
   it('gives suggestions a theme tint and keyboard focus treatment', () => {
@@ -46,5 +46,13 @@ describe('persisted interruption after completion', () => {
   it('still detects a genuinely interrupted persisted reply', () => {
     expect(shouldShowPersistedInterruption(stale, false, false)).toBe(true);
     expect(shouldShowPersistedInterruption([{ id: 'cut', role: 'assistant', content: 'Partial', interrupted: true, createdAt: 1 }], false, false)).toBe(true);
+  });
+});
+
+describe('question waits', () => {
+  it('does not mistake a pending ask_user for interruption', () => {
+    const history = [{ id: 'ask', role: 'assistant' as const, content: '', toolCalls: [{ id: 'q', name: 'ask_user', input: {} }], createdAt: 1 }];
+    expect(shouldShowPersistedInterruption(history, false, false, true)).toBe(false);
+    expect(shouldShowPersistedInterruption(history, false, false, false)).toBe(true);
   });
 });

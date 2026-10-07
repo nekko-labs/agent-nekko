@@ -39,11 +39,17 @@ app.whenReady().then(async () => {
     await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(500);
     await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Auto')).click()"); await sleep(500);
     await check('Auto saved to bridge', "JSON.parse(sessionStorage.getItem('fixture-record')).autoModel===true");
+    if (current) {
+      await check('model change explains next-request context', "!!document.querySelector('[role=dialog]') && document.body.textContent.includes('open a new chat')");
+      await capture('model-context-notice');
+      await click('Got it');
+    }
     await win.reload(); await sleep(1400);
     await check('Auto restores after cold reload', "document.querySelector('.command-wall-window').textContent.includes('Auto')");
     if (current) {
       await check('no model picker in shared composer', "!document.querySelector('[data-wall-composer] [role=listbox]') && !document.querySelector('[data-wall-composer]').textContent.includes('No model') && !document.querySelector('[data-wall-composer]').textContent.includes('Auto �')");
       await run('integration.ask()'); await sleep(500);
+      await check('pending question has no interruption notice', "!document.querySelector('.command-wall-window [role=alert]')?.textContent.includes('Reply interrupted')");
       await check('question belongs to agent window', "!!document.querySelector('.command-wall-window .composer-question') && !document.querySelector('[data-wall-composer] .composer-question')");
       await run("document.querySelector('.command-wall-window .composer-question [role=group]').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))"); await sleep(500);
       await check('question answer targets owning session', "integration.calls.some(c=>c.method==='answer'&&c.id==='existing'&&c.callId==='ask-fixture')");
@@ -97,6 +103,12 @@ app.whenReady().then(async () => {
       await check('short fixed layout retains accessible editor', "document.querySelector('[data-wall-composer] [contenteditable]').clientHeight>=36 && document.documentElement.scrollWidth<=innerWidth");
     }
     report.success = true;
+    if (process.env.NEKKO_INSPECT_HOLD) {
+      win.setContentSize(1200, 900); win.setPosition(100, 100); await reset();
+      await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(300);
+      await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Auto')).click()");
+      await sleep(120000);
+    }
   } catch (e) { report.errors.push(String(e)); report.success = false; process.exitCode = 1; }
   finally { fs.writeFileSync(path.join(runDir, 'status.json'), JSON.stringify(report, null, 2)); fs.writeFileSync(path.join(out, 'latest-run.txt'), runDir); console.log(JSON.stringify({ runDir, ...report }, null, 2)); win.destroy(); app.exit(report.success ? 0 : 1); }
 });
