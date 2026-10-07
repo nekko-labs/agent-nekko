@@ -139,6 +139,21 @@ app.whenReady().then(async () => {
       if (encoded.status !== 0) throw Error(encoded.stderr);
       report.captures.push(path.join(runDir,'liquid-add-motion.mp4'));
     }
+    if (process.env.NEKKO_WALL_EVIDENCE && current) {
+      await win.loadFile(path.join(out,'index.html'),{query:{multi:'1'}}); win.setContentSize(1200,900); await sleep(800);
+      await run("document.documentElement.dataset.theme='dark'");
+      await run("(()=>{const i=document.querySelector('[data-wall-composer] [contenteditable]'); i.focus(); const dt=new DataTransfer();dt.items.add(new File([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1cAAAAASUVORK5CYII='),c=>c.charCodeAt(0))],'fixture.png',{type:'image/png'}));i.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:dt}))})()");
+      await check('pasted image attachment renders', "!!document.querySelector('[data-wall-composer] img[alt=\"Pending attachment 1\"]')");
+      await check('attachment editor remains inside frame', "(()=>{const p=document.querySelector('[data-wall-composer]').getBoundingClientRect(),e=document.querySelector('[data-wall-composer] [contenteditable]').getBoundingClientRect();return e.bottom<=p.bottom+1})()");
+      await capture('wall-multi-attachment');
+      await check('multi-chat selection hint', "document.querySelector('[data-wall-composer]').textContent.includes('selects a window')");
+      await run("document.querySelector('.command-wall-add-rail-bottom').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(150);
+      await run("document.getAnimations().filter(a=>a instanceof CSSTransition).forEach(a=>a.finish())");
+      await capture('wall-multi-hover');
+      await run("document.querySelector('.command-wall-add-fill').click()"); await sleep(200);
+      await capture('wall-multi-solid');
+      await win.loadFile(path.join(out,'index.html')); await sleep(600);
+    }
     // Timed PNG frames form a portable motion recording without screen permissions.
     win.setContentSize(1200, 900); await reset(); await run("document.documentElement.dataset.theme='light'");
     const motion = path.join(runDir, 'motion'); fs.mkdirSync(motion);
