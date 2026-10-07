@@ -87,6 +87,7 @@ export interface CommandWallState {
   /** Chats created after this moment are auto-added; 0 until the wall has been seeded once. */
   watermark: number;
   composer: ComposerDock;
+  tabs?: 'top' | 'left' | 'hidden';
 }
 
 /** Below this width the wall stacks its windows one above the other: a phone, or a very narrow window. */
@@ -115,6 +116,7 @@ export const DEFAULT_WALL_STATE: CommandWallState = {
   insights: DEFAULT_INSIGHTS,
   watermark: 0,
   composer: DEFAULT_COMPOSER_DOCK,
+  tabs: 'top',
 };
 
 export const WALL_STATE_KEY = 'nekko.commandWall';
@@ -370,6 +372,24 @@ export function sanitizeWallLayout(raw: unknown): WallLayout {
   };
 }
 
+/** Keep saved entries once, then append missing panels so none are lost on migration. */
+export function normalizeDockPanelOrder(raw: unknown): WallDockPanel[] {
+  const keys = DOCK_PANELS.map(p => p.key);
+  const saved = Array.isArray(raw) ? raw.filter((key): key is WallDockPanel => keys.includes(key)) : [];
+  return [...new Set([...saved, ...keys])];
+}
+
+/** Move to a target's slot; hidden and minimized panels remain in the full order. */
+export function reorderDockPanel(raw: unknown, key: WallDockPanel, target: WallDockPanel): WallDockPanel[] {
+  const order = normalizeDockPanelOrder(raw);
+  const from = order.indexOf(key);
+  const to = order.indexOf(target);
+  if (from < 0 || to < 0 || from === to) return order;
+  order.splice(from, 1);
+  order.splice(to, 0, key);
+  return order;
+}
+
 export function sanitizeWallDock(raw: unknown): WallDock {
   const value = record(raw);
   const panels = record(value.panels);
@@ -384,6 +404,7 @@ export function sanitizeWallDock(raw: unknown): WallDock {
     side: value.side === 'left' || value.side === 'top' || value.side === 'bottom' ? value.side : 'right',
     show: typeof value.show === 'boolean' ? value.show : true,
     minimized,
+    panelOrder: normalizeDockPanelOrder(value.panelOrder),
     panels: out,
   };
 }
@@ -462,6 +483,7 @@ export function loadWallState(storage: Pick<Storage, 'getItem'> | undefined, set
       insights: readPanels(record(saved.insights).panels),
       watermark: readWatermark(saved.watermark),
       composer: readDock(saved.composer),
+      tabs: saved.tabs === 'left' || saved.tabs === 'hidden' ? saved.tabs : 'top',
     };
   } catch {
     return DEFAULT_WALL_STATE;
@@ -478,7 +500,7 @@ export function saveWallState(storage: Pick<Storage, 'setItem'> | undefined, sta
 
 /** The wall as the setting stores it: the same fields, typed loosely for the shared schema. */
 export function toWallSetting(state: CommandWallState): CommandWallSetting {
-  return { layout: state.layout, dock: state.dock, hero: state.hero, folded: state.folded, root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark, composer: state.composer };
+  return { layout: state.layout, dock: state.dock, hero: state.hero, folded: state.folded, root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark, composer: state.composer, tabs: state.tabs };
 }
 
 /* ---------- the ribbon ---------- */

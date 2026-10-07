@@ -33,8 +33,11 @@ app.whenReady().then(async () => {
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.webContents.capturePage()).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
     await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
-    await check('mounted full CommandCenterView', "document.body.textContent.includes('Command Center') && !!document.querySelector('[data-command-wall]')");
+    await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     if (!process.env.NEKKO_TEST_REVISION) {
+    win.setContentSize(1200, 400); await sleep(350);
+    await check('short viewport keeps chat wall visible without composer overlap', "(()=>{const wall=document.querySelector('.command-wall-layout').getBoundingClientRect();const composer=document.querySelector('[data-wall-composer]').getBoundingClientRect();const column=document.querySelector('.wall-column');return wall.height>=280&&wall.bottom<=composer.top&&column.scrollHeight>column.clientHeight;})()");
+    win.setContentSize(1200, 900); await sleep(350);
     await open();
     await check('picker initial focus', "document.activeElement.classList.contains('agent-window-picker__option')");
     await run("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
@@ -53,16 +56,18 @@ app.whenReady().then(async () => {
     await check('cleanup failure reports reusable session', "document.querySelector('[role=alert]').textContent.includes('Retry will reuse') && integration.records().length===2");
     await run('integration.failures.options=false'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()");
     await check('cleanup-failure retry does not duplicate', "!document.querySelector('.agent-window-picker') && integration.calls.filter(c=>c.method==='create').length===1 && integration.state().sessions.filter(s=>s.id==='new-1').length===1");
-    await click('Focus'); await check('Grid to Focus', "!!document.querySelector('[aria-label=\"Focus agents\"]')");
-    await click('Grid'); await check('Focus to Grid', "!document.querySelector('[aria-label=\"Focus agents\"]')");
+    await click('Focus'); await check('Grid to Focus', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='focus'");
+    await click('Grid'); await check('Focus to Grid', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='grid'");
     await reset(); await open('Chat');
+    await check('long catalog scrolls inside fieldset without covering Create chat', "(()=>{const list=document.querySelector('.agent-window-picker [role=listbox]');const field=document.querySelector('.agent-window-picker__models');const create=document.querySelector('.agent-window-picker__primary');return list.scrollHeight>list.clientHeight&&list.getBoundingClientRect().bottom<=field.getBoundingClientRect().bottom+1&&field.getBoundingClientRect().bottom<=create.getBoundingClientRect().top;})()");
+    await check('layout toggle precedes agent filter', "!!(document.querySelector('[aria-label=\"Wall layout\"]').compareDocumentPosition(document.querySelector('[aria-label=\"Show\"]')) & Node.DOCUMENT_POSITION_FOLLOWING)");
     await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Fixture model')).click()"); await sleep(180); await click('Create chat');
     await check('chat model creation configures selected provider/model', "integration.calls.some(c=>c.method==='options'&&c.options.providerId==='fixture'&&c.options.modelId==='fixture-model'&&c.options.autoModel===false) && !document.querySelector('.agent-window-picker')");
     await reset(); await open('Terminal'); await click('Create terminal');
     await check('terminal creation passes workspace and dismisses', "!document.querySelector('.agent-window-picker') && integration.state().terminals.length===1 && integration.calls.find(c=>c.method==='terminal').options.workspaceId==='synthetic-project'");
     await reset(); await open('Chat');
     await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Existing conversation')).click()");
-    await check('existing chat enters wall without creation', "!document.querySelector('.agent-window-picker') && integration.calls.length===0 && document.body.textContent.includes('1 agent')");
+    await check('existing chat enters wall without creation', "!document.querySelector('.agent-window-picker') && !integration.calls.some(c=>c.method==='create') && document.body.textContent.includes('1 agent')");
     await open('Chat'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Existing conversation')).click()");
     await check('existing chat repeated entry is deduplicated', "document.body.textContent.includes('1 agent')");
     }
@@ -70,7 +75,10 @@ app.whenReady().then(async () => {
       await run(`document.documentElement.dataset.theme='${theme}'`);
       for (const [width, label] of [[1200, 'desktop'], [400, 'narrow']]) {
         win.setContentSize(width, 900); await reset(); await capture(`full-grid-${theme}-${label}`);
+        win.setContentSize(width,400); await capture(`short-grid-${theme}-${label}`); win.setContentSize(width,900);
+        await run('integration.dashboard()'); await sleep(900); await capture(`dashboard-${theme}-${label}`); await run("document.querySelector('[aria-label=\"Utilization dock panel\"]').scrollIntoView({block:'start'})"); await capture(`quota-${theme}-${label}`); await run("document.querySelector('[aria-label=\"Hardware dock panel\"]').scrollIntoView({block:'end'})"); await capture(`monitors-${theme}-${label}`); await reset();
         await open(); await capture(`full-picker-${theme}-${label}`);
+        await run("[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent==='Chat').click()"); await capture(`long-catalog-${theme}-${label}`);
         await click('Add window'); await click('Focus'); await capture(`full-focus-${theme}-${label}`);
         await run("integration.route('workspace')"); await sleep(500);
         await run("(()=>{const b=document.querySelector('[title=\"New agent with a terminal\"]'); b.focus(); b.dispatchEvent(new FocusEvent('focusin',{bubbles:true}));})()"); await capture(`workspace-image-menu-${theme}-${label}`);
@@ -79,6 +87,30 @@ app.whenReady().then(async () => {
     if (!process.env.NEKKO_TEST_REVISION) {
       await run("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='New image session').click()");
       await check('workspace image entry uses real store creation and options', "integration.calls.some(c=>c.method==='options'&&c.options.chatType==='image') && integration.state().activeSessionId==='new-1' && integration.state().workspaces.some(w=>w.anchor.refId==='new-1')");
+    }
+    win.setContentSize(1200,900); await reset(); await run('integration.dashboard()'); await sleep(900);
+    if (!process.env.NEKKO_TEST_REVISION) {
+      await run("document.querySelector('[aria-label=\"Switch to offline mode\"]').click()");
+      await check('offline click targets the owning session', "integration.calls.some(c=>c.method==='options'&&c.id==='existing'&&c.options.offline===true) && !!document.querySelector('[aria-label=\"Switch to online mode\"]')");
+      await run("document.querySelector('[aria-label=\"Refresh provider quota\"]').click()");
+      await check('explicit refresh requests provider poll', "integration.calls.some(c=>c.method==='limits'&&c.key==='fixture'&&c.refresh===true)");
+      await run("document.querySelector('.wall-dock__panel-header').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',altKey:true,bubbles:true}))");
+      await sleep(900);
+      await check('keyboard reorder persists', "integration.calls.some(c=>c.method==='settings'&&c.patch.commandWall?.dock.panelOrder[0]!=='vitals')");
+      win.webContents.debugger.attach('1.3');
+      let interceptedDrag=null; const dragListener=(_event,method,params)=>{if(method==='Input.dragIntercepted')interceptedDrag=params.data;}; win.webContents.debugger.on('message',dragListener); await win.webContents.debugger.sendCommand('Input.setInterceptDrags',{enabled:true});
+      const points=await run("[...document.querySelectorAll('.wall-dock__panel-header')].slice(0,2).map(h=>{const r=h.getBoundingClientRect();return {x:r.x+90,y:r.y+r.height/2}})");
+      const oldOrder=await run("[...document.querySelectorAll('.wall-dock__panel-header h2')].map(e=>e.textContent).join(',')");
+      await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseMoved',...points[0]});
+      await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',...points[0],button:'left',clickCount:1});
+      for(let i=1;i<=8;i++) { await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseMoved',x:points[0].x,y:points[0].y+(points[1].y-points[0].y)*i/8,button:'left',buttons:1}); await sleep(50); }
+      if(!interceptedDrag) throw Error('Desktop drag did not start');
+      for(const type of ['dragEnter','dragOver','drop']) await win.webContents.debugger.sendCommand('Input.dispatchDragEvent',{type,...points[1],data:interceptedDrag});
+      await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',...points[1],button:'left',clickCount:1});
+      win.webContents.debugger.off('message',dragListener);
+      await sleep(900);
+      await check('desktop pointer drag reorders panels', "[...document.querySelectorAll('.wall-dock__panel-header h2')].map(e=>e.textContent).join(',')!=="+JSON.stringify(oldOrder));
+      win.webContents.debugger.detach();
     }
     // Timed PNG frames form a portable motion recording without screen permissions.
     win.setContentSize(1200, 900); await reset(); await run("document.documentElement.dataset.theme='light'");
@@ -103,6 +135,15 @@ app.whenReady().then(async () => {
       await check('narrow picker is within wall horizontal bounds', "(()=>{const p=document.querySelector('.agent-window-picker').getBoundingClientRect();return p.left>=0&&p.right<=innerWidth;})()");
       await check('existing conversation remains reachable at narrow width', "[...document.querySelectorAll('.agent-window-picker button')].some(b=>b.textContent.includes('Existing conversation')&&!b.disabled)");
     }
+    win.setContentSize(1200,900); await reset(); await run('integration.dashboard()'); await sleep(900);
+    const dashboardMotion=path.join(runDir,'dashboard-motion');fs.mkdirSync(dashboardMotion);
+    for(let frame=0;frame<32;frame++) {
+      await run(`document.querySelector('.pixel-mascot').getAnimations({subtree:true}).forEach(a=>{a.pause();a.currentTime=${frame*1000}})`);
+      if(frame===10&&!process.env.NEKKO_TEST_REVISION) await run("document.querySelector('.wall-dock__panel-header').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',altKey:true,bubbles:true}))");
+      await sleep(100);fs.writeFileSync(path.join(dashboardMotion,String(frame).padStart(3,'0')+'.png'),(await win.webContents.capturePage()).toPNG());
+    }
+    const video=require('node:child_process').spawnSync('ffmpeg',['-y','-framerate','4','-i',path.join(dashboardMotion,'%03d.png'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p',path.join(runDir,'dashboard-motion.mp4')],{encoding:'utf8'});if(video.status!==0)throw Error(video.stderr);
+    report.captures.push(path.join(runDir,'dashboard-motion.mp4'));
     report.success = true;
   } catch (e) { report.errors.push(String(e)); report.success = false; process.exitCode = 1; }
   finally { fs.writeFileSync(path.join(runDir, 'status.json'), JSON.stringify(report, null, 2)); fs.writeFileSync(path.join(out, 'latest-run.txt'), runDir); console.log(JSON.stringify({ runDir, ...report }, null, 2)); win.destroy(); app.exit(report.success ? 0 : 1); }

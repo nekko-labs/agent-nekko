@@ -237,6 +237,7 @@ describe('wall preferences and panel migration', () => {
     expect(WALL_KINDS).toEqual(['chat', 'terminal']);
     expect(DOCK_PANELS.map(p => p.key)).toEqual(Object.keys(DEFAULT_WALL_DOCK.panels));
     expect(DEFAULT_WALL_DOCK).toEqual({ side: 'right', show: true,
+      panelOrder: DOCK_PANELS.map(p => p.key),
       minimized: { vitals: false, automations: false, utilization: false, budget: false, insights: false, hardware: false },
       panels: { vitals: true, automations: true, utilization: true, budget: true, insights: false, hardware: true } });
     expect(seedWall(DEFAULT_WALL_STATE, [], [], 9).root).toBeNull();
@@ -312,5 +313,18 @@ describe('wall preferences and panel migration', () => {
     saveWallState({ setItem: (_, value) => { raw = value; } }, state);
     expect(loadWallState({ getItem: () => raw })).toEqual(state);
     expect(loadWallState(undefined, toWallSetting(state))).toEqual(state);
+  });
+});
+
+ describe('agent tab placement', () => {
+  it('persists each choice and defaults invalid values to top', () => {
+    for (const tabs of ['top', 'left', 'hidden'] as const) {
+      const state = { ...DEFAULT_WALL_STATE, tabs };
+      expect(loadWallState(undefined, toWallSetting(state)).tabs).toBe(tabs);
+      let raw = '';
+      saveWallState({ setItem: (_, value) => { raw = value; } }, state);
+      expect(loadWallState({ getItem: () => raw }).tabs).toBe(tabs);
+    }
+    expect(loadWallState({ getItem: () => JSON.stringify({ tabs: 'invalid' }) }).tabs).toBe('top');
   });
 });

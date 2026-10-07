@@ -2000,7 +2000,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
               title="Open the agent's command log in a terminal window"
             >
-              Log
+              Logs
             </button>
             )}
 
@@ -2640,6 +2640,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
           {!imageMode && <div className="flex flex-wrap items-center gap-2">
                   {surface !== 'composer' && modelControls}
+                  {surface !== 'composer' && <>
                   <LiveContextGauge
                     sessionId={sessionId}
                     marks={marks}
@@ -2662,7 +2663,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     running={streaming}
                     unpriced={!!avoidedCosts?.unpricedTokens || (streaming && !getModelPrice(modelForCostRef.current ?? undefined))}
                   />
-            <span className="ml-auto text-[10px] text-ink-faint">{session?.offline ? 'Offline' : 'Online'}</span>
+                  </>}
+            {surface !== 'composer' && <button type="button" className="ml-auto flex items-center gap-1 text-[10px] text-ink-faint" aria-label={session?.offline ? 'Switch to online mode' : 'Switch to offline mode'} aria-pressed={!!session?.offline} onClick={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: session?.offline ? 'var(--ink-faint)' : 'var(--success)' }} />{session?.offline ? 'Offline' : 'Online'}</button>}
           </div>}
         </div>
       </section>

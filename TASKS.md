@@ -1186,3 +1186,5 @@ User report: selecting Plan while typing deleted the entire prompt. T106/T108 do
 - [x] Add `composerSkills.test.ts` regression coverage for Plan, multiline Markdown/Unicode/whitespace, replacement and installed skills, slash-query consumption, and Goal condition/prefix handling. Desktop typecheck and all 576 desktop tests pass.
 - [x] Explicitly document the draft-preservation acceptance criteria and privacy boundaries in [SPEC.md](SPEC.md#skill-selection-preserves-in-progress-prompts).
 - [x] Manual verification by the user: adding Plan through + → Skill keeps the in-progress prompt. Before/after recordings attached to PR #346. · Done: 2026-10-06
+
+- [x] 2026-10-07: Integrate PR #350 with #349/#351, preserve tab and quota changes, repair Agents performance navigation and Grid Add-cell sizing, and verify dashboard interactions and matched visual evidence. See [Agents dashboard](SPEC.md#agents-dashboard-simplification-2026-10-06).

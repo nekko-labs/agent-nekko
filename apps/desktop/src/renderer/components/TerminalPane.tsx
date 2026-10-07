@@ -219,20 +219,39 @@ export function TerminalPane({ terminalId }: { terminalId: string }) {
       });
 
       if (!streamed) {
+        // Agent logs are created lazily and live only in backend memory. A
+        // missing snapshot is not a broken renderer (or a persisted chat log).
+        let receivedData = false;
+        let showingNotice = false;
+        const notice = (message: string) => {
+          if (disposed || receivedData) return;
+          showingNotice = true;
+          term.write(`\x1b[2m${message}\x1b[0m\r\n`);
+        };
         // Restore scrollback, then size the pty to our fitted viewport.
         window.nekko.terminalSnapshot(terminalId).then((snap) => {
-          if (!snap || disposed) return;
+          if (disposed) return;
+          if (!snap) {
+            if (readOnly) notice('No command output available. Only shell commands appear here; logs are kept in memory and cleared when the backend restarts.');
+            return;
+          }
           setInfo(snap.info);
           if (snap.info.agentSessionId) {
             term.options.disableStdin = true;
             term.options.cursorBlink = false;
           }
           if (snap.buffer) term.write(snap.buffer);
+          else if (readOnly) notice('No shell command output yet.');
           window.nekko.resizeTerminal(terminalId, term.cols, term.rows);
-        }).catch(() => {});
+        }).catch(() => notice('Terminal output unavailable. Close and reopen this pane to retry.'));
         const offEvent = window.nekko.onTerminalEvent((e: TerminalEvent) => {
           if (!('terminalId' in e) || e.terminalId !== terminalId) return;
-          if (e.type === 'data') term.write(e.data);
+          if (e.type === 'data') {
+            if (readOnly) setInfo((i) => i ? { ...i, running: true, exitCode: undefined } : i);
+            receivedData = true;
+            if (showingNotice) { term.reset(); showingNotice = false; }
+            term.write(e.data);
+          }
           else if (e.type === 'exit') exited(e.code);
         });
         cleanups.push(offEvent);
