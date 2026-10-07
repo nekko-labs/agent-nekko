@@ -7,6 +7,7 @@ import { build } from 'esbuild';
 import { prepareMacBundle } from './dev-launch.mjs';
 import { seedDataDir } from '../../../scripts/perf/lib/seed.mjs';
 
+if (!process.env.CI && process.env.NEKKO_VISIBLE_VERIFICATION !== '1') throw Error('Native branding/permission verification opens foreground windows. Run on a disposable CI desktop, or obtain explicit user approval before setting NEKKO_VISIBLE_VERIFICATION=1.');
 if (process.platform !== 'darwin') throw Error('This smoke check requires macOS');
 const out = resolve(process.argv[2] || 'native-smoke');
 mkdirSync(out, { recursive: true });
@@ -86,10 +87,10 @@ const timer=setInterval(async()=>{
  try {
   const win=BrowserWindow.getAllWindows().find(w=>!w.isDestroyed());
   if(!win||win.webContents.isLoading())return;
-  const ready=await win.webContents.executeJavaScript("!!document.querySelector('nav button[aria-label=\\\"Command Center\\\"]')");
+  const ready=await win.webContents.executeJavaScript("!!document.querySelector('nav button[aria-label=\\\"Agents\\\"]')");
   if(!ready)return;
   clearInterval(timer);win.setBounds({x:40,y:50,width:940,height:700});win.show();app.focus({steal:true});
-  await win.webContents.executeJavaScript("document.querySelector('nav button[aria-label=\\\"Command Center\\\"]').click()");
+  await win.webContents.executeJavaScript("document.querySelector('nav button[aria-label=\\\"Agents\\\"]').click()");
   setTimeout(async()=>{
    const state=await win.webContents.executeJavaScript("({title:document.querySelector('h1')?.textContent,headerTop:document.querySelector('h1')?.getBoundingClientRect().top,text:document.body.innerText})");
    fs.writeFileSync(path.join(process.env.NEKKO_DATA_DIR,'native-full-state.json'),JSON.stringify({pid:process.pid,...state}));
@@ -99,9 +100,9 @@ const timer=setInterval(async()=>{
 },100);
 `);
   child = spawn(launcher, [fullEntry], { env: { ...env, NEKKO_DATA_DIR: seeded.dir }, stdio: 'inherit' });
-  await waitFor(() => existsSync(join(seeded.dir, 'native-full.png')), 'full Command Center renderer');
+  await waitFor(() => existsSync(join(seeded.dir, 'native-full.png')), 'full Agents renderer');
   const fullState = JSON.parse(readFileSync(join(seeded.dir, 'native-full-state.json'), 'utf8'));
-  if (fullState.title !== 'Command Center' || fullState.headerTop < 30) throw Error('Native header clearance mismatch');
+  if (fullState.title !== 'Agents' || fullState.headerTop < 30) throw Error('Native header clearance mismatch');
   writeFileSync(join(out, 'native-full-state.json'), JSON.stringify(fullState, null, 2));
   writeFileSync(join(out, 'native-full-renderer.png'), readFileSync(join(seeded.dir, 'native-full.png')));
   if (spawnSync('/usr/sbin/screencapture', ['-x', join(out, 'native-full-window.png')]).status !== 0) throw Error('Full native screenshot unavailable');
