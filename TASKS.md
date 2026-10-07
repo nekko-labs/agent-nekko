@@ -1188,3 +1188,5 @@ User report: selecting Plan while typing deleted the entire prompt. T106/T108 do
 - [x] Manual verification by the user: adding Plan through + → Skill keeps the in-progress prompt. Before/after recordings attached to PR #346. · Done: 2026-10-06
 
 - [x] 2026-10-07: Integrate PR #350 with #349/#351, preserve tab and quota changes, repair Agents performance navigation and Grid Add-cell sizing, and verify dashboard interactions and matched visual evidence. See [Agents dashboard](SPEC.md#agents-dashboard-simplification-2026-10-06).
+
+- [x] 2026-10-07: Native screenshots capture only the selected window through an isolated stream; enumerate without thumbnails, bound acquisition/frame waits, clean up helper and stream on failure. See [selected native window capture](SPEC.md#selected-native-window-capture). Verification results recorded in the PR.
