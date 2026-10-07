@@ -239,6 +239,12 @@ describe('click-only wall insertion and composer framing', () => {
   });
 });
 
+it('leaves shared composer sizing to CSS and reveals only focused carets', () => {
+  const source = readFileSync(new URL('./ChatPane.tsx', import.meta.url), 'utf8');
+  expect(source).toContain("if (!el || !pane || !section || surface === 'composer') return;");
+  expect(source).toContain('if (document.activeElement === el) revealEditorCaret(el);');
+});
+
 describe('Command Center header spacing', () => {
   it('keeps a compact top inset without changing gutters or toolbar wrapping', () => {
     const source = readFileSync(new URL('../views/CommandCenterView.tsx', import.meta.url), 'utf8');
