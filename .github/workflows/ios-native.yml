@@ -35,3 +35,26 @@ jobs:
           -configuration Debug -sdk iphonesimulator
           -destination 'generic/platform=iOS Simulator'
           -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO build
+      - name: Isolated simulator launch and appearance evidence
+        working-directory: apps/ios
+        run: |
+          set -euo pipefail
+          mkdir -p evidence
+          RUNTIME=$(xcrun simctl list runtimes -j | ruby -rjson -e 'puts JSON.parse(STDIN.read)["runtimes"].select { |r| r["isAvailable"] && r["identifier"].include?("iOS") }.last.fetch("identifier")')
+          DEVICE=$(xcrun simctl create Nekko-CI-Smoke com.apple.CoreSimulator.SimDeviceType.iPhone-15 "$RUNTIME")
+          trap 'xcrun simctl shutdown "$DEVICE" || true; xcrun simctl delete "$DEVICE" || true' EXIT
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" DerivedData/Build/Products/Debug-iphonesimulator/NekkoNative.app
+          xcrun simctl launch "$DEVICE" com.nekko.native.ios
+          sleep 5
+          for THEME in light dark; do
+            xcrun simctl ui "$DEVICE" appearance "$THEME"
+            sleep 2
+            xcrun simctl io "$DEVICE" screenshot "evidence/ios-first-run-$THEME.png"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-ios-first-run-evidence
+          path: apps/ios/evidence/*.png
+          if-no-files-found: error

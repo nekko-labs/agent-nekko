@@ -12,7 +12,7 @@ function PixelHead() {
         <path className="pixel-eyes-happy" d="M9 17H10V15H11V14H12V15H13V17H12V16H10V17Z M19 17H20V15H21V14H22V15H23V17H22V16H20V17Z" />
         <path className="pixel-eyes-closed" d="M10 17H14V18H10Z M19 17H23V18H19Z" />
       </g>
-      <path d="M15 20H17V21H15Z" fill="#a7c8ac" />
+      <path className="pixel-mouth" d="M15 20H17V21H15Z" fill="#a7c8ac" />
     </g>
   );
 }
@@ -29,10 +29,10 @@ function usePageHidden() {
 }
 
 
-export function NekkoAvatar({ size = 28, title, wizardHat = false }: { size?: number; title?: string; wizardHat?: boolean }) {
+export function NekkoAvatar({ size = 28, title, wizardHat = false, stationary = false, quiet = false }: { size?: number; title?: string; wizardHat?: boolean; stationary?: boolean; quiet?: boolean }) {
   const hidden = usePageHidden();
   return (
-    <svg className={`pixel-nekko${hidden ? ' pixel-paused' : ''}`} viewBox="0 0 32 32" width={size} height={size}
+    <svg className={`pixel-nekko${stationary ? ' pixel-stationary' : ''}${quiet ? ' pixel-quiet' : ''}${hidden ? ' pixel-paused' : ''}`} viewBox="0 0 32 32" width={size} height={size}
       shapeRendering="crispEdges" role={title ? 'img' : 'presentation'} aria-label={title}
       aria-hidden={title ? undefined : true} focusable="false">
       <PixelHead />
@@ -81,7 +81,7 @@ export function Mascot({ mood, enabled }: { mood: MascotMood; enabled: boolean }
       data-mascot-pose={pose} aria-label={pose === 'working' ? 'Nekko is working' : 'Say hello to Nekko'}
       title={pose === 'sleeping' ? 'Nekko is sleeping' : 'Say hello to Nekko'}
       onClick={() => { setSleeping(false); setGreeting(true); }}>
-      <NekkoAvatar size={64} />
+      <NekkoAvatar size={64} quiet />
     </button>
   );
 }

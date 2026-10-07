@@ -125,18 +125,14 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   // Keep real split identities and user ratios. A virtual chat insertion would
   // re-tile every render and hide dividers whose IDs no longer match the source.
   const addGrid = companionTree(grid, expanded);
-  if (state.layout.mode === 'grid' && width >= NARROW_WIDTH) {
-    // Preserve split ratios while giving each chat at least a 4:3 footprint.
-    for (const r of leafRects(addGrid).values()) {
-      if (r.height > 0) stageHeight = Math.max(stageHeight, (r.width * width * .75 + gap) / r.height);
-    }
-  }
+  // Use the measured space remaining beside/above the composer, not a
+  // width-derived aspect floor that makes wide windows overflow the viewport.
   let contentHeight = stageHeight;
   if (state.layout.mode === 'focus') {
     if (hero) panes.set(hero, { x: 0, y: 0, width, height: stageHeight });
   } else if (state.layout.mode === 'fixed' || width < NARROW_WIDTH) {
     const cols = width < NARROW_WIDTH ? 1 : state.layout.cols;
-    const rowHeight = width < NARROW_WIDTH ? NARROW_ROW_H : Math.max(160, ((width - gap * (cols - 1)) / cols) * .75, (stageHeight - gap * (state.layout.rows - 1)) / state.layout.rows);
+    const rowHeight = width < NARROW_WIDTH ? NARROW_ROW_H : Math.max(160, (stageHeight - gap * (state.layout.rows - 1)) / state.layout.rows);
     const cellWidth = Math.max(0, (width - gap * (cols - 1)) / cols);
     // Fixed overflow adds rows rather than hiding live windows beyond capacity.
     const slots = active.length + 1;
@@ -157,7 +153,7 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     // Match Fixed's cell footprint without inserting a virtual pane into saved splits.
     const cellWidth = Math.max(0, (width - gap * (state.layout.cols - 1)) / state.layout.cols);
     const fixedStageHeight = Math.max(240, height - 64 - gap);
-    const cellHeight = Math.max(160, cellWidth * .75, (fixedStageHeight - gap * (state.layout.rows - 1)) / state.layout.rows);
+    const cellHeight = Math.max(160, (fixedStageHeight - gap * (state.layout.rows - 1)) / state.layout.rows);
     return { panes, deck, hero, height: stageHeight + gap + cellHeight, add: { x: 0, y: stageHeight + gap, width: cellWidth, height: cellHeight }, addGrid, grid, stageHeight };
   }
   // Focus keeps other bodies warm but selects them through the row above the hero.
@@ -438,7 +434,6 @@ export function CommandWall({
           {needsYou && <div role="status" className="shrink-0 border-b border-line px-3 py-1 text-[11px]" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 6%, var(--surface))' }}>{status?.label ?? 'Needs your attention'}</div>}
           {openable && (
             <PaneActions>
-               <button className="command-wall-action" title={`Focus ${title}`} aria-label={`Focus ${title}`} aria-pressed={geometry.hero === pane.id} onClick={() => geometry.hero === pane.id ? setState(s => ({ ...s, layout: { ...s.layout, mode: 'grid' } })) : focusWindow(pane)}>{geometry.hero === pane.id ? 'Back to grid' : 'Focus'}</button>
                {companions.length > 0 && <button className="command-wall-action" title={`${folded ? 'Expand' : 'Fold'} companions (${companions.length})`} aria-label={`${folded ? 'Expand' : 'Fold'} companions for ${title} (${companions.length})`} aria-expanded={showCompanions} onClick={() => setState((s) => ({ ...s, folded: { ...s.folded, [pane.refId]: !folded } }))}>⧉ {companions.length}</button>}
               <button
                 className="rounded-sm p-1 text-ink-faint hover:text-ink"

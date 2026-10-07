@@ -95,12 +95,15 @@ export interface WallDock {
   side: WallDockSide;
   show: boolean;
   panels: Record<WallDockPanel, boolean>;
+  /** Saved reading order; older settings omit it and use the default order. */
+  panelOrder?: WallDockPanel[];
   /** Independent minimization state for each dock panel. */
   minimized: Record<WallDockPanel, boolean>;
 }
 export const DEFAULT_WALL_LAYOUT: WallLayout = { mode: 'grid', cols: 3, rows: 2 };
 export const DEFAULT_WALL_DOCK: WallDock = {
   side: 'right', show: true,
+  panelOrder: ['vitals', 'automations', 'utilization', 'budget', 'insights', 'hardware'],
   minimized: { vitals: false, automations: false, utilization: false, budget: false, insights: false, hardware: false },
   panels: { vitals: true, automations: true, utilization: true, budget: true, insights: false, hardware: true },
 };
@@ -295,7 +298,7 @@ export interface AppSettings {
   /** Experimental feature toggles (Settings → Experimental). Off = surface hidden. */
   experimental?: ExperimentalFlags;
   /** Desktop developer controls; absent means disabled. */
-  developer?: { serverControls?: boolean };
+  developer?: { serverControls?: boolean; chat?: boolean };
   /** First-run setup wizard progress (undefined on installs that predate it). */
   onboarding?: OnboardingState;
   /**

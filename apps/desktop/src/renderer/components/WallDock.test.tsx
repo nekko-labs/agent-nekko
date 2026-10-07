@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_WALL_STATE } from '../commandWall.js';
 vi.mock('../store.js', () => ({ useStore: (select: (s: unknown) => unknown) => select({ settings: {} }) }));
-const quota = vi.hoisted(() => ({ byToken: {} as Record<string, any> }));
-vi.mock('../useLimits.js', () => ({ useProviderLimitsPortfolio: () => ({ byToken: quota.byToken, answered: new Set() }) }));
+const quota = vi.hoisted(() => ({ byToken: {} as Record<string, any>, answered: new Set<string>() }));
+vi.mock('../useLimits.js', () => ({ useProviderLimitsPortfolio: () => quota }));
 vi.mock('./InsightsBox.js', () => ({ InsightsBox: () => null }));
 vi.mock('./AutomationsPane.js', () => ({ AutomationsPane: () => null }));
 vi.mock('./ResourceMonitor.js', () => ({ useMonitors: () => ({ cpu: true, memory: true, gpu: true, vram: true }), useResourceSample: () => ({ system: { cpuPct: 18, memUsedMB: 2048, memTotalMB: 8192 }, gpu: null }) }));
@@ -14,6 +14,17 @@ function render(minimized = false) {
   return renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={0} sessions={[]} providers={[]} usage={null} vitals={{ working: 0, waiting: 0, automations: 0, terminals: 0, tokensToday: 0, spend: '$0', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
 }
 describe('wall dock presentation', () => {
+  it('clarifies stale quota without claiming an active refresh', () => {
+    quota.byToken.plan = { updatedAt: 1000, staleAfterMs: 1000, windows: [] };
+    const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: false, automations: false, utilization: true, budget: false, insights: false, hardware: false } } };
+    const html = renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={5000} sessions={[]} providers={[{ id: 'plan', kind: 'chatgpt', label: 'Plan', baseUrl: '', enabled: true, auth: 'subscription', tokenKey: 'plan' }]} usage={null} vitals={{ working: 0, waiting: 0, automations: 0, terminals: 0, tokensToday: 0, spend: '$0', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
+    expect(html).toContain('wall-dock__utilization');
+    expect(html).toContain('Refresh provider quota');
+    expect(html).not.toContain('Quota may be outdated');
+    expect(html).not.toContain('Last quota update:');
+    expect(html).not.toContain('Stale quota · awaiting refresh');
+    quota.byToken = {};
+  });
   it.each([[17, 83, 'var(--success)'], [83, 17, 'var(--danger)'], [0, 100, 'var(--success)'], [100, 0, 'var(--danger)']])('shows ChatGPT %i used as %i left with usage-based warnings', (used, left, tone) => {
     quota.byToken = { synthetic: { windows: [{ label: '7-day', usedPercent: used, resetAt: 0 }], updatedAt: 0, staleAfterMs: 60000 } };
     const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: false, automations: false, utilization: true, budget: false, insights: false, hardware: false } } };

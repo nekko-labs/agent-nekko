@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import type { ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
 import { limitsKeyFor } from '@agent-nekko/shared';
 import { afterPaint } from './afterPaint.js';
@@ -57,7 +57,7 @@ export function useAllProviderLimits(
 export function useProviderLimitsPortfolio(
   providers: ProviderConfig[],
   enabled = true,
-): { byToken: Record<string, SubscriptionLimits>; answered: ReadonlySet<string> } {
+): { byToken: Record<string, SubscriptionLimits>; answered: ReadonlySet<string>; refresh: () => Promise<void> } {
   const [byToken, setByToken] = useState<Record<string, SubscriptionLimits>>({});
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
   // Limits keys, as a stable string, so re-rendering with a new array identity
@@ -85,5 +85,10 @@ export function useProviderLimitsPortfolio(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, keysId]);
 
-  return { byToken, answered };
+  const refresh = useCallback(async () => {
+    const entries = await Promise.all([...new Set(keys)].map(async key => [key, await window.nekko.getLimits(key, true)] as const));
+    setByToken(Object.fromEntries(entries.filter((entry): entry is readonly [string, SubscriptionLimits] => !!entry[1])));
+    setAnswered(new Set(entries.map(([key]) => key)));
+  }, [keysId]);
+  return { byToken, answered, refresh };
 }

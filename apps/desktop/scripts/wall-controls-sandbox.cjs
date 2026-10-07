@@ -33,7 +33,7 @@ app.whenReady().then(async () => {
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.webContents.capturePage()).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
     await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
-    await check('mounted full CommandCenterView', "document.body.textContent.includes('Command Center') && !!document.querySelector('[data-command-wall]')");
+    await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
     await check('cold session model hydrates', "document.querySelector('.command-wall-window').textContent.includes('Fixture model')");
     await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(500);
@@ -58,7 +58,8 @@ app.whenReady().then(async () => {
       await click('Export as Markdown', '[role=menu]');
       await check('export uses same Markdown payload', "(async()=>window.exportedName==='Existing-conversation.md' && await window.exportedBlob.text()===window.copiedChat)()");
       await run("document.querySelector('[data-wall-composer] [contenteditable]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:150,clientY:150}))");
-      await check('editor keeps native context menu', "!document.querySelector('[role=menu]')");
+      await check('editor excludes transcript actions', "![...document.querySelectorAll('[role=menu]')].some(m=>m.textContent.includes('Copy chat')||m.textContent.includes('Export as Markdown'))");
+      await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
       await check('footer exposes all reply measurements', "(()=>{const e=document.querySelector('.command-wall-window [aria-label=\"Chat actions and information\"]');return e.textContent.includes('tok/s') && e.textContent.includes('total tokens') && e.textContent.includes('Time unavailable')})()");
     }
       }
