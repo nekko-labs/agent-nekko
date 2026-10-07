@@ -103,7 +103,7 @@ pub(crate) fn usage(usage: &Value, input_field: &str) -> (u64, Option<u64>, Opti
 /// Match Number.isSafeInteger on the TS wire, including integral JSON floats.
 pub(crate) fn token_count(value: &Value) -> Option<u64> {
     let n = value.as_f64()?;
-    (n.is_finite() && n >= 0.0 && n <= 9_007_199_254_740_991.0 && n.fract() == 0.0).then_some(n as u64)
+    (n.is_finite() && (0.0..=9_007_199_254_740_991.0).contains(&n) && n.fract() == 0.0).then_some(n as u64)
 }
 
 #[cfg(test)]

@@ -50,10 +50,10 @@ async fn complete_with(spec: &Value, io: Io) -> Result<Value, String> {
     // Opt-in v1 result contract: persist usage before throwing `error`. Legacy callers
     // still receive the same RPC error, never a successful partial completion.
     // This is best effort, not durable accounting across process/connection loss.
-    if let Some(error) = &error {
-        if spec.get("usageOnFailure").and_then(Value::as_bool) != Some(true) {
-            return Err(error.clone());
-        }
+    if let Some(error) = &error
+        && spec.get("usageOnFailure").and_then(Value::as_bool) != Some(true)
+    {
+        return Err(error.clone());
     }
     let mut out = json!({ "text": if error.is_some() { String::new() } else { text } });
     if !usage.is_empty() {

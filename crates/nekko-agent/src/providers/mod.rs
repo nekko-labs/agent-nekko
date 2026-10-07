@@ -3,8 +3,8 @@
 pub mod anthropic;
 pub mod chatgpt;
 pub mod ollama;
-mod prompt_caching;
 pub mod openai_compat;
+mod prompt_caching;
 
 use crate::http::{ReqwestTransport, Transport};
 use crate::js;
