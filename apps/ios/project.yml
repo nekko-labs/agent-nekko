@@ -2,6 +2,7 @@ name: NekkoNative
 options:
   minimumXcodeGenVersion: 2.38.0
   xcodeVersion: "15.4"
+  projectFormat: xcode15_3
   deploymentTarget:
     iOS: "16.0"
 packages:
