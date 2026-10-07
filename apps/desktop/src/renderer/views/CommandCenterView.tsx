@@ -216,8 +216,8 @@ export function CommandCenterView() {
   // Retain an unconfigured session when host cleanup fails, so retrying does
   // not create a second orphan. Clear it only after configuration or deletion.
   const unfinishedChat = useRef<Awaited<ReturnType<typeof window.nekko.createSession>> | null>(null);
-  const newChat = async (selection?: AgentWindowSelection): Promise<string> => {
-    let s = unfinishedChat.current ?? await window.nekko.createSession(activeProjectId ?? undefined);
+  const newChat = async (selection?: AgentWindowSelection, projectId = activeProjectId ?? undefined): Promise<string> => {
+    let s = unfinishedChat.current ?? await window.nekko.createSession(projectId);
     if (unfinishedChat.current && !selection) selection = { kind: 'chat', chatType: 'multimodal' };
     if (selection) {
       try {
@@ -239,8 +239,8 @@ export function CommandCenterView() {
     useStore.setState((state) => ({ sessions: [summarizeSession(s), ...state.sessions.filter((existing) => existing.id !== s.id)] }));
     return s.id;
   };
-  const newTerminal = async (): Promise<string> => {
-    const t = await window.nekko.createTerminal({ workspaceId: activeProjectId ?? undefined });
+  const newTerminal = async (workspaceId = activeProjectId ?? undefined, shell?: string): Promise<string> => {
+    const t = await window.nekko.createTerminal({ workspaceId, shell });
     useStore.setState((state) => ({ terminals: [t, ...state.terminals.filter((existing) => existing.id !== t.id)] }));
     return t.id;
   };
@@ -334,7 +334,11 @@ export function CommandCenterView() {
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
         <div className="wall-agent-workspace" data-tabs="left">
-      <AgentSidebar selectedId={completedId ?? selected} onOpenChat={(id) => {
+      <AgentSidebar onCreate={async (kind, projectId, shell) => {
+        const id = kind === 'terminal' ? await newTerminal(projectId, shell) : await newChat({ kind: 'chat', chatType: kind === 'image' ? 'image' : 'multimodal' }, projectId);
+        await addFromToolbar(kind === 'terminal' ? 'terminal' : 'chat', id);
+        setCompletedId(null);
+      }} selectedId={completedId ?? selected} onOpenChat={(id) => {
         if (sessions.find((session) => session.id === id)?.archivedAt) setCompletedId(id);
         else { void addFromToolbar('chat', id); selectAgent(id); }
       }} onOpenTerminal={(id) => { setCompletedId(null); void addFromToolbar('terminal', id); }} />

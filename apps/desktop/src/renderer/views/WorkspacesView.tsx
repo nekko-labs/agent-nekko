@@ -198,15 +198,22 @@ function statusFromEvent(type: AgentEvent['type']): AgentStatus | null {
   }
 }
 
-export function AgentSidebar({ onOpenChat, onOpenTerminal, selectedId }: { onOpenChat: (id: string) => void; onOpenTerminal: (id: string) => void; selectedId: string | null }) {
-  return <WorkspacesView sidebarOnly onOpenChat={onOpenChat} onOpenTerminal={onOpenTerminal} selectedId={selectedId} />;
+type SidebarActions = {
+  onOpenChat: (id: string) => void;
+  onOpenTerminal: (id: string) => void;
+  selectedId: string | null;
+  onCreate: (kind: 'chat' | 'image' | 'terminal', projectId?: string, shell?: string) => Promise<void>;
+};
+
+export function AgentSidebar(props: SidebarActions) {
+  return <WorkspacesView sidebarOnly {...props} />;
 }
 
-export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal, selectedId }: { sidebarOnly?: boolean; onOpenChat?: (id: string) => void; onOpenTerminal?: (id: string) => void; selectedId?: string | null } = {}) {
+export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal, selectedId, onCreate }: Partial<SidebarActions> & { sidebarOnly?: boolean } = {}) {
   const {
     sessions, terminals, workspaces, activeWorkspaceId, settings, activeSessionId,
-    refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal, newTerminalWorkspace,
-    setActiveWorkspace, newChat, setActiveProject,
+    refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal: storeNewTerminal, newTerminalWorkspace: storeNewTerminalWorkspace,
+    setActiveWorkspace, newChat: storeNewChat, setActiveProject,
     reorderWorkspaces, layoutChats, layoutTerminals, contextPanelOpen,
     archiveWorkspace, archiveChat, archiveOpen, archivedViewId,
   } = useStore(
@@ -236,6 +243,11 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
       archivedViewId: s.archivedViewId,
     })),
   );
+  const newChat = () => sidebarOnly && onCreate ? onCreate('chat', activeProjectId()) : storeNewChat();
+  const activeProjectId = () => useStore.getState().activeProjectId ?? undefined;
+  const newTerminal = (projectId?: string) => sidebarOnly && onCreate ? onCreate('terminal', projectId) : storeNewTerminal(projectId);
+  const newTerminalWorkspace = (projectId?: string, shell?: string) => sidebarOnly && onCreate ? onCreate('terminal', projectId ?? activeProjectId(), shell) : storeNewTerminalWorkspace(projectId, shell);
+  const newImageChat = () => sidebarOnly && onCreate ? onCreate('image', activeProjectId()) : useStore.getState().newImageChat('');
   const [selected, setSelected] = useState<string[]>([]);
   const anchor = useRef<string | null>(null);
   const [menu, setMenu] = useState<{x: number; y: number; ids: string[]; model?: boolean} | null>(null);
@@ -666,6 +678,7 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
                             if (sidebarOnly) {
                               if (s) onOpenChat?.(s.id);
                               else if (entry.t) onOpenTerminal?.(entry.t.id);
+                              setMobileNav(false);
                             } else if (w) setActiveWorkspace(w.id);
                             else if (s) openChatPane(s.id);
                           }}
@@ -727,7 +740,7 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
     // between them — which is why the middle read as the only real panel.
     <div
       className={`flex h-full min-w-0 overflow-hidden ${sidebarOnly ? 'shrink-0' : ''}`}
-      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
+      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)', ...(sidebarOnly ? { height: 'auto', minHeight: 0 } : {}) }}
     >
       {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
         <div className="select-text break-all px-2.5 py-2 font-mono text-[10px] text-ink-faint">{menu.ids.length === 1 ? menu.ids[0] : menu.ids.length + ' sessions selected'}</div>

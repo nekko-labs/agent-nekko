@@ -14,11 +14,11 @@ it('finds transcript-only panels without requiring an embedded composer', async 
 
 it('opens the exact setup control and waits for the sidebar before accepting history', () => {
   const source = readFileSync(new URL('./run.mjs', import.meta.url), 'utf8');
-  const open = source.indexOf('document.querySelector(selector)?.click()');
-  const sidebar = source.indexOf("'the Agent tab sidebar'");
+  const open = source.indexOf('await showAllCards();');
+  const sidebar = source.indexOf("'the Agents sidebar'");
   const history = source.indexOf('const ok = await cdp.call');
   expect(open).toBeGreaterThan(0);
-  expect(sidebar).toBeGreaterThan(open);
+  expect(open).toBeGreaterThan(sidebar);
   expect(history).toBeGreaterThan(sidebar);
   expect(source).toContain('await clickAt(at);'); // measured switches still use input events
 });
