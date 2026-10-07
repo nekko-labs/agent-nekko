@@ -82,7 +82,7 @@ app.whenReady().then(async () => {
         await open(); await capture(`full-picker-${theme}-${label}`);
         await run("[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent==='Chat').click()"); await capture(`long-catalog-${theme}-${label}`);
         for (const [key,code,mode] of [['2','Digit2','grid'],['3','Digit3','fixed'],['1','Digit1','focus']]) {
-          await click(mode[0].toUpperCase()+mode.slice(1)); await sleep(400);
+          await click(mode[0].toUpperCase()+mode.slice(1)); if (mode === 'fixed') await run("document.querySelector('[aria-label=\"3 columns by 2 rows\"]')?.click()"); await sleep(400);
           await run("(document.querySelector('.command-wall-add-tile') || document.querySelector('#wall-window-picker'))?.scrollIntoView({block:'start'})"); await capture(`create-${mode}-${theme}-${label}`);
           await run("document.querySelector('.agent-window-picker__primary')?.scrollIntoView({block:'end'})"); await capture(`create-${mode}-actions-${theme}-${label}`);
         }
