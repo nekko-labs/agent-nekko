@@ -90,6 +90,24 @@ app.whenReady().then(async () => {
         await run("[...document.querySelectorAll('div[role=button]')].find(card => card.getAttribute('title')?.includes('Active conversation')).dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, clientX:60, clientY:100}))");
         await check('existing card context actions retained', "document.body.textContent.includes('Mark as completed') && document.body.textContent.includes('Change model')");
         await run("document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}))");
+        // Synthetic DOM drag validates the host payload; real pointer evidence is separate.
+        await run(`(() => {
+          const card = [...document.querySelectorAll('div[role=button]')].find(card => card.getAttribute('title')?.includes('Active conversation'));
+          card.parentElement.dispatchEvent(new DragEvent('dragstart', { bubbles:true, dataTransfer:new DataTransfer() }));
+        })()`);
+        await sleep(100);
+        await run(`(() => {
+          const group = [...document.querySelectorAll('[data-sidebar-group]')].find(button => button.textContent.includes('Finished project'));
+          group.closest('.mb-1').dispatchEvent(new DragEvent('drop', { bubbles:true, dataTransfer:new DataTransfer() }));
+        })()`);
+        await check('drag refiles owning chat', "integration.calls.some(call => call.method === 'workspace' && call.id === 'active' && call.workspaceId === 'finished-project')");
+        await check('drag persists chat order', "integration.calls.some(call => call.method === 'options' && call.id === 'active' && call.options.order === 0)");
+        await run("[...document.querySelectorAll('div[role=button]')].find(card => card.getAttribute('title')?.includes('Active conversation')).dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, clientX:60, clientY:100}))");
+        await sleep(100);
+        await run("[...document.querySelectorAll('button')].find(button => button.textContent === 'Mark as completed').click()");
+        await sleep(1000);
+        await check('complete targets owning chat', "integration.calls.some(call => call.method === 'abort' && call.id === 'active') && integration.calls.some(call => call.method === 'options' && call.id === 'active' && call.options.archivedAt)");
+        await check('complete saved summary stays discoverable', "integration.state().sessions.some(session => session.id === 'active' && session.archivedAt)");
       }
       await run("integration.route('workspace')");
       await sleep(400);

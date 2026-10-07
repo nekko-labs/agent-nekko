@@ -21,6 +21,8 @@ const failures = { create: false, options: false, cleanup: false };
 const bridge: any = {
   createSession: async (workspaceId: string) => { calls.push({ method: 'create', workspaceId }); if (failures.create) throw Error('Synthetic creation failure'); const s = { ...makeSession(`new-${++serial}`), workspaceId }; records.push(s); return s; },
   setSessionOptions: async (id: string, options: any) => { calls.push({ method: 'options', id, options }); if (failures.options) throw Error('Synthetic options failure'); const s = records.find(s => s.id === id); Object.assign(s, options); return {...s}; },
+  abortChat: async (id: string) => { calls.push({ method: 'abort', id }); },
+  setSessionWorkspace: async (id: string, workspaceId?: string) => { calls.push({ method: 'workspace', id, workspaceId }); Object.assign(records.find(s => s.id === id), { workspaceId }); },
   deleteSession: async (id: string) => { calls.push({ method: 'cleanup', id }); if (failures.cleanup) throw Error('Synthetic cleanup failure'); records = records.filter(s => s.id !== id); },
   createTerminal: async (options: any) => { calls.push({ method: 'terminal', options }); const t = { id: `terminal-${++serial}`, title: 'Synthetic terminal', cwd: '/synthetic', running: false }; terminals.push(t); return t; },
   listSessionSummaries: async () => records.map(summarizeSession), listTerminals: async () => terminals,
