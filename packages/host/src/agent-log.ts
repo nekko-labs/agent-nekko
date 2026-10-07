@@ -64,6 +64,6 @@ export function deleteAgentLog(sessionId: string): void {
 
 /** Explicit drain for graceful shutdown and deterministic persistence checks. */
 export async function flushAgentLogs(): Promise<void> {
-  await Promise.all([...pending.values()]);
+  while (pending.size) await Promise.all([...pending.values()]);
   if (failures.size) throw [...failures.values()][0];
 }

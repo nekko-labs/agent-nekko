@@ -1,5 +1,7 @@
 import { mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { buildSync } from 'esbuild';
 import { tmpdir } from 'node:os';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { setDataDir } from './paths.js';
@@ -55,3 +57,32 @@ describe('session command log persistence', () => {
     expect(await readAgentLog('missing', 100)).toBeNull();
   });
 });
+
+// Real process boundaries prove restoration does not depend on module memory.
+it('drains large queued output before exit and restores it in a fresh process', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'nekko-log-process-'));
+  const child = join(root, 'child.cjs');
+  buildSync({ stdin: { contents: `
+    import { setDataDir } from './paths';
+    import { appendAgentLog, flushAgentLogs, readAgentLog } from './agent-log';
+    setDataDir(process.argv[2]);
+    async function main() {
+      if (process.argv[3] === 'write') {
+        for (let i=0;i<256;i++) appendAgentLog('restart', 'x'.repeat(65536));
+        appendAgentLog('restart', '\\r\\nEND');
+        await flushAgentLogs();
+        process.exit(0);
+      }
+      const tail = await readAgentLog('restart', 256*1024);
+      if (!tail || Buffer.byteLength(tail)>256*1024 || !tail.endsWith('END')) process.exit(2);
+      console.log(tail.length);
+    }
+    main().catch(e=>{console.error(e);process.exit(1)});
+  `, resolveDir: resolve('src') }, outfile: child, bundle: true, platform: 'node', format: 'cjs' });
+  for (const mode of ['write', 'read']) {
+    const result = spawnSync(process.execPath, [child, root, mode], { encoding: 'utf8', timeout: 30000 });
+    expect(result.stderr).toBe('');
+    expect(result.status).toBe(0);
+  }
+  expect(readFileSync(join(root, 'sessions/restart.commands.log')).length).toBeGreaterThan(16*1024*1024);
+}, 60000);
