@@ -31,6 +31,8 @@ pub enum Chunk {
     ToolCall(Value),
     Usage {
         input_tokens: f64,
+        cache_read_tokens: Option<f64>,
+        cache_write_tokens: Option<f64>,
         output_tokens: f64,
         output_ms: Option<f64>,
     },
@@ -48,6 +50,8 @@ pub struct ChatRequest {
     pub temperature: Option<f64>,
     pub effort: Option<String>,
     pub think: Option<bool>,
+    /// None enables caching; Some(false) explicitly disables request caching.
+    pub prompt_caching: Option<bool>,
     pub max_output_tokens: Option<u64>,
 }
 
@@ -130,6 +134,8 @@ pub struct RunOptions<'a> {
     pub temperature: Option<f64>,
     pub effort: Option<String>,
     pub think: Option<bool>,
+    /// None enables caching; Some(false) explicitly disables request caching.
+    pub prompt_caching: Option<bool>,
     pub max_history_turns: Option<f64>,
     pub max_output_tokens: Option<u64>,
     pub resume: bool,
@@ -327,6 +333,7 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
             temperature: self.opts.temperature,
             effort: self.opts.effort.clone(),
             think: self.opts.think,
+            prompt_caching: Some(self.opts.prompt_caching.unwrap_or(true)),
             max_output_tokens: self.opts.max_output_tokens,
         };
         let settle = |turn: &mut Turn, started: Option<Instant>| {
@@ -366,8 +373,14 @@ impl<C: ModelClient, T: ToolRunner, E: FnMut(Value, &[Value]) + Send> Loop<'_, '
                     turn.calls.push(call.clone());
                     self.event("tool_call", json!({ "call": call }));
                 }
-                Chunk::Usage { input_tokens, output_tokens, output_ms } => {
+                Chunk::Usage { input_tokens, cache_read_tokens, cache_write_tokens, output_tokens, output_ms } => {
                     let mut f = json!({ "inputTokens": num(input_tokens), "outputTokens": num(output_tokens) });
+                    if let Some(tokens) = cache_read_tokens {
+                        f["cacheReadTokens"] = num(tokens);
+                    }
+                    if let Some(tokens) = cache_write_tokens {
+                        f["cacheWriteTokens"] = num(tokens);
+                    }
                     if let Some(ms) = output_ms {
                         f["outputMs"] = num(ms);
                     }

@@ -195,8 +195,12 @@ impl ChatGptProvider {
                     Some("response.completed" | "response.incomplete") => {
                         decode.stop();
                         if let Some(usage) = ev.pointer("/response/usage").filter(|u| js::truthy(Some(u))) {
+                            let (input_tokens, cache_read_tokens, cache_write_tokens) =
+                                super::prompt_caching::usage(usage, "input_tokens");
                             sink.emit(ProviderChunk::Usage {
-                                input_tokens: usage.get("input_tokens").and_then(Value::as_u64).unwrap_or(0),
+                                input_tokens,
+                                cache_read_tokens,
+                                cache_write_tokens,
                                 output_tokens: usage.get("output_tokens").and_then(Value::as_u64).unwrap_or(0),
                                 output_ms: decode.elapsed(),
                             })

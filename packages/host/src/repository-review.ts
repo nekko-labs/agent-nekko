@@ -1,4 +1,4 @@
-import { createProvider } from '@agent-nekko/core';
+import { createHostProvider as createProvider } from './prompt-caching.js';
 import { getSettings } from './store.js';
 import { resolveSubscriptionProvider } from './oauth.js';
 

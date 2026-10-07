@@ -30,6 +30,8 @@ export interface ChatRequest {
    * `chat_template_kwargs.enable_thinking`) and ignore it where unsupported.
    */
   think?: boolean;
+  /** Default on. False omits explicit requests, not automatic provider caching. */
+  promptCaching?: boolean;
   /**
    * Hard cap on tokens this response may generate. Set for local servers, where
    * a model that degenerates into a loop streams until it fills its own context
@@ -57,7 +59,10 @@ export type ProviderChunk =
   | { type: 'tool_call'; call: ToolCall }
   | {
       type: 'usage';
+      /** Noncached input; reported cache tokens are separate. */
       inputTokens: number;
+      cacheReadTokens?: number;
+      cacheWriteTokens?: number;
       outputTokens: number;
       /**
        * Milliseconds the model spent generating `outputTokens`: the decode phase

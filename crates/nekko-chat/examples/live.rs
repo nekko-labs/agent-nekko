@@ -41,6 +41,7 @@ async fn main() {
             temperature: Some(0.0),
             effort: None,
             think: Some(false),
+            prompt_caching: None,
             max_history_turns: None,
             max_output_tokens: Some(256),
             resume: false,

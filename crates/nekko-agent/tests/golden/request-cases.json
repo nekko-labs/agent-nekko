@@ -5,6 +5,7 @@
     "lmstudio",
     "vllm",
     "llamacpp",
+    "managed",
     "openai-compat",
     "ollama",
     "anthropic",
@@ -560,85 +561,2175 @@
         }
       ]
     },
-    "capture-evidence": {
+    "cache-default": {
       "model": "m",
-      "messages": [
+      "system": "reusable system",
+      "tools": [
         {
-          "id": "u",
-          "role": "user",
-          "content": "Inspect the app screenshot",
-          "createdAt": 1
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
         },
         {
-          "id": "a",
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
           "role": "assistant",
-          "content": "",
-          "createdAt": 2,
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
           "toolCalls": [
             {
-              "id": "shot",
-              "name": "capture",
-              "input": {
-                "action": "screenshot",
-                "window_id": "window:1",
-                "path": ".shots/after.png"
-              }
-            },
-            {
-              "id": "read",
+              "id": "call_1",
               "name": "read_file",
               "input": {
-                "path": "README.md"
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
               }
             },
             {
-              "id": "failed",
-              "name": "capture",
+              "id": "call_2",
+              "name": "bash",
               "input": {
-                "action": "screenshot",
-                "path": "denied.png"
+                "command": "npm test -- parser"
               }
             }
           ]
         },
         {
-          "id": "t1",
+          "id": "m1790000000003",
           "role": "tool",
           "content": "",
-          "createdAt": 3,
+          "createdAt": 1790000000003,
           "toolResult": {
-            "toolCallId": "shot",
-            "output": "{\"path\":\".shots/after.png\",\"source\":\"native-window\"}",
-            "images": [
-              "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg=="
-            ]
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
           }
         },
         {
-          "id": "t2",
+          "id": "m1790000000004",
           "role": "tool",
           "content": "",
-          "createdAt": 4,
+          "createdAt": 1790000000004,
           "toolResult": {
-            "toolCallId": "read",
-            "output": "Project instructions"
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
           }
         },
         {
-          "id": "t3",
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
           "role": "tool",
           "content": "",
-          "createdAt": 5,
+          "createdAt": 1790000000006,
           "toolResult": {
-            "toolCallId": "failed",
-            "output": "Not approved",
-            "isError": true,
-            "images": [
-              "data:image/png;base64,eA=="
-            ]
+            "toolCallId": "call_3",
+            "output": ""
           }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
         }
       ]
+    },
+    "cache-on": {
+      "model": "m",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": true
+    },
+    "cache-off": {
+      "model": "m",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": false
+    },
+    "cache-claude-default": {
+      "model": "anthropic/claude-sonnet-4.5",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ]
+    },
+    "cache-claude-on": {
+      "model": "anthropic/claude-sonnet-4.5",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": true
+    },
+    "cache-claude-off": {
+      "model": "anthropic/claude-sonnet-4.5",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": false
+    },
+    "cache-claude-alias-default": {
+      "model": "~anthropic/claude-sonnet-latest",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ]
+    },
+    "cache-claude-alias-on": {
+      "model": "~anthropic/claude-sonnet-latest",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": true
+    },
+    "cache-claude-alias-off": {
+      "model": "~anthropic/claude-sonnet-latest",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": false
+    },
+    "cache-gemini-default": {
+      "model": "google/gemini-2.5-pro",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ]
+    },
+    "cache-gemini-on": {
+      "model": "google/gemini-2.5-pro",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": true
+    },
+    "cache-gemini-off": {
+      "model": "google/gemini-2.5-pro",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": false
+    },
+    "cache-gemini-legacy-default": {
+      "model": "google/gemini-2.0-flash-001",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ]
+    },
+    "cache-gemini-legacy-on": {
+      "model": "google/gemini-2.0-flash-001",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": true
+    },
+    "cache-gemini-legacy-off": {
+      "model": "google/gemini-2.0-flash-001",
+      "system": "reusable system",
+      "tools": [
+        {
+          "name": "read_file",
+          "description": "Read a file from the workspace.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "path"
+            ]
+          }
+        },
+        {
+          "name": "bash",
+          "description": "Run a shell command.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "timeout": {
+                "type": "number",
+                "default": 120
+              }
+            }
+          }
+        }
+      ],
+      "messages": [
+        {
+          "id": "m1790000000000",
+          "role": "system",
+          "content": "An old system message kept in history.",
+          "createdAt": 1790000000000
+        },
+        {
+          "id": "m1790000000001",
+          "role": "user",
+          "content": "Fix the failing test in parser.ts",
+          "createdAt": 1790000000001
+        },
+        {
+          "id": "m1790000000002",
+          "role": "assistant",
+          "content": "Let me look at it first.",
+          "createdAt": 1790000000002,
+          "toolCalls": [
+            {
+              "id": "call_1",
+              "name": "read_file",
+              "input": {
+                "path": "src/parser.ts",
+                "lines": [
+                  1,
+                  2.5
+                ],
+                "opts": {
+                  "exact": 1,
+                  "big": 1e+21
+                }
+              }
+            },
+            {
+              "id": "call_2",
+              "name": "bash",
+              "input": {
+                "command": "npm test -- parser"
+              }
+            }
+          ]
+        },
+        {
+          "id": "m1790000000003",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000003,
+          "toolResult": {
+            "toolCallId": "call_1",
+            "output": "export function parse() {}"
+          }
+        },
+        {
+          "id": "m1790000000004",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000004,
+          "toolResult": {
+            "toolCallId": "call_2",
+            "output": "Error: 1 failing",
+            "isError": true
+          }
+        },
+        {
+          "id": "m1790000000005",
+          "role": "assistant",
+          "content": "",
+          "createdAt": 1790000000005,
+          "toolCalls": [
+            {
+              "id": "call_3",
+              "name": "bash",
+              "input": {}
+            }
+          ]
+        },
+        {
+          "id": "m1790000000006",
+          "role": "tool",
+          "content": "",
+          "createdAt": 1790000000006,
+          "toolResult": {
+            "toolCallId": "call_3",
+            "output": ""
+          }
+        },
+        {
+          "id": "m1790000000007",
+          "role": "tool",
+          "content": "orphan tool output",
+          "createdAt": 1790000000007
+        },
+        {
+          "id": "m1790000000008",
+          "role": "assistant",
+          "content": "Fixed: the parser now handles empty input.",
+          "createdAt": 1790000000008,
+          "toolCalls": []
+        },
+        {
+          "id": "m1790000000009",
+          "role": "user",
+          "content": "Thanks!",
+          "createdAt": 1790000000009
+        }
+      ],
+      "promptCaching": false
     }
   }
 }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { DEFAULT_GUARDRAILS } from '@agent-nekko/shared';
+import { DEFAULT_GUARDRAILS, promptCachingEnabled } from '@agent-nekko/shared';
 import type { AppSettings, ChatMode, ChatWorktreeInfo, GuardrailRule, GuardrailAction, HookEvent, HookRule, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -348,6 +348,18 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
         Agent Nekko keeps working until the task is finished or you press Stop. Loop detection catches repeated tool
         calls and error streaks; output safeguards remain active.
       </p>
+      <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[13px]">Prompt caching</span>
+          <p id="prompt-caching-hint" className="text-[11px] text-ink-faint">
+            On by default. Always sends the full context. Uses native caching on supported cloud providers and
+            local KV cache reuse where supported; unsupported remote providers are not treated as cached.
+            Off disables Nekko's cache requests and managed reuse, but providers may still cache automatically.
+            For managed local models, the launch policy takes effect when you reload the model.
+          </p>
+        </div>
+        <Toggle on={promptCachingEnabled(settings)} onChange={(v) => update({ promptCaching: v })} aria-label="Prompt caching" aria-describedby="prompt-caching-hint" />
+      </div>
       <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
         <div className="min-w-0">
           <span className="text-[13px]">Output cap per response, local models</span>
@@ -1168,10 +1180,11 @@ function UpdatesSection({ settings, update }: { settings: AppSettings; update: (
   );
 }
 
-export function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+export function Toggle({ on, onChange, ...aria }: { on: boolean; onChange: (v: boolean) => void } & Pick<React.AriaAttributes, 'aria-label' | 'aria-describedby'>) {
   return (
     <button
       role="switch"
+      {...aria}
       aria-checked={on}
       onClick={() => onChange(!on)}
       className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors"

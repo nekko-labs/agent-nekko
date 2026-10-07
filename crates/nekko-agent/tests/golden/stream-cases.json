@@ -867,14 +867,283 @@
     ]
   },
   {
-    "name": "cg-assistant-phases",
-    "provider": "chatgpt",
+    "name": "openai-cache-on",
+    "provider": "openai",
+    "request": "cache-on",
     "responses": [
       {
         "chunks": [
-          "data: {\"type\": \"response.output_text.delta\", \"delta\": \"Reading the file.\"}\n\n",
-          "data: {\"type\": \"response.output_item.done\", \"item\": {\"type\": \"message\", \"phase\": \"commentary\"}}\n\n",
-          "data: {\"type\": \"response.completed\", \"response\": {}}\n\n"
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "openrouter-cache-on",
+    "provider": "openrouter",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "lmstudio-cache-on",
+    "provider": "lmstudio",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vllm-cache-on",
+    "provider": "vllm",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "llamacpp-cache-on",
+    "provider": "llamacpp",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "openai-compat-cache-on",
+    "provider": "openai-compat",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "managed-cache-on",
+    "provider": "managed",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "anthropic-cache-on",
+    "provider": "anthropic",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":30,\"cache_read_input_tokens\":60,\"cache_creation_input_tokens\":10}}}\n\n",
+          "event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":5}}\n\n",
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "chatgpt-response.completed-cache-on",
+    "provider": "chatgpt",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":100,\"output_tokens\":5,\"input_tokens_details\":{\"cached_tokens\":60}}}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "chatgpt-response.incomplete-cache-on",
+    "provider": "chatgpt",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.incomplete\",\"response\":{\"usage\":{\"input_tokens\":100,\"output_tokens\":5,\"input_tokens_details\":{\"cached_tokens\":60}}}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ollama-cache-on",
+    "provider": "ollama",
+    "request": "cache-on",
+    "responses": [
+      {
+        "chunks": [
+          "{\"done\":true,\"prompt_eval_count\":30,\"eval_count\":5}\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "openai-cache-off",
+    "provider": "openai",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "openrouter-cache-off",
+    "provider": "openrouter",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "lmstudio-cache-off",
+    "provider": "lmstudio",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "vllm-cache-off",
+    "provider": "vllm",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "llamacpp-cache-off",
+    "provider": "llamacpp",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "openai-compat-cache-off",
+    "provider": "openai-compat",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "managed-cache-off",
+    "provider": "managed",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":5,\"prompt_tokens_details\":{\"cached_tokens\":60,\"cache_write_tokens\":10}}}\n\n",
+          "data: [DONE]\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "anthropic-cache-off",
+    "provider": "anthropic",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":30,\"cache_read_input_tokens\":60,\"cache_creation_input_tokens\":10}}}\n\n",
+          "event: message_delta\ndata: {\"type\":\"message_delta\",\"usage\":{\"output_tokens\":5}}\n\n",
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "chatgpt-response.completed-cache-off",
+    "provider": "chatgpt",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{\"input_tokens\":100,\"output_tokens\":5,\"input_tokens_details\":{\"cached_tokens\":60}}}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "chatgpt-response.incomplete-cache-off",
+    "provider": "chatgpt",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"type\":\"response.incomplete\",\"response\":{\"usage\":{\"input_tokens\":100,\"output_tokens\":5,\"input_tokens_details\":{\"cached_tokens\":60}}}}\n\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ollama-cache-off",
+    "provider": "ollama",
+    "request": "cache-off",
+    "responses": [
+      {
+        "chunks": [
+          "{\"done\":true,\"prompt_eval_count\":30,\"eval_count\":5}\n"
         ]
       }
     ]

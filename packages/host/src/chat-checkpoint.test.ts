@@ -91,7 +91,7 @@ describe('failed daemon reply start', () => {
     saveSession(session);
     const events: AgentEvent[] = [];
     const call = vi.fn(async (channel: string) => {
-      if (channel === 'daemon:info') return { owned: ['loop:run', 'loop:unbounded'] };
+      if (channel === 'daemon:info') return { owned: ['loop:run', 'loop:unbounded', 'loop:prompt-caching'] };
       if (channel === 'loop:run') throw new Error('Synthetic daemon start failure');
       throw new Error(`Unexpected channel: ${channel}`);
     });
