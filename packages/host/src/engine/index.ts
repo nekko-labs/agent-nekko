@@ -59,6 +59,7 @@ export interface EngineDeps {
    */
   getGpuStatsFresh?: () => Promise<GpuStats | null>;
   settings: () => EngineSettings;
+  promptCaching?: () => boolean;
   /** Persist a settings change (port, TTL, key). */
   saveSettings: (patch: Partial<EngineSettings>) => Promise<EngineSettings>;
   onDownloadsChanged?: (jobs: DownloadJob[]) => void;
@@ -104,6 +105,7 @@ export function createEngine(deps: EngineDeps) {
 
   const server = createEngineServer({
     settings: deps.settings,
+    promptCaching: deps.promptCaching,
     binPath: async () => (await installer.detect()).binPath,
     diffusionBinPath: async () => (await diffusionInstaller.detect()).binPath,
     mlxBinPath: () => mlxRuntime.binPath(),

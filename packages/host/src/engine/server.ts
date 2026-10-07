@@ -67,6 +67,7 @@ interface Child {
   pid?: number;
   port: number;
   params: LoadParams;
+  promptCaching?: boolean;
   startedAt: number;
   lastUsedAt: number;
   log: string[];
@@ -96,6 +97,7 @@ process.once('exit', () => {
 
 export interface EngineServerDeps {
   settings: () => EngineSettings;
+  promptCaching?: () => boolean;
   /** Absolute path to `llama-server`, or undefined when none is installed. */
   binPath: () => Promise<string | undefined>;
   diffusionBinPath?: () => Promise<string | undefined>;
@@ -307,6 +309,8 @@ export function createEngineServer(deps: EngineServerDeps) {
         pid: c.pid,
         port: c.port,
         params,
+        // An adopted process's launch policy is unknown until explicitly reloaded.
+        promptCaching: undefined,
         startedAt: c.startedAt,
         lastUsedAt: c.lastUsedAt,
         log: [],
@@ -384,7 +388,7 @@ export function createEngineServer(deps: EngineServerDeps) {
     if (existing) {
       // A load with different settings is a reload, which is what the drawer's
       // "Reload with these settings" means.
-      if (sameParams(existing.params, params)) {
+      if (sameParams(existing.params, params) && existing.promptCaching === (deps.promptCaching?.() ?? true)) {
         existing.lastUsedAt = Date.now();
         // The TTL is residency policy, not load configuration: a new value
         // applies to the resident process rather than forcing a reload.
@@ -457,7 +461,7 @@ export function createEngineServer(deps: EngineServerDeps) {
         ? await diffusionArgs({ ...model, preset: { ...model.preset, ...params } }, port, deps.companionsDir?.(model.id), deps.imageCompanionsDir?.())
         : mlx
           ? mlxArgs(model, port, params, draftModel)
-          : buildArgs(model, port, { ...params, contextTokens: contextTokens ?? undefined }, { ...companions, draftModel }, await (deps.flagSupport ?? probeFlags)(bin));
+          : buildArgs(model, port, { ...params, contextTokens: contextTokens ?? undefined }, { ...companions, draftModel }, await (deps.flagSupport ?? probeFlags)(bin), deps.promptCaching?.() ?? true);
     } catch (e) {
       const message = (e as Error).message;
       lastLoadErrors.set(modelId, message);
@@ -528,6 +532,7 @@ export function createEngineServer(deps: EngineServerDeps) {
         pid: outcome.pid,
         port: outcome.port,
         params,
+        promptCaching: deps.promptCaching?.() ?? true,
         startedAt: Date.now(),
         lastUsedAt: Date.now(),
         log: [],
@@ -592,6 +597,7 @@ export function createEngineServer(deps: EngineServerDeps) {
           child,
           port: Number(port),
           params,
+          promptCaching: deps.promptCaching?.() ?? true,
           startedAt: Date.now(),
           lastUsedAt: Date.now(),
           log: childLog,
@@ -978,6 +984,7 @@ export function buildArgs(
   params: LoadParams,
   companions?: ModelCompanions,
   supports: FlagSupport = () => false,
+  promptCaching = true,
 ): string[] {
   const args = [
     '--model', model.path,
@@ -1032,7 +1039,9 @@ export function buildArgs(
   //
   // An edited prompt (a tool result replaced, a message trimmed) reuses the
   // cached chunks around the edit instead of re-reading from the change on.
-  if (supports('--cache-reuse')) args.push('--cache-reuse', '256');
+  if (supports('--cache-reuse')) args.push('--cache-reuse', promptCaching ? '256' : '0');
+  // RAM only. Never configure slot-save paths or disk prompt caches.
+  if (!promptCaching && supports('--cache-ram')) args.push('--cache-ram', '0');
   // llama.cpp copies every idle slot out to its RAM prompt cache when a new
   // request arrives. Keeping them in place instead cut the first turn of a
   // new chat from 2.3 s to 1.7 s and a revisit of an evicted chat from 1.7 s

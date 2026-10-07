@@ -56,7 +56,7 @@ async fn main() {
                 print!("{delta}");
                 let _ = std::io::stdout().flush();
             }
-            Ok(ProviderChunk::Usage { input_tokens, output_tokens, output_ms }) => {
+            Ok(ProviderChunk::Usage { input_tokens, output_tokens, output_ms, .. }) => {
                 let rate = output_ms.map(|ms| output_tokens as f64 * 1000.0 / ms as f64);
                 println!(
                     "\n\nusage: {input_tokens} in, {output_tokens} out, decode {output_ms:?} ms, {rate:.1?} tok/s"

@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
 import type { UsageRecord, UsageSummary } from '@agent-nekko/shared';
-import { DEFAULT_LOCAL_COST_BENCHMARK, estimateCost, estimateCostUSD, isLocalProvider } from '@agent-nekko/shared';
+import { DEFAULT_LOCAL_COST_BENCHMARK, estimateCost, isLocalProvider } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 import { dataDir } from './store.js';
 import { clearReplies, replyStats } from './replies.js';
@@ -43,38 +43,41 @@ export function usageSummary(): UsageSummary {
     // Subscription providers charge through the user's plan, not per API token.
     const provider = settings.providers.find((p) => p.id === r.providerId);
     const local = r.local ?? (provider ? isLocalProvider(provider.kind) : false);
-    const listCost = estimateCostUSD(r.modelId, r.inputTokens, r.outputTokens);
+    const tokens = { inputTokens: r.inputTokens, outputTokens: r.outputTokens, cacheReadTokens: r.cacheReadTokens, cacheWriteTokens: r.cacheWriteTokens };
+    const totalInput = r.inputTokens + (r.cacheReadTokens ?? 0) + (r.cacheWriteTokens ?? 0);
+    const listCost = estimateCost(r.modelId, tokens) ?? 0;
     const cost = local || r.auth === 'subscription' ? 0 : listCost;
     if (local || r.auth === 'subscription') {
-      const tokens = { inputTokens: r.inputTokens, outputTokens: r.outputTokens };
       const exact = estimateCost(r.modelId, tokens);
       const benchmark = local && exact == null ? estimateCost(settings.localCostBenchmark ?? DEFAULT_LOCAL_COST_BENCHMARK, tokens) : undefined;
       const equivalent = exact ?? benchmark;
       const buckets = [summary.avoidedCosts];
       if (r.sessionId) buckets.push(summary.bySessionAvoidedCosts[r.sessionId] ??= { subscription: 0, local: 0, unpricedTokens: 0, benchmarkTokens: 0 });
       for (const bucket of buckets) {
-        if (equivalent == null) bucket.unpricedTokens += r.inputTokens + r.outputTokens;
+        if (equivalent == null) bucket.unpricedTokens += totalInput + r.outputTokens;
         else bucket[local ? 'local' : 'subscription'] += equivalent;
-        if (benchmark != null) bucket.benchmarkTokens += r.inputTokens + r.outputTokens;
+        if (benchmark != null) bucket.benchmarkTokens += totalInput + r.outputTokens;
       }
     }
-    summary.totalInput += r.inputTokens;
+    summary.totalCacheRead = (summary.totalCacheRead ?? 0) + (r.cacheReadTokens ?? 0);
+    summary.totalCacheWrite = (summary.totalCacheWrite ?? 0) + (r.cacheWriteTokens ?? 0);
+    summary.totalInput += totalInput;
     summary.totalOutput += r.outputTokens;
     summary.totalCost += cost;
 
     const bm = (summary.byModel[r.modelId] ??= { input: 0, output: 0 });
-    bm.input += r.inputTokens;
+    bm.input += totalInput;
     bm.output += r.outputTokens;
     bm.cost = (bm.cost ?? 0) + cost;
     if (r.auth === 'subscription') bm.subscription = true;
 
     const bp = (summary.byProvider[r.providerId] ??= { input: 0, output: 0 });
-    bp.input += r.inputTokens;
+    bp.input += totalInput;
     bp.output += r.outputTokens;
 
     if (r.sessionId) {
       const bs = (summary.bySession[r.sessionId] ??= { input: 0, output: 0 });
-      bs.input += r.inputTokens;
+      bs.input += totalInput;
       bs.output += r.outputTokens;
       bs.cost = (bs.cost ?? 0) + cost;
       bs.listCost = (bs.listCost ?? 0) + listCost;
@@ -85,7 +88,7 @@ export function usageSummary(): UsageSummary {
 
     const day = new Date(r.ts).toISOString().slice(0, 10);
     const d = dailyMap.get(day) ?? { input: 0, output: 0, cost: 0 };
-    d.input += r.inputTokens;
+    d.input += totalInput;
     d.output += r.outputTokens;
     d.cost += cost;
     dailyMap.set(day, d);

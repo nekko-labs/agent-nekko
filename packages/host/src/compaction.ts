@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AgentEvent, ChatMessage, CompactionProgress, ProviderConfig, Session } from '@agent-nekko/shared';
 import { estimateTranscriptTokens, guessContextWindow, latestCompactionIndex } from '@agent-nekko/shared';
-import { createProvider } from '@agent-nekko/core';
+import { createHostProvider as createProvider } from './prompt-caching.js';
 import { getSettings } from './store.js';
 import { forkSession, getSession, saveSession } from './sessions.js';
 import { isChatRunning, offlineProviderAllowed } from './chat.js';
@@ -162,6 +162,8 @@ async function summarize(
             providerId: config.id,
             modelId: model,
             inputTokens: item.inputTokens,
+            cacheReadTokens: item.cacheReadTokens,
+            cacheWriteTokens: item.cacheWriteTokens,
             outputTokens: item.outputTokens,
             sessionId,
             auth: config.auth,

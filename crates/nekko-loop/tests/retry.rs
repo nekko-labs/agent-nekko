@@ -55,6 +55,7 @@ fn opts<'a>(history: &'a mut Vec<Value>, cancel: Cancel) -> RunOptions<'a> {
         temperature: None,
         effort: None,
         think: None,
+        prompt_caching: None,
         max_history_turns: None,
         max_output_tokens: None,
         resume: false,

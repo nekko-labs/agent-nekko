@@ -110,6 +110,8 @@ impl OllamaProvider {
                     let output_ms =
                         if eval_ns > 0.0 { Some(((eval_ns / 1e6).round() as u64).max(1)) } else { decode.elapsed() };
                     sink.emit(ProviderChunk::Usage {
+                        cache_read_tokens: None,
+                        cache_write_tokens: None,
                         input_tokens: msg.get("prompt_eval_count").and_then(Value::as_u64).unwrap_or(0),
                         output_tokens: msg.get("eval_count").and_then(Value::as_u64).unwrap_or(0),
                         output_ms,

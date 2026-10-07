@@ -13,6 +13,7 @@ const SETTINGS_PATH = () => join(dataDir(), 'settings.json');
 function defaults(): AppSettings {
   return {
     theme: 'system',
+    promptCaching: true,
     accent: DEFAULT_ACCENT,
     sandboxMode: 'workspace-jail',
     providers: [],

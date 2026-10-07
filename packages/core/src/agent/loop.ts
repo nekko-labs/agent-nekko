@@ -68,7 +68,7 @@ export interface RunAgentOptions {
   /** Pass response headers up to the host (rate-limit capture). */
   onHeaders?: (headers: Headers) => void;
   /** Route-aware metering for hosts using failover; usage events alone do not identify a route. */
-  onUsage?: (usage: { providerId: string; modelId: string; inputTokens: number; outputTokens: number }) => void;
+  onUsage?: (usage: { providerId: string; modelId: string; inputTokens: number; outputTokens: number; cacheReadTokens?: number; cacheWriteTokens?: number }) => void;
   /** CP6 foundation: host-authorized replacement after transient retries exhaust.
    * Absent by default. The host must enforce Auto opt-in/pool/privacy policy.
    * One replacement per run; no completed tool is re-executed by this hook.
@@ -237,12 +237,14 @@ export async function* runAgent(opts: RunAgentOptions): AsyncGenerator<AgentEven
             yield { type: 'tool_call', sessionId: opts.sessionId, call: chunk.call };
             break;
           case 'usage':
-            opts.onUsage?.({ providerId: route.provider.config.id, modelId: route.model, inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens });
+            opts.onUsage?.({ providerId: route.provider.config.id, modelId: route.model, inputTokens: chunk.inputTokens, outputTokens: chunk.outputTokens, cacheReadTokens: chunk.cacheReadTokens, cacheWriteTokens: chunk.cacheWriteTokens });
             yield {
               type: 'usage',
               sessionId: opts.sessionId,
               inputTokens: chunk.inputTokens,
               outputTokens: chunk.outputTokens,
+              cacheReadTokens: chunk.cacheReadTokens,
+              cacheWriteTokens: chunk.cacheWriteTokens,
               outputMs: chunk.outputMs,
             };
             break;

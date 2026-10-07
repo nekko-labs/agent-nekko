@@ -37,6 +37,14 @@
     "enabled": true,
     "apiKey": "engine-token"
   },
+  "managed": {
+    "id": "managed",
+    "kind": "llamacpp",
+    "label": "managed",
+    "baseUrl": "http://127.0.0.1:11500",
+    "enabled": true,
+    "managedCachePrompt": true
+  },
   "openai-compat": {
     "id": "openai-compat",
     "kind": "openai-compat",

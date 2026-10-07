@@ -1,4 +1,5 @@
 import { ContextMenu, ContextAction } from './ContextMenu.js';
+import { measuredUsageCost } from './ChatPane.cost.js';
 import { CopyIcon } from '../icons.js';
 import { needsProviderSetup } from './providers/providerSetup.js';
 import { SetupIllustration } from './providers/ProviderChoices.js';
@@ -927,7 +928,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           // the transcript, and that is most of what a long turn costs.
           // Measured numbers for the step that just finished, so the estimate
           // that stood in for it is dropped rather than added to.
-          turnCostRef.current += estimateCostUSD(modelForCostRef.current ?? undefined, e.inputTokens, e.outputTokens);
+          turnCostRef.current += measuredUsageCost(modelForCostRef.current ?? undefined, e);
           setTurnCostMeasured(turnCostRef.current);
           setPendingIn(0);
           setMarks((m) => ({ ...m, outMark: producedTokens(getLiveRun(sessionId)).output }));

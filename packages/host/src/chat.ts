@@ -4,7 +4,6 @@ import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, QueuedPrompt, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
 import { ASK_CANCELLED, ASK_UNATTENDED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho, queueItemPayload } from '@agent-nekko/shared';
 import {
-  createProvider,
   runAgent,
   buildSystemPrompt,
   assembleContext,
@@ -55,6 +54,7 @@ import { daemonOwns, daemonRunsLoops, runAgentViaDaemon } from './daemon-loop.js
 import { killSessionProcesses } from './processes.js';
 import { hasToolHooks, postToolHooks, preToolHooks, turnEndHooks } from './hooks.js';
 import { completeText } from './sideband.js';
+import { createHostProvider as createProvider, promptCachingForHost } from './prompt-caching.js';
 import { appendAgentTerminal, finishAgentTerminal } from './terminal.js';
 
 /**
@@ -181,7 +181,7 @@ async function titleSession(
       maxOutputTokens: 24,
       think: false,
       purpose: 'title',
-    });
+    }, 30_000, sessionId);
     const title = out
       .replace(/["'`]/g, '')
       .replace(/\s+/g, ' ')
@@ -210,8 +210,9 @@ async function titleSession(
  *
  * Same family as `titleSession`: a small sideband call on the provider and
  * model the reply itself ran on, tagged `purpose: 'suggest'` so it stays out of
- * turn accounting. It reads the persisted transcript, writes nothing, and a
- * model or network failure just means no suggestions rather than an error.
+ * turn accounting. It reads the persisted transcript without modifying it;
+ * successful usage is logged by completeText. A model or network failure just
+ * means no suggestions rather than an error.
  */
 export async function suggestReplies(sessionId: string): Promise<ReplySuggestions | null> {
   const session = getSession(sessionId);
@@ -274,7 +275,7 @@ export async function suggestReplies(sessionId: string): Promise<ReplySuggestion
       maxOutputTokens: 220,
       think: false,
       purpose: 'suggest',
-    });
+    }, 30_000, sessionId);
     return parseReplySuggestions(out);
   } catch {
     return null;
@@ -323,7 +324,7 @@ export async function fillPromptPart(sessionId: string, part: string, draft: str
       maxOutputTokens: 120,
       think: false,
       purpose: 'fill',
-    });
+    }, 30_000, sessionId);
     const cleaned = out
       .trim()
       .replace(/^["'`]+|["'`]+$/g, '')
@@ -1131,9 +1132,11 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             });
       };
 
+      let cacheUsage: { cacheReadTokens?: number; cacheWriteTokens?: number } = {};
       const runOptions = {
         sessionId: opts.sessionId,
-        provider: createProvider(resolvedProvider),
+        promptCaching: promptCachingForHost(),
+        provider: createProvider(resolvedProvider, (usage) => { cacheUsage = usage; }),
         model: opts.modelId,
         system,
         history: session.messages,
@@ -1174,7 +1177,8 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       // run (daemonRunsLoops): an older one would cap it.
       // NEKKO_AGENT_LOOP=ts keeps every run in this process (a kill switch).
       const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
-      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonRunsLoops(daemon));
+      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonRunsLoops(daemon)) &&
+        (await daemonOwns(daemon, 'loop:prompt-caching'));
       // On disk while the turn runs: a host that starts and finds it knows the
       // turn was cut off, and marks the reply so the chat offers Continue
       // (reconcileInterruptedChats).
@@ -1183,7 +1187,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       const source = viaDaemon
         ? runAgentViaDaemon(daemon, {
             ...runOptions,
-            provider: resolvedProvider,
+            provider: runOptions.provider.config,
             requestApproval,
             onRunId: (runId) => daemonRunIds.set(opts.sessionId, runId),
             // The built-in file and shell tools run in the daemon too.
@@ -1201,11 +1205,19 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       for await (const event of source) {
         eventsSeen = true;
         if (event.type === 'usage') {
+          // Older TS loops omit these fields even though their provider reports them.
+          if (!viaDaemon) {
+            event.cacheReadTokens ??= cacheUsage.cacheReadTokens;
+            event.cacheWriteTokens ??= cacheUsage.cacheWriteTokens;
+            cacheUsage = {};
+          }
           recordUsage({
             ts: Date.now(),
             providerId: opts.providerId,
             modelId: opts.modelId,
             inputTokens: event.inputTokens,
+            cacheReadTokens: event.cacheReadTokens,
+            cacheWriteTokens: event.cacheWriteTokens,
             outputTokens: event.outputTokens,
             sessionId: opts.sessionId,
             auth: provider.auth,
