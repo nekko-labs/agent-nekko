@@ -112,7 +112,7 @@ import { readFile, writeFile, listDir } from './files.js';
 import { getGitStatus } from './git.js';
 import { listChanges, acceptChange, acceptAllChanges, notifyChanges, setChangeNotifier } from './changes.js';
 import { listSessionPrs, getPrDiff, prAction, fetchPrInfo } from './pr.js';
-import { configureAgentWatches } from './agent-watches.js';
+import { configureAgentWatches, nextAgentWatchAt } from './agent-watches.js';
 import { listComments, addComment, resolveComment } from './comments.js';
 import {
   getDesignBoard,
@@ -321,6 +321,7 @@ export interface Host {
   getSystemStats(): Promise<SystemStats | null>;
 
   listSessions(): Session[];
+  nextAgentWatchAt(sessionId: string): number | null;
   /** Every chat without its transcript, from a cache that re-reads only changed files. */
   listSessionSummaries(): Promise<SessionSummary[]>;
   createSession(workspaceId?: string): Session;
@@ -858,6 +859,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     getSystemStats: () => getSystemStats(),
 
     listSessions: sessions.listSessions,
+    nextAgentWatchAt: (id) => nextAgentWatchAt(id),
     listSessionSummaries: sessions.listSessionSummaries,
     createSession: sessions.createSession,
     getSession: sessions.getSession,

@@ -39,23 +39,12 @@
 }
 .command-wall-action:hover, .command-wall-action[aria-pressed="true"] { color: var(--accent); background: var(--surface-2); }
 .command-wall-action:focus-visible, .command-wall-add:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.command-wall-add-tile {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  border: 1px dashed var(--line);
-  border-radius: var(--pane-radius);
-  overflow: hidden;
-  min-width: 0;
-}
 .command-wall-add {
-  position: relative;
-  width: 100%;
-  flex: 1;
-  min-height: 64px;
+  position: absolute;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px dashed var(--line);
   border-radius: var(--pane-radius);
   background: transparent;
   color: var(--ink-faint);
@@ -79,7 +68,22 @@
   .command-wall-layout .animate-pulse { animation: none; }
 }
 
-.command-wall-add { flex-direction: column; gap: 8px; }
+.command-wall-add-zone { position: absolute; inset: 0; pointer-events: none; }
+.command-wall-add-zone > * { pointer-events: auto; }
+.command-wall-add:not([data-preview]) { opacity: 0; pointer-events: none; animation: none; visibility: hidden; }
+.command-wall-add[data-preview] { visibility: visible; }
+.command-wall-add[data-preview] { opacity: 1; }
+.command-wall-add-fill { height: 100%; }
+.command-wall-add > .command-wall-create { width: 100%; flex: 1; min-width: 0; }
+.command-wall-add-fill > span { pointer-events: none; }
+.command-wall-add { flex-direction: column; gap: 8px; background: var(--accent-soft); border-color: var(--accent); animation: wall-liquid-border 1800ms ease-in-out infinite; overflow: hidden; }
+.command-wall-add[data-solid] { animation: none; border-style: solid; border-radius: var(--pane-radius); background: var(--surface); }
+.command-wall-add-fill { display: flex; flex: 1; width: 100%; min-height: inherit; align-items: center; justify-content: center; flex-direction: column; gap: 8px; padding: 12px; }
+.command-wall-add-rail { position: absolute; display: grid; place-items: center; border: 1px dashed var(--line); border-radius: 12px; background: var(--surface); color: var(--ink-faint); font-size: 20px; transition: background 260ms ease, border-color 260ms ease; }
+.command-wall-add-rail:hover, .command-wall-add-rail:focus-visible { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.command-wall-add-rail:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+@keyframes wall-liquid-border { 0%, 100% { border-radius: 22px 34px 24px 30px; } 50% { border-radius: 34px 20px 32px 22px; } }
+@media (prefers-reduced-motion: reduce) { .command-wall-add { animation: none; } .command-wall-add-rail { transition: none; } }
 .command-wall-add-icon { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:var(--accent-soft); color:var(--accent); font-size:24px; }
 .command-wall-companion > header { display:flex; gap:8px; justify-content:space-between; background:var(--surface); }
 .command-wall-companion > header span { overflow:hidden; text-overflow:ellipsis; }
@@ -111,14 +115,8 @@
   .command-wall-content[data-focus-chat] .command-wall-primary, .command-wall-content[data-focus-chat] .command-wall-companions { transition: none; transform: none; }
 }
 
-/* Creation grows the Add tile; existing windows retain their coordinates. */
-.command-wall-add-tile[data-expanded] { background: var(--surface); }
-.command-wall-add-tile[data-expanded] > .command-wall-add { flex: none; height: 64px; flex-direction: row; border-bottom: 1px solid var(--line); border-radius: 0; }
-.command-wall-create { min-width: 0; width: 100%; }
-.command-wall-create .agent-window-picker { border: 0; border-radius: 0; box-shadow: none; container-type: inline-size; }
-@container (max-width: 600px) {
-  .command-wall-create .agent-window-picker__options, .command-wall-create .agent-window-picker__columns { grid-template-columns: minmax(0, 1fr); }
-}
+/* Creation occupies the reserved insertion slot rather than covering chats. */
+.command-wall-pane-stage { transition: top 260ms ease; }
 .command-wall-create { animation: wall-create-reveal 260ms ease both; }
 @keyframes wall-create-reveal {
   from { opacity: 0; transform: translateY(16px); }
@@ -138,4 +136,13 @@
   .wall-agent-workspace[data-tabs='left'] { flex-direction: column; }
   .wall-agent-workspace[data-tabs='left'] > .wall-focus-agents { flex-direction: row; width: 100%; overflow-x: auto; overflow-y: hidden; }
   .wall-agent-workspace[data-tabs='left'] .wall-focus-agent { width: auto; }
+}
+
+/* Keep creation details nested inside the reserved, solid Add slot. */
+.command-wall-add-tile { gap: 0; justify-content: flex-start; }
+.command-wall-add-heading { display: flex; align-items: center; flex: none; width: 100%; height: 64px; padding: 0 16px; font-weight: 600; border-bottom: 1px solid var(--line); }
+.command-wall-add-tile > .command-wall-create { flex: none; min-width: 0; width: 100%; }
+.command-wall-create .agent-window-picker { border: 0; border-radius: 0; box-shadow: none; container-type: inline-size; }
+@container (max-width: 600px) {
+  .command-wall-create .agent-window-picker__options, .command-wall-create .agent-window-picker__columns { grid-template-columns: minmax(0, 1fr); }
 }
