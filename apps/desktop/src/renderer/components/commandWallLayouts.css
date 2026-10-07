@@ -39,12 +39,23 @@
 }
 .command-wall-action:hover, .command-wall-action[aria-pressed="true"] { color: var(--accent); background: var(--surface-2); }
 .command-wall-action:focus-visible, .command-wall-add:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.command-wall-add {
+.command-wall-add-tile {
   position: absolute;
+  display: flex;
+  flex-direction: column;
+  border: 1px dashed var(--line);
+  border-radius: var(--pane-radius);
+  overflow: hidden;
+  min-width: 0;
+}
+.command-wall-add {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px dashed var(--line);
   border-radius: var(--pane-radius);
   background: transparent;
   color: var(--ink-faint);
@@ -100,8 +111,14 @@
   .command-wall-content[data-focus-chat] .command-wall-primary, .command-wall-content[data-focus-chat] .command-wall-companions { transition: none; transform: none; }
 }
 
-/* Inline creation pushes windows down rather than covering them with a menu. */
-.command-wall-pane-stage { transition: top 260ms ease; }
+/* Creation grows the Add tile; existing windows retain their coordinates. */
+.command-wall-add-tile[data-expanded] { background: var(--surface); }
+.command-wall-add-tile[data-expanded] > .command-wall-add { flex: none; height: 64px; flex-direction: row; border-bottom: 1px solid var(--line); border-radius: 0; }
+.command-wall-create { min-width: 0; width: 100%; }
+.command-wall-create .agent-window-picker { border: 0; border-radius: 0; box-shadow: none; container-type: inline-size; }
+@container (max-width: 600px) {
+  .command-wall-create .agent-window-picker__options, .command-wall-create .agent-window-picker__columns { grid-template-columns: minmax(0, 1fr); }
+}
 .command-wall-create { animation: wall-create-reveal 260ms ease both; }
 @keyframes wall-create-reveal {
   from { opacity: 0; transform: translateY(16px); }

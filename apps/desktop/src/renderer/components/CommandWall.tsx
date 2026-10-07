@@ -161,7 +161,7 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     return { panes, deck, hero, height: stageHeight + gap + cellHeight, add: { x: 0, y: stageHeight + gap, width: cellWidth, height: cellHeight }, addGrid, grid, stageHeight };
   }
   // Focus keeps other bodies warm but selects them through the row above the hero.
-  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: deckPanes.length * 248, y: contentHeight + gap, width: deck.size ? 240 : Math.min(width, Math.max(280, width / 3)), height: deckHeight }, addGrid, grid, stageHeight };
+  return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: 0, y: contentHeight + gap, width: Math.min(width, Math.max(280, width / 3)), height: 240 }, addGrid, grid, stageHeight };
 }
 
 /** Stable keyed windows across layouts keep transcripts, terminals and drafts warm. */
@@ -500,13 +500,15 @@ export function CommandWall({
   return (
     <div ref={wrapRef} className="command-wall-layout" data-command-wall="windows" data-wall-layout={state.layout.mode}>
       {companionNotice && <div className="command-wall-notice" role="status">A companion opened in a narrow window. <button onClick={() => { focusWindow(companionNotice); setCompanionNotice(null); }}>Focus {titleOf(companionNotice)}</button><button aria-label="Dismiss companion notice" onClick={() => setCompanionNotice(null)}>×</button></div>}
-      <div className="command-wall-stage" style={{ height: geometry.height + (addContent ? createHeight + 80 : 0), minWidth: state.layout.mode === 'focus' ? size.width : Math.max(size.width, geometry.add.x + geometry.add.width) }}>
-        <div className="command-wall-pane-stage" style={{ position: 'absolute', inset: 0, top: addContent ? createHeight + 80 : 0 }}>
+      <div className="command-wall-stage" style={{ height: addContent ? Math.max(geometry.height, geometry.add.y + Math.max(geometry.add.height, createHeight + 64)) : geometry.height, minWidth: state.layout.mode === 'focus' ? size.width : Math.max(size.width, geometry.add.x + geometry.add.width) }}>
+        <div className="command-wall-pane-stage" style={{ position: 'absolute', inset: 0 }}>
         {allPanes(state.root).map(renderLeaf)}
         {state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
         </div>
-        {(state.layout.mode !== 'focus' || addContent) && <button className="command-wall-add" style={{ left: addContent ? 0 : geometry.add.x, top: addContent ? 0 : geometry.add.y, width: addContent ? size.width : geometry.add.width, height: addContent ? 64 : geometry.add.height }} onClick={onAddWindow} aria-label="Add window" aria-expanded={!!addContent} aria-controls="wall-window-picker"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
-        {addContent && <div ref={createRef} id="wall-window-picker" className="command-wall-create" style={{ position: 'absolute', left: 0, top: 80, width: size.width }}>{addContent}</div>}
+        {(state.layout.mode !== 'focus' || addContent) && <section className="command-wall-add-tile" data-expanded={!!addContent || undefined} style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, minHeight: geometry.add.height }}>
+          <button className="command-wall-add" onClick={onAddWindow} aria-label="Add window" aria-expanded={!!addContent} aria-controls="wall-window-picker"><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>
+          {addContent && <div ref={createRef} id="wall-window-picker" className="command-wall-create">{addContent}</div>}
+        </section>}
         {!addContent && !filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : 'No windows on the wall yet. Add a window to get started.'}</div>}
       </div>
     </div>

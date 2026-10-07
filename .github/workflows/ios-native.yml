@@ -1,0 +1,37 @@
+name: Native iOS foundation
+on:
+  pull_request:
+    paths:
+      - 'apps/ios/**'
+      - '.github/workflows/ios-native.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/ios/**'
+      - '.github/workflows/ios-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  protocol-and-build:
+    runs-on: macos-14
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Foundation protocol
+        working-directory: apps/ios/Protocol
+        run: swift test
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate native project
+        working-directory: apps/ios
+        run: xcodegen generate
+      - name: Validate plist
+        run: plutil -lint apps/ios/Info.plist
+      - name: Build unsigned iOS Simulator app
+        working-directory: apps/ios
+        run: >-
+          xcodebuild -project NekkoNative.xcodeproj -scheme NekkoNative
+          -configuration Debug -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO build

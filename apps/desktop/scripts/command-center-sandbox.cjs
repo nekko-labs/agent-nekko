@@ -54,8 +54,10 @@ app.whenReady().then(async () => {
     await run('integration.failures.options=false'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()");
     await check('cleanup-failure retry does not duplicate', "!document.querySelector('.agent-window-picker') && integration.calls.filter(c=>c.method==='create').length===1 && integration.state().sessions.filter(s=>s.id==='new-1').length===1");
     await click('Focus'); await check('Grid to Focus', "!!document.querySelector('[aria-label=\"Focus agents\"]')");
-    await click('Grid'); await check('Focus to Grid', "!document.querySelector('[aria-label=\"Focus agents\"]')");
+    await click('Grid'); await check('Focus to Grid', "document.querySelector('[data-wall-layout]').dataset.wallLayout==='grid'");
     await reset(); await open('Chat');
+    await check('creation details share the Add tile', "!!document.querySelector('.command-wall-add-tile #wall-window-picker')");
+    await check('creation does not offset pane stage', "document.querySelector('.command-wall-pane-stage').style.top===''");
     await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Fixture model')).click()"); await sleep(180); await click('Create chat');
     await check('chat model creation configures selected provider/model', "integration.calls.some(c=>c.method==='options'&&c.options.providerId==='fixture'&&c.options.modelId==='fixture-model'&&c.options.autoModel===false) && !document.querySelector('.agent-window-picker')");
     await reset(); await open('Terminal'); await click('Create terminal');

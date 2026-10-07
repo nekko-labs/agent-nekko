@@ -12,6 +12,25 @@ owner:
 
 ---
 
+## Native phone migration — iOS first (2026-10-07)
+
+Product decision: platform-native **SwiftUI iOS**, then **Kotlin / Jetpack Compose Android**. Expo in apps/mobile remains a reference and fallback during migration; do not delete it until native parity is verified. Native app code lives outside that Expo tree in apps/ios and later apps/android.
+
+### Ordered implementation and acceptance gates
+
+1. **Foundation (code implemented; build/runtime unverified):** SwiftUI shell, Foundation protocol package and tests, HTTPS-only direct-host chat reader, explicit Connect, device-only Keychain bearer, Disconnect/Forget. XcodeGen and macOS CI build/test workflow. No provider settings requests, insecure transport exceptions, or automatic connection on launch.
+2. **iOS validation (pending):** macOS Swift tests and unsigned simulator build; verify URLSession/Keychain, authenticated host integration, accessibility/Dynamic Type and matching light/dark iPhone/iPad evidence. New surface has no before state. Add simulator interaction tests and publish evidence before claiming release readiness.
+3. **Encrypted remote access (planned):** port PBKDF2/AES-GCM wire and relay v2 state machine from shared/mobile references; fixture parity tests; QR/paste pairing, one-time code consumption, Keychain identity, reconnect/revocation, multi-computer switching. No insecure direct-host fallback.
+4. **Chat operations (planned):** streaming events, transcript reconciliation after sleep, new chat/provider model/project choice, queue/stop, pending approvals/questions and exact risk payloads. Sending stays disabled until approvals and event lifecycle are proven.
+5. **On-device models (planned):** audited llama.cpp Swift bridge with Metal, memory-fit catalog, cancel/resume downloads with integrity validation, backup-excluded model storage, offline phone chat persistence, one loaded model and thermal/background handling. No remote fallback.
+6. **Distribution (planned):** signing/team and bundle ID confirmation, physical-device/security testing, privacy manifest review, notification permission after pairing, APNs credentials, TestFlight then App Store. Requires owner Apple account and macOS/device access.
+7. **Android (planned after iOS gates):** standalone Kotlin/Compose app, Keystore, matching protocol fixtures, lifecycle/approval parity, then local inference and Play distribution; preserve Expo Android until verified.
+
+### Wall creation placement
+
+- [x] Implemented: keep all new-chat details inside the Add to the wall tile in Grid/Fixed/Focus, including model choice, errors and existing-chat selection; existing pane coordinates must not shift.
+- [ ] Automated containment/creation/retry/Escape/Close/focus-return checks passed in isolated Electron fixtures; 26 wall tests pass. Wide/narrow light/dark before/after captures and motion recorded. Only one native after capture inspected so far; finish matched visual inspection and publish evidence.
+
 ## Part 1, Plan (how we build it)
 
 > The **technical plan**: how we build what [SPEC.md](SPEC.md) describes. Update this whenever the technical approach changes.
@@ -27,7 +46,7 @@ owner:
 - **Cloud**: `apps/cloud`, Fastify, multi-account, file-backed store (Postgres-swappable).
 - **CLI**: `apps/cli` (`agent-nekko`), ESM, Node 22 globals (`fetch`/`WebSocket`), no deps.
 - **Relay**: `apps/relay`, Fastify WS dumb pipe.
-- **Mobile**: `apps/mobile`, Expo (React Native, Expo Router, new architecture) with llama.rn for on-device models; standalone, not a root workspace (own `package-lock.json`). Types come from `@agent-nekko/shared` as type-only imports (tsconfig path, erased by Babel); runtime protocol code (E2E crypto via `@noble`, relay client) is reimplemented for Hermes and pinned to the shared implementation by tests. Native modules are allowed here (the "no native modules" rule is the desktop/engine's). Changed from Capacitor 2026-10-03, see Key Technical Decisions.
+- **Mobile migration**: platform-native SwiftUI in apps/ios first; Kotlin/Compose in apps/android planned next. Existing `apps/mobile`, Expo (React Native, Expo Router, new architecture) with llama.rn for on-device models; standalone, not a root workspace (own `package-lock.json`). Types come from `@agent-nekko/shared` as type-only imports (tsconfig path, erased by Babel); runtime protocol code (E2E crypto via `@noble`, relay client) is reimplemented for Hermes and pinned to the shared implementation by tests. Native modules are allowed here (the "no native modules" rule is the desktop/engine's). Changed from Capacitor 2026-10-03, see Key Technical Decisions.
 - **Website**: `apps/website`, static hand-crafted HTML/CSS/JS (no framework, GitHub Pages), download buttons → GitHub Releases.
 - **Storage**: JSON files under the app data dir; usage analytics as JSONL. **No native modules**, spawn `ripgrep`/git via child_process when available, with JS fallbacks.
 - **Engine daemon** (revised 2026-09-30 by Philip): **Rust**, a Cargo workspace at the repo root with crates under `crates/`. `nekkod` (binary: tokio + axum, the `/api` wire, supervision, strangler proxy), `nekko-term` (portable-pty sessions), `nekko-infer` (inference router and runtime adapters), `nekko-bench` (benchmark harness). Shipped as a standalone per-platform binary in the app's resources, never loaded into Node. The UI stays Electron + React (web technology, for maintainability); GPUI or another native shell is deferred (see Backlog).

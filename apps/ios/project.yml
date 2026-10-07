@@ -1,0 +1,35 @@
+name: NekkoNative
+options:
+  minimumXcodeGenVersion: 2.38.0
+  deploymentTarget:
+    iOS: "16.0"
+packages:
+  NekkoProtocol:
+    path: Protocol
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  NekkoNative:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    info:
+      path: Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.nekko.native.ios
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        GENERATE_INFOPLIST_FILE: NO
+    dependencies:
+      - package: NekkoProtocol
+schemes:
+  NekkoNative:
+    build:
+      targets:
+        NekkoNative: all

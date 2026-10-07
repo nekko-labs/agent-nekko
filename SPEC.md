@@ -275,6 +275,18 @@ The user opens **Settings → Remote access**, hits Enable (the managed relay is
 
 Security is layered: the local agent dials out to the relay (no inbound ports), every payload is end-to-end encrypted (the relay routes only ciphertext, so relayed local-model use is inherently zero-data-retention), and on top of the transport every device must pass a handshake against the machine's **device registry**: unknown devices are denied unless they present a live pairing code, each device can be **renamed or revoked** (revocation kicks it mid-connection), and **Rotate secret** is the cryptographic kill switch that unpairs everything. Remote access survives restarts; the agent reconnects on boot. Full guide: [docs/REMOTE.md](docs/REMOTE.md).
 
+### Native phone implementation decision (2026-10-07)
+
+**Target:** actual platform-specific apps: SwiftUI on iOS first, Kotlin/Jetpack Compose on Android second. The existing Expo/React Native app is a migration reference, not the target implementation. Preserve it until native parity is verified. The pocket-app behavior below remains the acceptance target, not a claim that the new SwiftUI app already supports it.
+
+**Foundation implemented, unverified on iOS:** apps/ios contains a SwiftUI read-only host client and a Foundation protocol/test package, XcodeGen app definition and macOS build/test workflow. The user explicitly connects to a user-configured HTTPS origin using a host bearer; system TLS trust and redirect rejection prevent silent insecure routing. Bearer is saved only in device-only Keychain, bound to its origin; no automatic connection on launch, no provider settings/API-key fetch or persistence. Disconnect clears in-memory connection/chat state; Forget also removes the saved bearer and origin. This limited direct-host development path does not implement or replace the end-to-end encrypted relay boundary. Sending, pairing, notifications and phone inference are unavailable and labeled as such.
+
+**Acceptance/release gates:** compile/tests on macOS, isolated simulator and real host/Keychain verification, native iPhone/iPad light/dark screenshots, VoiceOver/Dynamic Type/lifecycle tests and physical-device testing remain required. This Windows implementation is not marked shipped. Then implement relay crypto parity and pairing/revocation, streaming/reconciliation and exact approvals/questions before enabling send, and finally offline Metal inference and signed TestFlight distribution. Android follows using the same fixture-backed wire, not a web wrapper. See TASKS.md for ordered tasks and credential/device dependencies.
+
+### Wall new-chat details placement
+
+New-chat details belong **inside the same bordered Add to the wall box**, never in a full-width section above existing windows. Grid/Fixed retain the tile position and width while it grows vertically as needed; Focus exposes an equivalent tile below the hero when opened from the toolbar. Details, model choice, errors and existing sessions stay contained at narrow/wide widths and in both themes. Opening/closing must not change existing window coordinates or saved layout. Close/Escape and creation/retry retain existing behavior. Implementation and evidence status are recorded in TASKS.md.
+
 ### Your agent in your pocket (the iOS and Android app)
 
 `[in build 2026-10-03]` A native app for iPhone and Android with three tabs: **Chats**, **On this phone**, and **Computers**. It is built for one-handed check-ins rather than as a copy of the desktop.
