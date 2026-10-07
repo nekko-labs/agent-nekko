@@ -340,7 +340,11 @@ export function CommandCenterView() {
         setCompletedId(null);
       }} selectedId={completedId ?? selected} onOpenChat={(id) => {
         if (sessions.find((session) => session.id === id)?.archivedAt) setCompletedId(id);
-        else { void addFromToolbar('chat', id); selectAgent(id); }
+        else {
+          void addFromToolbar('chat', id);
+          selectAgent(id);
+          setWall((w) => ({ ...w, hero: id, layout: { ...w.layout, mode: 'focus' } }));
+        }
       }} onOpenTerminal={(id) => { setCompletedId(null); void addFromToolbar('terminal', id); }} />
       <div className="wall-column">
       {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && <>{composer}{composerSplit}</>}
@@ -369,7 +373,7 @@ export function CommandCenterView() {
           setAddOpen(false);
         }} /> : undefined}
       />}
-      {wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{composerSplit}{composer}</>}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{composerSplit}{composer}</>}
         </div>
       </div>
       </div>

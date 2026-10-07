@@ -572,7 +572,7 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
                 tone="var(--accent)"
                 icon={<ChatIcon className="h-4 w-4" />}
                 label="New image session"
-                onClick={() => { closeNewMenu(); void useStore.getState().newImageChat('').catch((e: Error) => useStore.getState().pushToast('error', e.message)); }}
+                onClick={() => { closeNewMenu(); void newImageChat().catch((e: Error) => useStore.getState().pushToast('error', e.message)); }}
               />
               <div className="flex items-center justify-between gap-2 px-2.5 pb-0.5 pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Terminal</p>

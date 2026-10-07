@@ -1,1 +1,108 @@
-const {app,BrowserWindow,session,screen}=require('electron');const fs=require('fs');const path=require('path');const out=process.env.NEKKO_INTEGRATION_OUT;const dir=path.join(out,process.env.SIDEBAR_BASE?'before':'after');fs.mkdirSync(dir,{recursive:true});app.setPath('userData',path.join(dir,'profile'));app.setPath('sessionData',path.join(dir,'profile'));const sleep=ms=>new Promise(r=>setTimeout(r,ms));app.whenReady().then(async()=>{session.defaultSession.webRequest.onBeforeRequest((d,cb)=>cb({cancel:! /^(file:|data:|blob:)/.test(d.url)}));const win=new BrowserWindow({width:1200,height:900,show:false,focusable:false,skipTaskbar:true,x:Math.min(...screen.getAllDisplays().map(d=>d.bounds.x))-1600,y:-1600,webPreferences:{contextIsolation:true,sandbox:true,backgroundThrottling:false}});win.webContents.on('console-message',e=>console.log('RENDERER',e.message));const run=s=>{console.log('RUN',s.slice(0,100));return win.webContents.executeJavaScript(s,true);};try{await win.loadFile(path.join(out,'index.html'));win.showInactive();await sleep(1000);for(const theme of ['light','dark'])for(const width of [1200,400]){win.setContentSize(width,900);await run('integration.reset()');await sleep(500);await run(`(()=>{document.documentElement.dataset.theme='${theme}'; const s=integration.records()[0]; s.archivedAt=Date.now(); s.id='completed'; s.title='Completed conversation'; const active={...s,id:'active',title:'Active conversation',archivedAt:undefined}; integration.records().push(active); integration.state().refreshSessions();})()`);await sleep(600);if(width===400&&!process.env.SIDEBAR_BASE){await run("document.querySelector('[aria-label=\"Open agent list\"]').click()");await sleep(200);}await run("document.querySelector('[data-completed-toggle]')?.click()");await sleep(300);fs.writeFileSync(path.join(dir,`agents-${theme}-${width}.png`),(await win.capturePage(undefined,{stayHidden:true})).toPNG());if(!process.env.SIDEBAR_BASE){if(!await run("!!document.querySelector('[data-completed-row=completed]')"))throw Error('Completed row missing');await run("document.querySelector('[data-completed-row=completed]').click()");await sleep(500);if(!await run("document.body.textContent.includes('Back to active agents')"))throw Error('Completed transcript did not open');fs.writeFileSync(path.join(dir,`completed-${theme}-${width}.png`),(await win.capturePage(undefined,{stayHidden:true})).toPNG());}if(!process.env.SIDEBAR_BASE){await run("[...document.querySelectorAll('button')].find(b=>b.textContent==='Back to active agents')?.click()");if(width===400)await run("document.querySelector('[aria-label=\"Open agent list\"]').click()");await run("[...document.querySelectorAll('div[role=button]')].find(e=>e.getAttribute('title')?.includes('Active conversation')).click()");await sleep(400);if(!await run("integration.state().view==='command' && !!document.querySelector('[data-command-wall]')"))throw Error('Active selection leaves Agents');await run("document.querySelector('[title=\"New agent with a terminal\"]').dispatchEvent(new FocusEvent('focusin',{bubbles:true}))");await sleep(200);await run("[...document.querySelectorAll('button')].find(b=>b.classList.contains('create-row-hero')).click()");await sleep(600);if(!await run("integration.calls.some(c=>c.method==='create') && integration.state().view==='command'"))throw Error('Creation leaves Agents');}await run("integration.route('workspace')");await sleep(500);fs.writeFileSync(path.join(dir,`chat-${theme}-${width}.png`),(await win.capturePage(undefined,{stayHidden:true})).toPNG());if(!process.env.SIDEBAR_BASE&&await run("!!document.querySelector('[data-sidebar-group]')"))throw Error('Chat still has list');}console.log('Sidebar checks passed; evidence: '+dir);}catch(e){console.error(e);process.exitCode=1;}finally{win.destroy();app.exit(process.exitCode||0);}});
+// Synthetic sidebar regression/evidence fixture; never connects to the user's host.
+const { app, BrowserWindow, session, screen } = require('electron');
+const fs = require('node:fs');
+const path = require('node:path');
+const out = process.env.NEKKO_INTEGRATION_OUT;
+if (!out) throw Error('Launch through agent-sidebar-integration.cjs');
+const base = !!process.env.NEKKO_TEST_REVISION;
+const dir = path.join(out, base ? 'before' : 'after');
+fs.mkdirSync(dir, { recursive: true });
+app.setPath('userData', path.join(dir, 'profile'));
+app.setPath('sessionData', path.join(dir, 'profile'));
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+app.whenReady().then(async () => {
+  session.defaultSession.webRequest.onBeforeRequest((request, done) => done({ cancel: !/^(file:|data:|blob:)/.test(request.url) }));
+  session.defaultSession.setPermissionRequestHandler((_contents, _permission, done) => done(false));
+  const win = new BrowserWindow({
+    width: 1200, height: 900, useContentSize: true, show: false, focusable: false, skipTaskbar: true,
+    x: Math.min(...screen.getAllDisplays().map(display => display.bounds.x)) - 1600, y: -1600,
+    title: 'Synthetic Agents sidebar verification',
+    webPreferences: { contextIsolation: true, sandbox: true, backgroundThrottling: false },
+  });
+  const report = { checks: [], errors: [], visuallyInspected: false };
+  win.on('focus', () => report.errors.push('Fixture took focus'));
+  const run = source => win.webContents.executeJavaScript(source, true);
+  const check = async (name, source) => {
+    await sleep(250);
+    if (!await run(source)) throw Error(name);
+    report.checks.push(name);
+  };
+  const capture = async name => {
+    await sleep(250);
+    fs.writeFileSync(path.join(dir, name + '.png'), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG());
+  };
+  const openList = async width => {
+    if (width < 768) { await run("document.querySelector('[aria-label=\"Open agent list\"]').click()"); await sleep(200); }
+  };
+  const openCreate = async () => {
+    await run("document.querySelector('[title=\"New agent with a terminal\"]').dispatchEvent(new FocusEvent('focusin', {bubbles:true}))");
+    await sleep(200);
+  };
+  const create = async (label, expected) => {
+    await openCreate();
+    await run(`[...document.querySelectorAll('.create-row')].find(button => button.textContent.includes(${JSON.stringify(label)})).click()`);
+    await check(`${label} stays in Agents`, "integration.state().view === 'command'");
+    await check(`${label} payload`, expected);
+  };
+  try {
+    await win.loadFile(path.join(out, 'index.html'));
+    // Mapped outside every monitor and non-focusable; no user's app/profile is used.
+    win.showInactive();
+    await sleep(800);
+    for (const theme of ['light', 'dark']) for (const width of [1200, 400]) {
+      win.setContentSize(width, 900);
+      await run('integration.reset()');
+      await sleep(500);
+      await run(`(() => {
+        document.documentElement.dataset.theme = '${theme}';
+        const completed = integration.records()[0];
+        Object.assign(completed, { archivedAt: Date.now(), id: 'completed', title: 'Completed conversation' });
+        integration.records().push({ ...completed, id: 'active', title: 'Active conversation', archivedAt: undefined });
+        integration.records().push({ ...completed, id: 'project-completed', title: 'Completed project conversation', workspaceId: 'finished-project' });
+        const state = integration.state();
+        state.settings.workspaces.push({ id: 'finished-project', name: 'Finished project', path: '/synthetic/finished' });
+        state.refreshSessions();
+      })()`);
+      await sleep(500);
+      if (!base) {
+        await openList(width);
+        await run("document.querySelectorAll('[data-completed-toggle]').forEach(button => button.click())");
+        await check('completed-only project remains reachable', "!!document.querySelector('[data-completed-row=project-completed]')");
+      }
+      await capture(`agents-${theme}-${width}`);
+      if (!base) {
+        await run("document.querySelector('[data-completed-row=completed]').click()");
+        await check('completed opens read-only reader', "document.body.textContent.includes('Back to active agents') && !document.querySelector('[data-wall-composer]')");
+        await capture(`completed-${theme}-${width}`);
+        await run("[...document.querySelectorAll('button')].find(button => button.textContent === 'Back to active agents').click()");
+        await openList(width);
+        await run("[...document.querySelectorAll('div[role=button]')].find(card => card.getAttribute('title')?.includes('Active conversation')).click()");
+        await check('active card focuses Agents chat', "integration.state().view === 'command' && document.querySelector('[data-wall-layout]')?.dataset.wallLayout === 'focus'");
+        await openList(width);
+        if (width >= 768) {
+          await run("document.querySelector('[aria-label=\"Resize the agent list\"]').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowRight', bubbles:true}))");
+          await check('keyboard resize persists', "localStorage.getItem('nekko.wsSidebarWidth') === '272'");
+        }
+        await create('New agent', "integration.calls.some(call => call.method === 'create')");
+        await create('New image session', "integration.calls.some(call => call.method === 'options' && call.options.chatType === 'image')");
+        await create('New terminal', "integration.calls.some(call => call.method === 'terminal') && integration.state().terminals.length === 1");
+        await run("[...document.querySelectorAll('div[role=button]')].find(card => card.getAttribute('title')?.includes('Active conversation')).dispatchEvent(new MouseEvent('contextmenu', {bubbles:true, clientX:60, clientY:100}))");
+        await check('existing card context actions retained', "document.body.textContent.includes('Mark as completed') && document.body.textContent.includes('Change model')");
+        await run("document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true}))");
+      }
+      await run("integration.route('workspace')");
+      await sleep(400);
+      await capture(`chat-${theme}-${width}`);
+      if (!base) await check('Chat no longer owns sidebar', "!document.querySelector('[data-sidebar-group]')");
+    }
+    if (report.errors.length || win.isFocused()) throw Error('Fixture focus invariant failed');
+    report.success = true;
+  } catch (error) {
+    report.errors.push(String(error)); report.success = false;
+  } finally {
+    fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify(report, null, 2));
+    console.log(JSON.stringify({ dir, ...report }, null, 2));
+    win.destroy(); app.exit(report.success ? 0 : 1);
+  }
+});
