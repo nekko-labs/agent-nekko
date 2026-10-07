@@ -33,10 +33,10 @@ app.whenReady().then(async () => {
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.webContents.capturePage()).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
     await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
-    await check('mounted full CommandCenterView', "document.body.textContent.includes('Command Center') && !!document.querySelector('[data-command-wall]')");
+    await check('mounted full CommandCenterView', "!!document.querySelector('[data-command-wall]') && !!document.querySelector('.command-wall-window')");
     const current = !process.env.NEKKO_TEST_REVISION;
     const scroll = async end => { await run(`document.querySelector('[data-transcript-scroll]').scrollTop=${end ? '1e7' : '0'}`); await sleep(400); };
-    const expand = async () => { await run("[...document.querySelectorAll('.command-wall-window button')].find(b=>b.textContent.includes('Worked on')).click()"); await sleep(250); await run("[...document.querySelectorAll('.command-wall-window li button')].filter(b=>b.textContent.includes('spawn_agent')).forEach(b=>b.click())"); await sleep(400); };
+    const expand = async () => { await run("[...document.querySelectorAll('.command-wall-window button')].find(b=>b.textContent.includes('Worked on')).click()"); await sleep(250); await run("[...document.querySelectorAll('.command-wall-window li button')].filter(b=>b.textContent.includes('Spawned subagent')).forEach(b=>b.click())"); await sleep(400); };
     for (const theme of ['light','dark']) {
       await run(`document.documentElement.dataset.theme='${theme}'`);
       for (const [width,label] of [[1200,'desktop'],[400,'narrow']]) {
@@ -45,9 +45,9 @@ app.whenReady().then(async () => {
         if(current) await check('collapsed subagent cue '+theme+label,"document.querySelector('.command-wall-window').textContent.includes('3 subagents')");
         await expand(); await scroll(true); await capture(`expanded-${theme}-${label}`);
         if(current) {
-          await check('completed/error/missing results '+theme+label,"['From subagent','Subagent failed','No subagent result recorded','All integration checks passed.'].every(t=>document.querySelector('.command-wall-window').textContent.includes(t))");
+          await check('completed/error/missing results '+theme+label,"['Result','Subagent failed','No subagent result recorded','All integration checks passed.'].every(t=>document.querySelector('.command-wall-window').textContent.includes(t))");
           await scroll(false); await scroll(true);
-          await check('expanded state survives virtualization '+theme+label,"document.querySelector('.command-wall-window').textContent.includes('From subagent')");
+          await check('expanded state survives virtualization '+theme+label,"document.querySelector('.command-wall-window').textContent.includes('All integration checks passed.')");
         }
       }
     }
@@ -58,6 +58,20 @@ app.whenReady().then(async () => {
       await check('watch and ordinary messages coexist',"document.querySelector('.command-wall-window').textContent.includes('automated wake-up') && document.querySelector('.command-wall-window').textContent.includes('Please check the integration')");
       await check('ordinary message controls remain',"!!document.querySelector('.command-wall-window button[title=\"Copy prompt\"]')");
     }
+    await run('window.integration.clean()'); await sleep(350); await click('Focus');
+    await run('window.integration.wake(Date.now()+120000)');
+    await check('sleeping deadline appears', "document.body.textContent.includes('Sleeping · will check in')");
+    await run("window.integration.inbox('Reply while sleeping')");
+    await check('reply can be sent while sleeping', "window.integration.calls.some(c=>c.method==='send' && c.input.text==='Reply while sleeping')");
+    await run('window.integration.wake(null)');
+    await check('cancelled watch clears sleeping status', "!document.body.textContent.includes('Sleeping · will check in')");
+    await run('window.integration.clean()'); await sleep(350); await click('Focus');
+    await run("window.integration.failures.send=true; window.integration.inbox('Request that fails')");
+    await check('failed request is visible', "document.querySelector('.command-wall-window')?.textContent.includes('Synthetic request failure')");
+    await run('window.integration.failures.send=false');
+    await click('Continue');
+    await check('retry sends after failed request', "window.integration.calls.some(c=>c.method==='send' && c.input.resume===true)");
+    await run('window.integration.restore()'); await sleep(350); await click('Focus'); await scroll(true);
     const motion=path.join(runDir,'motion');fs.mkdirSync(motion);
     for(let frame=0;frame<16;frame++){
       if(frame===3) await expand();

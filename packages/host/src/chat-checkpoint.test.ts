@@ -18,6 +18,8 @@ import type { Provider, ProviderChunk } from '@agent-nekko/core';
 /** Rounds of chunks the fake model returns, one per call; a thrown round breaks the stream. */
 let rounds: Array<ProviderChunk[] | Error> = [];
 let round = 0;
+const daemonCall = vi.hoisted(() => vi.fn<() => unknown>(() => undefined));
+vi.mock('./engine/daemon.js', async () => ({ ...(await vi.importActual<typeof import('./engine/daemon.js')>('./engine/daemon.js')), daemonCall }));
 
 vi.mock('@agent-nekko/core', async () => {
   const actual = await vi.importActual<typeof import('@agent-nekko/core')>('@agent-nekko/core');
@@ -39,7 +41,7 @@ vi.mock('@agent-nekko/core', async () => {
 const { setDataDir } = await import('./paths.js');
 const { saveSettings } = await import('./store.js');
 const { createSession, getSession, setSessionOptions, queuePrompt, saveSession } = await import('./sessions.js');
-const { sendChat } = await import('./chat.js');
+const { sendChat, getRunningSessionIds } = await import('./chat.js');
 
 let dir: string;
 let workspace: string;
@@ -55,6 +57,7 @@ beforeEach(() => {
   });
   rounds = [];
   round = 0;
+  daemonCall.mockReturnValue(undefined);
 });
 
 /**
@@ -80,6 +83,34 @@ async function run(session: Session, opts: { resume?: boolean; text?: string } =
   );
   return events;
 }
+
+describe('failed daemon reply start', () => {
+  it('clears the active reply gate and permits a fresh synthetic reply', async () => {
+    const session = createSession('w1');
+    session.titleAuto = false; // Keep sideband title generation from consuming the scripted reply.
+    saveSession(session);
+    const events: AgentEvent[] = [];
+    const call = vi.fn(async (channel: string) => {
+      if (channel === 'daemon:info') return { owned: ['loop:run', 'loop:unbounded'] };
+      if (channel === 'loop:run') throw new Error('Synthetic daemon start failure');
+      throw new Error(`Unexpected channel: ${channel}`);
+    });
+    daemonCall.mockReturnValue(call);
+    await sendChat({ sessionId: session.id, providerId: 'p1', modelId: 'm', text: 'first' }, (e) => events.push(e));
+    expect(events.at(-1)).toMatchObject({ type: 'error', message: 'Synthetic daemon start failure' });
+    expect(call).toHaveBeenCalledWith('loop:run', expect.any(Object));
+    expect(getRunningSessionIds()).not.toContain(session.id);
+    expect(getSession(session.id)?.activeRun).toBeUndefined();
+
+    daemonCall.mockReturnValue(undefined);
+    rounds = [[{ type: 'text', delta: 'Second reply succeeded' }, { type: 'done' }]];
+    const second: AgentEvent[] = [];
+    await sendChat({ sessionId: session.id, providerId: 'p1', modelId: 'm', text: 'second' }, (e) => second.push(e));
+    expect(second.some((e) => e.type === 'done')).toBe(true);
+    expect(getSession(session.id)?.messages.at(-1)?.content).toBe('Second reply succeeded');
+    expect(getRunningSessionIds()).not.toContain(session.id);
+  });
+});
 
 describe('a run that is cut off part-way', () => {
   it('has already written its finished steps to disk when it breaks', async () => {

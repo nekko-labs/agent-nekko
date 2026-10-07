@@ -211,6 +211,25 @@ async fn forwards_unported_channels_and_serves_owned_ones() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
+async fn authenticated_loop_run_http_body_exceeds_old_limit_without_truncation() {
+    let d = start(false);
+    // Invalid provider deliberately stops before a provider call. A 400 provider
+    // error proves the complete >2 MiB JSON body reached the loop route.
+    let args = json!([{ "runId": "large-http", "provider": null, "history": [{
+        "role": "user", "content": "image", "images": [format!("data:image/png;base64,{}", "A".repeat(2 * 1024 * 1024))]
+    }] }]);
+    let (status, body) = post(d.port, "loop:run", args.clone(), Some(TOKEN)).await;
+    assert_eq!(status, 400, "{body}");
+    assert!(body["error"].as_str().unwrap().starts_with("provider:"), "{body}");
+
+    let (status, _) = post(d.port, "loop:run", args.clone(), None).await;
+    assert_eq!(status, 401);
+    let (status, body) = post(d.port, "loop:tool", args, Some(TOKEN)).await;
+    assert_eq!(status, 413, "{body}");
+    assert_eq!(body["error"], "body too large");
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn refuses_missing_tokens_and_foreign_origins() {
     let d = start(false);
     let (status, _) = post(d.port, "daemon:info", json!([]), None).await;

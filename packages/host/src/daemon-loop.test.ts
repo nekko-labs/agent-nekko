@@ -139,6 +139,37 @@ describe('daemonRunsLoops', () => {
 });
 
 describe('loop:run payload', () => {
+  it('preserves inline images and the complete transcript above the old 2 MiB wire limit', async () => {
+    const { call, calls } = scriptedDaemon([]);
+    const image = `data:image/png;base64,${'A'.repeat(2 * 1024 * 1024)}`;
+    const history = [
+      { id: 'u1', role: 'user' as const, content: 'older image', images: [image], createdAt: 1 },
+      { id: 'a1', role: 'assistant' as const, content: 'seen', createdAt: 2 },
+      { id: 'u2', role: 'user' as const, content: 'latest', createdAt: 3 },
+    ];
+    for await (const _ of runAgentViaDaemon(call as never, {
+      sessionId: 's', provider: { id: 'p', kind: 'llamacpp', label: 'P', baseUrl: 'http://x', enabled: true } as never,
+      model: 'm', system: 'SYS', history, tools: [], maxHistoryTurns: 1,
+      executeTool: async (c: ToolCall) => ({ toolCallId: c.id, output: '' }),
+    })) { /* drain */ }
+    const spec = calls.find((c) => c.channel === 'loop:run')!.args[0] as Record<string, unknown>;
+    expect(Buffer.byteLength(JSON.stringify({ args: [spec] }))).toBeGreaterThan(2 * 1024 * 1024);
+    expect(spec.history).toEqual(history);
+    expect(spec.maxHistoryTurns).toBe(1);
+  });
+
+  it('rejects an oversized image payload before calling the daemon', async () => {
+    const { call, calls } = scriptedDaemon([]);
+    const history = [{ id: 'u1', role: 'user' as const, content: 'image', images: [`data:image/png;base64,${'A'.repeat(64 * 1024 * 1024)}`], createdAt: 1 }];
+    const run = runAgentViaDaemon(call as never, {
+      sessionId: 's', provider: { id: 'p', kind: 'llamacpp', label: 'P', baseUrl: 'http://x', enabled: true } as never,
+      model: 'm', system: 'SYS', history, tools: [],
+      executeTool: async (c: ToolCall) => ({ toolCallId: c.id, output: '' }),
+    });
+    await expect(run.next()).rejects.toThrow('exceeds the engine request limit');
+    expect(calls.some((c) => c.channel === 'loop:run')).toBe(false);
+  });
+
   it('carries no step budget', async () => {
     const { call, calls } = scriptedDaemon([]);
     for await (const _ of runAgentViaDaemon(call as never, {
