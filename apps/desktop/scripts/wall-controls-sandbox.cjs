@@ -33,7 +33,10 @@ app.whenReady().then(async () => {
   const image = async () => { await open('Media'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()"); await sleep(200); };
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
-    await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
+    await win.loadFile(path.join(out, 'index.html'));
+    // macOS can move resized mapped windows back onto a display; keep this fixture hidden.
+    if (process.platform !== 'darwin' || !process.env.NEKKO_GRID_BUGS) win.showInactive();
+    await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
     if (process.env.NEKKO_GRID_BUGS) {
@@ -42,9 +45,16 @@ app.whenReady().then(async () => {
         await sleep(100);
       };
       const assertFixed = !process.env.NEKKO_TEST_REVISION;
-      const hit = async selector => {
-        await run(`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({block:"nearest",inline:"nearest"})`); await sleep(100);
-        const point = await run(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)throw Error('Missing '+${JSON.stringify(selector)});const r=e.getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()`);
+      const hit = async target => {
+        const commands = {
+          grid: ["integration.pointerTarget('grid',true)","integration.pointerTarget('grid',false)"],
+          mode: ["integration.pointerTarget('mode',true)","integration.pointerTarget('mode',false)"],
+          ask: ["integration.pointerTarget('ask',true)","integration.pointerTarget('ask',false)"],
+          item: ["integration.pointerTarget('item',true)","integration.pointerTarget('item',false)"],
+        };
+        const command=commands[target];if(!command)throw Error('Unknown pointer target');
+        await run(command[0]); await sleep(100);
+        const point=await run(command[1]);
         if (!win.webContents.debugger.isAttached()) win.webContents.debugger.attach('1.3');
         await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mousePressed',button:'left',clickCount:1,...point});
         await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mouseReleased',button:'left',clickCount:1,...point});
@@ -64,13 +74,13 @@ app.whenReady().then(async () => {
         if(assertFixed && !sent) throw Error('Grid composer did not receive selected model');
         await run("sessionStorage.removeItem('fixture-record')"); await clearEditor(); await reset();
         await run(`document.documentElement.dataset.theme='${theme}'`);
-        await hit('[data-wall-composer] button[title="Run freely; ask/deny per guardrail rules."]');
+        await hit('grid');
         await capture(`grid-mode-${theme}-${label}`);
         const reachable = await run("(()=>{const e=document.querySelector('[role=menuitemradio]');if(!e)return false;const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))})()");
         report.checks.push({name:'Grid guardrails menu receives pointer '+theme+' '+label,passed:reachable});
         if(assertFixed && !reachable) throw Error('Grid mode menu clipped');
         if(reachable) {
-          await hit('[role=menuitemradio]');
+          await hit('item');
           await check('mode saves owning session',"integration.calls.some(c=>c.method==='options'&&c.id==='existing'&&c.options.mode==='ask')");
           if(assertFixed) await check('mode selection returns focus',"document.activeElement?.textContent.includes('Mode')");
         }
@@ -81,12 +91,12 @@ app.whenReady().then(async () => {
           await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
           await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
           await sleep(180);
-        } else await hit('button[title="Run freely; ask/deny per guardrail rules."]');
+        } else await hit('mode');
         await capture(`focus-mode-${theme}-${label}`);
         if(assertFixed) {
-          await hit('[role=menuitemradio]');
+          await hit('item');
           await check('Focus mode still saves',"integration.calls.some(c=>c.method==='options'&&c.id==='existing'&&c.options.mode==='ask')");
-          await hit('button[title="Confirm every file write and command."]');
+          await hit('ask');
           await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
           await check('Escape dismisses mode menu',"!document.querySelector('[aria-label=\"Chat mode\"]')");
         }
@@ -102,8 +112,8 @@ app.whenReady().then(async () => {
         report.checks.push({name:'fresh Grid '+kind+' sends selected model',passed:sent});
         if(assertFixed&&!sent)throw Error(kind+' model was not sent');
       }
-      report.background={focused:win.isFocused(),offscreen:win.getBounds().x+win.getBounds().width<=Math.min(...screen.getAllDisplays().map(d=>d.bounds.x))};
-      if(report.background.focused || !report.background.offscreen) throw Error('Background invariant failed');
+      report.background={hidden:!win.isVisible(),focused:win.isFocused(),offscreen:win.getBounds().x+win.getBounds().width<=Math.min(...screen.getAllDisplays().map(d=>d.bounds.x))};
+      if(report.background.focused || (!report.background.hidden && !report.background.offscreen)) throw Error('Background invariant failed');
       report.success=true; return;
     }
     if (process.env.NEKKO_WALL_REALTIME) {
