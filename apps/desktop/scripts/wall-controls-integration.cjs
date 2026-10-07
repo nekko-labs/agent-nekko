@@ -5,6 +5,7 @@ const cp = require('node:child_process');
 const repo = path.resolve(__dirname, '../../..');
 const modules = process.env.NEKKO_TEST_MODULES || path.join(repo, 'node_modules');
 const out = path.join(repo, '.shots/wall-controls-integration');
+if (process.argv.includes('--grid-bugs')) process.env.NEKKO_GRID_BUGS = '1';
 async function main() {
   fs.mkdirSync(out, { recursive: true });
   let entry = path.join(__dirname, 'wall-controls-fixture.tsx');

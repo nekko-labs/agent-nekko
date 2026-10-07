@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState, type ReactNode } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { ChatMode, McpServerStatus, Session } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { WrenchIcon, PlaneIcon, MaskIcon, PlugIcon, PlusIcon } from '../icons.js';
@@ -184,6 +185,29 @@ export function ChatControls({
   const [tools, setTools] = useState<Array<{ name: string; description: string }>>([]);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
+  const modeButton = useRef<HTMLButtonElement>(null);
+  const modeMenu = useRef<HTMLDivElement>(null);
+  const [modePosition, setModePosition] = useState<React.CSSProperties>({});
+  // Escape the Grid composer's scroll clipping, just like the model picker.
+  useLayoutEffect(() => {
+    if (!modeOpen) return;
+    const position = () => {
+      const anchor = modeButton.current?.getBoundingClientRect();
+      if (!anchor) return;
+      const above = Math.max(0, anchor.top - 16);
+      const below = Math.max(0, window.innerHeight - anchor.bottom - 16);
+      const width = Math.min(240, window.innerWidth - 16);
+      setModePosition({
+        width, left: Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8)),
+        maxHeight: Math.max(above, below),
+        ...(above >= below ? { bottom: window.innerHeight - anchor.top + 8 } : { top: anchor.bottom + 8 }),
+      });
+    };
+    position();
+    document.addEventListener('scroll', position, true);
+    window.addEventListener('resize', position);
+    return () => { document.removeEventListener('scroll', position, true); window.removeEventListener('resize', position); };
+  }, [modeOpen]);
   const [toolQuery, setToolQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
 
@@ -191,10 +215,10 @@ export function ChatControls({
   useEffect(() => afterPaint(() => { window.nekko.listTools().then(setTools); }), []);
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) { setToolsOpen(false); setModeOpen(false); }
+      if (ref.current && !ref.current.contains(e.target as Node) && !modeMenu.current?.contains(e.target as Node)) { setToolsOpen(false); setModeOpen(false); }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { setToolsOpen(false); setModeOpen(false); }
+      if (e.key === 'Escape') { setToolsOpen(false); setModeOpen(false); if (modeMenu.current) modeButton.current?.focus({ preventScroll: true }); }
     };
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onKey);
@@ -231,6 +255,7 @@ export function ChatControls({
       {/* Mode */}
       <div className="relative shrink-0">
         <button
+          ref={modeButton}
           className="ctl-menu whitespace-nowrap"
           onClick={() => { setModeOpen((o) => !o); setToolsOpen(false); }}
           aria-haspopup="menu"
@@ -241,21 +266,21 @@ export function ChatControls({
           {MODE_LABEL[mode]}
           <span className="ctl-caret">▾</span>
         </button>
-        {modeOpen && (
-          <div className="card absolute bottom-8 left-0 z-40 w-60 p-1.5 shadow-lg" role="menu">
+        {modeOpen && createPortal(
+          <div ref={modeMenu} style={modePosition} className="card fixed z-[100] overflow-y-auto p-1.5 shadow-lg" role="menu" aria-label="Chat mode">
             {(['ask', 'guardrails', 'yolo'] as ChatMode[]).map((m) => (
               <button
                 key={m}
                 role="menuitemradio"
                 aria-checked={mode === m}
                 className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2 ${mode === m ? 'text-accent' : ''}`}
-                onClick={() => { patch({ mode: m }); setModeOpen(false); }}
+                onClick={() => { patch({ mode: m }); setModeOpen(false); modeButton.current?.focus({ preventScroll: true }); }}
               >
                 <span className="text-[13px] font-medium">{MODE_LABEL[m]}</span>
                 <span className="text-[11px] text-ink-faint">{MODE_DESC[m]}</span>
               </button>
             ))}
-          </div>
+          </div>, document.body
         )}
       </div>
 

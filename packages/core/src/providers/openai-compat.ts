@@ -241,6 +241,7 @@ export class OpenAICompatProvider implements Provider {
       } catch {
         continue;
       }
+      if (chunk.error) throw new Error(`Model stream failed: ${extractApiError(JSON.stringify(chunk))}`);
       const choice = chunk.choices?.[0];
       const delta = choice?.delta;
       // Reasoning models (e.g. Gemma/DeepSeek on LM Studio) stream their chain

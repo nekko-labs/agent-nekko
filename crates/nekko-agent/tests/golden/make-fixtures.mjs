@@ -657,6 +657,11 @@ for (const request of ['cache-on', 'cache-off']) {
   streams.push({ name: 'ollama-' + request, provider: 'ollama', request, responses: [{ chunks: [nd({ done: true, prompt_eval_count: 30, eval_count: 5 })] }] });
 }
 
+streams.push(
+  { name: 'oa-stream-error', provider: 'openai-compat', responses: [{ chunks: ['data: {"error":{"message":"Model could not load"}}\r\n\r\n'] }] },
+  { name: 'ollama-stream-error', provider: 'ollama', responses: [{ chunks: ['{"error":"model does not support tools"}\n'] }] },
+);
+
 // ------------------------------------------------------------------- models
 
 const json = (value, status = 200) => ({ status, body: JSON.stringify(value) });
