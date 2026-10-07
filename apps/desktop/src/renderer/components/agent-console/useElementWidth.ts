@@ -24,15 +24,22 @@ export function useElementWidth(ref: React.RefObject<HTMLElement | null>, key?: 
     if (!el) return;
     // A pane kept mounted behind the scenes measures 0 while hidden; keep the
     // last real width rather than re-laying it out as "narrow" unseen.
-    const measure = () => {
-      const w = el.clientWidth;
+    const remember = (w: number) => {
       if (w <= 0) return;
       lastWidth = w;
       if (key) remembered.set(key, w);
       setWidth(w);
     };
-    if (!lastWidth) measure();
-    const ro = new ResizeObserver(measure);
+    if (!lastWidth) remember(el.clientWidth);
+    // ChatPane's root has no padding or border, so the delivered content width
+    // matches clientWidth. Avoid a layout read in observer delivery, where
+    // another observer may already have invalidated layout. Keep integer widths
+    // like clientWidth so fractional sizes don't change breakpoint decisions.
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === el) remember(Math.round(entry.contentRect.width));
+      }
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, [ref, key]);

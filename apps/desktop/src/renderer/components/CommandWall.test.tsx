@@ -221,6 +221,24 @@ describe('workspace companions and stable bodies', () => {
   });
 });
 
+describe('click-only wall insertion and composer framing', () => {
+  it('does not reserve a card on hover or focus', () => {
+    const source = readFileSync(new URL('./CommandWall.tsx', import.meta.url), 'utf8');
+    expect(source).not.toContain('addPreview');
+    expect(source).not.toContain('onMouseEnter');
+    expect(source).toContain('new Set(), !!addContent');
+    expect(source).toContain('data-preview={!!addContent || undefined}');
+    expect(source).toContain('onClick={onAddWindow}');
+  });
+  it('removes duplicate desktop branding and the outer composer fill', () => {
+    const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
+    const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+    expect(app).toContain('{!hasAppChrome && <div className="mb-3');
+    expect(css).toContain('.wall-composer { width: 75%; max-width: none; flex-shrink: 0; background: transparent; box-shadow: none; }');
+    expect(css).toContain('.send-avatar { margin-right: 4px; }');
+  });
+});
+
 describe('Command Center header spacing', () => {
   it('keeps a compact top inset without changing gutters or toolbar wrapping', () => {
     const source = readFileSync(new URL('../views/CommandCenterView.tsx', import.meta.url), 'utf8');

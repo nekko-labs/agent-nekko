@@ -1730,7 +1730,7 @@
 /* A tall composer must not collapse the transcript wall out of view. Short
    viewports scroll the column rather than allowing composer content to cover it. */
 .wall-column > .command-wall-layout { flex: 1 0 280px; }
-.wall-composer { width: 75%; max-width: none; flex-shrink: 0; background: var(--win); box-shadow: var(--shadow-md); }
+.wall-composer { width: 75%; max-width: none; flex-shrink: 0; background: transparent; box-shadow: none; }
 .command-wall-window > .panel { background: var(--win); }
 .command-wall-window[data-wall-selected] > .panel {
   --panel-ring-color: color-mix(in srgb, var(--accent) 75%, var(--line)) !important;
@@ -1791,3 +1791,6 @@
 .wall-composer .composer-editor-wrap { display: flex; flex-direction: column; flex: 1; min-height: 52px; }
 .wall-composer .composer > :not(.composer-editing-body), .wall-composer .composer-editing-body > :not(.composer-editor-wrap) { flex-shrink: 0; }
 .wall-layout-segments button { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Keep the send cat clear of the composer edge. */
+.send-avatar { margin-right: 4px; }
