@@ -190,6 +190,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.designGenerate]: ([wid, input]) => host.generateDesign(wid, input),
 
     [C.skillsInstalled]: () => host.listInstalledSkills(),
+    [C.skillsExternal]: ()=> host.listExternalSkills(),
     [C.skillsTargets]: () => host.skillTargets(),
     [C.skillInstall]: ([id, target, payload]) => host.installSkill(id, target, payload),
     [C.skillUninstall]: ([id, target]) => host.uninstallSkill(id, target),

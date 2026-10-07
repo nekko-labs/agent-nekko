@@ -85,8 +85,9 @@ import type {
   LocalModel,
   ModelFolder,
   ModelFolderReport,
+  SkillDef,
 } from '@agent-nekko/shared';
-import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload } from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload, SKILLS } from '@agent-nekko/shared';
 import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
 import { createEngine } from './engine/index.js';
@@ -124,7 +125,8 @@ import {
   resolveDesignNote,
   generateDesign,
 } from './design.js';
-import { listInstalledSkills, skillTargets, installSkill, uninstallSkill } from './skills.js';
+import { listInstalledSkills, skillTargets, installSkill, uninstallSkill, listInstalledSkillDefs } from './skills.js';
+import { discoverExternalSkills } from './external-skills.js';
 import { getVaizerCatalog, getVaizerSkillMd } from './vaizer.js';
 import {
   listTasks,
@@ -445,6 +447,7 @@ export interface Host {
 
   /** Skills marketplace installs. */
   listInstalledSkills(): InstalledSkillRecord[];
+  listExternalSkills(): SkillDef[];
   skillTargets(): InstallTargetInfo[];
   installSkill(
     skillId: string,
@@ -1024,6 +1027,12 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     resolveDesignNote,
     generateDesign,
     listInstalledSkills,
+    listExternalSkills: () =>
+      discoverExternalSkills({
+        projectRoots: getSettings().workspaces.map((w) => w.path),
+        exclude: listInstalledSkills().flatMap((r) => (r.path ? [r.path] : [])),
+        reserved: [...SKILLS, ...listInstalledSkillDefs()].map((s) => s.name),
+      }),
     skillTargets,
     installSkill,
     uninstallSkill,

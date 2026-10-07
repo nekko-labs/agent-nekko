@@ -199,6 +199,7 @@ export const IpcChannels = {
   designGenerate: 'design:generate',
 
   skillsInstalled: 'skills:installed',
+  skillsExternal: 'skills:external',
   skillsTargets: 'skills:targets',
   skillInstall: 'skill:install',
   skillUninstall: 'skill:uninstall',
@@ -682,6 +683,7 @@ export interface NekkoApi {
 
   /** Skills marketplace: what's installed, where installs can go, install/remove. */
   listInstalledSkills(): Promise<import('./skills-market.js').InstalledSkillRecord[]>;
+  listExternalSkills(): Promise<import('./skills.js').SkillDef[]>;
   skillTargets(): Promise<import('./skills-market.js').InstallTargetInfo[]>;
   installSkill(
     skillId: string,
