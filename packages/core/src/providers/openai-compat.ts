@@ -1,3 +1,4 @@
+import { cacheUsage, geminiCachePrefix, geminiExplicitCacheModel, type CacheCapableProviderConfig } from './prompt-caching.js';
 import { withToolImages } from './tool-images.js';
 import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
 import { effectiveEffort } from '@agent-nekko/shared';
@@ -12,7 +13,7 @@ import { DecodeClock } from './decode-clock.js';
  * differ in base URL and auth header, which come from the ProviderConfig.
  */
 export class OpenAICompatProvider implements Provider {
-  constructor(public readonly config: ProviderConfig) {}
+  constructor(public readonly config: CacheCapableProviderConfig) {}
 
   /**
    * Normalized API base. LM Studio / vLLM / generic servers expose the OpenAI
@@ -170,6 +171,10 @@ export class OpenAICompatProvider implements Provider {
         model: req.model,
         stream: true,
         stream_options: { include_usage: true },
+        ...(this.config.kind === 'llamacpp' && this.config.managedCachePrompt === true ? { cache_prompt: req.promptCaching !== false } : {}),
+        // OpenRouter Claude requires an opt-in directive, unlike implicit OpenAI caching.
+        ...(this.config.kind === 'openrouter' && /^~?anthropic\/claude-.+/.test(req.model) && req.promptCaching !== false
+          ? { cache_control: { type: 'ephemeral' } } : {}),
         ...(effortField ? {} : { temperature: req.temperature ?? 0.7 }),
         // Output cap: without it a looping local model streams until its
         // context window fills. `max_tokens` is honoured by every
@@ -185,6 +190,7 @@ export class OpenAICompatProvider implements Provider {
       const rung = effortField ? openAiEffort(req) : null;
       if (effortField === 'reasoning_effort' && rung) body.reasoning_effort = rung;
       if (effortField === 'reasoning' && rung) body.reasoning = { effort: rung };
+      if (this.config.kind === 'openrouter' && geminiExplicitCacheModel(req.model) && req.promptCaching !== false) geminiCachePrefix(body);
       applyLearned(body, learned);
       return body;
     };
@@ -265,7 +271,7 @@ export class OpenAICompatProvider implements Provider {
         decode.stop();
         yield {
           type: 'usage',
-          inputTokens: chunk.usage.prompt_tokens ?? 0,
+          ...cacheUsage(chunk.usage, 'prompt_tokens'),
           outputTokens: chunk.usage.completion_tokens ?? 0,
           outputMs: decode.elapsed(),
         };

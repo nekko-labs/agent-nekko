@@ -42,7 +42,7 @@ describe('runAgentViaDaemon', () => {
     const seen: Array<AgentEvent & { relayOnly?: boolean }> = [];
     for await (const e of runAgentViaDaemon(call as never, {
       sessionId: 's', provider: { id: 'p', kind: 'llamacpp', label: 'P', baseUrl: 'http://x', enabled: true } as never,
-      model: 'm', system: 'SYS', history, tools: [], executeTool,
+      model: 'm', system: 'SYS', history, tools: [], executeTool, promptCaching: false,
     })) {
       seen.push(e as AgentEvent & { relayOnly?: boolean });
       if (e.type === 'done') {
@@ -56,7 +56,7 @@ describe('runAgentViaDaemon', () => {
     expect(executeTool).toHaveBeenCalledWith({ id: 'c1', name: 'read_file', input: { path: 'a.ts' } });
     expect(history.map((m) => m.id)).toEqual(['u1', 'm1', 'm2', 'm3']);
     expect(order).toEqual(['consumer handled done', 'daemon saw done acknowledged']);
-    expect(calls[0]).toMatchObject({ channel: 'loop:run', args: [{ sessionId: 's', model: 'm', system: 'SYS' }] });
+    expect(calls[0]).toMatchObject({ channel: 'loop:run', args: [{ sessionId: 's', model: 'm', system: 'SYS', promptCaching: false }] });
   });
 
   it('asks the daemon to stop when the turn is aborted, and ends cleanly', async () => {

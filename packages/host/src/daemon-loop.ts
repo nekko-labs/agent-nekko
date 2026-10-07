@@ -113,6 +113,10 @@ export async function loopEvent(runId: string, payload: { events?: AgentEvent[];
   const run = runs.get(runId);
   if (!run) {
     const events = payload?.events ?? [];
+    // Orphan usage cannot safely be attributed from session settings: routing may
+    // have used another provider/model. The daemon currently sends only counters
+    // and sessionId, with no accounting identity or replay-safe usage-event ID.
+    // Preserve checkpoints, but do not guess billing metadata or double-count.
     adoptOrphan(events[0]?.sessionId, payload?.history, events.some((e) => e.type === 'done' || e.type === 'error'));
     return;
   }
@@ -158,6 +162,7 @@ export interface DaemonRunOptions {
   temperature?: number;
   effort?: EffortLevel;
   think?: boolean;
+  promptCaching?: boolean;
   maxHistoryTurns?: number;
   maxOutputTokens?: number;
   resume?: boolean;
@@ -227,6 +232,7 @@ export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): As
       temperature: opts.temperature,
       effort: opts.effort,
       think: opts.think,
+      promptCaching: opts.promptCaching ?? true,
       maxHistoryTurns: opts.maxHistoryTurns,
       maxOutputTokens: opts.maxOutputTokens,
       resume: opts.resume,

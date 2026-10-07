@@ -61,7 +61,7 @@ impl ToolRunner for Files {
 
 fn provider(wire: Arc<Wire>) -> ProviderClient {
     let config: ProviderConfig = serde_json::from_value(json!({
-        "id": "engine", "kind": "llamacpp", "label": "Engine", "baseUrl": "http://127.0.0.1:18555/v1", "enabled": true
+        "id": "engine", "kind": "llamacpp", "label": "Engine", "baseUrl": "http://127.0.0.1:18555/v1", "enabled": true, "managedCachePrompt": true
     }))
     .unwrap();
     ProviderClient::new(create_provider_with(config, Io { transport: wire, ..Io::default() }))
@@ -77,6 +77,7 @@ fn options<'a>(history: &'a mut Vec<Value>, cancel: Cancel) -> RunOptions<'a> {
         temperature: None,
         effort: None,
         think: None,
+        prompt_caching: None,
         max_history_turns: None,
         max_output_tokens: None,
         resume: false,
@@ -149,4 +150,32 @@ async fn stop_ends_a_silent_stream_at_once() {
     run_agent(options(&mut history, cancel), &provider(wire), &Files, &mut |e, _| events.push(e)).await;
     assert!(started.elapsed() < Duration::from_secs(3), "took {:?}", started.elapsed());
     assert_eq!(events.last().unwrap(), &json!({ "type": "error", "sessionId": "s1", "message": "Stopped" }));
+}
+
+#[tokio::test]
+async fn cache_policy_and_usage_survive_the_provider_loop_boundary() {
+    for policy in [None, Some(true), Some(false)] {
+        let wire = Arc::new(Wire {
+            replies: Mutex::new(VecDeque::from([(
+                vec![
+                    r#"{"choices":[{"delta":{"content":"answer"}}]}"#,
+                    r#"{"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":5,"prompt_tokens_details":{"cached_tokens":60,"cache_write_tokens":10}}}"#,
+                    "[DONE]",
+                ],
+                false,
+            )])),
+            sent: Mutex::default(),
+        });
+        let mut history = vec![json!({ "id": "u", "role": "user", "content": "hi", "createdAt": 1 })];
+        let mut opts = options(&mut history, Cancel::default());
+        opts.prompt_caching = policy;
+        let mut events = Vec::new();
+        run_agent(opts, &provider(wire.clone()), &Files, &mut |e, _| events.push(e)).await;
+        let usage = events.iter().find(|e| e["type"] == "usage").unwrap();
+        assert_eq!(usage["inputTokens"], 30);
+        assert_eq!(usage["cacheReadTokens"], 60);
+        assert_eq!(usage["cacheWriteTokens"], 10);
+        assert_eq!(usage["outputTokens"], 5);
+        assert_eq!(wire.sent.lock().unwrap()[0].body.as_ref().unwrap()["cache_prompt"], policy.unwrap_or(true));
+    }
 }

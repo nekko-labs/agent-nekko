@@ -163,11 +163,11 @@ export function estimateCost(
   const p = getModelPrice(modelId);
   if (!p) return undefined;
   let cost = (usage.inputTokens / 1e6) * p.input + (usage.outputTokens / 1e6) * p.output;
-  if (usage.cacheReadTokens && p.cacheRead) {
-    cost += (usage.cacheReadTokens / 1e6) * p.cacheRead;
+  if (usage.cacheReadTokens) {
+    cost += (usage.cacheReadTokens / 1e6) * (p.cacheRead ?? p.input);
   }
-  if (usage.cacheWriteTokens && p.cacheWrite) {
-    cost += (usage.cacheWriteTokens / 1e6) * p.cacheWrite;
+  if (usage.cacheWriteTokens) {
+    cost += (usage.cacheWriteTokens / 1e6) * (p.cacheWrite ?? p.input);
   }
   return cost;
 }

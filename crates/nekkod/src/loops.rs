@@ -138,6 +138,10 @@ fn native_tools(
     Some((names, ctx))
 }
 
+fn prompt_caching(spec: &Value) -> bool {
+    spec.get("promptCaching").and_then(Value::as_bool).unwrap_or(true)
+}
+
 fn opt_f64(v: &Value, key: &str) -> Option<f64> {
     v.get(key).and_then(Value::as_f64)
 }
@@ -270,6 +274,7 @@ impl Loops {
             temperature: opt_f64(spec, "temperature"),
             effort: str_of("effort"),
             think: spec.get("think").and_then(Value::as_bool),
+            prompt_caching: Some(prompt_caching(spec)),
             max_history_turns: opt_f64(spec, "maxHistoryTurns"),
             max_output_tokens: spec.get("maxOutputTokens").and_then(Value::as_u64),
             resume: spec.get("resume") == Some(&json!(true)),
@@ -320,6 +325,13 @@ impl Loops {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn caching_defaults_on_and_preserves_off() {
+        assert!(prompt_caching(&json!({})));
+        assert!(prompt_caching(&json!({ "promptCaching": true })));
+        assert!(!prompt_caching(&json!({ "promptCaching": false })));
+    }
 
     #[test]
     fn coalesces_runs_of_the_same_delta_kind_only() {

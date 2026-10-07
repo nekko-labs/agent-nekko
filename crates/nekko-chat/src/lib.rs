@@ -37,11 +37,15 @@ impl ChunkStream for ProviderStream {
             ProviderChunk::Text { delta } => Chunk::Text(delta),
             ProviderChunk::Reasoning { delta } => Chunk::Reasoning(delta),
             ProviderChunk::ToolCall { call } => Chunk::ToolCall(serde_json::to_value(call).unwrap_or(Value::Null)),
-            ProviderChunk::Usage { input_tokens, output_tokens, output_ms } => Chunk::Usage {
-                input_tokens: input_tokens as f64,
-                output_tokens: output_tokens as f64,
-                output_ms: output_ms.map(|ms| ms as f64),
-            },
+            ProviderChunk::Usage { input_tokens, cache_read_tokens, cache_write_tokens, output_tokens, output_ms } => {
+                Chunk::Usage {
+                    input_tokens: input_tokens as f64,
+                    cache_read_tokens: cache_read_tokens.map(|n| n as f64),
+                    cache_write_tokens: cache_write_tokens.map(|n| n as f64),
+                    output_tokens: output_tokens as f64,
+                    output_ms: output_ms.map(|ms| ms as f64),
+                }
+            }
             ProviderChunk::Done => Chunk::Done,
         }))
     }
@@ -78,6 +82,7 @@ impl ModelClient for ProviderClient {
             temperature: req.temperature,
             effort,
             think: req.think,
+            prompt_caching: Some(req.prompt_caching.unwrap_or(true)),
             max_output_tokens: req.max_output_tokens,
             signal: Some(signal),
             ..Default::default()

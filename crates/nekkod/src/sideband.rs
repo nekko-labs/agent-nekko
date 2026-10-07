@@ -20,16 +20,20 @@ pub async fn complete(spec: &Value) -> Result<Value, String> {
 async fn complete_with(spec: &Value, io: Io) -> Result<Value, String> {
     let config: ProviderConfig = serde_json::from_value(spec.get("provider").cloned().unwrap_or(Value::Null))
         .map_err(|e| format!("provider: {e}"))?;
-    let request: ChatRequest = serde_json::from_value(spec.get("request").cloned().unwrap_or(Value::Null))
+    let mut request: ChatRequest = serde_json::from_value(spec.get("request").cloned().unwrap_or(Value::Null))
         .map_err(|e| format!("request: {e}"))?;
+    request.prompt_caching = Some(request.prompt_caching.unwrap_or(true));
     let timeout = spec.get("timeoutMs").and_then(Value::as_u64).map_or(DEFAULT_TIMEOUT, Duration::from_millis);
     let provider = create_provider_with(config, io);
     let mut stream = provider.chat(request);
     let mut text = String::new();
+    // Keep every usage chunk, including zero counters, for host accounting.
+    let mut usage = Vec::new();
     let read = async {
         while let Some(chunk) = stream.next().await {
             match chunk {
                 Ok(ProviderChunk::Text { delta }) => text.push_str(&delta),
+                Ok(chunk @ ProviderChunk::Usage { .. }) => usage.push(serde_json::to_value(chunk).unwrap()),
                 Ok(ProviderChunk::Done) => break,
                 Ok(_) => {}
                 Err(e) => return Err(e.message),
@@ -37,12 +41,28 @@ async fn complete_with(spec: &Value, io: Io) -> Result<Value, String> {
         }
         Ok(())
     };
-    match tokio::time::timeout(timeout, read).await {
-        Ok(Ok(())) => Ok(json!({ "text": text })),
-        Ok(Err(e)) => Err(e),
-        // Dropping the stream closes the connection.
-        Err(_) => Err("The model took too long to answer.".into()),
+    let error = match tokio::time::timeout(timeout, read).await {
+        Ok(Ok(())) => None,
+        Ok(Err(e)) => Some(e),
+        // Dropping the stream closes the connection. Only already observed usage is available.
+        Err(_) => Some("The model took too long to answer.".into()),
+    };
+    // Opt-in v1 result contract: persist usage before throwing `error`. Legacy callers
+    // still receive the same RPC error, never a successful partial completion.
+    // This is best effort, not durable accounting across process/connection loss.
+    if let Some(error) = &error {
+        if spec.get("usageOnFailure").and_then(Value::as_bool) != Some(true) {
+            return Err(error.clone());
+        }
     }
+    let mut out = json!({ "text": if error.is_some() { String::new() } else { text } });
+    if !usage.is_empty() {
+        out["usage"] = json!(usage);
+    }
+    if let Some(error) = error {
+        out["error"] = json!(error);
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -60,6 +80,7 @@ mod tests {
             let hang = self.1;
             Box::pin(async move {
                 match next {
+                    Some(c) if c == b"data: transport-error\n\n" => Err(TransportError::new("stream failed")),
                     Some(c) => Ok(Some(c)),
                     None if hang => std::future::pending().await,
                     None => Ok(None),
@@ -129,6 +150,62 @@ mod tests {
         assert_eq!(body["model"], "gemma");
         assert_eq!(body["max_tokens"], 24);
         assert_eq!(body["messages"][0]["content"], "Name this chat");
+    }
+
+    #[tokio::test]
+    async fn title_caching_policy_and_usage_are_forwarded() {
+        for policy in [None, Some(true), Some(false)] {
+            let w = wire(
+                vec![
+                    r#"{"choices":[{"delta":{"content":"Title"}}]}"#,
+                    r#"{"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":5,"prompt_tokens_details":{"cached_tokens":60,"cache_write_tokens":10}}}"#,
+                    "[DONE]",
+                ],
+                200,
+                false,
+            );
+            let mut spec = spec(5000);
+            spec["provider"]["managedCachePrompt"] = json!(true);
+            if let Some(policy) = policy {
+                spec["request"]["promptCaching"] = json!(policy);
+            }
+            let out = complete_with(&spec, Io { transport: w.clone(), ..Io::default() }).await.unwrap();
+            assert_eq!(out["text"], "Title");
+            assert_eq!(out["usage"][0]["inputTokens"], 30);
+            assert_eq!(out["usage"][0]["cacheReadTokens"], 60);
+            assert_eq!(out["usage"][0]["cacheWriteTokens"], 10);
+            assert_eq!(w.sent.lock().unwrap()[0].body.as_ref().unwrap()["cache_prompt"], policy.unwrap_or(true));
+        }
+    }
+
+    #[tokio::test]
+    async fn opt_in_preserves_observed_usage_on_error_and_timeout() {
+        for hang in [false, true] {
+            let mut events = vec![
+                r#"{"choices":[{"delta":{"content":"Partial"}}]}"#,
+                r#"{"choices":[],"usage":{"prompt_tokens":100,"completion_tokens":0,"prompt_tokens_details":{"cached_tokens":60,"cache_write_tokens":10}}}"#,
+            ];
+            if !hang {
+                events.push("transport-error");
+            }
+            for opt_in in [false, true] {
+                let mut request = spec(50);
+                request["usageOnFailure"] = json!(opt_in);
+                let out =
+                    complete_with(&request, Io { transport: wire(events.clone(), 200, hang), ..Io::default() }).await;
+                if opt_in {
+                    let out = out.unwrap();
+                    assert_eq!(out["text"], "");
+                    assert_eq!(out["usage"][0]["inputTokens"], 30);
+                    assert_eq!(out["usage"][0]["outputTokens"], 0);
+                    assert_eq!(out["usage"][0]["cacheReadTokens"], 60);
+                    assert_eq!(out["usage"][0]["cacheWriteTokens"], 10);
+                    assert!(out["error"].as_str().is_some_and(|e| !e.is_empty()));
+                } else {
+                    assert!(out.is_err());
+                }
+            }
+        }
     }
 
     #[tokio::test]

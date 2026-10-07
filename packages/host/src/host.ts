@@ -90,6 +90,7 @@ import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLoca
 import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
 import { createEngine } from './engine/index.js';
+import { registerManagedCacheEndpoint } from './prompt-caching.js';
 import {
   createProvider,
   discoverLocalProviders,
@@ -647,6 +648,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     getGpuStatsFresh,
     getGpuAdapters: detectGpuAdapters,
     settings: () => ({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }),
+    promptCaching: () => getSettings().promptCaching !== false,
     saveSettings: async (patch) => {
       const next = { ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine, ...patch };
       saveSettings({ engine: next });
@@ -663,6 +665,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     externalBinPath: () => getSettings().engineBinPath || undefined,
   });
 
+  registerManagedCacheEndpoint(() => engine.isRunning() ? engineBaseUrl({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }) : undefined);
   ensureEngineProvider(engineBaseUrl({ ...DEFAULT_ENGINE_SETTINGS, ...getSettings().engine }));
   // A machine that already runs models through Ollama or LM Studio should show
   // them without anyone finding the folder screen first. Once only, and never
