@@ -51,6 +51,8 @@ export interface LiveRun {
   outputTokens: number;
   decodeMs: number;
   inputTokens: number;
+  /** Current call only: excludes prompt latency, tool waits and retry backoff. */
+  generation?: { chars: number; startedAt: number; lastAt: number };
   /** Milliseconds of reasoning, once a thought has been closed out by text. */
   reasoningMs: number;
   /** Set while reasoning is streaming, so the pane can show the thinking dot. */
@@ -204,12 +206,17 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
     next.text = prev.stepMark.text;
     next.reasoning = prev.stepMark.reasoning;
     next.reasoningStartedAt = 0;
+    next.generation = undefined;
     next.retrying = { attempt: event.attempt, maxAttempts: event.maxAttempts, delayMs: event.delayMs, reason: event.reason, at: now };
     runs.set(id, next);
     markDirty(id);
     return;
   }
   if (prev.retrying && (event.type === 'text' || event.type === 'reasoning' || event.type === 'tool_call')) next.retrying = undefined;
+  if ((event.type === 'text' || event.type === 'reasoning') && event.delta) {
+    const generation = prev.generation;
+    next.generation = { chars: (generation?.chars ?? 0) + event.delta.length, startedAt: generation?.startedAt ?? now, lastAt: now };
+  }
   const last = prev.blocks[prev.blocks.length - 1];
   if (event.type === 'text') {
     const block: LiveBlock = { kind: 'text', text: clampLive((last?.kind === 'text' ? last.text : '') + event.delta) };
@@ -240,6 +247,7 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
       next.reasoning = clampLive(prev.reasoning + event.delta);
       break;
     case 'tool_call':
+      next.generation = undefined;
       if (next.reasoningStartedAt) {
         next.reasoningMs += now - next.reasoningStartedAt;
         next.reasoningStartedAt = 0;
@@ -247,6 +255,7 @@ export function applyEvent(event: AgentEvent, now = Date.now()): void {
       next.tools = [...prev.tools, event.call];
       break;
     case 'usage':
+      next.generation = undefined;
       next.outputTokens = prev.outputTokens + event.outputTokens;
       next.inputTokens = prev.inputTokens + event.inputTokens;
       next.decodeMs = accumulateDecodeMs(prev.decodeMs, event.outputTokens, event.outputMs);

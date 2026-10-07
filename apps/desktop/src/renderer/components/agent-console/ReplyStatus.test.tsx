@@ -40,3 +40,9 @@ describe('reply measurements', () => {
     expect(html).toContain('— total tokens');
   });
 });
+
+it('labels provisional streaming rates as estimates', () => {
+  const html = renderToStaticMarkup(<ReplyStatus streaming status="Working" elapsed={2} tps={24} out={0} last={null} estimatedRate />);
+  expect(html).toContain('~24');
+  expect(html).toContain('Estimated tokens per second');
+});
