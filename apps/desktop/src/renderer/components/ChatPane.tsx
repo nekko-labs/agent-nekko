@@ -1606,7 +1606,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   const skillMatches = slashQuery !== null && !slashQuery.includes(' ') ? matchSkills(slashQuery, installedSkillDefs) : [];
   // Every skill this chat can run, in the same order `/` offers them (built-ins
   // plus installed, highlighted first). The + menu lists these.
-  const allSkills = matchSkills('', installedSkillDefs);
+  const allSkills = useMemo(() => matchSkills('', installedSkillDefs), [installedSkillDefs]);
   const slashMenuOpen = !menuClosed && (skillMatches.length > 0 || slashMatches.length > 0);
 
   const atQuery = (draft.match(/(?:^|\s)@([^\s@]*)$/) ?? [])[1] ?? null;
