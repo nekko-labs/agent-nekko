@@ -48,6 +48,43 @@ app.whenReady().then(async () => {
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_LAYOUT_FIXES) {
+      await win.loadFile(path.join(out, 'index.html'), {search:'multi'}); await sleep(900);
+      const fixed = !process.env.NEKKO_TEST_REVISION;
+      for (const theme of ['light','dark']) for (const width of [1200,400]) {
+        win.setContentSize(width,900); await reset(); await run(`document.documentElement.dataset.theme='${theme}'`); await sleep(500);
+        await capture(`layout-${theme}-${width}-rest`);
+        if (fixed) {
+          await check('no counts subtitle', "!document.body.textContent.includes('on the wall')");
+          await check('Agents shares brand row', "!!document.querySelector('.titlebar h1') && !document.querySelector('[data-command-wall]').closest('main').querySelector('h1:not(.titlebar h1)')");
+          await check('handle follows composer width', "(()=>{const c=document.querySelector('[data-wall-composer]').getBoundingClientRect(),s=document.querySelector('.wall-composer-split').getBoundingClientRect();return Math.abs(c.width-s.width)<3 && Math.abs(c.top-s.bottom)<5})()");
+          for (const edge of ['left','right']) {
+            const before=await run("document.querySelector('[data-wall-composer]').offsetWidth");
+            await run(`document.querySelector('.wall-composer-side[data-edge="${edge}"]').dispatchEvent(new KeyboardEvent('keydown',{key:'${edge==='left'?'ArrowRight':'ArrowLeft'}',bubbles:true}))`);
+            await check('side keyboard shrinks '+edge, `document.querySelector('[data-wall-composer]').offsetWidth < ${before}`);
+            await run(`document.querySelector('.wall-composer-side[data-edge="${edge}"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))`);
+          }
+          const pointerWidth = await run("document.querySelector('[data-wall-composer]').offsetWidth");
+          const c=await run("(()=>{const r=document.querySelector('.wall-composer-side[data-edge=right]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()");
+          await win.webContents.sendInputEvent({type:'mouseMove',x:Math.round(c.x),y:Math.round(c.y)});
+          await win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,x:Math.round(c.x),y:Math.round(c.y)});
+          await win.webContents.sendInputEvent({type:'mouseMove',x:Math.round(c.x-45),y:Math.round(c.y)});
+          await win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,x:Math.round(c.x-45),y:Math.round(c.y)}); await sleep(350);
+          await check('pointer side drag shrinks composer', `document.querySelector('[data-wall-composer]').offsetWidth < ${pointerWidth}`);
+          await capture(`layout-${theme}-${width}-resized`);
+          await run("document.querySelector('.wall-composer-side').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))");
+          const states=[];for(let i=0;i<40;i++){states.push(await run("(()=>{const e=document.querySelector('[data-command-wall]');return [e.clientWidth,e.clientHeight,e.scrollWidth,e.scrollHeight].join(',')})()"));await sleep(30);}
+          if(new Set(states.slice(10)).size!==1)throw Error('Scrollbar geometry failed to settle: '+states);report.checks.push('stable scrollbar frames '+theme+' '+width);
+        }
+        await run("document.querySelector('.command-wall-add-rail-bottom').click()"); await sleep(450); await capture(`layout-${theme}-${width}-clicked`);
+      }
+      win.setContentSize(1200,900);await reset();await run("document.documentElement.dataset.theme='dark'");await sleep(500);
+      const frames=path.join(runDir,'motion');fs.mkdirSync(frames);
+      for(let i=0;i<35;i++) { if(fixed&&i>=5&&i<20)await run("document.querySelector('.wall-composer-side[data-edge=right]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}))");if(i===23)await run("document.querySelector('.command-wall-add-rail-bottom').click()");fs.writeFileSync(path.join(frames,String(i).padStart(3,'0')+'.png'),(await win.capturePage(undefined,{stayHidden:true})).toPNG());await sleep(65); }
+      report.success=true;
+      if(process.env.NEKKO_EVIDENCE_HOLD){fs.writeFileSync(path.join(runDir,'gallery.html'),'<html><body style="margin:0;background:#888;display:grid;grid-template-columns:repeat(4,1fr)">'+report.captures.map(p=>'<div><small>'+path.basename(p)+'</small><img style="width:100%" src="'+path.basename(p)+'"></div>').join('')+'</body></html>');await win.loadFile(path.join(runDir,'gallery.html'));win.setContentSize(1600,1500);console.log('EVIDENCE_GALLERY '+runDir);await sleep(90000);}
+      return;
+    }
     if (process.env.NEKKO_CHROME_FIXES) {
       await win.loadFile(path.join(out, 'index.html'), { search: 'multi' }); await sleep(900);
       const fixed = !process.env.NEKKO_TEST_REVISION;

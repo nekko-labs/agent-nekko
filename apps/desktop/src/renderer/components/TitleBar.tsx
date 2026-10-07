@@ -2,6 +2,7 @@ import { hasAppChrome, isMacChrome } from '../chrome.js';
 import { UpdateControl } from './UpdateBanner.js';
 import { DeveloperServerControls } from './DeveloperServerControls.js';
 import { BrandMark } from './BrandMark.js';
+import { useStore } from '../store.js';
 
 /**
  * The window's title bar, drawn by the app.
@@ -18,12 +19,15 @@ import { BrandMark } from './BrandMark.js';
  * Renders nothing outside the desktop shell.
  */
 export function TitleBar() {
+  const view = useStore((s) => s.view);
   if (!hasAppChrome) return null;
   return (
     <div className={`titlebar ${isMacChrome ? 'titlebar-mac' : ''}`}>
       <span className="titlebar-word"><BrandMark size={16} className="titlebar-mark" />Agent Nekko</span>
       <UpdateControl />
-      <div id="command-titlebar-slot" className="no-drag ml-4 flex min-w-0 flex-1 items-center pr-[150px]" />
+      <div id="command-titlebar-slot" className="ml-4 flex min-w-0 flex-1 items-center">
+        {view === 'command' && <h1 className="text-gradient truncate text-sm font-semibold">Agents</h1>}
+      </div>
       <DeveloperServerControls />
     </div>
   );

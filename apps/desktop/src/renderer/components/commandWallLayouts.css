@@ -4,7 +4,9 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
   padding: 14px;
 }
 .command-wall-stage { position: relative; min-height: 304px; }
@@ -70,7 +72,7 @@
 
 .command-wall-add-zone { position: absolute; inset: 0; pointer-events: none; }
 .command-wall-add-zone > * { pointer-events: auto; }
-.command-wall-add:not([data-preview]) { opacity: 0; pointer-events: none; animation: none; visibility: hidden; }
+.command-wall-add:not([data-preview]) { display: none; pointer-events: none; animation: none; }
 .command-wall-add[data-preview] { visibility: visible; }
 .command-wall-add[data-preview] { opacity: 1; }
 .command-wall-add-fill { height: 100%; }
@@ -146,3 +148,6 @@
 @container (max-width: 600px) {
   .command-wall-create .agent-window-picker__options, .command-wall-create .agent-window-picker__columns { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Optical alignment of the text glyph, without moving the hit target. */
+.command-wall-add-rail-bottom > span { transform: translateY(-3px); pointer-events: none; }
