@@ -243,6 +243,8 @@ it('leaves shared composer sizing to CSS and reveals only focused carets', () =>
   const source = readFileSync(new URL('./ChatPane.tsx', import.meta.url), 'utf8');
   expect(source).toContain("if (!el || !pane || !section || surface === 'composer') return;");
   expect(source).toContain('if (document.activeElement === el) revealEditorCaret(el);');
+  expect(source).toContain('if (!draft && composerH === null)');
+  expect(source).toContain("el.style.height = '';");
 });
 
 describe('Command Center header spacing', () => {

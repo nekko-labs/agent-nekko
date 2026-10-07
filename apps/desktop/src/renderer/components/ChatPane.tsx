@@ -1083,6 +1083,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     const pane = paneRef.current;
     const section = composerSectionRef.current;
     if (!el || !pane || !section || surface === 'composer') return;
+    // Empty drafts already have their minimum height in CSS. Warm switching
+    // should not force layout merely to rediscover that same empty-editor size.
+    if (!draft && composerH === null) {
+      el.style.height = '';
+      el.style.maxHeight = '';
+      return;
+    }
     // The shared wall composer uses flex sizing in CSS, including its editor.
     // Measuring and rewriting that height forces layout without affecting it.
     const resize = () => {
