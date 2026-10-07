@@ -87,10 +87,14 @@ app.whenReady().then(async () => {
       const windows = await captureWindow('native-fixture',{action:'list'});
       const selection = windows.windows.find(w => w.id === target.getMediaSourceId());
       if(!selection) throw new Error('Owned native fixture was not enumerated by the OS');
-      const shot = await captureWindow('native-fixture',{action:'screenshot',window_id:selection.id});
+      const shot = await captureWindow('native-fixture',{action:'screenshot',window_id:selection.id},url);
       writeFileSync(join(out,'native-window.png'),Buffer.from(shot.data,'base64'));
       result.nativeWindow={source:shot.source,width:shot.width,height:shot.height,focused:target.isFocused(),bounds:target.getBounds()};
       if(target.isFocused() || shot.source !== 'native-window') throw new Error('Native capture changed focus or provenance');
+      const clip = await captureWindow('native-fixture',{action:'record',window_id:selection.id,seconds:1},url);
+      if (clip.mime !== 'video/webm' || !clip.data || !clip.width || !clip.height) throw new Error('Selected window recording failed');
+      writeFileSync(join(out,'native-window.webm'),Buffer.from(clip.data,'base64'));
+      result.nativeRecording={mime:clip.mime,width:clip.width,height:clip.height,bytes:Buffer.from(clip.data,'base64').length};
       target.hide();
     }
     const after = foreground();
