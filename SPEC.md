@@ -934,3 +934,7 @@ Budget savings remain all-time, independent of its spend/token time range, and t
 Quota consumer server rendering uses a stable idle live-run snapshot; full desktop regression coverage verifies React server rendering remains supported. Mounted synthetic-clock verification covers idle 60-second cadence, active 30-second cadence and return to idle after completion. Native-memory exact comparison and original savings discrepancy remain unverified.
 
 Quota polling subscribes only to running-session membership, not streamed-token versions, so token updates do not trigger quota consumer rendering. Membership and server-snapshot regression tests verify this distinction.
+
+### Agent-window log access
+
+Implemented; focused regression and isolated DOM routing verified: every transcript/full agent window retains its Logs action at compact sizes, using a drawn terminal icon with an accessible “Open agent logs” name when compact and a Logs label when roomy. The action opens the owning session's existing command log (`agent_<sessionId>`), not the selected chat's log, and does not start a shell or alter the conversation. The shared composer does not duplicate this header action. Matching light/dark wide/narrow before/after header screenshots inspected; latest CI remains pending.

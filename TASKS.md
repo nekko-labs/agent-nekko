@@ -1246,3 +1246,10 @@ Verified with 72 focused tests, desktop source-aware typechecking and an isolate
 - [ ] Resolve the historical $2200-to-$141 discrepancy using the prior log/profile or screenshot. Available current records independently reproduce the current magnitude; no aggregation/date-filter defect demonstrated. Do not inflate estimates or price unpublished variants to restore an unverified total.
 
 - [x] Narrowed quota run tracking to a stable membership snapshot after CI performance investigation exposed unnecessary streaming-driven renders. 720 desktop tests and mounted idle/active/stop checks pass. Unchanged-base profiling also fails warm/cold switch budgets; do not waive those gates or claim a clean performance result until latest CI passes.
+
+## Restore agent-window Logs (2026-10-08)
+
+- [x] Agent windows keep their Logs control when compact. Removed the compact visibility gate, retained existing owning-session terminal routing, and used the existing terminal SVG for narrow headers. Regression guard and isolated three-chat light/dark wide/narrow DOM checks prove all three controls remain and the second window opens `agent_second`. · [spec](SPEC.md#agent-window-log-access)
+- [x] Matching light/dark wide/narrow header screenshots inspected; desktop typecheck and721 tests pass.
+- [ ] Publish header evidence and pass latest CI before landing.
+- Memory follow-up: primary running desktop bundle still contains total-minus-free accounting; PR fixes are not yet installed. VM counters on this machine report about35.55 GiB resident of64 GiB, not almost full. This is not a contemporaneous Activity Monitor capture. Avoid diagnosing a leak from reclaimable cache alone.
