@@ -1775,6 +1775,25 @@
   --panel-ring-color: color-mix(in srgb, var(--accent) 60%, var(--line)) !important;
   box-shadow: 0 0 10px 0 color-mix(in srgb, var(--accent) 24%, transparent);
 }
+/* An agent's command log, bubbling out of the middle of its window's right
+   edge: anchored at the edge's midpoint and grown from there. */
+.agent-logs-bubble {
+  position: absolute; right: 12px; top: 50%; z-index: 30;
+  display: flex; flex-direction: column;
+  width: min(560px, calc(100% - 24px)); height: min(380px, calc(100% - 24px));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); border-radius: 14px;
+  background: var(--win, var(--surface)); overflow: hidden;
+  box-shadow: 0 18px 48px -18px rgb(0 0 0 / .55), 0 0 0 1px rgb(0 0 0 / .04);
+  transform: translateY(-50%); transform-origin: 100% 50%;
+  animation: agent-logs-bubble-in 200ms cubic-bezier(.22, 1.2, .36, 1);
+}
+.agent-logs-bubble-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 6px 8px 6px 10px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 500; }
+.agent-logs-bubble-body { position: relative; flex: 1; min-height: 0; }
+@keyframes agent-logs-bubble-in {
+  from { opacity: 0; transform: translateY(-50%) scale(.2, .35); }
+  to { opacity: 1; transform: translateY(-50%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .agent-logs-bubble { animation: none; } }
 /* The plan panel's toggle: a plan icon floating in the chat area's top-right
    corner, over the transcript (or beside the open panel's heading). */
 .plan-rail-toggle {

@@ -35,9 +35,9 @@ describe('agent window indicators', () => {
     expect(css).toMatch(/\.command-wall-window\[data-wall-needs-you\] > \.panel[\s\S]{0,200}--panel-ring-color: var\(--warning\) !important/);
   });
   it('draws the status glyph in the footer corner, not the title strip', () => {
-    expect(wall).toContain('statusGlyph={<StatusIcon status={agentStatus} />}');
+    expect(wall).toContain("status={agentStatus ?? 'idle'}");
     expect(wall).toContain('statusIndicator={session ? undefined');
-    expect(pane).toContain('data-agent-status>{statusGlyph}</span>');
+    expect(pane).toContain("data-agent-status><StatusIcon status={status === 'idle' ? undefined : status} /></span>");
   });
   it('replaces the Online label with an internet toggle and moves Tools and MCP to the footer', () => {
     expect(pane).not.toContain("{session?.offline ? 'Offline' : 'Online'}");
