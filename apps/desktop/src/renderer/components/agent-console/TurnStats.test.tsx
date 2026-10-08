@@ -1,0 +1,65 @@
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+vi.hoisted(() => { Object.assign(globalThis, { window: {}, localStorage: { getItem: () => null } }); });
+vi.mock('../../store.js', async (original) => {
+  const actual = await original<typeof import('../../store.js')>();
+  return { ...actual, useStore: Object.assign((selector: (s: ReturnType<typeof actual.useStore.getState>) => unknown) => selector(actual.useStore.getState()), actual.useStore) };
+});
+import type { ChatMessage, TurnStats } from '@agent-nekko/shared';
+import { TurnStatsLine, turnStatsParts } from './TurnStatsLine.js';
+import { MessageBubble } from './MessageBubble.js';
+import { ModelPicker } from './ModelPicker.js';
+import { toTranscriptRows } from './transcript.js';
+
+const stats: TurnStats = {
+  providerId: 'chatgpt', modelId: 'gpt-6.1-sol', effort: 'high',
+  inputTokens: 1500, cacheReadTokens: 12_000, outputTokens: 640, outputMs: 8000, wallMs: 21_400, calls: 3, steps: 2, stop: 'complete',
+};
+
+describe('reply stats in the transcript', () => {
+  it('names the model and effort and keeps the numbers', () => {
+    expect(turnStatsParts(stats, { model: () => 'GPT Sol', provider: () => 'ChatGPT' })).toEqual([
+      'GPT Sol · ChatGPT', 'High effort', '14k in', '640 out', '80 tok/s', '21s',
+    ]);
+    const html = renderToStaticMarkup(<TurnStatsLine stats={stats} />);
+    expect(html).toContain('data-turn-stats');
+    expect(html).toContain('gpt-6.1-sol');
+    expect(html).toContain('12,000 cache read');
+    expect(html).not.toContain('Reply stats');
+  });
+
+  it('renders under a persisted reply and not under a live one', () => {
+    const reply: ChatMessage = { id: 'a1', role: 'assistant', content: 'Finished.', createdAt: 1, turnStats: stats };
+    expect(renderToStaticMarkup(<MessageBubble message={reply} chronological />)).toContain('High effort');
+    expect(renderToStaticMarkup(<MessageBubble message={{ ...reply, id: 'live' }} chronological />)).not.toContain('High effort');
+  });
+
+  it('keeps stats for a reply that ended on tool calls as their own row', () => {
+    const messages: ChatMessage[] = [
+      { id: 'u', role: 'user', content: 'go', createdAt: 1 },
+      { id: 'a', role: 'assistant', content: '', toolCalls: [{ id: 'c', name: 'grep', input: {} }], createdAt: 2, turnStats: { ...stats, modelId: 'claude-opus-5', providerId: 'claude' } },
+      { id: 't', role: 'tool', content: '', toolResult: { toolCallId: 'c', output: 'x' }, createdAt: 3 },
+      { id: 'u2', role: 'user', content: 'next', createdAt: 4 },
+    ];
+    const rows = toTranscriptRows(messages, () => [], () => []);
+    expect(rows.map((r) => r.kind)).toEqual(['msg', 'activity', 'stats', 'msg']);
+  });
+});
+
+describe('model chip when the saved model is gone', () => {
+  const base = { providers: [{ id: 'chatgpt', kind: 'chatgpt' as const, label: 'ChatGPT (subscription)', enabled: true, baseUrl: 'http://localhost' }], providerId: 'chatgpt', models: [], modelId: null, open: false, onOpenChange: () => {}, onProvider: () => {}, onModel: () => {} };
+  it('names the missing model with no floating tooltip', () => {
+    const html = renderToStaticMarkup(<ModelPicker {...base} needsChoice unavailableModel="gpt-6.1-sol" />);
+    expect(html).toContain('gpt-6.1-sol');
+    expect(html).toContain('unavailable');
+    expect(html).toContain('data-model-unavailable');
+    expect(html).not.toContain('role="tooltip"');
+    expect(html).not.toContain('This provider has no models loaded');
+  });
+  it('asks plainly for a model on a chat that never had one', () => {
+    const html = renderToStaticMarkup(<ModelPicker {...base} needsChoice />);
+    expect(html).toContain('Choose a model');
+    expect(html).not.toContain('role="tooltip"');
+  });
+});

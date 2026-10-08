@@ -179,7 +179,11 @@ export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): As
   const runId = `run_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`;
   opts.onRunId?.(runId);
   const replace = (next?: ChatMessage[]) => {
-    if (Array.isArray(next)) opts.history.splice(0, opts.history.length, ...next);
+    if (!Array.isArray(next)) return;
+    // The daemon's transcript does not carry the host's per-turn stats; keep
+    // any already attached to a message it sends back.
+    const stats = new Map(opts.history.filter((m) => m.turnStats).map((m) => [m.id, m.turnStats!]));
+    opts.history.splice(0, opts.history.length, ...next.map((m) => (!m.turnStats && stats.has(m.id) ? { ...m, turnStats: stats.get(m.id) } : m)));
   };
   // Events wait here with the resolver their sender is blocked on.
   const queue: Array<{ event: AgentEvent; consumed: () => void }> = [];

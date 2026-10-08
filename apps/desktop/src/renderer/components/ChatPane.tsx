@@ -41,6 +41,7 @@ import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterr
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
+import { TurnStatsLine } from './agent-console/TurnStatsLine.js';
 import { ComposerQuestion } from './ComposerQuestion.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
@@ -357,6 +358,7 @@ const TranscriptRowView = memo(function TranscriptRowView({
 }) {
   if (row.kind === 'activity') return <ActivityGroup items={row.items} />;
   if (row.kind === 'compaction') return <CompactionSummary message={row.message} latest={row.latest} />;
+  if (row.kind === 'stats') return <div className="msg-ai"><TurnStatsLine stats={row.stats} /></div>;
   if (row.kind === 'prs') {
     // Historical milestones stay anchored to their original transcript positions.
     return <>{row.urls.map((u) => <PrCard key={`${row.event}_${u}`} url={u} info={prByUrl.get(u)} event={row.event} />)}</>;
@@ -508,9 +510,11 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full' }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full', selected }: {
   sessionId: string;
   commandCenter?: boolean;
+  /** On the Agents wall: whether this window is the selected one. Undefined off the wall. */
+  selected?: boolean;
   /**
    * Which part of the chat this instance shows. A window on the Command
    * Center wall shows the `transcript` alone; the wall's one composer shows
@@ -668,6 +672,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // The "choose a model" tooltip is a one-shot nudge: opening the picker means
   // the point landed, so it retires for this chat instead of hanging around.
   const [modelHintDone, setModelHintDone] = useState(false);
+  // The chat's saved model, when its provider's list came back without it (a
+  // signed-out subscription, a local server with nothing loaded). Kept so the
+  // chip can name what went missing instead of quietly reading "Choose a model".
+  const [unavailableModel, setUnavailableModel] = useState<string | null>(null);
   const recentModels = useStore((s) => s.sessions)
     .filter((s) => s.modelId && s.providerId)
     .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -816,16 +824,20 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // has never had a model picked is left unset on purpose: the nudge below the
   // transcript asks for a choice rather than guessing one.
   useEffect(() => {
-    if (!providerId) { setModels([]); setModelsLoaded(false); return; }
+    if (!providerId) { setModels([]); setModelsLoaded(false); setUnavailableModel(null); return; }
     setModelsLoaded(false);
     let live = true;
     const cancel = afterPaint(() => {
       window.nekko.listModels(providerId).then((m) => {
         if (!live) return;
         setModels(m);
-        setModelId((cur) => (cur === AUTO_MODEL_ID || (cur && m.some((x) => x.id === cur)) ? cur : null));
+        setModelId((cur) => {
+          const keep = cur === AUTO_MODEL_ID || (!!cur && m.some((x) => x.id === cur));
+          setUnavailableModel(keep ? null : cur);
+          return keep ? cur : null;
+        });
         setModelsLoaded(true);
-      }).catch(() => { if (live) { setModels([]); setModelsLoaded(true); } });
+      }).catch(() => { if (live) { setModels([]); setModelId((cur) => { if (cur && cur !== AUTO_MODEL_ID) setUnavailableModel(cur); return cur === AUTO_MODEL_ID ? cur : null; }); setModelsLoaded(true); } });
     });
     return () => { live = false; cancel(); };
   }, [providerId]);
@@ -1892,11 +1904,17 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   const needsModel = hasProvider && modelsLoaded && !modelId;
   // A tooltip on the model chip, not a banner in the strip: the nudge points at
   // the control that answers it and costs no layout while it waits.
+  // Inline, and only where the user is driving the chat: the wall's composer
+  // (always the selected window's) or a full pane. A wall of transcript windows
+  // must not each grow a popup when one provider goes away.
+  const drivesChat = surface === 'transcript' ? selected === true : true;
   const modelHint =
-    needsModel && !modelHintDone
-      ? models.length === 0
-        ? 'This provider has no models loaded. Start it, or switch provider in here.'
-        : 'This chat needs a model before it can reply.'
+    needsModel && !modelHintDone && drivesChat
+      ? unavailableModel
+        ? `${unavailableModel} is not available right now${models.length === 0 ? ' (this provider has no models loaded)' : ''}. Select a model again.`
+        : models.length === 0
+          ? 'This provider has no models loaded. Start it, or pick another provider.'
+          : 'This chat needs a model before it can reply.'
       : null;
   // Any route into the picker counts as the nudge being read.
   const openModelMenu = (open: boolean) => {
@@ -1982,7 +2000,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       open={modelMenuOpen}
       onOpenChange={openModelMenu}
       needsChoice={needsModel}
-      hint={modelHint}
+      unavailableModel={needsModel ? unavailableModel : null}
       onProvider={setProviderId}
       onModel={(pid, v) => {
         if (session?.messages.length && (pid !== providerId || v !== modelId)) {
@@ -1991,6 +2009,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         }
         if (pid) setProviderId(pid);
         setModelId(v);
+        setUnavailableModel(null);
         // Park the pick on the chat itself. Switching tabs unmounts
         // this pane, so a renderer-only choice was lost on the way
         // back and the chat fell back to its old provider (which may
@@ -2114,7 +2133,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     <ModelPicker providers={providers} providerId={providerId} models={models} modelId={modelId}
                       open={false} onOpenChange={openModelMenu} expanded
                       recent={recentModels}
-                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) window.dispatchEvent(new CustomEvent('nekko-session-brain', { detail: { id: sessionId, session: s } })); }).catch((e) => useStore.getState().pushToast('error', String(e))); }} />}
+                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); setUnavailableModel(null); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) window.dispatchEvent(new CustomEvent('nekko-session-brain', { detail: { id: sessionId, session: s } })); }).catch((e) => useStore.getState().pushToast('error', String(e))); }} />}
                 </div>}
               </div>
             ) : undefined}
@@ -2132,6 +2151,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   out={turnOut}
                   last={lastTurn}
                   done={doneSummary}
+                  persisted={!streaming && !![...(session?.messages ?? [])].reverse().find((m) => m.role === 'assistant')?.turnStats}
                   blocked={errorNotice ? 'Needs attention' : approval ? 'Waiting for approval' : question ? 'Waiting for your answer' : null}
                 />
                 {errorNotice && !question && !streaming && (() => {
@@ -2699,6 +2719,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             composer. */}
         <div className={surface === 'composer' ? 'shrink-0' : 'shrink-0 border-t border-line bg-surface px-3 py-1.5'} aria-label="Chat actions and information">
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
+          {/* Said once, next to the control that fixes it, in the window being driven. */}
+          {modelHint && !imageMode && surface !== 'composer' && <p role="status" data-model-note className="mb-1.5 flex items-center gap-1.5 text-[11.5px]" style={{ color: unavailableModel ? 'var(--warning)' : 'var(--accent)' }}><span aria-hidden>●</span>{modelHint}</p>}
           {!imageMode && surface !== 'composer' && <div className="flex flex-wrap items-center gap-2">
                   <FolderPicker sessionId={sessionId} session={session} disabled={hasLive} onChange={setSession} />
                   {modelControls}

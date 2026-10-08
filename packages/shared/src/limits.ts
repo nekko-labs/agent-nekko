@@ -65,6 +65,44 @@ export interface SubscriptionLimits {
   staleAfterMs: number;
 }
 
+/**
+ * Why the last quota read for an account produced nothing, so the UI can say
+ * what is wrong instead of a bare "unavailable". Counts and codes only: never
+ * a token, URL or response body.
+ *
+ * - `signed_out`: no stored sign-in for this account.
+ * - `auth_expired`: the sign-in expired and could not be renewed; polling
+ *   stops until the user signs in again.
+ * - `rate_limited`: the provider answered 429; `retryAt` honours Retry-After.
+ * - `http`: any other non-2xx answer, with its `status`.
+ * - `network`: the request did not complete (offline, DNS, TLS, timeout).
+ * - `unreadable`: a 2xx answer whose body could not be parsed.
+ */
+export interface LimitsProblem {
+  kind: 'signed_out' | 'auth_expired' | 'rate_limited' | 'http' | 'network' | 'unreadable';
+  status?: number;
+  /** Epoch ms of the failure. */
+  at: number;
+  /** Epoch ms before which the host will not ask the provider again; absent when it waits for the user. */
+  retryAt?: number;
+  /** Consecutive failures, for the backoff. */
+  failures: number;
+}
+
+/** One short sentence for a limits problem, for panels and tooltips. */
+export function describeLimitsProblem(problem: LimitsProblem, now = Date.now()): string {
+  const at = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const retry = problem.retryAt && problem.retryAt > now ? ` Retrying at ${at(problem.retryAt)}.` : '';
+  switch (problem.kind) {
+    case 'signed_out': return 'Not signed in. Sign in again in Settings.';
+    case 'auth_expired': return 'Sign-in expired. Sign in again in Settings.';
+    case 'rate_limited': return `Rate limited by the provider.${retry}`;
+    case 'http': return `Quota read failed (HTTP ${problem.status ?? '?'}).${retry}`;
+    case 'network': return `Could not reach the provider.${retry}`;
+    case 'unreadable': return `The provider sent a quota answer we could not read.${retry}`;
+  }
+}
+
 /** Published list-price entry for a model family ($/MTok). */
 export interface ModelPricing {
   /** Substring match against a model id, e.g. "sonnet" matches any claude-sonnet id. */

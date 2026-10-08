@@ -234,6 +234,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.guardrailsClassify]: ([cmd]) => host.classifyCommand(cmd),
     [C.usageSummary]: () => host.usageSummary(),
     [C.limitsGet]: ([tokenKey, refresh]) => host.getLimits(tokenKey, refresh),
+    [C.limitsProblem]: ([tokenKey]) => host.getLimitsProblem(tokenKey),
 
     [C.oauthBegin]: ([provider]) => host.beginOAuth(provider),
     [C.oauthFinish]: ([sessionId, pasted]) => host.finishOAuth(sessionId, pasted),

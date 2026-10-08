@@ -507,6 +507,7 @@ function makeWebClient(): NekkoApi {
 
     getUsageSummary: () => call(IpcChannels.usageSummary),
     getLimits: (tokenKey, refresh) => call(IpcChannels.limitsGet, tokenKey, refresh),
+    getLimitsProblem: (tokenKey) => call(IpcChannels.limitsProblem, tokenKey),
 
     oauthBegin: (provider) => call(IpcChannels.oauthBegin, provider),
     oauthFinish: (sessionId, pasted) => call(IpcChannels.oauthFinish, sessionId, pasted),

@@ -455,7 +455,7 @@ export function CommandWall({
           <div className="command-wall-content" inert={!rect || inDeck} aria-hidden={!rect || inDeck || undefined} data-companions-visible={showCompanions && companions.length > 0 || undefined} data-focus-chat={focusedChat || undefined}>
 
             <div className="command-wall-primary">
-           {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter surface={focusedChat ? 'full' : 'transcript'} /></PaneDensityHint.Provider>
+           {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter surface={focusedChat ? 'full' : 'transcript'} selected={selected} /></PaneDensityHint.Provider>
             : pane.kind === 'terminal' ? <TerminalPane key={pane.refId} terminalId={pane.refId} />
             : null}
            </div>
