@@ -241,6 +241,10 @@ describe('click-only wall insertion and composer framing', () => {
   it('offers Add from an empty wall', () => {
     const html = renderToStaticMarkup(wall(state({ root: null })));
     expect(html).toContain('aria-label="Add window"');
+    // The empty wall shows its illustration, centred, above the call to action.
+    expect(html).toContain('data-wall-empty');
+    expect(html).toContain('wall-empty-art');
+    expect(html).toContain('The wall is empty');
   });
   it('removes duplicate desktop branding and the outer composer fill', () => {
     const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');

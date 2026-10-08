@@ -1,6 +1,7 @@
 import { isLocalProvider } from '@agent-nekko/shared';
 import type { ResidentModel, RuntimeStatus } from '@agent-nekko/shared';
 import { formatBytes } from './runtimes/verdict.js';
+import { insightDays, type InsightRange } from '../insightRanges.js';
 
 export function localRuntimeMetrics(statuses: RuntimeStatus[], now = Date.now()): { loadedModels: string; memoryLabel: string; lastTokPerSecond: string; recent: Array<{ id: string; placement?: string; lastUsed?: string }> } {
   const resident = statuses.flatMap((s) => s.resident ?? []);
@@ -36,6 +37,24 @@ function age(ms: number): string {
   return h + ' hr ago';
 }
 
+/**
+ * Spend and tokens over one of the Insights time ranges, from the usage
+ * summary's UTC daily buckets. `null` when there is no usage snapshot.
+ */
+export function budgetRange(usage: import('@agent-nekko/shared').UsageSummary | null, range: InsightRange, now = new Date()) {
+  if (!usage) return null;
+  const daily = insightDays(usage.daily, range, now);
+  return {
+    daily,
+    spend: daily.reduce((sum, d) => sum + (d.cost ?? 0), 0),
+    input: daily.reduce((sum, d) => sum + d.input, 0),
+    output: daily.reduce((sum, d) => sum + d.output, 0),
+  };
+}
+
+/** How a range reads in the Budget panel's labels. */
+export const BUDGET_RANGE_LABEL: Record<InsightRange, string> = { today: 'Today', '1wk': 'Last 7 days', '1m': 'Last 30 days', '6m': 'Last 6 months', '1y': 'Last year', 'all-time': 'All time' };
+
 export function recordedBudgetMetrics(usage: import('@agent-nekko/shared').UsageSummary | null, sessions: import('@agent-nekko/shared').SessionSummary[], providers: import('@agent-nekko/shared').ProviderConfig[]) {
   if (!usage) return { topAgent: 'Unavailable', localTokens: 'Unavailable' };
   const top = Object.entries(usage.bySession).sort((a, b) => (b[1].input + b[1].output) - (a[1].input + a[1].output))[0];
@@ -43,3 +62,4 @@ export function recordedBudgetMetrics(usage: import('@agent-nekko/shared').Usage
   const tokens = Object.entries(usage.byProvider).filter(([id]) => localIds.has(id)).reduce((sum, [, v]) => sum + v.input + v.output, 0);
   return { topAgent: top ? (sessions.find(s => s.id === top[0])?.title ?? top[0]) + ' · ' + (top[1].input + top[1].output).toLocaleString() + ' tokens' : 'No recorded usage', localTokens: tokens.toLocaleString() };
 }
+ 

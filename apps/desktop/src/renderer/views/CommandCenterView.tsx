@@ -9,7 +9,7 @@ import { AUTO_MODEL_ID, classifyAgent, classifySession, formatUSD, summarizeSess
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
-import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, WandIcon } from '../icons.js';
+import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, PanelLeftIcon, WandIcon } from '../icons.js';
 import { CommandWall } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
@@ -339,8 +339,8 @@ export function CommandCenterView() {
       panelRef={composerRef}
     />
   );
-  // Add window rides beside the composer; an elbow arrow points from it to
-  // the corner of the wall where the new window will land.
+  // Add window sits centred on the edge of the wall nearest the composer,
+  // right where the wall ends, so it reads as part of the wall it adds to.
   const addButton = (
     <div className="wall-add-launch" data-side={wall.composer.side}>
       <button
@@ -354,10 +354,9 @@ export function CommandCenterView() {
       >
         <PlusIcon className="h-4 w-4" /> Add window
       </button>
-      <span className="wall-add-arrow" aria-hidden="true" />
     </div>
   );
-  const composerRow = <div className="wall-composer-row" data-dock={`${wall.composer.side}-${wall.composer.align}`}>{composer}{addButton}</div>;
+  const composerRow = <div className="wall-composer-row" data-dock={`${wall.composer.side}-${wall.composer.align}`}>{composer}</div>;
 
   return (
     <div ref={viewRef} className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
@@ -384,7 +383,7 @@ export function CommandCenterView() {
         onOrientation={(orientation) => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), orientation } }))}
         onClosePanel={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: false } }))} />}
       <div className="wall-column">
-      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composerRow}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && <>{composerRow}{addButton}</>}
       {completedId ? <div className="panel panel-ring flex min-h-0 flex-1 flex-col overflow-hidden"><button className="btn btn-ghost self-start" onClick={() => setCompletedId(null)}>Back to active agents</button><ChatPane key={completedId} sessionId={completedId} readOnly /></div> : <CommandWall
         state={wall}
         setState={setWall}
@@ -410,7 +409,7 @@ export function CommandCenterView() {
           setAddOpen(false);
         }} /> : undefined}
       />}
-      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composerRow}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{addButton}{composerRow}</>}
         </div>
       </div>
       </div>
@@ -464,7 +463,7 @@ export function WallToolbar({
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${slot ? 'wall-toolbar-titlebar no-drag' : ''}`} data-wall-toolbar>
       {!hasAppChrome && <h1 className="text-gradient text-2xl font-semibold">Agents</h1>}
       <div className={`ml-auto flex flex-wrap items-center ${slot ? 'gap-2' : 'gap-3'}`}>
-        {!panel.show && <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-label="Show the agent panel" title="Show the agent panel" onClick={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: true } }))}><PanelIcon className="h-4 w-4" />Agents</button>}
+        {!panel.show && <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-label="Show the agent panel" title="Show the agent panel" onClick={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: true } }))}><PanelLeftIcon className="h-4 w-4" />Agents</button>}
         <div className="wall-layout-control" ref={fixedRef}>
           <div className="wall-layout-segments" role="group" aria-label="Wall layout">
             {(['focus', 'grid', 'fixed'] as const).map((mode) => (

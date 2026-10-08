@@ -1,4 +1,5 @@
 // Run with Node. Only this worktree's ignored .shots directory is written.
+// NEKKO_SANDBOX=wall-polish2-sandbox.cjs runs the round-two checks instead.
 // NEKKO_TEST_REVISION=<rev> builds the same fixture against that revision's renderer for "before" evidence.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -26,7 +27,7 @@ async function main() {
   fs.writeFileSync(path.join(out, 'styled.css'), css.css);
   fs.writeFileSync(path.join(out, 'index.html'), '<!doctype html><html data-theme="dark"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'self\' data: blob:; script-src \'self\'; style-src \'self\' \'unsafe-inline\'; connect-src \'none\'"><link rel="stylesheet" href="styled.css"></head><body><div id="root"></div><script src="fixture.js"></script></body></html>');
   const env = { ...process.env, NEKKO_INTEGRATION_OUT: out }; delete env.ELECTRON_RUN_AS_NODE;
-  const result = cp.spawnSync(require(path.join(modules, 'electron')), [path.join(__dirname, 'wall-polish-sandbox.cjs')], { cwd: repo, env, windowsHide: true, stdio: 'inherit', timeout: 240000 });
+  const result = cp.spawnSync(require(path.join(modules, 'electron')), [path.join(__dirname, process.env.NEKKO_SANDBOX || 'wall-polish-sandbox.cjs')], { cwd: repo, env, windowsHide: true, stdio: 'inherit', timeout: 240000 });
   if (result.error) throw result.error;
   process.exitCode = result.status || 0;
 }
