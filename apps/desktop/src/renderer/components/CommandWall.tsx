@@ -402,14 +402,15 @@ export function CommandWall({
         data-wall-pane={pane.id}
         data-grid-cell={`${pane.kind}:${pane.refId}`}
         data-wall-selected={selected || undefined}
+        data-wall-needs-you={needsYou || undefined}
       >
         <PaneFrame
           pane={pane}
           title={title}
           icon={pane.kind === 'chat' ? <NumberedChatIcon number={n} /> : iconOf(pane.kind)}
-          // A chat says what it is doing by shape, as the sidebar does: a green
-          // rocket while it works, "Zz" when idle. A terminal keeps its dot.
-          statusIndicator={session ? <StatusIcon status={agentStatus} /> : status && <span role="img" aria-label={status.label} title={status.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: status.live ? 'var(--success)' : 'var(--ink-faint)' }} />}
+          // A chat's status glyph (rocket, Zz, ?) sits in its footer's far
+          // bottom-right corner (ChatPane). A terminal keeps its strip dot.
+          statusIndicator={session ? undefined : status && <span role="img" aria-label={status.label} title={status.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: status.live ? 'var(--success)' : 'var(--ink-faint)' }} />}
           badge={
             <>
               {/* The project only when there is more than one to tell apart:
@@ -455,7 +456,7 @@ export function CommandWall({
           <div className="command-wall-content" inert={!rect || inDeck} aria-hidden={!rect || inDeck || undefined} data-companions-visible={showCompanions && companions.length > 0 || undefined} data-focus-chat={focusedChat || undefined}>
 
             <div className="command-wall-primary">
-           {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter surface={focusedChat ? 'full' : 'transcript'} selected={selected} /></PaneDensityHint.Provider>
+           {pane.kind === 'chat' ? <PaneDensityHint.Provider value={densityOf(pane.id)}><ChatPane key={pane.refId} sessionId={pane.refId} commandCenter surface={focusedChat ? 'full' : 'transcript'} statusGlyph={<StatusIcon status={agentStatus} />} selected={selected} /></PaneDensityHint.Provider>
             : pane.kind === 'terminal' ? <TerminalPane key={pane.refId} terminalId={pane.refId} />
             : null}
            </div>

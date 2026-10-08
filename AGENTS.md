@@ -62,7 +62,7 @@ request the remaining work again. For UI changes:
    disabled. A user-owned running instance is not itself a blocker.
 3. Capture and inspect matching before/after screenshots and a short recording
    for motion changes, covering the affected surfaces, themes and viewports below.
-4. Upload evidence to the single shared **pr-media** GitHub pre-release using
+4. Upload evidence to the shared **pr-media** GitHub pre-release series using
    `scripts/pr-media.mjs`; do not create a per-PR release. Read back the published
    PR description and verify its media links, not just the local files.
 5. Continue through review and checks, fix failures, and merge when required
@@ -96,9 +96,12 @@ Any PR that changes what the app looks like ships the proof in its description:
   so screenshots alone do not cover those changes.
 - Cover every surface the change actually affects: mobile and desktop widths on web,
   iOS and Android for native, light and dark theme if both shift.
-- Media belongs in the PR description, not in git. Use the single `pr-media`
-  GitHub pre-release for all screenshots and recordings; never create a release
-  per PR. Write local image paths in the description, then upload and rewrite them:
+- Media belongs in the PR description, not in git. Use the shared `pr-media`
+  pre-release series for all screenshots and recordings; never create a release
+  per PR. GitHub caps a release at 1,000 assets, so when the newest release cannot
+  take a PR's whole batch the uploader starts the next one in the series
+  (`pr-media-2`, `pr-media-3`, ...) itself; never create those by hand. Write
+  local image paths in the description, then upload and rewrite them:
   ```
   node scripts/pr-media.mjs 305
   ```
@@ -109,7 +112,7 @@ Any PR that changes what the app looks like ships the proof in its description:
   Keep basenames unique. Existing assets are immutable: rename changed evidence
   rather than overwriting it, so historical links stay accurate. Keep `.shots/`
   untracked and never delete assets still referenced by a PR or issue.
-  The shared release is evidence storage, not a software release; it must remain
+  The shared releases are evidence storage, not software releases; each must remain
   a pre-release and must not be marked Latest.
 - If a change has no visual delta (refactor, types, tests, docs, build config), write
   "no visual change" rather than silently omitting the screenshots. A new screen has no

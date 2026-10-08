@@ -189,13 +189,24 @@ function projectOfWorkspace(w: Workspace, sessions: SessionSummary[], terminals:
   return undefined;
 }
 
-/** Fold an agent event into the per-session status (undefined = idle). */
-function statusFromEvent(type: AgentEvent['type']): AgentStatus | null {
+/**
+ * Fold an agent event into the per-session status (undefined = idle).
+ *
+ * A question or an approval parks the turn on you, so it reads as "needs your
+ * input" until it is answered. While parked the run keeps streaming nothing, but
+ * a stray token or step must not quietly flip the card back to "working" and
+ * hide the ?, so only the events that end the wait (an answer, a tool result,
+ * done, error) move it on. `undefined` keeps whatever the card showed.
+ */
+export function statusFromEvent(type: AgentEvent['type'], prev?: AgentStatus): AgentStatus | null | undefined {
   switch (type) {
-    case 'tool_approval_required': return 'input';
+    case 'tool_approval_required':
+    case 'question': return 'input';
+    case 'question_resolved':
+    case 'tool_result': return 'working';
     case 'error': return 'error';
     case 'done': return null;
-    default: return 'working';
+    default: return prev === 'input' ? undefined : 'working';
   }
 }
 
@@ -298,6 +309,15 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
       for (const id of missing) m.set(id, 'working');
       return m;
     })).catch(() => {});
+    // A question or approval asked before this view mounted (a view switch, a
+    // reload) has already sent its event; the host still holds it, so ask.
+    window.nekko.pendingInput().then((pending) => setStatuses((prev) => {
+      const waiting = Object.keys(pending ?? {}).filter((id) => prev.get(id) !== 'input');
+      if (waiting.length === 0) return prev;
+      const m = new Map(prev);
+      for (const id of waiting) m.set(id, 'input');
+      return m;
+    })).catch(() => {});
   }, []);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -369,6 +389,15 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
     window.clearTimeout(newMenuTimer.current);
     newMenuTimer.current = window.setTimeout(() => setNewMenuOpen(false), 220);
   };
+  /**
+   * The row scrolls sideways, but a mouse wheel only scrolls down: turn the
+   * wheel's vertical travel into horizontal scrolling while the row can move.
+   */
+  const scrollRowWithWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || el.scrollWidth <= el.clientWidth) return;
+    el.scrollLeft += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+  };
   const closeNewMenu = () => {
     window.clearTimeout(newMenuTimer.current);
     setNewMenuOpen(false);
@@ -387,11 +416,11 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
   useEffect(() => {
     const known = new Set(sessions.map((s) => s.id));
     const off = window.nekko.onAgentEvent((e: AgentEvent) => {
-      const next = statusFromEvent(e.type);
       setStatuses((prev) => {
+        const next = statusFromEvent(e.type, prev.get(e.sessionId));
         // Most events (every token) leave the status as it was; keeping the
         // same Map then means the view, and every pane in it, does not re-render.
-        if (next === null ? !prev.has(e.sessionId) : prev.get(e.sessionId) === next) return prev;
+        if (next === undefined || (next === null ? !prev.has(e.sessionId) : prev.get(e.sessionId) === next)) return prev;
         const m = new Map(prev);
         if (next === null) m.delete(e.sessionId);
         else m.set(e.sessionId, next);
@@ -660,7 +689,7 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
           )}
         </div>
       </div>
-      <div className={horizontal ? 'agent-panel-row flex min-w-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-hidden px-2 py-1.5' : 'flex-1 space-y-1 overflow-y-auto px-2 pb-3'}>
+      <div className={horizontal ? 'agent-panel-row flex min-w-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-hidden px-2 py-1.5' : 'agent-panel-list min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain px-2 pb-3'} data-agent-panel-list onWheel={horizontal ? scrollRowWithWheel : undefined}>
         {buckets.map((b) => {
           const items = bucketEntries(b.key);
           const done = completedInGroup(sessions, b.key, chatGroupOf);
@@ -702,7 +731,9 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
                     onClick={() => newTerminal(b.ws?.id)}><TerminalIcon className="h-3.5 w-3.5" /></button>
                 </span>
               </div>
-              <div className={`collapse-wrap ${isCollapsed ? 'collapsed' : ''}`}>
+              {/* Collapsed means gone: hidden, out of the tab order, and taking
+                  no room in the row layout either, not just squashed to 0fr. */}
+              <div className={`collapse-wrap ${isCollapsed ? 'collapsed' : ''}`} data-group-cards data-collapsed={isCollapsed || undefined} inert={isCollapsed || undefined} aria-hidden={isCollapsed || undefined}>
                 <div className="min-h-0 space-y-0.5 overflow-hidden pb-1">
                   {items.length === 0 && (
                     <p className="px-3.5 py-1 text-[11px] text-ink-faint">No active agents</p>
@@ -800,7 +831,9 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
     // As the Agents tab's panel it is one panel among the wall's, not a field of
     // its own: no tinted frame around it, which read as a stray border.
     <div
-      className={`flex min-w-0 ${sidebarOnly ? `shrink-0 ${horizontal ? 'w-full' : ''}` : 'h-full overflow-hidden'}`}
+      // The Agents tab panel takes the column's height and no more, so its card
+      // list overflows into its own scroller and the mouse wheel scrolls it.
+      className={`flex min-w-0 ${sidebarOnly ? `shrink-0 ${horizontal ? 'w-full' : 'agent-panel-host min-h-0 self-stretch'}` : 'h-full overflow-hidden'}`}
       style={sidebarOnly ? { gap: 'var(--pane-gap)', minHeight: 0 } : { background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
     >
       {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>

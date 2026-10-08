@@ -12,7 +12,8 @@ import { summarizeSession } from '@agent-nekko/shared';
 import '../src/renderer/styles.css';
 
 // Synthetic records only. This fixture never connects to a host or daemon.
-const provider = { id: 'fixture', kind: 'openai', enabled: true, label: 'Fixture provider', auth: 'subscription', tokenKey: 'fixture' };
+// A local runtime, so the agent window's internet toggle can block it.
+const provider = { id: 'fixture', kind: 'ollama', baseUrl: 'http://127.0.0.1:11434', enabled: true, label: 'Fixture provider', auth: 'subscription', tokenKey: 'fixture' };
 const models = [{ id: 'fixture-model', providerId: 'fixture', name: 'Fixture model', contextWindow: 128000 }];
 const at = Date.now();
 const makeSession = (id: string, title: string, workspaceId?: string) => ({
@@ -31,17 +32,19 @@ const usageFixture = () => ({
   avoidedCosts: { local: 1.23, subscription: 4.56 },
 });
 let records: any[] = [];
+// Optional: what each session is waiting on a person for (a question on the wall).
+let pendingFixture: Record<string, any> = {};
 const calls: any[] = [];
 const bridge: any = {
   createSession: async (workspaceId: string) => { calls.push({ method: 'create', workspaceId }); const s = makeSession(`new-${records.length}`, 'New chat', workspaceId); records.push(s); return s; },
   setSessionOptions: async (id: string, options: any) => { calls.push({ method: 'options', id, options }); const s = records.find(s => s.id === id); Object.assign(s, options); return { ...s }; },
   listSessionSummaries: async () => records.map(summarizeSession), listTerminals: async () => [],
   getSession: async (id: string) => records.find(s => s.id === id), listModels: async () => models,
-  getUsageSummary: async () => usageFixture(), pendingInput: async () => ({}), runningSessions: async () => [],
+  getUsageSummary: async () => usageFixture(), pendingInput: async () => pendingFixture, runningSessions: async () => [],
   listTasks: async () => [], listShells: async () => [], listChanges: async () => [], listFiles: async () => [],
   previewContext: async () => ({ items: [], totalTokens: 0, budget: 128000 }), getGitStatus: async () => ({ repo: false }),
   getAppInfo: async () => ({ version: '0.0.0-fixture', platform: 'win32' }), getUpdateInfo: async () => null,
-  listTools: async () => [], getMcpStatus: async () => [], listSkills: async () => [],
+  listTools: async () => [{ name: 'read_file', description: 'Read a file' }, { name: 'bash', description: 'Run a command' }], getMcpStatus: async () => [], listSkills: async () => [],
   updateSettings: async (patch: any) => ({ ...useStore.getState().settings, ...patch }),
 };
 Object.assign(window, { nekko: new Proxy(bridge, { get(target, key: string) { if (key in target) return target[key]; if (key.startsWith('on')) return () => () => {}; return () => Promise.resolve(null); } }) });
@@ -59,14 +62,18 @@ function Fixture() {
   const [epoch, setEpoch] = useState(0);
   const [route, setRoute] = useState('command');
   // opts: empty wall, show the dock (Budget only), theme preset, horizontal agent panel.
-  const reset = (opts: { empty?: boolean; dock?: boolean; preset?: string; horizontal?: boolean } = {}) => {
-    records = [makeSession('alpha', 'Fix wall and composer styling'), makeSession('beta', 'Analyze post-merge perf trace'), makeSession('outside', 'Chat not on the wall')];
+  // opts.question: beta waits on a question. opts.many: enough grouped chats to
+  // overflow the panel. opts.resumable: alpha ends on an assistant reply with work.
+  const reset = (opts: { empty?: boolean; dock?: boolean; preset?: string; horizontal?: boolean; question?: boolean; many?: boolean } = {}) => {
+    records = [makeSession('alpha', 'Fix wall and composer styling', opts.many ? 'ws-a' : undefined), makeSession('beta', 'Analyze post-merge perf trace', opts.many ? 'ws-a' : undefined), makeSession('outside', 'Chat not on the wall')];
+    if (opts.many) for (let i = 0; i < 18; i++) records.push(makeSession(`extra-${i}`, `Grouped chat ${i + 1}`, i % 2 ? 'ws-a' : 'ws-b'));
+    pendingFixture = opts.question ? { beta: { sessionId: 'beta', question: { callId: 'ask1', askedAt: Date.now(), questions: [{ id: 'q1', header: 'Branch', question: 'Which branch should I use?', options: [{ label: 'main' }, { label: 'dev' }] }] } } } : {};
     calls.length = 0;
     localStorage.clear();
     const root = opts.empty ? null : { id: 'split', dir: 'row', sizes: [0.5, 0.5], children: [{ id: 'pane-alpha', kind: 'chat', refId: 'alpha' }, { id: 'pane-beta', kind: 'chat', refId: 'beta' }] };
     const dock = opts.dock ? { ...DEFAULT_WALL_STATE.dock, show: true, panels: { vitals: false, automations: false, utilization: false, budget: true, insights: false, hardware: false } } : { ...DEFAULT_WALL_STATE.dock, show: false };
     const agentPanel = opts.horizontal ? { show: true, orientation: 'horizontal' } : undefined;
-    useStore.setState({ view: 'command', providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: null, settings: { providers: [provider], workspaceFolders: [], workspaces: [], theme: 'dark', themePreset: opts.preset, experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root, hero: opts.empty ? null : 'alpha', autoAdd: false, watermark: Date.now(), dock, ...(agentPanel ? { agentPanel } : {}) } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
+    useStore.setState({ view: 'command', providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: null, settings: { providers: [provider], workspaceFolders: [], workspaces: opts.many ? [{ id: 'ws-a', name: 'agent-nekko', path: 'C:/fixture/a' }, { id: 'ws-b', name: 'mynichi', path: 'C:/fixture/b' }] : [], theme: 'dark', themePreset: opts.preset, experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root, hero: opts.empty ? null : 'alpha', autoAdd: false, watermark: Date.now(), dock, ...(agentPanel ? { agentPanel } : {}) } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
     records.forEach(putCachedSession); setRoute('command'); setEpoch(e => e + 1);
   };
   Object.assign(window, { integration: { reset, calls, route: setRoute, state: () => useStore.getState(), records: () => records } });
