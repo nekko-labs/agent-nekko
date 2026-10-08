@@ -50,6 +50,10 @@ function readAutoSavePref(): boolean {
  * tweak, and steer changes without leaving Agent Nekko.
  */
 export function FilePane({ path }: { path: string }) {
+  // File panes are independent host documents, not owned by the globally focused chat.
+  return <HostFilePane path={path} />;
+}
+function HostFilePane({ path }: { path: string }) {
   const isMd = /\.(md|markdown)$/i.test(path);
   const isHtml = /\.(html?|svg)$/i.test(path);
   const isMermaid = /\.(mmd|mermaid)$/i.test(path);

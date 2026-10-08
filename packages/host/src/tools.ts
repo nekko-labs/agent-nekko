@@ -1,3 +1,6 @@
+import { getExecutionMode } from '@agent-nekko/shared';
+import { getSession } from './sessions.js';
+import { executeSandboxTool } from './execution-router.js';
 import { execFile, spawn, type ChildProcess, type ExecFileOptions } from 'child_process';
 import {
   existsSync,
@@ -224,6 +227,7 @@ async function captureApp(call: ToolCall, opts: ToolHostOptions): Promise<ToolRe
 
 /** Execute one tool call, enforcing sandbox + guardrails. */
 export async function executeTool(call: ToolCall, opts: ToolHostOptions): Promise<ToolResult> {
+  if (opts.sessionId && getExecutionMode(getSession(opts.sessionId) ?? undefined) === 'sandbox') return executeSandboxTool(opts.sessionId, call, opts.requestApproval, opts.signal);
   const a = call.input as Record<string, any>;
   try {
     switch (call.name) {

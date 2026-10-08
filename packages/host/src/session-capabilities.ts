@@ -29,6 +29,7 @@ export function evaluateCapability(
 ): CapabilityDecision {
   if (context.environment === 'sandboxed') {
     if (!context.runtimeReady) return { action: 'deny', reason: 'Sandbox runtime is unavailable. Host fallback is forbidden.' };
+    if (!capability.startsWith('tool:') || !['read_file', 'write_file', 'edit_file', 'list_dir', 'glob', 'grep', 'bash'].includes(capability.slice(5))) return { action: 'deny', reason: 'Unsupported isolated capability. Host controls, network, connectors, MCP and delegation are denied.' };
     if (capability.startsWith('app:')) return { action: 'deny', reason: 'Sandboxed sessions cannot control host applications, including Agent Nekko.' };
     if (!context.granted.has(capability)) return { action: 'request', reason: 'This capability has not been provided to the isolated session.' };
   } else if (!context.connected.has(capability)) {

@@ -1350,6 +1350,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   };
 
   const send = async (override?: string) => {
+    if (session?.executionMode === 'sandbox') {
+      try {
+        const status = await window.nekko.sandboxStatus(session.id);
+        if (status.phase !== 'configured' && status.phase !== 'ready') throw new Error(status.error ?? 'Configure Sandbox before executing.');
+      } catch (e) { useStore.getState().pushToast('error', String((e as Error).message ?? e)); return; }
+    }
     const input = override ?? draft;
     if (imageMode) {
       if (input.trim()) await sendImage(input.trim(), override === undefined);
@@ -2043,7 +2049,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   );
 
   return (
-    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-chat-surface={surface} className="flex h-full min-h-0 min-w-0 overflow-hidden">
+    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-session-id={sessionId} data-chat-surface={surface} className="flex h-full min-h-0 min-w-0 overflow-hidden">
       {contextChangeNotice && <Modal title="Context on your next reply" zIndex={100} overlayClassName="p-4" className="w-full max-w-md rounded-xl border border-line bg-surface p-5 text-ink shadow-xl" onClose={closeContextNotice}>
             <h2 className="font-semibold">Context on your next reply</h2>
             <p className="mt-3 text-sm text-ink-soft">Your selection is saved. Changing the model or effort does not send a request now or change an already-running reply. The next reply sends the assembled chat context again, as ordinary follow-up replies do.</p>
@@ -2078,7 +2084,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             <button
               className="btn btn-ghost shrink-0 px-2 py-1 text-[11px]"
               aria-label="Open agent logs"
-              onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
+              disabled={session?.executionMode === 'sandbox'}
+              onClick={() => { if (session?.executionMode !== 'sandbox') useStore.getState().openTerminalPane(`agent_${sessionId}`); }}
               title="Open the agent's command log in a terminal window"
             >
               {compact ? <TerminalIcon className="h-4 w-4" /> : 'Logs'}
@@ -2805,7 +2812,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             <div className="agent-footer-reach ml-auto flex shrink-0 items-center gap-1" data-agent-footer-controls>
               {session && <>
                 <ToolsMenu session={session} onChange={setSession} />
-                <McpMenu />
+                {session?.executionMode === 'sandbox' ? <span className="text-[11px] text-ink-faint">MCP unavailable in Sandbox</span> : <McpMenu />}
               </>}
               <InternetToggle session={session} cloudModel={isCloudModel} onToggle={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }} />
               {statusGlyph && <span className="agent-footer-status ml-1 inline-flex items-center" data-agent-status>{statusGlyph}</span>}

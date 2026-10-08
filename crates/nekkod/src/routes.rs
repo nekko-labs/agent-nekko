@@ -46,6 +46,31 @@ fn is_agent(id: &str) -> bool {
 }
 
 pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, String> {
+    // Creation and execution-policy patches belong to the host, which owns defaults and setup.
+    if channel == "session:create" || (channel == "session:setOptions" && ["executionMode", "sandbox", "gitIsolation"].iter().any(|key| arg(&args, 1).get(*key).is_some())) {
+        return ctx.backend.call(channel, Value::Array(args)).await;
+    }
+    if matches!(channel, "loop:run" | "terminal:create" | "mcp:call") {
+        if arg(&args, 0).get("executionMode").and_then(Value::as_str) == Some("sandbox") {
+            return Err(format!("{channel} cannot execute sandbox work natively; use the host container router"));
+        }
+        let session_id = arg(&args, 0).get("sessionId").and_then(Value::as_str)
+            .or_else(|| if channel == "mcp:call" { str_arg(&args, 1) } else { None });
+        if let Some(id) = session_id {
+            let session = if let Some(store) = &ctx.sessions {
+                store.get(id).ok_or("Session not found")?
+            } else {
+                // Editions without a daemon store must ask the owning host.
+                ctx.backend.call("session:get", json!([id])).await?
+            };
+            if session.get("id").and_then(Value::as_str) != Some(id) || !session.get("messages").is_some_and(Value::is_array) {
+                return Err("Cannot verify session execution mode: session not found".into());
+            }
+            if session.get("executionMode").and_then(Value::as_str) == Some("sandbox") {
+                return Err(format!("{channel} is unsupported for sandbox sessions; use the host container router"));
+            }
+        }
+    }
     match channel {
         "daemon:info" => Ok(json!({
             "app": "nekkod",
@@ -342,7 +367,12 @@ async fn session_op(store: Arc<nekko_store::SessionStore>, channel: &str, args: 
             "session:images" => Ok(Value::Array(store.images(id, arg(&args, 1).as_f64().unwrap_or(1.0)))),
             "session:create" => store.create(str_arg(&args, 0)),
             "session:delete" => store.delete(id).map(|()| Value::Null),
-            "session:setOptions" => or_null(store.set_options(id, arg(&args, 1))),
+            "session:setOptions" => {
+                if arg(&args, 1).get("executionMode").is_some() || arg(&args, 1).get("sandbox").is_some() {
+                    return Err("Execution mode changes require the host setup route".into());
+                }
+                or_null(store.set_options(id, arg(&args, 1)))
+            },
             "session:setWorkspace" => or_null(store.set_workspace(id, str_arg(&args, 1))),
             "session:setSupportingWorkspaces" => or_null(store.set_supporting(id, arg(&args, 1))),
             "session:setAttachments" => or_null(store.set_attachments(id, arg(&args, 1))),

@@ -152,6 +152,9 @@ impl SessionStore {
 
     /// `setSessionOptions`.
     pub fn set_options(&self, id: &str, patch: &Value) -> Result<Option<Value>, String> {
+        if patch.get("executionMode").is_some() || patch.get("sandbox").is_some() {
+            return Err("Execution mode and sandbox setup must be changed through the host".into());
+        }
         let patch = patch.as_object().cloned().unwrap_or_default();
         self.patch(id, |s| {
             for (k, v) in &patch {

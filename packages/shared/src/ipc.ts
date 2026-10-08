@@ -171,6 +171,10 @@ export const IpcChannels = {
   workspaceSearch: 'workspace:search',
   workspaceFiles: 'workspace:files',
   workspaceGitStatus: 'workspace:gitStatus',
+  sandboxConfigure: 'sandbox:configure',
+  sandboxStatus: 'sandbox:status',
+  sandboxDiff: 'sandbox:diff',
+  sandboxApplyDiff: 'sandbox:applyDiff',
   chatWorktreesList: 'chatWorktrees:list',
   chatWorktreesRemove: 'chatWorktrees:remove',
 
@@ -498,6 +502,10 @@ export interface NekkoApi {
    * a transcript when a chat is opened.
    */
   listSessionSummaries(): Promise<import('./session-summary.js').SessionSummary[]>;
+  configureSandbox(sessionId: string, image: string): Promise<import('./chat.js').SandboxStatus>;
+  sandboxStatus(sessionId: string): Promise<import('./chat.js').SandboxStatus>;
+  sandboxDiff(sessionId: string): Promise<import('./chat.js').SandboxDiff>;
+  applySandboxDiff(sessionId: string, identity: string, diffId: string, paths: string[]): Promise<never>;
   createSession(workspaceId?: string): Promise<Session>;
   getSession(id: string): Promise<Session | null>;
   deleteSession(id: string): Promise<void>;
@@ -599,7 +607,7 @@ export interface NekkoApi {
   specPath(sessionId: string): Promise<string | null>;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'executionMode' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
   ): Promise<Session | null>;
   truncateSession(id: string, messageId: string): Promise<Session | null>;
   /** Delete chats within a window; returns how many were removed. */

@@ -259,6 +259,17 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### Folders and execution modes (implemented subset, draft; not shipped)
+
+- [ ] FM1: Land persisted primary-folder/No-folder defaults and saved-access revocation. Implemented with regression coverage; Added: 2026-10-09. See SPEC.md, Primary folder defaults and saved access revocation. Await parent visual inspection and release review.
+- [ ] FM2: Land independent permission/environment controls and consent-based local Docker setup. Implemented; 24 live renderer checks reported passed. Added: 2026-10-09. See SPEC.md, App control and isolated sessions. No runtime install/pull or other container runtimes.
+- [ ] FM3: Complete working sandbox acceptance. Seven file/shell tools and scoped indirect denial implemented; 11 real Docker and 9 Rust checks reported passed. Added: 2026-10-09. Audit every send/indirect caller and verify full host AbortSignal cancellation before release.
+- [ ] FM4: Design and verify safe apply-back ownership/transactions against concurrent external writes. Apply-back disabled; release blocker for requested complete sandbox scope. Added: 2026-10-09.
+- [ ] FM5: Provide lifecycle recovery and cleanup UI; verify restart/crash/resource cleanup. Unavailable UI, not shipped. Added: 2026-10-09.
+- [ ] FM6: Inspect captured before/after evidence and verify real desktop and supported platforms. Parent inspection pending; full multi-platform/desktop visual acceptance unverified. Added: 2026-10-09.
+- [ ] FM7: Implement separately scoped capability brokers and supported runtime provisioning if approved. MCP/connectors/network/browser/delegation currently denied; Docker requires preinstalled Linux Python/sh image. Planned, not shipped. Added: 2026-10-09.
+
+
 ### GPU fallback preview (added 2026-10-08)
 
 - [ ] **T185**, Older discrete GPUs can be found through the installed engine when the vendor tool fails. · [spec](SPEC.md#running-a-model-with-nothing-else-installed) · PR #382, Preview, not shipped.

@@ -43,6 +43,17 @@ fn fake_backend() {
                             return (axum::http::StatusCode::UNAUTHORIZED, axum::Json(json!({"error":"bad token"})));
                         }
                         match channel.as_str() {
+                            "session:get" => (axum::http::StatusCode::OK, axum::Json(json!({ "id": body.0["args"][0], "messages": [], "executionMode": if body.0["args"][0] == "sandbox" { "sandbox" } else { "worktree" } }))),
+                            "session:create" => {
+                                let session = json!({ "id": "s_created", "workspaceId": body.0["args"][0], "messages": [], "executionMode": "worktree", "gitIsolation": true });
+                                if let Ok(dir) = std::env::var("FAKE_DATA_DIR") {
+                                    if !dir.is_empty() {
+                                        std::fs::create_dir_all(std::path::Path::new(&dir).join("sessions")).unwrap();
+                                        std::fs::write(std::path::Path::new(&dir).join("sessions/s_created.json"), session.to_string()).unwrap();
+                                    }
+                                }
+                                (axum::http::StatusCode::OK, axum::Json(session))
+                            },
                             "settings:get" => (axum::http::StatusCode::OK, axum::Json(json!({ "workspaces": [] }))),
                             "loop:end" => {
                                 recorded.lock().unwrap().push(body.0["args"].clone());
@@ -138,7 +149,7 @@ fn start_with(with_backend: bool, data_dir: Option<&std::path::Path>) -> Daemon 
         json!({
             "exe": std::env::current_exe().unwrap(),
             "args": ["--exact", "fake_backend", "--nocapture", "--test-threads=1"],
-            "env": { FAKE_ENV: "1" },
+            "env": { FAKE_ENV: "1", "FAKE_DATA_DIR": data_dir.map(|p| p.to_string_lossy().to_string()).unwrap_or_default() },
         })
     });
     let config = json!({ "token": TOKEN, "backend": backend, "allowedOrigins": ["null"], "dataDir": data_dir });

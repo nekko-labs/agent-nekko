@@ -30,9 +30,17 @@ import { useStore } from '../store.js';
  * streaming re-parses only the block being written instead of the whole reply
  * on every frame. The output is the same as parsing the text in one go.
  */
+const MarkdownOwner = React.createContext<string | undefined>(undefined);
+
 export function Markdown({ text, doc = false, basePath }: MarkdownProps) {
-  if (doc) return <DocMarkdown text={text} basePath={basePath} />;
-  return <ChatMarkdown text={text} basePath={basePath} />;
+  const root = React.useRef<HTMLDivElement>(null);
+  const [owner, setOwner] = useState<string>();
+  React.useLayoutEffect(() => {
+    setOwner(root.current?.closest<HTMLElement>('[data-session-id]')?.dataset.sessionId);
+  }, []);
+  return <div ref={root}><MarkdownOwner.Provider value={owner}>
+    {doc ? <DocMarkdown text={text} basePath={basePath} /> : <ChatMarkdown text={text} basePath={basePath} />}
+  </MarkdownOwner.Provider></div>;
 }
 
 /** A document is parsed whole: it is read, not streamed, and its HTML stripping works line by line. */
@@ -497,6 +505,9 @@ function resolveRef(basePath: string, target: string): string {
  * otherwise it reads as plain emphasis instead of a dead link.
  */
 function Ref({ href, basePath, children }: { href: string; basePath?: string; children: React.ReactNode }) {
+  const owner = React.useContext(MarkdownOwner);
+  const sandbox = useStore((s) => s.sessions.find((item) => item.id === owner)?.executionMode === 'sandbox');
+  if (sandbox && !/^https?:\/\//i.test(href)) return <span title="Host file previews are unavailable in Sandbox">{children} (preview unavailable)</span>;
   if (/^https?:\/\//i.test(href)) return <Link href={href}>{children}</Link>;
   if (/^[a-z][a-z0-9+.-]*:/i.test(href) && !/^[a-z]:[\\/]/i.test(href)) return <span>{children}</span>;
   if (href.startsWith('//') || href.startsWith('\\\\')) return <span>{children}</span>;
@@ -526,6 +537,9 @@ function ImageRef({ alt, src, basePath }: { alt: string; src: string; basePath?:
   const unsafe = src.startsWith('//') || src.startsWith('\\\\') || (/^[a-z][a-z0-9+.-]*:/i.test(src) && !/^[a-z]:[\\/]/i.test(src) && !remote);
   const target = unsafe ? null : remote ? src : basePath ? resolveRef(basePath, src) : /^(?:[A-Za-z]:[\\/]|\/)/.test(src) ? src : null;
   const label = alt || src.split(/[\\/]/).pop() || 'image';
+  const owner = React.useContext(MarkdownOwner);
+  const sandbox = useStore((s) => s.sessions.find((item) => item.id === owner)?.executionMode === 'sandbox');
+  if (sandbox && !remote) return <span title="Host image previews are unavailable in Sandbox">{label} (preview unavailable)</span>;
   if (image) return <img src={image} alt={label} className="my-2 max-h-96 max-w-full rounded-lg border border-line object-contain" />;
   const body = (
     <>

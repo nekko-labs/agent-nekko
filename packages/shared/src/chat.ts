@@ -147,6 +147,8 @@ export interface Session {
   title: string;
   workspaceId?: string;
   /** Opt-in marker written only on new chats; older sessions keep their checkout. */
+  executionMode?: ExecutionMode;
+  sandbox?: SandboxIdentity;
   gitIsolation?: boolean;
   gitWorktrees?: Record<string, { sourceRoot: string; root: string; path: string; branch: string; notice: string }>;
   /** Additional context folders for this chat; workspaceId remains primary. */
@@ -579,4 +581,13 @@ function dedupeSuggestions(options: string[]): string[] {
     seen.add(key);
     return true;
   });
+}
+
+/** Explicit execution mode is authoritative; legacy sessions retain their previous behavior. */
+export type ExecutionMode = 'sandbox' | 'worktree' | 'unified';
+export interface SandboxIdentity { image: string; identity: string; configuredAt: number; sourceWorkspaceIds: string[] }
+export interface SandboxStatus { mode: ExecutionMode; phase: 'unconfigured' | 'configured' | 'ready' | 'error'; identity?: string; image?: string; error?: string; applySupported: false }
+export interface SandboxDiff { identity: string; diffId: string; changes: Array<{ path: string; before: string | null; after: { path: string; base64: string; hash: string } | null }> }
+export function getExecutionMode(session?: Pick<Session, 'executionMode' | 'gitIsolation'>): ExecutionMode {
+  return session?.executionMode ?? (session?.gitIsolation === false ? 'unified' : 'worktree');
 }

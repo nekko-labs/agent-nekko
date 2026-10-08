@@ -200,6 +200,7 @@ export interface AppSettings {
   /** User-provided background/preferences, sent to the selected chat provider. */
   aboutUser?: string;
   /** New chats isolate Git checkouts by default; existing chats are unchanged. */
+  defaultExecutionMode?: import('./chat.js').ExecutionMode;
   gitManagement?: { mode?: 'worktree' | 'shared'; baseline?: 'head' | 'local-changes' };
   theme: ThemeMode;
   navOrder?: string[];

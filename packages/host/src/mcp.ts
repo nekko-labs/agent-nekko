@@ -1,3 +1,4 @@
+import { assertHostExecution } from './indirect-execution-guard.js';
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import type { ToolSpec } from '@agent-nekko/core';
 import { brandEnv } from '@agent-nekko/shared';
@@ -231,12 +232,13 @@ export function mcpToolList(): Array<{ name: string; description: string }> {
 }
 
 /** Route an `mcp__<id>__<tool>` call to the right server. */
-export async function callMcpTool(call: ToolCall): Promise<ToolResult> {
+export async function callMcpTool(call: ToolCall, sessionId?: string): Promise<ToolResult> {
+  assertHostExecution(sessionId, 'MCP');
   if (remote) {
     const daemon = daemonCall();
     if (!daemon) return { toolCallId: call.id, output: 'The engine is not running.', isError: true };
     try {
-      return await daemon<ToolResult>('mcp:call', call);
+      return await daemon<ToolResult>('mcp:call', call, sessionId);
     } catch (e) {
       return { toolCallId: call.id, output: `MCP call failed: ${(e as Error).message}`, isError: true };
     }

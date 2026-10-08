@@ -1,3 +1,4 @@
+import { assertHostExecution } from './indirect-execution-guard.js';
 import * as nodePty from '@lydell/node-pty';
 import { existsSync } from 'fs';
 import type { TerminalInfo, TerminalEvent, TerminalSnapshot, ShellOption } from '@agent-nekko/shared';
@@ -234,6 +235,7 @@ export async function terminalSnapshot(id: string): Promise<TerminalSnapshot | n
 }
 
 export async function createTerminal(opts?: { workspaceId?: string; sessionId?: string; cwd?: string; title?: string; shell?: string; cols?: number; rows?: number }): Promise<TerminalInfo> {
+  assertHostExecution(opts?.sessionId, 'Host terminal');
   if (daemon) {
     // The daemon has no chat records, so hand it the resolved folder.
     const { sessionId, ...rest } = opts ?? {};

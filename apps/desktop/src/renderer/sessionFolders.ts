@@ -1,5 +1,5 @@
 import { sameFolderPath, type Session, type SessionMeta } from '@agent-nekko/shared';
-import { useStore } from './store.js';
+import { LAST_FOLDER_KEY, useStore } from './store.js';
 
 /**
  * Which folders a chat is wired into: one primary (the agent's working
@@ -57,6 +57,7 @@ export function withExcluded(session: ChatFolders, id: string): FolderSelection 
  * primary keeps it as supporting, so a cleared chat stays unfiled.
  */
 export function shouldAutoFile(chat: Pick<Session, 'messages'> | null, folders: ChatFolders): boolean {
+  try { if (localStorage.getItem(LAST_FOLDER_KEY) === 'null') return false; } catch { /* private mode */ }
   if (!chat || chat.messages.some((m) => m.role === 'user')) return false;
   return !folders?.workspaceId && !folders?.supportingWorkspaceIds?.length;
 }
@@ -68,6 +69,7 @@ export function shouldAutoFile(chat: Pick<Session, 'messages'> | null, folders: 
 export async function applyFolderSelection(sessionId: string, sel: FolderSelection): Promise<Session | null> {
   await window.nekko.setSessionWorkspace(sessionId, sel.primary);
   const updated = await window.nekko.setSessionSupportingWorkspaces(sessionId, sel.supporting);
+  if (updated) useStore.getState().setActiveProject(sel.primary ?? null);
   await useStore.getState().refreshSessions();
   return updated;
 }
