@@ -35,8 +35,22 @@ app.whenReady().then(async () => {
   };
   const shot = async (file, rect) => fs.writeFileSync(path.join(dir, file), (await win.capturePage(rect, { stayHidden: true, stayAwake: false })).toPNG());
   const capture = async (name, rect) => { await sleep(350); await shot(name + '.png', rect); };
-  const rect = (selector, pad) => run(`(()=>{const e=document.querySelector(${JSON.stringify(selector)});if(!e)return undefined;const r=e.getBoundingClientRect();const p=${pad};return {x:Math.max(0,Math.floor(r.x)-p),y:Math.max(0,Math.floor(r.y)-p),width:Math.min(innerWidth,Math.ceil(r.width)+p*2),height:Math.min(innerHeight,Math.ceil(r.height)+p*2)}})()`);
-  const theme = (t, preset) => run(`document.documentElement.dataset.theme='${t}';${preset ? `document.documentElement.dataset.preset='${preset}'` : 'delete document.documentElement.dataset.preset'}`);
+  // Only fixed, known selectors, themes and presets reach the page: the page
+  // looks them up by index from tables set once, never from evaluated source.
+  const SELECTORS = { gallery: '[data-mascot-gallery]', mascot: '.pixel-mascot', composer: '[data-wall-composer]', dock: '.wall-dock' };
+  const THEMES = ['dark', 'light'];
+  const PRESETS = ['autumn'];
+  const tables = () => run(`window.__sel=${JSON.stringify(Object.values(SELECTORS))};window.__themes=${JSON.stringify(THEMES)};window.__presets=${JSON.stringify(PRESETS)};true`);
+  const rect = (key, pad) => {
+    const index = Object.keys(SELECTORS).indexOf(key);
+    if (index < 0 || !Number.isInteger(pad)) throw Error('unknown selector');
+    return run(`(()=>{const e=document.querySelector(window.__sel[${index}]);if(!e)return undefined;const r=e.getBoundingClientRect();const p=${pad};return {x:Math.max(0,Math.floor(r.x)-p),y:Math.max(0,Math.floor(r.y)-p),width:Math.min(innerWidth,Math.ceil(r.width)+p*2),height:Math.min(innerHeight,Math.ceil(r.height)+p*2)}})()`);
+  };
+  const theme = (t, preset) => {
+    const ti = THEMES.indexOf(t), pi = preset ? PRESETS.indexOf(preset) : -1;
+    if (ti < 0 || (preset && pi < 0)) throw Error('unknown theme');
+    return run(`document.documentElement.dataset.theme=window.__themes[${ti}];${pi >= 0 ? `document.documentElement.dataset.preset=window.__presets[${pi}]` : 'delete document.documentElement.dataset.preset'}`);
+  };
   try {
     await win.loadFile(path.join(out, 'index.html'));
     win.showInactive();
@@ -44,12 +58,13 @@ app.whenReady().then(async () => {
     win.webContents.debugger.attach('1.3');
     await win.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled', { enabled: true });
     await sleep(1000);
+    await tables();
 
     // 1 + 2. The Spooky hat and the Agents nav cat.
     await run("integration.reset({ preset: 'autumn' })"); await sleep(600);
     await run("integration.route('mascot')"); await theme('dark', 'autumn'); await sleep(500);
-    await capture('mascot-gallery-dark', await rect('[data-mascot-gallery]', 8));
-    await capture('mascot-corner-dark', await rect('.pixel-mascot', 24));
+    await capture('mascot-gallery-dark', await rect('gallery', 8));
+    await capture('mascot-corner-dark', await rect('mascot', 24));
     await check('nav cat has no eyes', "!document.querySelector('[data-gallery=nav] .pixel-eyes-open')");
 
     // 3. The focused wall composer, both themes.
@@ -59,14 +74,14 @@ app.whenReady().then(async () => {
       await check(`composer is focused (${t})`, "!!document.querySelector('[data-wall-composer] .composer:focus-within')");
       await check(`one 1px border, no inset ring (${t})`, "(()=>{const c=getComputedStyle(document.querySelector('[data-wall-composer] .composer'));return parseFloat(c.borderTopWidth)<=1&&c.boxShadow==='none'})()");
       report[`composer-${t}`] = await run("(()=>{const e=document.querySelector('[data-wall-composer] .composer');const c=getComputedStyle(e);return {border:c.borderTopWidth+' '+c.borderTopColor,shadow:c.boxShadow,cls:e.className}})()");
-      await capture(`composer-focus-${t}`, await rect('[data-wall-composer]', 10));
+      await capture(`composer-focus-${t}`, await rect('composer', 10));
     }
 
     // 4. Drag the dock's top panel down two places. Synthetic DragEvents drive
     // React's handlers; the OS drag image does not exist for synthetic drags,
     // so a fixture-only ghost (a clone) follows the pointer for the recording.
     await run("integration.reset({ dockAll: true })"); await sleep(1200); await theme('dark');
-    const dockRect = await rect('.wall-dock', 0);
+    const dockRect = await rect('dock', 0);
     await capture('dock-rest-dark', dockRect);
     await run(`window.__dt = new DataTransfer();
       window.__fire = (type, el, x, y) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: window.__dt, clientX: x, clientY: y }));
