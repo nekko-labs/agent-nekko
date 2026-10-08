@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from 'node:fs';
+import { flushAgentLogs } from './agent-log.js';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -99,7 +100,10 @@ beforeEach(() => {
   mcpToolSpecs.mockReturnValue([]);
 });
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+afterEach(async () => {
+  await flushAgentLogs();
+  rmSync(dir, { recursive: true, force: true });
+});
 
 it('propagates off through chat and sideband calls and preserves cache usage', async () => {
   saveSettings({ promptCaching: false });

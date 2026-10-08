@@ -460,14 +460,18 @@ export function WallToolbar({
     if (!hasAppChrome) return;
     // The native title bar is one row; narrow windows keep controls in-view.
     const wide = window.matchMedia('(min-width: 1100px)');
-    const update = () => setSlot(wide.matches ? document.getElementById('command-titlebar-slot') : null);
-    // Recover if chrome remounts or replaces the portal host during navigation.
-    const observer = new MutationObserver((records) => {
-      const changedHost = records.some((record) => [...record.addedNodes, ...record.removedNodes].some((node) =>
-        node instanceof Element && (node.id === 'command-titlebar-slot' || node.querySelector('#command-titlebar-slot'))));
-      if (changedHost) update();
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    // Watch direct ancestor changes, never streamed transcript descendants.
+    const observer = new MutationObserver(() => update());
+    const update = () => {
+      const host = document.getElementById('command-titlebar-slot');
+      setSlot(wide.matches ? host : null);
+      observer.disconnect();
+      let ancestor: HTMLElement | null = host?.parentElement ?? document.body;
+      while (ancestor) {
+        observer.observe(ancestor, { childList: true });
+        ancestor = ancestor.parentElement;
+      }
+    };
     update();
     wide.addEventListener('change', update);
     return () => { wide.removeEventListener('change', update); observer.disconnect(); };
