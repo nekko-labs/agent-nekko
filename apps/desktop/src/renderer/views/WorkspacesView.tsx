@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
 import { AUTO_MODEL_ID, archiveDaysLeft, archiveDeletesAt, parsePrUrl } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
@@ -19,7 +20,7 @@ import { PaneFrame } from '../components/PaneFrame.js';
 import { Divider } from '../components/Divider.js';
 import { runningSessionIds } from '../liveRuns.js';
 import { StatusIcon, WorkspaceCard, type AgentStatus } from '../components/WorkspaceCard.js';
-import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon, CloseIcon, RowsIcon } from '../icons.js';
+import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon, PanelLeftIcon, PanelSwapIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 import { COMPLETION_ROW_ATTR, completeWithExit, findCompletionRow } from '../completionExit.js';
@@ -318,7 +319,26 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
   const [drag, setDrag] = useState<DragItem | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const newMenuRef = useRef<HTMLDivElement>(null);
+  const newMenuPopRef = useRef<HTMLDivElement>(null);
+  const newMenuButtonRef = useRef<HTMLButtonElement>(null);
   const newMenuTimer = useRef<number>(0);
+  // The menu renders in a portal at the document root, positioned under the +.
+  // The panel clips its overflow and the wall's windows stack above it, so a
+  // menu drawn inside the panel was cut off or hidden behind them.
+  const [newMenuPos, setNewMenuPos] = useState<{ top: number; left: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!newMenuOpen) return;
+    const place = () => {
+      const r = newMenuButtonRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const width = 256;
+      setNewMenuPos({ top: r.bottom + 6, left: Math.max(8, Math.min(window.innerWidth - width - 8, r.right - width)) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [newMenuOpen]);
 
   useEffect(() => { refreshTerminals(); }, [refreshTerminals]);
   useEffect(() => { window.nekko.listShells().then(setShells).catch(() => {}); }, []);
@@ -326,7 +346,8 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
   // Close the "+" create menu on an outside click.
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (newMenuRef.current && !newMenuRef.current.contains(e.target as Node)) setNewMenuOpen(false);
+      const target = e.target as Node;
+      if (newMenuRef.current && !newMenuRef.current.contains(target) && !newMenuPopRef.current?.contains(target)) setNewMenuOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
@@ -531,7 +552,7 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
     // `min()` guards the mobile overlay, where the chosen width could be wider
     // than the screen it slides over.
     <div
-      className={`panel panel-ring flex ${horizontal ? 'h-auto w-full flex-row items-stretch' : 'h-full flex-col'}`}
+      className={`panel ${sidebarOnly ? '' : 'panel-ring '}flex ${horizontal ? 'h-auto w-full flex-row items-stretch' : 'h-full flex-col'}`}
       style={horizontal ? undefined : { width: `min(${sidebarW}px, 82vw)` }}
       data-agent-panel={sidebarOnly || undefined}
       data-orientation={sidebarOnly ? orientation : undefined}
@@ -542,19 +563,19 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
           {sidebarOnly ? (<>
             <button
               className="rounded-sm p-1.5 text-ink-faint hover:text-ink"
-              title={horizontal ? 'Show agents in a column' : 'Show agents in a row'}
-              aria-label={horizontal ? 'Show agents in a column' : 'Show agents in a row'}
-              onClick={() => onOrientation?.(horizontal ? 'vertical' : 'horizontal')}
+              title="Hide the agent panel"
+              aria-label="Hide the agent panel"
+              onClick={() => onClosePanel?.()}
             >
-              {horizontal ? <PanelIcon className="h-3.5 w-3.5" /> : <RowsIcon className="h-3.5 w-3.5" />}
+              <PanelLeftIcon className="h-4 w-4" />
             </button>
             <button
               className="rounded-sm p-1.5 text-ink-faint hover:text-ink"
-              title="Close the agent panel"
-              aria-label="Close the agent panel"
-              onClick={() => onClosePanel?.()}
+              title={horizontal ? 'Move the agent panel to the left side' : 'Move the agent panel to the top'}
+              aria-label={horizontal ? 'Show agents in a column' : 'Show agents in a row'}
+              onClick={() => onOrientation?.(horizontal ? 'vertical' : 'horizontal')}
             >
-              <CloseIcon className="h-3.5 w-3.5" />
+              <PanelSwapIcon className="h-4 w-4" />
             </button>
           </>) : (
           <button
@@ -567,19 +588,24 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
             <PanelIcon className="h-3.5 w-3.5" />
           </button>)}
           <button
-            className={`btn btn-ghost px-2 py-1 ${newMenuOpen ? 'text-accent' : ''}`}
+            ref={newMenuButtonRef}
+            className={`agent-panel-plus btn btn-ghost px-1.5 py-1 ${newMenuOpen ? 'is-open' : ''}`}
             title="New agent with a terminal"
+            aria-label="New agent"
+            aria-haspopup="menu"
             aria-expanded={newMenuOpen}
             onMouseEnter={openNewMenu}
             onFocus={openNewMenu}
             onClick={() => { closeNewMenu(); void newTerminalWorkspace().catch(e => useStore.getState().pushToast('error', e.message)); }}
           >
-            <PlusIcon />
+            <PlusIcon className="h-[22px] w-[22px]" />
           </button>
-          {newMenuOpen && (
+          {newMenuOpen && newMenuPos && createPortal(
             <div
-              className="card absolute right-0 top-9 z-40 w-64 p-1.5 shadow-lg"
-              style={{ background: 'var(--paper)' }}
+              ref={newMenuPopRef}
+              data-new-agent-menu
+              className="card fixed z-[1000] w-64 p-1.5 shadow-lg"
+              style={{ background: 'var(--paper)', top: newMenuPos.top, left: newMenuPos.left }}
               onMouseEnter={openNewMenu}
               onMouseLeave={closeNewMenuSoon}
             >
@@ -629,7 +655,8 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
                   />
                 ))
               )}
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>

@@ -55,6 +55,18 @@
 }
 .command-wall-add:hover { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
 .command-wall-empty { padding: 32px; color: var(--ink-faint); font-size: 13px; }
+/* An empty wall centres its illustration in the space the windows would use. */
+.command-wall-stage:has(> .command-wall-empty .command-wall-empty-state) { min-height: 100%; }
+.command-wall-empty:has(.command-wall-empty-state) { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.command-wall-empty-state { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 340px; text-align: center; line-height: 1.5; }
+.command-wall-empty-title { margin-top: 6px; color: var(--ink); font-size: 15px; font-weight: 600; }
+.wall-empty-art { position: relative; width: 240px; height: 150px; }
+.wall-empty-art > svg { display: block; }
+/* Nekko sits on the floor line, below the wall's frame. */
+.wall-empty-cat { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); line-height: 0; }
+.wall-empty-bat { transform-box: fill-box; transform-origin: center; animation: wall-empty-bat 3.2s ease-in-out infinite; }
+@keyframes wall-empty-bat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .wall-empty-bat { animation: none; } }
 .command-wall-divider-box { position: absolute; pointer-events: none; }
 .command-wall-divider-box > [role="separator"] {
   position: absolute;

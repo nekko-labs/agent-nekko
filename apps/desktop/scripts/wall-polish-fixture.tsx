@@ -23,6 +23,13 @@ const makeSession = (id: string, title: string, workspaceId?: string) => ({
   ],
   attachments: [], queuedPrompts: [],
 });
+// Synthetic daily usage for the Budget panel: today, last week, two months ago.
+const day = (offset: number) => new Date(at - offset * 86_400_000).toISOString().slice(0, 10);
+const usageFixture = () => ({
+  totalInput: 0, totalOutput: 0, totalCost: 0, byModel: {}, byProvider: {}, bySession: {}, bySessionCost: { alpha: 2.4 },
+  daily: [{ date: day(0), input: 12000, output: 3400, cost: 0.42 }, { date: day(5), input: 80000, output: 21000, cost: 1.9 }, { date: day(60), input: 400000, output: 90000, cost: 7.5 }],
+  avoidedCosts: { local: 1.23, subscription: 4.56 },
+});
 let records: any[] = [];
 const calls: any[] = [];
 const bridge: any = {
@@ -30,7 +37,7 @@ const bridge: any = {
   setSessionOptions: async (id: string, options: any) => { calls.push({ method: 'options', id, options }); const s = records.find(s => s.id === id); Object.assign(s, options); return { ...s }; },
   listSessionSummaries: async () => records.map(summarizeSession), listTerminals: async () => [],
   getSession: async (id: string) => records.find(s => s.id === id), listModels: async () => models,
-  getUsageSummary: async () => null, pendingInput: async () => ({}), runningSessions: async () => [],
+  getUsageSummary: async () => usageFixture(), pendingInput: async () => ({}), runningSessions: async () => [],
   listTasks: async () => [], listShells: async () => [], listChanges: async () => [], listFiles: async () => [],
   previewContext: async () => ({ items: [], totalTokens: 0, budget: 128000 }), getGitStatus: async () => ({ repo: false }),
   getAppInfo: async () => ({ version: '0.0.0-fixture', platform: 'win32' }), getUpdateInfo: async () => null,
@@ -51,12 +58,15 @@ function StatusGallery() {
 function Fixture() {
   const [epoch, setEpoch] = useState(0);
   const [route, setRoute] = useState('command');
-  const reset = () => {
+  // opts: empty wall, show the dock (Budget only), theme preset, horizontal agent panel.
+  const reset = (opts: { empty?: boolean; dock?: boolean; preset?: string; horizontal?: boolean } = {}) => {
     records = [makeSession('alpha', 'Fix wall and composer styling'), makeSession('beta', 'Analyze post-merge perf trace'), makeSession('outside', 'Chat not on the wall')];
     calls.length = 0;
     localStorage.clear();
-    const root = { id: 'split', dir: 'row', sizes: [0.5, 0.5], children: [{ id: 'pane-alpha', kind: 'chat', refId: 'alpha' }, { id: 'pane-beta', kind: 'chat', refId: 'beta' }] };
-    useStore.setState({ view: 'command', providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: null, settings: { providers: [provider], workspaceFolders: [], workspaces: [], theme: 'dark', experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root, hero: 'alpha', autoAdd: false, watermark: Date.now(), dock: { ...DEFAULT_WALL_STATE.dock, show: false } } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
+    const root = opts.empty ? null : { id: 'split', dir: 'row', sizes: [0.5, 0.5], children: [{ id: 'pane-alpha', kind: 'chat', refId: 'alpha' }, { id: 'pane-beta', kind: 'chat', refId: 'beta' }] };
+    const dock = opts.dock ? { ...DEFAULT_WALL_STATE.dock, show: true, panels: { vitals: false, automations: false, utilization: false, budget: true, insights: false, hardware: false } } : { ...DEFAULT_WALL_STATE.dock, show: false };
+    const agentPanel = opts.horizontal ? { show: true, orientation: 'horizontal' } : undefined;
+    useStore.setState({ view: 'command', providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: null, settings: { providers: [provider], workspaceFolders: [], workspaces: [], theme: 'dark', themePreset: opts.preset, experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root, hero: opts.empty ? null : 'alpha', autoAdd: false, watermark: Date.now(), dock, ...(agentPanel ? { agentPanel } : {}) } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
     records.forEach(putCachedSession); setRoute('command'); setEpoch(e => e + 1);
   };
   Object.assign(window, { integration: { reset, calls, route: setRoute, state: () => useStore.getState(), records: () => records } });

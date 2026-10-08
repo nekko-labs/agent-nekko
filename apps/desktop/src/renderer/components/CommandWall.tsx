@@ -76,6 +76,7 @@ import { COMPACT_HEIGHT, COMPACT_WIDTH, PaneDensityHint } from './agent-console/
 import { TerminalPane } from './TerminalPane.js';
 import { PaneActions, PaneFrame } from './PaneFrame.js';
 import { Divider } from './Divider.js';
+import { WallEmptyIllustration } from './WallEmptyIllustration.js';
 import { BoltIcon, ChatIcon, ExternalIcon, LayoutIcon, TerminalIcon } from '../icons.js';
 import './commandWallLayouts.css';
 
@@ -505,7 +506,7 @@ export function CommandWall({
             <div className="command-wall-add-heading">Add to the wall</div><div ref={createRef} id="wall-window-picker" className="command-wall-create">{addContent}</div>
           </section>}
         </div>}
-        {!addContent && !filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : <>No windows on the wall yet. <button type="button" className="text-accent hover:underline" onClick={onAddWindow} aria-label="Add window">Add a window</button> to get started.</>}</div>}
+        {!addContent && !filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : <div className="command-wall-empty-state" data-wall-empty><WallEmptyIllustration /><p className="command-wall-empty-title">The wall is empty</p><p>Agents, terminals and panels you add show up here as windows. <button type="button" className="text-accent hover:underline" onClick={onAddWindow} aria-label="Add window">Add a window</button> to get started.</p></div>}</div>}
       </div>
     </div>
   );
