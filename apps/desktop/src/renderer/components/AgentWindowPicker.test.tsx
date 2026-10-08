@@ -119,6 +119,24 @@ describe('AgentWindowPicker', () => {
     expect(view.onAdd).toHaveBeenCalledWith({ kind: 'chat', chatType: 'multimodal', modelId: 'auto', workspaceIds: ['f2'] });
   });
 
+  it('uses only a model belonging to the enabled active provider', async () => {
+    const models = state.models;
+    state.models = [{ id: 'foreign', providerId: 'disabled', name: 'Foreign' }, ...models];
+    try {
+      const view = picker('chat');
+      await view.button('Start').props.onClick();
+      expect(view.onAdd).toHaveBeenCalledWith(expect.objectContaining({ providerId: 'p', modelId: 'm' }));
+      state.activeProviderId = 'disabled';
+      expect(picker('chat').button('Start').props.disabled).toBe(true);
+    } finally { state.models = models; state.activeProviderId = 'p'; }
+  });
+
+  it('passes an explicitly empty folder selection without restoring defaults', async () => {
+    const view = picker('chat', null, false, null, vi.fn(async () => {}), false, []);
+    await view.button('Start').props.onClick();
+    expect(view.onAdd).toHaveBeenCalledWith(expect.objectContaining({ workspaceIds: [] }));
+  });
+
   it('cannot start without any model available', () => {
     const models = state.models; const active = state.activeProviderId;
     state.models = []; state.activeProviderId = '';

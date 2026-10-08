@@ -69,10 +69,12 @@ export function AgentWindowPicker({ onAdd, onClose }: AgentWindowPickerProps) {
   // Defaults, so a new chat is one click: the saved default model, else the
   // model already active, else the active provider's first; and the current
   // project folder, else the first folder.
+  const activeProviderEnabled = enabledProviders.some((p) => p.id === activeProviderId);
+  const activeProviderModel = activeModelId ?? models.find((m) => m.providerId === activeProviderId)?.id;
   const defaultModel = settings?.defaultProviderId && settings.defaultModelId && enabledProviders.some((p) => p.id === settings.defaultProviderId)
     ? { providerId: settings.defaultProviderId, modelId: settings.defaultModelId }
-    : activeProviderId && (activeModelId ?? models[0]?.id)
-      ? { providerId: activeProviderId, modelId: (activeModelId ?? models[0]?.id) as string }
+    : activeProviderEnabled && activeProviderModel
+      ? { providerId: activeProviderId, modelId: activeProviderModel }
       : null;
   const model = choice ?? defaultModel;
   const modelName = model?.modelId === AUTO_MODEL_ID ? 'Auto' : models.find((m) => m.id === model?.modelId && m.providerId === model?.providerId)?.name ?? model?.modelId;
@@ -82,7 +84,7 @@ export function AgentWindowPicker({ onAdd, onClose }: AgentWindowPickerProps) {
   const toggleFolder = (id: string) => setPickedFolders(chosenFolders.includes(id) ? chosenFolders.filter((x) => x !== id) : [...chosenFolders, id]);
   const start = () => {
     if (!model) return;
-    void add({ kind: 'chat', chatType: 'multimodal', ...(model.providerId ? { providerId: model.providerId } : {}), modelId: model.modelId, ...(chosenFolders.length ? { workspaceIds: chosenFolders } : {}) });
+    void add({ kind: 'chat', chatType: 'multimodal', ...(model.providerId ? { providerId: model.providerId } : {}), modelId: model.modelId, workspaceIds: chosenFolders });
   };
 
   const add = async (selection: AgentWindowSelection) => {
