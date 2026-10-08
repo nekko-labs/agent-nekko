@@ -962,6 +962,15 @@ Implemented, not release-verified. Focused unit tests, build:web and workspace t
 - **No box behind the wall composer.** The composer's bottom information strip carries no border or background in the wall composer, where it only ever hosts the pending-PR dock, so an empty strip no longer shows as a band below the composer.
 - **Delegation errors name the fix.** A sub-agent call that sends `provider_id`/`model_id` as empty strings is still refused (no child, no fallback), but the error now tells the model to omit them to inherit the chat's route or to call `delegation_targets` first. A failed target model-list check is logged with the provider ID and error class only, never the message (which can quote endpoints or tokens).
 
+### Wall composer in one card (2026-10-08)
+
+Implemented; focused tests and isolated renderer captures verified (dark/light, 1400/760 px).
+
+- **No bar above the composer.** The row naming the agent the composer speaks for (its numbered agent icon, title, status, and the Focus and dock-position buttons) is now the composer card's own first row, replacing the controls strip that was there. Automate sits at that row's right end. With no agent selected the same row stands alone over the empty state.
+- **Mode and incognito in the bottom bar.** They sit beside the + attach button, left of the suggestions chip, microphone and send. In a narrow composer they drop their words (the mode value and incognito mask stay, words move to the tooltip) so the bar never runs into the microphone.
+- The keyboard hint ("Ctrl+Tab cycles windows") moves from the row into the title's tooltip.
+- Full chat panes, wall windows and image chats are unchanged; this applies to the wall composer only.
+
 ### Agents wall polish, round three (2026-10-08)
 
 Implemented; focused tests and isolated renderer captures verified (dark/light, 1400/760 px, panel as column, row and collapsed). The orientation-switch animation is implemented (FLIP, 280 ms, off under reduced motion) but its motion is not captured as video.

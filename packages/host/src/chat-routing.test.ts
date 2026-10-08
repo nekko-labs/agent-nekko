@@ -72,6 +72,7 @@ const { executeTool } = await import('./tools.js');
 const { terminalSnapshot, writeTerminal, closeTerminal } = await import('./terminal.js');
 const { createSession, getSession, saveSession, listSessions } = await import('./sessions.js');
 const { sendChat, previewContext, resolveApproval, suggestReplies, fillPromptPart } = await import('./chat.js');
+const { flushAgentLogs } = await import('./agent-log.js');
 const { BUILTIN_TOOLS } = await import('@agent-nekko/core');
 let dir: string;
 let providers: ProviderConfig[];
@@ -99,7 +100,14 @@ beforeEach(() => {
   mcpToolSpecs.mockReturnValue([]);
 });
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+// Command-log sidecars are written asynchronously (agent-log.ts): a test that
+// returns as soon as its shell is cancelled can still have an append queued,
+// which recreated `sessions/` under the directory being removed (ENOTEMPTY).
+// Drain them first, and retry for a child process still releasing a handle.
+afterEach(async () => {
+  await flushAgentLogs().catch(() => {});
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+});
 
 it('propagates off through chat and sideband calls and preserves cache usage', async () => {
   saveSettings({ promptCaching: false });

@@ -513,13 +513,19 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full', statusGlyph, selected }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full', statusGlyph, selected, header }: {
   sessionId: string;
   /** What the agent is doing (rocket, Zz, ?), drawn in the far bottom-right corner of the window's footer. */
   statusGlyph?: React.ReactNode;
   commandCenter?: boolean;
   /** On the Agents wall: whether this window is the selected one. Undefined off the wall. */
   selected?: boolean;
+  /**
+   * The wall composer's own top row (which agent it speaks for, its status and
+   * dock controls). Given, it replaces the controls strip: mode and incognito
+   * move to the bottom bar beside +, Automate to this row's right end.
+   */
+  header?: React.ReactNode;
   /**
    * Which part of the chat this instance shows. A window on the Command
    * Center wall shows the `transcript` alone; the wall's one composer shows
@@ -2296,7 +2302,22 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 )}
               </div>
             )}
-            {showControls && (<>
+            {header && (
+              <div className="composer-head flex min-w-0 items-center gap-1.5 border-b border-line px-2 py-1 text-[12px]" data-composer-head>
+                {header}
+                {!imageMode && (
+                  <button
+                    className="ctl-toggle shrink-0 whitespace-nowrap"
+                    onClick={() => setScheduleOpen(true)}
+                    aria-label="Automate: schedule, repeat, or run in the background"
+                    title="Automate: schedule, repeat, or run in the background"
+                  >
+                    <span style={{ color: 'var(--warning)' }}><BoltIcon className="h-3 w-3" /></span> Automate
+                  </button>
+                )}
+              </div>
+            )}
+            {showControls && !header && (<>
             {/* Chat-wide switches live at the top of the input surface; the
                 model and its effort sit in the bottom bar beside Send. */}
             <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
@@ -2366,12 +2387,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 </button>
               )}
             </div>
-            {imageMode && session && (
+            </>)}
+            {showControls && imageMode && session && (
               <div className="flex min-w-0 flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
                 <ImageModeControls session={session} onChange={setSession} busy={streaming} />
               </div>
             )}
-            </>)}
 
             {/* Queued follow-ups expand inside the same surface as the input. */}
             <div className={`collapse-wrap ${queued.length > 0 ? '' : 'collapsed'}`} aria-hidden={queued.length === 0}>
@@ -2701,6 +2722,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     />
                   </div>
                   </>)}
+                  {header && (
+                    <div className="composer-foot-controls flex min-w-0 items-center gap-1" data-composer-foot>
+                      <ChatControls session={session} isCloudModel={isCloudModel} onChange={setSession} toolsInWindow only="mode" />
+                      <ChatControls session={session} isCloudModel={isCloudModel} onChange={setSession} toolsInWindow only="privacy" />
+                    </div>
+                  )}
                   <div className="flex-1" />
                   {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
                   {/* Prompt suggestions: one chip beside the microphone; its
