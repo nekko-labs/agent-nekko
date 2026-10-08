@@ -7,6 +7,23 @@ import {
   MODEL_PRICING,
 } from './limits.js';
 
+import { MODEL_PRICING_SNAPSHOT } from './model-pricing-snapshot.js';
+
+describe('published pricing lookup', () => {
+  it('preserves first published route precedence for every exact and unqualified id', () => {
+    for (const entry of MODEL_PRICING_SNAPSHOT.models) {
+      for (const id of [entry.id, entry.id.split('/').slice(1).join('/')]) {
+        const normalized = id.toLowerCase().replace(/^(claude-[a-z]+)-(\d+)-(\d+)(?=$|-)/, '$1-$2.$3')
+          .replace(/^(qwen3|gpt-oss):(\d+b)(?=$|[-_])/, '$1-$2');
+        const expected = MODEL_PRICING_SNAPSHOT.models.find(p => p.id === normalized || p.id.split('/').slice(1).join('/') === normalized);
+        expect(getModelPrice(id)?.modelId, id).toBe(expected?.id);
+        expect(getModelPrice(id)?.input, id).toBe(expected?.input);
+        expect(getModelPrice(id)?.output, id).toBe(expected?.output);
+      }
+    }
+  });
+});
+
 describe('MODEL_PRICING', () => {
   it('keeps more-specific entries before broader ones', () => {
     const mini = MODEL_PRICING.findIndex((p) => p.match === 'gpt-4o-mini');

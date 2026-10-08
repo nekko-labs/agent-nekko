@@ -173,6 +173,16 @@ export const MODEL_PRICING: ModelPricing[] = [
   { match: 'gpt-3.5', input: 0.5, output: 1.5 },
 ];
 
+// Build once: pricing is queried during streaming and chat switches. Preserve
+// first-entry precedence for unqualified ids shared by multiple hosted routes.
+const publishedModelPrices = new Map<string, (typeof MODEL_PRICING_SNAPSHOT.models)[number]>();
+for (const price of MODEL_PRICING_SNAPSHOT.models) {
+  for (const id of [price.id, price.id.split('/').slice(1).join('/')]) {
+    if (!publishedModelPrices.has(id)) publishedModelPrices.set(id, price);
+  }
+}
+const familyModelPrices = [...MODEL_PRICING].sort((a, b) => b.match.length - a.match.length);
+
 /** Find the pricing entry whose match is the longest substring of `modelId`. */
 export function getModelPrice(modelId: string | undefined): ModelPricing | undefined {
   if (!modelId) return undefined;
@@ -180,15 +190,13 @@ export function getModelPrice(modelId: string | undefined): ModelPricing | undef
     .replace(/^(qwen3|gpt-oss):(\d+b)(?=$|[-_])/, '$1-$2');
   // Exact hosted ids and unambiguous local names beat legacy family prices.
   // Do not treat a different size, fine-tune, batch or unpublished variant as exact.
-  const published = MODEL_PRICING_SNAPSHOT.models.find(p => p.id === id || p.id.split('/').slice(1).join('/') === id);
+  const published = publishedModelPrices.get(id);
   if (published) return { ...published, match: id, modelId: published.id, source: MODEL_PRICING_SOURCE, checkedAt: MODEL_PRICING_CHECKED_AT };
   // Only the published GPT-5 API ids have these prices. Subscription-only
   // Codex variants and later generations must not inherit the base price.
   if (/(?:^|\/)gpt-[5-9](?:[.\-]|$)/.test(id) &&
       !/(?:^|\/)gpt-(?:5(?:-(?:mini|nano))?|6-astra|6\.1-sol|6-luna|5\.6-(?:sol|cyber))(?:$|-\d{4}-\d{2}-\d{2}$)/.test(id)) return undefined;
-  return [...MODEL_PRICING]
-    .sort((a, b) => b.match.length - a.match.length)
-    .find((p) => id.includes(p.match));
+  return familyModelPrices.find((p) => id.includes(p.match));
 }
 
 export interface EstimateCostInputs {
