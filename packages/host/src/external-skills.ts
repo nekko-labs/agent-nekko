@@ -145,7 +145,7 @@ function readSkill(dir: string, tool: ExternalSkillTool, scope: 'user' | 'projec
  */
 function skillTemplate(name: string, dir: string, body: string): string {
   return [
-    `Follow the "${name}" skill below. Its folder is ${dir}; resolve any relative file paths it mentions against that folder.`,
+    `Use the "${name}" skill below. Its own files (scripts, references) are in ${dir}. That folder belongs to the skill, not to the user's project: do the work in the project as usual, and only read from that folder when the instructions point at one of its files.`,
     '',
     body,
   ].join('\n');
