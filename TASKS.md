@@ -1242,14 +1242,21 @@ Verified with 72 focused tests, desktop source-aware typechecking and an isolate
 - [x] Mounted subscription quota portfolios refresh each minute when idle and twice as often for accounts used by running chats. Shared per-account in-flight reads and scheduling timestamps avoid duplicate portfolio polling; host throttling unchanged. Utilization adds a countdown beside refresh.
 - [x] Subscription savings explicitly say all-time and regression coverage verifies old/new session sums, cache pricing, unknown-price exclusion, zero subscription billing and date-filter independence.
 - [x] Isolated wide/narrow light/dark renderer captures and theme-stable countdown frames inspected. Mounted synthetic clock verifies idle/active/stop cadence. Fixed missing server snapshot found by CI; full desktop build and 718 existing tests pass locally.
-- [ ] Publish updated recording, verify latest CI and resolve outstanding memory/savings acceptance before landing.
+- [x] Updated recording and screenshots published. Code-head 8954912 CI passes, including performance and Swift analysis. Exact Activity Monitor UI parity and historical savings reproduction remain follow-ups, not a claim of restored $2200.
 - [ ] Resolve the historical $2200-to-$141 discrepancy using the prior log/profile or screenshot. Available current records independently reproduce the current magnitude; no aggregation/date-filter defect demonstrated. Do not inflate estimates or price unpublished variants to restore an unverified total.
 
-- [x] Narrowed quota run tracking to a stable membership snapshot after CI performance investigation exposed unnecessary streaming-driven renders. 720 desktop tests and mounted idle/active/stop checks pass. Unchanged-base profiling also fails warm/cold switch budgets; do not waive those gates or claim a clean performance result until latest CI passes.
+- [x] Narrowed quota run tracking to a stable membership snapshot after CI performance investigation exposed unnecessary streaming-driven renders. 720 desktop tests and mounted idle/active/stop checks pass. Unchanged-base profiling also fails warm/cold switch budgets; no gate was waived; current-head CI subsequently passes. Earlier base/head latency profiles do not establish streaming parity.
 
 ## Restore agent-window Logs (2026-10-08)
 
 - [x] Agent windows keep their Logs control when compact. Removed the compact visibility gate, retained existing owning-session terminal routing, and used the existing terminal SVG for narrow headers. Regression guard and isolated three-chat light/dark wide/narrow DOM checks prove all three controls remain and the second window opens `agent_second`. · [spec](SPEC.md#agent-window-log-access)
 - [x] Matching light/dark wide/narrow header screenshots inspected; desktop typecheck and721 tests pass.
-- [ ] Publish header evidence and pass latest CI before landing.
+- [x] Header evidence published and code-head 8954912 CI passes. No additional visual change in the review batch.
 - Memory follow-up: primary running desktop bundle still contains total-minus-free accounting; PR fixes are not yet installed. VM counters on this machine report about35.55 GiB resident of64 GiB, not almost full. This is not a contemporaneous Activity Monitor capture. Avoid diagnosing a leak from reclaimable cache alone.
+
+## PR #378 scoped review handoff (2026-10-08)
+
+- [x] Reviewed VM counters, quota read coalescing and host throttle, stable running membership, and owning-session Logs routing. No additional scoped code defect established. 60 focused tests plus two sandbox syntax checks, host/desktop typechecks and shared/core/host/desktop build pass.
+- [x] Safe read-only live host probe reports 36730 MiB of65536 MiB, bracketed by VM samples36729 and36730 MiB; legacy total-minus-free reports62674 MiB and swap is zero. Shared-source counter agreement is not independent Activity Monitor parity. User-owned app/profile untouched; no credential or billable calls.
+- [x] Inspected latest failed performance diagnostic: full run warm/cold p95 26.0/26.0 ms; unchanged-base quick profile102.3/28.8 ms versus head45.9/35.5 ms. Quick profiles skip streaming, so they cannot clear streaming regression by themselves. Current code-head CI passes with unchanged budgets, no new rerun requested. Preserve existing evidence.
+- [ ] Follow-up: obtain prior screenshot/log to explain historical $2200; independently compare Activity Monitor at the same time after an approved installation. Neither is silently presented as verified. Stay draft/unmerged and do not mark ready in this review handoff.
