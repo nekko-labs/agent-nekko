@@ -2,6 +2,7 @@ import { createMlxRuntime, mlxSupported } from './mlx.js';
 import { readGgufMetadata } from './gguf.js';
 import { engineDaemon } from './daemon.js';
 import type { GpuAdapter } from '../gpu-adapters.js';
+import { setEngineBinResolver } from '../gpu.js';
 import { freemem, totalmem } from 'os';
 import { dirname, join, resolve } from 'path';
 import { stat } from 'fs/promises';
@@ -99,6 +100,10 @@ export function createEngine(deps: EngineDeps) {
     getGpuAdapters: deps.getGpuAdapters,
     externalPath: deps.externalBinPath,
   });
+
+  // Lets the GPU probe fall back to this engine's own device list. Only the
+  // llama.cpp runtime: it is the one that serves the models being sized.
+  setEngineBinResolver(() => installer.installedBin());
 
   const diffusionInstaller = createEngineInstaller({ runtime: 'diffusion', engineDir: () => join(engineDir(), 'diffusion'), downloads, getGpuStats: deps.getGpuStats });
   const mlxRuntime = createMlxRuntime({ dir: () => join(engineDir(), 'mlx'), downloads });

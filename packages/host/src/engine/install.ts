@@ -261,6 +261,20 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
     return { runtime, version: release.tag, build, files, sizeBytes: files.reduce((n, f) => n + f.sizeBytes, 0) };
   }
 
+  /**
+   * The binary `detect` would use, found without asking about the GPU.
+   *
+   * The GPU probe's fallback runs this engine's `--list-devices`, and `detect`
+   * itself reads the GPU probe to rank builds, so sharing `detect` would loop.
+   */
+  async function installedBin(): Promise<string | undefined> {
+    const external = deps.externalPath?.();
+    if (external && (await isExecutable(external))) return external;
+    const record = await readRecord();
+    if (record && (await isExecutable(record.binPath))) return record.binPath;
+    return (await findOnPath()) ?? undefined;
+  }
+
   async function probeVersion(bin: string): Promise<string | undefined> {
     const out = await run(bin, ['--version'], 8000);
     return out?.match(/b(\d{3,})/)?.[0] ?? out?.match(/version[: ]+(\S+)/i)?.[1];
@@ -276,7 +290,7 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
     return null;
   }
 
-  return { detect, install, uninstall, preview };
+  return { detect, install, uninstall, preview, installedBin };
 }
 
 export type EngineInstaller = ReturnType<typeof createEngineInstaller>;

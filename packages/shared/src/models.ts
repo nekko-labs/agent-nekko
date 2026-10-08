@@ -108,9 +108,11 @@ export interface GpuDevice {
 /**
  * Where a GPU reading came from. `nvidia-smi` is the NVIDIA driver query (Windows
  * and Linux); `ioreg` is the macOS accelerator driver's own statistics, which
- * needs no admin rights (unlike `powermetrics`).
+ * needs no admin rights (unlike `powermetrics`); `llama-server` is the engine's
+ * own `--list-devices`, the fallback where the vendor tool is missing or fails
+ * (old NVIDIA drivers, AMD and Intel GPUs). It reports no utilization.
  */
-export type GpuSource = 'nvidia-smi' | 'ioreg' | 'none';
+export type GpuSource = 'nvidia-smi' | 'ioreg' | 'llama-server' | 'none';
 
 /**
  * Aggregate GPU/VRAM stats, surfaced in the Chat metrics bar and Command Center.

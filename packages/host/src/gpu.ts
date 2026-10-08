@@ -2,19 +2,22 @@ import { execFile } from 'child_process';
 import os from 'os';
 import type { GpuStats } from '@agent-nekko/shared';
 import { parseIoregAccelerators, toGpuDevices } from './gpu-macos.js';
+import { queryLlamaDevices, type RunText } from './gpu-vulkan.js';
 
 /**
  * GPU/VRAM stats for the Chat metrics bar and Command Center.
  *
- * Two probes, chosen by platform, both of which run without elevated rights:
+ * Probes chosen by platform, all of which run without elevated rights:
  *  - `nvidia-smi` on Windows and Linux (the one query that works identically on
  *    both), reporting a discrete card's own VRAM.
  *  - `ioreg` on macOS, reading the accelerator driver's published counters. The
  *    GPU there shares one memory pool with the CPU, so the reading is flagged
  *    `unified` and measured against system RAM (see gpu-macos.ts).
+ *  - The engine's own `llama-server --list-devices` where `nvidia-smi` is missing
+ *    or fails (an old driver, a hybrid laptop, AMD or Intel). It names the GPUs
+ *    the model will really load on (see gpu-vulkan.ts).
  *
- * We return null when neither probe finds a GPU (no NVIDIA driver on a PC, or a
- * Mac whose driver publishes no statistics). Results are cached briefly so a
+ * We return null when no probe finds a GPU. Results are cached briefly so a
  * polling UI doesn't spawn a process on every tick.
  */
 
@@ -26,7 +29,7 @@ export async function getGpuStats(): Promise<GpuStats | null> {
   const now = Date.now();
   if (cache && now - cache.at < TTL_MS) return cache.stats;
   if (inFlight) return inFlight;
-  inFlight = probe()
+  inFlight = probe(false)
     .then((stats) => {
       cache = { at: Date.now(), stats };
       return stats;
@@ -47,7 +50,7 @@ export async function getGpuStats(): Promise<GpuStats | null> {
  * model took no memory at all. Anything comparing two moments asks for this.
  */
 export async function getGpuStatsFresh(): Promise<GpuStats | null> {
-  const stats = await probe();
+  const stats = await probe(true);
   cache = { at: Date.now(), stats };
   return stats;
 }
@@ -57,8 +60,42 @@ export async function getGpuStatsFresh(): Promise<GpuStats | null> {
  * support long before Apple Silicon), so it goes straight to the registry rather
  * than paying for a spawn that always fails.
  */
-function probe(): Promise<GpuStats | null> {
-  return process.platform === 'darwin' ? queryIoreg() : queryNvidiaSmi();
+async function probe(fresh: boolean): Promise<GpuStats | null> {
+  if (process.platform === 'darwin') return queryIoreg();
+  return (await queryNvidiaSmi()) ?? (await queryEngineDevices(fresh));
+}
+
+/**
+ * Where to find a `llama-server` for the fallback probe. Set by the host once the
+ * engine exists; kept as a hook so this file never imports the engine (which
+ * itself reads GPU stats to choose a build).
+ */
+let engineBin: (() => Promise<string | undefined>) | undefined;
+export function setEngineBinResolver(fn: (() => Promise<string | undefined>) | undefined): void {
+  engineBin = fn;
+  engineCache = null;
+}
+
+/**
+ * The fallback is a process spawn (~0.5-1 s), so it is read far less often than
+ * the 2.5 s monitor tick. Free memory is therefore up to this old; a load's
+ * before/after measurement uses `getGpuStatsFresh`, which skips this cache.
+ */
+const ENGINE_TTL_MS = 15_000;
+let engineCache: { at: number; stats: GpuStats | null } | null = null;
+let engineRun: RunText | undefined;
+/** Test seam: replace the process runner. */
+export function setEngineRunner(fn: RunText | undefined): void {
+  engineRun = fn;
+  engineCache = null;
+}
+
+async function queryEngineDevices(fresh: boolean): Promise<GpuStats | null> {
+  if (!engineBin) return null;
+  if (!fresh && engineCache && Date.now() - engineCache.at < ENGINE_TTL_MS) return engineCache.stats;
+  const stats = await queryLlamaDevices(await engineBin().catch(() => undefined), engineRun);
+  engineCache = { at: Date.now(), stats };
+  return stats;
 }
 
 /** Run a command, resolving its stdout or null on any failure/timeout. */
