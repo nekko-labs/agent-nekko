@@ -41,7 +41,7 @@ export function PlanRail({ sessionId, session, streaming, onClose, onChangePlan 
   const queued = session?.queue ?? [];
 
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden border-l border-line" style={{ background: 'var(--paper)' }} aria-label="Plan and sub-agents">
+    <aside className="flex h-full w-full flex-col overflow-hidden border-l border-line" style={{ background: 'transparent' }} aria-label="Plan and sub-agents">
       <header className="flex shrink-0 items-center gap-1.5 border-b border-line px-3 py-2">
         <ListIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
         <span className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-ink-faint">This prompt</span>

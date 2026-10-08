@@ -1285,3 +1285,9 @@ Add window sits to the right of the shared composer in the same row, including t
 - [x] Safe read-only live host probe reports 36730 MiB of65536 MiB, bracketed by VM samples36729 and36730 MiB; legacy total-minus-free reports62674 MiB and swap is zero. Shared-source counter agreement is not independent Activity Monitor parity. User-owned app/profile untouched; no credential or billable calls.
 - [x] Inspected latest failed performance diagnostic: full run warm/cold p95 26.0/26.0 ms; unchanged-base quick profile102.3/28.8 ms versus head45.9/35.5 ms. Quick profiles skip streaming, so they cannot clear streaming regression by themselves. Current code-head CI passes with unchanged budgets, no new rerun requested. Preserve existing evidence.
 - [ ] Follow-up: obtain prior screenshot/log to explain historical $2200; independently compare Activity Monitor at the same time after an approved installation. Neither is silently presented as verified. Stay draft/unmerged and do not mark ready in this review handoff.
+
+## Calmer tinted presets and one window surface (2026-10-08)
+
+- [x] Nebula and Terminal desaturated; saved old preset accents upgrade, custom colors untouched. Nebula/Terminal/Nord get their own --win. Plan panel, wall composer and dock share the chat-window surface; Add window and selected-window glows softened. Done: 2026-10-08 · [spec](SPEC.md#calmer-tinted-presets-and-one-window-surface-2026-10-08)
+- [x] Before/after Nebula/Terminal/Nord/Dark wall screenshots published in PR #384; Nebula 1400 before/after and Terminal 600 after inspected. Done: 2026-10-08
+

@@ -61,32 +61,33 @@ export const THEME_PRESETS: ThemePreset[] = [
   {
     id: 'nebula',
     mode: 'dark',
-    accent: '#a78bfa',
-    accent2: '#f472b6',
-    swatch: ['#a78bfa', '#f472b6', '#140f26', '#2e1065'],
+    // Toned down from violet-400/pink-400: same hues, less glare on dark paper.
+    accent: '#9d8ce6',
+    accent2: '#d98bb6',
+    swatch: ['#9d8ce6', '#d98bb6', '#15131f', '#2a2540'],
     label: 'Nebula',
-    paper: '#0a0714',
-    surface: '#140f26',
-    surface2: '#1f1838',
-    ink: '#ece7fb',
-    inkSoft: '#a99cc9',
-    inkFaint: '#6e6392',
-    line: '#2b2148',
+    paper: '#0b0a12',
+    surface: '#15131f',
+    surface2: '#1e1b2b',
+    ink: '#ece9f5',
+    inkSoft: '#a7a1bb',
+    inkFaint: '#6f6a84',
+    line: '#262334',
   },
   {
     id: 'terminal',
     mode: 'dark',
-    accent: '#22c55e',
-    accent2: '#84cc16',
-    swatch: ['#22c55e', '#84cc16', '#0a100a'],
+    accent: '#3fb96a',
+    accent2: '#8fbf3a',
+    swatch: ['#3fb96a', '#8fbf3a', '#0a100a'],
     label: 'Terminal',
-    paper: '#070a07',
-    surface: '#0e1a0e',
-    surface2: '#162316',
+    paper: '#080a08',
+    surface: '#111711',
+    surface2: '#192019',
     ink: '#e8f5e8',
-    inkSoft: '#8bb08b',
-    inkFaint: '#4e6b4e',
-    line: '#1a261a',
+    inkSoft: '#8fab8f',
+    inkFaint: '#576b57',
+    line: '#1f281f',
   },
   {
     id: 'nord',
@@ -135,6 +136,25 @@ export const THEME_PRESETS: ThemePreset[] = [
     label: 'Spooky',
   },
 ];
+
+/**
+ * Accent colors a preset used to ship. Choosing a preset saves its accents into
+ * settings, so a retuned preset would otherwise never reach anyone who picked
+ * it before. A saved value equal to a retired one is read as the current one;
+ * any other value is the user's own choice and is left alone.
+ */
+const RETIRED_PRESET_ACCENTS: Record<string, Record<string, string>> = {
+  nebula: { '#a78bfa': '#9d8ce6', '#f472b6': '#d98bb6' },
+  terminal: { '#22c55e': '#3fb96a', '#84cc16': '#8fbf3a' },
+};
+
+/** A saved accent, upgraded if it is a color the preset no longer ships. */
+export function currentPresetAccent(presetId: string | undefined, saved: string): string;
+export function currentPresetAccent(presetId: string | undefined, saved: string | undefined): string | undefined;
+export function currentPresetAccent(presetId: string | undefined, saved: string | undefined): string | undefined {
+  if (!presetId || !saved) return saved;
+  return RETIRED_PRESET_ACCENTS[presetId]?.[saved.toLowerCase()] ?? saved;
+}
 
 /** Look up a preset by id. */
 export function findThemePreset(id: string | undefined): ThemePreset | undefined {

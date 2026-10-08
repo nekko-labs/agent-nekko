@@ -1,7 +1,7 @@
 import { needsProviderSetup } from './components/providers/providerSetup.js';
 import { create } from 'zustand';
 import type { AppSettings, Session, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
-import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS, currentPresetAccent } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 import { putCachedSession } from './sessionCache.js';
@@ -662,11 +662,13 @@ export const useStore = create<UiState>((set, get) => ({
     else root.removeAttribute('data-preset');
     const preset = presetId ? THEME_PRESETS.find((p) => p.id === presetId) : undefined;
 
-    if (settings?.accent) root.style.setProperty('--accent', settings.accent);
+    const accent = currentPresetAccent(presetId, settings?.accent);
+    const accent2 = currentPresetAccent(presetId, settings?.accent2);
+    if (accent) root.style.setProperty('--accent', accent);
     else if (preset) root.style.setProperty('--accent', preset.accent);
     else root.style.removeProperty('--accent');
 
-    if (settings?.accent2) root.style.setProperty('--accent-2', settings.accent2);
+    if (accent2) root.style.setProperty('--accent-2', accent2);
     else if (preset?.accent2) root.style.setProperty('--accent-2', preset.accent2);
     else root.style.removeProperty('--accent-2');
 

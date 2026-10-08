@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { AppSettings, ThemePreset } from '@agent-nekko/shared';
-import { THEME_PRESETS, findThemePreset } from '@agent-nekko/shared';
+import { THEME_PRESETS, currentPresetAccent, findThemePreset } from '@agent-nekko/shared';
 import { useT } from '../i18n.js';
 import { ColorWheel } from './ColorWheel.js';
 
@@ -47,10 +47,10 @@ export function ThemePresetPicker({
   // base mode and a custom accent.
   const activeId = settings.themePreset;
   const activePreset = findThemePreset(activeId);
-  const accent = settings.accent;
+  const accent = currentPresetAccent(activeId, settings.accent);
   // With no preset and no saved secondary, fall back to the base brand cyan the
   // stylesheet ships, so the gradient preview reads as a gradient and not a slab.
-  const accent2 = settings.accent2 ?? activePreset?.accent2 ?? findThemePreset('system')?.accent2 ?? accent;
+  const accent2 = currentPresetAccent(activeId, settings.accent2) ?? activePreset?.accent2 ?? findThemePreset('system')?.accent2 ?? accent;
   // "Custom" means the colors no longer match what the selected preset ships.
   const customized =
     !!activePreset && (accent !== activePreset.accent || accent2 !== activePreset.accent2);

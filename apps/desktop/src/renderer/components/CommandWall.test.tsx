@@ -250,7 +250,10 @@ describe('click-only wall insertion and composer framing', () => {
     const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
     const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
     expect(app).toContain('{!hasAppChrome && <div className="mb-3');
+    // One fill only: the composer card paints the chat-window surface and the
+    // panel around it stays transparent, so no band shows below the composer.
     expect(css).toContain('.wall-composer { position: relative; width: 75%; max-width: 100%; flex-shrink: 0; background: transparent; box-shadow: none; }');
+    expect(css).toContain('.wall-composer .composer { background: var(--win); }');
     expect(css).toContain('.send-avatar { margin-right: 4px; }');
   });
 });

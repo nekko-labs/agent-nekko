@@ -14,7 +14,9 @@ async function main() {
     const source = path.join(out, 'base-source'); fs.mkdirSync(source, { recursive: true });
     const zip = path.join(out, 'base.zip');
     cp.execFileSync('git', ['archive', '--format=zip', `--output=${zip}`, process.env.NEKKO_TEST_REVISION, 'apps/desktop/src/renderer', 'packages/shared/src'], { cwd: repo });
-    cp.execFileSync('python3', ['-c', 'import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])', zip, source]);
+    // Windows has bsdtar (which reads zip) but often no python3.
+    if (process.platform === 'win32') cp.execFileSync('tar', ['-xf', zip, '-C', source]);
+    else cp.execFileSync('python3', ['-c', 'import zipfile,sys; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])', zip, source]);
     entry = path.join(out, 'base-fixture.tsx');
     fs.writeFileSync(entry, fs.readFileSync(path.join(__dirname, 'wall-controls-fixture.tsx'), 'utf8').replaceAll('../src/renderer', path.join(source, 'apps/desktop/src/renderer').replaceAll('\\', '/')));
     shared = path.join(source, 'packages/shared/src/index.ts');
