@@ -1318,4 +1318,4 @@ Add window sits to the right of the shared composer in the same row, including t
 - [x] Nebula and Terminal desaturated; saved old preset accents upgrade, custom colors untouched. Nebula/Terminal/Nord get their own --win. Plan panel, wall composer and dock share the chat-window surface; Add window and selected-window glows softened. Done: 2026-10-08 · [spec](SPEC.md#calmer-tinted-presets-and-one-window-surface-2026-10-08)
 - [x] Before/after Nebula/Terminal/Nord/Dark wall screenshots published in PR #384; Nebula 1400 before/after and Terminal 600 after inspected. Done: 2026-10-08
 
-- [x] PR photo consent: shared TypeScript/Rust prompt guidance asks only in PR chats, honors scoped preferences, and preserves sensitive-media boundaries. Done: 2026-10-15. See SPEC.md, User-sent photos in PR descriptions. Live model compliance remains unverified.
+- [x] PR photo consent: shared TypeScript/Rust prompt guidance asks only in PR chats, honors scoped preferences, and preserves sensitive-media boundaries. Done: 2026-10-08. See SPEC.md, User-sent photos in PR descriptions. Live model compliance remains unverified.
