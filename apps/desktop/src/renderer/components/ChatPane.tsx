@@ -55,7 +55,7 @@ import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
 import { FolderPicker } from './FolderPicker.js';
 import { addFolderToChat, shouldAutoFile } from '../sessionFolders.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, TerminalIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -2036,15 +2036,14 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {changeCount} change{changeCount === 1 ? '' : 's'}
               </button>
             )}
-            {!compact && (
             <button
-              className="btn btn-ghost px-2 py-1 text-[11px]"
+              className="btn btn-ghost shrink-0 px-2 py-1 text-[11px]"
+              aria-label="Open agent logs"
               onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
               title="Open the agent's command log in a terminal window"
             >
-              Logs
+              {compact ? <TerminalIcon className="h-4 w-4" /> : 'Logs'}
             </button>
-            )}
 
             {!compact && wideEnoughForRail && (
               <button
