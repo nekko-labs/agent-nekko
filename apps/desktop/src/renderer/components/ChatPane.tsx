@@ -55,7 +55,7 @@ import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
 import { FolderPicker } from './FolderPicker.js';
 import { addFolderToChat, shouldAutoFile } from '../sessionFolders.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, TerminalIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -293,14 +293,21 @@ function ChatHeader({
   subAgent,
   metadata,
   children,
+  inWall = false,
 }: {
   title: string;
   subAgent: boolean;
   metadata?: React.ReactNode;
   children: React.ReactNode;
+  /**
+   * A window on the Agents wall: its strip always names the chat, so this
+   * never draws a second title row, even if the frame's slot context is not
+   * found (a hot-reloaded frame module gets a new context object).
+   */
+  inWall?: boolean;
 }) {
   const framed = useInPaneFrame();
-  if (framed) {
+  if (framed || inWall) {
     return (
       <>
         <PaneMetadata>{metadata}</PaneMetadata>
@@ -2021,7 +2028,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             title strip, which already shows the chat's name; standalone, the
             chat still needs a header of its own. */}
         {surface !== 'composer' && (
-        <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} metadata={
+        <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} inWall={commandCenter} metadata={
             git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
                 {session && <WorktreeChip session={session} git={git} disabled={hasLive} onChange={setSession} />}
@@ -2036,15 +2043,14 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {changeCount} change{changeCount === 1 ? '' : 's'}
               </button>
             )}
-            {!compact && (
             <button
-              className="btn btn-ghost px-2 py-1 text-[11px]"
+              className="btn btn-ghost shrink-0 px-2 py-1 text-[11px]"
+              aria-label="Open agent logs"
               onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
               title="Open the agent's command log in a terminal window"
             >
-              Logs
+              {compact ? <TerminalIcon className="h-4 w-4" /> : 'Logs'}
             </button>
-            )}
 
             {!compact && wideEnoughForRail && (
               <button
@@ -2679,7 +2685,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                       title={streaming ? 'Add to queue after this reply' : 'Send'}
                       aria-label={streaming ? 'Add to queue' : 'Send'}
                     >
-                      <NekkoAvatar size={24} wizardHat={settings?.themePreset === 'autumn'} />
+                      <NekkoAvatar size={24} />
                     </button>
                 </div>
               </div>
@@ -2687,12 +2693,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           </div>
         </div>
         )}
-        <div className="shrink-0 border-t border-line bg-surface px-3 py-1.5" aria-label="Chat actions and information">
+        {/* In the wall composer this strip only carries the PR dock (the model,
+            folder and usage controls live in the agent window), so it draws no
+            chrome of its own: empty, it used to show as a bare band under the
+            composer. */}
+        <div className={surface === 'composer' ? 'shrink-0' : 'shrink-0 border-t border-line bg-surface px-3 py-1.5'} aria-label="Chat actions and information">
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
-          {!imageMode && <div className="flex flex-wrap items-center gap-2">
-                  {surface !== 'composer' && <FolderPicker sessionId={sessionId} session={session} disabled={hasLive} onChange={setSession} />}
-                  {surface !== 'composer' && modelControls}
-                  {surface !== 'composer' && <>
+          {!imageMode && surface !== 'composer' && <div className="flex flex-wrap items-center gap-2">
+                  <FolderPicker sessionId={sessionId} session={session} disabled={hasLive} onChange={setSession} />
+                  {modelControls}
+                  <>
                   <LiveContextGauge
                     sessionId={sessionId}
                     marks={marks}
@@ -2715,8 +2725,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     running={streaming}
                     unpriced={!!avoidedCosts?.unpricedTokens || (streaming && !getModelPrice(modelForCostRef.current ?? undefined))}
                   />
-                  </>}
-            {surface !== 'composer' && <button type="button" className="ml-auto flex items-center gap-1 text-[10px] text-ink-faint" aria-label={session?.offline ? 'Switch to online mode' : 'Switch to offline mode'} aria-pressed={!!session?.offline} onClick={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: session?.offline ? 'var(--ink-faint)' : 'var(--success)' }} />{session?.offline ? 'Offline' : 'Online'}</button>}
+                  </>
+            <button type="button" className="ml-auto flex items-center gap-1 text-[10px] text-ink-faint" aria-label={session?.offline ? 'Switch to online mode' : 'Switch to offline mode'} aria-pressed={!!session?.offline} onClick={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: session?.offline ? 'var(--ink-faint)' : 'var(--success)' }} />{session?.offline ? 'Offline' : 'Online'}</button>
           </div>}
         </div>
       </section>

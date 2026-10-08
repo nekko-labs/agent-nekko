@@ -351,6 +351,13 @@ describe('explicit sub-agent routing', () => {
     expect(requests).toHaveLength(2);
   });
 
+  it('tells the model to omit blank routing IDs to inherit the parent route', async () => {
+    delegate({ task: 'child', provider_id: '', model_id: '' });
+    const { session, result } = await run();
+    expect(result).toMatchObject({ result: { isError: true, output: expect.stringMatching(/omit provider_id and model_id entirely/) } });
+    expect(children(session)).toEqual([]);
+  });
+
   it.each(['absent', 'nonchat', 'unavailable'])('rejects %s explicit models before creating a child', async (failure) => {
     if (failure === 'absent') models = [];
     if (failure === 'nonchat') models = [{ id: 'text-embedding-3-small', name: 'Embedding', providerId: 'local' }];

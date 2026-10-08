@@ -35,8 +35,10 @@ import { FilePane } from './FilePane.js';
 import { ExplorerPane } from './ExplorerPane.js';
 import { WorkingSubagents } from './WorkingSubagents.js';
 import { NumberedChatIcon } from './NumberedChatIcon.js';
+import { StatusIcon, agentStatusOfLane, type AgentStatus } from './WorkspaceCard.js';
 import { BrowserPane } from './BrowserPane.js';
 import { DiffPane } from './DiffPane.js';
+
 
 /** Read the owning workspace, never synthesize or persist a second layout. */
 export function workspaceCompanions(workspaces: Workspace[], sessionId: string): WbPane[] {
@@ -369,9 +371,11 @@ export function CommandWall({
     const project = projects.find((p) => p.id === (session?.workspaceId ?? terminal?.workspaceId));
     let status: { label: string; tone: string; live?: boolean } | null = null;
     let needsYou = false;
+    let agentStatus: AgentStatus | undefined;
     if (session) {
       const { lane, blocked } = sessionLane({ running: isRunning(session), pending: pending[session.id], stalled: session.stalled });
       needsYou = lane === 'needs-you';
+      agentStatus = agentStatusOfLane(lane, blocked);
       status = needsYou && blocked ? { label: BLOCKED_META[blocked].label, tone: LANE_META[lane].tone, live: true } : { label: LANE_META[lane].title, tone: LANE_META[lane].tone, live: lane === 'working' };
     } else if (terminal) {
       status = terminal.running ? { label: 'live', tone: 'var(--success)' } : { label: 'exited', tone: 'var(--ink-faint)' };
@@ -403,7 +407,9 @@ export function CommandWall({
           pane={pane}
           title={title}
           icon={pane.kind === 'chat' ? <NumberedChatIcon number={n} /> : iconOf(pane.kind)}
-          statusIndicator={status && <span role="img" aria-label={status.label} title={status.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: needsYou ? 'var(--warning)' : status.live ? 'var(--success)' : 'var(--ink-faint)' }} />}
+          // A chat says what it is doing by shape, as the sidebar does: a green
+          // rocket while it works, "Zz" when idle. A terminal keeps its dot.
+          statusIndicator={session ? <StatusIcon status={agentStatus} /> : status && <span role="img" aria-label={status.label} title={status.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: status.live ? 'var(--success)' : 'var(--ink-faint)' }} />}
           badge={
             <>
               {/* The project only when there is more than one to tell apart:

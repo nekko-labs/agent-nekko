@@ -12,6 +12,7 @@ import { runningSessionIds } from '../liveRuns.js';
 import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, PanelLeftIcon, PanelSwapIcon, WandIcon } from '../icons.js';
 import { CommandWall } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
+import { agentStatusOfLane } from '../components/WorkspaceCard.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
 import { type Vitals } from '../components/InsightsBox.js';
 import { ContextMenu, ContextAction } from '../components/ContextMenu.js';
@@ -227,13 +228,26 @@ export function CommandCenterView() {
   // not create a second orphan. Clear it only after configuration or deletion.
   const unfinishedChat = useRef<Awaited<ReturnType<typeof window.nekko.createSession>> | null>(null);
   const newChat = async (selection?: AgentWindowSelection, projectId = activeProjectId ?? undefined): Promise<string> => {
-    let s = unfinishedChat.current ?? await window.nekko.createSession(projectId);
+    // Folders picked in Add window override the project default: the first is
+    // the chat's working folder, any others are supporting folders.
+    const [primaryFolder, ...supportingFolders] = selection?.workspaceIds ?? [];
+    let s = unfinishedChat.current ?? await window.nekko.createSession(selection?.workspaceIds ? primaryFolder : projectId);
     if (unfinishedChat.current && !selection) selection = { kind: 'chat', chatType: 'multimodal' };
     if (selection) {
       try {
+        if (unfinishedChat.current && selection.workspaceIds) {
+          const relocated = await window.nekko.setSessionWorkspace(s.id, primaryFolder);
+          if (!relocated) throw new Error('Could not configure the new agent working folder.');
+          s = relocated;
+        }
         const updated = await window.nekko.setSessionOptions(s.id, { chatType: selection.chatType ?? 'multimodal', ...(selection.providerId ? { providerId: selection.providerId } : {}), ...(selection.modelId ? { modelId: selection.modelId, autoModel: selection.modelId === AUTO_MODEL_ID } : {}) });
         if (!updated) throw new Error('Could not configure the new agent window.');
         s = updated;
+        if (selection.workspaceIds) {
+          const configured = await window.nekko.setSessionSupportingWorkspaces(s.id, supportingFolders);
+          if (!configured) throw new Error('Could not configure the new agent folders.');
+          s = configured;
+        }
       } catch (error) {
         unfinishedChat.current = s;
         try {
@@ -310,7 +324,7 @@ export function CommandCenterView() {
     if (!session) return [];
     const { lane, blocked } = sessionLane({ running: isRunningSession(session), pending: pending[session.id], stalled: session.stalled });
     const status = lane === 'needs-you' && blocked ? { label: BLOCKED_META[blocked].label, tone: LANE_META[lane].tone, live: true } : { label: LANE_META[lane].title, tone: LANE_META[lane].tone, live: lane === 'working' };
-    return [{ session, n: i + 1, status }];
+    return [{ session, n: i + 1, status, glyph: agentStatusOfLane(lane, blocked) }];
   }), [agentsOnWall, sessions, pending, isRunningSession]);
   const selectedAgent = agentList.find((a) => a.session.id === selected) ?? null;
   const [composerHeight, setComposerHeight] = useState<number | null>(null);

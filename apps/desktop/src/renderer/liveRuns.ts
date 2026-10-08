@@ -347,7 +347,19 @@ export function useLiveRunsVersion(): number {
   return useSyncExternalStore((fn) => {
     globalListeners.add(fn);
     return () => globalListeners.delete(fn);
-  }, () => version);
+  }, () => version, () => 0);
+}
+
+/** Stable membership snapshot: token updates do not change quota polling cadence. */
+export function runningSessionsSnapshot(): string {
+  return JSON.stringify([...runs.keys()].sort());
+}
+
+export function useRunningSessionsSnapshot(): string {
+  return useSyncExternalStore((fn) => {
+    globalListeners.add(fn);
+    return () => globalListeners.delete(fn);
+  }, runningSessionsSnapshot, () => '[]');
 }
 
 /** What a session is doing right now, in a few words. Empty when idle. */

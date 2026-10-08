@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import type { PrInfo, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
+import type { BlockedReason, PrInfo, SessionLane, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
 import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@agent-nekko/shared';
 import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
@@ -42,6 +42,13 @@ import { SessionPrLinks } from './SessionPrLinks.js';
  */
 
 export type AgentStatus = 'working' | 'input' | 'error';
+
+/** A board lane as the glyph `StatusIcon` draws: an interrupted turn is an error, any other block needs input. */
+export function agentStatusOfLane(lane: SessionLane, blocked?: BlockedReason): AgentStatus | undefined {
+  if (lane === 'working') return 'working';
+  if (lane !== 'needs-you') return undefined;
+  return blocked === 'interrupted' ? 'error' : 'input';
+}
 
 /**
  * What an agent is doing, as a glyph rather than a dot, so the state reads by

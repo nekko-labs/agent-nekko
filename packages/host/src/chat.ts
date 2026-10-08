@@ -659,7 +659,7 @@ async function runSubAgent(
   if (title !== undefined && typeof title !== 'string') throw new Error('Sub-agent title must be a string.');
   for (const key of ['provider_id', 'model_id']) {
     if (key in inp && (typeof inp[key] !== 'string' || !inp[key].trim() || inp[key] !== inp[key].trim())) {
-      throw new Error(`${key} must be a nonblank exact ID without surrounding whitespace.`);
+      throw new Error(`${key} must be a nonblank exact ID without surrounding whitespace. To inherit this chat's provider and model, omit provider_id and model_id entirely rather than sending them empty; to route elsewhere, call delegation_targets first and pass an exact ID it returns.`);
     }
   }
   const defaultRoute = !('provider_id' in inp) && !('model_id' in inp) ? settings.orchestration?.delegationRoute : undefined;
@@ -677,7 +677,11 @@ async function runSubAgent(
     try {
       const resolved = await resolveSubscriptionProvider(provider);
       models = await createProvider(resolved).listModels();
-    } catch {
+    } catch (error) {
+      // Provider errors can quote endpoints or tokens, so neither the tool
+      // result nor the log carries the message; the log names the provider and
+      // error class so the failure is not silent.
+      console.warn(`Sub-agent model list for provider ${targetProviderId} failed (${error instanceof Error ? error.name : typeof error}).`);
       throw new Error('Could not verify the target provider model list. Check its availability; no child was created and no fallback was used.');
     }
     const model = models.find((m) => m.id === targetModelId && m.providerId === targetProviderId);
