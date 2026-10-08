@@ -1350,6 +1350,21 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       useStore.getState().pushToast('error', 'Pick an image model below the chat first.');
       return;
     }
+    try {
+      const [runtime, setup] = await Promise.all([
+        window.nekko.engineStatus(),
+        window.nekko.engineImageCompanions(params.modelId),
+      ]);
+      if (!runtime.diffusionInstall?.binPath || (setup && !setup.ready)) {
+        useStore.getState().pushToast('info', !runtime.diffusionInstall?.binPath
+          ? 'Install the image generator using the setup button below. Your prompt is kept here.'
+          : 'This model needs supporting files before it can create images. Click Finish image setup below. Your prompt is kept here.');
+        return;
+      }
+    } catch {
+      useStore.getState().pushToast('error', 'Could not check image setup. Try again or open Nekko Server.');
+      return;
+    }
     if (fromDraft) { setDraft(''); clearDraft(sessionId); }
     beginTurn();
     setSession((prev) => prev ? { ...prev, messages: [...prev.messages, { id: 'tmp', role: 'user', content: prompt, createdAt: Date.now() }] } : prev);

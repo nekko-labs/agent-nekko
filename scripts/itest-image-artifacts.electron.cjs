@@ -1,0 +1,51 @@
+const { app, BrowserWindow, session, protocol } = require('electron');
+protocol.registerSchemesAsPrivileged([{ scheme: 'fixture', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
+const fs = require('node:fs');
+const path = require('node:path');
+const out = process.argv[2];
+app.on('window-all-closed', () => {});
+app.setPath('userData', path.join(out, 'profile-' + Date.now()));
+app.commandLine.appendSwitch('disable-background-networking');
+// Renderer sandbox remains enabled.
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const results = { isolation: { hidden: true, focusable: false, networkBlocked: true }, cases: [] };
+const deadline = setTimeout(() => app.exit(2), 75000);
+app.whenReady().then(async () => {
+ protocol.handle('fixture', request => { const u = new URL(request.url); const f = path.resolve(out, u.hostname, 'dist', '.' + decodeURIComponent(u.pathname)); if (!f.startsWith(path.resolve(out) + path.sep)) return new Response('', { status: 403 }); const type = f.endsWith('.js') ? 'text/javascript' : f.endsWith('.css') ? 'text/css' : 'text/html'; return new Response(fs.readFileSync(f), { headers: { 'Content-Type': type } }); });
+ session.defaultSession.webRequest.onBeforeRequest((d, cb) => cb({ cancel: /^(https?|wss?|ftp):/i.test(d.url) }));
+ session.defaultSession.setPermissionRequestHandler((_wc, _p, cb) => cb(false));
+ for (const version of ['baseline', 'after']) for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
+  const win = new BrowserWindow({ width, height: 1500, x: -30000, y: -30000, show: false, focusable: false, webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
+  win.webContents.on('render-process-gone', (_e, details) => console.error('renderer gone', details));
+  win.webContents.on('did-fail-load', (_e, code, description, url) => console.error('load failure', code, description, url));
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  const errors = [];
+  win.webContents.on('console-message', (_e, _level, message) => { if (message.includes('Error')) errors.push(message); });
+  await win.loadURL(`fixture://${version}/index.html`);
+  const ev = code => win.webContents.executeJavaScript(code);
+  await ev(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`);
+  await sleep(650);
+  const name = `${version}-${width}-${theme}`;
+  fs.writeFileSync(path.join(out, name + '.png'), (await win.webContents.capturePage(undefined, { stayHidden: true })).toPNG());
+  const clicked = await ev(`['Relative SVG','SVG click'].map(t => window.fixture.button('markdown',t))`);
+  await sleep(100);
+  const preview = await ev(`!!document.querySelector('#file iframe[sandbox=""]')`);
+  const download = await ev(`window.fixture.button('file','Download')`);
+  const setup = await ev(`['controls','generation'].map((s,i)=>window.fixture.button(s,i?'Download required':'Finish image setup'))`);
+  await sleep(3400);
+  const recovery = await ev(`['controls','generation'].map(s=>[...document.querySelectorAll('#'+s+' button')].some(b=>!b.disabled && /Download/.test(b.textContent)))`);
+  await ev(`window.fixture.setReady(); window.fixture.button('controls','Finish image setup'); window.fixture.button('generation','Download required')`);
+  await sleep(3400);
+  const ready = await ev(`document.querySelector('#generation').textContent.includes('Ready to create images')`);
+  await ev(`window.fixture.button('generation','Generate in chat')`);
+  await sleep(100);
+  const calls = await ev('window.fixture.calls');
+  const assertions = { relativeLink: calls.some(c=>c.name==='openFilePane' && c.args[0]==='C:/fixture/art.svg'), svgClick: calls.filter(c=>c.name==='openFilePane').length===2, preview, download: download && calls.some(c=>c.name==='download' && c.args[0]==='art.svg'), setupStarted: setup.every(Boolean), failureRecovery: recovery.every(Boolean) && calls.filter(c=>c.name==='toast' && c.args[0]==='error').length>=2, readyRecovery: ready, generate: calls.some(c=>c.name==='newImageChat') };
+  results.cases.push({ name, clicked, assertions, calls, errors, windowVisible: win.isVisible(), focusable: win.isFocusable() });
+  fs.writeFileSync(path.join(out, name + '-recovered.png'), (await win.webContents.capturePage(undefined, { stayHidden: true })).toPNG());
+  win.destroy();
+ }
+ fs.writeFileSync(path.join(out, 'assertions.json'), JSON.stringify(results, null, 2));
+ console.log(JSON.stringify(results.cases.map(c=>({name:c.name, assertions:c.assertions})),null,2));
+ clearTimeout(deadline); app.exit(results.cases.filter(c => c.name.startsWith('after-')).every(c => Object.values(c.assertions).every(Boolean) && c.errors.length === 0) ? 0 : 1);
+}).catch(e => { fs.writeFileSync(path.join(out,'runner-error.txt'), e.stack); console.error(e); app.exit(1); });

@@ -1022,3 +1022,13 @@ Quota polling subscribes only to running-session membership, not streamed-token 
 ### Agent-window log access
 
 Implemented; focused regression and isolated DOM routing verified: every transcript/full agent window retains its Logs action at compact sizes, using a drawn terminal icon with an accessible “Open agent logs” name when compact and a Logs label when roomy. The action opens the owning session's existing command log (`agent_<sessionId>`), not the selected chat's log, and does not start a shell or alter the conversation. The shared composer does not duplicate this header action. Matching light/dark wide/narrow before/after header screenshots were previously inspected and published; code-head 8954912 CI passes. Review handoff stays draft/unmerged by explicit request.
+
+### Image setup, local artifacts, and hardware refresh (2026-10-08)
+
+Implemented, verification in progress: image chat checks runtime and supporting-file readiness before starting a turn, preserving the unsent prompt when setup is incomplete. Setup actions use plain-language Finish image setup / Download required files labels and explain that files are downloaded once while prompts stay local. Downloads remain explicit user actions, never automatic.
+
+Folder-relative and Windows artifact links are recognized in Markdown. Explicit SVG image clicks open the existing isolated file viewer rather than returning Preview unavailable; SVG is not promoted to the raster data URL path. Complete text artifacts offer Download in the file viewer. Preview retains sandbox and network restrictions.
+
+Empty space in the Agents title-bar toolbar remains draggable; interactive controls opt out individually. Hardware monitoring samples every two seconds instead of four, with a one-second GPU cache and existing in-flight GPU probe coalescing. This is device utilization, not per-model attribution.
+
+Verification: desktop build and typecheck pass; 787 desktop tests pass, including generated relative SVG link coverage. Desktop drag motion, setup/download interactions, matched visual evidence, host regression checks, and cross-platform behavior are not yet verified.

@@ -331,6 +331,16 @@ export function FilePane({ path }: { path: string }) {
               catch (e) { pushToast('error', (e as Error).message); }
             }}>Add to design board</button>
           )}
+          {loaded && !truncated && !binary && (
+            <button className="chip chip-action text-[11px]" onClick={() => {
+              const url = URL.createObjectURL(new Blob([content], { type: isHtml && /\.svg$/i.test(path) ? 'image/svg+xml' : 'text/plain;charset=utf-8' }));
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = name;
+              link.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }} title="Download a copy of this file">Download</button>
+          )}
           {canPreview && (
             <button className="chip chip-action text-[11px]" onClick={() => setPreview((p) => !p)} title={preview ? 'Edit source' : 'Preview artifact'}>
               {preview ? 'Source' : 'Preview'}
