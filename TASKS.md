@@ -1318,3 +1318,12 @@ Add window sits to the right of the shared composer in the same row, including t
 - [x] Nebula and Terminal desaturated; saved old preset accents upgrade, custom colors untouched. Nebula/Terminal/Nord get their own --win. Plan panel, wall composer and dock share the chat-window surface; Add window and selected-window glows softened. Done: 2026-10-08 · [spec](SPEC.md#calmer-tinted-presets-and-one-window-surface-2026-10-08)
 - [x] Before/after Nebula/Terminal/Nord/Dark wall screenshots published in PR #384; Nebula 1400 before/after and Terminal 600 after inspected. Done: 2026-10-08
 
+
+## PR divider dock verification checkpoint (2026-10-09)
+
+- [x] Implement divider-connected PR deck with layout space above footer controls, automatic active expansion and collapsed resolved summary. Regression coverage updated. Done: 2026-10-09. [Spec](SPEC.md#composer-connected-pr-deck)
+- [x] Normalize PrCard.tsx additions to LF. Reuse primary desktop node_modules through a worktree-local junction only; no install or lockfile changes. Canonical desktop typecheck, 15 focused tests, two fixture script syntax checks and git diff --check pass. Done: 2026-10-09.
+- [x] Review fixture isolation: disposable profile under .shots, synthetic bridge, network blocked, permissions denied, off-screen non-focusable window and windowsHide child processes. Saved before/after reports each contain four passing geometry/state checks, 12 captures, no errors and focused:false. Done: 2026-10-09.
+- Initial parent typecheck failed on missing electron-vite in this worktree. After the desktop dependency junction, npm run typecheck -w desktop failed because the shorthand workspace selector did not match; npm run typecheck --workspace=apps/desktop passes. Shared dependencies are reused, so this is not a clean-install verification.
+- [ ] Inspect all matching screenshot pixels and before/after motion recordings in .shots/pr-divider-1791479069034; captures alone do not establish visual acceptance. Publish media in a draft PR only, do not merge.
+- [ ] Verify real host/provider integration, native chrome and other supported platforms as appropriate; full suite/build and final-head CI are not locally verified in this checkpoint. User-owned app untouched.
