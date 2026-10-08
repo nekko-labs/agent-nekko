@@ -1,6 +1,7 @@
 import type { TurnStats } from '@agent-nekko/shared';
 import { formatRate, turnTokensPerSecond } from '@agent-nekko/shared';
 import { fmtTok } from './transcript.js';
+import { CheckIcon } from '../../icons.js';
 
 const EFFORT_LABEL: Record<NonNullable<TurnStats['effort']>, string> = {
   low: 'Low', medium: 'Medium', normal: 'Normal', high: 'High', xhigh: 'Extra high', max: 'Max',
@@ -39,13 +40,30 @@ export function turnStatsTitle(stats: TurnStats): string {
 }
 
 /**
+ * A finished reply's closing row: "Done." on the left and its measurements
+ * right-aligned on the same line. At least 30px always separates the two, and
+ * when the row is too narrow the measurements wrap onto the next line (still
+ * right-aligned). Without a Done the stats keep their own line.
+ */
+export function DoneRow({ done, stats, names }: { done: boolean; stats?: TurnStats; names?: TurnStatsNames }) {
+  if (!done) return stats ? <TurnStatsLine stats={stats} names={names} /> : null;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-[30px] gap-y-0.5 text-[11px] text-ink-faint" data-done-row>
+      <span className="flex shrink-0 items-center gap-1"><CheckIcon className="h-3 w-3" />Done.</span>
+      {stats && <TurnStatsLine stats={stats} names={names} inline />}
+    </div>
+  );
+}
+
+/**
  * A finished reply's measurements, kept in the transcript under the reply:
  * which model and effort produced it, what it read and wrote, how fast. Lets a
  * long chat show where the tokens went, and which stretch ran on which model.
  */
-export function TurnStatsLine({ stats, names }: { stats: TurnStats; names?: TurnStatsNames }) {
+export function TurnStatsLine({ stats, names, inline = false }: { stats: TurnStats; names?: TurnStatsNames; inline?: boolean }) {
   return (
-    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-ink-faint" data-turn-stats title={turnStatsTitle(stats)}>
+    // `inline`: sits right-aligned in the reply's Done row (see DoneRow).
+    <div className={`${inline ? 'ml-auto justify-end' : 'mt-1'} flex min-w-0 flex-wrap items-center gap-x-1.5 text-[11px] text-ink-faint`} data-turn-stats title={turnStatsTitle(stats)}>
       {turnStatsParts(stats, names).map((p, i) => <span key={i}>{i > 0 && '· '}{p}</span>)}
     </div>
   );
