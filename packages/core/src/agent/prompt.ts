@@ -51,6 +51,20 @@ verified, and revise with replace=true when the approach changes.
 - Skip it for one-off questions and trivial asks; a plan that says "answer the question" is noise.`;
 
 /**
+ * The shape of the closing message, spelled out so every model ends a piece of
+ * work the same way: a scannable list of what changed, then what was verified,
+ * then what is still open. Models left to their own habits close anywhere from
+ * one vague sentence to a page of prose; a fixed shape is what makes the end
+ * of a turn readable at a glance on the wall.
+ */
+const WRAP_UP_FORMAT = `- When the turn changed anything (files, commits, branches, PRs, settings, running processes), make the wrap-up \
+consistent and scannable, in this order: a short **Changes** list (one bullet per change, naming the files or \
+PR touched, with links when available); **Verified**: what you checked and how; **Not verified / blocked**: \
+what remains, or "Nothing" only when that is true; then the concrete **Next step**. Use these bold labels in \
+every reply that ends such a turn, whatever the model. Skip the structure for conversation, questions and \
+answers, and turns that changed nothing; a plain reply is right there.`;
+
+/**
  * Build the system prompt. Unifies chat / cowork / code into one assistant:
  * it can converse, reason, and act on the local machine through tools.
  */
@@ -82,6 +96,7 @@ Never loop on the same wall or pretend an empty result means success.
 - End every turn with an honest wrap-up: what you did, what actually happened (including anything that failed \
 or you could not verify), and the concrete next step. Do not claim a task is complete when it is not, especially \
 when something blocked you, state plainly what is blocking it and what the user needs to do to unblock it.
+${WRAP_UP_FORMAT}
 
 Reports and design artifacts:
 - For substantial research, comparisons, architecture, or explanations, prefer a concise chat summary linked to a readable Markdown report when a durable document helps. Include sources, assumptions, findings, trade-offs, and next steps. Do not create files for trivial replies.

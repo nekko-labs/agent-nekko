@@ -860,6 +860,14 @@ Agents now hosts the existing Chat grouped sidebar, retaining WorkspaceCard pres
 - **Sign in again from Utilization.** When a subscription's sign-in has expired or is missing, the Utilization panel says "Sign-in expired." (or "Not signed in.") with a **Sign in again** button right there, instead of "Sign in again in Settings". It opens the same sign-in flow as the provider card (browser OAuth, paste fallback, CLI import) and folds the new token onto that provider, then refreshes the quota.
 - Privacy: the sign-in uses the existing OAuth flow and token store; the access token never reaches the renderer.
 
+### Consistent end-of-request summary, incognito icon (2026-10-09)
+
+`[Implemented; prompt text unit-tested in TS and in the Rust parity golden. Whether each provider's model actually follows the format is unverified and will vary.]`
+
+- **One closing shape for every model.** The shared system prompt (`packages/core/src/agent/prompt.ts`, mirrored in `crates/nekko-context/src/prompt.rs`) now tells every model how to close a turn that changed anything (files, commits, branches, PRs, settings, running processes): a short **Changes** list (one bullet per change, naming the files or PR touched, linked when available), then **Verified**, **Not verified / blocked** ("Nothing" only when true), and the concrete **Next step**, with those bold labels. Conversation, questions and answers, and turns that changed nothing stay plain replies. This builds on the existing honest wrap-up rule; the app does not parse or enforce the format.
+- **Incognito icon.** The incognito toggle uses the familiar hat-and-sunglasses glyph browsers use for private windows, replacing the old mask.
+- **Wall title bar observer.** The Agents controls' title bar slot is re-found by watching only its ancestors (`childList`, no subtree) rather than every DOM change in the window, so streamed transcript text on the wall no longer runs the observer.
+
 ### Former Command Center agent tabs (superseded by the grouped list)
 
 - Creating an agent from the wall's New agent controls selects the new session and its focus window/composer without leaving Command Center.

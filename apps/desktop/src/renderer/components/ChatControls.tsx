@@ -2,7 +2,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState, type ReactNode } f
 import { createPortal } from 'react-dom';
 import type { ChatMode, McpServerStatus, Session } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
-import { WrenchIcon, PlaneIcon, MaskIcon, PlugIcon, PlusIcon, GlobeIcon, GlobeOffIcon } from '../icons.js';
+import { WrenchIcon, PlaneIcon, IncognitoIcon, PlugIcon, PlusIcon, GlobeIcon, GlobeOffIcon } from '../icons.js';
 import { afterPaint } from '../afterPaint.js';
 
 /** Where we point people for hardened, local-first MCP server management. */
@@ -517,7 +517,7 @@ export function ChatControls({
           title="Don't save this chat or update memory"
         >
           <span className="ctl-dot" />
-          <MaskIcon className="h-3 w-3" /> <span className="foot-label">Incognito</span>
+          <IncognitoIcon className="h-3.5 w-3.5" /> <span className="foot-label">Incognito</span>
         </button>
       </div>}
     </div>
