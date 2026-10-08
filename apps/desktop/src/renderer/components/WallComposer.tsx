@@ -1,4 +1,4 @@
-import { NumberedChatIcon } from './NumberedChatIcon.js';
+import { NumberedAgentIcon } from './NumberedChatIcon.js';
 import { StatusIcon, type AgentStatus } from './WorkspaceCard.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { SessionSummary } from '@agent-nekko/shared';
@@ -125,7 +125,7 @@ export function WallComposer({
         onDoubleClick={() => setWidth(null)}
         onKeyDown={e => { if (e.key === 'Home') { e.preventDefault(); setWidth(null); } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); resizeWidth((panelRef.current?.offsetWidth ?? 320) + (e.key === 'ArrowRight' ? 20 : -20) * (edge === 'left' ? -1 : 1)); } }} />)}
       <div className="flex shrink-0 items-center gap-1.5 border-b border-line px-2 py-1 text-[12px]">
-        <NumberedChatIcon number={agent?.n} />
+        <NumberedAgentIcon number={agent?.n} />
         {agent ? (
           <>
             <span className="min-w-0 truncate font-medium" data-composer-title>{agent.session.title}</span>

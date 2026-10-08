@@ -48,6 +48,57 @@ app.whenReady().then(async () => {
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_POLISH_EVIDENCE) {
+      // Two chats on a Dynamic wall, the first one working; the Agents panel in
+      // each orientation and collapsed; hover states on the grips and pills.
+      const tag = current ? 'after' : 'before';
+      await win.loadFile(path.join(out, 'index.html'), { search: 'multi' }); await sleep(900);
+      const setPanel = (show, orientation) => run(`(() => { const st = integration.state(); const s = st.settings; const cw = { ...s.commandWall, layout: { ...s.commandWall.layout, mode: 'grid' }, agentPanel: { show: ${show}, orientation: '${orientation}' } }; window.__setWall?.(cw); })()`);
+      const work = () => run("window.__work?.()");
+      const facts = () => run(`(() => {
+        const r = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) }; };
+        const composer = document.querySelector('[data-wall-composer]');
+        const wand = document.querySelector('.wall-auto-arrange > button');
+        const filter = document.querySelector('[role="tablist"][aria-label="Show"]');
+        return {
+          titlebarPanelButtons: [...document.querySelectorAll('[data-wall-toolbar] button')].filter(b => /agent panel|agents in a/i.test(b.getAttribute('aria-label') || '')).length,
+          panelControls: [...document.querySelectorAll('.agent-panel-pill')].map(b => b.getAttribute('aria-label')),
+          stacked: !!document.querySelector('.agent-panel-controls[data-stacked]'),
+          composer: r(composer), leftGrip: r(document.querySelector('.wall-composer-side[data-edge="left"]')), rightGrip: r(document.querySelector('.wall-composer-side[data-edge="right"]')),
+          wand: r(wand), filter: r(filter), wandOverlapsFilter: !!(wand && filter && wand.getBoundingClientRect().right > filter.getBoundingClientRect().left + 0.5),
+          workingBeams: document.querySelectorAll('.wall-window-beam').length,
+          agentIcons: document.querySelectorAll('.command-wall-window .numbered-agent-icon').length,
+          chatIcons: document.querySelectorAll('.command-wall-window .numbered-chat-icon').length,
+        };
+      })()`);
+      for (const theme of ['dark', 'light']) for (const width of [1400, 760]) {
+        win.setContentSize(width, 900);
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        for (const [show, orientation, label] of [[true, 'vertical', 'column'], [true, 'horizontal', 'row'], [false, 'vertical', 'collapsed']]) {
+          await setPanel(show, orientation); await sleep(500); await work(); await sleep(700);
+          report.checks.push({ name: `${tag} ${theme} ${width} ${label}`, facts: await facts() });
+          await capture(`polish-${tag}-${theme}-${width}-${label}`);
+        }
+      }
+      // Hover states (after only): a grip and an expanded pill, dark 1400.
+      if (current) {
+        win.setContentSize(1400, 900); await run("document.documentElement.dataset.theme='dark'");
+        await setPanel(true, 'vertical'); await sleep(500); await work(); await sleep(500);
+        const hover = async (selector, name) => {
+          const p = await run(`(() => { const b = document.querySelector('${selector}').getBoundingClientRect(); return { x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) }; })()`);
+          win.webContents.sendInputEvent({ type: 'mouseMove', x: p.x, y: p.y }); await sleep(450); await capture(name);
+        };
+        await hover('.agent-panel-pill', 'polish-after-dark-1400-pill-hover');
+        await hover('.wall-composer-side[data-edge="right"]', 'polish-after-dark-1400-grip-hover');
+        // Orientation switch frames for the motion check.
+        win.webContents.sendInputEvent({ type: 'mouseMove', x: 5, y: 5 });
+        await run("document.querySelectorAll('.agent-panel-pill')[1].click()");
+        for (let i = 0; i < 6; i++) { await capture(`polish-after-dark-1400-switch-${i}`.replace('capture', '')); }
+      }
+      fs.writeFileSync(path.join(runDir, 'report.json'), JSON.stringify(report, null, 2));
+      app.quit();
+      return;
+    }
     if (process.env.NEKKO_QUOTA_EVIDENCE) {
       // Signed-out ChatGPT subscription, its saved model gone, Utilization open,
       // replies with persisted stats. Same synthetic data before and after.

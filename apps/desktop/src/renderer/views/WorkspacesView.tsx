@@ -1,3 +1,4 @@
+import { AgentPanelControls } from '../components/AgentPanelControls.js';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
@@ -589,24 +590,9 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
       <div className={horizontal ? 'flex shrink-0 flex-col items-center justify-center gap-1 border-r border-line px-1.5 py-2' : `flex items-center ${sidebarOnly ? 'justify-end' : 'justify-between'} px-3 py-2.5`}>
         {!sidebarOnly && <span className="text-sm font-semibold">Agents</span>}
         <div className={`relative flex shrink-0 items-center ${horizontal ? 'flex-col gap-1' : 'gap-0.5'}`} ref={newMenuRef}>
-          {sidebarOnly ? (<>
-            <button
-              className="rounded-sm p-1.5 text-ink-faint hover:text-ink"
-              title="Hide the agent panel"
-              aria-label="Hide the agent panel"
-              onClick={() => onClosePanel?.()}
-            >
-              <PanelLeftIcon className="h-4 w-4" />
-            </button>
-            <button
-              className="rounded-sm p-1.5 text-ink-faint hover:text-ink"
-              title={horizontal ? 'Move the agent panel to the left side' : 'Move the agent panel to the top'}
-              aria-label={horizontal ? 'Show agents in a column' : 'Show agents in a row'}
-              onClick={() => onOrientation?.(horizontal ? 'vertical' : 'horizontal')}
-            >
-              <PanelSwapIcon className="h-4 w-4" />
-            </button>
-          </>) : (
+          {sidebarOnly ? (
+            <AgentPanelControls show orientation={orientation} onToggle={() => onClosePanel?.()} onOrientation={(next) => onOrientation?.(next)} />
+          ) : (
           <button
             className={`rounded-sm p-1.5 ${contextPanelOpen ? 'bg-surface-2 text-accent' : 'text-ink-faint hover:text-ink'}`}
             title={`${contextPanelOpen ? 'Hide' : 'Show'} the folders, files & context panel (${SHORTCUTS.contextPanel.label})`}

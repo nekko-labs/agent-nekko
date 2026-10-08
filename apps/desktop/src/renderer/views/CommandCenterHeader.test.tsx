@@ -56,7 +56,8 @@ describe('Agents header placement', () => {
     const html = renderToStaticMarkup(<WallToolbar wall={{ ...DEFAULT_WALL_STATE, layout: { ...DEFAULT_WALL_STATE.layout, mode } }} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />);
     expect(html).toContain(`class="wall-auto-arrange" data-visible="${mode === 'grid'}"`);
     expect(html).toContain(`tabindex="${mode === 'grid' ? 0 : -1}"`);
-    expect(html.indexOf('aria-label="Hide the agent panel"')).toBeLessThan(html.indexOf('aria-label="Wall layout"'));
+    // The agent panel's own controls moved into the panel; the title bar has none.
+    expect(html).not.toContain('agent panel');
   });
   it('names the saved layout modes Focus, Dynamic and Grid without migrating keys', () => {
     expect(LAYOUT_LABEL).toEqual({ focus: 'Focus', grid: 'Dynamic', fixed: 'Grid' });
@@ -64,9 +65,13 @@ describe('Agents header placement', () => {
     expect(html).toMatch(/title="Dynamic \((Ctrl|⌘)\+Shift\+2\)"/);
     expect(html).toMatch(/title="Grid \((Ctrl|⌘)\+Shift\+3\)"/);
   });
-  it('offers the agent panel back from the toolbar once it is closed', () => {
+  it('leaves the agent panel controls out of the title bar, open or closed', () => {
     const closed = { ...DEFAULT_WALL_STATE, agentPanel: { show: false, orientation: 'vertical' as const } };
-    expect(renderToStaticMarkup(<WallToolbar wall={closed} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />)).toContain('aria-label="Show the agent panel"');
-    expect(toolbar()).toContain('aria-label="Hide the agent panel"');
+    for (const wall of [closed, DEFAULT_WALL_STATE]) {
+      const html = renderToStaticMarkup(<WallToolbar wall={wall} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />);
+      expect(html).not.toContain('Show the agent panel');
+      expect(html).not.toContain('Hide the agent panel');
+      expect(html).not.toContain('Show agents in a');
+    }
   });
 });

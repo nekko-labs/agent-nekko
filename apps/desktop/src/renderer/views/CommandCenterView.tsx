@@ -9,7 +9,8 @@ import { AUTO_MODEL_ID, classifyAgent, classifySession, formatUSD, summarizeSess
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
-import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, PanelLeftIcon, PanelSwapIcon, WandIcon } from '../icons.js';
+import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, WandIcon } from '../icons.js';
+import { AgentPanelControls } from '../components/AgentPanelControls.js';
 import { CommandWall } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { agentStatusOfLane } from '../components/WorkspaceCard.js';
@@ -377,6 +378,11 @@ export function CommandCenterView() {
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
         <div className="wall-agent-workspace" data-tabs={panel.show && panel.orientation === 'horizontal' ? 'top' : 'left'}>
+      {!panel.show && <div className="agent-panel-collapsed" data-orientation={panel.orientation}>
+        <AgentPanelControls show={false} orientation={panel.orientation}
+          onToggle={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: true } }))}
+          onOrientation={(orientation) => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), orientation } }))} />
+      </div>}
       {panel.show && <AgentSidebar onCreate={async (kind, projectId, shell) => {
         const id = kind === 'terminal' ? await newTerminal(projectId, shell) : await newChat({ kind: 'chat', chatType: kind === 'image' ? 'image' : 'multimodal' }, projectId);
         await addFromToolbar(kind === 'terminal' ? 'terminal' : 'chat', id);
@@ -490,8 +496,6 @@ export function WallToolbar({
   const controls = (
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${slot ? 'wall-toolbar-titlebar no-drag' : ''}`} data-wall-toolbar>
       {!hasAppChrome && <h1 className="text-gradient text-2xl font-semibold">Agents</h1>}
-      <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-label={panel.show ? 'Hide the agent panel' : 'Show the agent panel'} title={panel.show ? 'Hide the agent panel' : 'Show the agent panel'} aria-pressed={panel.show} onClick={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: !readAgentPanel(w.agentPanel).show } }))}><PanelLeftIcon className="h-4 w-4" />Agents</button>
-      <button type="button" className="btn btn-outline py-1" title={panel.orientation === 'horizontal' ? 'Move the agent panel to the left side' : 'Move the agent panel to the top'} aria-label={panel.orientation === 'horizontal' ? 'Show agents in a column' : 'Show agents in a row'} onClick={() => setWall((w) => { const prefs = readAgentPanel(w.agentPanel); return { ...w, agentPanel: { ...prefs, orientation: prefs.orientation === 'horizontal' ? 'vertical' : 'horizontal' } }; })}><PanelSwapIcon className="h-4 w-4" /></button>
       <div className={`ml-auto flex flex-wrap items-center ${slot ? 'gap-2' : 'gap-3'}`}>
 
         <div className="wall-layout-control" ref={fixedRef}>
