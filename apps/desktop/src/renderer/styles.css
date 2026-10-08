@@ -313,10 +313,11 @@
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
+  /* A softened accent and a 2px halo: a full-strength accent line read heavy. */
   &:focus-within {
-    border-color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 70%, var(--line));
     box-shadow:
-      0 0 0 3px var(--ring),
+      0 0 0 2px var(--ring),
       var(--shadow-sm);
   }
 }
@@ -1910,9 +1911,9 @@
 
 /* The wall composer's panel clips its overflow, so the composer's outer
    focus halo and drop shadow were cut into a band along the bottom edge and
-   slivers at the top corners. Inside it the ring is drawn inset instead. */
-.wall-composer .composer { box-shadow: none; }
-.wall-composer .composer:focus-within { box-shadow: inset 0 0 0 1px var(--accent); }
+   slivers at the top corners. Inside it, focus is the border alone: an inset
+   ring on top of the accent border doubled it into a heavy 2px line. */
+.wall-composer .composer, .wall-composer .composer:focus-within { box-shadow: none; }
 .wall-composer .composer-beam-ring { inset: 0; }
 
 /* Prompt suggestions as one chip among the composer's actions. */

@@ -18,10 +18,11 @@ describe('wall edge stability and composer handles', () => {
     expect(chat).toContain('data-composer-attachments');
     expect(chat).toContain('data-composer-skill');
   });
-  it('draws the wall composer ring inside its clipped panel', () => {
+  it('keeps the focused wall composer to a single softened 1px border inside its clipped panel', () => {
     const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
-    expect(css).toContain('.wall-composer .composer { box-shadow: none; }');
-    expect(css).toContain('.wall-composer .composer:focus-within { box-shadow: inset 0 0 0 1px var(--accent); }');
+    expect(css).toContain('.wall-composer .composer, .wall-composer .composer:focus-within { box-shadow: none; }');
+    expect(css).not.toContain('.wall-composer .composer:focus-within { box-shadow: inset 0 0 0 1px var(--accent); }');
+    expect(css).toContain('border-color: color-mix(in srgb, var(--accent) 70%, var(--line));');
     expect(css).toContain('.wall-composer .composer-beam-ring { inset: 0; }');
   });
   it('keeps all resize handles on the composer and supports cancellation and reset', () => {

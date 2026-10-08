@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import { RUNTIME_CAPABILITIES, MODEL_PRICING, DEFAULT_LOCAL_COST_BENCHMARK, describeLimitsProblem, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
-import { DOCK_PANELS, normalizeDockPanelOrder, reorderDockPanel, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
+import { DOCK_PANELS, normalizeDockPanelOrder, placeDockPanel, reorderDockPanel, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
 import { BUDGET_RANGE_LABEL, budgetRange, localRuntimeMetrics, recordedBudgetMetrics } from './wallDockMetrics.js';
@@ -46,6 +46,56 @@ export function WallDock(props: WallDockProps) {
     setState((s) => ({ ...s, dock: { ...s.dock, panelOrder: reorderDockPanel(s.dock.panelOrder, key, target) } }));
     setReorderAnnouncement(`${DOCK_PANELS.find(p => p.key === key)!.label} moved ${normalizeDockPanelOrder(dock.panelOrder).indexOf(key) < normalizeDockPanelOrder(dock.panelOrder).indexOf(target) ? 'down' : 'up'}.`);
   };
+  // Drag to reorder: the lifted panel leaves the column and a dashed landing
+  // zone of its height opens where it would land. Zones sit before each other
+  // panel (and at the end) and grow or shrink with a transition, so neighbours
+  // slide apart rather than jump. On drop the panel flies from the pointer
+  // into the zone it fills.
+  const [lift, setLift] = useState<{ key: WallDockPanel; height: number } | null>(null);
+  const [slot, setSlot] = useState<number | null>(null);
+  // The first zone opens without a transition, in the lifted panel's own place.
+  const [lifting, setLifting] = useState(false);
+  useEffect(() => {
+    if (!lifting) return;
+    const frame = requestAnimationFrame(() => requestAnimationFrame(() => setLifting(false)));
+    return () => cancelAnimationFrame(frame);
+  }, [lifting]);
+  const grab = useRef({ x: 0, y: 0 });
+  const pointer = useRef({ x: 0, y: 0 });
+  const liftTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const panelsRef = useRef<HTMLDivElement>(null);
+  const landed = useRef<{ key: WallDockPanel; x: number; y: number } | null>(null);
+  useEffect(() => () => clearTimeout(liftTimer.current), []);
+  /** Where the pointer sits among the panels still in the column: before the first panel whose middle is below it. */
+  const slotAt = (y: number) => {
+    const rest = [...(panelsRef.current?.querySelectorAll<HTMLElement>('[data-dock-panel]:not([data-dock-lifted])') ?? [])];
+    const i = rest.findIndex((node) => { const r = node.getBoundingClientRect(); return y < r.top + r.height / 2; });
+    return i < 0 ? rest.length : i;
+  };
+  const endDrag = (flyFrom: { x: number; y: number } | null) => {
+    clearTimeout(liftTimer.current);
+    if (flyFrom && lift) landed.current = { key: lift.key, ...flyFrom };
+    reorderDrag.current = null;
+    setLift(null);
+    setSlot(null);
+  };
+  // After a drop (or a cancelled drag) the panel is back in the column: start
+  // it where the dragged ghost was and let it settle into its new place.
+  useLayoutEffect(() => {
+    const flight = landed.current;
+    if (!flight || lift) return;
+    landed.current = null;
+    const node = panelsRef.current?.querySelector<HTMLElement>(`[data-dock-panel="${flight.key}"]`);
+    if (!node || typeof node.animate !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const r = node.getBoundingClientRect();
+    const dx = flight.x - grab.current.x - r.left;
+    const dy = flight.y - grab.current.y - r.top;
+    if (Math.hypot(dx, dy) < 2) return;
+    node.animate([
+      { transform: `translate(${dx}px, ${dy}px) scale(1.02)`, boxShadow: '0 14px 30px -14px rgb(0 0 0 / .5)' },
+      { transform: 'none', boxShadow: '0 0 0 0 rgb(0 0 0 / 0)' },
+    ], { duration: 280, easing: 'cubic-bezier(.2, .8, .2, 1)' });
+  }, [lift]);
   const [width, setWidth] = useState(DEFAULT_DOCK_WIDTH);
   const drag = useRef<{ x: number; width: number } | null>(null);
   const size = (value: number) => { const next = Math.max(260, Math.min(600, value)); setWidth(Math.abs(next - DEFAULT_DOCK_WIDTH) <= 20 ? DEFAULT_DOCK_WIDTH : next); };
@@ -117,8 +167,35 @@ export function WallDock(props: WallDockProps) {
       {selectedPanels.some((p) => dock.minimized[p.key]) && <div className="wall-dock__minimized" role="group" aria-label="Minimized panels">
         {selectedPanels.filter((p) => dock.minimized[p.key]).map((p) => { const Icon = PANEL_ICONS[p.key]; return <button key={p.key} type="button" title={`Restore ${p.label}`} aria-label={`Expand ${p.label} panel`} aria-expanded={false} onClick={() => minimize(p.key, false)}><Icon className="wall-dock__icon" /></button>; })}
       </div>}
-      <div className="wall-dock__panels">
-        {expandedPanels.map((p) => <section className={`wall-dock__panel${collapsing === p.key ? ' wall-dock__panel--collapsing' : ''}`} key={p.key} aria-label={`${p.label} dock panel`}>
+      <div ref={panelsRef} className="wall-dock__panels" data-dock-dragging={lift ? '' : undefined} data-dock-lifting={lifting ? '' : undefined}
+        onDragOver={(e) => {
+          if (!sideDock || !reorderDrag.current) return;
+          e.preventDefault(); e.stopPropagation();
+          e.dataTransfer.dropEffect = 'move';
+          pointer.current = { x: e.clientX, y: e.clientY };
+          if (lift) { const next = slotAt(e.clientY); if (next !== slot) setSlot(next); }
+        }}
+        onDrop={(e) => {
+          if (!sideDock || !reorderDrag.current) return;
+          e.preventDefault(); e.stopPropagation();
+          const key = reorderDrag.current;
+          const rest = expandedPanels.filter((p) => p.key !== key);
+          const at = Math.min(slot ?? slotAt(e.clientY), rest.length);
+          const anchor = rest[at] ?? rest[rest.length - 1];
+          if (anchor) {
+            const where = rest[at] ? 'before' : 'after';
+            setState((s) => ({ ...s, dock: { ...s.dock, panelOrder: placeDockPanel(s.dock.panelOrder, key, anchor.key, where) } }));
+            const before = expandedPanels.findIndex((p) => p.key === key);
+            if (at !== before) setReorderAnnouncement(`${DOCK_PANELS.find((p) => p.key === key)!.label} moved ${at > before ? 'down' : 'up'}.`);
+          }
+          endDrag({ x: e.clientX, y: e.clientY });
+        }}>
+        {expandedPanels.map((p) => {
+          const lifted = lift?.key === p.key;
+          const restIndex = expandedPanels.filter((q) => q.key !== lift?.key).findIndex((q) => q.key === p.key);
+          return <React.Fragment key={p.key}>
+          {lift && !lifted && <LandingZone open={slot === restIndex} height={lift.height} />}
+          <section className={`wall-dock__panel${collapsing === p.key ? ' wall-dock__panel--collapsing' : ''}`} data-dock-panel={p.key} data-dock-lifted={lifted ? '' : undefined} aria-label={`${p.label} dock panel`}>
           <header className="wall-dock__panel-header" draggable={sideDock && collapsing === null} tabIndex={sideDock ? 0 : undefined}
             aria-label={sideDock ? `${p.label} panel header; use Alt+ArrowUp or Alt+ArrowDown to reorder` : undefined}
             title={sideDock ? 'Drag header to reorder; Alt+ArrowUp/Down moves this panel' : undefined}
@@ -128,15 +205,25 @@ export function WallDock(props: WallDockProps) {
               e.dataTransfer.effectAllowed = 'move';
               e.dataTransfer.setData('application/x-nekko-dock-panel', p.key);
               e.stopPropagation();
+              // The whole panel follows the pointer, not just its header.
+              const section = e.currentTarget.parentElement!;
+              const r = section.getBoundingClientRect();
+              grab.current = { x: e.clientX - r.left, y: e.clientY - r.top };
+              pointer.current = { x: e.clientX, y: e.clientY };
+              e.dataTransfer.setDragImage?.(section, grab.current.x, grab.current.y);
+              // Lift on the next task: hiding the source inside dragstart
+              // cancels the drag in Chromium. The zone opens where the panel
+              // was, at its height, so nothing below it moves yet.
+              const height = r.height;
+              const from = expandedPanels.findIndex((q) => q.key === p.key);
+              clearTimeout(liftTimer.current);
+              liftTimer.current = setTimeout(() => { if (reorderDrag.current === p.key) { setLifting(true); setSlot(from); setLift({ key: p.key, height }); } });
             }}
-            onDragOver={(e) => { if (sideDock && reorderDrag.current && reorderDrag.current !== p.key) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.stopPropagation(); } }}
-            onDrop={(e) => {
-              if (!sideDock || !reorderDrag.current) return;
-              e.preventDefault(); e.stopPropagation();
-              if (reorderDrag.current !== p.key) reorder(reorderDrag.current, p.key);
-              reorderDrag.current = null;
+            onDragEnd={(e) => {
+              if (reorderDrag.current !== p.key) return;
+              // Cancelled (dropped outside the column): fly back home.
+              endDrag(e.clientX || e.clientY ? { x: e.clientX, y: e.clientY } : pointer.current);
             }}
-            onDragEnd={() => { reorderDrag.current = null; }}
             onKeyDown={(e) => {
               if (!sideDock || collapsing !== null || e.target !== e.currentTarget || !e.altKey || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
               e.preventDefault(); e.stopPropagation();
@@ -151,11 +238,24 @@ export function WallDock(props: WallDockProps) {
             {p.key === 'insights' && <InsightsBox budgetPanelPresent {...insightProps} prefs={state.insights} onPrefs={insights} />}
             {p.key === 'hardware' && <Hardware providers={props.providers} />}
           </ResizablePanelBody>
-        </section>)}
+        </section>
+          </React.Fragment>;
+        })}
+        {lift && <LandingZone open={slot === expandedPanels.length - 1} height={lift.height} />}
         {selectedPanels.length === 0 && <p className="wall-dock__empty">No panels selected. Use Configure to restore them.</p>}
       </div>
     </aside>
   );
+}
+
+/**
+ * A dashed drop target between dock panels. Every gap has one while a panel is
+ * lifted; only the one under the pointer is open, and opening or closing
+ * animates its height so the panels around it slide rather than jump.
+ */
+function LandingZone({ open, height }: { open: boolean; height: number }) {
+  return <div className="wall-dock__landing" data-open={open ? '' : undefined} aria-hidden="true"
+    style={{ '--landing-height': `${Math.round(height)}px` } as React.CSSProperties}><span /></div>;
 }
 
 /** Measure natural content independently of the viewport so expansion stops at its end. */

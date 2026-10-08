@@ -126,6 +126,28 @@
 .wall-dock__panel--collapsing { transform-origin: top left; pointer-events: none; animation: wall-panel-collapse 220ms ease-in both; }
 @media (prefers-reduced-motion: reduce) { .wall-dock__panel--collapsing { animation: none; } }
 
+/* Drag to reorder. The lifted panel leaves the column; a dashed landing zone
+   of its height opens where it would land. While dragging, the column's gap
+   moves onto each panel's margin so a zone can collapse to nothing and an
+   open zone (its height plus one gap) takes exactly the lifted panel's room:
+   lifting moves nothing, and every move after that slides. */
+.wall-dock__panels[data-dock-dragging] { gap: 0; }
+.wall-dock__panels[data-dock-dragging] > .wall-dock__panel { margin-bottom: 12px; }
+.wall-dock__panel[data-dock-lifted] { display: none; }
+.wall-dock__panel-header[draggable='true'] { cursor: grab; }
+.wall-dock__landing { flex: 0 0 auto; height: 0; overflow: hidden; transition: height 200ms cubic-bezier(.2, .8, .2, 1); }
+.wall-dock__landing[data-open] { height: calc(var(--landing-height) + 12px); }
+.wall-dock__landing > span {
+  display: block; box-sizing: border-box; height: var(--landing-height);
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 60%, var(--line)); border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  opacity: 0; transform: scale(.97); transition: opacity 160ms ease, transform 200ms cubic-bezier(.2, .8, .2, 1);
+}
+.wall-dock__landing[data-open] > span { opacity: 1; transform: none; }
+.wall-dock__panels[data-dock-lifting] .wall-dock__landing,
+.wall-dock__panels[data-dock-lifting] .wall-dock__landing > span { transition: none; }
+@media (prefers-reduced-motion: reduce) { .wall-dock__landing, .wall-dock__landing > span { transition: none; } }
+
 /* Compact dashboard panels share one surface and a quiet, separated header. */
 .wall-dock__toolbar { border-bottom: 0; padding: 8px 10px; }
 .wall-dock__panel-header { padding: 10px 12px; gap: 8px; }

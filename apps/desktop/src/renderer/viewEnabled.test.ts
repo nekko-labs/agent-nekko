@@ -46,7 +46,7 @@ describe('navigation visibility', () => {
 
   it('uses the still cat for Agents and filters both rails with viewEnabled', () => {
     const app = readFileSync(new URL('./App.tsx', import.meta.url), 'utf8');
-    expect(app).toContain('<NekkoAvatar size={22} stationary />');
+    expect(app).toContain('<NekkoAvatar size={22} stationary eyes={false} />');
     expect(app).toContain("{ view: 'command', labelKey: 'nav.command', Icon: AgentCatIcon }");
     expect(app).toContain('filter(n => viewEnabled(n.view, settings))');
     expect(app).toContain('MOBILE_NAV.filter((v) => viewEnabled(v, settings))');
