@@ -44,7 +44,7 @@ app.whenReady().then(async () => {
   try {
     await win.loadFile(path.join(out, 'index.html'));
     // macOS can move resized mapped windows back onto a display; keep this fixture hidden.
-    if (!process.env.NEKKO_FOCUS_ADD && (process.platform !== 'darwin' || !process.env.NEKKO_GRID_BUGS)) win.showInactive();
+    if (!process.env.NEKKO_COMPOSER_ROW && !process.env.NEKKO_FOCUS_ADD && (process.platform !== 'darwin' || !process.env.NEKKO_GRID_BUGS)) win.showInactive();
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
@@ -89,6 +89,41 @@ app.whenReady().then(async () => {
       }
       report.success = true;
       return;
+    }
+    if (process.env.NEKKO_COMPOSER_ROW) {
+      const fixed = !process.env.NEKKO_TEST_REVISION;
+      for (const theme of ['light','dark']) for (const width of [1400,400]) {
+        win.setContentSize(width,900);await reset();await run(`document.documentElement.dataset.theme='${theme}'`);await sleep(400);
+        await capture(`composer-${theme}-${width}-rest`);
+        if(fixed) await check('Add beside composer '+width,"(()=>{const a=document.querySelector('[data-wall-add-button]').getBoundingClientRect(),c=document.querySelector('[data-wall-composer]').getBoundingClientRect();return a.left>=c.right && a.top>=c.top && a.bottom<=c.bottom})()");
+        for(let i=0;i<4;i++) {
+          await run("integration.route('chat')");await sleep(200);
+          await run("integration.route('command')");await sleep(300);
+          const connected=await run("(()=>{const t=document.querySelector('[data-wall-toolbar]');return !!t && t.isConnected && (innerWidth<1100 || !!document.querySelector('#command-titlebar-slot [data-wall-toolbar]'))})()");
+          report.checks.push({name:'toolbar after navigation '+width+' '+i,passed:connected});
+          if(fixed&&!connected)throw Error('Toolbar disappeared');
+        }
+        if(width===1400) {
+          await run("(()=>{const slot=document.getElementById('command-titlebar-slot');const replacement=slot.cloneNode(false);slot.replaceWith(replacement)})()");await sleep(300);
+          const recovered=await run("!!document.querySelector('#command-titlebar-slot [data-wall-toolbar]')");
+          report.checks.push({name:'replaced portal host recovery',passed:recovered});
+          if(fixed&&!recovered)throw Error('Detached titlebar toolbar');
+        }
+        await capture(`composer-${theme}-${width}-returned`);
+        await run("(()=>{const s=document.querySelector('.wall-composer-side[data-edge=right]');s.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))})()");await sleep(200);
+        if(fixed)await check('resized composer keeps Add beside',"(()=>{const a=document.querySelector('[data-wall-add-button]').getBoundingClientRect(),c=document.querySelector('[data-wall-composer]').getBoundingClientRect();return a.left>=c.right && a.right<=innerWidth})()");
+        await click('Add window');await check('same-row Add opens picker',"!!document.querySelector('.agent-window-picker')");
+        await run("document.querySelector('.agent-window-picker').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");await sleep(200);
+        await run("document.querySelector('[data-wall-composer] .wall-composer-side').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))");
+        for (const nextWidth of [1000,1200,width]) {win.setContentSize(nextWidth,900);await sleep(250);if(fixed)await check('toolbar follows viewport '+nextWidth,"(()=>{const t=document.querySelector('[data-wall-toolbar]');return !!t && (innerWidth<1100 ? !t.closest('#command-titlebar-slot') : !!t.closest('#command-titlebar-slot'))})()");}
+
+      }
+      win.setContentSize(1400,900);await reset();await run("integration.dock('top')");await sleep(400);
+      if(fixed)await check('top dock keeps Add beside composer',"(()=>{const a=document.querySelector('[data-wall-add-button]').getBoundingClientRect(),c=document.querySelector('[data-wall-composer]').getBoundingClientRect(),w=document.querySelector('[data-command-wall]').getBoundingClientRect();return a.left>=c.right && a.top>=c.top && a.bottom<=c.bottom && c.top<w.top})()");
+      await reset();await sleep(400);
+      const frames=path.join(runDir,'motion');fs.mkdirSync(frames);
+      for(let i=0;i<24;i++){if(i===4)await run("integration.route('chat')");if(i===12)await run("integration.route('command')");fs.writeFileSync(path.join(frames,String(i).padStart(3,'0')+'.png'),(await win.capturePage(undefined,{stayHidden:true})).toPNG());await sleep(80);}
+      report.success=true;return;
     }
     if (process.env.NEKKO_FOCUS_ADD) {
       const fixed = !process.env.NEKKO_TEST_REVISION;
