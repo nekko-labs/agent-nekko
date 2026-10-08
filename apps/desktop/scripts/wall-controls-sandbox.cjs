@@ -48,6 +48,37 @@ app.whenReady().then(async () => {
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_THEME_EVIDENCE) {
+      // Tinted presets on the wall with the plan panel open. Accents are the
+      // values a user who picked each preset before the retune has saved.
+      const tag = current ? 'after' : 'before';
+      const saved = { nebula: ['#a78bfa', '#f472b6'], terminal: ['#22c55e', '#84cc16'], nord: ['#88c0d0', '#81a1c1'], dark: ['#8b7dff', '#22d3ee'] };
+      for (const [preset, [accent, accent2]] of Object.entries(saved)) for (const width of [1400, 600]) {
+        win.setContentSize(width, 900);
+        await run(`(() => { const r = integration.records()[0]; r.agentPlan = [
+          { id: 'a', title: 'Validate paired warm profiles, routes, and gate results', status: 'done', note: 'Paired quick diagnostics are separate.' },
+          { id: 'b', title: 'Compare warm CPU stacks and trace layout work', status: 'active', note: 'Matched caller stacks and renderer trace events.' },
+          { id: 'c', title: 'Map remaining hotspots to current source', status: 'pending' } ];
+          sessionStorage.setItem('fixture-record', JSON.stringify(r)); })()`);
+        await reset();
+        await run(`integration.theme(${JSON.stringify({ theme: 'dark', themePreset: preset, accent, accent2 })})`);
+        await run("document.querySelector('.command-wall-window')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))");
+        await sleep(500);
+        const surfaces = await run(`(() => { const bg = el => el ? getComputedStyle(el).backgroundColor : null;
+          const rail = document.querySelector('[aria-label="Plan and sub-agents"]');
+          return { window: bg(document.querySelector('.command-wall-window > .panel')), composer: bg(document.querySelector('[data-wall-composer]')),
+            composerCard: bg(document.querySelector('[data-wall-composer] .composer')), rail: bg(rail), accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() }; })()`);
+        // Whatever paints just below the composer card: it must be the wall field, not a band.
+        surfaces.belowCard = await run(`(() => { const c = document.querySelector('[data-wall-composer] .composer'); if (!c) return null; const r = c.getBoundingClientRect();
+          const out = []; for (let el = document.elementFromPoint(r.left + r.width / 2, r.bottom + 4); el; el = el.parentElement) { const bg = getComputedStyle(el).backgroundColor; if (bg !== 'rgba(0, 0, 0, 0)') { out.push((el.className || el.tagName).toString().slice(0, 90) + ' ' + bg + ' h=' + Math.round(el.getBoundingClientRect().height)); break; } }
+          return out; })()`);
+        report.checks.push({ name: `${tag} ${preset} ${width} surfaces`, surfaces });
+        await capture(`theme-${tag}-${preset}-${width}`);
+      }
+      fs.writeFileSync(path.join(runDir, 'report.json'), JSON.stringify(report, null, 2));
+      app.quit();
+      return;
+    }
     if (process.env.NEKKO_VIEW_CONTROLS) {
       await win.loadFile(path.join(out, 'index.html'), { search: 'multi' }); await sleep(900);
       for (const theme of ['light', 'dark']) for (const width of [1200, 400]) {

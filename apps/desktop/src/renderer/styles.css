@@ -1146,28 +1146,35 @@
 
   /* Preset-specific surface/ink overrides for atmospheres the base
      light/dark tokens cannot capture on their own. */
+  /* Tinted presets set --win too: chat windows, the wall composer, the plan
+     rail and the dock all paint it, so it must sit in the preset's hue rather
+     than the neutral dark window. Saturation is kept low so the tint reads as
+     atmosphere, not as a purple/green slab. */
   [data-theme='dark'][data-preset='nebula'] {
-    --paper: #0a0714;
-    --surface: #140f26;
-    --surface-2: #1f1838;
-    --ink: #ece7fb;
-    --ink-soft: #a99cc9;
-    --ink-faint: #6e6392;
-    --line: #2b2148;
+    --paper: #0b0a12;
+    --win: #13111c;
+    --surface: #15131f;
+    --surface-2: #1e1b2b;
+    --ink: #ece9f5;
+    --ink-soft: #a7a1bb;
+    --ink-faint: #6f6a84;
+    --line: #262334;
   }
 
   [data-theme='dark'][data-preset='terminal'] {
-    --paper: #070a07;
-    --surface: #0e1a0e;
-    --surface-2: #162316;
+    --paper: #080a08;
+    --win: #101410;
+    --surface: #111711;
+    --surface-2: #192019;
     --ink: #e8f5e8;
-    --ink-soft: #8bb08b;
-    --ink-faint: #4e6b4e;
-    --line: #1a261a;
+    --ink-soft: #8fab8f;
+    --ink-faint: #576b57;
+    --line: #1f281f;
   }
 
   [data-theme='dark'][data-preset='nord'] {
     --paper: #1e222a;
+    --win: #242931;
     --surface: #252a33;
     --surface-2: #2e3440;
     --ink: #eceff4;
@@ -1738,11 +1745,14 @@
 /* A tall composer must not collapse the transcript wall out of view. Short
    viewports scroll the column rather than allowing composer content to cover it. */
 .wall-column > .command-wall-layout { flex: 1 0 280px; }
+/* The composer card paints the same --win surface as the chat windows; the
+   panel around it stays transparent so no band shows below or behind it. */
 .wall-composer { position: relative; width: 75%; max-width: 100%; flex-shrink: 0; background: transparent; box-shadow: none; }
+.wall-composer .composer { background: var(--win); }
 .command-wall-window > .panel { background: var(--win); }
 .command-wall-window[data-wall-selected] > .panel {
-  --panel-ring-color: color-mix(in srgb, var(--accent) 75%, var(--line)) !important;
-  box-shadow: 0 0 12px 1px color-mix(in srgb, var(--accent) 42%, transparent);
+  --panel-ring-color: color-mix(in srgb, var(--accent) 60%, var(--line)) !important;
+  box-shadow: 0 0 10px 0 color-mix(in srgb, var(--accent) 24%, transparent);
 }
 .command-wall-window[data-wall-selected] .wall-num, .wall-composer[data-has-agent] .wall-num { background: var(--accent); color: var(--win); }
 .wall-layout-control { position: relative; display: inline-flex; align-items: center; }
@@ -1846,7 +1856,7 @@
 .wall-add-button {
   display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 14px;
   background: var(--brand-grad); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap;
-  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent);
+  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--accent) 45%, transparent);
   transition: transform 0.12s ease, filter 0.12s ease;
 }
 .wall-add-button:hover { filter: brightness(1.08) saturate(1.05); transform: translateY(-1px); }
