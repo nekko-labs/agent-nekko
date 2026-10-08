@@ -851,6 +851,15 @@ Agents now hosts the existing Chat grouped sidebar, retaining WorkspaceCard pres
 - **Chat panel groups.** Closing a group hides its cards completely: they leave the tab order (`inert`), cannot be clicked, and in the horizontal row the group's strip takes no width. In the row the mouse wheel scrolls sideways. In the column the card list scrolls with the wheel inside the panel, which is bounded by the wall's height.
 - Privacy: the internet toggle only flips the existing per-chat `offline` option. No new reads, permissions or network calls.
 
+### Agent questions, plan toggle, and dock sign-in (2026-10-09)
+
+`[Implemented; isolated renderer checks and hidden-sandbox dark/light before/after evidence. A live agent question, a real OAuth sign-in from the dock, the real desktop window and macOS are unverified.]`
+
+- **Agent questions stand out and stay on top.** When an agent window is waiting on a question, the question is pinned at the top of the window, above the transcript, so it cannot scroll away or sit under the history. It opens with a bold warning-toned "Asked you a question" label, and the card itself wears the warning tone (stronger border, tinted background, soft halo) with the question text a size larger. The pin is capped at about 60% of the window and scrolls inside itself. The old strip banner, which sat underneath the window's absolutely positioned content and could not be seen, is removed. Other surfaces (the composer's question, board cards) keep the accent tone.
+- **Plan panel toggle.** The plan / sub-agents / queue panel no longer has a close (×) button or a header toggle. A plan icon floats in the chat area's top-right corner and opens or closes it; with the panel closed, it shows plan progress (done/total). The panel is on by default (a saved choice still wins) and is fixed at 280px. It only gives way when the window is narrower than two panels (560px), where the toggle is hidden too. Beside the open panel the transcript keeps clear of the toggle.
+- **Sign in again from Utilization.** When a subscription's sign-in has expired or is missing, the Utilization panel says "Sign-in expired." (or "Not signed in.") with a **Sign in again** button right there, instead of "Sign in again in Settings". It opens the same sign-in flow as the provider card (browser OAuth, paste fallback, CLI import) and folds the new token onto that provider, then refreshes the quota.
+- Privacy: the sign-in uses the existing OAuth flow and token store; the access token never reaches the renderer.
+
 ### Former Command Center agent tabs (superseded by the grouped list)
 
 - Creating an agent from the wall's New agent controls selects the new session and its focus window/composer without leaving Command Center.

@@ -34,6 +34,17 @@ describe('wall dock presentation', () => {
     expect(html).toContain(`width:${left}%;background:${tone}`);
     quota.byToken = {};
   });
+  it.each(['auth_expired', 'signed_out'] as const)('offers Sign in again right in the panel for %s', (kind) => {
+    quota.byToken = {};
+    (quota as any).problems = { claude: { kind, at: 0 } };
+    const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: false, automations: false, utilization: true, budget: false, insights: false, hardware: false } } };
+    const html = renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={0} sessions={[]} providers={[{ id: 'claude-sub', kind: 'anthropic', label: 'Claude', baseUrl: '', enabled: true, auth: 'subscription', tokenKey: 'claude' }]} usage={null} vitals={{ working: 0, waiting: 0, automations: 0, terminals: 0, tokensToday: 0, spend: '$0', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
+    expect(html).toContain('data-dock-signin');
+    expect(html).toContain('>Sign in again</button>');
+    expect(html).not.toContain('in Settings');
+    expect(html).toContain(kind === 'signed_out' ? 'Not signed in.' : 'Sign-in expired.');
+    (quota as any).problems = {};
+  });
   it('exposes both savings separately and never asks for a monthly budget', () => {
     const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: true, automations: false, utilization: false, budget: true, insights: false, hardware: false } } };
     const usage = { totalInput: 0, totalOutput: 0, totalCost: 0, byModel: {}, bySession: {}, byProvider: {}, bySessionCost: {}, daily: [], avoidedCosts: { local: 1.23, subscription: 4.56, benchmarkTokens: 100, unpricedTokens: 200 } };
