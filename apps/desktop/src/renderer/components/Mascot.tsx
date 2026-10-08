@@ -49,7 +49,8 @@ export function MiniNekko({ size = 18 }: { size?: number }) {
   return <span className="pixel-working inline-block shrink-0 align-middle" style={{ lineHeight: 0 }}><NekkoAvatar size={size} /></span>;
 }
 
-export function Mascot({ mood, enabled }: { mood: MascotMood; enabled: boolean }) {
+/** The corner mascot is the one place a seasonal theme dresses Nekko up (Spooky adds the wizard hat). */
+export function Mascot({ mood, enabled, wizardHat = false }: { mood: MascotMood; enabled: boolean; wizardHat?: boolean }) {
   const [sleeping, setSleeping] = useState(false);
   const [greeting, setGreeting] = useState(false);
   useEffect(() => {
@@ -81,7 +82,7 @@ export function Mascot({ mood, enabled }: { mood: MascotMood; enabled: boolean }
       data-mascot-pose={pose} aria-label={pose === 'working' ? 'Nekko is working' : 'Say hello to Nekko'}
       title={pose === 'sleeping' ? 'Nekko is sleeping' : 'Say hello to Nekko'}
       onClick={() => { setSleeping(false); setGreeting(true); }}>
-      <NekkoAvatar size={64} quiet />
+      <NekkoAvatar size={64} quiet wizardHat={wizardHat} />
     </button>
   );
 }
