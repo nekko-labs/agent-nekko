@@ -51,6 +51,15 @@ describe('Pixel Nekko', () => {
     expect(renderToStaticMarkup(<Mascot mood="idle" enabled />)).not.toContain('orange-wizard-hat');
     expect(source('../App.tsx')).toContain("wizardHat={settings?.themePreset === 'autumn'}");
   });
+  it('wears the wizard hat smaller and higher, on the crown', () => {
+    expect(renderToStaticMarkup(<NekkoAvatar wizardHat />)).toContain('transform="translate(16.5 9) scale(0.8) translate(-16.5 -12)"');
+  });
+  it('draws the nav rail Agents cat without eyes', () => {
+    const eyeless = renderToStaticMarkup(<NekkoAvatar eyes={false} />);
+    expect(eyeless).toContain('data-part="pixel-head"');
+    expect(eyeless).not.toContain('pixel-eyes');
+    expect(source('../App.tsx')).toContain('<NekkoAvatar size={22} stationary eyes={false} />');
+  });
   it('keeps working feedback, greeting, and the visibility setting', () => {
     expect(renderToStaticMarkup(<MiniNekko size={16} />)).toContain('pixel-working');
     const working = renderToStaticMarkup(<Mascot mood="thinking" enabled />);

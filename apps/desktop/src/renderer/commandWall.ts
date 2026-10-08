@@ -404,6 +404,18 @@ export function reorderDockPanel(raw: unknown, key: WallDockPanel, target: WallD
   return order;
 }
 
+/**
+ * Drop a panel just before or after an anchor panel (where a drag's landing
+ * zone sat); hidden and minimized panels keep their places in the full order.
+ */
+export function placeDockPanel(raw: unknown, key: WallDockPanel, anchor: WallDockPanel, where: 'before' | 'after'): WallDockPanel[] {
+  const order = normalizeDockPanelOrder(raw);
+  if (key === anchor) return order;
+  order.splice(order.indexOf(key), 1);
+  order.splice(order.indexOf(anchor) + (where === 'after' ? 1 : 0), 0, key);
+  return order;
+}
+
 export function sanitizeWallDock(raw: unknown): WallDock {
   const value = record(raw);
   const panels = record(value.panels);

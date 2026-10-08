@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_WALL_STATE, DOCK_PANELS, loadWallState, normalizeDockPanelOrder, reorderDockPanel, sanitizeWallDock, saveWallState, toWallSetting } from './commandWall.js';
+import { DEFAULT_WALL_STATE, DOCK_PANELS, loadWallState, normalizeDockPanelOrder, placeDockPanel, reorderDockPanel, sanitizeWallDock, saveWallState, toWallSetting } from './commandWall.js';
 
 const defaults = DOCK_PANELS.map(p => p.key);
 
@@ -22,6 +22,18 @@ describe('dock panel order', () => {
     expect(reorderDockPanel(original, 'budget', 'budget')).toEqual(original);
     expect(original).toEqual(defaults);
     expect(new Set(reorderDockPanel(['hardware', 'hardware'], 'hardware', 'vitals')).size).toBe(6);
+  });
+
+  it('places a dropped panel before or after the landing zone anchor', () => {
+    const original = [...defaults];
+    expect(placeDockPanel(original, 'vitals', 'budget', 'before'))
+      .toEqual(['hardware', 'utilization', 'vitals', 'budget', 'automations', 'insights']);
+    expect(placeDockPanel(original, 'vitals', 'insights', 'after'))
+      .toEqual(['hardware', 'utilization', 'budget', 'automations', 'insights', 'vitals']);
+    expect(placeDockPanel(original, 'insights', 'hardware', 'before'))
+      .toEqual(['vitals', 'insights', 'hardware', 'utilization', 'budget', 'automations']);
+    expect(placeDockPanel(original, 'budget', 'budget', 'after')).toEqual(original);
+    expect(original).toEqual(defaults);
   });
 
   it('round-trips order through both persistence paths, preserving visibility and minimization', () => {

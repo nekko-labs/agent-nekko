@@ -1,4 +1,5 @@
 import React from 'react';
+import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_WALL_STATE, sanitizeWallDock } from '../commandWall.js';
@@ -23,6 +24,20 @@ describe('dock reorder headers', () => {
     expect(html).toContain('aria-label="Expand Budget panel"');
     expect(html).not.toContain('Budget dock panel');
     expect(html).toContain('aria-label="Minimize Hardware panel"');
+  });
+  it('opens a dashed landing zone while dragging and flies the panel into it on drop', () => {
+    const html = render('right');
+    // No zones until a panel is lifted.
+    expect(html).not.toContain('wall-dock__landing');
+    expect(html).toContain('data-dock-panel="hardware"');
+    const source = readFileSync(new URL('./WallDock.tsx', import.meta.url), 'utf8');
+    expect(source).toContain('<LandingZone open={slot === restIndex} height={lift.height} />');
+    expect(source).toContain('placeDockPanel(s.dock.panelOrder, key, anchor.key, where)');
+    expect(source).toContain('node.animate([');
+    const css = readFileSync(new URL('./wallDock.css', import.meta.url), 'utf8');
+    expect(css).toContain('.wall-dock__landing[data-open] { height: calc(var(--landing-height) + 12px); }');
+    expect(css).toMatch(/\.wall-dock__landing > span \{[^}]*dashed/);
+    expect(css).toContain('.wall-dock__panel[data-dock-lifted] { display: none; }');
   });
   it.each(['top', 'bottom'])('does not expose vertical reorder controls on the %s', side => {
     const html = render(side);

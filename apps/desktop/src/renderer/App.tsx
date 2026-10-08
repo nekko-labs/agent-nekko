@@ -44,7 +44,8 @@ import {
 } from './navIcons.js';
 
 /** The Agent destination wears Aphelion herself, so the cat is the way in. */
-const AgentCatIcon = (_p: { className?: string }) => <NekkoAvatar size={22} stationary />;
+// The nav rail's Agents cat is a plain silhouette: no eyes, so it reads as an icon beside the others rather than a face.
+const AgentCatIcon = (_p: { className?: string }) => <NekkoAvatar size={22} stationary eyes={false} />;
 
 const NAV: Array<{ view: View; labelKey: string; Icon: (p: { className?: string }) => React.JSX.Element }> = [
   { view: 'command', labelKey: 'nav.command', Icon: AgentCatIcon },
