@@ -48,5 +48,7 @@ it('capability-gates RAM reuse flags without disk storage or context loss', () =
 });
 it('prices cache counts separately with conservative unknown-rate fallback', () => {
   expect(estimateCost('claude-sonnet', { inputTokens: 1e6, outputTokens: 0, cacheReadTokens: 1e6, cacheWriteTokens: 1e6 })).toBe(7.05);
-  expect(estimateCost('gpt-4o', { inputTokens: 0, outputTokens: 0, cacheReadTokens: 1e6 })).toBe(2.5);
+  // The published catalog now supplies GPT-4o's discounted cache-read rate.
+  expect(estimateCost('gpt-4o', { inputTokens: 0, outputTokens: 0, cacheReadTokens: 1e6 })).toBe(1.25);
+  expect(estimateCost('gpt-3.5', { inputTokens: 0, outputTokens: 0, cacheReadTokens: 1e6 })).toBe(0.5);
 });
