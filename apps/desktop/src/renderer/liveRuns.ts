@@ -347,7 +347,7 @@ export function useLiveRunsVersion(): number {
   return useSyncExternalStore((fn) => {
     globalListeners.add(fn);
     return () => globalListeners.delete(fn);
-  }, () => version);
+  }, () => version, () => 0);
 }
 
 /** What a session is doing right now, in a few words. Empty when idle. */

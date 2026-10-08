@@ -9,7 +9,7 @@
 
 ## Verification and limitations
 
-Host and desktop typechecks pass. Focused memory parser, quota schedule, existing host throttle, usage aggregation and dock presentation tests pass. Synthetic network-blocked hidden Electron checks verified manual refresh and ticking countdown. Narrow light/dark matched renderer captures were inspected. This does not prove native window chrome or live provider accounting. Full CI and wide screenshot inspection remain pending. Live user data was not modified.
+Host and desktop typechecks pass. Focused memory parser, quota schedule, existing host throttle, usage aggregation and dock presentation tests pass. Synthetic network-blocked hidden Electron checks verified manual refresh and ticking countdown. Narrow light/dark matched renderer captures were inspected. This does not prove native window chrome or live provider accounting. Wide screenshots and theme-stable motion frames were subsequently inspected. Full desktop build and 718 tests pass after fixing the live-run server snapshot regression found by CI. Latest remote CI remains pending. Live user data was not modified.
 
 ## Next steps
 
