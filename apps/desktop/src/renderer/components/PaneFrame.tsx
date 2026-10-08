@@ -123,6 +123,7 @@ export function PaneFrame({
   dragging,
   canSplit,
   onSplit,
+  onAddWindow,
   onClose,
   onMinimize,
   onFocus,
@@ -158,6 +159,7 @@ export function PaneFrame({
   dragging: string | null;
   canSplit: (dir: Direction) => boolean;
   onSplit: (dir: Direction, kind: WbPane['kind']) => void;
+  onAddWindow?: () => void;
   onClose: () => void;
   /** Remove only the wall window, without completing or deleting its chat. */
   onMinimize?: () => void;
@@ -239,7 +241,7 @@ export function PaneFrame({
         {/* The pane's own actions, portalled in, so there is one bar per window
             rather than the frame's and the pane's stacked on each other. */}
         <div ref={setActionSlot} className="flex shrink-0 items-center gap-0.5" />
-        {!hideSplit && <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} addable={addable} />}
+        {!hideSplit && <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} onOpen={onAddWindow} addable={addable} />}
         {isChat && onMinimize && <button
           type="button"
           className="rounded-sm p-1 text-ink-faint hover:text-ink"

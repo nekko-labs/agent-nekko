@@ -77,6 +77,7 @@ export function SplitCompass({
   kind,
   canSplit,
   onSplit,
+  onOpen,
   addable = WORKSPACE_ADDABLE,
   className = '',
 }: {
@@ -84,6 +85,8 @@ export function SplitCompass({
   kind: PaneKind;
   canSplit: (dir: Direction) => boolean;
   onSplit: (dir: Direction, kind: PaneKind) => void;
+  /** Explicit activation may change layout; hover previews never do. */
+  onOpen?: () => void;
   /** The kinds this surface can add, in the order to offer them. */
   addable?: PaneKind[];
   className?: string;
@@ -178,6 +181,7 @@ export function SplitCompass({
           window.clearTimeout(closeTimer.current);
           setOpen(true);
           setPinned(true);
+          onOpen?.();
         }}
         onFocus={enter}
       >
