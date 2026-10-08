@@ -198,7 +198,7 @@ function VitalsGrid({ vitals }: { vitals: Vitals }) {
 
 function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps, 'providers' | 'usage' | 'now' | 'onOpenModels'>) {
   const enabled = providers.filter((p) => p.enabled && !isLocalProvider(p.kind));
-  const { byToken, answered, refresh } = useProviderLimitsPortfolio(enabled);
+  const { byToken, answered, refresh, nextRefreshAt } = useProviderLimitsPortfolio(enabled);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const today = new Date(now).toISOString().slice(0, 10);
@@ -209,7 +209,10 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
   const weekDays = usage?.daily.filter((d) => d.date >= week && d.date <= today);
   const compact = (n: number) => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n);
   return <div className="wall-dock__metrics wall-dock__utilization">
+    <div className="wall-dock__metric-row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+    {nextRefreshAt != null && <span className="wall-dock__note" role="timer">{refreshing ? 'Refreshing…' : `Refreshing in ${Math.max(0, Math.ceil((nextRefreshAt - Date.now()) / 1000))}s`}</span>}
     <button type="button" className="wall-dock__text-button justify-self-end" aria-label="Refresh provider quota" title="Pull latest provider quota (provider refreshes are rate limited)" disabled={refreshing} onClick={() => { setRefreshing(true); setRefreshError(null); void refresh().catch(e => setRefreshError(String(e))).finally(() => setRefreshing(false)); }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0 1 12-2l2 3M4 16l2 3a7 7 0 0 0 12-2" /></svg></button>
+    </div>
     {refreshError && <p role="alert">Could not refresh quota: {refreshError}</p>}
     {enabled.length === 0 && <p>No cloud providers enabled.</p>}
     {enabled.map((provider) => {
@@ -280,7 +283,7 @@ function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage'
     <div className="wall-dock__metric-row"><span>Local models</span><strong>{usage ? '$0 API' : 'Unavailable'} · {recorded.localTokens} tokens</strong></div>
     <div className="wall-dock__savings">
       <div className="wall-dock__metric-row"><span>Local AI saved <small>(est.)</small></span><strong>{avoided ? formatUSD(avoided.local) : 'Unavailable'}</strong></div>
-      <div className="wall-dock__metric-row"><span>Subscription saved <small>(est.)</small></span><strong>{avoided ? formatUSD(avoided.subscription) : 'Unavailable'}</strong></div>
+      <div className="wall-dock__metric-row"><span>Subscription saved <small>(est. · all time)</small></span><strong>{avoided ? formatUSD(avoided.subscription) : 'Unavailable'}</strong></div>
       <p className="wall-dock__note">All-time API equivalents, before plan fees, hardware and electricity.</p>
     </div>
     <details><summary>Cloud pricing comparison</summary>

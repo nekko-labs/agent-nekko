@@ -259,6 +259,16 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### GPU fallback preview (added 2026-10-08)
+
+- [ ] **T185**, Older discrete GPUs can be found through the installed engine when the vendor tool fails. · [spec](SPEC.md#running-a-model-with-nothing-else-installed) · PR #382, Preview, not shipped.
+  - Implemented: Windows/Linux vendor-first `llama-server --list-devices` fallback, 15-second display cache and fresh load measurements, recursion-safe external/managed/PATH binary lookup and `llama-server` source. Integrated-memory readings are excluded, including Vega 8/11 Graphics, without excluding discrete RX Vega 56/64. Registering an engine clears stale no-GPU monitor results. No migration, network probe or runtime installation; existing model presets remain unchanged.
+  - Decision: resolve the installed binary without `detect()` because detection reads GPU stats to rank builds and would recurse. Keep CUDA selection tied to vendor evidence rather than assuming a listed GPU implies a CUDA runtime.
+  - Verification: deterministic parser/vendor-priority/fallback/cache/fresh-read/macOS exclusion and binary-resolution tests. Original author supplied real GTX 1050 device output, not running-app acceptance. Local macOS cannot prove Windows/AMD/Linux inference or driver-error behavior.
+  - Release acceptance pending: affected laptop app GPU display and new-download preset; AMD/Linux hardware matrix; integrated-name heuristics and upstream output-format stability. Existing-model first-load presets and GPU-unused/Windows error-state hints are planned, not implemented.
+  - CI performance blocker: run 37748807816 misses warm-switch p95 (25.4 ms against 20.8 ms). Paired quick profiles miss the same gate on base (40.6 ms) and head (28.4 ms); no causal GPU regression established. Report JSON revision labels are identical (a diagnostic metadata limitation); job logs confirm head merge 52567be and base 74d2ac2. The base already contains the original fallback from merged #380, so #382 duplicates landed work until its review fixes. Keep budgets unchanged and investigate the shared latency failure separately; do not rerun merely to seek green.
+
+
 ### UC: One composer for the wall (added 2026-10-05)
 
 Philip's iteration: a single, unified composer for the whole Command Center, movable to one of six places, visibly connected to the agent windows (not to terminals, insights or other panels); clicking an agent window points the composer at that chat's context, and from the composer the keyboard cycles agent windows and picks them by number. · [spec](SPEC.md#chat--cowork-unified-surface)
@@ -1246,3 +1256,28 @@ Verified with 72 focused tests, desktop source-aware typechecking and an isolate
   - **Review fixes.** The picker no longer pairs the active provider with another provider's first catalog model or defaults to a disabled provider. An explicitly empty folder selection stays empty instead of falling back to the active project. A retained-session retry reapplies primary and supporting folders, including clearing old supporting folders; null host configuration responses are errors rather than silent success.
   - **Review verification.** 50 focused renderer tests and 81 host routing tests pass. `build:web` and full workspace typecheck pass after isolating dependency links to this worktree's built workspace packages. Initial failures were caused by parent-checkout workspace resolution and a missing worktree-local electron-vite link, not weakened checks. Wide/narrow (1400px/600px) light/dark fixture captures and picker interaction GIFs are being published to the shared pr-media release. A synthetic failed-options/failed-cleanup retry test passed after correcting the fixture workspace setter to return the Session required by its contract: one create only, primary folder cleared and empty supporting folders applied.
   - **Not done.** Image-capable inspection is unavailable in this review toolset, so captured images and motion are not claimed visually verified. Native window chrome and real providers/folders remain unexercised; original second-title cause remains unconfirmed. Inspect published matrix and motion before landing; CI on the final head must pass.
+
+## Hardware memory and subscription refresh accuracy (2026-10-08)
+
+- [x] macOS Hardware memory no longer counts reclaimable cached files as used. Uses vm_stat with timeout, page-size-aware resident accounting, explicit unavailable on failure and parser tests. Other platforms unchanged. · [spec](SPEC.md#hardware-memory-and-subscription-refresh-accuracy)
+- [x] Mounted subscription quota portfolios refresh each minute when idle and twice as often for accounts used by running chats. Shared per-account in-flight reads and scheduling timestamps avoid duplicate portfolio polling; host throttling unchanged. Utilization adds a countdown beside refresh.
+- [x] Subscription savings explicitly say all-time and regression coverage verifies old/new session sums, cache pricing, unknown-price exclusion, zero subscription billing and date-filter independence.
+- [x] Isolated wide/narrow light/dark renderer captures and theme-stable countdown frames inspected. Mounted synthetic clock verifies idle/active/stop cadence. Fixed missing server snapshot found by CI; full desktop build and 718 existing tests pass locally.
+- [x] Updated recording and screenshots published. Code-head 8954912 CI passes, including performance and Swift analysis. Exact Activity Monitor UI parity and historical savings reproduction remain follow-ups, not a claim of restored $2200.
+- [ ] Resolve the historical $2200-to-$141 discrepancy using the prior log/profile or screenshot. Available current records independently reproduce the current magnitude; no aggregation/date-filter defect demonstrated. Do not inflate estimates or price unpublished variants to restore an unverified total.
+
+- [x] Narrowed quota run tracking to a stable membership snapshot after CI performance investigation exposed unnecessary streaming-driven renders. 720 desktop tests and mounted idle/active/stop checks pass. Unchanged-base profiling also fails warm/cold switch budgets; no gate was waived; current-head CI subsequently passes. Earlier base/head latency profiles do not establish streaming parity.
+
+## Restore agent-window Logs (2026-10-08)
+
+- [x] Agent windows keep their Logs control when compact. Removed the compact visibility gate, retained existing owning-session terminal routing, and used the existing terminal SVG for narrow headers. Regression guard and isolated three-chat light/dark wide/narrow DOM checks prove all three controls remain and the second window opens `agent_second`. · [spec](SPEC.md#agent-window-log-access)
+- [x] Matching light/dark wide/narrow header screenshots inspected; desktop typecheck and721 tests pass.
+- [x] Header evidence published and code-head 8954912 CI passes. No additional visual change in the review batch.
+- Memory follow-up: primary running desktop bundle still contains total-minus-free accounting; PR fixes are not yet installed. VM counters on this machine report about35.55 GiB resident of64 GiB, not almost full. This is not a contemporaneous Activity Monitor capture. Avoid diagnosing a leak from reclaimable cache alone.
+
+## PR #378 scoped review handoff (2026-10-08)
+
+- [x] Reviewed VM counters, quota read coalescing and host throttle, stable running membership, and owning-session Logs routing. No additional scoped code defect established. 60 focused tests plus two sandbox syntax checks, host/desktop typechecks and shared/core/host/desktop build pass.
+- [x] Safe read-only live host probe reports 36730 MiB of65536 MiB, bracketed by VM samples36729 and36730 MiB; legacy total-minus-free reports62674 MiB and swap is zero. Shared-source counter agreement is not independent Activity Monitor parity. User-owned app/profile untouched; no credential or billable calls.
+- [x] Inspected latest failed performance diagnostic: full run warm/cold p95 26.0/26.0 ms; unchanged-base quick profile102.3/28.8 ms versus head45.9/35.5 ms. Quick profiles skip streaming, so they cannot clear streaming regression by themselves. Current code-head CI passes with unchanged budgets, no new rerun requested. Preserve existing evidence.
+- [ ] Follow-up: obtain prior screenshot/log to explain historical $2200; independently compare Activity Monitor at the same time after an approved installation. Neither is silently presented as verified. Stay draft/unmerged and do not mark ready in this review handoff.

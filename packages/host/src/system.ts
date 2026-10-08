@@ -1,9 +1,11 @@
 import os from 'os';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import type { SystemStats } from '@agent-nekko/shared';
 
 /**
- * CPU load + RAM use for the monitor surfaces, from `os` alone (no native module,
- * works the same on Windows, macOS, and Linux).
+ * CPU load + RAM use for monitor surfaces. macOS uses VM page accounting
+ * to exclude reclaimable file cache, matching Activity Monitor Memory Used.
  *
  * CPU percentage is a delta: we keep the previous `os.cpus()` times snapshot and
  * report busy-time over the interval since it, which is what a task manager
@@ -42,6 +44,23 @@ function busyPct(from: Snapshot, to: Snapshot): number {
   return Math.min(100, Math.max(0, ((dTotal - dIdle) / dTotal) * 100));
 }
 
+const exec = promisify(execFile);
+
+/** Anonymous resident pages + wired + physical compressor, not file cache. */
+export function macMemoryUsedMB(output: string): number | null {
+  const pageSize = Number(output.match(/page size of (\d+) bytes/)?.[1]);
+  const pages = (name: string) => {
+    const value = output.match(new RegExp(`^${name}:\\s+(\\d+)\\.`, 'm'))?.[1];
+    return value == null ? NaN : Number(value);
+  };
+  const anonymous = pages('Anonymous pages');
+  const purgeable = pages('Pages purgeable');
+  const wired = pages('Pages wired down');
+  const compressed = pages('Pages occupied by compressor');
+  if (![pageSize, anonymous, purgeable, wired, compressed].every(Number.isFinite) || pageSize <= 0) return null;
+  return Math.round((Math.max(0, anonymous - purgeable) + wired + compressed) * pageSize / 1024 / 1024);
+}
+
 export async function getSystemStats(): Promise<SystemStats | null> {
   try {
     let from = prev;
@@ -55,11 +74,23 @@ export async function getSystemStats(): Promise<SystemStats | null> {
     const cpus = os.cpus();
     const totalMB = Math.round(os.totalmem() / 1024 / 1024);
     const freeMB = Math.round(os.freemem() / 1024 / 1024);
+    let usedMB = Math.max(0, totalMB - freeMB);
+    if (process.platform === 'darwin') {
+      try {
+        const { stdout } = await exec('/usr/bin/vm_stat', [], { timeout: 2000, maxBuffer: 64 * 1024 });
+        const measured = macMemoryUsedMB(stdout);
+        if (measured == null) throw new Error('Unrecognized vm_stat page counters');
+        usedMB = Math.min(totalMB, measured);
+      } catch (error) {
+        console.warn('[system] macOS memory measurement unavailable', error);
+        return null;
+      }
+    }
     return {
       cpuPct: Math.round(busyPct(from, now)),
       cpuCores: cpus.length,
       cpuModel: cpus[0]?.model?.trim() || undefined,
-      memUsedMB: Math.max(0, totalMB - freeMB),
+      memUsedMB: usedMB,
       memTotalMB: totalMB,
     };
   } catch {
