@@ -283,6 +283,7 @@ export function QuestionCard({
               className="flex w-full items-center gap-2 rounded-lg border border-dashed px-2.5 py-1.5 text-left text-[11.5px] text-ink-faint transition-colors hover:text-ink"
               style={{
                 borderColor: cursor >= q.options.length ? 'color-mix(in srgb, var(--accent) 40%, var(--line))' : 'var(--line)',
+                background: cursor >= q.options.length ? 'var(--surface-2)' : 'var(--surface)',
               }}
               onMouseEnter={() => setCursor(q.options.length)}
               onClick={() => setOtherOpen((p) => ({ ...p, [q.id]: true }))}

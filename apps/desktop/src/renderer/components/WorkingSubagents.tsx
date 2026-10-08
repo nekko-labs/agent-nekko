@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { PendingInput, SessionSummary } from '@agent-nekko/shared';
 import { RobotIcon } from '../icons.js';
 
@@ -10,10 +10,29 @@ export function WorkingSubagents({ children, running, pending, onOpen }: {
   onOpen: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
   const active = children.filter(child => running.has(child.id));
+  useEffect(() => {
+    if (!expanded) return;
+    const dismiss = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) setExpanded(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setExpanded(false);
+    };
+    document.addEventListener('pointerdown', dismiss, true);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('pointerdown', dismiss, true);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [expanded]);
+  useEffect(() => {
+    if (!active.length) setExpanded(false);
+  }, [active.length]);
   if (!active.length) return null;
   const waiting = active.some(child => pending[child.id]?.question || pending[child.id]?.approval);
-  return <div className="absolute bottom-3 left-3 z-20" data-working-subagents>
+  return <div ref={root} className="absolute bottom-3 right-3 z-20 flex flex-col items-end" data-working-subagents>
     {expanded && <div className="card mb-2 max-h-48 w-64 overflow-y-auto p-1" role="group" aria-label="Working subagents">
       {active.map(child => <button key={child.id} type="button" className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[12px] hover:bg-surface-2" onClick={() => onOpen(child.id)}>
         <RobotIcon className="h-4 w-4 shrink-0" />
