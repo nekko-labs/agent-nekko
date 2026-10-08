@@ -24,7 +24,7 @@ const calls: any[] = [];
 const failures = { create: false, options: false, cleanup: false };
 const contextBundle = () => assembleContext({ attached: [{path:'synthetic.txt',content:'context '.repeat(100)}], guidelines:[{path:'AGENTS.md',content:'Preserve existing work.'}], memory:[], connectorSnippets:[], indexSnippets:[], history:records[0]?.messages ?? [], systemText:'Synthetic system instructions', contextWindow:128000 });
 const bridge: any = {
-  getAppInfo: async () => ({ version: '0.8.0', packaged: false, platform: 'win32' }),
+  getAppInfo: async () => ({ version: '0.8.0', edition: 'desktop', packaged: false, platform: 'win32' }),
   sendChat: async (options: any) => { calls.push({method:'send',options}); },
   createSession: async (workspaceId: string) => { calls.push({ method: 'create', workspaceId }); if (failures.create) throw Error('Synthetic creation failure'); const s = { ...makeSession(`new-${++serial}`), workspaceId }; records.push(s); return s; },
   setSessionOptions: async (id: string, options: any) => { calls.push({ method: 'options', id, options }); if (failures.options) throw Error('Synthetic options failure'); const s = records.find(s => s.id === id); Object.assign(s, options); sessionStorage.setItem('fixture-record', JSON.stringify(s)); return {...s}; },

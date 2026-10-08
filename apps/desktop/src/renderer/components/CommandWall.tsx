@@ -417,7 +417,8 @@ export function CommandWall({
           addable={WALL_ADDABLE}
           closeTitle={openable ? 'Remove from the wall (the chat stays)' : 'Remove from the wall'}
           dragging={dragging}
-          canSplit={(dir) => state.layout.mode === 'grid' && !inDeck && size.width >= NARROW_WIDTH && canSplit(state.root, pane.id, dir)}
+          canSplit={(dir) => state.layout.mode === 'grid' && !inDeck && canSplit(state.root, pane.id, dir)}
+          onAddWindow={() => setState((s) => s.layout.mode === 'focus' ? { ...s, layout: { ...s.layout, mode: 'grid' } } : s)}
           onSplit={(dir, kind) => { void addWindow(kind, { paneId: pane.id, dir }); }}
           onClose={() => update((root) => removePane(root, pane.id))}
           onMinimize={pane.kind === 'chat' ? () => update((root) => removePane(root, pane.id)) : undefined}

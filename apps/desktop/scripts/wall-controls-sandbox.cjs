@@ -44,7 +44,7 @@ app.whenReady().then(async () => {
   try {
     await win.loadFile(path.join(out, 'index.html'));
     // macOS can move resized mapped windows back onto a display; keep this fixture hidden.
-    if (process.platform !== 'darwin' || !process.env.NEKKO_GRID_BUGS) win.showInactive();
+    if (!process.env.NEKKO_FOCUS_ADD && (process.platform !== 'darwin' || !process.env.NEKKO_GRID_BUGS)) win.showInactive();
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
@@ -88,6 +88,39 @@ app.whenReady().then(async () => {
         await check('narrow layout buttons stay inside viewport', "[...document.querySelectorAll('.wall-layout-segments button')].every(b=>b.getBoundingClientRect().right<=innerWidth)");
       }
       report.success = true;
+      return;
+    }
+    if (process.env.NEKKO_FOCUS_ADD) {
+      const fixed = !process.env.NEKKO_TEST_REVISION;
+      const mode = () => run("document.querySelector('[data-command-wall]').dataset.wallLayout");
+      for (const theme of ['light', 'dark']) for (const width of [1200, 400]) {
+        win.setContentSize(width, 900); await reset();
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        await click('Focus'); await sleep(400);
+        await capture(`focus-${theme}-${width}-rest`);
+        if (fixed) await check('heading precedes version', "(()=>{const h=document.querySelector('.titlebar h1'),v=document.querySelector('.titlebar .update-version');return !!h && !!v && !!(h.compareDocumentPosition(v)&Node.DOCUMENT_POSITION_FOLLOWING)})()");
+        await run("document.querySelector('.command-wall-window:not([aria-hidden=true]) button[aria-label=\"Add a window beside this one\"]').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+        await sleep(200);
+        if (await mode() !== 'focus') throw Error('Hover left Focus');
+        await run("document.querySelector('.command-wall-window:not([aria-hidden=true]) button[aria-label=\"Add a window beside this one\"]').click()"); await sleep(500);
+        if (await mode() !== (fixed ? 'grid' : 'focus')) throw Error('Wrong compass mode');
+        if (fixed) await check('compass directions enabled', "[...document.querySelectorAll('[role=dialog][aria-label=\"Add a window\"] button[aria-disabled]')].every(b=>b.getAttribute('aria-disabled')==='false')");
+        await capture(`focus-${theme}-${width}-compass`);
+        await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+        await click('Focus'); await sleep(300); await click('Add window'); await sleep(500);
+        if (await mode() !== (fixed ? 'grid' : 'focus')) throw Error('Wrong toolbar mode');
+        await check('picker opens', "!!document.querySelector('.agent-window-picker')");
+        await capture(`focus-${theme}-${width}-picker`);
+        report.checks.push(`Focus add routes ${theme} ${width}`);
+      }
+      win.setContentSize(1200,900); await reset(); await click('Focus'); await sleep(400);
+      const frames=path.join(runDir,'motion');fs.mkdirSync(frames);
+      for(let i=0;i<30;i++) {
+        if(i===5)await run("document.querySelector('.command-wall-window:not([aria-hidden=true]) button[aria-label=\"Add a window beside this one\"]').click()");
+        fs.writeFileSync(path.join(frames,String(i).padStart(3,'0')+'.png'),(await win.capturePage(undefined,{stayHidden:true})).toPNG());await sleep(70);
+      }
+      report.success=true;
+      if(process.env.NEKKO_EVIDENCE_HOLD){fs.writeFileSync(path.join(runDir,'gallery.html'),'<html><body style="margin:0;background:#888;display:grid;grid-template-columns:repeat(4,1fr)">'+report.captures.map(p=>'<div><small>'+path.basename(p)+'</small><img style="width:100%" src="'+path.basename(p)+'"></div>').join('')+'</body></html>');await win.loadFile(path.join(runDir,'gallery.html'));win.setContentSize(1600,1500);console.log('EVIDENCE_GALLERY '+runDir);await sleep(90000);}
       return;
     }
     if (process.env.NEKKO_LAYOUT_FIXES) {
