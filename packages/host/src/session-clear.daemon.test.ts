@@ -41,8 +41,10 @@ it('real daemon awaits real host log queue before deleting or clearing JSON', as
       res.setHeader('content-type', 'application/json');
       res.end(channel === 'settings:get' ? '{"workspaces":[]}' : 'null');
     } catch (error) {
+      console.error('Isolated daemon callback harness failed:', error);
       res.statusCode = 400;
-      res.end(JSON.stringify({ error: String(error) }));
+      res.setHeader('content-type', 'application/json');
+      res.end('{"error":"Callback harness failed"}');
     }
   });
   server.listen(0, '127.0.0.1');
