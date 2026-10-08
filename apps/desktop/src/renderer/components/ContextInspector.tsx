@@ -10,6 +10,7 @@ import { ProviderLimitsDock } from './ProviderLimitsDock.js';
 import { ModelDock } from './engine/ModelDock.js';
 import { DirTree } from './FileTree.js';
 import { sourceMeta } from '../contextSources.js';
+import { applyFolderSelection, withExcluded, withIncluded, withPrimary } from '../sessionFolders.js';
 
 /** Remembered height of the Folders section when a tree is open. */
 const EXPLORER_KEY = 'nekko.contextPanel.explorerHeight';
@@ -187,45 +188,14 @@ export const ContextInspector = memo(function ContextInspector({ sessionId: show
   };
   const removeFolder = async (id: string) => {
     await window.nekko.removeWorkspace(id);
-    if (session) {
-      const supporting = (session.supportingWorkspaceIds ?? []).filter((wid) => wid !== id);
-      if (session.workspaceId === id) {
-        const [nextPrimary, ...nextSupporting] = supporting;
-        await window.nekko.setSessionWorkspace(sessionId, nextPrimary);
-        await window.nekko.setSessionSupportingWorkspaces(sessionId, nextSupporting);
-      } else {
-        await window.nekko.setSessionSupportingWorkspaces(sessionId, supporting);
-      }
-      await refreshSessions();
-    }
+    if (session) await applyFolderSelection(sessionId, withExcluded(session, id));
     await refreshSettings();
   };
-  const setFolderSelection = async (primaryId: string | undefined, supportingIds: string[]) => {
-    await window.nekko.setSessionWorkspace(sessionId, primaryId);
-    await window.nekko.setSessionSupportingWorkspaces(sessionId, supportingIds);
-    await refreshSessions();
-  };
-  const includeFolder = async (id: string) => {
-    if (!session?.workspaceId) {
-      await setFolderSelection(id, session?.supportingWorkspaceIds ?? []);
-    } else {
-      await setFolderSelection(session.workspaceId, [...(session.supportingWorkspaceIds ?? []), id]);
-    }
-  };
-  const excludeFolder = async (id: string) => {
-    if (session?.workspaceId === id) {
-      const [nextPrimary, ...nextSupporting] = session.supportingWorkspaceIds ?? [];
-      await setFolderSelection(nextPrimary, nextSupporting);
-    } else {
-      await setFolderSelection(session?.workspaceId, (session?.supportingWorkspaceIds ?? []).filter((wid) => wid !== id));
-    }
-  };
+  const includeFolder = async (id: string) => { await applyFolderSelection(sessionId, withIncluded(session, id)); };
+  const excludeFolder = async (id: string) => { await applyFolderSelection(sessionId, withExcluded(session, id)); };
   const makePrimary = async (id: string) => {
     if (!session || session.workspaceId === id) return;
-    await setFolderSelection(id, [
-      ...(session.workspaceId ? [session.workspaceId] : []),
-      ...(session.supportingWorkspaceIds ?? []).filter((wid) => wid !== id),
-    ]);
+    await applyFolderSelection(sessionId, withPrimary(session, id));
   };
   const addFiles = async () => {
     const picked = await window.nekko.openFilesDialog();
