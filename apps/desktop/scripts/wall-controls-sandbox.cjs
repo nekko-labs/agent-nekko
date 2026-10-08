@@ -420,6 +420,17 @@ app.whenReady().then(async () => {
         await run("sessionStorage.removeItem('fixture-record')"); await clearEditor(); await reset();
         await run(`document.documentElement.dataset.theme='${theme}'`);
         await hit('grid');
+        // Mode now sits in the composer's bottom bar. In macOS's hidden CI
+        // window a synthetic press that low does not always reach the page
+        // (Windows does). The button must still be the thing under that point,
+        // so nothing covers it; only then is it opened directly, and the menu
+        // clipping check below stays strict either way.
+        if (!(await run("!!document.querySelector('[role=menuitemradio]')"))) {
+          const exposed = await run(`(() => { const b = document.querySelector('[data-wall-composer] button[title="Run freely; ask/deny per guardrail rules."]'); if (!b) return false; const r = b.getBoundingClientRect(); return b.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)); })()`);
+          report.checks.push({ name: 'Grid mode button is uncovered ' + theme + ' ' + label, passed: exposed, note: 'synthetic press did not open the menu; opened by DOM click' });
+          if (assertFixed && !exposed) throw Error('Grid mode button covered');
+          await run(`document.querySelector('[data-wall-composer] button[title="Run freely; ask/deny per guardrail rules."]').click()`); await sleep(180);
+        }
         await capture(`grid-mode-${theme}-${label}`);
         const reachable = await run("(()=>{const e=document.querySelector('[role=menuitemradio]');if(!e)return false;const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))})()");
         report.checks.push({name:'Grid guardrails menu receives pointer '+theme+' '+label,passed:reachable});
