@@ -353,8 +353,7 @@ export function CommandCenterView() {
       panelRef={composerRef}
     />
   );
-  // Add window sits centred on the edge of the wall nearest the composer,
-  // right where the wall ends, so it reads as part of the wall it adds to.
+  // Add shares the composer row so it does not reserve vertical wall space.
   const addButton = (
     <div className="wall-add-launch" data-side={wall.composer.side}>
       <button
@@ -370,7 +369,7 @@ export function CommandCenterView() {
       </button>
     </div>
   );
-  const composerRow = <div className="wall-composer-row" data-dock={`${wall.composer.side}-${wall.composer.align}`}>{composer}</div>;
+  const composerRow = <div className="wall-composer-row" data-dock={`${wall.composer.side}-${wall.composer.align}`}>{composer}{addButton}</div>;
 
   return (
     <div ref={viewRef} className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
@@ -397,7 +396,7 @@ export function CommandCenterView() {
         onOrientation={(orientation) => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), orientation } }))}
         onClosePanel={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: false } }))} />}
       <div className="wall-column">
-      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && <>{composerRow}{addButton}</>}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composerRow}
       {completedId ? <div className="panel panel-ring flex min-h-0 flex-1 flex-col overflow-hidden"><button className="btn btn-ghost self-start" onClick={() => setCompletedId(null)}>Back to active agents</button><ChatPane key={completedId} sessionId={completedId} readOnly /></div> : <CommandWall
         state={wall}
         setState={setWall}
@@ -423,7 +422,7 @@ export function CommandCenterView() {
           setAddOpen(false);
         }} /> : undefined}
       />}
-      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && <>{addButton}{composerRow}</>}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composerRow}
         </div>
       </div>
       </div>
@@ -476,9 +475,16 @@ export function WallToolbar({
     // The native title bar is one row; narrow windows keep controls in-view.
     const wide = window.matchMedia('(min-width: 1100px)');
     const update = () => setSlot(wide.matches ? document.getElementById('command-titlebar-slot') : null);
+    // Recover if chrome remounts or replaces the portal host during navigation.
+    const observer = new MutationObserver((records) => {
+      const changedHost = records.some((record) => [...record.addedNodes, ...record.removedNodes].some((node) =>
+        node instanceof Element && (node.id === 'command-titlebar-slot' || node.querySelector('#command-titlebar-slot'))));
+      if (changedHost) update();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
     update();
     wide.addEventListener('change', update);
-    return () => wide.removeEventListener('change', update);
+    return () => { wide.removeEventListener('change', update); observer.disconnect(); };
   }, []);
 
   const controls = (

@@ -26,11 +26,13 @@ describe('Agents panel header', () => {
     expect(source).toContain('className="card fixed z-[1000] w-64 p-1.5 shadow-lg"');
     expect(source).toContain('document.body,');
   });
-  it('centres Add window on the wall edge, between the wall and the composer, with no elbow arrow', () => {
-    expect(toolbar).toContain("wall.composer.side === 'bottom' && <>{addButton}{composerRow}</>");
-    expect(toolbar).toContain("wall.composer.side === 'top' && <>{composerRow}{addButton}</>");
+  it('keeps Add window beside the composer in either docking position, with no elbow arrow', () => {
+    expect(toolbar).toContain("wall.composer.side === 'bottom' && composerRow");
+    expect(toolbar).toContain('>{composer}{addButton}</div>');
+    expect(toolbar).toContain("wall.composer.side === 'top' && composerRow");
     expect(toolbar).not.toContain('wall-add-arrow');
     expect(css).not.toContain('.wall-add-arrow');
-    expect(css).toContain(".wall-add-launch { position: relative; display: flex; justify-content: center;");
+    expect(css).toContain('.wall-add-launch { display: flex; align-items: center; justify-content: center;');
+    expect(css).not.toContain('.wall-composer-row { flex-direction: column;');
   });
 });
