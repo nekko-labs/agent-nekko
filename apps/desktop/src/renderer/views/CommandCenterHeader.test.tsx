@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ chrome: true, mac: false, view: 'command' }));
 vi.mock('../chrome.js', () => ({ get hasAppChrome() { return state.chrome; }, get isMacChrome() { return state.mac; } }));
 vi.mock('../store.js', () => ({ useStore: Object.assign((select: (s: { view: string }) => unknown) => select({ view: state.view }), { getState: () => ({}) }) }));
-vi.mock('../components/UpdateBanner.js', () => ({ UpdateControl: () => null }));
+vi.mock('../components/UpdateBanner.js', () => ({ UpdateControl: () => <span data-version>0.8.0</span> }));
 vi.mock('../components/DeveloperServerControls.js', () => ({ DeveloperServerControls: () => null }));
 vi.mock('../components/AgentWindowPicker.js', () => ({ AgentWindowPicker: () => null }));
 vi.mock('../components/InsightsBox.js', () => ({}));
@@ -24,7 +24,8 @@ describe('Agents header placement', () => {
     state.mac = mac;
     const title = renderToStaticMarkup(<TitleBar />);
     expect(title).toContain('Agent Nekko</span>');
-    expect(title).toMatch(/id="command-titlebar-slot"[^>]*><h1[^>]*>Agents<\/h1>/);
+    expect(title.indexOf('>Agents</h1>')).toBeLessThan(title.indexOf('data-version'));
+    expect(title.indexOf('data-version')).toBeLessThan(title.indexOf('id="command-titlebar-slot"'));
     expect(title.match(/<h1/g)).toHaveLength(1);
     expect(toolbar()).not.toContain('<h1');
     expect(title).not.toContain('pr-[150px]');

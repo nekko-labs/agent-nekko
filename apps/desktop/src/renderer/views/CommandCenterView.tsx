@@ -518,7 +518,10 @@ export function WallToolbar({
         {showAdd && <div className="relative">
           <button
             className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
-            onClick={() => setAddOpen((o) => !o)}
+            onClick={() => {
+              if (!addOpen) setWall((w) => w.layout.mode === 'focus' ? { ...w, layout: { ...w.layout, mode: 'grid' } } : w);
+              setAddOpen((o) => !o);
+            }}
             aria-controls="wall-window-picker"
             aria-expanded={addOpen}
             title="Add an agent, a terminal, or a chat already running"
