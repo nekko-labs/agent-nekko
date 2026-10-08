@@ -1607,6 +1607,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // Skills (standard agent skills + installed marketplace skills) show in the
   // `/` menu until the user types args.
   const installedSkillDefs = useStore((s) => s.installedSkillDefs);
+  // Rescan skills each time the `/` menu opens (not per keystroke), so a skill
+  // added to ~/.claude/skills etc. while the app is open shows up.
+  const slashOpen = slashQuery !== null;
+  useEffect(() => {
+    if (slashOpen) void useStore.getState().refreshSkills();
+  }, [slashOpen]);
   const skillMatches = slashQuery !== null && !slashQuery.includes(' ') ? matchSkills(slashQuery, installedSkillDefs) : [];
   // Every skill this chat can run, in the same order `/` offers them (built-ins
   // plus installed, highlighted first). The + menu lists these.
