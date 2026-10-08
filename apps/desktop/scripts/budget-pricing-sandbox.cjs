@@ -21,7 +21,9 @@ app.whenReady().then(async () => {
       await sleep(900);
       await run("document.querySelector('.wall-dock__budget details').open=true");
       await sleep(200);
-      report.checks.push({ width, theme, budget: await run("!!document.querySelector('.wall-dock__budget select')") });
+      const budget = await run("!!document.querySelector('.wall-dock__budget select')");
+      report.checks.push({ width, theme, budget });
+      if (!budget) throw Error(`Budget selector missing at ${width}px in ${theme}`);
       fs.writeFileSync(path.join(dir, `budget-${width}-${theme}.png`), (await win.capturePage(undefined, { stayHidden: true })).toPNG());
     }
     if (win.isFocused()) throw Error('Fixture focused');
