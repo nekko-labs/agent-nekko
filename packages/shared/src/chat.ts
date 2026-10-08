@@ -53,7 +53,38 @@ export interface ChatMessage {
    * follows it, never what came before (`sinceCompaction`).
    */
   compaction?: { summarized: number };
+  /**
+   * Measurements for the reply this message ends, recorded by the host when the
+   * turn finishes. On the last assistant message of a turn only. Counts and
+   * identifiers only, never prompt or reply text.
+   */
+  turnStats?: TurnStats;
   createdAt: number;
+}
+
+/**
+ * What one reply cost and what produced it. Kept in the transcript so a chat
+ * that switched models shows which stretch ran on which, and in the reply log
+ * for later analysis.
+ */
+export interface TurnStats {
+  providerId: string;
+  modelId: string;
+  /** The effort the request was sent with, after the model's own clamp. */
+  effort?: import('./settings.js').EffortLevel;
+  /** Summed over every model call in the reply (tool round trips included). */
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  /** Decode time summed over calls, when the provider reported it. */
+  outputMs?: number;
+  /** Wall time from send to done, tools and approvals included. */
+  wallMs: number;
+  /** Model calls in the reply. */
+  calls: number;
+  steps?: number;
+  stop?: ReplyStop;
 }
 
 /** Per-session Context Inspector preferences (which provenance items the user

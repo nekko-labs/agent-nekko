@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
-import { RUNTIME_CAPABILITIES, MODEL_PRICING, DEFAULT_LOCAL_COST_BENCHMARK, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
+import { RUNTIME_CAPABILITIES, MODEL_PRICING, DEFAULT_LOCAL_COST_BENCHMARK, describeLimitsProblem, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
 import { DOCK_PANELS, normalizeDockPanelOrder, reorderDockPanel, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
@@ -198,7 +198,7 @@ function VitalsGrid({ vitals }: { vitals: Vitals }) {
 
 function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps, 'providers' | 'usage' | 'now' | 'onOpenModels'>) {
   const enabled = providers.filter((p) => p.enabled && !isLocalProvider(p.kind));
-  const { byToken, answered, refresh, nextRefreshAt } = useProviderLimitsPortfolio(enabled);
+  const { byToken, answered, problems, refresh, nextRefreshAt } = useProviderLimitsPortfolio(enabled);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const today = new Date(now).toISOString().slice(0, 10);
@@ -220,13 +220,16 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
       const limits = key ? byToken[key] : undefined;
       const windows = limits?.windows ?? [];
       const showRemaining = provider.kind === 'openai' && provider.auth === 'subscription';
+      const problem = key && !limits ? problems[key] : undefined;
       const status = provider.auth === 'subscription' && !provider.tokenKey ? 'Not signed in.'
         : !key ? 'Usage API unavailable.'
+        : problem ? describeLimitsProblem(problem, now)
         : !limits ? (answered.has(key) ? 'Quota unavailable.' : 'Reading provider quota…')
         : windows.length === 0 ? 'No quota windows reported.' : null;
-      return <div key={provider.id} className="wall-dock__provider">
+      const needsSignIn = problem?.kind === 'auth_expired' || problem?.kind === 'signed_out';
+      return <div key={provider.id} className="wall-dock__provider" data-limits-problem={problem?.kind}>
         <strong>{provider.label}</strong>
-        {status && <p>{status}</p>}
+        {status && <p role={problem ? 'status' : undefined} style={problem ? { color: needsSignIn ? 'var(--danger)' : 'var(--warning)' } : undefined}>{status}{needsSignIn && onOpenModels && <> <button type="button" className="wall-dock__text-button" onClick={onOpenModels}>Manage providers</button></>}</p>}
         {windows.map((w, i) => {
           const used = Math.max(0, Math.min(100, w.usedPercent));
           const percent = showRemaining ? 100 - used : used;

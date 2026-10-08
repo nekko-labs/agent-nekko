@@ -172,7 +172,7 @@ import { isChatRunning, reconcileInterruptedChats, setDecisionRunner, sendChat, 
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
 import { loopApprove, loopEnd, loopEvent, loopLog, loopTool } from './daemon-loop.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting, setCompactionSender } from './compaction.js';
-import { initLimits, getLimits, clearLimits } from './limits.js';
+import { initLimits, getLimits, clearLimits, getLimitsProblem } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
 import {
   initOAuth,
@@ -513,6 +513,7 @@ export interface Host {
   classifyCommand(command: string): GuardrailDecision;
   usageSummary(): UsageSummary;
   getLimits(tokenKey: string, refresh?: boolean): Promise<SubscriptionLimits | undefined>;
+  getLimitsProblem(tokenKey: string): Promise<import('@agent-nekko/shared').LimitsProblem | undefined>;
 
   /** Expose this machine over a relay so paired devices can reach it. */
   enableRemote(relayUrl: string): RemoteStatus;
@@ -1099,6 +1100,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     classifyCommand: (command) => classifyCommand(command, getSettings().guardrails),
     usageSummary,
     getLimits: (tokenKey, refresh) => getLimits(tokenKey, refresh),
+    getLimitsProblem: async (tokenKey) => getLimitsProblem(tokenKey),
 
     enableRemote: (relayUrl) => host.remote.enable(relayUrl),
     disableRemote: () => host.remote.disable(),

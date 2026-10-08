@@ -48,6 +48,40 @@ app.whenReady().then(async () => {
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_QUOTA_EVIDENCE) {
+      // Signed-out ChatGPT subscription, its saved model gone, Utilization open,
+      // replies with persisted stats. Same synthetic data before and after.
+      const tag = current ? 'after' : 'before';
+      await win.loadFile(path.join(out, 'index.html'), { search: 'quota' });
+      for (const theme of ['dark', 'light']) for (const width of [1400, 700]) {
+        win.setContentSize(width, 900);
+        await reset().catch(() => sleep(900));
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        // Select the first wall window, as a click would.
+        await run("document.querySelector('.command-wall-window')?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))");
+        await run("document.querySelector('.command-wall-window [data-chat-surface]')?.click()");
+        await sleep(900);
+        const facts = await run(`(() => {
+          const text = (el) => el ? el.textContent.replace(/\\s+/g, ' ').trim() : null;
+          const wins = [...document.querySelectorAll('.command-wall-window')];
+          return {
+            utilization: text(document.querySelector('.wall-dock__utilization')),
+            limitsProblem: document.querySelector('[data-limits-problem]')?.getAttribute('data-limits-problem') ?? null,
+            tooltips: document.querySelectorAll('[role="tooltip"]').length,
+            unavailableChips: document.querySelectorAll('[data-model-unavailable]').length,
+            notesPerWindow: wins.map((w) => w.querySelectorAll('[data-model-note]').length),
+            selectedWindow: wins.findIndex((w) => w.hasAttribute('data-wall-selected')),
+            turnStats: [...document.querySelectorAll('[data-turn-stats]')].map(text),
+            replyStatsLabel: document.body.textContent.includes('Reply stats'),
+          };
+        })()`);
+        report.checks.push({ name: `${tag} ${theme} ${width}`, facts });
+        await capture(`quota-${tag}-${theme}-${width}`);
+      }
+      fs.writeFileSync(path.join(runDir, 'report.json'), JSON.stringify(report, null, 2));
+      app.quit();
+      return;
+    }
     if (process.env.NEKKO_THEME_EVIDENCE) {
       // Tinted presets on the wall with the plan panel open. Accents are the
       // values a user who picked each preset before the retune has saved.
