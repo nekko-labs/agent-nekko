@@ -8,6 +8,32 @@ import { basename, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 export const MEDIA_TAG = 'pr-media';
+/** GitHub caps a release at 1,000 assets; keep headroom for a whole PR's batch. */
+export const MEDIA_ASSET_LIMIT = 1000;
+
+/** The shared evidence releases in order: pr-media, pr-media-2, pr-media-3, ... */
+export function mediaTag(index) {
+  if (!Number.isInteger(index) || index < 1) throw new Error('Media release index must be a positive integer');
+  return index === 1 ? MEDIA_TAG : `${MEDIA_TAG}-${index}`;
+}
+
+/** Which series index a tag is, or 0 when it is not a media release. */
+export function mediaIndex(tag) {
+  if (tag === MEDIA_TAG) return 1;
+  const m = /^pr-media-(\d+)$/.exec(tag ?? '');
+  return m && Number(m[1]) >= 2 ? Number(m[1]) : 0;
+}
+
+/**
+ * Where a batch of `count` new assets goes: the newest media release while it
+ * has room for the whole batch, else the next tag in the series (to create).
+ */
+export function pickMediaRelease(releases, count, limit = MEDIA_ASSET_LIMIT) {
+  const series = releases.filter((r) => mediaIndex(r.tag_name) > 0).sort((a, b) => mediaIndex(a.tag_name) - mediaIndex(b.tag_name));
+  const newest = series.at(-1);
+  if (newest && newest.assets.length + count <= limit) return { tag: newest.tag_name, release: newest };
+  return { tag: mediaTag(newest ? mediaIndex(newest.tag_name) + 1 : 1), release: null };
+}
 export const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 
 export function assetName(pr, file) {
@@ -44,23 +70,26 @@ export async function upload(pr, repo) {
   const files = paths.map((path) => ({ path, name: assetName(pr, path), bytes: readFileSync(resolve(path)) }));
   if (new Set(files.map((f) => f.name)).size !== files.length) throw new Error('Duplicate basenames; rename files before uploading');
   const releases = JSON.parse(gh('api', '--paginate', '--slurp', `repos/${repo}/releases?per_page=100`)).flat();
-  let release = releases.find((r) => r.tag_name === MEDIA_TAG);
-  if (!release) {
-    gh('release', 'create', MEDIA_TAG, '--repo', repo, '--target', 'main', '--prerelease', '--latest=false',
-      '--title', 'Pull request visual evidence', '--notes',
+  // An asset already published (in any media release) is reused and verified, never re-uploaded.
+  const published = new Map(releases.filter((r) => mediaIndex(r.tag_name) > 0).flatMap((r) => r.assets.map((a) => [a.name, a])));
+  const fresh = files.filter((f) => !published.has(f.name));
+  let { tag, release } = pickMediaRelease(releases, fresh.length);
+  if (!release && fresh.length) {
+    gh('release', 'create', tag, '--repo', repo, '--target', 'main', '--prerelease', '--latest=false',
+      '--title', tag === MEDIA_TAG ? 'Pull request visual evidence' : `Pull request visual evidence (${tag})`, '--notes',
       'Screenshots and recordings for pull requests. Not a software release. Keep assets to preserve historical links.');
-    release = api(`repos/${repo}/releases/tags/${MEDIA_TAG}`);
+    release = api(`repos/${repo}/releases/tags/${tag}`);
   }
   const scratch = mkdtempSync(join(tmpdir(), 'pr-media-'));
   const urls = new Map();
   try {
     for (const file of files) {
-      let asset = release.assets.find((a) => a.name === file.name);
+      let asset = published.get(file.name) ?? release?.assets.find((a) => a.name === file.name);
       if (!asset) {
         const staged = join(scratch, file.name);
         writeFileSync(staged, file.bytes);
-        gh('release', 'upload', MEDIA_TAG, staged, '--repo', repo);
-        release = api(`repos/${repo}/releases/tags/${MEDIA_TAG}`);
+        gh('release', 'upload', tag, staged, '--repo', repo);
+        release = api(`repos/${repo}/releases/tags/${tag}`);
         asset = release.assets.find((a) => a.name === file.name);
       }
       if (!asset) throw new Error(`Upload missing: ${file.name}`);
