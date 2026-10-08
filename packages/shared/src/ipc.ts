@@ -622,6 +622,8 @@ export interface NekkoApi {
   deleteMemory(id: string): Promise<void>;
 
   listWorkspaces(): Promise<WorkspaceFolder[]>;
+  /** Ask the user for a folder; null when cancelled. Registers nothing. */
+  pickFolder(): Promise<string | null>;
   addWorkspace(): Promise<WorkspaceFolder[]>;
   addWorkspaceByPath(path: string): Promise<WorkspaceFolder[]>;
   removeWorkspace(id: string): Promise<WorkspaceFolder[]>;

@@ -54,7 +54,7 @@ import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
 import { FolderPicker } from './FolderPicker.js';
-import { addFolderToChat } from '../sessionFolders.js';
+import { addFolderToChat, shouldAutoFile } from '../sessionFolders.js';
 import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
@@ -1401,9 +1401,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     // Auto-file a project-less chat under the project it's about, inferred from
     // its attachments + first prompt, so it lands in the right sidebar group.
     // A general chat (no confident match) simply stays under "General".
-    // The store's copy sees a folder picked in the Context Inspector before send.
-    const filed = useStore.getState().sessions.find((x) => x.id === sessionId)?.workspaceId;
-    if (session && !session.workspaceId && !filed) {
+    // The store's copy sees folders picked in the Context Inspector before send.
+    const folders = useStore.getState().sessions.find((x) => x.id === sessionId) ?? session;
+    if (session && shouldAutoFile(session, folders)) {
       const workspaces = useStore.getState().settings?.workspaces ?? [];
       const wsId = detectSessionWorkspace({ text, workspaces, attachedPaths: session.attachedPaths ?? [] });
       if (wsId) {

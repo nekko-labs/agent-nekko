@@ -1,4 +1,4 @@
-import type { Session, SessionMeta, WorkspaceFolder } from '@agent-nekko/shared';
+import { sameFolderPath, type Session, type SessionMeta } from '@agent-nekko/shared';
 import { useStore } from './store.js';
 
 /**
@@ -52,6 +52,16 @@ export function withExcluded(session: ChatFolders, id: string): FolderSelection 
 }
 
 /**
+ * Whether sending now should auto-file the chat under a detected project: only
+ * its first prompt, and only while it has no folders at all. Clearing the
+ * primary keeps it as supporting, so a cleared chat stays unfiled.
+ */
+export function shouldAutoFile(chat: Pick<Session, 'messages'> | null, folders: ChatFolders): boolean {
+  if (!chat || chat.messages.some((m) => m.role === 'user')) return false;
+  return !folders?.workspaceId && !folders?.supportingWorkspaceIds?.length;
+}
+
+/**
  * Persist a selection. Both calls are needed: setting the primary drops it from
  * supporting but never demotes the old primary.
  */
@@ -63,24 +73,21 @@ export async function applyFolderSelection(sessionId: string, sel: FolderSelecti
 }
 
 /**
- * Pick a folder with the native dialog and wire it into the chat. Returns the
- * updated chat, or null when the dialog was cancelled. Picking a folder that is
- * already registered reuses it rather than keeping the duplicate the host adds.
+ * Pick a folder and wire it into the chat. Returns the updated chat, or null
+ * when the picker was cancelled. A folder already registered is reused.
  */
 export async function addFolderToChat(
   sessionId: string,
   session: ChatFolders,
   mode: 'primary' | 'include',
 ): Promise<Session | null> {
-  const before: WorkspaceFolder[] = useStore.getState().settings?.workspaces ?? (await window.nekko.listWorkspaces());
-  const after = await window.nekko.addWorkspace();
-  const added = after.find((w) => !before.some((b) => b.id === w.id));
-  if (!added) return null;
+  const path = await window.nekko.pickFolder();
+  if (!path) return null;
 
-  const existing = before.find((b) => b.path === added.path);
-  if (existing) await window.nekko.removeWorkspace(added.id);
+  const folders = await window.nekko.addWorkspaceByPath(path);
+  const folder = folders.find((w) => sameFolderPath(w.path, path));
+  if (!folder) return null;
   await useStore.getState().refreshSettings();
 
-  const id = existing?.id ?? added.id;
-  return applyFolderSelection(sessionId, mode === 'primary' ? withPrimary(session, id) : withIncluded(session, id));
+  return applyFolderSelection(sessionId, mode === 'primary' ? withPrimary(session, folder.id) : withIncluded(session, folder.id));
 }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.hoisted(() => { Object.assign(globalThis, { window: {}, localStorage: { getItem: () => null } }); });
 import type { WorkspaceFolder } from '@agent-nekko/shared';
 import { useStore } from './store.js';
-import { addFolderToChat, withExcluded, withIncluded, withoutPrimary, withPrimary } from './sessionFolders.js';
+import { addFolderToChat, shouldAutoFile, withExcluded, withIncluded, withoutPrimary, withPrimary } from './sessionFolders.js';
 
 const folder = (id: string, path = `/code/${id}`): WorkspaceFolder => ({ id, name: id, path, addedAt: 0 });
 
@@ -31,39 +31,58 @@ describe('folder selection rules', () => {
   });
 });
 
+describe('auto-filing on send', () => {
+  const prompt = { id: 'm', role: 'user' as const, content: 'hi', createdAt: 0 };
+
+  it('files only an unfiled chat on its first prompt', () => {
+    expect(shouldAutoFile({ messages: [] }, {})).toBe(true);
+    expect(shouldAutoFile({ messages: [prompt] }, {})).toBe(false);
+    expect(shouldAutoFile({ messages: [] }, { workspaceId: 'a' })).toBe(false);
+    expect(shouldAutoFile(null, {})).toBe(false);
+  });
+
+  it('leaves a chat whose primary was cleared alone', () => {
+    // withoutPrimary keeps the old primary as supporting.
+    expect(shouldAutoFile({ messages: [] }, { supportingWorkspaceIds: ['a'] })).toBe(false);
+  });
+});
+
 describe('adding a folder to a chat', () => {
   const prev = useStore.getState();
   afterEach(() => { useStore.setState({ settings: prev.settings, refreshSettings: prev.refreshSettings, refreshSessions: prev.refreshSessions }); });
 
-  const setup = (before: WorkspaceFolder[], after: WorkspaceFolder[]) => {
+  const setup = (picked: string | null, folders: WorkspaceFolder[]) => {
     const api = {
-      addWorkspace: vi.fn(async () => after),
-      removeWorkspace: vi.fn(async () => before),
+      pickFolder: vi.fn(async () => picked),
+      addWorkspaceByPath: vi.fn(async () => folders),
+      removeWorkspace: vi.fn(async () => folders),
       setSessionWorkspace: vi.fn(async () => null),
       setSessionSupportingWorkspaces: vi.fn(async () => ({ id: 's' })),
     };
     (globalThis as any).window.nekko = api;
-    useStore.setState({ settings: { workspaces: before } as any, refreshSettings: vi.fn(async () => {}), refreshSessions: vi.fn(async () => {}) });
+    useStore.setState({ refreshSettings: vi.fn(async () => {}), refreshSessions: vi.fn(async () => {}) });
     return api;
   };
 
-  it('does nothing when the dialog is cancelled', async () => {
-    const api = setup([folder('a')], [folder('a')]);
+  it('does nothing when the picker is cancelled', async () => {
+    const api = setup(null, [folder('a')]);
     expect(await addFolderToChat('s', { workspaceId: 'a' }, 'primary')).toBeNull();
+    expect(api.addWorkspaceByPath).not.toHaveBeenCalled();
     expect(api.setSessionWorkspace).not.toHaveBeenCalled();
   });
 
   it('makes the new folder primary and keeps the old one', async () => {
-    const api = setup([folder('a')], [folder('a'), folder('b')]);
+    const api = setup('/code/b', [folder('a'), folder('b')]);
     await addFolderToChat('s', { workspaceId: 'a' }, 'primary');
+    expect(api.addWorkspaceByPath).toHaveBeenCalledWith('/code/b');
     expect(api.setSessionWorkspace).toHaveBeenCalledWith('s', 'b');
     expect(api.setSessionSupportingWorkspaces).toHaveBeenCalledWith('s', ['a']);
   });
 
-  it('reuses an already registered path instead of the duplicate', async () => {
-    const api = setup([folder('a'), folder('b')], [folder('a'), folder('b'), folder('dup', '/code/b')]);
+  it('reuses an already registered folder', async () => {
+    const api = setup('/code/b/', [folder('a'), folder('b')]);
     await addFolderToChat('s', { workspaceId: 'a' }, 'include');
-    expect(api.removeWorkspace).toHaveBeenCalledWith('dup');
+    expect(api.removeWorkspace).not.toHaveBeenCalled();
     expect(api.setSessionWorkspace).toHaveBeenCalledWith('s', 'a');
     expect(api.setSessionSupportingWorkspaces).toHaveBeenCalledWith('s', ['b']);
   });
