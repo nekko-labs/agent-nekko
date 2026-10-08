@@ -932,3 +932,5 @@ Mounted quota portfolios refresh every 60 seconds when idle and every 30 seconds
 Budget savings remain all-time, independent of its spend/token time range, and the subscription label explicitly states this. Historical cache tokens use cache prices rather than full prompt prices; unknown models remain excluded with an unpriced-token warning. The reported earlier $2200 amount has not been reproduced from available historical records; no guessed price or fabricated balance is substituted. Follow-up requires the prior log/profile or evidence of the earlier calculation.
 
 Quota consumer server rendering uses a stable idle live-run snapshot; full desktop regression coverage verifies React server rendering remains supported. Mounted synthetic-clock verification covers idle 60-second cadence, active 30-second cadence and return to idle after completion. Native-memory exact comparison and original savings discrepancy remain unverified.
+
+Quota polling subscribes only to running-session membership, not streamed-token versions, so token updates do not trigger quota consumer rendering. Membership and server-snapshot regression tests verify this distinction.

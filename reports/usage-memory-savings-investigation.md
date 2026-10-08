@@ -14,3 +14,7 @@ Host and desktop typechecks pass. Focused memory parser, quota schedule, existin
 ## Next steps
 
 Complete evidence inspection/publication and CI. For the original savings discrepancy, obtain the old profile/log or screenshot including its label; compare the prior calculation against that same dataset before claiming a correction. No pricing inflation or historical-log rewrite was made.
+
+## Performance follow-up
+
+CI speed contract failed on streaming work (p95 12.3 ms versus 10 ms gate) and warm switch (24.1 ms versus 20.8 ms gate). Quick head/base profiles also missed switch budgets (head warm 30.1 ms, base warm 87.2 ms; head cold 35.2 ms, base cold 32.2 ms). This does not prove all failures pre-existing: streaming work was not measured by the quick profiles. The quota hook unnecessarily subscribed to token-level versions; changed it to stable running-membership snapshots and verified token updates retain snapshot identity. Full desktop suite now passes 720 tests; latest CI performance verification remains required.

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import type { ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
 import { limitsKeyFor } from '@agent-nekko/shared';
 import { useStore } from './store.js';
-import { runningSessionIds, useLiveRunsVersion } from './liveRuns.js';
+import { useRunningSessionsSnapshot } from './liveRuns.js';
 import { limitsRefreshInterval, nextLimitsRefresh } from './limitsSchedule.js';
 
 const lastRead = new Map<string, number>();
@@ -63,8 +63,7 @@ export function useProviderLimitsPortfolio(
   const keysId = keys.join('|');
   const sessions = useStore((s) => s.sessions);
   const configured = useStore((s) => s.providers);
-  useLiveRunsVersion();
-  const running = new Set(runningSessionIds());
+  const running = new Set<string>(JSON.parse(useRunningSessionsSnapshot()));
   const activeKeys = new Set((sessions ?? []).filter(s => running.has(s.id)).flatMap(s => {
     const provider = (configured ?? []).find(p => p.id === s.providerId && p.auth === 'subscription');
     const key = provider && limitsKeyFor(provider);

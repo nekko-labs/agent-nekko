@@ -1244,3 +1244,5 @@ Verified with 72 focused tests, desktop source-aware typechecking and an isolate
 - [x] Isolated wide/narrow light/dark renderer captures and theme-stable countdown frames inspected. Mounted synthetic clock verifies idle/active/stop cadence. Fixed missing server snapshot found by CI; full desktop build and 718 existing tests pass locally.
 - [ ] Publish updated recording, verify latest CI and resolve outstanding memory/savings acceptance before landing.
 - [ ] Resolve the historical $2200-to-$141 discrepancy using the prior log/profile or screenshot. Available current records independently reproduce the current magnitude; no aggregation/date-filter defect demonstrated. Do not inflate estimates or price unpublished variants to restore an unverified total.
+
+- [x] Narrowed quota run tracking to a stable membership snapshot after CI performance investigation exposed unnecessary streaming-driven renders. 720 desktop tests and mounted idle/active/stop checks pass. Unchanged-base profiling also fails warm/cold switch budgets; do not waive those gates or claim a clean performance result until latest CI passes.
