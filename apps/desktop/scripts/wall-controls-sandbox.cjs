@@ -48,6 +48,48 @@ app.whenReady().then(async () => {
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_VIEW_CONTROLS) {
+      await win.loadFile(path.join(out, 'index.html'), { search: 'multi' }); await sleep(900);
+      for (const theme of ['light', 'dark']) for (const width of [1200, 400]) {
+        win.setContentSize(width, 900); await reset();
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        await capture(`controls-${theme}-${width}-dynamic`);
+        await click('Focus');
+        await run("document.querySelector('.command-wall-window:not(.command-wall-deck-window) [contenteditable]')?.focus()");
+        await capture(`controls-${theme}-${width}-focus`);
+        await run("document.querySelector('[aria-label=\"Show agents in a row\"]')?.click()");
+        await capture(`controls-${theme}-${width}-row`);
+        if (process.env.NEKKO_VIEW_AFTER) {
+          await check('horizontal orientation control remains visible', "(()=>{const e=document.querySelector('[aria-label=\"Show agents in a column\"]');return !!e && e.getBoundingClientRect().width>0})()");
+          await check('focus chat has no glow', "getComputedStyle(document.querySelector('.command-wall-window[data-wall-selected] > .panel')).boxShadow==='none'");
+          await check('focus composer has no glow', "getComputedStyle(document.querySelector('.command-wall-window:not(.command-wall-deck-window) .composer')).boxShadow==='none'");
+          await check('magic is hidden outside Dynamic', "getComputedStyle(document.querySelector('.wall-auto-arrange')).visibility==='hidden' && document.querySelector('[aria-label=\"Auto-arrange\"]').disabled");
+          await click('Dynamic');
+          await check('magic is available in Dynamic', "getComputedStyle(document.querySelector('.wall-auto-arrange')).visibility==='visible' && !document.querySelector('[aria-label=\"Auto-arrange\"]').disabled");
+        }
+      }
+      if (process.env.NEKKO_VIEW_AFTER) {
+        win.setContentSize(1200, 900); await reset(); await click('Focus');
+        const frames = path.join(runDir, 'motion'); fs.mkdirSync(frames);
+        for (let i = 0; i < 40; i++) {
+          if (i === 5 || i === 23) await run("[...document.querySelectorAll('.wall-layout-segments button')].find(b=>b.textContent==='Dynamic').click()");
+          if (i === 15 || i === 33) await run("[...document.querySelectorAll('.wall-layout-segments button')].find(b=>b.textContent==='Focus').click()");
+          fs.writeFileSync(path.join(frames, String(i).padStart(3, '0') + '.png'), (await win.capturePage(undefined, { stayHidden: true })).toPNG()); await sleep(60);
+        }
+        await click('Dynamic');
+        await run("document.querySelector('[aria-label=\"Auto-arrange\"]').focus()");
+        await check('tooltip appears on keyboard focus', "getComputedStyle(document.querySelector('#wall-auto-arrange-tip')).visibility==='visible'");
+        await capture('controls-tooltip');
+      }
+      if (process.env.NEKKO_VIEW_AFTER && process.env.NEKKO_VIEW_CHROME) {
+        await check('wide desktop controls use titlebar', "!!document.querySelector('#command-titlebar-slot [data-wall-toolbar]')");
+        win.setContentSize(400, 900); await sleep(350);
+        await check('narrow desktop controls leave titlebar', "!document.querySelector('#command-titlebar-slot [data-wall-toolbar]') && !!document.querySelector('[data-wall-toolbar]')");
+        await check('narrow layout buttons stay inside viewport', "[...document.querySelectorAll('.wall-layout-segments button')].every(b=>b.getBoundingClientRect().right<=innerWidth)");
+      }
+      report.success = true;
+      return;
+    }
     if (process.env.NEKKO_LAYOUT_FIXES) {
       await win.loadFile(path.join(out, 'index.html'), {search:'multi'}); await sleep(900);
       const fixed = !process.env.NEKKO_TEST_REVISION;

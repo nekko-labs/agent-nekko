@@ -1745,7 +1745,15 @@
   box-shadow: 0 0 12px 1px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 .command-wall-window[data-wall-selected] .wall-num, .wall-composer[data-has-agent] .wall-num { background: var(--accent); color: var(--win); }
-.wall-layout-control { position: relative; }
+.wall-layout-control { position: relative; display: inline-flex; align-items: center; }
+.wall-auto-arrange { position: relative; display: flex; align-items: center; width: 0; opacity: 0; visibility: hidden; transform: translateX(-18px) scale(.6); transition: width 240ms ease, opacity 180ms ease, transform 240ms ease, visibility 0s 240ms; }
+.wall-auto-arrange[data-visible='true'] { width: 38px; opacity: 1; visibility: visible; transform: none; transition-delay: 0s; }
+.wall-auto-arrange button { flex-shrink: 0; margin-left: 6px; }
+.wall-auto-arrange [role='tooltip'] { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: 230px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--win); color: var(--ink); font-size: 12px; pointer-events: none; opacity: 0; visibility: hidden; }
+.wall-auto-arrange[data-visible='true']:hover [role='tooltip'], .wall-auto-arrange[data-visible='true']:focus-within [role='tooltip'] { opacity: 1; visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .wall-auto-arrange { transition: none; transform: none; } }
+.command-wall-layout[data-wall-layout='focus'] .command-wall-window[data-wall-selected] > .panel { --panel-ring-color: var(--accent) !important; box-shadow: none; }
+.command-wall-layout[data-wall-layout='focus'] .composer, .command-wall-layout[data-wall-layout='focus'] .composer:focus-within { box-shadow: none; }
 .wall-layout-segments { display: inline-flex; padding: 2px; border: 1px solid var(--line); border-radius: 8px; }
 .wall-layout-segments button { padding: 4px 10px; border-radius: 6px; font-size: 12px; color: var(--ink-faint); }
 .wall-layout-segments button[aria-pressed='true'] { background: var(--surface-2); color: var(--ink); font-weight: 500; }

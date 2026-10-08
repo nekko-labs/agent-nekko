@@ -51,15 +51,21 @@ describe('Agents header placement', () => {
     const focus = renderToStaticMarkup(<WallToolbar wall={DEFAULT_WALL_STATE} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} showAdd />);
     expect(focus).toContain('Add window');
   });
+  it.each(['focus', 'grid', 'fixed'] as const)('only exposes magic in Dynamic (%s)', (mode) => {
+    const html = renderToStaticMarkup(<WallToolbar wall={{ ...DEFAULT_WALL_STATE, layout: { ...DEFAULT_WALL_STATE.layout, mode } }} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />);
+    expect(html).toContain(`class="wall-auto-arrange" data-visible="${mode === 'grid'}"`);
+    expect(html).toContain(`tabindex="${mode === 'grid' ? 0 : -1}"`);
+    expect(html.indexOf('aria-label="Hide the agent panel"')).toBeLessThan(html.indexOf('aria-label="Wall layout"'));
+  });
   it('names the saved layout modes Focus, Dynamic and Grid without migrating keys', () => {
     expect(LAYOUT_LABEL).toEqual({ focus: 'Focus', grid: 'Dynamic', fixed: 'Grid' });
     const html = toolbar();
-    expect(html).toContain('title="Dynamic (Ctrl+Shift+2)"');
-    expect(html).toContain('title="Grid (Ctrl+Shift+3)"');
+    expect(html).toMatch(/title="Dynamic \((Ctrl|⌘)\+Shift\+2\)"/);
+    expect(html).toMatch(/title="Grid \((Ctrl|⌘)\+Shift\+3\)"/);
   });
   it('offers the agent panel back from the toolbar once it is closed', () => {
     const closed = { ...DEFAULT_WALL_STATE, agentPanel: { show: false, orientation: 'vertical' as const } };
     expect(renderToStaticMarkup(<WallToolbar wall={closed} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />)).toContain('aria-label="Show the agent panel"');
-    expect(toolbar()).not.toContain('Show the agent panel');
+    expect(toolbar()).toContain('aria-label="Hide the agent panel"');
   });
 });

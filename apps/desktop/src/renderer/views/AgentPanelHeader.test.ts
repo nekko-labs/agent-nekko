@@ -13,7 +13,7 @@ describe('Agents panel header', () => {
     expect(source).toContain('<PanelSwapIcon');
     expect(source).not.toContain('Close the agent panel');
     expect(source).not.toContain('<CloseIcon');
-    expect(toolbar).toMatch(/aria-label="Show the agent panel"[^\n]*<PanelLeftIcon/);
+    expect(toolbar).toContain("aria-label={panel.show ? 'Hide the agent panel' : 'Show the agent panel'}");
   });
   it('draws no outer ring around the Agents tab panel in either orientation', () => {
     expect(source).toContain("className={`panel ${sidebarOnly ? '' : 'panel-ring '}flex");

@@ -1,6 +1,6 @@
 ---
 status: active
-last-updated: 2026-10-05
+last-updated: 2026-10-08
 owner:
 ---
 
@@ -910,3 +910,9 @@ Implemented; focused action verification pending, visual verification deferred b
 Implemented; focused checks pending, visual/motion verification deferred by user direction. Working rockets are16px and success-green. Wall agent titles use a leading8px status dot (green working, warning-orange waiting, muted idle) instead of status words. Remove header child-count chip: active direct subagents appear in a bottom-left floating robot/count/status control; expanding lists active children and selecting adds/reuses their wall window. No completion or provider side effects. Side dock headers retain drag/drop and Alt+Arrow reorder with visible grip; default order is Vitals, Hardware, Utilization, Budget, Automations, Insights. Saved custom orders remain intact. Minimize uses a shared standard minus line glyph, replacing download icon. Source reference: https://lucide.dev/icons/minus (standard shape, local SVG with no dependency/network at runtime). Acceptance: activity colors/size, title-dot placement, expandable child-window routing, panel order persistence and independent minimize/complete behavior.
 
 Post-merge PR367 performance follow-up: shared wall composer editor height remains flex/CSS-owned; generic draft sizing does not measure or rewrite that surface. Full chat sizing reveals a caret only for its focused editor. No limits, drafts, permissions or network behavior change. Focused regression coverage added; unchanged CI performance budgets remain pending.
+
+### Agents view controls (2026-10-08)
+
+[Implemented; isolated light/dark wide/narrow renderer checks and inspected before/after captures pass] Focus removes the chat and composer glow while retaining the primary-colour chat border. The Agents panel visibility toggle stays on the left of the header in both states. The same orientation button remains available in the row and column. Auto-arrange appears beside the view selector only in Dynamic, sliding out of the selector and back in on mode changes; hover and keyboard focus explain that it fits windows above the composer in even rows and columns. Reduced motion disables the transition. This changes no permissions, network use, or stored preference schema.
+
+Desktop header follow-up: below 1100px the toolbar stays in the view header rather than the single-row native titlebar, keeping layout and panel controls reachable. At wider desktop widths it portals beside the Agents heading. This is renderer-only; native OS titlebar buttons and native mobile are unchanged and not reverified.

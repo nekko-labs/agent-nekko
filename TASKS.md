@@ -1,6 +1,6 @@
 ---
 status: active
-last-updated: 2026-10-01
+last-updated: 2026-10-08
 owner:
 ---
 
@@ -1223,3 +1223,9 @@ User report: selecting Plan while typing deleted the entire prompt. T106/T108 do
 - [x] Portal the mode menu outside composer clipping, contain it within the viewport, and retain pointer selection, Escape and focus return.
 - [x] Accept CRLF local-provider SSE and surface stream error payloads in both TypeScript and Rust; update shared golden coverage.
 - [x] Verify matched light/dark wide/narrow Grid/Focus evidence, Claude and Nekko Server send payloads, full production/web builds, workspace typecheck/tests and Rust provider lint/tests. Hosted CI gates remain required before PR landing. See [Grid regressions](SPEC.md#grid-model-selection-and-chat-mode-menus-2026-10-07).
+
+### VC1: Agents view controls (2026-10-08)
+
+[Implemented; desktop typecheck, full build chain, 717 desktop tests and isolated light/dark 1200/400px checks pass; before/after captures and reveal/retraction frames inspected, GIF published in PR #375] Focus removes the chat and composer glow while retaining the primary-colour chat border. The Agents panel visibility toggle stays on the left of the header in both states. The same orientation button remains available in the row and column. Auto-arrange appears beside the view selector only in Dynamic, sliding out of the selector and back in on mode changes; hover and keyboard focus explain that it fits windows above the composer in even rows and columns. Reduced motion disables the transition. This changes no permissions, network use, or stored preference schema.
+
+Desktop header follow-up: below 1100px the toolbar stays in the view header rather than the single-row native titlebar, keeping layout and panel controls reachable. At wider desktop widths it portals beside the Agents heading. This is renderer-only; native OS titlebar buttons and native mobile are unchanged and not reverified.
