@@ -1,6 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { assetName, localImages, rewriteImages, sha256 } from './pr-media.mjs';
+import { assetName, localImages, mediaIndex, mediaTag, pickMediaRelease, rewriteImages, sha256 } from './pr-media.mjs';
+
+const rel = (tag, n) => ({ tag_name: tag, assets: Array.from({ length: n }, (_, i) => ({ name: `a${i}.png` })) });
+test('media releases form a pr-media, pr-media-2, ... series', () => {
+  assert.equal(mediaTag(1), 'pr-media');
+  assert.equal(mediaTag(2), 'pr-media-2');
+  assert.throws(() => mediaTag(0));
+  assert.equal(mediaIndex('pr-media'), 1);
+  assert.equal(mediaIndex('pr-media-12'), 12);
+  for (const t of ['pr-media-1', 'pr-media-x', 'v1.0.0', 'pr-media2']) assert.equal(mediaIndex(t), 0);
+});
+test('a batch goes to the newest release with room, else starts the next one', () => {
+  assert.deepEqual(pickMediaRelease([], 3), { tag: 'pr-media', release: null });
+  const one = rel('pr-media', 10);
+  assert.equal(pickMediaRelease([one, rel('v1', 0)], 3).release, one);
+  // Full: the whole batch must fit, so a nearly-full release is skipped too.
+  assert.deepEqual(pickMediaRelease([rel('pr-media', 1000)], 1), { tag: 'pr-media-2', release: null });
+  assert.deepEqual(pickMediaRelease([rel('pr-media', 990)], 36), { tag: 'pr-media-2', release: null });
+  const two = rel('pr-media-2', 5);
+  assert.equal(pickMediaRelease([two, rel('pr-media', 1000)], 36).release, two);
+  assert.deepEqual(pickMediaRelease([rel('pr-media', 1000), rel('pr-media-2', 1000)], 1), { tag: 'pr-media-3', release: null });
+});
 
 test('media names are PR-scoped across Windows and Unix paths', () => {
   assert.equal(assetName(305, 'C:\\shots\\after.png'), 'pr-305-after.png');

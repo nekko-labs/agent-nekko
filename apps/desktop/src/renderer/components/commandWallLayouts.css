@@ -187,6 +187,17 @@
 .agent-panel-row > * { flex: 0 0 auto; margin-bottom: 0 !important; }
 .agent-panel-row .collapse-wrap > div { display: flex; flex-direction: row; gap: 6px; }
 .agent-panel-row .collapse-wrap > div > * { flex: 0 0 240px; min-width: 0; }
+/* A closed group hides its cards completely. In the row its strip collapses to
+   nothing (a 0fr grid row leaves the cards' width behind), and in the column
+   no card stays clickable under the header. */
+.agent-panel-row .collapse-wrap.collapsed { display: none; }
+[data-agent-panel] .collapse-wrap.collapsed { visibility: hidden; pointer-events: none; }
+[data-agent-panel] .collapse-wrap.collapsed > div { padding-block: 0; }
+/* The column panel is bounded by the wall's height, so its list scrolls with
+   the mouse wheel instead of growing past the window. */
+.wall-agent-workspace[data-tabs='left'] > .agent-panel-host,
+.wall-agent-workspace[data-tabs='left'] > .agent-panel-host > aside { min-height: 0; max-height: 100%; }
+.agent-panel-host [data-agent-panel][data-orientation='vertical'] { min-height: 0; max-height: 100%; }
 .wall-agent-workspace[data-tabs='left'] > .wall-focus-agents { flex-direction: column; width: clamp(140px, 22vw, 260px); overflow-x: hidden; overflow-y: auto; }
 .wall-agent-workspace[data-tabs='left'] .wall-focus-agent { width: 100%; min-width: 0; flex-shrink: 0; }
 @media (max-width: 720px) {
