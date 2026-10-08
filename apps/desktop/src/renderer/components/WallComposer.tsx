@@ -108,6 +108,76 @@ export function WallComposer({
 
   const alignClass = dock.align === 'left' ? 'self-start' : dock.align === 'right' ? 'self-end' : 'self-center';
 
+  // Which agent this composer speaks for, its status, and where the composer
+  // sits. It is the composer's own first row (ChatPane `header`), not a bar
+  // above it; with no agent selected it stands alone over the prompt.
+  const head = (
+    <>
+          <NumberedAgentIcon number={agent?.n} />
+          {agent ? (
+            <>
+              <span className="min-w-0 truncate font-medium" data-composer-title title={agents.length > 1 ? `${agent.session.title} · Ctrl+Tab cycles windows, Ctrl+1…9 selects one` : agent.session.title}>{agent.session.title}</span>
+              {agent.status && (
+                <span className="flex min-w-0 items-center gap-1 text-[11px]" style={{ color: agent.status.tone }}>
+                  <StatusIcon status={agent.glyph} />
+                  <span className="truncate">{agent.status.label}</span>
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-ink-faint" data-composer-title>No agent selected</span>
+          )}
+          <div className="min-w-0 flex-1" />
+          {agent && <button type="button" className="rounded-sm p-1 text-ink-faint hover:text-ink" title="Show selected chat in Focus" aria-label="Show selected chat in Focus" onClick={() => onFocus(agent.session.id)}><FocusLayoutIcon className="h-3.5 w-3.5" /></button>}
+          <div className="relative" ref={pickerRef}>
+            <button
+              className={`flex items-center gap-1 rounded-sm p-1 text-ink-faint hover:text-ink ${pickerOpen ? 'text-ink' : ''}`}
+              title={`Composer docked ${DOCK_LABEL[dock.side].toLowerCase()} ${ALIGN_LABEL[dock.align]}. Click to move it.`}
+              aria-label="Move the composer"
+              aria-expanded={pickerOpen}
+              onClick={() => setPickerOpen((o) => !o)}
+            >
+              <LayoutIcon className="h-3.5 w-3.5" />
+            </button>
+            {pickerOpen && (
+              <div className="card absolute right-0 top-8 z-40 p-2.5 shadow-lg" style={{ background: 'var(--paper)' }} role="dialog" aria-label="Where the composer sits">
+                <p className="mb-1.5 px-0.5 text-[11px] text-ink-faint">Where should the composer sit?</p>
+                <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(3, 44px)' }} role="grid">
+                  {SIDES.map((side) => ALIGNS.map((align) => {
+                    const on = dock.side === side && dock.align === align;
+                    return (
+                      <button
+                        key={`${side}-${align}`}
+                        role="gridcell"
+                        aria-label={`${DOCK_LABEL[side]} ${ALIGN_LABEL[align]}`}
+                        aria-selected={on}
+                        className="relative h-[30px] rounded-md border transition-colors"
+                        style={{ borderColor: on ? 'var(--accent)' : 'var(--line)', background: on ? 'var(--accent-soft)' : 'var(--surface-2)' }}
+                        onClick={() => { onDock({ side, align }); setPickerOpen(false); }}
+                        title={`${DOCK_LABEL[side]} ${ALIGN_LABEL[align]}`}
+                      >
+                        {/* A little bar where the composer would be in that cell. */}
+                        <span
+                          className="absolute h-[5px] w-[22px] rounded-sm"
+                          style={{
+                            background: on ? 'var(--accent)' : 'var(--ink-faint)',
+                            top: side === 'top' ? 5 : undefined,
+                            bottom: side === 'bottom' ? 5 : undefined,
+                            left: align === 'left' ? 5 : align === 'center' ? '50%' : undefined,
+                            right: align === 'right' ? 5 : undefined,
+                            transform: align === 'center' ? 'translateX(-50%)' : undefined,
+                          }}
+                        />
+                      </button>
+                    );
+                  }))}
+                </div>
+              </div>
+            )}
+          </div>
+    </>
+  );
+
   return (
     <div
       ref={panelRef}
@@ -124,76 +194,10 @@ export function WallComposer({
         onPointerUp={() => { widthDrag.current = null; }} onPointerCancel={() => { widthDrag.current = null; }} onLostPointerCapture={() => { widthDrag.current = null; }}
         onDoubleClick={() => setWidth(null)}
         onKeyDown={e => { if (e.key === 'Home') { e.preventDefault(); setWidth(null); } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); resizeWidth((panelRef.current?.offsetWidth ?? 320) + (e.key === 'ArrowRight' ? 20 : -20) * (edge === 'left' ? -1 : 1)); } }} />)}
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-line px-2 py-1 text-[12px]">
-        <NumberedAgentIcon number={agent?.n} />
-        {agent ? (
-          <>
-            <span className="min-w-0 truncate font-medium" data-composer-title>{agent.session.title}</span>
-            {agent.status && (
-              <span className="flex min-w-0 items-center gap-1 text-[11px]" style={{ color: agent.status.tone }}>
-                <StatusIcon status={agent.glyph} />
-                <span className="truncate">{agent.status.label}</span>
-              </span>
-            )}
-          </>
-        ) : (
-          <span className="text-ink-faint" data-composer-title>No agent selected</span>
-        )}
-        <span className="hidden text-[11px] text-ink-faint md:inline" style={{ marginLeft: 8 }}>
-          {agents.length > 1 ? 'Ctrl+Tab cycles windows · Ctrl+1…9 selects a window' : agents.length === 1 ? '' : ''}
-        </span>
-        <div className="min-w-0 flex-1" />
-        {agent && <button type="button" className="rounded-sm p-1 text-ink-faint hover:text-ink" title="Show selected chat in Focus" aria-label="Show selected chat in Focus" onClick={() => onFocus(agent.session.id)}><FocusLayoutIcon className="h-3.5 w-3.5" /></button>}
-        <div className="relative" ref={pickerRef}>
-          <button
-            className={`flex items-center gap-1 rounded-sm p-1 text-ink-faint hover:text-ink ${pickerOpen ? 'text-ink' : ''}`}
-            title={`Composer docked ${DOCK_LABEL[dock.side].toLowerCase()} ${ALIGN_LABEL[dock.align]}. Click to move it.`}
-            aria-label="Move the composer"
-            aria-expanded={pickerOpen}
-            onClick={() => setPickerOpen((o) => !o)}
-          >
-            <LayoutIcon className="h-3.5 w-3.5" />
-          </button>
-          {pickerOpen && (
-            <div className="card absolute right-0 top-8 z-40 p-2.5 shadow-lg" style={{ background: 'var(--paper)' }} role="dialog" aria-label="Where the composer sits">
-              <p className="mb-1.5 px-0.5 text-[11px] text-ink-faint">Where should the composer sit?</p>
-              <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(3, 44px)' }} role="grid">
-                {SIDES.map((side) => ALIGNS.map((align) => {
-                  const on = dock.side === side && dock.align === align;
-                  return (
-                    <button
-                      key={`${side}-${align}`}
-                      role="gridcell"
-                      aria-label={`${DOCK_LABEL[side]} ${ALIGN_LABEL[align]}`}
-                      aria-selected={on}
-                      className="relative h-[30px] rounded-md border transition-colors"
-                      style={{ borderColor: on ? 'var(--accent)' : 'var(--line)', background: on ? 'var(--accent-soft)' : 'var(--surface-2)' }}
-                      onClick={() => { onDock({ side, align }); setPickerOpen(false); }}
-                      title={`${DOCK_LABEL[side]} ${ALIGN_LABEL[align]}`}
-                    >
-                      {/* A little bar where the composer would be in that cell. */}
-                      <span
-                        className="absolute h-[5px] w-[22px] rounded-sm"
-                        style={{
-                          background: on ? 'var(--accent)' : 'var(--ink-faint)',
-                          top: side === 'top' ? 5 : undefined,
-                          bottom: side === 'bottom' ? 5 : undefined,
-                          left: align === 'left' ? 5 : align === 'center' ? '50%' : undefined,
-                          right: align === 'right' ? 5 : undefined,
-                          transform: align === 'center' ? 'translateX(-50%)' : undefined,
-                        }}
-                      />
-                    </button>
-                  );
-                }))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      {!agent && <div className="composer-head flex shrink-0 items-center gap-1.5 border-b border-line px-2 py-1 text-[12px]" data-composer-head>{head}</div>}
       {agent ? (
         <div className="wall-composer-body min-h-0">
-          <ChatPane key={agent.session.id} sessionId={agent.session.id} commandCenter surface="composer" />
+          <ChatPane key={agent.session.id} sessionId={agent.session.id} commandCenter surface="composer" header={head} />
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-3 px-4 py-4 text-[12.5px] text-ink-faint">

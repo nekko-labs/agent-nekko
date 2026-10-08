@@ -316,6 +316,7 @@ export function ChatControls({
   onChange,
   leading,
   toolsInWindow = false,
+  only,
 }: {
   session: Session | null;
   isCloudModel: boolean;
@@ -324,6 +325,8 @@ export function ChatControls({
   toolsInWindow?: boolean;
   /** Drawn first on the row (the chat-type toggle). */
   leading?: ReactNode;
+  /** Render just one control, for a host that lays them out itself (the wall composer's bottom bar). */
+  only?: 'mode' | 'privacy';
 }) {
   const settings = useStore((s) => s.settings);
   const [tools, setTools] = useState<Array<{ name: string; description: string }>>([]);
@@ -391,11 +394,13 @@ export function ChatControls({
     patch({ disabledTools: [...next] });
   };
 
+  const showMode = only !== 'privacy';
+  const showPrivacy = only !== 'mode';
   return (
-    <div ref={ref} className="flex w-full min-w-0 flex-wrap items-center gap-1.5 text-[12px]">
-      {leading}
+    <div ref={ref} className={only ? 'flex min-w-0 items-center gap-1 text-[12px]' : 'flex w-full min-w-0 flex-wrap items-center gap-1.5 text-[12px]'}>
+      {!only && leading}
       {/* An image chat runs no agent: no tool policy, tools or MCP to set. */}
-      {session.chatType !== 'image' && (<>
+      {session.chatType !== 'image' && showMode && (<>
       {/* Mode */}
       <div className="relative shrink-0">
         <button
@@ -429,7 +434,7 @@ export function ChatControls({
       </div>
 
       {/* Tools */}
-      {!toolsInWindow && <div className="relative shrink-0">
+      {!toolsInWindow && !only && <div className="relative shrink-0">
         <button
           className="ctl-menu whitespace-nowrap"
           onClick={() => { setToolsOpen((o) => !o); setModeOpen(false); setToolQuery(''); }}
@@ -484,13 +489,13 @@ export function ChatControls({
       </div>}
 
       {/* MCP servers, right of Tools: their tools are what the agent can reach. */}
-      {!toolsInWindow && <McpMenu />}
+      {!toolsInWindow && !only && <McpMenu />}
       </>)}
 
       {/* The privacy switches sit apart from the execution controls: pushed to
           the right edge of the row, behind a hairline. */}
-      <div className="ml-auto flex shrink-0 items-center gap-1">
-        <span className="mr-0.5 h-4 w-px bg-line" aria-hidden="true" />
+      {showPrivacy && <div className={only ? 'flex shrink-0 items-center gap-1' : 'ml-auto flex shrink-0 items-center gap-1'}>
+        {!only && <span className="mr-0.5 h-4 w-px bg-line" aria-hidden="true" />}
 
         {/* Offline: the agent window's footer carries it as the internet toggle. */}
         {!toolsInWindow && <button
@@ -512,9 +517,9 @@ export function ChatControls({
           title="Don't save this chat or update memory"
         >
           <span className="ctl-dot" />
-          <MaskIcon className="h-3 w-3" /> Incognito
+          <MaskIcon className="h-3 w-3" /> <span className="foot-label">Incognito</span>
         </button>
-      </div>
+      </div>}
     </div>
   );
 }

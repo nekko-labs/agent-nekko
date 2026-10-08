@@ -48,6 +48,41 @@ app.whenReady().then(async () => {
     await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_COMPOSER_EVIDENCE) {
+      // The wall composer with a selected agent: the bar above it, its top
+      // controls strip and its bottom bar, in both themes at two widths.
+      const tag = current ? 'after' : 'before';
+      await win.loadFile(path.join(out, 'index.html'), { search: 'multi' }); await sleep(900);
+      for (const theme of ['dark', 'light']) for (const width of [1400, 760]) {
+        win.setContentSize(width, 900);
+        await reset();
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        await sleep(600);
+        const facts = await run(`(() => {
+          const c = document.querySelector('[data-wall-composer]');
+          const r = (el) => { if (!el) return null; const b = el.getBoundingClientRect(); return { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.width), h: Math.round(b.height) }; };
+          const card = c?.querySelector('.composer');
+          const plus = c?.querySelector('[aria-label="Add a photo, file, folder, or skill"]');
+          const mode = [...(c?.querySelectorAll('button') ?? [])].find((b) => b.textContent.includes('Mode'));
+          const incog = [...(c?.querySelectorAll('button') ?? [])].find((b) => b.textContent.includes('Incognito'));
+          const title = c?.querySelector('[data-composer-title]');
+          const automate = c?.querySelector('[aria-label^="Automate"]');
+          return {
+            barAboveCard: !!(card && title && title.getBoundingClientRect().bottom <= card.getBoundingClientRect().top + 1),
+            titleInsideCard: !!(card && title && card.contains(title)),
+            automateInHeadRow: !!(title && automate && Math.abs(title.getBoundingClientRect().top - automate.getBoundingClientRect().top) < 12),
+            modeBesidePlus: !!(plus && mode && Math.abs(plus.getBoundingClientRect().top - mode.getBoundingClientRect().top) < 14 && mode.getBoundingClientRect().left > plus.getBoundingClientRect().left),
+            incognitoBesidePlus: !!(plus && incog && Math.abs(plus.getBoundingClientRect().top - incog.getBoundingClientRect().top) < 14),
+            composer: r(c), card: r(card), plus: r(plus), mode: r(mode), incognito: r(incog),
+          };
+        })()`);
+        report.checks.push({ name: `${tag} ${theme} ${width}`, facts });
+        await capture(`composer-${tag}-${theme}-${width}`);
+      }
+      fs.writeFileSync(path.join(runDir, 'report.json'), JSON.stringify(report, null, 2));
+      app.quit();
+      return;
+    }
     if (process.env.NEKKO_POLISH_EVIDENCE) {
       // Two chats on a Dynamic wall, the first one working; the Agents panel in
       // each orientation and collapsed; hover states on the grips and pills.

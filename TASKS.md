@@ -1261,6 +1261,15 @@ Add window sits to the right of the shared composer in the same row, including t
   - **Review verification.** 50 focused renderer tests and 81 host routing tests pass. `build:web` and full workspace typecheck pass after isolating dependency links to this worktree's built workspace packages. Initial failures were caused by parent-checkout workspace resolution and a missing worktree-local electron-vite link, not weakened checks. Wide/narrow (1400px/600px) light/dark fixture captures and picker interaction GIFs are being published to the shared pr-media release. A synthetic failed-options/failed-cleanup retry test passed after correcting the fixture workspace setter to return the Session required by its contract: one create only, primary folder cleared and empty supporting folders applied.
   - **Not done.** Image-capable inspection is unavailable in this review toolset, so captured images and motion are not claimed visually verified. Native window chrome and real providers/folders remain unexercised; original second-title cause remains unconfirmed. Inspect published matrix and motion before landing; CI on the final head must pass.
 
+## Wall composer in one card; CI and evidence storage (2026-10-08) · [spec](SPEC.md#wall-composer-in-one-card-2026-10-08)
+
+- [x] Agent row becomes the composer's first row (no bar above it), Automate on its right; mode and incognito beside + in the bottom bar, compact when narrow. Done: 2026-10-08
+- [x] #386's 9 unpublished screenshots published to the overflow release `pr-media-2` with `scripts/pr-media.mjs` (overflow support landed in #387); all 12 links verified. Done: 2026-10-08
+- [x] CI: `chat-routing.test.ts` drains async command-log writes before removing its temp dir (the ENOTEMPTY flake that turned main's `build` red). Done: 2026-10-08
+- [x] CI: perf browser launch keeps Chrome's stderr and exit status, waits 30 s, adds `--disable-dev-shm-usage`, and retries once on a fresh port and profile. Done: 2026-10-08
+- [ ] CI `perf`: the warm-switch p95 gate (20.8 ms) fails on most runs (28 of the last 40), on main and on PRs alike, with p95 18 to 25 ms on the shared runner. Not loosened here; needs a decision (move it to 25 ms like the cold switch, make the job informational, or find the latency).
+- [ ] `daemon (windows-latest)` failed once in `nekko-infer` `a_process_that_exits_during_load_fails_with_its_log` (2 daemon failures in the last 179 jobs); not reproduced locally, left as is.
+
 ## Agents wall polish, round three (2026-10-08) · [spec](SPEC.md#agents-wall-polish-round-three-2026-10-08)
 
 - [x] Composer resize grips float outside its edges. Done: 2026-10-08

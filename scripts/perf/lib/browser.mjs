@@ -58,6 +58,21 @@ export function findBrowser() {
 
 export async function launchBrowser({ port, width, height, vsync = false, gpu = true }) {
   const bin = findBrowser();
+  // A cold Chrome on a shared runner sometimes never opens its DevTools page
+  // (the 2026-10-08 perf failures). That was reported as a bare "no page
+  // target" with the browser's own output thrown away. Keep the output, give
+  // it longer, and try once more on a fresh port and profile before failing.
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await launchOnce(bin, { port: port + (attempt - 1) * 7, width, height, vsync, gpu });
+    } catch (error) {
+      if (attempt >= 2) throw error;
+      console.warn(`[perf] browser launch attempt ${attempt} failed, retrying: ${error.message.split('\n')[0]}`);
+    }
+  }
+}
+
+async function launchOnce(bin, { port, width, height, vsync, gpu }) {
   const args = [
     '--headless=new',
     `--remote-debugging-port=${port}`,
@@ -82,11 +97,16 @@ export async function launchBrowser({ port, width, height, vsync = false, gpu = 
   // the terminal draws with xterm's DOM renderer.
   if (!gpu) args.unshift('--disable-gpu', '--disable-webgl', '--disable-3d-apis');
   // CI containers run as root without the user namespaces the sandbox needs.
-  if (process.platform === 'linux') args.unshift('--no-sandbox');
-  const proc = spawn(bin, args, { stdio: 'ignore' });
+  // /dev/shm on a container runner is small enough to crash Chrome's renderer.
+  if (process.platform === 'linux') args.unshift('--no-sandbox', '--disable-dev-shm-usage');
+  const proc = spawn(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  proc.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(-4000); });
+  let exited = null;
+  proc.on('exit', (code, signal) => { exited = { code, signal }; });
 
   let targets = null;
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < 120 && !exited; i++) {
     try {
       const r = await fetch(`http://127.0.0.1:${port}/json`);
       targets = await r.json();
@@ -99,7 +119,8 @@ export async function launchBrowser({ port, width, height, vsync = false, gpu = 
   const page = targets?.find((t) => t.type === 'page');
   if (!page) {
     proc.kill();
-    throw new Error(`${bin} did not expose a page target on port ${port}`);
+    const how = exited ? `exited (code ${exited.code}, signal ${exited.signal})` : 'still running after 30 s';
+    throw new Error(`${bin} did not expose a page target on port ${port}: ${how}${stderr.trim() ? `\n--- browser stderr (tail) ---\n${stderr.trim()}` : ''}`);
   }
   let version = '';
   try {

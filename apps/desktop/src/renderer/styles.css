@@ -1922,3 +1922,18 @@
 /* The Agents panel's + : the primary action, in the accent and a size up. */
 .agent-panel-plus { color: var(--accent); }
 .agent-panel-plus:hover, .agent-panel-plus.is-open { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+/* Wall composer: the agent row is the composer's own first row; mode and
+   incognito ride the bottom bar beside +, quiet until hovered. */
+.composer-head { min-height: 34px; }
+.composer-foot-controls .ctl-menu { border-color: transparent; }
+.composer-foot-controls .ctl-menu:hover { border-color: var(--line); }
+.composer-foot-controls { flex-shrink: 1; overflow: hidden; }
+.composer-foot-controls .ctl-toggle .ctl-dot { display: none; }
+/* A narrow composer keeps the mode value and the incognito mask; their
+   words go to the tooltip so the bar never runs into the microphone. */
+@container (max-width: 520px) {
+  .composer-foot-controls .ctl-menu-label, .composer-foot-controls .ctl-toggle .foot-label { display: none; }
+}
+.wall-composer { container-type: inline-size; }
+
