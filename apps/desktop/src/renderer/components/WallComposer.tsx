@@ -1,4 +1,5 @@
 import { NumberedChatIcon } from './NumberedChatIcon.js';
+import { StatusIcon, type AgentStatus } from './WorkspaceCard.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { SessionSummary } from '@agent-nekko/shared';
 import { ChatPane } from './ChatPane.js';
@@ -11,6 +12,8 @@ export interface WallAgent {
   /** 1-based position among the wall's agent windows, in reading order. */
   n: number;
   status: { label: string; tone: string; live?: boolean } | null;
+  /** The same state as a glyph: rocket working, Zz idle. */
+  glyph?: AgentStatus;
 }
 
 const SIDES: ComposerSide[] = ['top', 'bottom'];
@@ -128,7 +131,7 @@ export function WallComposer({
             <span className="min-w-0 truncate font-medium" data-composer-title>{agent.session.title}</span>
             {agent.status && (
               <span className="flex min-w-0 items-center gap-1 text-[11px]" style={{ color: agent.status.tone }}>
-                {agent.status.live && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full" style={{ background: agent.status.tone }} />}
+                <StatusIcon status={agent.glyph} />
                 <span className="truncate">{agent.status.label}</span>
               </span>
             )}

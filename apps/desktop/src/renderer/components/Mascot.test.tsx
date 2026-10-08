@@ -43,7 +43,13 @@ describe('Pixel Nekko', () => {
     expect(renderToStaticMarkup(<NekkoAvatar wizardHat />)).toContain('orange-wizard-hat');
     expect(renderToStaticMarkup(<NekkoAvatar />)).not.toContain('orange-wizard-hat');
     expect(renderToStaticMarkup(<MiniNekko />)).not.toContain('orange-wizard-hat');
-    expect(source('./ChatPane.tsx')).toContain("wizardHat={settings?.themePreset === 'autumn'}");
+    expect(source('./ChatPane.tsx')).not.toContain('wizardHat');
+    expect(source('./BrandMark.tsx')).not.toContain('autumn');
+  });
+  it('puts the Spooky wizard hat on the corner mascot only', () => {
+    expect(renderToStaticMarkup(<Mascot mood="idle" enabled wizardHat />)).toContain('orange-wizard-hat');
+    expect(renderToStaticMarkup(<Mascot mood="idle" enabled />)).not.toContain('orange-wizard-hat');
+    expect(source('../App.tsx')).toContain("wizardHat={settings?.themePreset === 'autumn'}");
   });
   it('keeps working feedback, greeting, and the visibility setting', () => {
     expect(renderToStaticMarkup(<MiniNekko size={16} />)).toContain('pixel-working');

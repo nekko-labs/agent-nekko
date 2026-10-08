@@ -22,6 +22,6 @@ describe('empty wall illustration', () => {
     const spooky = renderToStaticMarkup(<WallEmptyIllustration />);
     expect(spooky).toContain('data-variant="spooky"');
     expect(spooky).toContain('data-part="spooky"');
-    expect(spooky).toContain('orange-wizard-hat');
+    expect(spooky).not.toContain('orange-wizard-hat');
   });
 });

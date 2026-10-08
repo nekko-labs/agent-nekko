@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { isArchived } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
+import { AUTO_MODEL_ID } from '@agent-nekko/shared';
 import { ModelPicker } from './agent-console/ModelPicker.js';
+import { EffortSlider } from './ChatMetrics.js';
+import { CheckIcon, ChevronIcon } from '../icons.js';
 import './AgentWindowPicker.css';
 
 /** No refId means create; refId means open an existing session or terminal. */
@@ -11,6 +14,8 @@ export type AgentWindowSelection = {
   chatType?: 'multimodal' | 'image';
   providerId?: string;
   modelId?: string;
+  /** Folders for a new chat: the first is its primary working folder, the rest supporting. */
+  workspaceIds?: string[];
 };
 
 export interface AgentWindowPickerProps {
@@ -39,10 +44,17 @@ export function AgentWindowPicker({ onAdd, onClose }: AgentWindowPickerProps) {
   const providers = useStore((s) => s.providers);
   const models = useStore((s) => s.models);
   const activeProviderId = useStore((s) => s.activeProviderId);
+  const activeModelId = useStore((s) => s.activeModelId);
+  const settings = useStore((s) => s.settings);
+  const activeProjectId = useStore((s) => s.activeProjectId);
   const [category, setCategory] = useState<Category | null>(null);
   const [choice, setChoice] = useState<{ providerId: string; modelId: string } | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The model list is closed once a model is chosen; the chosen model reads
+  // back in the row above it, so the pick is visible rather than buried.
+  const [modelListOpen, setModelListOpen] = useState(false);
+  const [pickedFolders, setPickedFolders] = useState<string[] | null>(null);
   const adding = useRef(false);
   const surface = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -52,6 +64,26 @@ export function AgentWindowPicker({ onAdd, onClose }: AgentWindowPickerProps) {
   }, []);
   const enabledProviders = useMemo(() => providers.filter((p) => p.enabled), [providers]);
   const availableSessions = sessions.filter((s) => !isArchived(s));
+  const folders = settings?.workspaces ?? [];
+
+  // Defaults, so a new chat is one click: the saved default model, else the
+  // model already active, else the active provider's first; and the current
+  // project folder, else the first folder.
+  const defaultModel = settings?.defaultProviderId && settings.defaultModelId && enabledProviders.some((p) => p.id === settings.defaultProviderId)
+    ? { providerId: settings.defaultProviderId, modelId: settings.defaultModelId }
+    : activeProviderId && (activeModelId ?? models[0]?.id)
+      ? { providerId: activeProviderId, modelId: (activeModelId ?? models[0]?.id) as string }
+      : null;
+  const model = choice ?? defaultModel;
+  const modelName = model?.modelId === AUTO_MODEL_ID ? 'Auto' : models.find((m) => m.id === model?.modelId && m.providerId === model?.providerId)?.name ?? model?.modelId;
+  const providerLabel = providers.find((p) => p.id === model?.providerId)?.label;
+  const defaultFolder = folders.find((f) => f.id === activeProjectId) ?? folders[0];
+  const chosenFolders = (pickedFolders ?? (defaultFolder ? [defaultFolder.id] : [])).filter((id) => folders.some((f) => f.id === id));
+  const toggleFolder = (id: string) => setPickedFolders(chosenFolders.includes(id) ? chosenFolders.filter((x) => x !== id) : [...chosenFolders, id]);
+  const start = () => {
+    if (!model) return;
+    void add({ kind: 'chat', chatType: 'multimodal', ...(model.providerId ? { providerId: model.providerId } : {}), modelId: model.modelId, ...(chosenFolders.length ? { workspaceIds: chosenFolders } : {}) });
+  };
 
   const add = async (selection: AgentWindowSelection) => {
     if (adding.current) return;
@@ -97,22 +129,49 @@ export function AgentWindowPicker({ onAdd, onClose }: AgentWindowPickerProps) {
         </div>
       )}
       {category === 'chat' && (
-        <div className="agent-window-picker__columns">
-          <section className="agent-window-picker__column" aria-label="New chat">
-            <h3>New chat</h3><p>Choose a model, then create your chat.</p>
-            <fieldset className="agent-window-picker__models" disabled={pending}>
-              <legend className="agent-window-picker__sr-only">Choose a chat model</legend>
-              <ModelPicker expanded readOnly open providers={enabledProviders} providerId={choice?.providerId ?? activeProviderId} models={!choice || choice.providerId === activeProviderId ? models : []} modelId={choice?.modelId ?? null} needsChoice={!choice} onOpenChange={() => {}} onProvider={() => {}} onModel={(providerId, modelId) => setChoice({ providerId, modelId })} />
-            </fieldset>
-            <button type="button" className="agent-window-picker__primary" disabled={pending || !choice} onClick={() => choice && void add({ kind: 'chat', chatType: 'multimodal', ...(choice.providerId ? { providerId: choice.providerId } : {}), modelId: choice.modelId })}>Create chat</button>
+        <div className="agent-window-picker__steps">
+          <section className="agent-window-picker__step" aria-labelledby="awp-step-model">
+            <h3 id="awp-step-model"><span className="agent-window-picker__step-num">1</span>Model and effort</h3>
+            <button type="button" className="agent-window-picker__summary" disabled={pending} aria-expanded={modelListOpen} aria-controls="awp-model-list" onClick={() => setModelListOpen((o) => !o)}>
+              <span className="agent-window-picker__summary-text">
+                <strong>{modelName ?? 'Choose a model'}</strong>
+                {providerLabel && <span>{providerLabel}</span>}
+              </span>
+              <span className="agent-window-picker__summary-action">{modelListOpen ? 'Done' : 'Change'}<ChevronIcon className={`h-3.5 w-3.5 ${modelListOpen ? 'rotate-90' : ''}`} /></span>
+            </button>
+            {modelListOpen && (
+              <fieldset id="awp-model-list" className="agent-window-picker__models" disabled={pending}>
+                <legend className="agent-window-picker__sr-only">Choose a chat model</legend>
+                <ModelPicker expanded readOnly open providers={enabledProviders} providerId={model?.providerId ?? activeProviderId} models={!model || model.providerId === activeProviderId ? models : []} modelId={model?.modelId ?? null} needsChoice={!model} onOpenChange={() => {}} onProvider={() => {}} onModel={(providerId, modelId) => { setChoice({ providerId, modelId }); setModelListOpen(false); }} />
+              </fieldset>
+            )}
+            <EffortSlider modelId={model?.modelId} />
           </section>
-          <section className="agent-window-picker__column" aria-label="Existing chats">
-            <h3>Existing chats</h3>
+          <section className="agent-window-picker__step" aria-labelledby="awp-step-folders">
+            <h3 id="awp-step-folders"><span className="agent-window-picker__step-num">2</span>Folders</h3>
+            {folders.length === 0 ? <p>No folders yet. The chat starts without a working folder; add one later from the composer.</p> : (
+              <div className="agent-window-picker__folders" role="group" aria-label="Folders this chat can use">
+                {folders.map((folder) => {
+                  const on = chosenFolders.includes(folder.id);
+                  return (
+                    <button type="button" key={folder.id} role="checkbox" aria-checked={on} disabled={pending} title={folder.path} onClick={() => toggleFolder(folder.id)}>
+                      <span className="agent-window-picker__check" data-on={on || undefined}>{on && <CheckIcon className="h-3 w-3" />}</span>
+                      <span className="agent-window-picker__folder-text"><strong>{folder.name}</strong><span>{folder.path}</span></span>
+                      {chosenFolders[0] === folder.id && <span className="agent-window-picker__badge">Primary</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+          <details className="agent-window-picker__step agent-window-picker__existing">
+            <summary><span className="agent-window-picker__step-num">3</span>Open an existing chat instead <span className="agent-window-picker__optional">Optional</span></summary>
             <div className="agent-window-picker__list">
               {availableSessions.length === 0 && <p>No existing chats.</p>}
               {availableSessions.map((session) => <button type="button" key={session.id} disabled={pending} onClick={() => void add({ kind: 'chat', refId: session.id, chatType: session.chatType ?? 'multimodal' })}><strong>{session.title || 'Untitled chat'}</strong><span>{session.chatType === 'image' ? 'Image session' : 'Chat'}</span></button>)}
             </div>
-          </section>
+          </details>
+          <button type="button" className="agent-window-picker__primary" disabled={pending || !model} onClick={start}>Start</button>
         </div>
       )}
       {category === 'media' && (

@@ -330,7 +330,7 @@ export function App() {
       <UpdateBanner />
       <RelayPairing />
       {view !== 'command' && <ResourceHud />}
-      <Mascot mood={mascotMood} enabled={settings?.mascotEnabled ?? true} />
+      <Mascot mood={mascotMood} enabled={settings?.mascotEnabled ?? true} wizardHat={settings?.themePreset === 'autumn'} />
       <CommandPalette />
       <DeepLinkListener />
       <Toasts />

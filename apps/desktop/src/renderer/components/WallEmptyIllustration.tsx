@@ -5,7 +5,7 @@ import { NekkoAvatar } from './Mascot.js';
 /**
  * The empty wall's illustration: a wall with dashed window frames waiting to be
  * filled, and Nekko sitting under it. Special themes dress it up (Spooky adds
- * pumpkins, a bat, a cobweb and the wizard hat). Decorative only; colours come
+ * pumpkins, a bat and a cobweb; the wizard hat is the corner mascot's alone). Decorative only; colours come
  * from the theme so it reads in light and dark.
  */
 export type WallEmptyVariant = 'default' | 'spooky';
@@ -63,7 +63,7 @@ export function WallEmptyIllustration({ variant }: { variant?: WallEmptyVariant 
         )}
       </svg>
       {/* Nekko is the same pixel cat as the app icon, sitting on the floor line. */}
-      <span className="wall-empty-cat"><NekkoAvatar size={44} stationary quiet wizardHat={spooky} /></span>
+      <span className="wall-empty-cat"><NekkoAvatar size={44} stationary quiet /></span>
     </div>
   );
 }
