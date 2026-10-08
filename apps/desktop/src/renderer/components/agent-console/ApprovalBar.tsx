@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 import type { ToolCall } from '@agent-nekko/shared';
 import { ShieldIcon } from '../../icons.js';
@@ -10,12 +10,31 @@ export interface PendingApproval {
   severity: 'low' | 'medium' | 'high';
 }
 
+/** Returns true if the element content is truncated (scrolls horizontally). */
+export function isTruncated(el?: HTMLElement | null): boolean {
+  return el ? el.scrollWidth > el.clientWidth : false;
+}
+
+/** Returns true if the text should show the expand toggle. */
+function shouldShowToggle(text: string): boolean {
+  // Show toggle if text is longer than 60 characters
+  return text.length > 60;
+}
+
 /** Keyboard decisions stay scoped to this approval surface; Y approves once. */
 export function ApprovalBar({ approval, onDecide }: { approval: PendingApproval; onDecide: (ok: boolean, scope?: ApprovalScope) => Promise<void> }) {
   const denyRef = useRef<HTMLButtonElement>(null);
   const deciding = useRef(false);
+  const codeRef = useRef<HTMLElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  // Get command text and determine if toggle should show
+  const commandText = String((approval.call.input as Record<string, unknown>).command ?? JSON.stringify(approval.call.input));
+  // Show toggle if text is long (60+ chars) or if it's actually truncated at runtime
+  const showToggle = shouldShowToggle(commandText) || isTruncated(codeRef.current);
+
   // Do not steal focus from another chat; shortcuts require focus inside this prompt.
   const decide = async (ok: boolean, scope: ApprovalScope = 'once') => {
     if (deciding.current) return;
@@ -47,9 +66,26 @@ export function ApprovalBar({ approval, onDecide }: { approval: PendingApproval;
             <span className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white" style={{ background: color }}>{approval.severity}</span>
             <span className="text-[12px] text-ink-faint">{approval.reason}</span>
           </div>
-          <code className="mt-0.5 block truncate font-mono text-[12px] text-ink-soft">
-            {String((approval.call.input as Record<string, unknown>).command ?? JSON.stringify(approval.call.input))}
-          </code>
+          <div className="relative mt-0.5 block" aria-live="polite">
+            <code
+              ref={codeRef}
+              className={`block font-mono text-[12px] text-ink-soft ${expanded ? '' : 'truncate'}`}
+              title={commandText}
+            >
+              {commandText}
+            </code>
+            {showToggle && (
+              <button
+                type="button"
+                className="mt-1 text-[10px] font-medium underline decoration-dotted hover:decoration-solid focus:outline-none focus:underline"
+                onClick={() => setExpanded((v) => !v)}
+                aria-expanded={expanded}
+                aria-label={expanded ? 'Show less' : 'Show full command'}
+              >
+                {expanded ? 'Show less' : 'Show full'}
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button ref={denyRef} disabled={busy} className={`${buttonClass} btn-outline`} onClick={() => void decide(false)} title="Deny (N or Esc)">Deny</button>
