@@ -1,7 +1,20 @@
 import { useEffect, useState, useCallback } from 'react';
 import type { ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
 import { limitsKeyFor } from '@agent-nekko/shared';
-import { afterPaint } from './afterPaint.js';
+import { useStore } from './store.js';
+import { runningSessionIds, useLiveRunsVersion } from './liveRuns.js';
+import { limitsRefreshInterval, nextLimitsRefresh } from './limitsSchedule.js';
+
+const lastRead = new Map<string, number>();
+const pendingReads = new Map<string, Promise<SubscriptionLimits | undefined>>();
+function readLimits(key: string, force = false): Promise<SubscriptionLimits | undefined> {
+  const pending = pendingReads.get(key);
+  if (pending) return pending;
+  lastRead.set(key, Date.now());
+  const promise = window.nekko.getLimits(key, force).finally(() => pendingReads.delete(key));
+  pendingReads.set(key, promise);
+  return promise;
+}
 
 /**
  * Live subscription limits for one provider, or null when it doesn't have any
@@ -13,26 +26,9 @@ import { afterPaint } from './afterPaint.js';
  * `limitsUpdated` events rather than each caller polling on its own.
  */
 export function useProviderLimits(provider: ProviderConfig | undefined): SubscriptionLimits | null {
-  const [limits, setLimits] = useState<SubscriptionLimits | null>(null);
+  const { byToken } = useProviderLimitsPortfolio(provider ? [provider] : []);
   const key = provider ? limitsKeyFor(provider) : null;
-
-  useEffect(() => {
-    if (!key) {
-      setLimits(null);
-      return;
-    }
-    let live = true;
-    // Started after the first frame: a pane that just opened paints before it asks.
-    const cancel = afterPaint(() => {
-      window.nekko.getLimits(key).then((l) => { if (live) setLimits(l ?? null); }).catch(() => {});
-    });
-    const off = window.nekko.onLimitsUpdated((e) => {
-      if (e.tokenKey === key) setLimits(e.limits);
-    });
-    return () => { live = false; cancel(); off(); };
-  }, [key]);
-
-  return limits;
+  return key ? byToken[key] ?? null : null;
 }
 
 /**
@@ -57,7 +53,7 @@ export function useAllProviderLimits(
 export function useProviderLimitsPortfolio(
   providers: ProviderConfig[],
   enabled = true,
-): { byToken: Record<string, SubscriptionLimits>; answered: ReadonlySet<string>; refresh: () => Promise<void> } {
+): { byToken: Record<string, SubscriptionLimits>; answered: ReadonlySet<string>; refresh: () => Promise<void>; nextRefreshAt: number | null } {
   const [byToken, setByToken] = useState<Record<string, SubscriptionLimits>>({});
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
   // Limits keys, as a stable string, so re-rendering with a new array identity
@@ -65,12 +61,24 @@ export function useProviderLimitsPortfolio(
   // token key and API-key providers with a documented read by provider id.
   const keys = providers.map(limitsKeyFor).filter((k): k is string => !!k);
   const keysId = keys.join('|');
+  const sessions = useStore((s) => s.sessions);
+  const configured = useStore((s) => s.providers);
+  useLiveRunsVersion();
+  const running = new Set(runningSessionIds());
+  const activeKeys = new Set((sessions ?? []).filter(s => running.has(s.id)).flatMap(s => {
+    const provider = (configured ?? []).find(p => p.id === s.providerId && p.auth === 'subscription');
+    const key = provider && limitsKeyFor(provider);
+    return key ? [key] : [];
+  }));
+  const activeId = [...activeKeys].sort().join('|');
+  const [clock, setClock] = useState(Date.now);
+  const nextRefreshAt = enabled ? nextLimitsRefresh(keys, lastRead, activeKeys, clock) : null;
 
   useEffect(() => {
     if (!enabled || keys.length === 0) return;
     let live = true;
     Promise.all(
-      keys.map((k) => window.nekko.getLimits(k).then((l) => [k, l] as const).catch(() => [k, null] as const)),
+      keys.map((k) => readLimits(k).then((l) => [k, l] as const).catch(() => [k, null] as const)),
     ).then((entries) => {
       if (!live) return;
       const next: Record<string, SubscriptionLimits> = {};
@@ -85,10 +93,35 @@ export function useProviderLimitsPortfolio(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, keysId]);
 
+  useEffect(() => {
+    if (!enabled || keys.length === 0) return;
+    let live = true;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      setClock(now);
+      for (const key of new Set(keys)) {
+        if (pendingReads.has(key) || now < (lastRead.get(key) ?? now) + limitsRefreshInterval(activeKeys.has(key))) continue;
+        void readLimits(key, true).then(limits => {
+          if (!live) return;
+          setAnswered(prev => new Set([...prev, key]));
+          setByToken(prev => {
+            const next = { ...prev };
+            if (limits) next[key] = limits;
+            else delete next[key];
+            return next;
+          });
+        }).catch(() => {});
+      }
+    }, 1000);
+    return () => { live = false; clearInterval(timer); };
+    // Stable key sets prevent restarting the clock on streamed tokens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, keysId, activeId]);
+
   const refresh = useCallback(async () => {
-    const entries = await Promise.all([...new Set(keys)].map(async key => [key, await window.nekko.getLimits(key, true)] as const));
+    const entries = await Promise.all([...new Set(keys)].map(async key => [key, await readLimits(key, true)] as const));
     setByToken(Object.fromEntries(entries.filter((entry): entry is readonly [string, SubscriptionLimits] => !!entry[1])));
     setAnswered(new Set(entries.map(([key]) => key)));
   }, [keysId]);
-  return { byToken, answered, refresh };
+  return { byToken, answered, refresh, nextRefreshAt };
 }
