@@ -259,6 +259,16 @@ Extends `../../knowledgebase/principles/coding.md` (which these override).
 
 ## Now / In Progress
 
+### GPU fallback preview (added 2026-10-08)
+
+- [ ] **T185**, Older discrete GPUs can be found through the installed engine when the vendor tool fails. · [spec](SPEC.md#running-a-model-with-nothing-else-installed) · PR #382, Preview, not shipped.
+  - Implemented: Windows/Linux vendor-first `llama-server --list-devices` fallback, 15-second display cache and fresh load measurements, recursion-safe external/managed/PATH binary lookup and `llama-server` source. Integrated-memory readings are excluded, including Vega 8/11 Graphics, without excluding discrete RX Vega 56/64. Registering an engine clears stale no-GPU monitor results. No migration, network probe or runtime installation; existing model presets remain unchanged.
+  - Decision: resolve the installed binary without `detect()` because detection reads GPU stats to rank builds and would recurse. Keep CUDA selection tied to vendor evidence rather than assuming a listed GPU implies a CUDA runtime.
+  - Verification: deterministic parser/vendor-priority/fallback/cache/fresh-read/macOS exclusion and binary-resolution tests. Original author supplied real GTX 1050 device output, not running-app acceptance. Local macOS cannot prove Windows/AMD/Linux inference or driver-error behavior.
+  - Release acceptance pending: affected laptop app GPU display and new-download preset; AMD/Linux hardware matrix; integrated-name heuristics and upstream output-format stability. Existing-model first-load presets and GPU-unused/Windows error-state hints are planned, not implemented.
+  - CI performance blocker: run 37748807816 misses warm-switch p95 (25.4 ms against 20.8 ms). Paired quick profiles miss the same gate on base (40.6 ms) and head (28.4 ms); no causal GPU regression established. Report JSON revision labels are identical for all three reports, so confirm revisions from workflow logs before treating comparison as definitive. Keep budgets unchanged and investigate the shared latency failure separately; do not rerun merely to seek green.
+
+
 ### UC: One composer for the wall (added 2026-10-05)
 
 Philip's iteration: a single, unified composer for the whole Command Center, movable to one of six places, visibly connected to the agent windows (not to terminals, insights or other panels); clicking an agent window points the composer at that chat's context, and from the composer the keyboard cycles agent windows and picks them by number. · [spec](SPEC.md#chat--cowork-unified-surface)

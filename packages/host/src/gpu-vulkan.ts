@@ -19,7 +19,7 @@ const DEVICE_LINE = /^\s*([A-Za-z]+\d+):\s+(.+?)\s+\((\d+)\s*MiB,\s*(\d+)\s*MiB 
  * Integrated parts take their memory from system RAM, so they are not VRAM and
  * must not be added to a discrete card's total. Names are all the engine gives.
  */
-const INTEGRATED = /intel.*(uhd|hd graphics|iris)|radeon\(tm\) graphics|radeon graphics|vega\s*\d+\b|apple|adreno|mali/i;
+const INTEGRATED = /intel.*(uhd|hd graphics|iris)|radeon\(tm\) graphics|radeon graphics|radeon(?:\(tm\))?\s+vega\s+(?:8|11)\s+graphics|apple|adreno|mali/i;
 
 export interface ListedDevice {
   /** The backend's own id, e.g. `Vulkan0`. */
