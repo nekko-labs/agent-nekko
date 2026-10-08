@@ -440,7 +440,9 @@ export function CommandWall({
             setDragging(null);
           }}
         >
-          {needsYou && <div role="status" className="shrink-0 border-b border-line px-3 py-1 text-[11px]" style={{ color: 'var(--warning)', background: 'color-mix(in srgb, var(--warning) 6%, var(--surface))' }}>{status?.label ?? 'Needs your attention'}</div>}
+          {/* What it is waiting on is said inside the window (ChatPane pins the
+              question or approval at the top). A banner here sat under the
+              absolutely positioned content and could not be seen. */}
           {openable && (
             <PaneActions>
                {state.layout.mode !== 'focus' && <button className="command-wall-action" title="Switch to Focus mode (Ctrl+Shift+1)" aria-label={`Focus ${title}`} onClick={() => focusWindow(pane)}><LayoutIcon className="h-3.5 w-3.5" /></button>}

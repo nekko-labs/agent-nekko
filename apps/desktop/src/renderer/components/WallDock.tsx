@@ -12,6 +12,9 @@ import type { InsightRange } from '../insightRanges.js';
 import { useMonitors, useResourceSample } from './ResourceMonitor.js';
 import { BoltIcon, BrainIcon, ServerIcon, GridIcon, ListIcon, GearIcon, CloseIcon, MinimizeIcon } from '../icons.js';
 import './wallDock.css';
+import type { OAuthStatus } from '@agent-nekko/shared';
+import { SubscriptionSignIn } from './SubscriptionSignIn.js';
+import { SUBSCRIPTION_KINDS, reconnectProviderConfig } from './providers/AddProvider.js';
 import { dockMinimizeTransition } from './dockMinimize.js';
 
 const PANEL_ICONS = { vitals: BoltIcon, automations: GearIcon, utilization: ListIcon, budget: GridIcon, insights: BrainIcon, hardware: ServerIcon };
@@ -229,7 +232,10 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
       const needsSignIn = problem?.kind === 'auth_expired' || problem?.kind === 'signed_out';
       return <div key={provider.id} className="wall-dock__provider" data-limits-problem={problem?.kind}>
         <strong>{provider.label}</strong>
-        {status && <p role={problem ? 'status' : undefined} style={problem ? { color: needsSignIn ? 'var(--danger)' : 'var(--warning)' } : undefined}>{status}{needsSignIn && onOpenModels && <> <button type="button" className="wall-dock__text-button" onClick={onOpenModels}>Manage providers</button></>}</p>}
+        {status && <p role={problem ? 'status' : undefined} style={problem ? { color: needsSignIn ? 'var(--danger)' : 'var(--warning)' } : undefined}>{needsSignIn ? signInStatus(problem!.kind) : status}</p>}
+        {/* An expired or missing sign-in is fixed right here, with the same
+            sign-in the provider card uses, not by a trip to Settings. */}
+        {needsSignIn && <DockSignIn provider={provider} onSignedIn={() => { void refresh(); }} />}
         {windows.map((w, i) => {
           const used = Math.max(0, Math.min(100, w.usedPercent));
           const percent = showRemaining ? 100 - used : used;
@@ -247,6 +253,47 @@ function Utilization({ providers, usage, now, onOpenModels }: Pick<WallDockProps
     <div><div className="wall-dock__metric-row"><span>Tokens today</span><strong title={todayTokens?.toLocaleString()}>{todayTokens == null ? 'Unavailable' : compact(todayTokens)}</strong></div>
       <p className="wall-dock__note">{weekDays ? `${compact(weekDays.reduce((sum, d) => sum + d.input, 0))} in · ${compact(weekDays.reduce((sum, d) => sum + d.output, 0))} out this week` : 'Weekly usage unavailable'} · UTC</p></div>
     <button type="button" className="wall-dock__text-button" onClick={onOpenModels}>Manage providers</button>
+  </div>;
+}
+
+/** What an expired or missing sign-in says once the fix sits right under it. */
+export function signInStatus(kind: string): string {
+  return kind === 'signed_out' ? 'Not signed in.' : 'Sign-in expired.';
+}
+
+/**
+ * Sign in again from the Utilization panel. A button first, so the panel stays
+ * one line tall until asked; then the same sign-in flow the provider card runs,
+ * and the new token is folded onto this provider exactly as the card does.
+ */
+export function DockSignIn({ provider, onSignedIn }: { provider: ProviderConfig; onSignedIn: () => void }) {
+  const oauth = SUBSCRIPTION_KINDS[provider.kind];
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!oauth) return null;
+  const name = provider.kind === 'chatgpt' ? 'ChatGPT' : provider.kind === 'openrouter' ? 'OpenRouter' : 'Claude';
+  const connected = async (status: OAuthStatus) => {
+    try {
+      if (provider.tokenKey && provider.tokenKey !== status.tokenKey) await window.nekko.oauthSignOut(provider.id).catch(() => {});
+      await window.nekko.saveProvider(provider.auth === 'subscription'
+        ? { ...provider, tokenKey: status.tokenKey || provider.tokenKey, accountId: status.accountId ?? provider.accountId }
+        : reconnectProviderConfig(provider, status));
+      await useStore.getState().refreshProviders();
+      useStore.getState().pushToast('success', `Signed in with your ${name} subscription.`);
+      setOpen(false);
+      onSignedIn();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return <div className="wall-dock__signin" data-dock-signin>
+    {!open
+      ? <button type="button" className="btn btn-primary py-1 text-[12px]" onClick={() => { setError(null); setOpen(true); }}>Sign in again</button>
+      : <>
+          <SubscriptionSignIn oauthProvider={oauth} label={`Sign in with ${name}`} onConnected={connected} />
+          <button type="button" className="wall-dock__text-button" onClick={() => setOpen(false)}>Cancel</button>
+        </>}
+    {error && <p role="alert">{error}</p>}
   </div>;
 }
 

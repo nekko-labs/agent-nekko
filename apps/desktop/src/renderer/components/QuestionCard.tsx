@@ -26,13 +26,20 @@ export function QuestionCard({
   onAnswer,
   onSkip,
   compact = false,
+  tone = 'accent',
 }: {
   request: AskRequest;
   onAnswer: (answers: AskAnswer[]) => void;
   onSkip: () => void;
   /** Board cards are narrower and sit among other cards, so they sit tighter. */
   compact?: boolean;
+  /**
+   * `attention`: the card is how an agent window says it is waiting on you, so
+   * it wears the warning tone of the window's ring rather than the accent.
+   */
+  tone?: 'accent' | 'attention';
 }) {
+  const hue = tone === 'attention' ? 'var(--warning)' : 'var(--accent)';
   const [step, setStep] = useState(0);
   const [picked, setPicked] = useState<Record<string, string[]>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -169,7 +176,10 @@ export function QuestionCard({
     <div
       ref={rootRef}
       className="rounded-xl border p-3 outline-hidden"
-      style={{ borderColor: 'color-mix(in srgb, var(--accent) 35%, transparent)', background: 'var(--accent-soft)' }}
+      data-question-tone={tone}
+      style={tone === 'attention'
+        ? { borderColor: 'color-mix(in srgb, var(--warning) 70%, transparent)', borderWidth: 1.5, background: 'color-mix(in srgb, var(--warning) 12%, var(--surface))', boxShadow: '0 0 0 3px color-mix(in srgb, var(--warning) 14%, transparent)' }
+        : { borderColor: 'color-mix(in srgb, var(--accent) 35%, transparent)', background: 'var(--accent-soft)' }}
       role="group"
       aria-label="The agent is asking a question"
       tabIndex={-1}
@@ -177,7 +187,7 @@ export function QuestionCard({
     >
       <div className="mb-2 flex items-center gap-1.5">
         <span className="text-[13px]" aria-hidden>💬</span>
-        <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--accent)' }}>
+        <span className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: hue }}>
           Before I start
         </span>
         {total > 1 && (
@@ -219,7 +229,7 @@ export function QuestionCard({
       <div key={q.id} className="fade-in">
         <div className="mb-1.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
           <span className="chip shrink-0 text-[9.5px] uppercase tracking-wide">{q.header}</span>
-          <span className={`${compact ? 'text-[12px]' : 'text-[12.5px]'} font-medium text-ink`}>{q.question}</span>
+          <span className={`${compact ? 'text-[12px]' : tone === 'attention' ? 'text-[14px] font-semibold' : 'text-[12.5px]'} font-medium text-ink`}>{q.question}</span>
           <span className="text-[10px] text-ink-faint">{q.multiSelect ? 'pick any' : 'pick one'}</span>
         </div>
 

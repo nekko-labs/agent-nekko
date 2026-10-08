@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom';
 import { DictationButton } from './DictationButton.js';
 import { decideApproval, type ApprovalScope } from './agent-console/approval-decision.js';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, QueuePayload, QueuedPrompt } from '@agent-nekko/shared';
-import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, getModelPrice, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
+import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, getModelPrice, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText, planProgress } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -43,6 +43,7 @@ import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
 import { TurnStatsLine } from './agent-console/TurnStatsLine.js';
 import { ComposerQuestion } from './ComposerQuestion.js';
+import { QuestionCard } from './QuestionCard.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
@@ -56,7 +57,7 @@ import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
 import { FolderPicker } from './FolderPicker.js';
 import { addFolderToChat, shouldAutoFile } from '../sessionFolders.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, TerminalIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, TerminalIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon, QuestionIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -93,11 +94,13 @@ const CTX_REFRESH_MS = 1_500;
 /**
  * Pane widths the layout keys off, measured on the pane itself.
  *
- * `PLAN_RAIL_MIN_PANE` is the point below which showing the rail would cost the
- * conversation more than the rail is worth; `NARROW_PANE` is where the 75%
- * column stops helping and the text should just use the pane.
+ * The plan rail is on by default; it only gives way when the window is about
+ * as narrow as two rails side by side (`PLAN_RAIL_MIN_PANE`), where it would
+ * leave the conversation no more room than itself. `NARROW_PANE` is where the
+ * 75% column stops helping and the text should just use the pane.
  */
-const PLAN_RAIL_MIN_PANE = 900;
+const PLAN_RAIL_WIDTH = 280;
+const PLAN_RAIL_MIN_PANE = PLAN_RAIL_WIDTH * 2;
 const NARROW_PANE = 620;
 
 /**
@@ -607,6 +610,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   const paneRef = useRef<HTMLDivElement>(null);
   const paneWidth = useElementWidth(paneRef, sessionId);
   const planRailOpen = planRailWanted && paneWidth >= PLAN_RAIL_MIN_PANE;
+  const planSteps = useMemo(() => { const p = planProgress(session?.agentPlan); return { done: p.done + p.skipped, total: p.total }; }, [session?.agentPlan]);
   const wideEnoughForRail = paneWidth >= PLAN_RAIL_MIN_PANE;
   // A small window (a cell on the Command Center wall, a sliver of a split)
   // folds the two control rows into one summary chip, so the transcript keeps
@@ -1934,7 +1938,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
    * sides. When the plan rail is showing it already takes the right quarter, so
    * the column below it goes full width rather than indenting twice.
    */
-  const contentWidth = planRailOpen || paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
+  // Full width beside the open rail keeps clear of the floating plan toggle.
+  const contentWidth = planRailOpen ? 'mx-auto w-full pr-11' : paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
 
   // --- The transcript, as windowed rows ---
   const messages = session?.messages;
@@ -2073,16 +2078,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               {compact ? <TerminalIcon className="h-4 w-4" /> : 'Logs'}
             </button>
 
-            {!compact && wideEnoughForRail && (
-              <button
-                className={`btn btn-ghost px-2 py-1 ${planRailOpen ? 'text-accent' : ''}`}
-                onClick={() => useStore.getState().togglePlanRail()}
-                title="Toggle the plan, sub-agents, and queue panel"
-                aria-pressed={planRailOpen}
-              >
-                <ListIcon className="h-4 w-4" />
-              </button>
-            )}
             {!compact && (
             <button
               className={`btn btn-ghost hidden px-2 py-1 lg:inline-flex ${ctxOpen ? 'text-accent' : ''}`}
@@ -2096,6 +2091,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         </ChatHeader>
         )}
 
+        {/* A question the agent stopped to ask stays pinned at the top of the
+            window, above the transcript, where it cannot scroll away or sit
+            under the history. It says what it is plainly, in the warning tone
+            the window's ring wears. */}
+        {surface === 'transcript' && question && (
+          <div className="agent-question-pin shrink-0" data-agent-question role="region" aria-label="The agent asked you a question">
+            <p className="agent-question-pin-label"><QuestionIcon className="h-3.5 w-3.5" /> Asked you a question</p>
+            <div className="agent-question-pin-body"><QuestionCard key={question.callId} request={question} onAnswer={(answers) => { void answerQuestion(answers); }} onSkip={() => { void answerQuestion([]); }} tone="attention" /></div>
+          </div>
+        )}
         {surface !== 'composer' && (
         <div className="relative flex min-h-0 w-full flex-1">
           <VirtualTranscript
@@ -2204,6 +2209,22 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               </>
             }
           />
+          {/* The plan panel's toggle floats in the chat area's top-right corner,
+              in its own place whether the panel is open or not. */}
+          {wideEnoughForRail && (
+            <button
+              type="button"
+              className={`plan-rail-toggle ${planRailOpen ? 'is-open' : ''}`}
+              data-plan-toggle
+              onClick={() => useStore.getState().togglePlanRail()}
+              title={planRailOpen ? 'Hide the plan panel' : 'Show the plan, sub-agents and queue panel'}
+              aria-label={planRailOpen ? 'Hide the plan panel' : 'Show the plan panel'}
+              aria-pressed={planRailOpen}
+            >
+              <ListIcon className="h-4 w-4" />
+              {!planRailOpen && planSteps.total > 0 && <span className="plan-rail-toggle-count tabular-nums">{planSteps.done}/{planSteps.total}</span>}
+            </button>
+          )}
           {showJump && (
             <button
               className="fade-in absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-line px-3 py-1 text-[12px] font-medium text-ink-soft shadow-md hover:text-ink"
@@ -2217,7 +2238,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         )}
 
         {approval && surface !== 'composer' && <ApprovalBar approval={approval} onDecide={approve} />}
-        {surface === 'transcript' && question && <div className="max-h-[60%] shrink-0 overflow-y-auto px-3"><ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} /></div>}
 
         {readOnly ? (
           surface === 'transcript' ? null : <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
@@ -2773,12 +2793,11 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           the chat pane (not the workbench's right panel) because everything in
           it belongs to this one conversation. */}
       {surface !== 'composer' && planRailOpen && (
-        <div className="w-1/4 min-w-[224px] max-w-[320px] shrink-0">
+        <div className="shrink-0" style={{ width: PLAN_RAIL_WIDTH }}>
           <PlanRail
             sessionId={sessionId}
             session={session}
             streaming={streaming}
-            onClose={() => useStore.getState().togglePlanRail()}
             onChangePlan={readOnly ? undefined : () => {
               setDraft(appendPlanChangeRequest);
               composerRef.current?.focus();
