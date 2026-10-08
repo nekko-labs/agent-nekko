@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
 import type { PendingInput, SessionSummary } from '@agent-nekko/shared';
 import { WorkingSubagents } from './WorkingSubagents.js';
-vi.mock('react', async (original) => ({ ...await original<typeof import('react')>(), useState: vi.fn() }));
+vi.mock('react', async (original) => ({
+  ...await original<typeof import('react')>(),
+  useState: vi.fn(),
+  useRef: () => ({ current: null }),
+  useEffect: vi.fn(),
+}));
 afterEach(() => vi.clearAllMocks());
 function elements(node: React.ReactNode): React.ReactElement<Record<string, any>>[] {
   const result: React.ReactElement<Record<string, any>>[] = [];
