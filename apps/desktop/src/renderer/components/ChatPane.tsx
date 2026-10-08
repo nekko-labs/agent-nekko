@@ -45,7 +45,7 @@ import { ComposerQuestion } from './ComposerQuestion.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
-import { ChatControls, MODE_LABEL } from './ChatControls.js';
+import { ChatControls, InternetToggle, McpMenu, MODE_LABEL, ToolsMenu } from './ChatControls.js';
 import { useElementCompact } from './agent-console/useElementWidth.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
@@ -508,8 +508,10 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full' }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full', statusGlyph }: {
   sessionId: string;
+  /** What the agent is doing (rocket, Zz, ?), drawn in the far bottom-right corner of the window's footer. */
+  statusGlyph?: React.ReactNode;
   commandCenter?: boolean;
   /**
    * Which part of the chat this instance shows. A window on the Command
@@ -2263,6 +2265,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 session={session}
                 isCloudModel={isCloudModel}
                 onChange={setSession}
+                toolsInWindow
               />
               </div>
               {!imageMode && (<>
@@ -2441,8 +2444,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   )}
                 </div>
               )}
-            {/* Recovery is separate from the placeholder suggestion. */}
-            {!imageMode && (canContinueReply || canContinueWork) && !streaming && (
+            {/* Recovery is separate from the placeholder suggestion. The wall
+                composer shows no "Continue work" box: the window's error banner
+                carries Retry when a turn actually stopped. */}
+            {!imageMode && surface !== 'composer' && (canContinueReply || canContinueWork) && !streaming && (
               <div className="flex items-center border-b border-line px-3 py-2.5">
                 <button
                   className={canContinueReply ? suggestedReplyClassName : 'btn btn-outline py-1 text-[12px]'}
@@ -2726,8 +2731,19 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     unpriced={!!avoidedCosts?.unpricedTokens || (streaming && !getModelPrice(modelForCostRef.current ?? undefined))}
                   />
                   </>
-            <button type="button" className="ml-auto flex items-center gap-1 text-[10px] text-ink-faint" aria-label={session?.offline ? 'Switch to online mode' : 'Switch to offline mode'} aria-pressed={!!session?.offline} onClick={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: session?.offline ? 'var(--ink-faint)' : 'var(--success)' }} />{session?.offline ? 'Offline' : 'Online'}</button>
+            {/* What this agent may reach and use, then its status in the far
+                bottom-right corner of the window. */}
+            <div className="agent-footer-reach ml-auto flex shrink-0 items-center gap-1" data-agent-footer-controls>
+              {session && <>
+                <ToolsMenu session={session} onChange={setSession} />
+                <McpMenu />
+              </>}
+              <InternetToggle session={session} cloudModel={isCloudModel} onToggle={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }} />
+              {statusGlyph && <span className="agent-footer-status ml-1 inline-flex items-center" data-agent-status>{statusGlyph}</span>}
+            </div>
           </div>}
+          {/* An image chat runs no agent, so no tools or internet switch: just its status. */}
+          {imageMode && surface !== 'composer' && statusGlyph && <div className="flex items-center justify-end"><span className="agent-footer-status inline-flex items-center" data-agent-status>{statusGlyph}</span></div>}
         </div>
       </section>
 

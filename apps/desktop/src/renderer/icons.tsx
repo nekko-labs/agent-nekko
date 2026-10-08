@@ -78,6 +78,10 @@ export const BoltIcon = (p: P) => (<S {...p}><path d="M13 2 4 14h6l-1 8 9-12h-6z
 export const WrenchIcon = (p: P) => (<S {...p}><path d="M14.7 6.3a4.5 4.5 0 0 0-6 5.7L3 17.7A2 2 0 1 0 6.3 21l5.7-5.7a4.5 4.5 0 0 0 5.7-6L14.5 12l-2.5-2.5z" /></S>);
 export const PlaneIcon = (p: P) => (<S {...p}><path d="M17.8 19.2 16 11l3.5-3.5a2.1 2.1 0 1 0-3-3L13 8 4.8 6.2a1 1 0 0 0-.9.3l-.5.5 6 4-3 3-2.6-.5-.8.8 3 2 2 3 .8-.8L8.3 16l3-3 4 6 .5-.5a1 1 0 0 0 .3-.9z" /></S>);
 export const MaskIcon = (p: P) => (<S {...p}><path d="M4 8c0-1 1-2 2.5-2h11C19 6 20 7 20 8l-1 5c-.3 1.6-1.5 2.5-3 2.5-1.6 0-2.6-.9-3-2-.4 1.1-1.4 2-3 2-1.5 0-2.7-.9-3-2.5z" /><path d="M9.5 18.5c1-.8 4-.8 5 0" /></S>);
+/** A globe: this agent may reach the internet. */
+export const GlobeIcon = (p: P) => (<S {...p}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" /></S>);
+/** A globe struck through: this agent is blocked from the internet. */
+export const GlobeOffIcon = (p: P) => (<S {...p}><path d="M5.6 5.6A9 9 0 0 0 18.4 18.4M20.3 15.6A9 9 0 0 0 8.4 3.7M3 12h9M15.8 12h5.2M12 3c1.3 1.4 2.3 2.9 2.9 4.6M8.2 12c0 3.4 1.3 6.4 3.8 9 .9-1 1.7-2 2.3-3.1" /><path d="M3 3l18 18" /></S>);
 export const ListIcon = (p: P) => (<S {...p}><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" /></S>);
 export const ToolStepIcon = (p: P) => (<S {...p}><path d="M12 3 3 8l9 5 9-5zM3 8v8l9 5 9-5V8" /></S>);
 export const ThoughtIcon = (p: P) => (<S {...p}><path d="M12 4a5 5 0 0 0-4.9 4A4 4 0 0 0 8 16h8a4 4 0 0 0 1-7.9A5 5 0 0 0 12 4z" /><path d="M9 20h.01M6.5 22h.01" /></S>);

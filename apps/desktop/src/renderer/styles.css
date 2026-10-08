@@ -1754,6 +1754,28 @@
   --panel-ring-color: color-mix(in srgb, var(--accent) 60%, var(--line)) !important;
   box-shadow: 0 0 10px 0 color-mix(in srgb, var(--accent) 24%, transparent);
 }
+/* Agent window footer, right end: Tools, MCP, the internet toggle, then the
+   status glyph in the window's far bottom-right corner. */
+.agent-footer-reach .ctl-menu { padding-top: 1px; padding-bottom: 1px; font-size: 11px; }
+.agent-internet-toggle { color: var(--success); transition: background-color .12s ease, color .12s ease; }
+.agent-internet-toggle[data-internet='blocked'] { color: var(--ink-faint); }
+.agent-internet-toggle:hover { background: var(--surface-2); }
+.agent-internet-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.agent-footer-status { min-width: 16px; justify-content: flex-end; }
+/* A window waiting on you (a question, an approval, a stopped turn) wears a
+   warm ring and glow, whether or not it is the selected one, and in Focus too. */
+.command-wall-window[data-wall-needs-you] > .panel,
+.command-wall-layout[data-wall-layout] .command-wall-window[data-wall-needs-you] > .panel {
+  --panel-ring-color: var(--warning) !important;
+  --panel-ring-width: 2px !important;
+  box-shadow: 0 0 14px 1px color-mix(in srgb, var(--warning) 45%, transparent);
+  animation: wall-needs-you-pulse 2.4s ease-in-out infinite;
+}
+@keyframes wall-needs-you-pulse {
+  0%, 100% { box-shadow: 0 0 14px 1px color-mix(in srgb, var(--warning) 45%, transparent); }
+  50% { box-shadow: 0 0 20px 3px color-mix(in srgb, var(--warning) 30%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .command-wall-window[data-wall-needs-you] > .panel { animation: none; } }
 .command-wall-window[data-wall-selected] .wall-num, .wall-composer[data-has-agent] .wall-num { background: var(--accent); color: var(--win); }
 .wall-layout-control { position: relative; display: inline-flex; align-items: center; }
 .wall-auto-arrange { position: relative; display: flex; align-items: center; width: 0; opacity: 0; visibility: hidden; transform: translateX(-18px) scale(.6); transition: width 240ms ease, opacity 180ms ease, transform 240ms ease, visibility 0s 240ms; }

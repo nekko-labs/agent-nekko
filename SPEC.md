@@ -839,6 +839,18 @@ Agents now hosts the existing Chat grouped sidebar, retaining WorkspaceCard pres
 - **Budget filters.** The Budget panel has the same time-range filter as Insights' Tokens chart (today, 1wk, 1m, 6m, 1y, all-time; default 1m, UTC day buckets), filtering estimated spend and input/output tokens. Top agent and the savings estimates have no daily breakdown, so they stay all-time and say so.
 - Privacy: UI-only. No new reads, permissions, network calls, or persisted settings (the Budget range is not saved).
 
+### Agent window indicators and attention (2026-10-09)
+
+`[Implemented; isolated renderer checks and hidden-sandbox dark/light before/after evidence. Real desktop window, narrow widths, macOS, and a live question/approval from a real agent run are unverified.]`
+
+- **Needs you, again.** A wall window waiting on you (a question, a permission approval, or a turn that stopped part-way) wears a warm 2px ring with a soft pulsing glow, selected or not and in every layout; reduced motion keeps the ring and drops the pulse. This had regressed in 2026-10-04's chat-window rework, which kept only the strip tint. The window's status shows **?** (needs input) or the warning glyph. In the Agents panel a card now shows **?** for a question as well as an approval, keeps it while the parked run streams, and clears it once answered; a chat already waiting when the panel mounts is read from the host (`pendingInput`).
+- **Status glyph placement.** A chat window's status glyph (rocket working, Zz idle, ?, warning) sits in the far bottom-right corner of the window's footer instead of the title strip. Terminals keep their strip dot.
+- **Internet toggle.** The footer's "Online" label is an icon toggle: a globe when this agent may reach the internet, the globe struck through when it is blocked. The tooltip says that clicking allows or blocks internet connectivity for this agent. Blocking is the chat's existing Offline mode (no tools, connectors or network). As before, only a chat on a local model can be blocked: on a cloud model the toggle is disabled and its tooltip says why.
+- **Tools and MCP in the window.** The Tools and MCP pickers moved from the composer's control row to the agent window's footer, beside the internet toggle. Their menus float above the window (portalled) so the window's clipping cannot cut them off. The composer keeps Mode, Incognito, Thinking and Automate; its Offline chip is replaced by the window's internet toggle.
+- **Composer.** The wall composer no longer shows the "Continue work" / "Retry" suggestion box. A turn that actually stopped still shows its error banner with Retry in the agent window.
+- **Chat panel groups.** Closing a group hides its cards completely: they leave the tab order (`inert`), cannot be clicked, and in the horizontal row the group's strip takes no width. In the row the mouse wheel scrolls sideways. In the column the card list scrolls with the wheel inside the panel, which is bounded by the wall's height.
+- Privacy: the internet toggle only flips the existing per-chat `offline` option. No new reads, permissions or network calls.
+
 ### Former Command Center agent tabs (superseded by the grouped list)
 
 - Creating an agent from the wall's New agent controls selects the new session and its focus window/composer without leaving Command Center.
