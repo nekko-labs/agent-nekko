@@ -20,7 +20,8 @@ const makeSession = (id: string, title: string, workspaceId?: string) => ({
   id, title, createdAt: at, updatedAt: at, providerId: 'fixture', modelId: 'fixture-model', mode: 'agent', chatType: 'multimodal', workspaceId,
   messages: [
     { id: id + '-u', role: 'user', content: 'Summarise the synthetic fixture.', createdAt: at - 60_000 },
-    { id: id + '-a', role: 'assistant', content: 'The synthetic fixture renders two agent windows and one chat that is not on the wall.', createdAt: at - 30_000 },
+    { id: id + '-a', role: 'assistant', content: 'The synthetic fixture renders two agent windows and one chat that is not on the wall.', createdAt: at - 30_000,
+      turnStats: { providerId: 'fixture', modelId: 'claude-opus-5-5', effort: 'medium', inputTokens: 39650, cacheReadTokens: 32_601_512, cacheWriteTokens: 642_691, outputTokens: 25540, outputMs: 164387, wallMs: 681582, calls: 53, steps: 53, stop: 'complete' } },
   ],
   attachments: [], queuedPrompts: [],
 });
