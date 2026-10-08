@@ -25,6 +25,15 @@ describe('reply measurements', () => {
     expect(renderToStaticMarkup(<ReplyStatus {...base} nextWakeAt={base.now - 1000} />)).toContain('Sleeping · will check in 1 min');
     expect(renderToStaticMarkup(<ReplyStatus {...base} nextWakeAt={null} />)).toContain('Done.');
   });
+  it('puts the measurements on the line after the sleeping label', () => {
+    const html = renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={1300} last={{ out: 1300, tps: 0, secs: 61 }} nextWakeAt={100000 + 13 * 60_000} now={100000} />);
+    expect(html).toMatch(/<span class="basis-full" data-reply-sleeping="true">Sleeping · will check in 13 mins<\/span><span[^>]*>— tok\/s<\/span>/);
+    expect(html).toContain('· 1.3k total tokens');
+    expect(html).toContain('· 61s');
+    const done = renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={0} last={{ out: 1, tps: 0, secs: 1 }} done="Done" />);
+    expect(done).toContain('>· — tok/s');
+    expect(done).not.toContain('basis-full');
+  });
   it('keeps active and blocked states ahead of sleeping', () => {
     const base = { status: 'Working', elapsed: 0, tps: 0, out: 0, last: null, nextWakeAt: 200000, now: 100000 };
     const active = renderToStaticMarkup(<ReplyStatus {...base} streaming />);

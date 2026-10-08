@@ -183,6 +183,8 @@ async function openApp({ appUrl, cdpPort, vsync }) {
     const title = chatTitle(i);
     // Setup selects the exact grouped card on Agents; Chat no longer owns this list.
     await waitFor("!!document.querySelector('button[data-sidebar-group]')", 'the Agents sidebar');
+    // Cards only select a window in Dynamic/Grid; measure the full-size chat in Focus.
+    await cdp.evaluate(`(() => { const b = [...document.querySelectorAll('.wall-layout-segments button')].find(b => b.textContent.trim() === 'Focus'); if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); return true; })()`);
     await showAllCards();
     await cdp.call((title) => [...document.querySelectorAll('div[role="button"]')].find(card => card.getAttribute('title')?.includes(title))?.click(), title);
     // Setup is not a measured sidebar switch. Let the virtual transcript settle

@@ -78,7 +78,8 @@ app.whenReady().then(async () => {
         await run("[...document.querySelectorAll('button')].find(button => button.textContent === 'Back to active agents').click()");
         await openList(width);
         await run("[...document.querySelectorAll('div[role=button]')].find(card => card.getAttribute('title')?.includes('Active conversation')).click()");
-        await check('active card focuses Agents chat', "integration.state().view === 'command' && document.querySelector('[data-wall-layout]')?.dataset.wallLayout === 'focus'");
+        // Outside Focus a card keeps the layout and marks its window active.
+        await check('active card selects its window in Agents', "integration.state().view === 'command' && document.querySelector('[data-wall-layout]')?.dataset.wallLayout === 'grid' && document.querySelector('[data-wall-selected]')?.dataset.gridCell === 'chat:active'");
         await openList(width);
         if (width >= 768) {
           await run("document.querySelector('[aria-label=\"Resize the agent list\"]').dispatchEvent(new KeyboardEvent('keydown', {key:'ArrowRight', bubbles:true}))");

@@ -2,6 +2,7 @@ import { AgentWindowPicker, type AgentWindowSelection } from '../components/Agen
 import { AgentSidebar } from './WorkspacesView.js';
 import { ChatPane } from '../components/ChatPane.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { AgentEvent, AutomationTask, PendingInput, SessionSummary, UsageSummary } from '@agent-nekko/shared';
 import type { AgentType } from '@agent-nekko/shared';
 import { AUTO_MODEL_ID, classifyAgent, classifySession, formatUSD, summarizeSession } from '@agent-nekko/shared';
@@ -25,6 +26,7 @@ import {
   loadWallState,
   nextAgent,
   reconcileWall,
+  readAgentPanel,
   wallAgents,
   saveWallState,
   tileTree,
@@ -42,6 +44,13 @@ export function wallLayoutShortcut(e: Pick<KeyboardEvent, 'code' | 'key' | 'ctrl
   const digit = /^Digit[1-3]$/.test(e.code) ? e.code.slice(-1) : /^[1-3]$/.test(e.key) ? e.key : null;
   return digit === '1' ? 'focus' : digit === '2' ? 'grid' : digit === '3' ? 'fixed' : null;
 }
+
+/**
+ * What each saved layout mode is called. The free-form tiled wall reads as
+ * Dynamic; the even rows and columns read as Grid. Saved values keep their
+ * original keys so existing walls load unchanged.
+ */
+export const LAYOUT_LABEL: Record<'focus' | 'grid' | 'fixed', string> = { focus: 'Focus', grid: 'Dynamic', fixed: 'Grid' };
 
 function layoutShortcutLabel(mode: 'focus' | 'grid' | 'fixed') {
   const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
@@ -265,6 +274,7 @@ export function CommandCenterView() {
     setWall((w) => w.hero === id ? w : { ...w, hero: id });
   }, [setWall]);
   const agentsOnWall = useMemo(() => wallAgents(wall.root), [wall.root]);
+  const panel = readAgentPanel(wall.agentPanel);
   useEffect(() => {
     if (agentsOnWall.length === 0) { if (selected) selectAgent(null); return; }
     if (!selected || !agentsOnWall.some((p) => p.refId === selected)) selectAgent(agentsOnWall.find((p) => p.refId === wall.hero)?.refId ?? agentsOnWall[0].refId);
@@ -307,10 +317,10 @@ export function CommandCenterView() {
   const composerDrag = useRef<{ y: number; height: number } | null>(null);
   const composerSplit = <div className="wall-composer-split" role="separator" tabIndex={0} aria-label="Resize composer versus wall" aria-orientation="horizontal" title="Drag to resize composer versus wall; double-click to reset"
     onPointerDown={(e) => { composerDrag.current = { y: e.clientY, height: composerRef.current?.offsetHeight ?? 240 }; e.currentTarget.setPointerCapture(e.pointerId); }}
-    onPointerMove={(e) => { const drag = composerDrag.current; if (!drag) return; const available = composerRef.current?.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, drag.height + (e.clientY - drag.y) * (wall.composer.side === 'top' ? 1 : -1)))); }}
+    onPointerMove={(e) => { const drag = composerDrag.current; if (!drag) return; const available = composerRef.current?.closest('.wall-column')?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, drag.height + (e.clientY - drag.y) * (wall.composer.side === 'top' ? 1 : -1)))); }}
     onPointerUp={() => { composerDrag.current = null; }} onPointerCancel={() => { composerDrag.current = null; }}
     onDoubleClick={() => setComposerHeight(null)}
-    onKeyDown={(e) => { if (e.key === 'Home') { e.preventDefault(); setComposerHeight(null); } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const available = composerRef.current?.parentElement?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, (composerHeight ?? composerRef.current?.offsetHeight ?? 240) + (e.key === 'ArrowUp' ? 20 : -20) * (wall.composer.side === 'top' ? -1 : 1)))); } }} />;
+    onKeyDown={(e) => { if (e.key === 'Home') { e.preventDefault(); setComposerHeight(null); } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const available = composerRef.current?.closest('.wall-column')?.clientHeight ?? 700; setComposerHeight(Math.max(120, Math.min(available * .7, (composerHeight ?? composerRef.current?.offsetHeight ?? 240) + (e.key === 'ArrowUp' ? 20 : -20) * (wall.composer.side === 'top' ? -1 : 1)))); } }} />;
   const composer = (
     <WallComposer
       height={composerHeight}
@@ -329,27 +339,52 @@ export function CommandCenterView() {
       panelRef={composerRef}
     />
   );
+  // Add window rides beside the composer; an elbow arrow points from it to
+  // the corner of the wall where the new window will land.
+  const addButton = (
+    <div className="wall-add-launch" data-side={wall.composer.side}>
+      <button
+        type="button"
+        className="wall-add-button"
+        data-wall-add-button
+        onClick={() => setAddOpen((o) => !o)}
+        aria-controls="wall-window-picker"
+        aria-expanded={addOpen}
+        title="Add an agent, a terminal, or a chat already running"
+      >
+        <PlusIcon className="h-4 w-4" /> Add window
+      </button>
+      <span className="wall-add-arrow" aria-hidden="true" />
+    </div>
+  );
+  const composerRow = <div className="wall-composer-row" data-dock={`${wall.composer.side}-${wall.composer.align}`}>{composer}{addButton}</div>;
 
   return (
     <div ref={viewRef} className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
-      <WallToolbar wall={wall} setWall={setWall} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} />
+      <WallToolbar wall={wall} setWall={setWall} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} showAdd={wall.layout.mode === 'focus' || !!completedId} />
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
-        <div className="wall-agent-workspace" data-tabs="left">
-      <AgentSidebar onCreate={async (kind, projectId, shell) => {
+        <div className="wall-agent-workspace" data-tabs={panel.show && panel.orientation === 'horizontal' ? 'top' : 'left'}>
+      {panel.show && <AgentSidebar onCreate={async (kind, projectId, shell) => {
         const id = kind === 'terminal' ? await newTerminal(projectId, shell) : await newChat({ kind: 'chat', chatType: kind === 'image' ? 'image' : 'multimodal' }, projectId);
         await addFromToolbar(kind === 'terminal' ? 'terminal' : 'chat', id);
         setCompletedId(null);
       }} selectedId={completedId ?? selected} onOpenChat={(id) => {
         if (sessions.find((session) => session.id === id)?.archivedAt) setCompletedId(id);
         else {
+          setCompletedId(null);
+          // Focus shows the chosen chat. Every other layout keeps its windows
+          // and marks the chat's window active, adding one when it has none.
           void addFromToolbar('chat', id);
           selectAgent(id);
-          setWall((w) => ({ ...w, hero: id, layout: { ...w.layout, mode: 'focus' } }));
+          if (wall.layout.mode === 'focus') setWall((w) => ({ ...w, hero: id }));
         }
-      }} onOpenTerminal={(id) => { setCompletedId(null); void addFromToolbar('terminal', id); }} />
+      }} onOpenTerminal={(id) => { setCompletedId(null); void addFromToolbar('terminal', id); }}
+        orientation={panel.orientation}
+        onOrientation={(orientation) => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), orientation } }))}
+        onClosePanel={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: false } }))} />}
       <div className="wall-column">
-      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composer}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'top' && composerRow}
       {completedId ? <div className="panel panel-ring flex min-h-0 flex-1 flex-col overflow-hidden"><button className="btn btn-ghost self-start" onClick={() => setCompletedId(null)}>Back to active agents</button><ChatPane key={completedId} sessionId={completedId} readOnly /></div> : <CommandWall
         state={wall}
         setState={setWall}
@@ -375,7 +410,7 @@ export function CommandCenterView() {
           setAddOpen(false);
         }} /> : undefined}
       />}
-      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composer}
+      {!completedId && wall.layout.mode !== 'focus' && wall.composer.side === 'bottom' && composerRow}
         </div>
       </div>
       </div>
@@ -397,12 +432,15 @@ export function WallToolbar({
   onAutoArrange,
   addOpen,
   setAddOpen,
+  showAdd = false,
 }: {
   wall: CommandWallState;
   setWall: (update: (s: CommandWallState) => CommandWallState) => void;
   onAutoArrange: () => void;
   addOpen: boolean;
   setAddOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  /** Focus has no composer row to carry Add window, so the toolbar keeps it. */
+  showAdd?: boolean;
 }) {
   const [fixedOpen, setFixedOpen] = useState(false);
   const [hoverSize, setHoverSize] = useState({ rows: wall.layout.rows, cols: wall.layout.cols });
@@ -416,22 +454,28 @@ export function WallToolbar({
     return () => { window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key); };
   }, [fixedOpen]);
   const canArrange = wall.layout.mode === 'grid' && !!wall.root && isSplit(wall.root);
+  const panel = readAgentPanel(wall.agentPanel);
+  // In the desktop shell the controls share the title bar's row with the
+  // Agents heading instead of costing a row of their own.
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => { if (hasAppChrome) setSlot(document.getElementById('command-titlebar-slot')); }, []);
 
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+  const controls = (
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${slot ? 'wall-toolbar-titlebar no-drag' : ''}`} data-wall-toolbar>
       {!hasAppChrome && <h1 className="text-gradient text-2xl font-semibold">Agents</h1>}
-      <div className="ml-auto flex flex-wrap items-center gap-3">
+      <div className={`ml-auto flex flex-wrap items-center ${slot ? 'gap-2' : 'gap-3'}`}>
+        {!panel.show && <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-label="Show the agent panel" title="Show the agent panel" onClick={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: true } }))}><PanelIcon className="h-4 w-4" />Agents</button>}
         <div className="wall-layout-control" ref={fixedRef}>
           <div className="wall-layout-segments" role="group" aria-label="Wall layout">
             {(['focus', 'grid', 'fixed'] as const).map((mode) => (
-              <button key={mode} type="button" title={`${mode[0].toUpperCase() + mode.slice(1)} (${layoutShortcutLabel(mode)})`} aria-pressed={wall.layout.mode === mode} aria-expanded={mode === 'fixed' ? fixedOpen : undefined} onClick={() => {
+              <button key={mode} type="button" title={`${LAYOUT_LABEL[mode]} (${layoutShortcutLabel(mode)})`} aria-pressed={wall.layout.mode === mode} aria-expanded={mode === 'fixed' ? fixedOpen : undefined} onClick={() => {
                 if (mode === 'fixed') { setHoverSize({ rows: wall.layout.rows, cols: wall.layout.cols }); setFixedOpen((open) => !open); }
                 else { setFixedOpen(false); setWall((w) => ({ ...w, layout: { ...w.layout, mode } })); }
-              }}>{React.createElement(mode === 'focus' ? FocusLayoutIcon : mode === 'grid' ? GridIcon : FixedLayoutIcon, { className: 'h-4 w-4' })}{mode[0].toUpperCase() + mode.slice(1)}</button>
+              }}>{React.createElement(mode === 'focus' ? FocusLayoutIcon : mode === 'grid' ? GridIcon : FixedLayoutIcon, { className: 'h-4 w-4' })}{LAYOUT_LABEL[mode]}</button>
             ))}
           </div>
-          {fixedOpen && <div className="wall-fixed-picker" role="dialog" aria-label="Fixed grid size">
-            <p className="wall-fixed-shortcut">{layoutShortcutLabel('fixed')} · Fixed view</p>
+          {fixedOpen && <div className="wall-fixed-picker" role="dialog" aria-label="Grid size">
+            <p className="wall-fixed-shortcut">{layoutShortcutLabel('fixed')} · Grid view</p>
             <p>{hoverSize.cols} columns × {hoverSize.rows} rows</p>
             <div className="wall-fixed-cells" onMouseLeave={() => setHoverSize({ rows: wall.layout.rows, cols: wall.layout.cols })}>
               {Array.from({ length: 36 }, (_, i) => {
@@ -465,7 +509,7 @@ export function WallToolbar({
           <WandIcon className="h-4 w-4" />
         </button>
         <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-pressed={wall.dock.show} onClick={() => setWall((w) => ({ ...w, dock: { ...w.dock, show: !w.dock.show } }))}><PanelIcon className="h-4 w-4" />Panels</button>
-        <div className="relative">
+        {showAdd && <div className="relative">
           <button
             className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
             onClick={() => setAddOpen((o) => !o)}
@@ -475,8 +519,9 @@ export function WallToolbar({
           >
             <PlusIcon className="h-3.5 w-3.5" /> Add window
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   );
+  return slot ? createPortal(controls, slot) : controls;
 }

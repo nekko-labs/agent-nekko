@@ -117,6 +117,8 @@ export function sanitizeMonthlyBudgetUsd(value: unknown): number | undefined {
 export interface CommandWallSetting {
   /** Agent tab placement, independent of window layout. */
   tabs?: 'top' | 'left' | 'hidden';
+  /** The Agents tab's panel of agent cards: shown or closed, a column or a row. */
+  agentPanel?: { show: boolean; orientation: 'vertical' | 'horizontal' };
   layout?: WallLayout;
   dock?: WallDock;
   hero?: string | null;

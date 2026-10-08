@@ -2348,23 +2348,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               </div>
             </div>
 
-            {!imageMode && (
-            <PromptAnalyzer
-              text={deferredDraft}
-              sessionId={sessionId}
-              canModelFill={hasProvider}
-              workspaces={settings?.workspaces ?? []}
-              contextItems={ctx?.items ?? []}
-              activeWorkspaceIds={session ? getSessionWorkspaceIds(session) : []}
-              onFill={({ snippet, placement }) => {
-                setDraft((d) =>
-                  placement === 'start' ? `${snippet}\n\n${d.replace(/^\s+/, '')}` : `${d.replace(/\s+$/, '')}\n\n${snippet}`,
-                );
-                composerRef.current?.focus();
-              }}
-            />
-            )}
-
             <div className="composer-editing-body relative w-full">
               {atMenuOpen && (
                 <div
@@ -2459,7 +2442,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     a hairline. Floated above it they covered the instrument
                     strip. */}
                 {pendingImages.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto border-b border-line px-3 py-2.5">
+                  <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-line px-3 py-2.5" data-composer-attachments>
                     {pendingImages.map((image, i) => (
                       <div key={`${image.slice(0, 24)}-${i}`} className="group relative shrink-0">
                         <img
@@ -2485,7 +2468,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   </div>
                 )}
                 {activeSkill && (
-                  <div className="flex items-center gap-2 px-3.5 pt-2.5">
+                  <div className="flex shrink-0 items-center gap-2 px-3.5 pt-2.5" data-composer-skill>
                     <span className="skill-pill text-[12px]" title={activeSkill.description}>
                       <span className="skill-pill-slash">/</span>{activeSkill.name}
                       <button
@@ -2653,6 +2636,25 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   </>)}
                   <div className="flex-1" />
                   {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
+                  {/* Prompt suggestions: one chip beside the microphone; its
+                      details open above it rather than pushing the editor. */}
+                  {!imageMode && (
+                    <PromptAnalyzer
+                      variant="chip"
+                      text={deferredDraft}
+                      sessionId={sessionId}
+                      canModelFill={hasProvider}
+                      workspaces={settings?.workspaces ?? []}
+                      contextItems={ctx?.items ?? []}
+                      activeWorkspaceIds={session ? getSessionWorkspaceIds(session) : []}
+                      onFill={({ snippet, placement }) => {
+                        setDraft((d) =>
+                          placement === 'start' ? `${snippet}\n\n${d.replace(/^\s+/, '')}` : `${d.replace(/\s+$/, '')}\n\n${snippet}`,
+                        );
+                        composerRef.current?.focus();
+                      }}
+                    />
+                  )}
                   <DictationButton key={sessionId} sessionId={sessionId} onText={(text) => { setDraft((current) => current + (current && !/\s$/.test(current) ? ' ' : '') + text); composerRef.current?.focus(); }} />
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"

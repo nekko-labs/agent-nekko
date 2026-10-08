@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ContextItem, SpecDocStatus, WorkspaceFolder } from '@agent-nekko/shared';
 import {
   analyzePrompt,
@@ -67,6 +68,7 @@ export function PromptAnalyzer({
   activeWorkspaceIds = [],
   onFill,
   canModelFill = false,
+  variant = 'bar',
 }: {
   text: string;
   sessionId?: string;
@@ -80,6 +82,8 @@ export function PromptAnalyzer({
   /** A provider is configured, so missing-part chips can ask the model to
    *  draft the snippet from this prompt (deterministic text is the fallback). */
   canModelFill?: boolean;
+  /** A bar above the editor, or one "Suggestions" chip among the composer's actions. */
+  variant?: 'bar' | 'chip';
 }) {
   const [open, setOpen] = useState(false);
   const [specDocs, setSpecDocs] = useState<Record<string, SpecDocStatus[]>>({});
@@ -184,6 +188,190 @@ export function PromptAnalyzer({
     }
   };
 
+  const details = (
+    <div className="space-y-2 p-2.5 text-[12px]">
+      {/* What this prompt will reference — mentioned projects + their context. */}
+      {refCount > 0 && (
+        <div className="space-y-1.5">
+          <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
+            <FolderIcon className="h-3 w-3" /> Will reference
+          </p>
+          {mentionedIds.map((id) => {
+            const entry = refsByProject[id];
+            if (!entry) return null;
+            return (
+              <div key={id} className="rounded-lg border border-line p-2" style={{ background: 'var(--surface-2)' }}>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-medium"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                  >
+                    <FolderIcon className="h-3 w-3" />{baseName(entry.folder.path) || entry.folder.name}
+                  </span>
+                  {!entry.active && <span className="chip text-[10px]" title="Mentioned, but not added to this chat yet">not in chat</span>}
+                </div>
+                {entry.active ? (
+                  entry.refs.length > 0 ? (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {entry.refs.map((r, i) => (
+                        <span
+                          key={i}
+                          className="inline-flex items-center gap-1 rounded-full border border-line px-1.5 py-0.5 text-[10px] text-ink-soft"
+                          title={REF_META[r.kind].label}
+                        >
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: REF_META[r.kind].color }} />
+                          {r.label}{r.sub ? <span className="text-ink-faint"> · {r.sub}</span> : null}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-ink-faint">Grounding this chat. No guideline or spec files detected yet.</p>
+                  )
+                ) : (
+                  <p className="mt-1 text-[11px] text-ink-faint">Add this folder to the chat to ground it in its code, guidelines, and specs.</p>
+                )}
+              </div>
+            );
+          })}
+          {looseFolders.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 text-[11px] text-ink-faint">
+              <span>Folders:</span>
+              {looseFolders.map((f, i) => (
+                <span key={i} className="rounded-sm px-1 py-0.5 font-mono text-[10px]" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>{f}</span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+  
+      {/* Present parts read as badges; missing ones are buttons that insert
+          a starter snippet matched to what the prompt is about. */}
+      <div className="flex flex-wrap gap-1">
+        {a.parts.map((p) => {
+          if (p.present) {
+            return (
+              <span
+                key={p.id}
+                title={p.hint}
+                className="cursor-help rounded-full border px-2 py-0.5 text-[11px]"
+                style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
+              >
+                ✓ {p.label}
+              </span>
+            );
+          }
+          const fill = onFill ? suggestPartFill(p.id, text) : null;
+          if (!fill && !(canModelFill && sessionId)) {
+            return (
+              <span
+                key={p.id}
+                title={p.hint}
+                className="cursor-help rounded-full border px-2 py-0.5 text-[11px]"
+                style={{ borderColor: 'var(--line)', color: 'var(--ink-faint)' }}
+              >
+                + {p.label}
+              </span>
+            );
+          }
+          const busy = filling === p.id;
+          return (
+            <button
+              key={p.id}
+              disabled={busy}
+              title={
+                canModelFill && sessionId
+                  ? `${p.hint} Click to have the model draft it for this prompt.`
+                  : `${p.hint} Click to insert: "${fill?.snippet}"`
+              }
+              className="rounded-full border border-dashed border-line px-2 py-0.5 text-[11px] text-ink-faint transition-colors hover:border-solid hover:border-accent hover:text-accent disabled:opacity-60"
+              onClick={() => void fillPart(p)}
+            >
+              + {p.label}{busy && <span className="dots" />}
+            </button>
+          );
+        })}
+      </div>
+  
+      <p className="text-[11px] text-ink-faint">
+        <span className="font-medium text-ink-soft">Suggested model:</span> {a.model.reason}
+      </p>
+  
+      {a.findings.length > 0 ? (
+        <ul className="space-y-1">
+          {[...a.findings].sort((x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity]).map((f, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: SEVERITY_COLOR[f.severity] }} />
+              <span className="text-ink-soft">{f.message}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-ink-faint">Clear task and structure, nothing to flag.</p>
+      )}
+
+      {showAnnotated && (
+        <div className="rounded-lg border border-line p-2 font-mono text-[11px] leading-relaxed" style={{ background: 'var(--surface-2)' }}>
+          <Annotated text={text} findings={a.findings} mentions={mentions} />
+        </div>
+      )}
+    </div>
+  );
+
+  // The chip opens its details over the page, anchored above itself; the
+  // composer it sits in clips its overflow, so the popover is portaled out.
+  const chipRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
+  const [anchor, setAnchor] = useState<{ left: number; bottom: number } | null>(null);
+  useLayoutEffect(() => {
+    if (variant !== 'chip' || !open) { setAnchor(null); return; }
+    const place = () => {
+      const r = chipRef.current?.getBoundingClientRect();
+      if (r) setAnchor({ left: Math.max(8, Math.min(r.left, window.innerWidth - 488)), bottom: window.innerHeight - r.top + 6 });
+    };
+    place();
+    const down = (e: MouseEvent) => { if (!chipRef.current?.contains(e.target as Node) && !popRef.current?.contains(e.target as Node)) setOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); chipRef.current?.focus(); } };
+    window.addEventListener('resize', place);
+    window.addEventListener('mousedown', down);
+    window.addEventListener('keydown', key);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('mousedown', down); window.removeEventListener('keydown', key); };
+  }, [variant, open]);
+  useEffect(() => { if (!active) setOpen(false); }, [active]);
+
+  if (variant === 'chip') {
+    if (!active) return null;
+    const label = issues === 0 ? 'Suggestions' : `${issues} suggestion${issues === 1 ? '' : 's'}`;
+    return (
+      <>
+        <button
+          ref={chipRef}
+          type="button"
+          data-prompt-suggestions
+          className={`composer-suggestions-chip ${open ? 'is-open' : ''}`}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          title={`Prompt health ${a.grade} · ${present}/${a.parts.length} parts · ${a.model.tier} model`}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <GradeBadge grade={a.grade} />
+          <span>{label}</span>
+        </button>
+        {open && anchor && createPortal(
+          <div ref={popRef} role="dialog" aria-label="Prompt suggestions" className="card fixed z-[100] max-h-[60vh] w-[480px] max-w-[calc(100vw-16px)] overflow-y-auto shadow-lg" style={{ left: anchor.left, bottom: anchor.bottom, background: 'var(--paper)' }}>
+            <div className="flex items-center gap-2 border-b border-line px-2.5 py-1.5 text-[11px] text-ink-soft">
+              <GradeBadge grade={a.grade} />
+              <span>{present}/{a.parts.length} parts</span>
+              {refCount > 0 && <span className="flex items-center gap-1 text-accent"><FolderIcon className="h-3 w-3" />{refCount}</span>}
+              <span className="ml-auto chip text-[10px] uppercase" title={a.model.reason}>{a.model.tier} model</span>
+            </div>
+            {details}
+          </div>,
+          document.body,
+        )}
+      </>
+    );
+  }
+
   return (
     <div className={`collapse-wrap ${active ? '' : 'collapsed'}`} aria-hidden={!active}>
       <div className="min-h-0 overflow-hidden">
@@ -207,134 +395,7 @@ export function PromptAnalyzer({
         </button>
       </div>
 
-      {open && (
-        <div className="mt-1 space-y-2 rounded-lg border border-line p-2.5 text-[12px]" style={{ background: 'var(--surface)' }}>
-          {/* What this prompt will reference — mentioned projects + their context. */}
-          {refCount > 0 && (
-            <div className="space-y-1.5">
-              <p className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
-                <FolderIcon className="h-3 w-3" /> Will reference
-              </p>
-              {mentionedIds.map((id) => {
-                const entry = refsByProject[id];
-                if (!entry) return null;
-                return (
-                  <div key={id} className="rounded-lg border border-line p-2" style={{ background: 'var(--surface-2)' }}>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[11px] font-medium"
-                        style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-                      >
-                        <FolderIcon className="h-3 w-3" />{baseName(entry.folder.path) || entry.folder.name}
-                      </span>
-                      {!entry.active && <span className="chip text-[10px]" title="Mentioned, but not added to this chat yet">not in chat</span>}
-                    </div>
-                    {entry.active ? (
-                      entry.refs.length > 0 ? (
-                        <div className="mt-1.5 flex flex-wrap gap-1">
-                          {entry.refs.map((r, i) => (
-                            <span
-                              key={i}
-                              className="inline-flex items-center gap-1 rounded-full border border-line px-1.5 py-0.5 text-[10px] text-ink-soft"
-                              title={REF_META[r.kind].label}
-                            >
-                              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: REF_META[r.kind].color }} />
-                              {r.label}{r.sub ? <span className="text-ink-faint"> · {r.sub}</span> : null}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="mt-1 text-[11px] text-ink-faint">Grounding this chat. No guideline or spec files detected yet.</p>
-                      )
-                    ) : (
-                      <p className="mt-1 text-[11px] text-ink-faint">Add this folder to the chat to ground it in its code, guidelines, and specs.</p>
-                    )}
-                  </div>
-                );
-              })}
-              {looseFolders.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1 text-[11px] text-ink-faint">
-                  <span>Folders:</span>
-                  {looseFolders.map((f, i) => (
-                    <span key={i} className="rounded-sm px-1 py-0.5 font-mono text-[10px]" style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}>{f}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Present parts read as badges; missing ones are buttons that insert
-              a starter snippet matched to what the prompt is about. */}
-          <div className="flex flex-wrap gap-1">
-            {a.parts.map((p) => {
-              if (p.present) {
-                return (
-                  <span
-                    key={p.id}
-                    title={p.hint}
-                    className="cursor-help rounded-full border px-2 py-0.5 text-[11px]"
-                    style={{ borderColor: 'var(--accent)', color: 'var(--accent)' }}
-                  >
-                    ✓ {p.label}
-                  </span>
-                );
-              }
-              const fill = onFill ? suggestPartFill(p.id, text) : null;
-              if (!fill && !(canModelFill && sessionId)) {
-                return (
-                  <span
-                    key={p.id}
-                    title={p.hint}
-                    className="cursor-help rounded-full border px-2 py-0.5 text-[11px]"
-                    style={{ borderColor: 'var(--line)', color: 'var(--ink-faint)' }}
-                  >
-                    + {p.label}
-                  </span>
-                );
-              }
-              const busy = filling === p.id;
-              return (
-                <button
-                  key={p.id}
-                  disabled={busy}
-                  title={
-                    canModelFill && sessionId
-                      ? `${p.hint} Click to have the model draft it for this prompt.`
-                      : `${p.hint} Click to insert: "${fill?.snippet}"`
-                  }
-                  className="rounded-full border border-dashed border-line px-2 py-0.5 text-[11px] text-ink-faint transition-colors hover:border-solid hover:border-accent hover:text-accent disabled:opacity-60"
-                  onClick={() => void fillPart(p)}
-                >
-                  + {p.label}{busy && <span className="dots" />}
-                </button>
-              );
-            })}
-          </div>
-
-          <p className="text-[11px] text-ink-faint">
-            <span className="font-medium text-ink-soft">Suggested model:</span> {a.model.reason}
-          </p>
-
-          {a.findings.length > 0 ? (
-            <ul className="space-y-1">
-              {[...a.findings].sort((x, y) => SEV_ORDER[x.severity] - SEV_ORDER[y.severity]).map((f, i) => (
-                <li key={i} className="flex items-start gap-1.5">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: SEVERITY_COLOR[f.severity] }} />
-                  <span className="text-ink-soft">{f.message}</span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-ink-faint">Clear task and structure, nothing to flag.</p>
-          )}
-
-          {showAnnotated && (
-            <div className="rounded-lg border border-line p-2 font-mono text-[11px] leading-relaxed" style={{ background: 'var(--surface-2)' }}>
-              <Annotated text={text} findings={a.findings} mentions={mentions} />
-            </div>
-          )}
-        </div>
-      )}
+      {open && <div className="mt-1 rounded-lg border border-line" style={{ background: 'var(--surface)' }}>{details}</div>}
         </div>
       </div>
     </div>

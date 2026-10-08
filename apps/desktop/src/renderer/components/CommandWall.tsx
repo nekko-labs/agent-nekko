@@ -116,12 +116,13 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
   const deck = new Set(deckPanes.map((p) => p.id));
   const panes: WallGeometry['panes'] = new Map();
   const gap = 8;
-  const rail = 28;
+  // Idle walls reserve nothing for Add: the button sits beside the composer.
+  const rail = 0;
   const deckHeight = state.layout.mode === 'focus' ? 0 : Math.max(240, Math.min(440, width / 3));
   // A stacked Focus chat needs space for transcript, approval and composer
   // above its companion. The wall scrolls when the viewport cannot fit them.
   const minimum = state.layout.mode === 'focus' && width > 0 && width < 640 ? 960 : 240;
-  let stageHeight = Math.max(minimum, height - (state.layout.mode === 'focus' ? 0 : rail + gap));
+  let stageHeight = Math.max(minimum, height);
   const active = visible.filter((p) => !deck.has(p.id));
   const grid = deckPanes.reduce<WbNode | null>((root, p) => removePane(root, p.id), tree);
   // Idle geometry keeps saved ratios. Clicking uses display-only insertion;
@@ -143,9 +144,9 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
     active.forEach((p, i) => panes.set(p.id, { x: (i % cols) * (cellWidth + gap), y: Math.floor(i / cols) * (rowHeight + gap), width: cellWidth, height: rowHeight }));
     const i = active.length;
     const add = { x: (i % cols) * (cellWidth + gap), y: Math.floor(i / cols) * (rowHeight + gap), width: cellWidth, height: rowHeight };
-    if (!preview) Object.assign(add, { x: 0, y: contentHeight + gap, width, height: rail });
+    if (!preview) Object.assign(add, { x: width, y: contentHeight, width: 0, height: rail });
     deckPanes.forEach((p, i) => panes.set(p.id, { x: i * 248, y: contentHeight + gap, width: 240, height: 160 }));
-    return { panes, deck, hero, height: contentHeight + rail + gap + (deck.size ? 168 : 0), add, addGrid: grid, grid, stageHeight };
+    return { panes, deck, hero, height: contentHeight + (deck.size ? 168 + gap : 0), add, addGrid: grid, grid, stageHeight };
   } else {
     const rectOf = (r: { x: number; y: number; width: number; height: number }) => ({
       x: r.x * width + (r.x > 0 ? gap / 2 : 0),
@@ -154,9 +155,9 @@ export function commandWallGeometry(state: CommandWallState, width: number, heig
       height: Math.max(0, r.height * stageHeight - (r.y > 0 ? gap / 2 : 0) - (r.y + r.height < 1 - 1e-6 ? gap / 2 : 0)),
     });
     for (const [id, r] of leafRects(addGrid)) panes.set(id, rectOf(r));
-    const add = preview ? panes.get('__wall_add__') ?? { x: 0, y: stageHeight + gap, width, height: rail } : { x: 0, y: stageHeight + gap, width, height: rail };
+    const add = preview ? panes.get('__wall_add__') ?? { x: 0, y: stageHeight + gap, width, height: 240 } : { x: width, y: stageHeight, width: 0, height: rail };
     panes.delete('__wall_add__');
-    return { panes, deck, hero, height: stageHeight + gap + rail, add, addGrid, grid, stageHeight };
+    return { panes, deck, hero, height: stageHeight, add, addGrid, grid, stageHeight };
   }
   // Focus keeps other bodies warm but selects them through the row above the hero.
   return { panes, deck, hero, height: state.layout.mode === 'focus' ? contentHeight : contentHeight + gap + deckHeight, add: { x: 0, y: contentHeight + gap, width: Math.min(width, Math.max(280, width / 3)), height: 240 }, addGrid, grid, stageHeight };
@@ -239,7 +240,7 @@ export function CommandWall({
     // Hidden behind another view the wall measures nothing; keep the last real
     // size so its windows stay mounted and warm until it is shown again.
     if (width === 0 || height === 0) return;
-    onAspect(Math.max(1, width - 36) / Math.max(1, height - 36));
+    onAspect(Math.max(1, width) / Math.max(1, height));
     setSize((s) => (s.width === width && s.height === height ? s : { width, height }));
   }, [onAspect]);
   useLayoutEffect(() => {
@@ -286,12 +287,12 @@ export function CommandWall({
   // filtered view), so a number means the same window whatever is shown.
   const numberOf = useMemo(() => new Map(wallAgents(state.root).map((p, i) => [p.refId, i + 1])), [state.root]);
   const terminalById = useMemo(() => new Map(terminals.map((t) => [t.id, t])), [terminals]);
-  const aspect = size.width > 36 && size.height > 36 ? (size.width - 36) / (size.height - 36) : DEFAULT_ASPECT;
+  const aspect = size.width > 0 && size.height > 0 ? size.width / size.height : DEFAULT_ASPECT;
   const { geometry, expanded } = useMemo(() => {
-    const base = commandWallGeometry(state, Math.max(0, size.width - (state.layout.mode === 'focus' ? 0 : 36)), size.height, new Set(), !!addContent);
+    const base = commandWallGeometry(state, size.width, size.height, new Set(), !!addContent);
     if (state.layout.mode !== 'grid') return { geometry: base, expanded: new Set<string>() };
     const expanded = new Set(wallAgents(state.root).filter(p => workspaceCompanions(workspaces, p.refId).length > 0 && !(state.folded[p.refId] ?? (numberOf.size > 4 || (base.panes.get(p.id)?.width ?? 0) < 700))).map(p => p.id));
-    return { geometry: expanded.size ? commandWallGeometry(state, Math.max(0, size.width - 36), size.height, expanded, !!addContent) : base, expanded };
+    return { geometry: expanded.size ? commandWallGeometry(state, size.width, size.height, expanded, !!addContent) : base, expanded };
   }, [state.root, state.filter, state.layout, state.hero, state.folded, workspaces, numberOf, size, !!addContent]);
   const densityOf = (paneId: string): boolean | null => {
     const r = geometry.panes.get(paneId);
@@ -468,7 +469,7 @@ export function CommandWall({
   const sourceSplitIds = new Set<string>();
   const collectSplits = (node: WbNode | null): void => { if (node && isSplit(node)) { sourceSplitIds.add(node.id); node.children.forEach(collectSplits); } };
   collectSplits(state.root);
-  const renderDividers = (node: WbNode, r = { x: 0, y: 0, width: Math.max(0, size.width - 36), height: geometry.stageHeight }): React.ReactNode => {
+  const renderDividers = (node: WbNode, r = { x: 0, y: 0, width: size.width, height: geometry.stageHeight }): React.ReactNode => {
     if (!isSplit(node)) return null;
     let at = 0;
     return node.children.map((child, i) => {
@@ -498,15 +499,13 @@ export function CommandWall({
         {allPanes(state.root).map(renderLeaf)}
         {!addContent && state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
         </div>
-        {(state.layout.mode !== 'focus' || addContent) && <div className="command-wall-add-zone">
-          {!addContent && <>
-            {(['bottom', 'right'] as const).map(edge => <button key={edge} className={`command-wall-add-rail command-wall-add-rail-${edge}`} style={edge === 'bottom' ? { left: 0, top: geometry.height - 28, width: Math.max(0, size.width - 36), height: 28 } : { left: Math.max(0, size.width - 28), top: 0, width: 28, height: geometry.stageHeight }} onClick={onAddWindow} aria-label={`Add window from ${edge} edge`} aria-controls="wall-window-picker"><span aria-hidden="true">+</span></button>)}
-          </>}
+        {/* Add window lives beside the composer; the wall only shows the slot it opens. */}
+        {addContent && <div className="command-wall-add-zone">
           {<section className={`command-wall-add${addContent ? ' command-wall-add-tile' : ''}`} data-preview={!!addContent || undefined} data-solid={!!addContent || undefined} style={{ left: geometry.add.x, top: geometry.add.y, width: geometry.add.width, height: addContent ? Math.max(createHeight + 64, geometry.add.height) : geometry.add.height, position: 'absolute' }}>
-            {addContent ? <><div className="command-wall-add-heading">Add to the wall</div><div ref={createRef} id="wall-window-picker" className="command-wall-create">{addContent}</div></> : <button className="command-wall-add-fill" onClick={onAddWindow} aria-label="Add window" aria-expanded={false}><span className="command-wall-add-icon">+</span><span>Add to the wall</span></button>}
+            <div className="command-wall-add-heading">Add to the wall</div><div ref={createRef} id="wall-window-picker" className="command-wall-create">{addContent}</div>
           </section>}
         </div>}
-        {!addContent && !filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : 'No windows on the wall yet. Add a window to get started.'}</div>}
+        {!addContent && !filterTree(state.root, state.filter) && <div className="command-wall-empty">{state.root ? 'No windows match this filter.' : <>No windows on the wall yet. <button type="button" className="text-accent hover:underline" onClick={onAddWindow} aria-label="Add window">Add a window</button> to get started.</>}</div>}
       </div>
     </div>
   );
