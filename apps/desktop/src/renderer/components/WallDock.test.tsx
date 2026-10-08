@@ -47,6 +47,21 @@ describe('wall dock presentation', () => {
     expect(html).toContain('Resize Budget panel height');
     expect(html).not.toContain('Monthly budget (USD)');
   });
+  it('filters Budget spend and tokens with the Insights time ranges', () => {
+    const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: false, automations: false, utilization: false, budget: true, insights: false, hardware: false } } };
+    const now = Date.parse('2026-10-08T12:00:00Z');
+    const usage = { totalInput: 0, totalOutput: 0, totalCost: 0, byModel: {}, bySession: {}, byProvider: {}, bySessionCost: {}, daily: [
+      { date: '2026-10-08', input: 100, output: 50, cost: 1 },
+      { date: '2026-08-01', input: 1000, output: 500, cost: 10 },
+    ] };
+    const html = renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={now} sessions={[]} providers={[]} usage={usage} vitals={{ working: 0, waiting: 0, automations: 0, terminals: 0, tokensToday: 0, spend: '$0', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
+    expect(html).toContain('aria-label="Budget time range"');
+    for (const r of ['today', '1wk', '1m', '6m', '1y', 'all-time']) expect(html).toContain(`>${r}</button>`);
+    // Default 1m (last 30 days) excludes August.
+    expect(html).toContain('last 30 days');
+    expect(html).toContain('100 in · 50 out');
+    expect(html).toContain('$1.00');
+  });
   it('uses named icon controls and meters with exact numbers below', () => {
     const html = render();
     expect(html).toContain('aria-label="Minimize Hardware panel"');

@@ -47,8 +47,9 @@ export async function* parseSSE(res: Response, idleMs?: number): AsyncGenerator<
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
 
+      // Normalize CRLF after joining chunks, including a split CR/LF pair.
+      buffer = buffer.replace(/\r\n/g, '\n');
       let idx: number;
-      // Events are separated by a blank line.
       while ((idx = buffer.indexOf('\n\n')) !== -1) {
         const rawEvent = buffer.slice(0, idx);
         buffer = buffer.slice(idx + 2);

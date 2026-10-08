@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 const electron = require('electron');
 const native = process.argv.includes('--native');
 const source = String.raw`
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, screen } from 'electron';
 import { createServer } from 'node:http';
 import { writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -82,7 +82,7 @@ app.whenReady().then(async () => {
       result.pixelTransport={approvedDisclosure:true,modelReceivedExactPixels:true,bytes:Buffer.from(transported.images[0].split(',')[1],'base64').length,liveInference:false};
     } finally { model.close(); }
     if(native) {
-      target = new BrowserWindow({width:600,height:400,x:process.env.CI?0:-10000,y:process.env.CI?0:-10000,show:false,skipTaskbar:true,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
+      target = new BrowserWindow({width:600,height:400,x:Math.min(...screen.getAllDisplays().map(d=>d.bounds.x))-800,y:Math.min(...screen.getAllDisplays().map(d=>d.bounds.y))-600,show:false,focusable:false,skipTaskbar:true,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
       await target.loadURL(url); target.showInactive(); await pause(500);
       const windows = await captureWindow('native-fixture',{action:'list'});
       const selection = windows.windows.find(w => w.id === target.getMediaSourceId());

@@ -8,7 +8,8 @@ import { PaneActions, useInPaneFrame } from './PaneFrame.js';
 import { Badge, EmptyHint } from './primitives/index.js';
 import { CheckIcon, GearIcon, ServerIcon } from '../icons.js';
 import { EmptyArea, InsightsEmptyArt } from './EmptyIllustrations.js';
-import { INSIGHT_RANGES, insightDays, type InsightRange } from '../insightRanges.js';
+import { insightDays, type InsightRange } from '../insightRanges.js';
+import { RangeToggles } from './RangeToggles.js';
 
 /** The machine's at-a-glance numbers, computed by the view from live state. */
 export interface Vitals {
@@ -219,19 +220,6 @@ function OptimizePanel({ tips, onOpenModels }: { tips: OptimizationTip[]; onOpen
         </div>
       )}
       <button className="mt-2 text-[12px] text-accent hover:underline" onClick={onOpenModels}>Manage models &amp; providers →</button>
-    </div>
-  );
-}
-
-function RangeToggles({ range, onChange, chart }: { range: InsightRange; onChange: (range: InsightRange) => void; chart: string }) {
-  return (
-    <div className="mt-2 flex flex-wrap gap-1" role="group" aria-label={`${chart} time range`}>
-      {INSIGHT_RANGES.map((value) => (
-        <button key={value} type="button" aria-pressed={range === value} onClick={() => onChange(value)}
-          className={`rounded-md px-2 py-1 text-[11px] ${range === value ? 'bg-surface-2 font-semibold text-ink' : 'text-ink-faint hover:bg-surface-2 hover:text-ink'}`}>
-          {value}
-        </button>
-      ))}
     </div>
   );
 }

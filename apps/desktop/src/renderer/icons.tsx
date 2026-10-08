@@ -1,6 +1,8 @@
 import React from 'react';
 
 type P = { className?: string };
+/** Standard window-minimize minus, consistent with the app's line icons. */
+export const MinimizeIcon = (p: P) => <S {...p}><path d="M5 12h14" /></S>;
 export const FocusLayoutIcon = (p: P) => <S {...p}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M16 4v16M16 10h5M16 15h5" /><path d="m8 9 4 3-4 3z" /></S>;
 export const FixedLayoutIcon = (p: P) => <S {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18M15 3v18M3 9h18M3 15h18" /></S>;
 const S = (props: { children: React.ReactNode } & P) => (
@@ -43,6 +45,10 @@ export const SendIcon = (p: P) => (
 export const PlusIcon = (p: P) => (<S {...p}><path d="M12 5v14M5 12h14" /></S>);
 export const TrashIcon = (p: P) => (<S {...p}><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /></S>);
 export const ShieldIcon = (p: P) => (<S {...p}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></S>);
+/** A frame with its panel down the left side: show or hide a left side panel. */
+export const PanelLeftIcon = (p: P) => (<S {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 3v18" /></S>);
+/** A curved two-headed arrow swinging between a frame's left side and its top: move a panel between them. */
+export const PanelSwapIcon = (p: P) => (<S {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M7.5 16.5Q7.5 7.5 16.5 7.5" /><path d="M14 5.5l2.5 2-2.5 2M5.5 14l2 2.5 2-2.5" /></S>);
 export const PanelIcon = (p: P) => (<S {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></S>);
 export const PinIcon = (p: P) => (<S {...p}><path d="M12 17v5M9 3h6l-1 6 3 3H7l3-3z" /></S>);
 export const FileIcon = (p: P) => (<S {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></S>);

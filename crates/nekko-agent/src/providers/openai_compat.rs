@@ -203,6 +203,11 @@ impl OpenAiCompatProvider {
         while let Some(bytes) = sink.read(&mut res).await? {
             let batch = sse.feed(&bytes);
             for data in &batch.data {
+                if let Ok(value) = serde_json::from_str::<Value>(data)
+                    && js::truthy(value.get("error"))
+                {
+                    return Err(ProviderError::new(format!("Model stream failed: {}", extract_api_error(data))).into());
+                }
                 for chunk in parser.event(data) {
                     sink.emit(chunk).await?;
                 }

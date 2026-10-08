@@ -1,0 +1,30 @@
+import { useState } from 'react';
+import type { PendingInput, SessionSummary } from '@agent-nekko/shared';
+import { RobotIcon } from '../icons.js';
+
+/** Only active children belong in this transient window-local indicator. */
+export function WorkingSubagents({ children, running, pending, onOpen }: {
+  children: SessionSummary[];
+  running: Set<string>;
+  pending: Record<string, PendingInput>;
+  onOpen: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const active = children.filter(child => running.has(child.id));
+  if (!active.length) return null;
+  const waiting = active.some(child => pending[child.id]?.question || pending[child.id]?.approval);
+  return <div className="absolute bottom-3 left-3 z-20" data-working-subagents>
+    {expanded && <div className="card mb-2 max-h-48 w-64 overflow-y-auto p-1" role="group" aria-label="Working subagents">
+      {active.map(child => <button key={child.id} type="button" className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[12px] hover:bg-surface-2" onClick={() => onOpen(child.id)}>
+        <RobotIcon className="h-4 w-4 shrink-0" />
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: pending[child.id]?.question || pending[child.id]?.approval ? 'var(--warning)' : 'var(--success)' }} />
+        <span className="truncate">{child.title || 'Subagent'}</span>
+      </button>)}
+    </div>}
+    <button type="button" className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-[12px] shadow-md" aria-expanded={expanded} aria-label={`${active.length} working subagents`} onClick={() => setExpanded(!expanded)}>
+      <RobotIcon className="h-4 w-4" />
+      <span className="h-2 w-2 rounded-full" style={{ background: waiting ? 'var(--warning)' : 'var(--success)' }} />
+      <span>{active.length}</span>
+    </button>
+  </div>;
+}

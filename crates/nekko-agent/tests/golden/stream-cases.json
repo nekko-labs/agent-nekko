@@ -1147,5 +1147,27 @@
         ]
       }
     ]
+  },
+  {
+    "name": "oa-stream-error",
+    "provider": "openai-compat",
+    "responses": [
+      {
+        "chunks": [
+          "data: {\"error\":{\"message\":\"Model could not load\"}}\r\n\r\n"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "ollama-stream-error",
+    "provider": "ollama",
+    "responses": [
+      {
+        "chunks": [
+          "{\"error\":\"model does not support tools\"}\n"
+        ]
+      }
+    ]
   }
 ]

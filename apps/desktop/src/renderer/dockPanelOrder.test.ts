@@ -9,16 +9,16 @@ describe('dock panel order', () => {
       expect(normalizeDockPanelOrder(raw)).toEqual(defaults);
     }
     expect(normalizeDockPanelOrder(['hardware', 'alien', 'hardware', null, 'budget']))
-      .toEqual(['hardware', 'budget', 'vitals', 'automations', 'utilization', 'insights']);
+      .toEqual(['hardware', 'budget', 'vitals', 'utilization', 'automations', 'insights']);
     expect(sanitizeWallDock({}).panelOrder).toEqual(defaults);
   });
 
   it('moves in either direction, keeps all panels, and does not mutate input', () => {
     const original = [...defaults];
     expect(reorderDockPanel(original, 'vitals', 'budget'))
-      .toEqual(['automations', 'utilization', 'budget', 'vitals', 'insights', 'hardware']);
+      .toEqual(['hardware', 'utilization', 'budget', 'vitals', 'automations', 'insights']);
     expect(reorderDockPanel(original, 'hardware', 'automations'))
-      .toEqual(['vitals', 'hardware', 'automations', 'utilization', 'budget', 'insights']);
+      .toEqual(['vitals', 'utilization', 'budget', 'automations', 'hardware', 'insights']);
     expect(reorderDockPanel(original, 'budget', 'budget')).toEqual(original);
     expect(original).toEqual(defaults);
     expect(new Set(reorderDockPanel(['hardware', 'hardware'], 'hardware', 'vitals')).size).toBe(6);

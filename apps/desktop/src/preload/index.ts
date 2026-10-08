@@ -201,6 +201,7 @@ const api: NekkoApi = {
 
   listWorkspaces: () => inv(IpcChannels.workspaceList),
   // The picker is native (main); adding the folder is the engine's.
+  pickFolder: () => ipcRenderer.invoke(PICK_FOLDER_CHANNEL),
   addWorkspace: async () => {
     const path: string | null = await ipcRenderer.invoke(PICK_FOLDER_CHANNEL);
     return path ? inv(IpcChannels.workspaceAddByPath, path) : inv(IpcChannels.workspaceList);

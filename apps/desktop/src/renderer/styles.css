@@ -720,6 +720,14 @@
   white-space: nowrap;
 }
 .titlebar-mac .developer-server-controls { margin-right: 10px; }
+/* The Agents controls share the title bar row. Keep them clear of the
+   Windows/Linux caption buttons unless the developer controls already do. */
+.titlebar:not(.titlebar-mac):not(:has(.developer-server-controls)) #command-titlebar-slot { margin-right: 138px; }
+.titlebar-mac:not(:has(.developer-server-controls)) #command-titlebar-slot { margin-right: 10px; }
+#command-titlebar-slot > .wall-toolbar-titlebar { flex: 1; min-width: 0; flex-wrap: nowrap; }
+#command-titlebar-slot .wall-fixed-picker { z-index: 60; }
+#command-titlebar-slot > .wall-toolbar-titlebar > div { flex-wrap: nowrap; }
+#command-titlebar-slot .btn, #command-titlebar-slot .wall-layout-segments button, #command-titlebar-slot [role='tab'] { padding-top: 2px; padding-bottom: 2px; }
 
 .titlebar-updater {
   position: relative;
@@ -1604,13 +1612,13 @@
 /* Agent status: a working agent's rocket hovers in flight, its colour
    breathing between the accent and a lighter tint, the flame flickering and
    the speed streaks sliding past. Kept small and slow: it sits in a dense list. */
-.status-rocket { color: var(--accent); animation: rocket-breathe 2.4s ease-in-out infinite; }
+.status-rocket { color: var(--success); animation: rocket-breathe 2.4s ease-in-out infinite; }
 .status-rocket svg { animation: rocket-hover 1.2s ease-in-out infinite; overflow: visible; }
 .status-rocket .rocket-flame { animation: rocket-flame .35s ease-in-out infinite alternate; transform-origin: 12px 18px; }
 .status-rocket .rocket-streak { opacity: .55; animation: rocket-streak .9s linear infinite; }
 @keyframes rocket-breathe {
-  0%, 100% { color: var(--accent); }
-  50% { color: color-mix(in srgb, var(--accent) 55%, white); }
+  0%, 100% { color: var(--success); }
+  50% { color: color-mix(in srgb, var(--success) 75%, white); }
 }
 @keyframes rocket-hover {
   0%, 100% { transform: translateY(0.4px); }
@@ -1730,7 +1738,7 @@
 /* A tall composer must not collapse the transcript wall out of view. Short
    viewports scroll the column rather than allowing composer content to cover it. */
 .wall-column > .command-wall-layout { flex: 1 0 280px; }
-.wall-composer { width: 75%; max-width: none; flex-shrink: 0; background: var(--win); box-shadow: var(--shadow-md); }
+.wall-composer { position: relative; width: 75%; max-width: 100%; flex-shrink: 0; background: transparent; box-shadow: none; }
 .command-wall-window > .panel { background: var(--win); }
 .command-wall-window[data-wall-selected] > .panel {
   --panel-ring-color: color-mix(in srgb, var(--accent) 75%, var(--line)) !important;
@@ -1775,7 +1783,14 @@
 }
 
 @media (max-width: 767px) { .wall-composer { width: 100%; } }
-.wall-composer-split { flex: 0 0 10px; width: 100%; cursor: row-resize; touch-action: none; display: grid; place-items: center; }
+.wall-composer-split { position: absolute; left: 0; right: 0; height: 10px; z-index: 2; cursor: row-resize; touch-action: none; display: grid; place-items: center; }
+.wall-composer[data-dock^="bottom"] > .wall-composer-split { top: -8px; }
+.wall-composer[data-dock^="top"] > .wall-composer-split { bottom: -8px; }
+.wall-composer-side { position: absolute; top: 0; bottom: 0; width: 10px; z-index: 2; cursor: col-resize; touch-action: none; }
+.wall-composer-side[data-edge="left"] { left: -5px; }
+.wall-composer-side[data-edge="right"] { right: -5px; }
+.wall-composer-side::after { content: ""; position: absolute; top: calc(50% - 24px); left: 4px; width: 3px; height: 48px; border-radius: 3px; background: var(--line); }
+.wall-composer-side:hover::after, .wall-composer-side:focus-visible::after { background: var(--accent); }
 .wall-composer-split::after { content: ""; width: 48px; height: 3px; border-radius: 3px; background: var(--line); }
 .wall-composer-split:hover::after, .wall-composer-split:focus-visible::after { background: var(--accent); }
 .wall-composer > .wall-composer-body { display: flex; flex: 1; min-height: 0; overflow-y: auto; }
@@ -1791,3 +1806,50 @@
 .wall-composer .composer-editor-wrap { display: flex; flex-direction: column; flex: 1; min-height: 52px; }
 .wall-composer .composer > :not(.composer-editing-body), .wall-composer .composer-editing-body > :not(.composer-editor-wrap) { flex-shrink: 0; }
 .wall-layout-segments button { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Keep the send cat clear of the composer edge. */
+.send-avatar { margin-right: 4px; }
+
+/* The wall composer's panel clips its overflow, so the composer's outer
+   focus halo and drop shadow were cut into a band along the bottom edge and
+   slivers at the top corners. Inside it the ring is drawn inset instead. */
+.wall-composer .composer { box-shadow: none; }
+.wall-composer .composer:focus-within { box-shadow: inset 0 0 0 1px var(--accent); }
+.wall-composer .composer-beam-ring { inset: 0; }
+
+/* Prompt suggestions as one chip among the composer's actions. */
+.composer-suggestions-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 6px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2);
+  font-size: 11.5px; color: var(--ink-soft); white-space: nowrap; flex-shrink: 0;
+  transition: border-color 0.12s ease, color 0.12s ease;
+}
+.composer-suggestions-chip:hover, .composer-suggestions-chip.is-open { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--ink); }
+.composer-suggestions-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The composer row: the composer at its docked alignment. */
+.wall-composer-row { position: relative; display: flex; align-items: stretch; flex-shrink: 0; min-width: 0; padding-inline: 8px; }
+.wall-composer-row[data-dock$='-left'] { justify-content: flex-start; }
+.wall-composer-row[data-dock$='-center'] { justify-content: center; }
+.wall-composer-row[data-dock$='-right'] { justify-content: flex-end; }
+.wall-composer-row > .wall-composer { align-self: auto; min-width: 0; flex-shrink: 1; }
+/* Add window: centred on the wall's edge, right below it (or above it when the
+   composer docks on top), between the windows and the composer. */
+.wall-add-launch { position: relative; display: flex; justify-content: center; flex-shrink: 0; padding: 6px 0 10px; }
+.wall-add-launch[data-side='top'] { padding: 10px 0 6px; }
+.wall-add-button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 14px;
+  background: var(--brand-grad); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 6px 18px -6px color-mix(in srgb, var(--accent) 70%, transparent);
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.wall-add-button:hover { filter: brightness(1.08) saturate(1.05); transform: translateY(-1px); }
+.wall-add-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.wall-add-button[aria-expanded='true'] { filter: brightness(0.95); }
+@media (max-width: 767px) {
+  .wall-composer-row { flex-direction: column; align-items: stretch; }
+  .wall-composer-row > .wall-composer { max-width: 100%; }
+}
+/* The Agents panel's + : the primary action, in the accent and a size up. */
+.agent-panel-plus { color: var(--accent); }
+.agent-panel-plus:hover, .agent-panel-plus.is-open { color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }

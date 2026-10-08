@@ -40,11 +40,11 @@ export type { WallLayout, WallLayoutMode, WallDock, WallDockSide, WallDockPanel 
 export { DEFAULT_WALL_LAYOUT, DEFAULT_WALL_DOCK };
 export const DOCK_PANELS: Array<{ key: WallDockPanel; label: string; blurb: string }> = [
   { key: 'vitals', label: 'Vitals', blurb: 'Agents working and waiting on you' },
-  { key: 'automations', label: 'Automations', blurb: 'Scheduled and running automations' },
+  { key: 'hardware', label: 'Hardware', blurb: 'Local resource monitors' },
   { key: 'utilization', label: 'Utilization', blurb: 'Tokens and model usage' },
   { key: 'budget', label: 'Budget', blurb: 'Monthly spend against your advisory budget' },
+  { key: 'automations', label: 'Automations', blurb: 'Scheduled and running automations' },
   { key: 'insights', label: 'Insights', blurb: 'Usage trends and optimization tips' },
-  { key: 'hardware', label: 'Hardware', blurb: 'Local resource monitors' },
 ];
 
 export type InsightPanel = 'vitals' | 'optimize' | 'cost' | 'tokens' | 'models' | 'replies' | 'services';
@@ -88,6 +88,19 @@ export interface CommandWallState {
   watermark: number;
   composer: ComposerDock;
   tabs?: 'top' | 'left' | 'hidden';
+  /** The panel of agent cards beside (or above) the wall. */
+  agentPanel?: AgentPanelPrefs;
+}
+
+export interface AgentPanelPrefs {
+  show: boolean;
+  orientation: 'vertical' | 'horizontal';
+}
+export const DEFAULT_AGENT_PANEL: AgentPanelPrefs = { show: true, orientation: 'vertical' };
+
+export function readAgentPanel(raw: unknown): AgentPanelPrefs {
+  const p = raw && typeof raw === 'object' ? (raw as Partial<AgentPanelPrefs>) : {};
+  return { show: p.show !== false, orientation: p.orientation === 'horizontal' ? 'horizontal' : 'vertical' };
 }
 
 /** Below this width the wall stacks its windows one above the other: a phone, or a very narrow window. */
@@ -117,6 +130,7 @@ export const DEFAULT_WALL_STATE: CommandWallState = {
   watermark: 0,
   composer: DEFAULT_COMPOSER_DOCK,
   tabs: 'top',
+  agentPanel: DEFAULT_AGENT_PANEL,
 };
 
 export const WALL_STATE_KEY = 'nekko.commandWall';
@@ -484,6 +498,7 @@ export function loadWallState(storage: Pick<Storage, 'getItem'> | undefined, set
       watermark: readWatermark(saved.watermark),
       composer: readDock(saved.composer),
       tabs: saved.tabs === 'left' || saved.tabs === 'hidden' ? saved.tabs : 'top',
+      agentPanel: readAgentPanel(saved.agentPanel),
     };
   } catch {
     return DEFAULT_WALL_STATE;
@@ -500,7 +515,7 @@ export function saveWallState(storage: Pick<Storage, 'setItem'> | undefined, sta
 
 /** The wall as the setting stores it: the same fields, typed loosely for the shared schema. */
 export function toWallSetting(state: CommandWallState): CommandWallSetting {
-  return { layout: state.layout, dock: state.dock, hero: state.hero, folded: state.folded, root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark, composer: state.composer, tabs: state.tabs };
+  return { layout: state.layout, dock: state.dock, hero: state.hero, folded: state.folded, root: state.root, autoAdd: state.autoAdd, filter: state.filter, insights: state.insights, watermark: state.watermark, composer: state.composer, tabs: state.tabs, agentPanel: state.agentPanel };
 }
 
 /* ---------- the ribbon ---------- */

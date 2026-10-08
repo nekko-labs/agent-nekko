@@ -103,9 +103,9 @@ export interface WallDock {
 export const DEFAULT_WALL_LAYOUT: WallLayout = { mode: 'grid', cols: 3, rows: 2 };
 export const DEFAULT_WALL_DOCK: WallDock = {
   side: 'right', show: true,
-  panelOrder: ['vitals', 'automations', 'utilization', 'budget', 'insights', 'hardware'],
-  minimized: { vitals: false, automations: false, utilization: false, budget: false, insights: false, hardware: false },
-  panels: { vitals: true, automations: true, utilization: true, budget: true, insights: false, hardware: true },
+  panelOrder: ['vitals', 'hardware', 'utilization', 'budget', 'automations', 'insights'],
+  minimized: { vitals: false, hardware: false, utilization: false, budget: false, automations: false, insights: false },
+  panels: { vitals: true, hardware: true, utilization: true, budget: true, automations: true, insights: false },
 };
 
 /** Advisory USD budget only, not an enforced spending limit. Invalid/unset means no budget. */
@@ -117,6 +117,8 @@ export function sanitizeMonthlyBudgetUsd(value: unknown): number | undefined {
 export interface CommandWallSetting {
   /** Agent tab placement, independent of window layout. */
   tabs?: 'top' | 'left' | 'hidden';
+  /** The Agents tab's panel of agent cards: shown or closed, a column or a row. */
+  agentPanel?: { show: boolean; orientation: 'vertical' | 'horizontal' };
   layout?: WallLayout;
   dock?: WallDock;
   hero?: string | null;

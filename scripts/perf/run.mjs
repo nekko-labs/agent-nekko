@@ -181,15 +181,29 @@ async function openApp({ appUrl, cdpPort, vsync }) {
   const openChat = async (i, marker = lastMarker(i)) => {
     await clickEl('nav button[aria-label="Agents"]', null, 'the Command Center nav');
     const title = chatTitle(i);
-    const openSel = `button[title="Open ${title}"]`;
-    // Each chat is a live window on the wall; its strip's "Open" button takes it to the Agent tab.
-    await waitFor(`!!document.querySelector('button[title^="Open Perf chat"]')`, 'the wall');
-    // Setup is not measured. Dispatch on the exact Open control rather than
-    // sampling coordinates while the wall is still settling its geometry.
-    await cdp.call((selector) => document.querySelector(selector)?.click(), openSel);
-    // The wall already contains this transcript. It cannot prove the Open
-    // gesture navigated to the Agent tab, whose sidebar switching is measured.
-    await waitFor("!!document.querySelector('button[data-sidebar-group]')", 'the Agent tab sidebar');
+    // Setup selects the exact grouped card on Agents; Chat no longer owns this list.
+    await waitFor("!!document.querySelector('button[data-sidebar-group]')", 'the Agents sidebar');
+    // Cards only select a window in Dynamic/Grid; measure the full-size chat in Focus.
+    await cdp.evaluate(`(() => { const b = [...document.querySelectorAll('.wall-layout-segments button')].find(b => b.textContent.trim() === 'Focus'); if (b && b.getAttribute('aria-pressed') !== 'true') b.click(); return true; })()`);
+    await showAllCards();
+    await cdp.call((title) => [...document.querySelectorAll('div[role="button"]')].find(card => card.getAttribute('title')?.includes(title))?.click(), title);
+    // Setup is not a measured sidebar switch. Let the virtual transcript settle
+    // at its newest screenful; measured switchChat below receives no such help.
+    await waitFor("!!document.querySelector('.msg-ai')", 'loaded setup transcript');
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const settled = await cdp.call((t, m) => {
+        const p = window.__perf.panel(t);
+        const newest = [...(p?.querySelectorAll('.msg-ai') ?? [])].pop();
+        const scroller = newest?.closest('.overflow-y-auto');
+        if (!scroller) return false;
+        const atBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 2;
+        if (atBottom && (!m || newest.textContent.includes(m))) return true;
+        scroller.scrollTop = scroller.scrollHeight;
+        return false;
+      }, title, marker);
+      if (settled) break;
+      await sleep(100);
+    }
     const ok = await cdp.call((t, m) => window.__perf.waitForChat(t, m, 30000), title, marker);
     if (!ok) {
       const seen = await cdp.call((t, m) => {

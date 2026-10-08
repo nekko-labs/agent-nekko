@@ -617,6 +617,10 @@
     "chunks": [
       [
         {
+          "type": "text",
+          "delta": "x"
+        },
+        {
           "type": "done"
         }
       ]
@@ -6770,6 +6774,71 @@
         },
         {
           "type": "done"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "oa-stream-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://10.5.0.2:1338/v1/chat/completions",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "model": "m",
+          "stream": true,
+          "stream_options": {
+            "include_usage": true
+          },
+          "temperature": 0.7,
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Model stream failed: Model could not load"
+        }
+      ]
+    ],
+    "onHeaders": []
+  },
+  "ollama-stream-error": {
+    "requests": [
+      {
+        "method": "POST",
+        "url": "http://localhost:11434/api/chat",
+        "headers": {},
+        "body": {
+          "model": "m",
+          "stream": true,
+          "options": {
+            "temperature": 0.7
+          },
+          "messages": [
+            {
+              "role": "user",
+              "content": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "chunks": [
+      [
+        {
+          "type": "error",
+          "message": "Ollama stream failed: model does not support tools"
         }
       ]
     ],

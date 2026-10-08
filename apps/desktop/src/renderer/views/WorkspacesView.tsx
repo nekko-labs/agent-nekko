@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
 import { AUTO_MODEL_ID, archiveDaysLeft, archiveDeletesAt, parsePrUrl } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
@@ -19,7 +20,7 @@ import { PaneFrame } from '../components/PaneFrame.js';
 import { Divider } from '../components/Divider.js';
 import { runningSessionIds } from '../liveRuns.js';
 import { StatusIcon, WorkspaceCard, type AgentStatus } from '../components/WorkspaceCard.js';
-import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon } from '../icons.js';
+import { CheckIcon, ChatIcon, TerminalIcon, PlusIcon, FileIcon, FolderIcon, ExternalIcon, PanelIcon, ShieldIcon, PanelLeftIcon, PanelSwapIcon } from '../icons.js';
 import { SHORTCUTS } from '../shortcuts.js';
 import { NekkoAvatar } from '../components/Mascot.js';
 import { COMPLETION_ROW_ATTR, completeWithExit, findCompletionRow } from '../completionExit.js';
@@ -198,11 +199,31 @@ function statusFromEvent(type: AgentEvent['type']): AgentStatus | null {
   }
 }
 
-export function WorkspacesView() {
+/** How the Agents tab lays out its panel of agent cards. */
+export type AgentPanelOrientation = 'vertical' | 'horizontal';
+
+type SidebarActions = {
+  onOpenChat: (id: string) => void;
+  onOpenTerminal: (id: string) => void;
+  selectedId: string | null;
+  onCreate: (kind: 'chat' | 'image' | 'terminal', projectId?: string, shell?: string) => Promise<void>;
+  /** A column beside the wall, or a row of cards above it. */
+  orientation?: AgentPanelOrientation;
+  onOrientation?: (orientation: AgentPanelOrientation) => void;
+  /** Hide the panel; the Agents toolbar offers it back. */
+  onClosePanel?: () => void;
+};
+
+export function AgentSidebar(props: SidebarActions) {
+  return <WorkspacesView sidebarOnly {...props} />;
+}
+
+export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal, selectedId, onCreate, orientation = 'vertical', onOrientation, onClosePanel }: Partial<SidebarActions> & { sidebarOnly?: boolean } = {}) {
+  const horizontal = sidebarOnly && orientation === 'horizontal';
   const {
     sessions, terminals, workspaces, activeWorkspaceId, settings, activeSessionId,
-    refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal, newTerminalWorkspace,
-    setActiveWorkspace, newChat, setActiveProject,
+    refreshSessions, refreshTerminals, openChatPane, openTerminalPane, newTerminal: storeNewTerminal, newTerminalWorkspace: storeNewTerminalWorkspace,
+    setActiveWorkspace, newChat: storeNewChat, setActiveProject,
     reorderWorkspaces, layoutChats, layoutTerminals, contextPanelOpen,
     archiveWorkspace, archiveChat, archiveOpen, archivedViewId,
   } = useStore(
@@ -232,6 +253,11 @@ export function WorkspacesView() {
       archivedViewId: s.archivedViewId,
     })),
   );
+  const newChat = () => sidebarOnly && onCreate ? onCreate('chat', activeProjectId()) : storeNewChat();
+  const activeProjectId = () => useStore.getState().activeProjectId ?? undefined;
+  const newTerminal = (projectId?: string) => sidebarOnly && onCreate ? onCreate('terminal', projectId) : storeNewTerminal(projectId);
+  const newTerminalWorkspace = (projectId?: string, shell?: string) => sidebarOnly && onCreate ? onCreate('terminal', projectId ?? activeProjectId(), shell) : storeNewTerminalWorkspace(projectId, shell);
+  const newImageChat = () => sidebarOnly && onCreate ? onCreate('image', activeProjectId()) : useStore.getState().newImageChat('');
   const [selected, setSelected] = useState<string[]>([]);
   const anchor = useRef<string | null>(null);
   const [menu, setMenu] = useState<{x: number; y: number; ids: string[]; model?: boolean} | null>(null);
@@ -293,7 +319,26 @@ export function WorkspacesView() {
   const [drag, setDrag] = useState<DragItem | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const newMenuRef = useRef<HTMLDivElement>(null);
+  const newMenuPopRef = useRef<HTMLDivElement>(null);
+  const newMenuButtonRef = useRef<HTMLButtonElement>(null);
   const newMenuTimer = useRef<number>(0);
+  // The menu renders in a portal at the document root, positioned under the +.
+  // The panel clips its overflow and the wall's windows stack above it, so a
+  // menu drawn inside the panel was cut off or hidden behind them.
+  const [newMenuPos, setNewMenuPos] = useState<{ top: number; left: number } | null>(null);
+  useLayoutEffect(() => {
+    if (!newMenuOpen) return;
+    const place = () => {
+      const r = newMenuButtonRef.current?.getBoundingClientRect();
+      if (!r) return;
+      const width = 256;
+      setNewMenuPos({ top: r.bottom + 6, left: Math.max(8, Math.min(window.innerWidth - width - 8, r.right - width)) });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', place, true); };
+  }, [newMenuOpen]);
 
   useEffect(() => { refreshTerminals(); }, [refreshTerminals]);
   useEffect(() => { window.nekko.listShells().then(setShells).catch(() => {}); }, []);
@@ -301,7 +346,8 @@ export function WorkspacesView() {
   // Close the "+" create menu on an outside click.
   useEffect(() => {
     const onDoc = (e: MouseEvent) => {
-      if (newMenuRef.current && !newMenuRef.current.contains(e.target as Node)) setNewMenuOpen(false);
+      const target = e.target as Node;
+      if (newMenuRef.current && !newMenuRef.current.contains(target) && !newMenuPopRef.current?.contains(target)) setNewMenuOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
@@ -331,7 +377,7 @@ export function WorkspacesView() {
   // Open the active session as a workspace if there are none (e.g. arriving
   // from the Command Center or command palette).
   useEffect(() => {
-    if (workspaces.length === 0 && activeSessionId) openChatPane(activeSessionId);
+    if (!sidebarOnly && workspaces.length === 0 && activeSessionId) openChatPane(activeSessionId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -500,15 +546,38 @@ export function WorkspacesView() {
     });
   });
   // In the sidebar's own order, so a switch never moves a mounted canvas in the DOM.
-  const mounted = workspaces.filter((w) => w.root && (recent.current.includes(w.id) || leaving.current.includes(w.id)));
+  const mounted = (sidebarOnly ? [] : workspaces).filter((w) => w.root && (recent.current.includes(w.id) || leaving.current.includes(w.id)));
 
   const Sidebar = (
     // `min()` guards the mobile overlay, where the chosen width could be wider
     // than the screen it slides over.
-    <div className="panel panel-ring flex h-full flex-col" style={{ width: `min(${sidebarW}px, 82vw)` }}>
-      <div className="flex items-center justify-between px-3 py-2.5">
-        <span className="text-sm font-semibold">Agents</span>
-        <div className="relative" ref={newMenuRef}>
+    <div
+      className={`panel ${sidebarOnly ? '' : 'panel-ring '}flex ${horizontal ? 'h-auto w-full flex-row items-stretch' : 'h-full flex-col'}`}
+      style={horizontal ? undefined : { width: `min(${sidebarW}px, 82vw)` }}
+      data-agent-panel={sidebarOnly || undefined}
+      data-orientation={sidebarOnly ? orientation : undefined}
+    >
+      <div className={horizontal ? 'flex shrink-0 flex-col items-center justify-center gap-1 border-r border-line px-1.5 py-2' : `flex items-center ${sidebarOnly ? 'justify-end' : 'justify-between'} px-3 py-2.5`}>
+        {!sidebarOnly && <span className="text-sm font-semibold">Agents</span>}
+        <div className={`relative flex items-center ${horizontal ? 'flex-col gap-1' : 'gap-0.5'}`} ref={newMenuRef}>
+          {sidebarOnly ? (<>
+            <button
+              className="rounded-sm p-1.5 text-ink-faint hover:text-ink"
+              title="Hide the agent panel"
+              aria-label="Hide the agent panel"
+              onClick={() => onClosePanel?.()}
+            >
+              <PanelLeftIcon className="h-4 w-4" />
+            </button>
+            <button
+              className="rounded-sm p-1.5 text-ink-faint hover:text-ink"
+              title={horizontal ? 'Move the agent panel to the left side' : 'Move the agent panel to the top'}
+              aria-label={horizontal ? 'Show agents in a column' : 'Show agents in a row'}
+              onClick={() => onOrientation?.(horizontal ? 'vertical' : 'horizontal')}
+            >
+              <PanelSwapIcon className="h-4 w-4" />
+            </button>
+          </>) : (
           <button
             className={`rounded-sm p-1.5 ${contextPanelOpen ? 'bg-surface-2 text-accent' : 'text-ink-faint hover:text-ink'}`}
             title={`${contextPanelOpen ? 'Hide' : 'Show'} the folders, files & context panel (${SHORTCUTS.contextPanel.label})`}
@@ -517,21 +586,26 @@ export function WorkspacesView() {
             onClick={() => useStore.getState().toggleContextPanel()}
           >
             <PanelIcon className="h-3.5 w-3.5" />
-          </button>
+          </button>)}
           <button
-            className={`btn btn-ghost px-2 py-1 ${newMenuOpen ? 'text-accent' : ''}`}
+            ref={newMenuButtonRef}
+            className={`agent-panel-plus btn btn-ghost px-1.5 py-1 ${newMenuOpen ? 'is-open' : ''}`}
             title="New agent with a terminal"
+            aria-label="New agent"
+            aria-haspopup="menu"
             aria-expanded={newMenuOpen}
             onMouseEnter={openNewMenu}
             onFocus={openNewMenu}
             onClick={() => { closeNewMenu(); void newTerminalWorkspace().catch(e => useStore.getState().pushToast('error', e.message)); }}
           >
-            <PlusIcon />
+            <PlusIcon className="h-[22px] w-[22px]" />
           </button>
-          {newMenuOpen && (
+          {newMenuOpen && newMenuPos && createPortal(
             <div
-              className="card absolute right-0 top-9 z-40 w-64 p-1.5 shadow-lg"
-              style={{ background: 'var(--paper)' }}
+              ref={newMenuPopRef}
+              data-new-agent-menu
+              className="card fixed z-[1000] w-64 p-1.5 shadow-lg"
+              style={{ background: 'var(--paper)', top: newMenuPos.top, left: newMenuPos.left }}
               onMouseEnter={openNewMenu}
               onMouseLeave={closeNewMenuSoon}
             >
@@ -556,7 +630,7 @@ export function WorkspacesView() {
                 tone="var(--accent)"
                 icon={<ChatIcon className="h-4 w-4" />}
                 label="New image session"
-                onClick={() => { closeNewMenu(); void useStore.getState().newImageChat('').catch((e: Error) => useStore.getState().pushToast('error', e.message)); }}
+                onClick={() => { closeNewMenu(); void newImageChat().catch((e: Error) => useStore.getState().pushToast('error', e.message)); }}
               />
               <div className="flex items-center justify-between gap-2 px-2.5 pb-0.5 pt-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-faint">Terminal</p>
@@ -581,11 +655,12 @@ export function WorkspacesView() {
                   />
                 ))
               )}
-            </div>
+            </div>,
+            document.body,
           )}
         </div>
       </div>
-      <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-3">
+      <div className={horizontal ? 'agent-panel-row flex min-w-0 flex-1 items-start gap-3 overflow-x-auto overflow-y-hidden px-2 py-1.5' : 'flex-1 space-y-1 overflow-y-auto px-2 pb-3'}>
         {buckets.map((b) => {
           const items = bucketEntries(b.key);
           const done = completedInGroup(sessions, b.key, chatGroupOf);
@@ -654,11 +729,18 @@ export function WorkspacesView() {
                           session={s}
                           terminal={entry.t}
                           status={s ? statuses.get(s.id) : undefined}
-                          isActive={!!w && w.id === active?.id}
+                          isActive={sidebarOnly ? (s?.id ?? entry.t?.id) === selectedId : !!w && w.id === active?.id}
                           now={now}
                           projects={settings?.workspaces ?? []}
                           subAgentCount={kids.length}
-                          onOpen={() => (w ? setActiveWorkspace(w.id) : s && openChatPane(s.id))}
+                          onOpen={() => {
+                            if (sidebarOnly) {
+                              if (s) onOpenChat?.(s.id);
+                              else if (entry.t) onOpenTerminal?.(entry.t.id);
+                              setMobileNav(false);
+                            } else if (w) setActiveWorkspace(w.id);
+                            else if (s) openChatPane(s.id);
+                          }}
                           onClose={() => (w ? archiveWorkspace(w.id) : s ? archiveChat(s.id) : undefined)}
                         />
                         {/* Sub-agents this chat spawned, one line each. */}
@@ -667,8 +749,8 @@ export function WorkspacesView() {
                             key={kid.id}
                             session={kid}
                             status={statuses.get(kid.id)}
-                            isActive={kid.id === activeSessionId}
-                            onOpen={() => openChatPane(kid.id)}
+                            isActive={kid.id === (sidebarOnly ? selectedId : activeSessionId)}
+                            onOpen={() => sidebarOnly ? onOpenChat?.(kid.id) : openChatPane(kid.id)}
                           />
                         ))}
                       </div>
@@ -695,8 +777,8 @@ export function WorkspacesView() {
                           key={s.id}
                           session={s}
                           now={now}
-                          isActive={archiveOpen && archivedViewId === s.id}
-                          onOpen={() => { openChatPane(s.id); setMobileNav(false); }}
+                          isActive={sidebarOnly ? selectedId === s.id : archiveOpen && archivedViewId === s.id}
+                          onOpen={() => { if (sidebarOnly) onOpenChat?.(s.id); else openChatPane(s.id); setMobileNav(false); }}
                         />
                       ))}
                     </div>
@@ -715,14 +797,16 @@ export function WorkspacesView() {
     // sidebar, the windows, the inspector. They used to be three different
     // things — two full-bleed columns on paper with a tray of rounded windows
     // between them — which is why the middle read as the only real panel.
+    // As the Agents tab's panel it is one panel among the wall's, not a field of
+    // its own: no tinted frame around it, which read as a stray border.
     <div
-      className="flex h-full min-w-0 overflow-hidden"
-      style={{ background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
+      className={`flex min-w-0 ${sidebarOnly ? `shrink-0 ${horizontal ? 'w-full' : ''}` : 'h-full overflow-hidden'}`}
+      style={sidebarOnly ? { gap: 'var(--pane-gap)', minHeight: 0 } : { background: 'var(--surface-2)', padding: 'var(--pane-gap)', gap: 'var(--pane-gap)' }}
     >
       {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}>
         <div className="select-text break-all px-2.5 py-2 font-mono text-[10px] text-ink-faint">{menu.ids.length === 1 ? menu.ids[0] : menu.ids.length + ' sessions selected'}</div>
         {menu.model ? <div className="h-72"><ModelPicker expanded open providers={useStore.getState().providers} providerId={null} modelId={null} models={[]} onOpenChange={() => {}} onProvider={() => {}} onModel={(pid, mid) => { const ids = menu.ids; setMenu(null); void Promise.allSettled(ids.map(async id => { const s = await window.nekko.setSessionOptions(id,{providerId:pid,modelId:mid,autoModel:mid===AUTO_MODEL_ID}); if (!s) throw new Error('Chat no longer exists'); window.dispatchEvent(new CustomEvent('nekko-session-brain', {detail:{id,session:s}})); })).then(results => { results.forEach((r,i) => { if(r.status==='rejected') useStore.getState().pushToast('error',ids[i]+': '+String(r.reason)); }); void refreshSessions(); }); }} /></div> : <>
-          <ContextAction onClick={() => { menu.ids.forEach(id => openChatPane(id)); setMenu(null); }}>Open{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
+          <ContextAction onClick={() => { menu.ids.forEach(id => sidebarOnly ? onOpenChat?.(id) : openChatPane(id)); setMenu(null); }}>Open{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
           <ContextAction onClick={() => void runAction('complete',menu.ids)}>Mark as completed</ContextAction>
           <ContextAction onClick={() => setMenu({...menu, model:true})}>Change model</ContextAction>
           <ContextAction disabled={!menu.ids.some(id => statuses.has(id))} onClick={() => void runAction('stop',menu.ids)}>Stop{menu.ids.length > 1 ? ' all' : ''}</ContextAction>
@@ -730,8 +814,10 @@ export function WorkspacesView() {
           <ContextAction onClick={() => void runAction('delete',menu.ids)}>Delete permanently</ContextAction>
         </>}
       </ContextMenu>}
-      {mobileNav && <div className="absolute inset-0 z-20 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} />}
-      <aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
+      {sidebarOnly && mobileNav && <div className="absolute inset-0 z-20 bg-black/40 md:hidden" onClick={() => setMobileNav(false)} />}
+      {/* A row of cards needs no drawer on a narrow screen: it is already out of the way. */}
+      {horizontal && <aside className="flex w-full min-w-0">{Sidebar}</aside>}
+      {sidebarOnly && !horizontal && <><div className="md:hidden"><button className="btn btn-ghost" aria-label="Open agent list" onClick={() => setMobileNav(true)}>Agents</button></div><aside className={`${mobileNav ? 'absolute inset-y-0 left-0 z-30 flex p-[var(--pane-gap)]' : 'hidden'} md:relative md:z-auto md:flex md:p-0`}>{Sidebar}</aside>
       {/* The handle sits inside the gap itself (negative margins) so the list
           and the windows keep their one-gap rhythm, grabbed like the window
           dividers: pointer capture, arrow keys, double-click resets. */}
@@ -781,11 +867,11 @@ export function WorkspacesView() {
           aria-hidden
           className="pane-grip absolute inset-y-0 left-1/2 w-[3px] -translate-x-1/2 rounded-full opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
         />
-      </div>
+      </div></>}
 
-      <main className="flex min-w-0 flex-1 flex-col">
+      {!sidebarOnly && <main className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-line px-2 py-1.5 md:hidden">
-          <button className="btn btn-ghost px-2 py-1" onClick={() => setMobileNav(true)} aria-label="Open sidebar">
+          <button className="btn btn-ghost px-2 py-1" onClick={() => useStore.getState().setView('command')} aria-label="Open Agents">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M3 6h18M3 12h18M3 18h18" /></svg>
           </button>
           <span className="text-[13px] font-semibold">Agents</span>
@@ -816,13 +902,13 @@ export function WorkspacesView() {
             ))}
           </div>
         )}
-      </main>
+      </main>}
 
       {/* The right panel: folders + file explorer over the context breakdown. It
           belongs to the app rather than to one window, so opening a file from
           the explorer doesn't take the explorer away with it. It follows the
           active chat, and says so when there isn't one. */}
-      {contextPanelOpen && (
+      {!sidebarOnly && contextPanelOpen && (
         <aside className="panel panel-ring hidden shrink-0 lg:block">
           <ContextInspector sessionId={activeSessionId} />
         </aside>

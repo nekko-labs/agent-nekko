@@ -29,6 +29,7 @@ import {
 } from './agent-console/index.js';
 import type { PendingApproval } from './agent-console/index.js';
 import { LiveTurn, producedTokens, useProducedTokens } from './agent-console/LiveTurn.js';
+import { liveTokenRate } from './agent-console/liveTokenRate.js';
 import { ImageModeControls } from './agent-console/ImageModeControls.js';
 import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
@@ -52,6 +53,8 @@ import { PrCard, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
+import { FolderPicker } from './FolderPicker.js';
+import { addFolderToChat, shouldAutoFile } from '../sessionFolders.js';
 import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
@@ -452,8 +455,9 @@ const LiveReplyStatus = memo(function LiveReplyStatus({
     const t = setInterval(tick, 500);
     return () => clearInterval(t);
   }, [status.streaming, startedAt]);
+  const liveRate = status.streaming ? liveTokenRate(run) : null;
   const label = status.streaming ? shortLiveStatus(run?.activity) || 'Working' : '';
-  return <ReplyStatus {...status} status={label} elapsed={status.streaming ? elapsed : 0} nextWakeAt={nextWakeAt} now={now} />;
+  return <ReplyStatus {...status} tps={liveRate?.rate ?? status.tps} estimatedRate={!!liveRate} status={label} elapsed={status.streaming ? elapsed : 0} nextWakeAt={nextWakeAt} now={now} />;
 });
 
 /**
@@ -1080,16 +1084,23 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     const el = composerRef.current;
     const pane = paneRef.current;
     const section = composerSectionRef.current;
-    if (!el || !pane || !section) return;
+    if (!el || !pane || !section || surface === 'composer') return;
+    // Empty drafts already have their minimum height in CSS. Warm switching
+    // should not force layout merely to rediscover that same empty-editor size.
+    if (!draft && composerH === null) {
+      el.style.height = '';
+      el.style.maxHeight = '';
+      return;
+    }
+    // The shared wall composer uses flex sizing in CSS, including its editor.
+    // Measuring and rewriting that height forces layout without affecting it.
     const resize = () => {
       const chrome = section.getBoundingClientRect().height - el.getBoundingClientRect().height;
-      const limit = surface === 'composer'
-        ? Math.max(52, el.parentElement?.clientHeight ?? 52)
-        : Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
+      const limit = Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
       el.style.maxHeight = limit + 'px';
       el.style.height = 'auto';
-      el.style.height = Math.min(limit, Math.max(el.scrollHeight, surface === 'composer' ? limit : composerH ?? 0)) + 'px';
-      revealEditorCaret(el);
+      el.style.height = Math.min(limit, Math.max(el.scrollHeight, composerH ?? 0)) + 'px';
+      if (document.activeElement === el) revealEditorCaret(el);
     };
     resize();
     const observer = new ResizeObserver(resize);
@@ -1390,7 +1401,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     // Auto-file a project-less chat under the project it's about, inferred from
     // its attachments + first prompt, so it lands in the right sidebar group.
     // A general chat (no confident match) simply stays under "General".
-    if (session && !session.workspaceId) {
+    // The store's copy sees folders picked in the Context Inspector before send.
+    const folders = useStore.getState().sessions.find((x) => x.id === sessionId) ?? session;
+    if (session && shouldAutoFile(session, folders)) {
       const workspaces = useStore.getState().settings?.workspaces ?? [];
       const wsId = detectSessionWorkspace({ text, workspaces, attachedPaths: session.attachedPaths ?? [] });
       if (wsId) {
@@ -1597,7 +1610,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   const skillMatches = slashQuery !== null && !slashQuery.includes(' ') ? matchSkills(slashQuery, installedSkillDefs) : [];
   // Every skill this chat can run, in the same order `/` offers them (built-ins
   // plus installed, highlighted first). The + menu lists these.
-  const allSkills = matchSkills('', installedSkillDefs);
+  const allSkills = useMemo(() => matchSkills('', installedSkillDefs), [installedSkillDefs]);
   const slashMenuOpen = !menuClosed && (skillMatches.length > 0 || slashMatches.length > 0);
 
   const atQuery = (draft.match(/(?:^|\s)@([^\s@]*)$/) ?? [])[1] ?? null;
@@ -1976,8 +1989,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             ...(pid ? { providerId: pid } : {}),
             ...(auto ? {} : { modelId: v }),
           })
-          .then((s) => { if (s) setSession(s); })
-          .catch(() => {});
+          .then((s) => { if (s) window.dispatchEvent(new CustomEvent('nekko-session-brain', { detail: { id: sessionId, session: s } })); })
+          .catch((e) => useStore.getState().pushToast('error', String(e)));
       }}
     />
     <EffortSlider onChanged={() => { if (session?.messages.length) { contextNoticeTrigger.current = document.activeElement as HTMLElement; setContextChangeNotice(true); } }} modelId={autoPick?.modelId ?? (modelId === AUTO_MODEL_ID ? undefined : modelId ?? undefined)} />
@@ -2089,7 +2102,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     <ModelPicker providers={providers} providerId={providerId} models={models} modelId={modelId}
                       open={false} onOpenChange={openModelMenu} expanded
                       recent={recentModels}
-                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) setSession(s); }); }} />}
+                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) window.dispatchEvent(new CustomEvent('nekko-session-brain', { detail: { id: sessionId, session: s } })); }).catch((e) => useStore.getState().pushToast('error', String(e))); }} />}
                 </div>}
               </div>
             ) : undefined}
@@ -2099,6 +2112,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {imageMode
                   ? <ImageLiveTurn sessionId={sessionId} streaming={streaming} />
                   : <LiveTurn sessionId={sessionId} held={held} onImageClick={setLightbox} />}
+                <LiveReplyStatus
+                  sessionId={sessionId}
+                  startedAt={turnStart.current}
+                  streaming={streaming}
+                  tps={tps}
+                  out={turnOut}
+                  last={lastTurn}
+                  done={doneSummary}
+                  blocked={errorNotice ? 'Needs attention' : approval ? 'Waiting for approval' : question ? 'Waiting for your answer' : null}
+                />
                 {errorNotice && !question && !streaming && (() => {
                   // A stop the user asked for is not a failure, so it doesn't wear
                   // the failure colour. Either way the run is resumable whenever it
@@ -2329,23 +2352,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               </div>
             </div>
 
-            {!imageMode && (
-            <PromptAnalyzer
-              text={deferredDraft}
-              sessionId={sessionId}
-              canModelFill={hasProvider}
-              workspaces={settings?.workspaces ?? []}
-              contextItems={ctx?.items ?? []}
-              activeWorkspaceIds={session ? getSessionWorkspaceIds(session) : []}
-              onFill={({ snippet, placement }) => {
-                setDraft((d) =>
-                  placement === 'start' ? `${snippet}\n\n${d.replace(/^\s+/, '')}` : `${d.replace(/\s+$/, '')}\n\n${snippet}`,
-                );
-                composerRef.current?.focus();
-              }}
-            />
-            )}
-
             <div className="composer-editing-body relative w-full">
               {atMenuOpen && (
                 <div
@@ -2440,7 +2446,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     a hairline. Floated above it they covered the instrument
                     strip. */}
                 {pendingImages.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto border-b border-line px-3 py-2.5">
+                  <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-line px-3 py-2.5" data-composer-attachments>
                     {pendingImages.map((image, i) => (
                       <div key={`${image.slice(0, 24)}-${i}`} className="group relative shrink-0">
                         <img
@@ -2466,7 +2472,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   </div>
                 )}
                 {activeSkill && (
-                  <div className="flex items-center gap-2 px-3.5 pt-2.5">
+                  <div className="flex shrink-0 items-center gap-2 px-3.5 pt-2.5" data-composer-skill>
                     <span className="skill-pill text-[12px]" title={activeSkill.description}>
                       <span className="skill-pill-slash">/</span>{activeSkill.name}
                       <button
@@ -2552,7 +2558,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                         <button
                           role="menuitem"
                           className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] hover:bg-surface-2"
-                          onClick={() => { closeAttachMenu(); void window.nekko.addWorkspace(); }}
+                          onClick={() => {
+                            closeAttachMenu();
+                            const chat = useStore.getState().sessions.find((x) => x.id === sessionId) ?? session;
+                            addFolderToChat(sessionId, chat, 'include')
+                              .then((s) => { if (s) setSession(s); })
+                              .catch((e) => useStore.getState().pushToast('error', String(e)));
+                          }}
                           onMouseEnter={closeSkillsFly}
                         >
                           Folder
@@ -2634,6 +2646,25 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   </>)}
                   <div className="flex-1" />
                   {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
+                  {/* Prompt suggestions: one chip beside the microphone; its
+                      details open above it rather than pushing the editor. */}
+                  {!imageMode && (
+                    <PromptAnalyzer
+                      variant="chip"
+                      text={deferredDraft}
+                      sessionId={sessionId}
+                      canModelFill={hasProvider}
+                      workspaces={settings?.workspaces ?? []}
+                      contextItems={ctx?.items ?? []}
+                      activeWorkspaceIds={session ? getSessionWorkspaceIds(session) : []}
+                      onFill={({ snippet, placement }) => {
+                        setDraft((d) =>
+                          placement === 'start' ? `${snippet}\n\n${d.replace(/^\s+/, '')}` : `${d.replace(/\s+$/, '')}\n\n${snippet}`,
+                        );
+                        composerRef.current?.focus();
+                      }}
+                    />
+                  )}
                   <DictationButton key={sessionId} sessionId={sessionId} onText={(text) => { setDraft((current) => current + (current && !/\s$/.test(current) ? ' ' : '') + text); composerRef.current?.focus(); }} />
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
@@ -2651,18 +2682,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         </div>
         )}
         <div className="shrink-0 border-t border-line bg-surface px-3 py-1.5" aria-label="Chat actions and information">
-          {surface !== 'composer' && (<LiveReplyStatus
-                  sessionId={sessionId}
-                  startedAt={turnStart.current}
-                  streaming={streaming}
-                  tps={tps}
-                  out={turnOut}
-                  last={lastTurn}
-                  done={doneSummary}
-                  blocked={errorNotice ? 'Needs attention' : approval ? 'Waiting for approval' : question ? 'Waiting for your answer' : null}
-                />)}
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
           {!imageMode && <div className="flex flex-wrap items-center gap-2">
+                  {surface !== 'composer' && <FolderPicker sessionId={sessionId} session={session} disabled={hasLive} onChange={setSession} />}
                   {surface !== 'composer' && modelControls}
                   {surface !== 'composer' && <>
                   <LiveContextGauge

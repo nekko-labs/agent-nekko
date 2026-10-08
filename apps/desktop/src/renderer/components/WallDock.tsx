@@ -4,11 +4,13 @@ import { RUNTIME_CAPABILITIES, MODEL_PRICING, DEFAULT_LOCAL_COST_BENCHMARK, form
 import { DOCK_PANELS, normalizeDockPanelOrder, reorderDockPanel, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
-import { localRuntimeMetrics, recordedBudgetMetrics } from './wallDockMetrics.js';
+import { BUDGET_RANGE_LABEL, budgetRange, localRuntimeMetrics, recordedBudgetMetrics } from './wallDockMetrics.js';
 import { AutomationsPane } from './AutomationsPane.js';
 import { InsightsBox, type Vitals } from './InsightsBox.js';
+import { RangeToggles } from './RangeToggles.js';
+import type { InsightRange } from '../insightRanges.js';
 import { useMonitors, useResourceSample } from './ResourceMonitor.js';
-import { BoltIcon, BrainIcon, ServerIcon, GridIcon, ListIcon, GearIcon, CloseIcon, DownloadIcon } from '../icons.js';
+import { BoltIcon, BrainIcon, ServerIcon, GridIcon, ListIcon, GearIcon, CloseIcon, MinimizeIcon } from '../icons.js';
 import './wallDock.css';
 import { dockMinimizeTransition } from './dockMinimize.js';
 
@@ -137,7 +139,7 @@ export function WallDock(props: WallDockProps) {
               e.preventDefault(); e.stopPropagation();
               const target = expandedPanels[expandedPanels.findIndex(panel => panel.key === p.key) + (e.key === 'ArrowDown' ? 1 : -1)];
               if (target) reorder(p.key, target.key);
-            }}><span className="wall-dock__panel-icon">{React.createElement(PANEL_ICONS[p.key], { className: 'wall-dock__icon' })}</span><h2>{p.label}</h2><button type="button" title={`Minimize ${p.label}`} aria-label={`Minimize ${p.label} panel`} aria-expanded={true} disabled={collapsing !== null} onClick={() => minimize(p.key, true)}><DownloadIcon className="wall-dock__icon" /></button><button type="button" title={`Remove ${p.label}`} aria-label={`Remove ${p.label} panel`} onClick={() => panel(p.key, false)}><CloseIcon className="wall-dock__icon" /></button></header>
+            }}><span aria-hidden="true" title="Drag to reorder" className="text-ink-faint">⠿</span><span className="wall-dock__panel-icon">{React.createElement(PANEL_ICONS[p.key], { className: 'wall-dock__icon' })}</span><h2>{p.label}</h2><button type="button" title={`Minimize ${p.label}`} aria-label={`Minimize ${p.label} panel`} aria-expanded={true} disabled={collapsing !== null} onClick={() => minimize(p.key, true)}><MinimizeIcon className="wall-dock__icon" /></button><button type="button" title={`Remove ${p.label}`} aria-label={`Remove ${p.label} panel`} onClick={() => panel(p.key, false)}><CloseIcon className="wall-dock__icon" /></button></header>
           <ResizablePanelBody label={p.label}>
             {p.key === 'vitals' && <VitalsGrid vitals={props.vitals} />}
             {p.key === 'automations' && <AutomationsPane tasks={props.tasks} running={props.running} now={props.now} onOpen={props.onOpenChat} />}
@@ -253,9 +255,11 @@ function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage'
   const benchmark = useStore((s) => s.settings?.localCostBenchmark ?? DEFAULT_LOCAL_COST_BENCHMARK);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const month = new Date(now).toISOString().slice(0, 7);
+  // The same time ranges as the Insights token chart; defaults to its 1m.
+  const [range, setRange] = useState<InsightRange>('1m');
   const recorded = recordedBudgetMetrics(usage, sessions, providers);
-  const spend = usage?.daily.filter((d) => d.date.startsWith(`${month}-`)).reduce((sum, d) => sum + d.cost, 0);
+  const ranged = budgetRange(usage, range, new Date(now));
+  const spend = ranged?.spend;
   const avoided = usage?.avoidedCosts;
   const top = Object.entries(usage?.bySessionCost ?? {}).sort((a, b) => b[1] - a[1])[0];
   const price = MODEL_PRICING.find(p => p.match === benchmark);
@@ -269,7 +273,9 @@ function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage'
     finally { setSaving(false); }
   };
   return <div className="wall-dock__metrics wall-dock__budget">
-    <div><div className="wall-dock__metric-row"><span>{new Date(now).toLocaleString(undefined, { month: 'long', timeZone: 'UTC' })} spend</span><strong>{spend == null ? 'Unavailable' : formatUSD(spend)}</strong></div><p className="wall-dock__note">Estimated recorded API spend · UTC · excludes subscriptions</p></div>
+    <RangeToggles chart="Budget" range={range} onChange={setRange} />
+    <div><div className="wall-dock__metric-row"><span>Spend <small>({BUDGET_RANGE_LABEL[range].toLowerCase()})</small></span><strong>{spend == null ? 'Unavailable' : formatUSD(spend)}</strong></div><p className="wall-dock__note">Estimated recorded API spend · UTC · excludes subscriptions</p></div>
+    <div className="wall-dock__metric-row"><span>Tokens <small>({BUDGET_RANGE_LABEL[range].toLowerCase()})</small></span><strong>{ranged ? `${ranged.input.toLocaleString()} in · ${ranged.output.toLocaleString()} out` : 'Unavailable'}</strong></div>
     <div className="wall-dock__metric-row"><span>Top agent <small>(all time)</small></span><strong>{top && top[1] > 0 ? `${sessions.find(s => s.id === top[0])?.title ?? 'Chat'} · ${formatUSD(top[1])}` : 'No API spend'}</strong></div>
     <div className="wall-dock__metric-row"><span>Local models</span><strong>{usage ? '$0 API' : 'Unavailable'} · {recorded.localTokens} tokens</strong></div>
     <div className="wall-dock__savings">

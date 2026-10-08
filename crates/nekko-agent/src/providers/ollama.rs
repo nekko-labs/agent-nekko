@@ -85,6 +85,9 @@ impl OllamaProvider {
         while let Some(bytes) = sink.read(&mut res).await? {
             for line in lines.feed(&bytes) {
                 let Ok(msg) = serde_json::from_str::<Value>(&line) else { continue };
+                if let Some(error) = msg.get("error").filter(|v| js::truthy(Some(v))) {
+                    return Err(ProviderError::new(format!("Ollama stream failed: {}", js::display(error))).into());
+                }
                 let message = msg.get("message");
                 if let Some(thinking) = js::truthy_str(message.and_then(|m| m.get("thinking"))) {
                     decode.mark();

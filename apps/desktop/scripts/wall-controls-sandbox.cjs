@@ -1,4 +1,4 @@
-const { app, BrowserWindow, session } = require('electron');
+const { app, BrowserWindow, session, screen } = require('electron');
 const fs = require('node:fs');
 const path = require('node:path');
 const out = process.env.NEKKO_INTEGRATION_OUT;
@@ -12,7 +12,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 app.whenReady().then(async () => {
   session.defaultSession.webRequest.onBeforeRequest((d, done) => done({ cancel: !/^(file:|data:|blob:)/.test(d.url) }));
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, done) => done(false));
-  const win = new BrowserWindow({ width: 1200, height: 900, useContentSize: true, show: false, focusable: false, skipTaskbar: true, x: process.env.NEKKO_WALL_REALTIME ? 40 : -10000, y: process.env.NEKKO_WALL_REALTIME ? 40 : -10000, title: 'Synthetic Command Center verification', webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
+  const win = new BrowserWindow({ width: 1200, height: 900, useContentSize: true, show: false, focusable: false, skipTaskbar: true, x: Math.min(...screen.getAllDisplays().map(d => d.bounds.x)) - 1400, y: Math.min(...screen.getAllDisplays().map(d => d.bounds.y)) - 1100, title: 'Synthetic Command Center verification', webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, backgroundThrottling: false } });
+  win.on('focus', () => { report.errors.push('Verification window took OS focus'); process.exitCode = 1; });
   win.webContents.on('console-message', e => { if (e.level === 'error') report.errors.push(e.message); else if (process.env.NEKKO_WALL_EVIDENCE) console.log(e.message); });
   const run = s => win.webContents.executeJavaScript(s, true);
   const check = async (name, expression) => { await sleep(180); if (!await run(expression)) throw Error(name); report.checks.push(name); };
@@ -27,34 +28,195 @@ app.whenReady().then(async () => {
     })()`);
     await sleep(180);
   };
-  const reset = async () => { await run('window.integration.reset()'); await sleep(350); };
+  const reset = async () => {
+    await run('window.integration.reset()');
+    // Reset remounts cold ChatPanes. Hidden macOS rendering can finish loading
+    // later than a fixed sleep; wait for the controls the next step needs.
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if (await run("!!document.querySelector('[data-wall-composer] .ctl-menu')")) return;
+      await sleep(100);
+    }
+    throw Error('Reset did not finish mounting shared composer controls');
+  };
   const open = async category => { await click('Add window'); if (category) { await run(`[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(category)}).click()`); await sleep(180); } };
   const image = async () => { await open('Media'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()"); await sleep(200); };
-  const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.webContents.capturePage()).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
+  const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
-    await win.loadFile(path.join(out, 'index.html')); win.showInactive(); await sleep(900);
+    await win.loadFile(path.join(out, 'index.html'));
+    // macOS can move resized mapped windows back onto a display; keep this fixture hidden.
+    if (process.platform !== 'darwin' || !process.env.NEKKO_GRID_BUGS) win.showInactive();
+    await sleep(900);
     await check('mounted full CommandCenterView', "(document.body.textContent.includes('Agents') || document.body.textContent.includes('Command Center')) && !!document.querySelector('[data-command-wall]')");
     const current = !process.env.NEKKO_TEST_REVISION;
+    if (process.env.NEKKO_LAYOUT_FIXES) {
+      await win.loadFile(path.join(out, 'index.html'), {search:'multi'}); await sleep(900);
+      const fixed = !process.env.NEKKO_TEST_REVISION;
+      for (const theme of ['light','dark']) for (const width of [1200,400]) {
+        win.setContentSize(width,900); await reset(); await run(`document.documentElement.dataset.theme='${theme}'`); await sleep(500);
+        await capture(`layout-${theme}-${width}-rest`);
+        if (fixed) {
+          await check('no counts subtitle', "!document.body.textContent.includes('on the wall')");
+          await check('Agents shares brand row', "!!document.querySelector('.titlebar h1') && !document.querySelector('[data-command-wall]').closest('main').querySelector('h1:not(.titlebar h1)')");
+          await check('handle follows composer width', "(()=>{const c=document.querySelector('[data-wall-composer]').getBoundingClientRect(),s=document.querySelector('.wall-composer-split').getBoundingClientRect();return Math.abs(c.width-s.width)<3 && Math.abs(c.top-s.bottom)<5})()");
+          for (const edge of ['left','right']) {
+            const before=await run("document.querySelector('[data-wall-composer]').offsetWidth");
+            await run(`document.querySelector('.wall-composer-side[data-edge="${edge}"]').dispatchEvent(new KeyboardEvent('keydown',{key:'${edge==='left'?'ArrowRight':'ArrowLeft'}',bubbles:true}))`);
+            await check('side keyboard shrinks '+edge, `document.querySelector('[data-wall-composer]').offsetWidth < ${before}`);
+            await run(`document.querySelector('.wall-composer-side[data-edge="${edge}"]').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))`);
+          }
+          const pointerWidth = await run("document.querySelector('[data-wall-composer]').offsetWidth");
+          const c=await run("(()=>{const r=document.querySelector('.wall-composer-side[data-edge=right]').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()");
+          await win.webContents.sendInputEvent({type:'mouseMove',x:Math.round(c.x),y:Math.round(c.y)});
+          await win.webContents.sendInputEvent({type:'mouseDown',button:'left',clickCount:1,x:Math.round(c.x),y:Math.round(c.y)});
+          await win.webContents.sendInputEvent({type:'mouseMove',x:Math.round(c.x-45),y:Math.round(c.y)});
+          await win.webContents.sendInputEvent({type:'mouseUp',button:'left',clickCount:1,x:Math.round(c.x-45),y:Math.round(c.y)}); await sleep(350);
+          await check('pointer side drag shrinks composer', `document.querySelector('[data-wall-composer]').offsetWidth < ${pointerWidth}`);
+          await capture(`layout-${theme}-${width}-resized`);
+          await run("document.querySelector('.wall-composer-side').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))");
+          const states=[];for(let i=0;i<40;i++){states.push(await run("(()=>{const e=document.querySelector('[data-command-wall]');return [e.clientWidth,e.clientHeight,e.scrollWidth,e.scrollHeight].join(',')})()"));await sleep(30);}
+          if(new Set(states.slice(10)).size!==1)throw Error('Scrollbar geometry failed to settle: '+states);report.checks.push('stable scrollbar frames '+theme+' '+width);
+        }
+        await run("(document.querySelector('[data-wall-add-button]')||[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add window')).click()"); await sleep(450); await capture(`layout-${theme}-${width}-clicked`);
+      }
+      win.setContentSize(1200,900);await reset();await run("document.documentElement.dataset.theme='dark'");await sleep(500);
+      const frames=path.join(runDir,'motion');fs.mkdirSync(frames);
+      for(let i=0;i<35;i++) { if(fixed&&i>=5&&i<20)await run("document.querySelector('.wall-composer-side[data-edge=right]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}))");if(i===23)await run("(document.querySelector('[data-wall-add-button]')||[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add window')).click()");fs.writeFileSync(path.join(frames,String(i).padStart(3,'0')+'.png'),(await win.capturePage(undefined,{stayHidden:true})).toPNG());await sleep(65); }
+      report.success=true;
+      if(process.env.NEKKO_EVIDENCE_HOLD){fs.writeFileSync(path.join(runDir,'gallery.html'),'<html><body style="margin:0;background:#888;display:grid;grid-template-columns:repeat(4,1fr)">'+report.captures.map(p=>'<div><small>'+path.basename(p)+'</small><img style="width:100%" src="'+path.basename(p)+'"></div>').join('')+'</body></html>');await win.loadFile(path.join(runDir,'gallery.html'));win.setContentSize(1600,1500);console.log('EVIDENCE_GALLERY '+runDir);await sleep(90000);}
+      return;
+    }
+    if (process.env.NEKKO_CHROME_FIXES) {
+      await win.loadFile(path.join(out, 'index.html'), { search: 'multi' }); await sleep(900);
+      const fixed = !process.env.NEKKO_TEST_REVISION;
+      for (const theme of ['light', 'dark']) for (const width of [1200, 400]) {
+        win.setContentSize(width, 900); await reset();
+        await run(`document.documentElement.dataset.theme='${theme}'`); await sleep(500);
+        await capture(`chrome-${theme}-${width}-rest`);
+        const rects = "JSON.stringify([...document.querySelectorAll('.command-wall-window')].map(e=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]}))";
+        const before = await run(rects);
+        await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(400);
+        const after = await run(rects);
+        if (fixed && before !== after) throw Error('Hover changed wall geometry');
+        report.checks.push({ name: `hover keeps geometry ${theme} ${width}`, passed: before === after });
+        await capture(`chrome-${theme}-${width}-hover`);
+        await run("(document.querySelector('[data-wall-add-button]')||[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add window')).click()"); await sleep(400);
+        await check('click opens insertion card', "!!document.querySelector('.command-wall-add-tile .agent-window-picker')");
+        await capture(`chrome-${theme}-${width}-clicked`);
+        await reset(); await run(`document.documentElement.dataset.theme='${theme}'`); await sleep(300);
+        if (fixed) {
+          await check('composer wrapper is transparent', "getComputedStyle(document.querySelector('[data-wall-composer]')).backgroundColor==='rgba(0, 0, 0, 0)'");
+          await check('composer wrapper has no shadow', "getComputedStyle(document.querySelector('[data-wall-composer]')).boxShadow==='none'");
+          await check('send cat has right inset', "parseFloat(getComputedStyle(document.querySelector('.send-avatar')).marginRight)>=4");
+        }
+      }
+      win.setContentSize(1200, 900); await reset(); await sleep(400);
+      const frames = path.join(runDir, 'motion'); fs.mkdirSync(frames);
+      await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+      for (let i=0; i<25; i++) {
+        if (i===10) await run("(document.querySelector('[data-wall-add-button]')||[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Add window')).click()");
+        fs.writeFileSync(path.join(frames, `${String(i).padStart(3,'0')}.png`), (await win.capturePage(undefined, {stayHidden:true})).toPNG()); await sleep(60);
+      }
+      report.success = true;
+      if (process.env.NEKKO_EVIDENCE_HOLD) {
+        fs.writeFileSync(path.join(runDir, 'gallery.html'), '<html><body style="margin:0;background:#888;display:grid;grid-template-columns:repeat(3,1fr)">'+report.captures.map(p=>'<div><small>'+path.basename(p)+'</small><img style="width:100%" src="'+path.basename(p)+'"></div>').join('')+'</body></html>');
+        await win.loadFile(path.join(runDir, 'gallery.html')); win.setContentSize(1500, 1300); console.log('EVIDENCE_GALLERY '+runDir); await sleep(90000);
+      }
+      return;
+    }
+    if (process.env.NEKKO_GRID_BUGS) {
+      const clearEditor = async () => {
+        await run("(()=>{const e=document.querySelector('.composer [contenteditable]');if(e){e.textContent='';e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'deleteContentBackward'}))}})()");
+        await sleep(100);
+      };
+      const assertFixed = !process.env.NEKKO_TEST_REVISION;
+      const hit = async target => {
+        const commands = {
+          grid: ["integration.pointerTarget('grid',true)","integration.pointerTarget('grid',false)"],
+          mode: ["integration.pointerTarget('mode',true)","integration.pointerTarget('mode',false)"],
+          ask: ["integration.pointerTarget('ask',true)","integration.pointerTarget('ask',false)"],
+          item: ["integration.pointerTarget('item',true)","integration.pointerTarget('item',false)"],
+        };
+        const command=commands[target];if(!command)throw Error('Unknown pointer target');
+        await run(command[0]); await sleep(100);
+        const point=await run(command[1]);
+        if (!win.webContents.debugger.isAttached()) win.webContents.debugger.attach('1.3');
+        await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mousePressed',button:'left',clickCount:1,...point});
+        await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', {type:'mouseReleased',button:'left',clickCount:1,...point});
+        await sleep(180);
+      };
+      for (const theme of ['light','dark']) for (const [width,label] of [[1200,'desktop'],[400,'narrow']]) {
+        win.setContentSize(width,900);
+        await clearEditor(); await run('integration.blank()'); await sleep(600);
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(300);
+        await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Fast fixture')).click()"); await sleep(450);
+        await capture(`grid-model-${theme}-${label}`);
+        await run("(()=>{const e=document.querySelector('[data-wall-composer] [contenteditable]');e.textContent='Hello';e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:'Hello'}))})()");
+        await run("document.querySelector('[data-wall-composer] button[title^=Send]').click()"); await sleep(200);
+        const sent = await run("integration.calls.some(c=>c.method==='send'&&c.options.sessionId==='existing'&&c.options.providerId==='fixture'&&c.options.modelId==='fixture-fast')");
+        report.checks.push({name: 'Grid model choice reaches send '+theme+' '+label, passed:sent});
+        if(assertFixed && !sent) throw Error('Grid composer did not receive selected model');
+        await run("sessionStorage.removeItem('fixture-record')"); await clearEditor(); await reset();
+        await run(`document.documentElement.dataset.theme='${theme}'`);
+        await hit('grid');
+        await capture(`grid-mode-${theme}-${label}`);
+        const reachable = await run("(()=>{const e=document.querySelector('[role=menuitemradio]');if(!e)return false;const r=e.getBoundingClientRect();return e.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2))})()");
+        report.checks.push({name:'Grid guardrails menu receives pointer '+theme+' '+label,passed:reachable});
+        if(assertFixed && !reachable) throw Error('Grid mode menu clipped');
+        if(reachable) {
+          await hit('item');
+          await check('mode saves owning session',"integration.calls.some(c=>c.method==='options'&&c.id==='existing'&&c.options.mode==='ask')");
+          if(assertFixed) await check('mode selection returns focus',"document.activeElement?.textContent.includes('Mode')");
+        }
+        await run("sessionStorage.removeItem('fixture-record')"); await clearEditor(); await reset(); if(width<720)win.setContentSize(width,1400); await click('Focus');
+        await run("document.querySelector('.composer-summary-chip')?.click()");
+        if(width<720) {
+          await run("document.querySelector('button[title=\"Run freely; ask/deny per guardrail rules.\"]').focus()");
+          await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});
+          await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
+          await sleep(180);
+        } else await hit('mode');
+        await capture(`focus-mode-${theme}-${label}`);
+        if(assertFixed) {
+          await hit('item');
+          await check('Focus mode still saves',"integration.calls.some(c=>c.method==='options'&&c.id==='existing'&&c.options.mode==='ask')");
+          await hit('ask');
+          await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
+          await check('Escape dismisses mode menu',"!document.querySelector('[aria-label=\"Chat mode\"]')");
+        }
+      }
+      for (const kind of ['anthropic','llamacpp']) {
+        await clearEditor(); await run('integration.blank()'); await sleep(500);
+        await run(`integration.providerKind('${kind}')`); await sleep(200);
+        await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(300);
+        await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Fast fixture')).click()"); await sleep(350);
+        await run("(()=>{const e=document.querySelector('[data-wall-composer] [contenteditable]');e.textContent='Hello';e.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:'Hello'}))})()");
+        await run("document.querySelector('[data-wall-composer] button[title=Send]').click()"); await sleep(200);
+        const sent=await run("integration.calls.some(c=>c.method==='send'&&c.options.sessionId==='existing'&&c.options.modelId==='fixture-fast')");
+        report.checks.push({name:'fresh Grid '+kind+' sends selected model',passed:sent});
+        if(assertFixed&&!sent)throw Error(kind+' model was not sent');
+      }
+      report.background={hidden:!win.isVisible(),focused:win.isFocused(),offscreen:win.getBounds().x+win.getBounds().width<=Math.min(...screen.getAllDisplays().map(d=>d.bounds.x))};
+      if(report.background.focused || (!report.background.hidden && !report.background.offscreen)) throw Error('Background invariant failed');
+      report.success=true; return;
+    }
     if (process.env.NEKKO_WALL_REALTIME) {
-      win.setAlwaysOnTop(true, 'floating');
       await sleep(500);
-      const rail = await run("(()=>{const r=document.querySelector('.command-wall-add-rail-right').getBoundingClientRect();return {x:Math.round(r.x+r.width/2),y:Math.round(r.y+r.height/2)}})()");
       const motion = path.join(runDir, 'realtime'); fs.mkdirSync(motion);
-      win.webContents.sendInputEvent({type:'mouseMove',...rail});
+      await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
       for (let frame=0; frame<20; frame++) {
-        fs.writeFileSync(path.join(motion, `${String(frame).padStart(3,'0')}.png`), (await win.webContents.capturePage()).toPNG());
+        fs.writeFileSync(path.join(motion, `${String(frame).padStart(3,'0')}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG());
         await sleep(50);
       }
       await check('real-time hover transition finishes', "(()=>{const a=document.querySelector('.command-wall-add[data-preview]');if(!a)return false;const r=a.getBoundingClientRect();return r.height>100&&[...document.querySelectorAll('.command-wall-window')].every(p=>{const s=p.getBoundingClientRect();return Math.min(r.right,s.right)-Math.max(r.left,s.left)<=1||Math.min(r.bottom,s.bottom)-Math.max(r.top,s.top)<=1})})()");
       await capture('sweep-realtime-hover');
-      win.webContents.sendInputEvent({type:'mouseMove',x:5,y:5});
+      await run("document.querySelector('.command-wall-add-zone').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))");
       await sleep(500);
       await check('real-time pointer exit removes preview', "!document.querySelector('.command-wall-add[data-preview]')");
-      const encoded=require('node:child_process').spawnSync('ffmpeg',['-y','-framerate','10','-i',path.join(motion,'%03d.png'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p',path.join(runDir,'sweep-realtime-hover.mp4')],{encoding:'utf8'});
+      const encoded=require('node:child_process').spawnSync('ffmpeg',['-y','-framerate','10','-i',path.join(motion,'%03d.png'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p',path.join(runDir,'sweep-realtime-hover.mp4')],{encoding:'utf8',windowsHide:true});
       if(encoded.status!==0) throw Error(encoded.stderr);
       report.captures.push(path.join(runDir,'sweep-realtime-hover.mp4'));
-      win.setAlwaysOnTop(false);
-      if(process.env.NEKKO_REALTIME_ONLY) { report.success=true; return; }
+      if(process.env.NEKKO_REALTIME_ONLY) { report.background={visible:win.isVisible(),focused:win.isFocused()}; report.success=win.getBounds().x + win.getBounds().width <= Math.min(...screen.getAllDisplays().map(d => d.bounds.x)) && !win.isFocused() && !report.errors.length; return; }
     }
     if (current && process.env.NEKKO_WALL_EVIDENCE) {
       await run("integration.state().view='command'; document.querySelector('[data-wall-composer] [aria-label=\"Show selected chat in Focus\"]').click()");
@@ -74,7 +236,7 @@ app.whenReady().then(async () => {
           await capture(`wall-idle-${theme}-${label}`);
           if (current) {
             await check('editor stays inside composer frame', "(()=>{const p=document.querySelector('[data-wall-composer]').getBoundingClientRect(), e=document.querySelector('[data-wall-composer] [contenteditable]').getBoundingClientRect();return e.top>=p.top&&e.bottom<=p.bottom+1})()");
-            await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+            await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
             await sleep(400);
             // Off-screen Windows compositor can defer CSS transitions. Settle
             // finite transitions for endpoint assertions; motion captures below
@@ -86,7 +248,7 @@ app.whenReady().then(async () => {
             await run("document.querySelector('.command-wall-add-zone').dispatchEvent(new MouseEvent('mouseout',{bubbles:true,relatedTarget:document.body}))");
             await sleep(100);
             await check('pointer exit restores compact strips', "!document.querySelector('.command-wall-add[data-preview]')");
-            await run("document.querySelector('.command-wall-add-rail-right').focus(); document.querySelector('.command-wall-add-rail-right').dispatchEvent(new FocusEvent('focusin',{bubbles:true}))"); await sleep(100);
+            await run("document.querySelector('.command-wall-add-rail-right')?.focus(); document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new FocusEvent('focusin',{bubbles:true}))"); await sleep(100);
             await check('keyboard focus previews Add', "!!document.querySelector('.command-wall-add[data-preview]')");
             await run("document.querySelector('.command-wall-add-fill').click()");
             await check('click solidifies add slot', "!!document.querySelector('.command-wall-add[data-solid] #wall-window-picker')");
@@ -94,7 +256,7 @@ app.whenReady().then(async () => {
             await capture(`wall-solid-${theme}-${label}`);
             await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
           }
-          await click('Fixed'); await capture(`wall-fixed-hint-${theme}-${label}`);
+          await click('Grid'); await capture(`wall-fixed-hint-${theme}-${label}`);
           await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
         }
       }
@@ -139,7 +301,8 @@ app.whenReady().then(async () => {
       await run("document.querySelector('[data-wall-composer] [contenteditable]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,clientX:150,clientY:150}))");
       await check('editor excludes transcript actions', "![...document.querySelectorAll('[role=menu]')].some(m=>m.textContent.includes('Copy chat')||m.textContent.includes('Export as Markdown'))");
       await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
-      await check('footer exposes all reply measurements', "(()=>{const e=document.querySelector('.command-wall-window [aria-label=\"Chat actions and information\"]');return e.textContent.includes('tok/s') && e.textContent.includes('total tokens') && e.textContent.includes('Time unavailable')})()");
+      await check('transcript exposes subtle inline reply measurements', "(()=>{const e=document.querySelector('.command-wall-window [data-chat-surface] [role=status]');return e?.classList.contains('text-ink-faint') && e.textContent.includes('tok/s') && e.textContent.includes('total tokens') && e.textContent.includes('Time unavailable')})()");
+      await check('fixed footer excludes reply measurements', "!document.querySelector('.command-wall-window [aria-label=\"Chat actions and information\"] [role=status]')");
     }
       }
     if (current) {
@@ -184,12 +347,12 @@ app.whenReady().then(async () => {
       win.setContentSize(1200,900); await reset(); await run("document.documentElement.dataset.theme='dark'");
       const motion = path.join(runDir, 'liquid-motion'); fs.mkdirSync(motion);
       for (let frame = 0; frame < 48; frame++) {
-        if (frame === 5) await run("document.querySelector('.command-wall-add-rail-right').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+        if (frame === 5) await run("document.querySelector('.command-wall-add-rail-right')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
         if (frame === 31) await run("document.querySelector('.command-wall-add-fill').click()");
         await run(`document.getAnimations().filter(a=>a instanceof CSSTransition).forEach(a=>{a.currentTime=${frame < 31 ? Math.max(0, frame - 5) * 100 : (frame - 31) * 100}})`);
-        fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.webContents.capturePage()).toPNG()); await sleep(100);
+        fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG()); await sleep(100);
       }
-      const encoded = require('node:child_process').spawnSync('ffmpeg', ['-y','-framerate','10','-i',path.join(motion,'%03d.png'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p',path.join(runDir,'liquid-add-motion.mp4')],{encoding:'utf8'});
+      const encoded = require('node:child_process').spawnSync('ffmpeg', ['-y','-framerate','10','-i',path.join(motion,'%03d.png'),'-vf','pad=ceil(iw/2)*2:ceil(ih/2)*2','-c:v','libx264','-pix_fmt','yuv420p',path.join(runDir,'liquid-add-motion.mp4')],{encoding:'utf8',windowsHide:true});
       if (encoded.status !== 0) throw Error(encoded.stderr);
       report.captures.push(path.join(runDir,'liquid-add-motion.mp4'));
     }
@@ -201,7 +364,7 @@ app.whenReady().then(async () => {
       await check('attachment editor remains inside frame', "(()=>{const p=document.querySelector('[data-wall-composer]').getBoundingClientRect(),e=document.querySelector('[data-wall-composer] [contenteditable]').getBoundingClientRect();return e.bottom<=p.bottom+1})()");
       await capture('wall-multi-attachment');
       await check('multi-chat selection hint', "document.querySelector('[data-wall-composer]').textContent.includes('selects a window')");
-      await run("document.querySelector('.command-wall-add-rail-bottom').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(150);
+      await run("document.querySelector('.command-wall-add-rail-bottom')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))"); await sleep(150);
       await run("document.getAnimations().filter(a=>a instanceof CSSTransition).forEach(a=>a.finish())");
       await capture('wall-multi-hover');
       await run("document.querySelector('.command-wall-add-fill').click()"); await sleep(200);
@@ -214,22 +377,24 @@ app.whenReady().then(async () => {
     for (let frame = 0; frame < 36; frame++) {
       if (frame === 4 || frame === 16) await run("document.querySelector('[aria-label=\"Resize composer versus wall\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}))");
       if (frame === 22) await click('Focus');
-      if (frame === 29) await click('Grid');
-      fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.webContents.capturePage()).toPNG());
+      if (frame === 29) await click('Dynamic');
+      fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG());
       await sleep(100);
     }
-    const encoded = require('node:child_process').spawnSync('ffmpeg', ['-y', '-framerate', '10', '-i', path.join(motion, '%03d.png'), '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path.join(runDir, 'full-view-motion.mp4')], { encoding: 'utf8' });
+    const encoded = require('node:child_process').spawnSync('ffmpeg', ['-y', '-framerate', '10', '-i', path.join(motion, '%03d.png'), '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', path.join(runDir, 'full-view-motion.mp4')], { encoding: 'utf8', windowsHide: true });
     if (encoded.status !== 0) throw Error(encoded.stderr);
     report.captures.push(path.join(runDir, 'full-view-motion.mp4'));
     if (current) {
       win.setContentSize(900,480); await reset();
       await check('short grid remains scrollable', "(()=>{const stage=document.querySelector('.command-wall-stage');return stage && stage.scrollHeight>0 && document.querySelector('[data-wall-composer] [contenteditable]').clientHeight>=36})()");
-      await click('Fixed');
+      await click('Grid');
       await check('short fixed layout retains accessible editor', "document.querySelector('[data-wall-composer] [contenteditable]').clientHeight>=36 && document.documentElement.scrollWidth<=innerWidth");
     }
+    if (win.isFocused() || screen.getAllDisplays().some(d => { const b=win.getBounds(); return b.x < d.bounds.x+d.bounds.width && b.x+b.width > d.bounds.x && b.y < d.bounds.y+d.bounds.height && b.y+b.height > d.bounds.y; }) || report.errors.some(e => /Verification window/.test(e))) throw Error('Background verification visibility/focus invariant failed');
+    report.background = { visible: win.isVisible(), focused: win.isFocused(), offscreen: win.getBounds().x + win.getBounds().width <= Math.min(...screen.getAllDisplays().map(d => d.bounds.x)) };
     report.success = true;
     if (process.env.NEKKO_INSPECT_HOLD) {
-      win.setContentSize(1200, 900); win.setPosition(100, 100); await reset();
+      win.setContentSize(1200, 900); await reset();
       await run("document.querySelector('.command-wall-window button[aria-haspopup=listbox]').click()"); await sleep(300);
       await run("[...document.querySelectorAll('[role=listbox] button')].find(b=>b.textContent.includes('Auto')).click()");
       await sleep(120000);

@@ -27,6 +27,7 @@ const ALIGN_LABEL: Record<ComposerAlign, string> = { left: 'left', center: 'cent
  */
 export function WallComposer({
   height,
+  resizeHandle,
   agent,
   agents,
   dock,
@@ -38,6 +39,7 @@ export function WallComposer({
   panelRef,
 }: {
   height?: number | null;
+  resizeHandle?: React.ReactNode;
   agent: WallAgent | null;
   agents: WallAgent[];
   dock: ComposerDock;
@@ -49,6 +51,12 @@ export function WallComposer({
   /** The composer panel, used to focus the selected chat input. */
   panelRef: React.RefObject<HTMLDivElement | null>;
 }) {
+  const [width, setWidth] = useState<number | null>(null);
+  const widthDrag = useRef<{ x: number; width: number; edge: 'left' | 'right' } | null>(null);
+  const resizeWidth = (next: number) => {
+    const available = panelRef.current?.parentElement?.clientWidth ?? 1000;
+    setWidth(Math.max(Math.min(320, available), Math.min(available, next)));
+  };
   const [pickerOpen, setPickerOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -71,17 +79,48 @@ export function WallComposer({
     return () => cancelAnimationFrame(id);
   }, [agent?.session.id, panelRef]);
 
+  // Attachments and an armed skill add rows above the editor. The panel grows
+  // by their height rather than taking it from the text box.
+  const [extra, setExtra] = useState(0);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel || typeof ResizeObserver === 'undefined') return;
+    let observed: Element[] = [];
+    const ro = new ResizeObserver(() => measure());
+    const measure = () => {
+      const rows = [...panel.querySelectorAll('[data-composer-attachments], [data-composer-skill]')];
+      if (rows.length !== observed.length || rows.some((r, i) => r !== observed[i])) {
+        observed.forEach((r) => ro.unobserve(r));
+        rows.forEach((r) => ro.observe(r));
+        observed = rows;
+      }
+      const next = Math.round(rows.reduce((sum, r) => sum + r.getBoundingClientRect().height, 0));
+      setExtra((prev) => (prev === next ? prev : next));
+    };
+    const mo = new MutationObserver(measure);
+    mo.observe(panel, { childList: true, subtree: true });
+    measure();
+    return () => { mo.disconnect(); ro.disconnect(); };
+  }, [panelRef, agent?.session.id]);
+
   const alignClass = dock.align === 'left' ? 'self-start' : dock.align === 'right' ? 'self-end' : 'self-center';
 
   return (
     <div
       ref={panelRef}
-      style={{ height: height ?? 320 }}
+      style={{ height: (height ?? 320) + extra, width: width ?? undefined }}
       className={`panel wall-composer flex shrink-0 flex-col ${alignClass}`}
       data-has-agent={agent ? true : undefined}
       data-wall-composer
       data-dock={`${dock.side}-${dock.align}`}
     >
+      {resizeHandle}
+      {(['left', 'right'] as const).map(edge => <div key={edge} className="wall-composer-side" data-edge={edge} role="separator" tabIndex={0} aria-label={`Resize composer from ${edge} side`} aria-orientation="vertical" title="Drag to resize composer width; double-click to reset"
+        onPointerDown={e => { widthDrag.current = { x: e.clientX, width: panelRef.current?.offsetWidth ?? 320, edge }; e.currentTarget.setPointerCapture(e.pointerId); }}
+        onPointerMove={e => { const drag = widthDrag.current; if (!drag) return; const factor = dock.align === 'center' ? 2 : 1; resizeWidth(drag.width + (e.clientX - drag.x) * (drag.edge === 'left' ? -1 : 1) * factor); }}
+        onPointerUp={() => { widthDrag.current = null; }} onPointerCancel={() => { widthDrag.current = null; }} onLostPointerCapture={() => { widthDrag.current = null; }}
+        onDoubleClick={() => setWidth(null)}
+        onKeyDown={e => { if (e.key === 'Home') { e.preventDefault(); setWidth(null); } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); resizeWidth((panelRef.current?.offsetWidth ?? 320) + (e.key === 'ArrowRight' ? 20 : -20) * (edge === 'left' ? -1 : 1)); } }} />)}
       <div className="flex shrink-0 items-center gap-1.5 border-b border-line px-2 py-1 text-[12px]">
         <NumberedChatIcon number={agent?.n} />
         {agent ? (

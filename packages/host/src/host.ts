@@ -87,7 +87,7 @@ import type {
   ModelFolderReport,
   SkillDef,
 } from '@agent-nekko/shared';
-import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload, SKILLS } from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload, SKILLS, sameFolderPath } from '@agent-nekko/shared';
 import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
 import { createEngine } from './engine/index.js';
@@ -978,13 +978,17 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
 
     listWorkspaces: () => getSettings().workspaces,
     addWorkspaceByPath: (path) => {
+      // A path already registered is reused, never added (or indexed) twice.
+      const current = getSettings().workspaces;
+      if (current.some((w) => sameFolderPath(w.path, path))) return current;
+
       const folder: WorkspaceFolder = {
         id: `ws_${Date.now().toString(36)}`,
         name: basename(path),
         path,
         addedAt: Date.now(),
       };
-      const workspaces = [...getSettings().workspaces, folder];
+      const workspaces = [...current, folder];
       saveSettings({ workspaces });
       setTimeout(() => indexWorkspace(folder, onIndexProgress), 50);
       return workspaces;

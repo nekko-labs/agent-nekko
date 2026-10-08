@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { PendingInput, SessionSummary, TerminalInfo } from '@agent-nekko/shared';
 import { allPanes, extent, isSplit, type WbPane } from './layout.js';
 import {
+  DEFAULT_AGENT_PANEL,
+  readAgentPanel,
   DEFAULT_WALL_STATE,
   DEFAULT_WALL_DOCK,
   DEFAULT_WALL_LAYOUT,
@@ -326,5 +328,19 @@ describe('wall preferences and panel migration', () => {
       expect(loadWallState({ getItem: () => raw }).tabs).toBe(tabs);
     }
     expect(loadWallState({ getItem: () => JSON.stringify({ tabs: 'invalid' }) }).tabs).toBe('top');
+  });
+});
+
+describe('agent panel preferences', () => {
+  it('persists close and orientation, defaulting to a shown column', () => {
+    for (const agentPanel of [{ show: false, orientation: 'vertical' }, { show: true, orientation: 'horizontal' }] as const) {
+      const state = { ...DEFAULT_WALL_STATE, agentPanel };
+      expect(loadWallState(undefined, toWallSetting(state)).agentPanel).toEqual(agentPanel);
+      let raw = '';
+      saveWallState({ setItem: (_, value) => { raw = value; } }, state);
+      expect(loadWallState({ getItem: () => raw }).agentPanel).toEqual(agentPanel);
+    }
+    expect(loadWallState({ getItem: () => JSON.stringify({ agentPanel: { show: 'no', orientation: 'diagonal' } }) }).agentPanel).toEqual(DEFAULT_AGENT_PANEL);
+    expect(readAgentPanel(undefined)).toEqual({ show: true, orientation: 'vertical' });
   });
 });

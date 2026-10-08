@@ -64,6 +64,10 @@ jobs:
       - run: npm ci
       - run: npm run build:core
       - run: npm run build -w @agent-nekko/host
+      - name: Grid model selection and mode-menu regressions
+        run: npm run test:grid-bugs -w @agent-nekko/desktop
+      - name: Grouped Agents sidebar regressions
+        run: node apps/desktop/scripts/agent-sidebar-integration.cjs
       - name: Hidden owned-window screenshots
         if: runner.os != 'Windows'
         run: node apps/desktop/scripts/capture-smoke.mjs capture-results
@@ -74,7 +78,10 @@ jobs:
         if: always()
         with:
           name: capture-${{ runner.os }}
-          path: capture-results/
+          path: |
+            capture-results/
+            .shots/wall-controls-integration/
+            .shots/agent-sidebar-integration/
           if-no-files-found: error
 
   # The speed contract (SPEC.md, "Speed & responsiveness"): headless Chrome over
@@ -98,6 +105,20 @@ jobs:
         # measured once more before it fails the job (noisy shared runners). The
         # runner has no GPU, so Chrome runs without its software GPU emulation.
         run: node scripts/perf/run.mjs --out perf-results --attempts 3 --no-gpu
+      - name: Profile failed latency gate against the unchanged base
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          # Diagnostic only: keep the failed speed-contract result and its budgets.
+          node scripts/perf/run.mjs --out perf-results/profile-head --quick --only latency --profile --timeline --no-gpu || echo "Head diagnostic missed a budget; original gate remains failed."
+          git fetch --no-tags origin "$BASE_SHA"
+          git worktree add --detach ../perf-base "$BASE_SHA"
+          cd ../perf-base
+          npm ci
+          npm run build:web
+          node scripts/perf/run.mjs --out "$GITHUB_WORKSPACE/perf-results/profile-base" --quick --only latency --profile --timeline --no-gpu || echo "Base diagnostic missed a budget; inspect uploaded report."
       - name: Report
         if: always()
         run: cat perf-results/perf-report.md >> "$GITHUB_STEP_SUMMARY" || true
