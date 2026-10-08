@@ -20,6 +20,7 @@ import {
   type InstalledSkillRecord,
   type InstallTargetInfo,
   type InstallTarget,
+  type SkillOrigin,
   normalizeInstallTarget,
 } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
@@ -90,13 +91,35 @@ export function SkillsView() {
   );
 }
 
-/** Built-in skills + marketplace skills installed into Agent Nekko. */
+const ORIGIN_TOOL_LABEL: Record<SkillOrigin['tool'], string> = {
+  claude: 'Claude Code',
+  codex: 'Codex',
+  gemini: 'Gemini CLI',
+  agents: '.agents',
+};
+
+/** Source chip for a skill read from another tool's folder (read-only, not a marketplace install). */
+function OriginChip({ origin }: { origin?: SkillOrigin }) {
+  if (!origin) return null;
+  return (
+    <span
+      className="shrink-0 rounded-full px-1.5 py-0 text-[9px]"
+      style={{ background: 'var(--surface-2)', color: 'var(--ink-soft)' }}
+      title={`Read from ${origin.dir}. Agent Nekko never edits or removes these files.`}
+    >
+      {ORIGIN_TOOL_LABEL[origin.tool]} · {origin.scope}
+    </span>
+  );
+}
+
+/** Built-in skills, marketplace skills installed into Agent Nekko, and skills imported read-only from other tools. */
 function LibraryTab() {
   const { sendToChat, installedSkillDefs } = useStore(useShallow((s) => ({ sendToChat: s.sendToChat, installedSkillDefs: s.installedSkillDefs })));
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>(SKILLS[0]?.id ?? '');
 
-  const installedIds = useMemo(() => new Set(installedSkillDefs.map((s) => s.id)), [installedSkillDefs]);
+  // Marketplace installs only: imported skills belong to the other tool.
+  const installedIds = useMemo(() => new Set(installedSkillDefs.filter((s) => !s.origin).map((s) => s.id)), [installedSkillDefs]);
   const all = useMemo(() => {
     const names = new Set(SKILLS.map((s) => s.name));
     return [...SKILLS, ...installedSkillDefs.filter((s) => !names.has(s.name))];
@@ -146,6 +169,7 @@ function LibraryTab() {
                         {s.highlighted && <StarIcon className="h-3.5 w-3.5 text-accent" filled />}
                         <span className="font-mono text-[13px] font-medium">/{s.name}</span>
                         {installedIds.has(s.id) && <span className="chip px-1.5! py-0! text-[9px]">installed</span>}
+                        <OriginChip origin={s.origin} />
                       </div>
                       <p className="mt-0.5 line-clamp-2 text-[11.5px] text-ink-soft">{s.description}</p>
                     </button>
@@ -174,8 +198,14 @@ function LibraryTab() {
                     background agent
                   </span>
                 )}
+                <OriginChip origin={selected.origin} />
               </div>
               <p className="mt-1 text-[13px] text-ink-soft">{selected.description}</p>
+              {selected.origin && (
+                <p className="mt-1 truncate text-[11px] text-ink-faint" title={selected.origin.dir}>
+                  Folder: <span className="select-text font-mono">{selected.origin.dir}</span>
+                </p>
+              )}
               {selected.tools && selected.tools.length > 0 && (
                 <div className="mt-2 flex flex-wrap items-center gap-1.5">
                   <span className="text-[11px] text-ink-faint">Tools:</span>

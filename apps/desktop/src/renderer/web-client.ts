@@ -455,6 +455,7 @@ function makeWebClient(): NekkoApi {
     generateDesign: (workspaceId, input) => call(IpcChannels.designGenerate, workspaceId, input),
 
     listInstalledSkills: () => call(IpcChannels.skillsInstalled),
+        listExternalSkills: () => call(IpcChannels.skillsExternal),
     skillTargets: () => call(IpcChannels.skillsTargets),
     installSkill: (skillId, target, payload) => call(IpcChannels.skillInstall, skillId, target, payload),
     uninstallSkill: (skillId, target) => call(IpcChannels.skillUninstall, skillId, target),

@@ -202,9 +202,11 @@ interface UiState {
   /** Open a PR's diff as a window in the active workspace. */
   openPrPane: (url: string) => void;
 
-  /** Marketplace installs (all targets) + the Agent Nekko ones as runnable skills. */
+  /** Marketplace installs (all targets), plus the runnable skills: Agent Nekko installs and imported ones. */
   installedSkills: InstalledSkillRecord[];
   installedSkillDefs: SkillDef[];
+  /** Agent Skills found in other tools' folders (Claude Code, Codex, Gemini CLI, .agents); also merged into installedSkillDefs. */
+  externalSkillDefs: SkillDef[];
   refreshSkills: () => Promise<void>;
 
   /** The skill armed in each chat's composer (highlighted pill, runs on send). */
@@ -556,19 +558,23 @@ export const useStore = create<UiState>((set, get) => ({
 
   installedSkills: [],
   installedSkillDefs: [],
+  externalSkillDefs: [],
   refreshSkills: async () => {
-    try {
-      const installedSkills = await window.nekko.listInstalledSkills();
-      const installedSkillDefs = installedSkills
-        .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
-        // Vaizer (non-catalog) installs carry their own snapshot on the record.
-        .map((r) => r.skill ?? getMarketSkill(r.skillId))
-        .filter((m): m is NonNullable<typeof m> => !!m)
-        .map(marketToSkillDef);
-      set({ installedSkills, installedSkillDefs });
-    } catch {
-      /* older host without the marketplace channels */
-    }
+    // Fetched independently: an older host without one of the channels keeps
+    // whatever the other one returns, and a failure keeps the previous list.
+    const [installed, external] = await Promise.allSettled([
+      window.nekko.listInstalledSkills(),
+      window.nekko.listExternalSkills(),
+    ]);
+    const installedSkills = installed.status === 'fulfilled' ? installed.value : get().installedSkills;
+    const externalSkillDefs = external.status === 'fulfilled' ? external.value : get().externalSkillDefs;
+    const marketDefs = installedSkills
+      .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
+      // Vaizer (non-catalog) installs carry their own snapshot on the record.
+      .map((r) => r.skill ?? getMarketSkill(r.skillId))
+      .filter((m): m is NonNullable<typeof m> => !!m)
+      .map(marketToSkillDef);
+    set({ installedSkills, externalSkillDefs, installedSkillDefs: [...marketDefs, ...externalSkillDefs] });
   },
 
   activeSkillBySession: {},

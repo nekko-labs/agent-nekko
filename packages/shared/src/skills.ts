@@ -29,9 +29,21 @@ export interface SkillDef {
   tools?: string[];
   /** The step graph rendered in the Skills tab. */
   workflow: SkillWorkflow;
+  origin?: SkillOrigin;
 }
 
-export type SkillCategory = 'Research & planning' | 'Code quality' | 'Delivery' | 'Automation';
+export type SkillCategory = 'Research & planning' | 'Code quality' | 'Delivery' | 'Automation' | 'Imported';
+
+/** Agent tools whose SKILL.md folders Agent Nekko can read. */
+export type ExternalSkillTool = 'claude' | 'codex' | 'gemini' | 'agents';
+
+/** Where an imported skill came from; absent for built-in and marketplace skills. */
+export interface SkillOrigin {
+  tool: ExternalSkillTool;
+  scope: 'user' | 'project';
+  /** The skill's folder on disk. */
+  dir: string;
+}
 
 /** A node in a skill's workflow graph. */
 export type SkillNodeKind =
@@ -360,6 +372,7 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
   'Code quality',
   'Delivery',
   'Automation',
+  'Imported'
 ];
 
 // --- Workflow layout (pure; consumed by the Skills tab visualizer) ---

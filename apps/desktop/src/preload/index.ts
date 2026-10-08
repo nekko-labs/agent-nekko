@@ -241,6 +241,7 @@ const api: NekkoApi = {
   generateDesign: (workspaceId, input) => inv(IpcChannels.designGenerate, workspaceId, input),
 
   listInstalledSkills: () => inv(IpcChannels.skillsInstalled),
+  listExternalSkills: () => inv(IpcChannels.skillsExternal),
   skillTargets: () => inv(IpcChannels.skillsTargets),
   installSkill: (skillId, target, payload) => inv(IpcChannels.skillInstall, skillId, target, payload),
   uninstallSkill: (skillId, target) => inv(IpcChannels.skillUninstall, skillId, target),
