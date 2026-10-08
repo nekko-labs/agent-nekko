@@ -52,7 +52,20 @@ describe('discoverExternalSkills', () => {
     expect(found[0].origin).toMatchObject({ tool: 'claude', scope: 'user' });
     expect(found[0].category).toBe('Imported');
     expect(found[0].template).toContain('Do the thing.');
-    expect(found[0].template).toContain(join(home, '.claude', 'skills', 'review-pr'));
+    // Only SKILL.md in the folder: the path is left out of the prompt.
+    expect(found[0].template).not.toContain(join(home, '.claude', 'skills', 'review-pr'));
+    expect(found[0].template.startsWith('Use the "review-pr" skill below.\n')).toBe(true);
+  });
+
+  it('names the skill folder only when the skill has its own files', () => {
+    const base = join(home, '.claude', 'skills');
+    const withFiles = skill(base, 'pdf-form', md('pdf-form', 'Fill PDF forms', 'Run fill.py on the form.'));
+    writeFileSync(join(withFiles, 'fill.py'), 'print("ok")\n', 'utf8');
+    const dotOnly = skill(base, 'plain', md('plain', 'Just instructions'));
+    writeFileSync(join(dotOnly, '.DS_Store'), '', 'utf8');
+    const found = discoverExternalSkills({ home });
+    expect(found.find((s) => s.name === 'pdf-form')?.template).toContain(withFiles);
+    expect(found.find((s) => s.name === 'plain')?.template).not.toContain(dotOnly);
   });
 
   it('lets a project skill win over a user skill with the same name', () => {

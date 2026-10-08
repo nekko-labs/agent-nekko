@@ -128,7 +128,7 @@ function readSkill(dir: string, tool: ExternalSkillTool, scope: 'user' | 'projec
       id: `external:${tool}:${scope}:${name}`,
       name,
       description: parsed.description ?? firstLine(parsed.body),
-      template: skillTemplate(name, dir, parsed.body),
+      template: skillTemplate(name, hasOwnFiles(dir) ? dir : undefined, parsed.body),
       category: 'Imported',
       origin: { tool, scope, dir },
       workflow: externalWorkflow(name),
@@ -138,17 +138,26 @@ function readSkill(dir: string, tool: ExternalSkillTool, scope: 'user' | 'projec
   }
 }
 
+/** True when the skill folder holds anything besides SKILL.md (dotfiles ignored). */
+export function hasOwnFiles(dir: string): boolean {
+  try {
+    return readdirSync(dir).some((n) => n !== 'SKILL.md' && !n.startsWith('.'));
+  } catch {
+    return false;
+  }
+}
+
 /**
- * What reaches the model when the skill is used. The folder is named because
- * skills often point at files beside SKILL.md (scripts/, references) by
- * relative path.
+ * What reaches the model when the skill is used. The folder is named only when
+ * the skill ships files beside SKILL.md (scripts/, references) that its
+ * instructions may point at by relative path. Without such files the path is
+ * left out: small models otherwise mistake the skill folder for the project.
  */
-function skillTemplate(name: string, dir: string, body: string): string {
-  return [
-    `Use the "${name}" skill below. Its own files (scripts, references) are in ${dir}. That folder belongs to the skill, not to the user's project: do the work in the project as usual, and only read from that folder when the instructions point at one of its files.`,
-    '',
-    body,
-  ].join('\n');
+function skillTemplate(name: string, dir: string | undefined, body: string): string {
+  const intro = dir
+    ? `Use the "${name}" skill below. Its own files (scripts, references) are in ${dir}. That folder belongs to the skill, not to the user's project: do the work in the project as usual, and only read from that folder when the instructions point at one of its files.`
+    : `Use the "${name}" skill below.`;
+  return [intro, '', body].join('\n');
 }
 
 function firstLine(body: string): string {
