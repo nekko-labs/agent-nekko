@@ -457,7 +457,15 @@ export function WallToolbar({
   // In the desktop shell the controls share the title bar's row with the
   // Agents heading instead of costing a row of their own.
   const [slot, setSlot] = useState<HTMLElement | null>(null);
-  useEffect(() => { if (hasAppChrome) setSlot(document.getElementById('command-titlebar-slot')); }, []);
+  useEffect(() => {
+    if (!hasAppChrome) return;
+    // The native title bar is one row; narrow windows keep controls in-view.
+    const wide = window.matchMedia('(min-width: 1100px)');
+    const update = () => setSlot(wide.matches ? document.getElementById('command-titlebar-slot') : null);
+    update();
+    wide.addEventListener('change', update);
+    return () => wide.removeEventListener('change', update);
+  }, []);
 
   const controls = (
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${slot ? 'wall-toolbar-titlebar no-drag' : ''}`} data-wall-toolbar>

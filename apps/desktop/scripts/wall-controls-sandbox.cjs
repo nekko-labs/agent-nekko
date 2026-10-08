@@ -81,6 +81,12 @@ app.whenReady().then(async () => {
         await check('tooltip appears on keyboard focus', "getComputedStyle(document.querySelector('#wall-auto-arrange-tip')).visibility==='visible'");
         await capture('controls-tooltip');
       }
+      if (process.env.NEKKO_VIEW_AFTER && process.env.NEKKO_VIEW_CHROME) {
+        await check('wide desktop controls use titlebar', "!!document.querySelector('#command-titlebar-slot [data-wall-toolbar]')");
+        win.setContentSize(400, 900); await sleep(350);
+        await check('narrow desktop controls leave titlebar', "!document.querySelector('#command-titlebar-slot [data-wall-toolbar]') && !!document.querySelector('[data-wall-toolbar]')");
+        await check('narrow layout buttons stay inside viewport', "[...document.querySelectorAll('.wall-layout-segments button')].every(b=>b.getBoundingClientRect().right<=innerWidth)");
+      }
       report.success = true;
       return;
     }
