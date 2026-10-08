@@ -7,7 +7,7 @@ if (!out) throw Error('Use shortcut-integration.cjs');
 const profile = fs.mkdtempSync(path.join(out, 'profile-'));
 app.setPath('userData', profile); app.setPath('sessionData', profile);
 const report = { checks: [], errors: [], blockedRequests: [], hidden: true };
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 app.whenReady().then(async () => {
   session.defaultSession.webRequest.onBeforeRequest((r, done) => {
     const cancel = !/^(file:|data:|blob:)/.test(r.url);
@@ -19,8 +19,25 @@ app.whenReady().then(async () => {
   win.on('focus', () => report.errors.push('Fixture took focus'));
   win.webContents.on('console-message', e => { if (e.level === 'error') report.errors.push(e.message); });
   const run = s => win.webContents.executeJavaScript(s);
+  const poll = async (label, predicate) => {
+    const deadline = Date.now() + 5000;
+    let state;
+    while (Date.now() < deadline) {
+      state = await run('window.shortcutTest?.snapshot()');
+      if (state) assert.deepEqual(state.unexpectedCalls, [], label + ' unsupported bridge calls');
+      if (state && predicate(state)) return state;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    throw new Error(label + ' timed out: ' + JSON.stringify(state));
+  };
+  const reset = async onboarding => {
+    const generation = await run('shortcutTest.reset(' + onboarding + ')');
+    await poll('committed reset', s => s.ready && s.committedGeneration === generation && s.onboardingOpen === onboarding && s.calls.length === 0);
+  };
   try {
-    await win.loadFile(path.join(out, 'index.html')); await sleep(800);
+    await win.loadFile(path.join(out, 'index.html'));
+    await poll('App effect readiness', s => s.ready && s.shortcutHandlerInstalled);
+    assert.equal(await run('(async () => { await nekko.updateSettings({ fixturePersistence: 123 }); return (await nekko.getSettings()).fixturePersistence; })()'), 123);
     for (const modifier of ['ctrlKey', 'metaKey']) {
       const chords = [
         ['t', false, 'agent'], ['T', false, 'agent'], ['n', false, 'agent'], ['N', false, 'agent'],
@@ -29,11 +46,10 @@ app.whenReady().then(async () => {
       for (const [key, shiftKey, kind] of chords) {
         for (const mode of ['normal', 'alt', 'onboarding']) {
           const name = `${modifier} ${shiftKey ? 'Shift+' : ''}${key} ${mode}`;
-          await run(`shortcutTest.reset(${mode === 'onboarding'})`); await sleep(40);
+          await reset(mode === 'onboarding');
           const event = await run(`shortcutTest.dispatch(${JSON.stringify({ key, shiftKey, [modifier]: true, altKey: mode === 'alt' })})`);
-          await sleep(100);
-          const state = await run('shortcutTest.snapshot()');
           const handled = mode === 'normal';
+          const state = await poll(name + ' completion', s => !handled || (s.calls.length === 1 && s.view === 'chat' && s.activeWorkspaceId && s.workspaces.length > 0));
           assert.equal(event.defaultPrevented, handled, name + ' preventDefault');
           assert.equal(event.dispatched, !handled, name + ' dispatch result');
           assert.equal(state.calls.length, handled ? 1 : 0, name + ' host calls');
@@ -54,11 +70,21 @@ app.whenReady().then(async () => {
       }
     }
     for (const init of [{ key: 't' }, { key: 'T', shiftKey: true }, { key: 'n', ctrlKey: true, shiftKey: true }, { key: 'x', metaKey: true }]) {
-      await run('shortcutTest.reset()');
-      const event = await run(`shortcutTest.dispatch(${JSON.stringify(init)})`); await sleep(100);
+      await reset(false);
+      const event = await run(`shortcutTest.dispatch(${JSON.stringify(init)})`);
       assert.equal(event.defaultPrevented, false); assert.equal((await run('shortcutTest.snapshot()')).calls.length, 0);
       report.checks.push({ name: `unmatched ${JSON.stringify(init)}`, passed: true });
     }
+    for (const tag of ['input', 'textarea', 'div']) {
+      await reset(false);
+      const event = await run('shortcutTest.dispatch(' + JSON.stringify({ key: 't', ctrlKey: true }) + ', ' + JSON.stringify(tag) + ')');
+      const state = await poll('focused ' + tag, s => s.calls.length === 1 && s.view === 'chat' && s.activeWorkspaceId && s.workspaces.length > 0);
+      assert.equal(event.defaultPrevented, true);
+      assert.equal(state.calls.length, 1);
+      assert.equal(state.calls[0].method, 'createSession');
+      report.checks.push({ name: 'focused DOM ' + tag, passed: true });
+    }
+    assert.deepEqual((await run('shortcutTest.snapshot()')).unexpectedCalls, []);
     assert.equal(win.isVisible(), false); assert.equal(win.isFocusable(), false);
     assert.deepEqual(report.errors, []);
     console.log(`PASS: ${report.checks.length} App KeyboardEvent-to-real-store cases; hidden, isolated, network blocked.`);

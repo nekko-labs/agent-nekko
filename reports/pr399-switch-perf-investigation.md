@@ -152,3 +152,29 @@ Actionable review issues (not changed here):
 Next diagnostic step is narrowly scoped: retain exact event timestamp and completion timestamp in a sidecar, map the slow cold anonymous ChatPane bundle location to source, observe mount/cache identity and count PromptAnalyzer/ChatPane recomputations for the specific target. Retain original judged samples and task semantics. For the warm tail, capture scheduler/render categories around dispatch-end through readiness-rAF (not just whole-loop aggregates). Only if redundant work is demonstrated should parent patch that exact path with a focused regression test and unchanged paired full measurements. Any comparison should use equal unprofiled sample counts and alternating order, not repeated quick profiled reruns.
 
 No new visual evidence or native shortcut verification performed. Report and .shots diagnostics only; SPEC update not required. PR399 gate failures remain release blockers. PR369 was not investigated.
+
+## Review remediation follow-up (items 1, 2, 4)
+
+The earlier investigation-only statements describe that earlier batch. This follow-up changes verification fixtures and the offline pricing refresh transformation only. No production shortcut behavior, pricing snapshot, performance probe, threshold or gate changed. No visual change; SPEC is unchanged because product/runtime behavior is unchanged. All work remained in pr399-verification; no commit, push, user-data access, interaction with existing processes or PR369 work. Only owned hidden fixture processes were launched and stopped.
+
+- Item 1: removed fixed 800/40/100 ms settles. Polling has a 5-second deadline and 10 ms retry interval, with explicit keydown-handler registration, React effect readiness, reset generation committed by React, and completed real-store pane state. Unmatched cases now await the same committed reset. Strict call-count assertions remain.
+- Item 2: updateSettings persists synthetic settings; integration asserts subsequent getSettings sees the patch. Unknown bridge invocations are recorded and throw; explicit synthetic no-ops/subscriptions replace prefix-based fallbacks. Polling and final assertions reject any unexpected bridge calls. Initial strict runs exposed detectHypergate, nextAgentWatchAt, getGitStatus, listChanges, previewContext, listSessionPrs, openTerminalStream and terminalSnapshot; these now have named synthetic responses.
+- Item 4: update-model-pricing.mjs exports transformPricingCatalog and guards CLI-only fetch/write. All base and override input/output/cache rates must convert to finite nonnegative rates; override thresholds must be finite nonnegative numeric integers. Synthetic tests import only the pure transformation, with no network and no snapshot writes.
+- Added three focused-element bubbling DOM cases: input, textarea and contenteditable div. These are synthetic DOM tests, not native keyboard/menu, IME, editor/terminal propagation or macOS evidence.
+
+Exact final verification:
+
+```text
+node apps/desktop/scripts/shortcut-integration.cjs
+PASS: 73 App KeyboardEvent-to-real-store cases; hidden, isolated, network blocked.
+node --test scripts/update-model-pricing.test.mjs
+44 passed, 0 failed
+npx vitest run packages/shared/src/limits.test.ts apps/desktop/src/renderer/shortcuts.test.ts --exclude **/.shots/**
+2 files, 31 tests passed
+git diff --check
+Passed
+```
+
+The fixture uses show:false, focusable:false, a fresh isolated profile, CSP/session network blocking and windowsHide child launch. Final results are in .shots/shortcut-integration/results.json. Earlier runs failed on newly exposed bridge calls and a quoting error in the new focused case; corrected before the final passing run. Early failed teardown emitted Electron GPU diagnostics, not a final assertion failure. No snapshot changes occurred.
+
+Remaining scope: review item 5 is intentionally untouched; native shortcut delivery and paired unchanged full performance gates remain unverified. Existing warm/cold CI gate failures remain release blockers. No PR publication attempted under the no-commit/no-push scope.
