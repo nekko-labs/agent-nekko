@@ -559,7 +559,7 @@ export function WorkspacesView({ sidebarOnly = false, onOpenChat, onOpenTerminal
     >
       <div className={horizontal ? 'flex shrink-0 flex-col items-center justify-center gap-1 border-r border-line px-1.5 py-2' : `flex items-center ${sidebarOnly ? 'justify-end' : 'justify-between'} px-3 py-2.5`}>
         {!sidebarOnly && <span className="text-sm font-semibold">Agents</span>}
-        <div className={`relative flex items-center ${horizontal ? 'flex-col gap-1' : 'gap-0.5'}`} ref={newMenuRef}>
+        <div className={`relative flex shrink-0 items-center ${horizontal ? 'flex-col gap-1' : 'gap-0.5'}`} ref={newMenuRef}>
           {sidebarOnly ? (<>
             <button
               className="rounded-sm p-1.5 text-ink-faint hover:text-ink"

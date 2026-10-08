@@ -9,7 +9,7 @@ import { AUTO_MODEL_ID, classifyAgent, classifySession, formatUSD, summarizeSess
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
-import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, PanelLeftIcon, WandIcon } from '../icons.js';
+import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, PanelLeftIcon, PanelSwapIcon, WandIcon } from '../icons.js';
 import { CommandWall } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
 import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
@@ -462,8 +462,10 @@ export function WallToolbar({
   const controls = (
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${slot ? 'wall-toolbar-titlebar no-drag' : ''}`} data-wall-toolbar>
       {!hasAppChrome && <h1 className="text-gradient text-2xl font-semibold">Agents</h1>}
+      <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-label={panel.show ? 'Hide the agent panel' : 'Show the agent panel'} title={panel.show ? 'Hide the agent panel' : 'Show the agent panel'} aria-pressed={panel.show} onClick={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: !readAgentPanel(w.agentPanel).show } }))}><PanelLeftIcon className="h-4 w-4" />Agents</button>
+      <button type="button" className="btn btn-outline py-1" title={panel.orientation === 'horizontal' ? 'Move the agent panel to the left side' : 'Move the agent panel to the top'} aria-label={panel.orientation === 'horizontal' ? 'Show agents in a column' : 'Show agents in a row'} onClick={() => setWall((w) => { const prefs = readAgentPanel(w.agentPanel); return { ...w, agentPanel: { ...prefs, orientation: prefs.orientation === 'horizontal' ? 'vertical' : 'horizontal' } }; })}><PanelSwapIcon className="h-4 w-4" /></button>
       <div className={`ml-auto flex flex-wrap items-center ${slot ? 'gap-2' : 'gap-3'}`}>
-        {!panel.show && <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-label="Show the agent panel" title="Show the agent panel" onClick={() => setWall((w) => ({ ...w, agentPanel: { ...readAgentPanel(w.agentPanel), show: true } }))}><PanelLeftIcon className="h-4 w-4" />Agents</button>}
+
         <div className="wall-layout-control" ref={fixedRef}>
           <div className="wall-layout-segments" role="group" aria-label="Wall layout">
             {(['focus', 'grid', 'fixed'] as const).map((mode) => (
@@ -472,6 +474,12 @@ export function WallToolbar({
                 else { setFixedOpen(false); setWall((w) => ({ ...w, layout: { ...w.layout, mode } })); }
               }}>{React.createElement(mode === 'focus' ? FocusLayoutIcon : mode === 'grid' ? GridIcon : FixedLayoutIcon, { className: 'h-4 w-4' })}{LAYOUT_LABEL[mode]}</button>
             ))}
+          </div>
+          <div className="wall-auto-arrange" data-visible={wall.layout.mode === 'grid'}>
+            <button type="button" className="btn btn-outline py-1 disabled:opacity-50" title="Auto-arrange: fit windows above the composer in even rows and columns" aria-label="Auto-arrange" aria-describedby={wall.layout.mode === 'grid' ? 'wall-auto-arrange-tip' : undefined} tabIndex={wall.layout.mode === 'grid' ? 0 : -1} onClick={onAutoArrange} disabled={!canArrange}>
+              <WandIcon className="h-4 w-4" />
+            </button>
+            <span id="wall-auto-arrange-tip" role="tooltip">Fit windows above the composer in even rows and columns.</span>
           </div>
           {fixedOpen && <div className="wall-fixed-picker" role="dialog" aria-label="Grid size">
             <p className="wall-fixed-shortcut">{layoutShortcutLabel('fixed')} · Grid view</p>
@@ -498,15 +506,6 @@ export function WallToolbar({
             </button>
           ))}
         </div>
-        <button
-          className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
-          title="Fit windows above the composer in even rows and columns"
-          aria-label="Auto-arrange"
-          onClick={onAutoArrange}
-          disabled={!canArrange}
-        >
-          <WandIcon className="h-4 w-4" />
-        </button>
         <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-pressed={wall.dock.show} onClick={() => setWall((w) => ({ ...w, dock: { ...w.dock, show: !w.dock.show } }))}><PanelIcon className="h-4 w-4" />Panels</button>
         {showAdd && <div className="relative">
           <button
