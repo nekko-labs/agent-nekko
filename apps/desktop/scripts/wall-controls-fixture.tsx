@@ -83,6 +83,12 @@ function Fixture() {
     // Apply a theme preset the way Settings does, with the plan panel open.
     theme: (patch: any) => { useStore.setState({ settings: { ...useStore.getState().settings, ...patch }, planRailOpen: true } as any); useStore.getState().applyTheme(); } } });
   React.useEffect(reset, []);
+  // Evidence hooks: replace the wall settings, and make the first chat look
+  // like it is working (a streamed text event, as a live run sends).
+  Object.assign(window, {
+    __setWall: (commandWall: any) => { useStore.setState({ settings: { ...useStore.getState().settings, commandWall } } as any); setEpoch(e => e + 1); },
+    __work: () => listeners.forEach(fn => fn({ type: 'text', sessionId: 'existing', delta: 'Working on it' })),
+  });
   return <main style={{ height: '100vh', display: 'flex', flexDirection: 'column' }} key={epoch}><TitleBar /><div style={{ flex: 1, minHeight: 0 }}>{route === 'command' ? <CommandCenterView /> : <WorkspacesView />}</div></main>;
 }
 createRoot(document.getElementById('root')!).render(<UpdateProvider><Fixture /></UpdateProvider>);

@@ -5,15 +5,21 @@ import { describe, expect, it } from 'vitest';
 const source = readFileSync(new URL('./WorkspacesView.tsx', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const toolbar = readFileSync(new URL('./CommandCenterView.tsx', import.meta.url), 'utf8');
+const controls = readFileSync(new URL('../components/AgentPanelControls.tsx', import.meta.url), 'utf8');
 
 describe('Agents panel header', () => {
   it('hides with a left-panel icon rather than an X, and swaps sides with the curved-arrow icon', () => {
-    expect(source).toContain('aria-label="Hide the agent panel"');
-    expect(source).toMatch(/aria-label="Hide the agent panel"[\s\S]{0,80}<PanelLeftIcon/);
-    expect(source).toContain('<PanelSwapIcon');
+    expect(controls).toContain("aria-label={show ? 'Hide the agent panel' : 'Show the agent panel'}");
+    expect(controls).toMatch(/Show the agent panel'\}[\s\S]{0,260}<PanelLeftIcon/);
+    expect(controls).toContain('<PanelSwapIcon');
+    expect(source).toContain('<AgentPanelControls show orientation={orientation}');
     expect(source).not.toContain('Close the agent panel');
     expect(source).not.toContain('<CloseIcon');
-    expect(toolbar).toContain("aria-label={panel.show ? 'Hide the agent panel' : 'Show the agent panel'}");
+  });
+  it('keeps the panel controls where the panel was when it is collapsed, and nowhere in the title bar', () => {
+    expect(toolbar).toContain('<AgentPanelControls show={false} orientation={panel.orientation}');
+    expect(toolbar).not.toContain("aria-label={panel.show ? 'Hide the agent panel' : 'Show the agent panel'}");
+    expect(toolbar).not.toContain('PanelSwapIcon');
   });
   it('draws no outer ring around the Agents tab panel in either orientation', () => {
     expect(source).toContain("className={`panel ${sidebarOnly ? '' : 'panel-ring '}flex");

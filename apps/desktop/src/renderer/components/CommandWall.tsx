@@ -34,7 +34,7 @@ import { ChatPane } from './ChatPane.js';
 import { FilePane } from './FilePane.js';
 import { ExplorerPane } from './ExplorerPane.js';
 import { WorkingSubagents } from './WorkingSubagents.js';
-import { NumberedChatIcon } from './NumberedChatIcon.js';
+import { NumberedAgentIcon } from './NumberedChatIcon.js';
 import { StatusIcon, agentStatusOfLane, type AgentStatus } from './WorkspaceCard.js';
 import { BrowserPane } from './BrowserPane.js';
 import { DiffPane } from './DiffPane.js';
@@ -402,11 +402,14 @@ export function CommandWall({
         data-wall-pane={pane.id}
         data-grid-cell={`${pane.kind}:${pane.refId}`}
         data-wall-selected={selected || undefined}
+        data-wall-working={agentStatus === 'working' || undefined}
       >
+        {/* The composer's beam, quieter: a working agent window says so at a glance. */}
+        {agentStatus === 'working' && <span className="composer-beam-ring wall-window-beam" aria-hidden><span className="composer-beam-spin" /></span>}
         <PaneFrame
           pane={pane}
           title={title}
-          icon={pane.kind === 'chat' ? <NumberedChatIcon number={n} /> : iconOf(pane.kind)}
+          icon={pane.kind === 'chat' ? <NumberedAgentIcon number={n} /> : iconOf(pane.kind)}
           // A chat says what it is doing by shape, as the sidebar does: a green
           // rocket while it works, "Zz" when idle. A terminal keeps its dot.
           statusIndicator={session ? <StatusIcon status={agentStatus} /> : status && <span role="img" aria-label={status.label} title={status.label} className="h-2 w-2 shrink-0 rounded-full" style={{ background: status.live ? 'var(--success)' : 'var(--ink-faint)' }} />}

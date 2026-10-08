@@ -1261,6 +1261,15 @@ Add window sits to the right of the shared composer in the same row, including t
   - **Review verification.** 50 focused renderer tests and 81 host routing tests pass. `build:web` and full workspace typecheck pass after isolating dependency links to this worktree's built workspace packages. Initial failures were caused by parent-checkout workspace resolution and a missing worktree-local electron-vite link, not weakened checks. Wide/narrow (1400px/600px) light/dark fixture captures and picker interaction GIFs are being published to the shared pr-media release. A synthetic failed-options/failed-cleanup retry test passed after correcting the fixture workspace setter to return the Session required by its contract: one create only, primary folder cleared and empty supporting folders applied.
   - **Not done.** Image-capable inspection is unavailable in this review toolset, so captured images and motion are not claimed visually verified. Native window chrome and real providers/folders remain unexercised; original second-title cause remains unconfirmed. Inspect published matrix and motion before landing; CI on the final head must pass.
 
+## Agents wall polish, round three (2026-10-08) · [spec](SPEC.md#agents-wall-polish-round-three-2026-10-08)
+
+- [x] Composer resize grips float outside its edges. Done: 2026-10-08
+- [x] Working agent windows get a muted composer beam. Done: 2026-10-08
+- [x] Auto-arrange no longer overlaps the filter (grid-track reveal instead of a fixed 38 px). Done: 2026-10-08
+- [x] Agents panel controls removed from the title bar; hover-expanding pills in the panel, kept when collapsed, FLIP move on orientation change. Done: 2026-10-08
+- [x] Robot-head agent icon with the window number on wall windows and the composer header. Done: 2026-10-08
+- [ ] Record the orientation-switch motion as video evidence (stills only so far).
+
 ## Quota read reasons, unavailable models and kept reply stats (2026-10-08) · [spec](SPEC.md#quota-read-reasons-unavailable-models-and-kept-reply-stats-2026-10-08)
 
 - [x] Quota reads record why they failed (signed out, sign-in expired, 429 + Retry-After, HTTP, network, unreadable); Utilization shows the reason. Exponential backoff (1 min to 30 min); a dead sign-in stops polling until the token changes. Done: 2026-10-08

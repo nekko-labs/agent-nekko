@@ -941,6 +941,16 @@ Implemented, not release-verified. Focused unit tests, build:web and workspace t
 - **No box behind the wall composer.** The composer's bottom information strip carries no border or background in the wall composer, where it only ever hosts the pending-PR dock, so an empty strip no longer shows as a band below the composer.
 - **Delegation errors name the fix.** A sub-agent call that sends `provider_id`/`model_id` as empty strings is still refused (no child, no fallback), but the error now tells the model to omit them to inherit the chat's route or to call `delegation_targets` first. A failed target model-list check is logged with the provider ID and error class only, never the message (which can quote endpoints or tokens).
 
+### Agents wall polish, round three (2026-10-08)
+
+Implemented; focused tests and isolated renderer captures verified (dark/light, 1400/760 px, panel as column, row and collapsed). The orientation-switch animation is implemented (FLIP, 280 ms, off under reduced motion) but its motion is not captured as video.
+
+- **Composer resize grips** float in the gap just outside the composer (14 px out on the left, right and top/bottom edges) instead of sitting on its border, and grow and take the accent on hover or keyboard focus. The composer row gained enough side padding that they are never clipped.
+- **Working agent windows** show a quieter copy of the composer's spinning border beam while their agent works: thinner, 55% opacity, softer colours, a slower lap. Idle, waiting and terminal windows have none.
+- **Auto-arrange** reveals by its own width instead of a fixed 38 px, which was narrower than the button in the title bar, so the wand no longer overlaps the All/Agents/Terminals filter beside it.
+- **Agents panel controls** live only in the panel: the title bar no longer has the Agents and orientation buttons. They are icon pills that grow their label ("Hide agents", "Row", "Column") out of the icon on hover or focus. In a column panel they lie in a row across its top; in a row panel they stack at its left. Collapsing the panel leaves them where it was (a strip down the wall's left, or a row above it), offering "Show agents". Changing orientation slides each button from its old place to its new one.
+- **Agent window icon**: each wall window and the composer header show a small robot head whose face is the window's keyboard number, replacing the chat bubble. It takes the accent when the window is selected or working.
+
 ### Quota read reasons, unavailable models and kept reply stats (2026-10-08)
 
 Implemented; focused host/renderer tests and isolated renderer captures verified. Live provider behaviour (a real 429, a real token-endpoint rejection) is exercised only through mocked responses.
