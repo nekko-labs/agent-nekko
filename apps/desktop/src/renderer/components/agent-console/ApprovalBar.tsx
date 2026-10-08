@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 
 import type { ToolCall } from '@agent-nekko/shared';
 import { ShieldIcon } from '../../icons.js';
@@ -10,15 +10,18 @@ export interface PendingApproval {
   severity: 'low' | 'medium' | 'high';
 }
 
-/** Returns true if the element content is truncated (scrolls horizontally). */
-export function isTruncated(el?: HTMLElement | null): boolean {
+/** True when a single-line element's content is cut off horizontally. */
+export function isTruncated(el?: Pick<HTMLElement, 'scrollWidth' | 'clientWidth'> | null): boolean {
   return el ? el.scrollWidth > el.clientWidth : false;
 }
 
-/** Returns true if the text should show the expand toggle. */
-function shouldShowToggle(text: string): boolean {
-  // Show toggle if text is longer than 60 characters
-  return text.length > 60;
+/**
+ * Whether the command needs a "Show full command" control: its collapsed line
+ * is cut off, or it has line breaks the single line hides. Expanded text no
+ * longer overflows, so the control stays while expanded to collapse it again.
+ */
+export function needsFullTextToggle(text: string, overflowing: boolean, expanded: boolean): boolean {
+  return expanded || overflowing || /[\r\n]/.test(text);
 }
 
 /** Keyboard decisions stay scoped to this approval surface; Y approves once. */
@@ -26,14 +29,34 @@ export function ApprovalBar({ approval, onDecide }: { approval: PendingApproval;
   const denyRef = useRef<HTMLButtonElement>(null);
   const deciding = useRef(false);
   const codeRef = useRef<HTMLElement>(null);
+  const codeId = useId();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  // ChatPane keeps this bar mounted when one approval replaces another, so a
+  // new request starts collapsed instead of inheriting the last one's state.
+  const [shownCallId, setShownCallId] = useState(approval.call.id);
+  if (shownCallId !== approval.call.id) {
+    setShownCallId(approval.call.id);
+    setExpanded(false);
+  }
 
-  // Get command text and determine if toggle should show
   const commandText = String((approval.call.input as Record<string, unknown>).command ?? JSON.stringify(approval.call.input));
-  // Show toggle if text is long (60+ chars) or if it's actually truncated at runtime
-  const showToggle = shouldShowToggle(commandText) || isTruncated(codeRef.current);
+  const showToggle = needsFullTextToggle(commandText, overflowing, expanded);
+
+  // Measure the collapsed line after layout and whenever it resizes: a short
+  // command can still be cut off in a narrow pane, such as a wall cell.
+  useLayoutEffect(() => {
+    const el = codeRef.current;
+    if (expanded || !el) return;
+    const measure = () => setOverflowing(isTruncated(el));
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expanded, commandText]);
 
   // Do not steal focus from another chat; shortcuts require focus inside this prompt.
   const decide = async (ok: boolean, scope: ApprovalScope = 'once') => {
@@ -66,26 +89,25 @@ export function ApprovalBar({ approval, onDecide }: { approval: PendingApproval;
             <span className="rounded-full px-2 py-0.5 text-[10px] font-medium text-white" style={{ background: color }}>{approval.severity}</span>
             <span className="text-[12px] text-ink-faint">{approval.reason}</span>
           </div>
-          <div className="relative mt-0.5 block" aria-live="polite">
-            <code
-              ref={codeRef}
-              className={`block font-mono text-[12px] text-ink-soft ${expanded ? '' : 'truncate'}`}
-              title={commandText}
+          <code
+            ref={codeRef}
+            id={codeId}
+            className={`mt-0.5 block font-mono text-[12px] text-ink-soft ${expanded ? 'max-h-40 overflow-y-auto whitespace-pre-wrap break-all' : 'truncate'}`}
+            title={commandText}
+          >
+            {commandText}
+          </code>
+          {showToggle && (
+            <button
+              type="button"
+              className="mt-1 rounded-sm text-[11px] font-medium text-ink-faint underline decoration-dotted outline-hidden hover:text-ink-soft hover:decoration-solid focus-visible:ring-2 focus-visible:ring-(--ring)"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              aria-controls={codeId}
             >
-              {commandText}
-            </code>
-            {showToggle && (
-              <button
-                type="button"
-                className="mt-1 text-[10px] font-medium underline decoration-dotted hover:decoration-solid focus:outline-none focus:underline"
-                onClick={() => setExpanded((v) => !v)}
-                aria-expanded={expanded}
-                aria-label={expanded ? 'Show less' : 'Show full command'}
-              >
-                {expanded ? 'Show less' : 'Show full'}
-              </button>
-            )}
-          </div>
+              {expanded ? 'Show less' : 'Show full command'}
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button ref={denyRef} disabled={busy} className={`${buttonClass} btn-outline`} onClick={() => void decide(false)} title="Deny (N or Esc)">Deny</button>
