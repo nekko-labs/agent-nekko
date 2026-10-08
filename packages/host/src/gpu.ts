@@ -73,6 +73,7 @@ async function probe(fresh: boolean): Promise<GpuStats | null> {
 let engineBin: (() => Promise<string | undefined>) | undefined;
 export function setEngineBinResolver(fn: (() => Promise<string | undefined>) | undefined): void {
   engineBin = fn;
+  cache = null;
   engineCache = null;
 }
 
