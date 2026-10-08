@@ -1958,7 +1958,7 @@
 .composer-foot-controls .ctl-menu:hover { border-color: var(--line); }
 .composer-foot-controls { flex-shrink: 1; overflow: hidden; }
 .composer-foot-controls .ctl-toggle .ctl-dot { display: none; }
-/* A narrow composer keeps the mode value and the incognito mask; their
+/* A narrow composer keeps the mode value and the incognito glyph; their
    words go to the tooltip so the bar never runs into the microphone. */
 @container (max-width: 520px) {
   .composer-foot-controls .ctl-menu-label, .composer-foot-controls .ctl-toggle .foot-label { display: none; }

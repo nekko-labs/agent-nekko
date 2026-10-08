@@ -77,7 +77,8 @@ export const WandIcon = (p: P) => (<S {...p}><path d="m15 4 1 2 2 1-2 1-1 2-1-2-
 export const BoltIcon = (p: P) => (<S {...p}><path d="M13 2 4 14h6l-1 8 9-12h-6z" /></S>);
 export const WrenchIcon = (p: P) => (<S {...p}><path d="M14.7 6.3a4.5 4.5 0 0 0-6 5.7L3 17.7A2 2 0 1 0 6.3 21l5.7-5.7a4.5 4.5 0 0 0 5.7-6L14.5 12l-2.5-2.5z" /></S>);
 export const PlaneIcon = (p: P) => (<S {...p}><path d="M17.8 19.2 16 11l3.5-3.5a2.1 2.1 0 1 0-3-3L13 8 4.8 6.2a1 1 0 0 0-.9.3l-.5.5 6 4-3 3-2.6-.5-.8.8 3 2 2 3 .8-.8L8.3 16l3-3 4 6 .5-.5a1 1 0 0 0 .3-.9z" /></S>);
-export const MaskIcon = (p: P) => (<S {...p}><path d="M4 8c0-1 1-2 2.5-2h11C19 6 20 7 20 8l-1 5c-.3 1.6-1.5 2.5-3 2.5-1.6 0-2.6-.9-3-2-.4 1.1-1.4 2-3 2-1.5 0-2.7-.9-3-2.5z" /><path d="M9.5 18.5c1-.8 4-.8 5 0" /></S>);
+/** Incognito: the hat-and-sunglasses figure browsers use for private windows. */
+export const IncognitoIcon = (p: P) => (<S {...p}><path d="M2 11h20" /><path d="M5 11l1.6-5.4A1.5 1.5 0 0 1 8.4 4.6l3.6 1.2 3.6-1.2a1.5 1.5 0 0 1 1.8 1L19 11" /><circle cx="7.5" cy="17" r="3" /><circle cx="16.5" cy="17" r="3" /><path d="M10.5 17a2.1 2.1 0 0 1 3 0" /></S>);
 /** A globe: this agent may reach the internet. */
 export const GlobeIcon = (p: P) => (<S {...p}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z" /></S>);
 /** A globe struck through: this agent is blocked from the internet. */
