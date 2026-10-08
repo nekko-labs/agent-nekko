@@ -1261,6 +1261,15 @@ Add window sits to the right of the shared composer in the same row, including t
   - **Review verification.** 50 focused renderer tests and 81 host routing tests pass. `build:web` and full workspace typecheck pass after isolating dependency links to this worktree's built workspace packages. Initial failures were caused by parent-checkout workspace resolution and a missing worktree-local electron-vite link, not weakened checks. Wide/narrow (1400px/600px) light/dark fixture captures and picker interaction GIFs are being published to the shared pr-media release. A synthetic failed-options/failed-cleanup retry test passed after correcting the fixture workspace setter to return the Session required by its contract: one create only, primary folder cleared and empty supporting folders applied.
   - **Not done.** Image-capable inspection is unavailable in this review toolset, so captured images and motion are not claimed visually verified. Native window chrome and real providers/folders remain unexercised; original second-title cause remains unconfirmed. Inspect published matrix and motion before landing; CI on the final head must pass.
 
+## Quota read reasons, unavailable models and kept reply stats (2026-10-08) · [spec](SPEC.md#quota-read-reasons-unavailable-models-and-kept-reply-stats-2026-10-08)
+
+- [x] Quota reads record why they failed (signed out, sign-in expired, 429 + Retry-After, HTTP, network, unreadable); Utilization shows the reason. Exponential backoff (1 min to 30 min); a dead sign-in stops polling until the token changes. Done: 2026-10-08
+  - Diagnosis that led here: the live ChatGPT access token expired at 02:37 UTC on 2026-10-08 and was never replaced; quota polling (one read per account per minute) was not the cause. The refresh failure reason was swallowed, so the panel only said "Quota unavailable."
+- [x] Model chip names an unavailable saved model instead of a floating popup; the "select a model again" note shows only in the selected wall window or a full pane. Done: 2026-10-08
+- [x] Per-reply `turnStats` (model, provider, effort, tokens incl. cache, decode/wall time, calls, steps, stop) persisted on the reply and in `replies.jsonl`; shown inline in the transcript; "Reply stats" placeholder removed. Done: 2026-10-08
+- [ ] Verify against a real expired ChatGPT sign-in in an isolated profile (mocked responses only so far).
+- [ ] Analysis surface for `turnStats` (per-model token breakdown per chat / across chats) is not built; the data is recorded for it.
+
 ## Hardware memory and subscription refresh accuracy (2026-10-08)
 
 - [x] macOS Hardware memory no longer counts reclaimable cached files as used. Uses vm_stat with timeout, page-size-aware resident accounting, explicit unavailable on failure and parser tests. Other platforms unchanged. · [spec](SPEC.md#hardware-memory-and-subscription-refresh-accuracy)

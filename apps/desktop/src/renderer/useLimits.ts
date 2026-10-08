@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import type { ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
+import type { LimitsProblem, ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
 import { limitsKeyFor } from '@agent-nekko/shared';
 import { useStore } from './store.js';
 import { useRunningSessionsSnapshot } from './liveRuns.js';
@@ -53,8 +53,18 @@ export function useAllProviderLimits(
 export function useProviderLimitsPortfolio(
   providers: ProviderConfig[],
   enabled = true,
-): { byToken: Record<string, SubscriptionLimits>; answered: ReadonlySet<string>; refresh: () => Promise<void>; nextRefreshAt: number | null } {
+): { byToken: Record<string, SubscriptionLimits>; answered: ReadonlySet<string>; problems: Record<string, LimitsProblem>; refresh: () => Promise<void>; nextRefreshAt: number | null } {
   const [byToken, setByToken] = useState<Record<string, SubscriptionLimits>>({});
+  // Why a key answered with nothing, from the host. Only asked for after an
+  // empty answer, so a healthy panel costs no extra round trip.
+  const [problems, setProblems] = useState<Record<string, LimitsProblem>>({});
+  const noteProblem = (key: string, limits: SubscriptionLimits | undefined | null) => {
+    if (limits) { setProblems((prev) => { if (!(key in prev)) return prev; const next = { ...prev }; delete next[key]; return next; }); return; }
+    void window.nekko.getLimitsProblem?.(key).then((problem) => setProblems((prev) => {
+      if (!problem) { if (!(key in prev)) return prev; const next = { ...prev }; delete next[key]; return next; }
+      return { ...prev, [key]: problem };
+    })).catch(() => {});
+  };
   const [answered, setAnswered] = useState<ReadonlySet<string>>(new Set());
   // Limits keys, as a stable string, so re-rendering with a new array identity
   // doesn't re-fetch every provider's usage. Covers signed-in providers by
@@ -84,6 +94,7 @@ export function useProviderLimitsPortfolio(
       for (const [k, l] of entries) if (l) next[k] = l;
       setByToken(next);
       setAnswered(new Set(entries.map(([k]) => k)));
+      for (const [k, l] of entries) noteProblem(k, l);
     });
     const off = window.nekko.onLimitsUpdated((e) => {
       if (keys.includes(e.tokenKey)) setByToken((prev) => ({ ...prev, [e.tokenKey]: e.limits }));
@@ -103,6 +114,7 @@ export function useProviderLimitsPortfolio(
         void readLimits(key, true).then(limits => {
           if (!live) return;
           setAnswered(prev => new Set([...prev, key]));
+          noteProblem(key, limits);
           setByToken(prev => {
             const next = { ...prev };
             if (limits) next[key] = limits;
@@ -121,6 +133,7 @@ export function useProviderLimitsPortfolio(
     const entries = await Promise.all([...new Set(keys)].map(async key => [key, await readLimits(key, true)] as const));
     setByToken(Object.fromEntries(entries.filter((entry): entry is readonly [string, SubscriptionLimits] => !!entry[1])));
     setAnswered(new Set(entries.map(([key]) => key)));
+    for (const [key, limits] of entries) noteProblem(key, limits);
   }, [keysId]);
-  return { byToken, answered, refresh, nextRefreshAt };
+  return { byToken, answered, problems, refresh, nextRefreshAt };
 }

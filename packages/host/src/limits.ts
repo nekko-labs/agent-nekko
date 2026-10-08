@@ -1,7 +1,7 @@
 /** Host-side subscription-limits capture and polling service. */
 
 import { EventEmitter } from 'node:events';
-import type { LimitWindow, OAuthProvider, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
+import type { LimitWindow, LimitsProblem, OAuthProvider, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
 import { getToken, ensureFreshToken } from './oauth.js';
 import { getSettings } from './store.js';
 
@@ -10,8 +10,70 @@ let events: EventEmitter | null = null;
 const store = new Map<string, SubscriptionLimits>();
 const lastPollByToken = new Map<string, number>();
 const inFlight = new Map<string, Promise<SubscriptionLimits | undefined>>();
+/** Why the latest read for a key failed; cleared by the next success or a new sign-in. */
+const problems = new Map<string, LimitsProblem>();
 
 const POLL_INTERVAL_MS = 30_000;
+/** First retry after a failure; doubles per consecutive failure up to the cap. */
+const BACKOFF_BASE_MS = 60_000;
+const BACKOFF_MAX_MS = 30 * 60_000;
+
+/** A quota read that failed for a reason worth reporting. */
+export class LimitsReadError extends Error {
+  constructor(readonly kind: LimitsProblem['kind'], readonly status?: number, readonly retryAfterMs?: number) {
+    super(`limits read failed: ${kind}${status ? ` ${status}` : ''}`);
+  }
+}
+
+/** Retry-After as delta seconds or an HTTP date, in ms from now. */
+export function parseRetryAfter(value: string | null | undefined, now = Date.now()): number | undefined {
+  if (!value) return undefined;
+  const secs = Number(value);
+  if (Number.isFinite(secs) && secs >= 0) return secs * 1000;
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - now) : undefined;
+}
+
+/** Turn a failed response into a typed error. */
+function failure(res: Response): LimitsReadError {
+  if (res.status === 401 || res.status === 403) return new LimitsReadError('auth_expired', res.status);
+  if (res.status === 429) return new LimitsReadError('rate_limited', 429, parseRetryAfter(res.headers.get('retry-after')));
+  return new LimitsReadError('http', res.status);
+}
+
+/** Classify anything thrown by a read, including token refresh errors. */
+export function classifyLimitsError(e: unknown): Pick<LimitsProblem, 'kind' | 'status'> & { retryAfterMs?: number } {
+  if (e instanceof LimitsReadError) return { kind: e.kind, status: e.status, retryAfterMs: e.retryAfterMs };
+  const message = e instanceof Error ? e.message : String(e);
+  if (/sign in again|session expired|no refresh token|invalid_grant|revoked/i.test(message)) return { kind: 'auth_expired' };
+  if (/no subscription token found/i.test(message)) return { kind: 'signed_out' };
+  if (/token refresh failed/i.test(message)) return { kind: 'http' };
+  return { kind: 'network' };
+}
+
+/** The backoff before the next attempt after `failures` consecutive failures. */
+export function limitsBackoffMs(failures: number, retryAfterMs?: number): number {
+  const exp = Math.min(BACKOFF_MAX_MS, BACKOFF_BASE_MS * 2 ** Math.max(0, failures - 1));
+  return Math.max(exp, retryAfterMs ?? 0);
+}
+
+/** Why the last read for this key failed, if it did. */
+export function getLimitsProblem(tokenKey: string): LimitsProblem | undefined {
+  return problems.get(tokenKey);
+}
+
+function recordProblem(tokenKey: string, e: unknown): void {
+  const { kind, status, retryAfterMs } = classifyLimitsError(e);
+  const now = Date.now();
+  const failures = (problems.get(tokenKey)?.failures ?? 0) + 1;
+  // A dead sign-in will not fix itself: wait for the user rather than
+  // asking the token endpoint again every few minutes.
+  const waitsForUser = kind === 'auth_expired' || kind === 'signed_out';
+  const problem: LimitsProblem = { kind, status, at: now, failures, retryAt: waitsForUser ? undefined : now + limitsBackoffMs(failures, retryAfterMs) };
+  problems.set(tokenKey, problem);
+  // The cached snapshot is kept: getLimits already refuses to hand it back
+  // once stale, and a short network blip should not blank fresh numbers.
+}
 const HEADER_STALE_MS = 60_000;
 const POLL_STALE_MS = 35_000;
 
@@ -84,6 +146,7 @@ export function initLimits(eventBus: EventEmitter): void {
   store.clear();
   lastPollByToken.clear();
   inFlight.clear();
+  problems.clear();
 }
 
 /** Drop all cached state for a token key, or for every key if omitted. */
@@ -92,10 +155,12 @@ export function clearLimits(tokenKey?: string): void {
     store.delete(tokenKey);
     lastPollByToken.delete(tokenKey);
     inFlight.delete(tokenKey);
+    problems.delete(tokenKey);
   } else {
     store.clear();
     lastPollByToken.clear();
     inFlight.clear();
+    problems.clear();
   }
 }
 
@@ -180,12 +245,24 @@ export async function poll(tokenKey: string): Promise<SubscriptionLimits | undef
   // A `provider:<id>` key is an API-key provider read with its inference key;
   // everything else is an OAuth token key.
   const apiKeyProvider = providerFromLimitsKey(tokenKey);
-  if (!apiKeyProvider && !getToken(tokenKey)) return get(tokenKey);
+  const token = apiKeyProvider ? undefined : getToken(tokenKey);
+  if (!apiKeyProvider && !token) {
+    if (!problems.has(tokenKey)) recordProblem(tokenKey, new LimitsReadError('signed_out'));
+    return get(tokenKey);
+  }
 
   const now = Date.now();
   const last = lastPollByToken.get(tokenKey) ?? 0;
   if (now - last < POLL_INTERVAL_MS) {
     return get(tokenKey);
+  }
+  const problem = problems.get(tokenKey);
+  if (problem) {
+    // A dead sign-in stays dead until the stored token changes (a new sign-in,
+    // or a chat's own refresh succeeding); everything else waits out its backoff.
+    const waitsForUser = problem.retryAt == null;
+    const tokenChanged = !!token && (token.obtainedAt ?? 0) > problem.at;
+    if (waitsForUser ? !tokenChanged : now < problem.retryAt!) return get(tokenKey);
   }
 
   const existing = inFlight.get(tokenKey);
@@ -219,6 +296,7 @@ export async function poll(tokenKey: string): Promise<SubscriptionLimits | undef
       }
       if (next) {
         store.set(tokenKey, next);
+        problems.delete(tokenKey);
         try {
           bus?.emit('limitsUpdated', { tokenKey, limits: next });
         } catch {
@@ -227,7 +305,9 @@ export async function poll(tokenKey: string): Promise<SubscriptionLimits | undef
       }
       lastPollByToken.set(tokenKey, Date.now());
       return next ?? get(tokenKey);
-    } catch {
+    } catch (e) {
+      lastPollByToken.set(tokenKey, Date.now());
+      recordProblem(tokenKey, e);
       return get(tokenKey);
     } finally {
       if (inFlight.get(tokenKey) === promise) inFlight.delete(tokenKey);
@@ -246,11 +326,11 @@ async function pollClaude(tokenKey: string, accessToken: string): Promise<Subscr
       'anthropic-beta': 'oauth-2025-04-20',
     },
   });
-  if (!res.ok) return undefined;
+  if (!res.ok) throw failure(res);
 
   const text = await res.text();
   const json = safeJson(text);
-  if (!json || typeof json !== 'object') return undefined;
+  if (!json || typeof json !== 'object') throw new LimitsReadError('unreadable', res.status);
 
   return parseAnthropicUsageJson(json as Record<string, unknown>);
 }
@@ -260,7 +340,8 @@ async function pollChatGpt(
   accessToken: string,
   accountId: string | undefined,
 ): Promise<SubscriptionLimits | undefined> {
-  if (!accountId) return undefined;
+  // Without the account id the usage endpoint cannot be asked; only a new sign-in supplies it.
+  if (!accountId) throw new LimitsReadError('auth_expired');
 
   const configuredBase = getSettings().providers.find((p) => p.tokenKey === tokenKey)?.baseUrl;
   const baseUrl = (configuredBase ?? 'https://chatgpt.com/backend-api').replace(/\/+$/, '');
@@ -271,11 +352,11 @@ async function pollChatGpt(
       'ChatGPT-Account-Id': accountId,
     },
   });
-  if (!res.ok) return undefined;
+  if (!res.ok) throw failure(res);
 
   const text = await res.text();
   const json = safeJson(text);
-  if (!json || typeof json !== 'object') return undefined;
+  if (!json || typeof json !== 'object') throw new LimitsReadError('unreadable', res.status);
 
   return parseChatGptUsage(json as Record<string, unknown>);
 }
@@ -316,11 +397,11 @@ async function readOpenRouterKey(baseUrl: string, bearer: string): Promise<Subsc
     method: 'GET',
     headers: { Authorization: `Bearer ${bearer}` },
   });
-  if (!res.ok) return undefined;
+  if (!res.ok) throw failure(res);
 
   const json = safeJson(await res.text()) as Record<string, unknown> | undefined;
   const data = json?.data as Record<string, unknown> | undefined;
-  if (!data) return undefined;
+  if (!data) throw new LimitsReadError('unreadable', res.status);
 
   const windows: LimitWindow[] = [];
   const free = data.free_model_daily_requests as { limit?: number; remaining?: number; used?: number } | undefined;

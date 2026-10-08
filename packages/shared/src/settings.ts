@@ -372,6 +372,14 @@ export interface ReplyRecord {
   /** Tool round trips the reply took. */
   steps: number;
   stop: import('./chat.js').ReplyStop;
+  /** Effort and token totals for the reply; absent in records from older builds. */
+  effort?: EffortLevel;
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  cacheWriteTokens?: number;
+  outputMs?: number;
+  wallMs?: number;
 }
 
 /** What the reply log says about how replies end. */

@@ -113,6 +113,25 @@ it('propagates off through chat and sideband calls and preserves cache usage', a
   expect(fillRequests[0].request.promptCaching).toBe(false);
 });
 
+it('keeps the reply stats on the saved answer and in the reply log', async () => {
+  saveSettings({ effort: 'high' });
+  rounds = [[{ type: 'usage', inputTokens: 120, outputTokens: 40, cacheReadTokens: 900 }, { type: 'text', delta: 'answer' }, { type: 'done' }]];
+  const { session } = await run();
+  const saved = getSession(session.id)!;
+  const answer = [...saved.messages].reverse().find((m) => m.role === 'assistant')!;
+  expect(answer.turnStats).toMatchObject({ providerId: requests[0].providerId, modelId: requests[0].request.model, inputTokens: 120, outputTokens: 40, cacheReadTokens: 900, calls: 1 });
+  expect(answer.turnStats!.effort).toBeTruthy();
+  // Only the answer carries them; the user's message does not.
+  expect(saved.messages.filter((m) => m.turnStats)).toHaveLength(1);
+  const { readFileSync, existsSync } = await import('node:fs');
+  const log = join(dir, 'replies.jsonl');
+  if (existsSync(log)) {
+    const last = JSON.parse(readFileSync(log, 'utf8').trim().split('\n').pop()!);
+    expect(last).toMatchObject({ sessionId: session.id, inputTokens: 120, outputTokens: 40 });
+    expect(JSON.stringify(last)).not.toContain('answer');
+  }
+});
+
 function delegate(input: unknown) {
   rounds = [[{ type: 'tool_call', call: { id: 'spawn1', name: 'spawn_agent', input: input as Record<string, unknown> } }, { type: 'done' }]];
 }

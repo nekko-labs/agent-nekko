@@ -92,7 +92,9 @@ export type TranscriptRow =
   | { key: string; kind: 'activity'; items: Activity[]; gapAfter?: number }
   | { key: string; kind: 'prs'; urls: string[]; event: 'created' | PrState; gapAfter?: number }
   /** A compaction summary: a divider under the turns it replaced, then the summary. */
-  | { key: string; kind: 'compaction'; message: ChatMessage; latest: boolean; gapAfter?: number };
+  | { key: string; kind: 'compaction'; message: ChatMessage; latest: boolean; gapAfter?: number }
+  /** A reply's stats when its last message was folded into working steps. */
+  | { key: string; kind: 'stats'; stats: import('@agent-nekko/shared').TurnStats; gapAfter?: number };
 
 /**
  * Fold a transcript into rows with PR discovery and resolution milestones.
@@ -172,6 +174,21 @@ export function toTranscriptRows(
     start = i + 1;
   });
   append(messages.slice(start));
+  // Stats on a message that became working steps (a reply that ended on tool
+  // calls) or that renders as no row: keep them in the transcript as their own
+  // row, after the row that holds the message's work.
+  const shownStats = new Set(rows.flatMap((r) => (r.kind === 'msg' && r.message.turnStats ? [r.message.id] : [])));
+  for (const m of messages) {
+    if (m.role !== 'assistant' || !m.turnStats || shownStats.has(m.id)) continue;
+    // After the last row that came from this message or anything before it.
+    const at = messages.indexOf(m);
+    let insert = rows.length;
+    for (let n = at + 1; n < messages.length; n++) {
+      const next = rows.findIndex((r) => r.kind === 'msg' && r.message.id === messages[n].id);
+      if (next >= 0) { insert = next; break; }
+    }
+    rows.splice(insert, 0, { key: unique('s_' + m.id), kind: 'stats', stats: m.turnStats });
+  }
   return rows;
 }
 
@@ -185,6 +202,7 @@ export function estimateRowHeight(row: TranscriptRow, width: number): number {
   const gap = row.gapAfter ?? 20;
   if (row.kind === 'activity') return 22 + gap;
   if (row.kind === 'prs') return row.urls.length * 90 + gap;
+  if (row.kind === 'stats') return 18 + gap;
   // An older summary folds to its divider; the latest shows its text.
   if (row.kind === 'compaction') {
     return (row.latest ? 96 + Math.ceil(row.message.content.length / Math.max(30, width / 7.6)) * 21 : 40) + gap;
@@ -198,6 +216,7 @@ export function estimateRowHeight(row: TranscriptRow, width: number): number {
   let h = lines * (user ? 22 : 23) + fences * 34 + (user ? 20 : 0);
   if (!user && m.reasoning) h += 26;
   if (!user && m.toolCalls?.length) h += m.toolCalls.length * 26;
+  if (!user && m.turnStats) h += 18;
   // A generated picture renders up to 512 px wide at its own aspect; an attachment is a 104 px thumb.
   if (m.generated) h += Math.round((Math.min(512, width) * m.generated.height) / m.generated.width) + 28;
   else if (m.images?.length) h += 112;

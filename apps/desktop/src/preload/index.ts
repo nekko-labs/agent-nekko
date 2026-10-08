@@ -293,6 +293,7 @@ const api: NekkoApi = {
 
   getUsageSummary: () => inv(IpcChannels.usageSummary),
   getLimits: (tokenKey: string, refresh?: boolean) => inv(IpcChannels.limitsGet, tokenKey, refresh),
+  getLimitsProblem: (tokenKey: string) => inv(IpcChannels.limitsProblem, tokenKey),
 
   oauthBegin: (provider) => inv(IpcChannels.oauthBegin, provider),
   oauthFinish: (sessionId, pasted) => inv(IpcChannels.oauthFinish, sessionId, pasted),

@@ -43,10 +43,18 @@ describe('reply measurements', () => {
     expect(blocked).toContain('Waiting for approval');
     expect(blocked).not.toContain('Sleeping');
   });
-  it('does not invent measurements for an unmeasured chat', () => {
+  it('shows nothing for an idle, unmeasured chat instead of a "Reply stats" placeholder', () => {
     const html = renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={0} last={null} />);
-    expect(html).toContain('Time unavailable');
-    expect(html).toContain('— total tokens');
+    expect(html).toBe('');
+    expect(html).not.toContain('Reply stats');
+  });
+  it('leaves finished numbers to the reply in the transcript once they are persisted', () => {
+    const last = { out: 120, tps: 24, secs: 9 };
+    expect(renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={0} last={last} done="Finished" persisted />)).toBe('');
+    // Sleeping still says so, without repeating the numbers.
+    const sleeping = renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={0} last={last} persisted nextWakeAt={200000} now={100000} />);
+    expect(sleeping).toContain('Sleeping');
+    expect(sleeping).not.toContain('total tokens');
   });
 });
 

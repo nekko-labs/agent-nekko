@@ -250,6 +250,7 @@ export const IpcChannels = {
 
   usageSummary: 'usage:summary',
   limitsGet: 'limits:get',
+  limitsProblem: 'limits:problem',
 
   oauthBegin: 'oauth:begin',
   oauthFinish: 'oauth:finish',
@@ -754,6 +755,8 @@ export interface NekkoApi {
 
   getUsageSummary(): Promise<UsageSummary>;
   getLimits(tokenKey: string, refresh?: boolean): Promise<SubscriptionLimits | undefined>;
+  /** Why the last quota read for this key failed, when it did. */
+  getLimitsProblem(tokenKey: string): Promise<import('./limits.js').LimitsProblem | undefined>;
 
   oauthBegin(provider: OAuthProvider): Promise<OAuthSessionInfo>;
   oauthFinish(sessionId: string, pasted: string): Promise<OAuthStatus>;

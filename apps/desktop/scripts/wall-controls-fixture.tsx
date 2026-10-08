@@ -39,14 +39,38 @@ const bridge: any = {
   terminalRead: async () => '', readTerminal: async () => '', updateSettings: async () => null,
 };
 Object.assign(window, { nekko: new Proxy(bridge, { get(target, key: string) { if (key in target) return target[key]; if (key.startsWith('on')) return () => () => {}; return () => Promise.resolve(null); } }) });
+// `?quota`: a signed-out ChatGPT subscription whose saved model is gone, a wall
+// of two chats (the first selected), the Utilization panel open, and a
+// transcript whose replies carry persisted stats from two different models.
+// Synthetic only; nothing here reaches a provider.
+if (new URLSearchParams(location.search).has('quota')) {
+  const chatgpt = { id: 'chatgpt-sub', kind: 'chatgpt', label: 'ChatGPT (subscription)', enabled: true, auth: 'subscription', tokenKey: 'chatgpt:synthetic', baseUrl: 'https://chatgpt.invalid' };
+  const stats = (modelId: string, providerId: string, effort: string, input: number, cache: number, out: number, ms: number, wall: number) => ({ providerId, modelId, effort, inputTokens: input, cacheReadTokens: cache, outputTokens: out, outputMs: ms, wallMs: wall, calls: 2, steps: 1, stop: 'complete' });
+  const quotaSession = (id: string, title: string) => ({ ...makeSession(id), title, providerId: 'chatgpt-sub', modelId: 'gpt-6.1-sol', messages: [
+    { id: `${id}-u1`, role: 'user', content: 'Find the slow call sites.', createdAt: 1 },
+    { id: `${id}-a1`, role: 'assistant', content: 'The two slow paths are the wall layout pass and the picker derivation.', createdAt: 2, turnStats: stats('gpt-6.1-sol', 'chatgpt-sub', 'high', 4100, 38000, 820, 9200, 31000) },
+    { id: `${id}-u2`, role: 'user', content: 'Summarise for the PR.', createdAt: 3 },
+    { id: `${id}-a2`, role: 'assistant', content: 'Summary written below the findings.', createdAt: 4, turnStats: stats('fixture-model', 'fixture', 'normal', 900, 0, 210, 0, 6000) },
+  ] });
+  Object.assign(bridge, {
+    getLimits: async () => undefined,
+    getLimitsProblem: async () => ({ kind: 'auth_expired', at: Date.now(), failures: 1 }),
+    listModels: async (pid: string) => (pid === 'chatgpt-sub' ? [] : models),
+  });
+  (window as any).__quotaRecords = [quotaSession('existing', 'Portals workflow execution'), quotaSession('second', 'Usage and savings review')];
+  (window as any).__quotaProviders = [provider, chatgpt];
+}
+
 function Fixture() {
   const [epoch, setEpoch] = useState(0);
   const [route, setRoute] = useState('command');
   const reset = () => {
-    records = [JSON.parse(sessionStorage.getItem('fixture-record') || 'null') || makeSession('existing'), ...(new URLSearchParams(location.search).has('multi') ? [makeSession('second'), makeSession('third')] : [])]; __resetSessionCache(); pending = {}; terminals = []; serial = 0; calls.length = 0;
+    records = (window as any).__quotaRecords ? JSON.parse(JSON.stringify((window as any).__quotaRecords)) : [JSON.parse(sessionStorage.getItem('fixture-record') || 'null') || makeSession('existing'), ...(new URLSearchParams(location.search).has('multi') ? [makeSession('second'), makeSession('third')] : [])];
+    const quota = !!(window as any).__quotaProviders;
+    const allProviders = quota ? (window as any).__quotaProviders : [provider]; __resetSessionCache(); pending = {}; terminals = []; serial = 0; calls.length = 0;
     Object.assign(failures, { create: false, options: false, cleanup: false });
     localStorage.clear();
-    useStore.setState({ view: 'command', providers: [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: 'synthetic-project', settings: { providers: [provider], workspaceFolders: [], workspaces: [], theme: 'light', experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root: records.length > 1 ? { id: 'synthetic-split', dir: 'row', children: records.map((s,i) => ({id:`synthetic-pane-${i}`,kind:'chat',refId:s.id})), sizes: records.map(() => 1/records.length) } : { id: 'synthetic-pane', kind: 'chat', refId: 'existing' }, autoAdd: false, watermark: Date.now(), dock: { ...DEFAULT_WALL_STATE.dock, show: false } } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
+    useStore.setState({ view: 'command', providers: allProviders, models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: 'synthetic-project', settings: { providers: allProviders, workspaceFolders: [], workspaces: [], theme: 'light', experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root: records.length > 1 ? { id: 'synthetic-split', dir: 'row', children: records.map((s,i) => ({id:`synthetic-pane-${i}`,kind:'chat',refId:s.id})), sizes: records.map(() => 1/records.length) } : { id: 'synthetic-pane', kind: 'chat', refId: 'existing' }, autoAdd: false, watermark: Date.now(), dock: quota ? { ...DEFAULT_WALL_STATE.dock, show: true, side: 'right', panels: { vitals: false, automations: false, utilization: true, budget: false, insights: false, hardware: false } } : { ...DEFAULT_WALL_STATE.dock, show: false } } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: false } as any);
     setRoute('command'); setEpoch(e => e + 1);
   };
   Object.assign(window, { integration: { reset, pointerTarget: (kind: string, scroll: boolean) => {
