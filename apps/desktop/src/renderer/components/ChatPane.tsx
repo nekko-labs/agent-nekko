@@ -53,6 +53,8 @@ import { PrCard, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
+import { FolderPicker } from './FolderPicker.js';
+import { addFolderToChat } from '../sessionFolders.js';
 import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
@@ -1399,7 +1401,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     // Auto-file a project-less chat under the project it's about, inferred from
     // its attachments + first prompt, so it lands in the right sidebar group.
     // A general chat (no confident match) simply stays under "General".
-    if (session && !session.workspaceId) {
+    // The store's copy sees a folder picked in the Context Inspector before send.
+    const filed = useStore.getState().sessions.find((x) => x.id === sessionId)?.workspaceId;
+    if (session && !session.workspaceId && !filed) {
       const workspaces = useStore.getState().settings?.workspaces ?? [];
       const wsId = detectSessionWorkspace({ text, workspaces, attachedPaths: session.attachedPaths ?? [] });
       if (wsId) {
@@ -2554,7 +2558,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                         <button
                           role="menuitem"
                           className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] hover:bg-surface-2"
-                          onClick={() => { closeAttachMenu(); void window.nekko.addWorkspace(); }}
+                          onClick={() => {
+                            closeAttachMenu();
+                            const chat = useStore.getState().sessions.find((x) => x.id === sessionId) ?? session;
+                            addFolderToChat(sessionId, chat, 'include')
+                              .then((s) => { if (s) setSession(s); })
+                              .catch((e) => useStore.getState().pushToast('error', String(e)));
+                          }}
                           onMouseEnter={closeSkillsFly}
                         >
                           Folder
@@ -2674,6 +2684,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         <div className="shrink-0 border-t border-line bg-surface px-3 py-1.5" aria-label="Chat actions and information">
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
           {!imageMode && <div className="flex flex-wrap items-center gap-2">
+                  {surface !== 'composer' && <FolderPicker sessionId={sessionId} session={session} disabled={hasLive} onChange={setSession} />}
                   {surface !== 'composer' && modelControls}
                   {surface !== 'composer' && <>
                   <LiveContextGauge
