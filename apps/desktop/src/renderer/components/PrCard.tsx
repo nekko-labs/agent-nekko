@@ -121,7 +121,12 @@ export function PrActionDock({ sessionId, prs, urls }: { sessionId: string; prs:
     catch { return new Set<string>(); }
   };
   const [dismissed, setDismissed] = useState(load);
-  const [expanded, setExpanded] = useState(true);
+  const byUrl = new Map(prs.map((p) => [p.url, p]));
+  const tracked = [...new Set(urls)].filter((url) => !dismissed.has(url));
+  const active = tracked.filter((url) => !byUrl.has(url) || byUrl.get(url)?.state === 'open');
+  const statusKey = tracked.map((url) => url + ':' + (byUrl.get(url)?.state ?? 'unknown')).sort().join('|');
+  const [expansion, setExpansion] = useState<{ key: string; value: boolean } | null>(null);
+  const expanded = expansion?.key === statusKey ? expansion.value : active.length > 0;
   const [closing, setClosing] = useState<Set<string>>(() => new Set());
   useEffect(() => { setDismissed(load()); }, [storageKey]);
   useEffect(() => subscribePrPolling(sessionId, () => useStore.getState().refreshSessionPrs(sessionId)), [sessionId]);
@@ -138,9 +143,7 @@ export function PrActionDock({ sessionId, prs, urls }: { sessionId: string; prs:
     }, 260);
     return () => clearTimeout(timer);
   }, [closing, storageKey]);
-  const byUrl = new Map(prs.map((p) => [p.url, p]));
-  const active = [...new Set(urls)].filter((url) => !dismissed.has(url) && (!byUrl.has(url) || byUrl.get(url)?.state === 'open'));
-  if (!active.length) return null;
+  if (!tracked.length) return null;
   const dismiss = (url: string) => {
     setClosing((previous) => new Set(previous).add(url));
   };
@@ -154,10 +157,10 @@ export function PrActionDock({ sessionId, prs, urls }: { sessionId: string; prs:
     setClosing((previous) => { const next = new Set(previous); next.delete(url); return next; });
   };
   return <section aria-label="Pending pull requests" className="pr-action-deck" data-expanded={expanded}>
-    <button className="pr-deck-toggle" aria-expanded={expanded} aria-controls={'pr-deck-' + sessionId} onClick={() => setExpanded((value) => !value)}>
+    <button className="pr-deck-toggle" aria-expanded={expanded} aria-controls={'pr-deck-' + sessionId} onClick={() => setExpansion({ key: statusKey, value: !expanded })}>
       <BranchIcon className="h-3.5 w-3.5 shrink-0" />
-      <span>{active.length} pull request{active.length === 1 ? '' : 's'}</span>
-      <span className="ml-auto text-ink-faint">{expanded ? 'Tuck away' : 'Show actions'}</span>
+      <span>{tracked.length} pull request{tracked.length === 1 ? '' : 's'}</span>
+      <span className="ml-auto text-ink-faint">{active.length ? expanded ? 'Tuck away' : 'Show actions' : tracked.every((url) => byUrl.get(url)?.state === 'merged') ? 'Merged' : 'Resolved'}</span>
       <span aria-hidden className="pr-deck-chevron">⌃</span>
     </button>
     <div className="pr-deck-reveal" id={'pr-deck-' + sessionId} inert={!expanded}>

@@ -17,8 +17,13 @@ describe('composer PR deck', () => {
     expect(html).toContain('Review');
     expect(html).toContain('Hide PR o/r#1');
   });
-  it('does not resurrect cached references or resolved PRs', () => {
+  it('does not resurrect cached references', () => {
     expect(renderToStaticMarkup(<PrActionDock sessionId="test" urls={[]} prs={[{ url, state: 'open' } as PrInfo]} />)).toBe('');
-    expect(renderToStaticMarkup(<PrActionDock sessionId="test" urls={[url]} prs={[{ url, state: 'merged' } as PrInfo]} />)).toBe('');
+  });
+  it('keeps merged PRs as a collapsed summary without actions', () => {
+    const html = renderToStaticMarkup(<PrActionDock sessionId="test" urls={[url]} prs={[{ url, state: 'merged' } as PrInfo]} />);
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('Merged');
+    expect(html).not.toContain('data-pr-actions');
   });
 });
