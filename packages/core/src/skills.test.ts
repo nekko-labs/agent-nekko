@@ -133,3 +133,18 @@ describe('layoutWorkflow', () => {
     }
   });
 });
+
+describe('built-in skill correctness', () => {
+  it('/research must not list web_search as a tool', () => {
+    const research = SKILLS.find((s) => s.id === 'research');
+    expect(research).toBeDefined();
+    expect(research?.tools).not.toContain('web_search');
+  });
+
+  it('/pr template must mention the unfinished work section', () => {
+    const pr = SKILLS.find((s) => s.id === 'pr');
+    expect(pr).toBeDefined();
+    expect(pr?.template).toContain('Unfinished work');
+    expect(pr?.template).toContain('release blockers');
+  });
+});
