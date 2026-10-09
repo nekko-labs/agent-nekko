@@ -362,7 +362,11 @@
     transparent 100%
   );
   will-change: transform;
-  animation: composer-beam-spin 3.2s linear infinite;
+  /* Stepped, not linear: a linear spin re-composites the masked ring at the
+     display's full refresh (120 Hz on ProMotion), which measured ~40% of a
+     core in the GPU process for one composer. 48 steps a lap is 15 fps,
+     still reads as a sweep, and costs a few percent. */
+  animation: composer-beam-spin 3.2s steps(48, end) infinite;
 }
 @keyframes composer-beam-spin {
   from { transform: translate(-50%, -50%) rotate(0deg); }
@@ -383,6 +387,7 @@
 }
 .wall-window-beam .composer-beam-spin {
   animation-duration: 5s;
+  animation-timing-function: steps(60, end); /* 12 fps over the slower lap */
   background: conic-gradient(
     from 0deg,
     transparent 0% 62%,
@@ -1639,11 +1644,12 @@
 
 /* Agent status: a working agent's rocket hovers in flight, its colour
    breathing between the accent and a lighter tint, the flame flickering and
-   the speed streaks sliding past. Kept small and slow: it sits in a dense list. */
-.status-rocket { color: var(--success); animation: rocket-breathe 2.4s ease-in-out infinite; }
-.status-rocket svg { animation: rocket-hover 1.2s ease-in-out infinite; overflow: visible; }
-.status-rocket .rocket-flame { animation: rocket-flame .35s ease-in-out infinite alternate; transform-origin: 12px 18px; }
-.status-rocket .rocket-streak { opacity: .55; animation: rocket-streak .9s linear infinite; }
+   the speed streaks sliding past. Kept small and slow: it sits in a dense list.
+   Stepped timing keeps a list of working rockets from repainting every frame. */
+.status-rocket { color: var(--success); animation: rocket-breathe 2.4s steps(12, end) infinite; }
+.status-rocket svg { animation: rocket-hover 1.2s steps(10, end) infinite; overflow: visible; }
+.status-rocket .rocket-flame { animation: rocket-flame .35s steps(4, end) infinite alternate; transform-origin: 12px 18px; }
+.status-rocket .rocket-streak { opacity: .55; animation: rocket-streak .9s steps(8, end) infinite; }
 @keyframes rocket-breathe {
   0%, 100% { color: var(--success); }
   50% { color: color-mix(in srgb, var(--success) 75%, white); }
@@ -1837,13 +1843,20 @@
   --panel-ring-color: var(--warning) !important;
   --panel-ring-width: 2px !important;
   box-shadow: 0 0 14px 1px color-mix(in srgb, var(--warning) 45%, transparent);
-  animation: wall-needs-you-pulse 2.4s ease-in-out infinite;
+  /* A glow is a full repaint of the window's shadow each frame; 12 steps a
+     cycle (5 fps) keeps the breathing visible at a fraction of the cost. */
+  animation: wall-needs-you-pulse 2.4s steps(12, end) infinite;
 }
 @keyframes wall-needs-you-pulse {
   0%, 100% { box-shadow: 0 0 14px 1px color-mix(in srgb, var(--warning) 45%, transparent); }
   50% { box-shadow: 0 0 20px 3px color-mix(in srgb, var(--warning) 30%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) { .command-wall-window[data-wall-needs-you] > .panel { animation: none; } }
+/* While Agent Nekko is not the focused app (or the window is hidden), every
+   looping decoration holds its current frame. Working windows still show a
+   beam, rocket and glow, just still, so a wall of busy agents left on screen
+   behind another app stops costing the GPU. See appActivity.ts. */
+html[data-app-inactive] *, html[data-app-inactive] *::before, html[data-app-inactive] *::after { animation-play-state: paused !important; }
 .command-wall-window[data-wall-selected] .wall-num, .wall-composer[data-has-agent] .wall-num { background: var(--accent); color: var(--win); }
 .wall-layout-control { position: relative; display: inline-flex; align-items: center; }
 /* Reveal by grid track rather than a fixed pixel width: a fixed 38px was

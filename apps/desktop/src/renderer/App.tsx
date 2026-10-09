@@ -11,6 +11,7 @@ import { hasAppChrome } from './chrome.js';
 import { TitleBar } from './components/TitleBar.js';
 import { BrandMark } from './components/BrandMark.js';
 import { AutumnBackground } from './components/AutumnBackground.js';
+import { syncAppActivity } from './appActivity.js';
 import { Mascot, NekkoAvatar } from './components/Mascot.js';
 import { ResourceHud } from './components/ResourceMonitor.js';
 import { Toasts } from './components/Toasts.js';
@@ -109,6 +110,8 @@ export function App() {
   useEffect(() => startCompactionStatus(), []);
   // An OS notification when a chat you are not looking at finishes or needs you.
   useEffect(() => startDesktopNotifications(), []);
+  // Hold looping decorations still while the window is unfocused or hidden.
+  useEffect(() => syncAppActivity(), []);
 
   // Archived chats past the retention window are deleted at launch and every
   // few hours after, whichever view the app opens on, so a long-running window
