@@ -14,8 +14,9 @@ use crate::types::*;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
 
-/// The shipped Claude catalog, newest first within a family, the previous
-/// generation included so a chat pinned to it still has a name for it.
+/// The shipped Claude catalog, served when `GET /v1/models` can't be reached.
+/// Newest first within a family, the previous generation included so a chat
+/// pinned to it still has a name for it.
 const CLAUDE_MODELS: &[(&str, &str)] = &[
     ("claude-opus-5-5", "Claude Opus 5.5"),
     ("claude-opus-5", "Claude Opus 5"),
@@ -192,7 +193,44 @@ impl AnthropicProvider {
         sink.emit(ProviderChunk::Done).await
     }
 
+    /// The live catalog: `GET {base}/v1/models`, every model this key or
+    /// subscription can call, including ones released after this build. One
+    /// page of up to 1000 holds the whole list. None on any failure so the
+    /// caller falls back to the shipped list.
+    async fn fetch_catalog(&self) -> Option<Vec<ModelInfo>> {
+        self.config.api_key.as_deref().filter(|k| !k.is_empty())?;
+        let req = HttpRequest::get(format!("{}/v1/models?limit=1000", self.config.base_url), self.headers());
+        let mut res = self.io.transport.send(&req).await.ok()?;
+        if !res.ok() {
+            return None;
+        }
+
+        let text = res.text().await;
+        let json: Value = serde_json::from_str(&text).ok()?;
+        let rows = json.get("data").and_then(Value::as_array)?;
+        let models: Vec<ModelInfo> = rows
+            .iter()
+            .filter_map(|m| {
+                let id = m.get("id").and_then(Value::as_str).filter(|id| !id.is_empty())?;
+                let name = m.get("display_name").and_then(Value::as_str).filter(|n| !n.is_empty()).unwrap_or(id);
+                let api_window = m.get("max_input_tokens").and_then(Value::as_u64).filter(|n| *n > 0);
+                Some(ModelInfo {
+                    id: id.to_string(),
+                    provider_id: self.config.id.clone(),
+                    name: name.to_string(),
+                    context_length: Some(api_window.or_else(|| claude_context_window(id)).unwrap_or(200_000)),
+                    ..Default::default()
+                })
+            })
+            .collect();
+        (!models.is_empty()).then_some(models)
+    }
+
     pub async fn list_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
+        if let Some(models) = self.fetch_catalog().await {
+            return Ok(models);
+        }
+
         Ok(CLAUDE_MODELS
             .iter()
             .map(|(id, name)| ModelInfo {

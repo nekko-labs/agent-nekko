@@ -8,7 +8,7 @@ import { httpError } from './errors.js';
 import { DecodeClock } from './decode-clock.js';
 
 /**
- * Known Claude models surfaced when the /models endpoint isn't used.
+ * Known Claude models, served when `GET /v1/models` can't be reached.
  *
  * The whole catalog ships, including the previous generation, because a chat
  * pinned to `claude-opus-4-8` still needs a name for it and because "Opus 5 or
@@ -230,15 +230,45 @@ export class AnthropicProvider implements Provider {
     return blocks;
   }
 
+  /**
+   * The live catalog: `GET {base}/v1/models`, every model this key or
+   * subscription can call, including ones released after this build. One page
+   * of up to 1000 holds the whole list. Returns null on any failure so the
+   * caller can fall back to the shipped list.
+   */
+  private async fetchCatalog(): Promise<ModelInfo[] | null> {
+    if (!this.config.apiKey) return null;
+    let res: Response;
+    try {
+      res = await fetch(`${this.config.baseUrl}/v1/models?limit=1000`, { headers: this.headers() });
+    } catch {
+      return null;
+    }
+    if (!res.ok) return null;
+    const json: any = await res.json().catch(() => null);
+    const rows: any[] = Array.isArray(json?.data) ? json.data : [];
+    const models = rows.flatMap((m): ModelInfo[] => {
+      const id = typeof m?.id === 'string' ? m.id : '';
+      if (!id) return [];
+      const name = typeof m.display_name === 'string' && m.display_name ? m.display_name : id;
+      const apiWindow = typeof m.max_input_tokens === 'number' && m.max_input_tokens > 0 ? m.max_input_tokens : undefined;
+      return [{ id, providerId: this.config.id, name, contextLength: apiWindow ?? claudeContextWindow(id) ?? 200_000 }];
+    });
+    return models.length ? models : null;
+  }
+
   async listModels(): Promise<ModelInfo[]> {
-    return CLAUDE_MODELS.map((m) => ({
-      id: m.id,
-      providerId: this.config.id,
-      name: m.name,
-      // 1M on everything current, 200k on Haiku: see model-capabilities.ts.
-      contextLength: claudeContextWindow(m.id) ?? 200_000,
-      ...(m.availability ? { availability: m.availability } : {}),
-    }));
+    return (
+      (await this.fetchCatalog()) ??
+      CLAUDE_MODELS.map((m) => ({
+        id: m.id,
+        providerId: this.config.id,
+        name: m.name,
+        // 1M on everything current, 200k on Haiku: see model-capabilities.ts.
+        contextLength: claudeContextWindow(m.id) ?? 200_000,
+        ...(m.availability ? { availability: m.availability } : {}),
+      }))
+    );
   }
 
   async test(): Promise<{ ok: boolean; message: string }> {
