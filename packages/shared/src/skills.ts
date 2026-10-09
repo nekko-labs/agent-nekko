@@ -112,7 +112,7 @@ export const SKILLS: SkillDef[] = [
     id: 'research',
     name: 'research',
     description: 'Deep, multi-source research with a cited report',
-    template: 'Research the following thoroughly and produce a well-cited report:\n\n',
+    template: 'Research the following thoroughly and produce a well-cited report. Work from sources you can actually open: pages and links I give you, read with fetch_url, and the browser when it is available. If finding sources would need a web search engine you do not have, say so instead of guessing:\n\n',
     category: 'Research & planning',
     tools: ['fetch_url', 'browser'],
     workflow: wf(
