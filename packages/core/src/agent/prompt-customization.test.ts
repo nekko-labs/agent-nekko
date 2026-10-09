@@ -11,6 +11,25 @@ it('includes server customization separately from user content and built-in poli
   expect(prompt).not.toContain('Before starting work');
   expect(prompt).toContain('Operating principles:');
 });
+it('scopes user-sent photo consent to PR chats and honors saved preferences', () => {
+  const prompt = buildSystemPrompt({ workspaces: [], platform: 'win32', contextBlock: '' });
+  for (const rule of [
+    'Only in agent chats making or updating a PR',
+    'check the conversation and loaded user/project preferences',
+    'ask the first time, before uploading',
+    'this PR only',
+    'do not ask in non-PR chats',
+    'no relevant user-sent images exist',
+    'honor its scope, do not ask again',
+    'let later instructions override it',
+    'only in an authorized project guideline or user-preference store',
+    'distinguish reference photos from verified implementation evidence',
+    'verify published links',
+    'Never publish unrelated or sensitive images without specific permission',
+    'does not replace required agent-captured UI verification evidence',
+  ]) expect(prompt).toContain(rule);
+});
+
 it('requires published PR descriptions to keep unfinished work explicit and current', () => {
   const prompt = buildSystemPrompt({ workspaces: [], platform: 'win32', contextBlock: '' });
   expect(prompt).toContain('Unfinished work / release blockers');

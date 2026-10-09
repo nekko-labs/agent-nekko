@@ -712,6 +712,12 @@ Implemented: after an interrupted child turn exhausts stream retries, known tran
 Planned/unverified: durable parent-child reconciliation after app restart, detection of live-but-hung tools/daemon probes, completion-aware parent supervision and end-to-end desktop recovery. Normal model completion is not proof the entire user task is finished.
 
 
+### User-sent photos in PR descriptions
+
+Implemented as shared TypeScript/Rust prompt guidance: only agent chats making or updating a PR ask about including relevant user-sent code-work photos/screenshots, and only when images exist and no scoped preference is already known. Ask before upload/publication, offering this PR only, remembered inclusion for the project or the user's projects, or exclusion. Existing explicit choices avoid repeat questions; later instructions override them. Remember choices only through authorized guidelines/preference storage and report persistence limitations. Non-PR chats do not ask or publish under this policy.
+
+Opted-in images belong in the PR description under repository media rules, with verified published links and reference images distinguished from implementation evidence. Unrelated/sensitive images need specific permission. Required agent-captured visual evidence remains independent. Prompt regression and parity tests verify instruction presence, not model compliance or guaranteed preference persistence; live cross-provider adherence is unverified. No settings UI or runtime consent gate is added.
+
 ### Automatic verification and authorized landing
 
 Implemented as version-controlled shared prompt guidance in `packages/core/src/agent/prompt.ts`, with regression coverage for prompt inclusion. For UI implementation tasks, agents should automatically proceed from automated checks to safely isolated visual/interaction testing, inspect matching baseline/after evidence and motion recordings, publish evidence under repository rules, and continue through review/checks to merge when landing is authorized and all gates pass. A draft PR or an unfinished-work note is not completion. Required verification plan steps remain pending/active while evidence is missing.
