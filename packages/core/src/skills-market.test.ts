@@ -7,6 +7,7 @@ import {
   getMarketSkill,
   marketWorkflow,
   marketToSkillDef,
+  marketSkillInstructions,
   skillToMarkdown,
   layoutWorkflow,
   SKILLS,
@@ -116,5 +117,27 @@ describe('install artifacts', () => {
 
   it('skillToMarkdown adds no "based on" line for our own skills', () => {
     expect(skillToMarkdown(getMarketSkill('agent-nekko-changelog')!)).not.toContain('Based on');
+  });
+});
+
+describe('full instructions reach the model', () => {
+  it('a catalog skill sends its instructions, with the template as the task', () => {
+    const m = getMarketSkill('agent-nekko-changelog')!;
+    const def = marketToSkillDef(m);
+    expect(def.template).toContain(m.instructions);
+    expect(def.template).toContain(m.template);
+    // Instructions first, template last so the user's input follows it.
+    expect(def.template.indexOf(m.instructions)).toBeLessThan(def.template.indexOf(m.template));
+    expect(def.template.endsWith(m.template)).toBe(true);
+  });
+
+  it('every installed catalog skill carries its instructions', () => {
+    for (const m of MARKET_SKILLS) expect(marketToSkillDef(m).template).toContain(m.instructions);
+  });
+
+  it('a skill with no extra instructions runs on its template alone', () => {
+    const m = { ...getMarketSkill('agent-nekko-standup')!, instructions: '' };
+    expect(marketToSkillDef(m).template).toBe(m.template);
+    expect(marketSkillInstructions(m)).toBe('');
   });
 });

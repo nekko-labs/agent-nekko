@@ -17,6 +17,7 @@
  */
 
 import type { SkillCategory, SkillDef, SkillWorkflow } from './skills.js';
+import { parseSkillMarkdown } from './skill-markdown.js';
 
 export type SkillSource = 'nekkolabs' | 'community' | 'vaizer';
 
@@ -66,9 +67,15 @@ export interface MarketplaceSkill {
   stars?: number;
   installs?: number;
   tools?: string[];
-  /** Text dropped into the composer when run inside Agent Nekko. */
+  /**
+   * Short task prompt. Inside Agent Nekko it is sent last, after the full
+   * instructions (see `marketSkillPrompt`), so the user's input follows it.
+   */
   template: string;
-  /** Longer instructions written to SKILL.md for file-based installs. */
+  /**
+   * Longer instructions: written to SKILL.md for file-based installs and sent
+   * to the model ahead of `template` when run inside Agent Nekko.
+   */
   instructions: string;
   /** Optional bespoke workflow graph; `marketWorkflow` derives one otherwise. */
   workflow?: SkillWorkflow;
@@ -363,13 +370,38 @@ export function marketWorkflow(skill: MarketplaceSkill): SkillWorkflow {
   return { nodes, edges };
 }
 
+/**
+ * The full instructions a marketplace skill gives the model: a Vaizer skill's
+ * verbatim SKILL.md body (frontmatter stripped), else the catalog
+ * `instructions`. Empty when there is nothing beyond what `template` already
+ * says (e.g. a Vaizer skill installed offline, whose instructions are just its
+ * description, which the template repeats).
+ */
+export function marketSkillInstructions(m: MarketplaceSkill): string {
+  const body = ((m.markdown ? parseSkillMarkdown(m.markdown).body : '') || (m.instructions ?? '')).trim();
+  if (!body || m.template.includes(body)) return '';
+  return body;
+}
+
+/**
+ * What reaches the model when an installed marketplace skill runs: its full
+ * instructions first, then the short `template` as the task. The template
+ * stays last because the user's input is appended right after it (several
+ * templates end with "...as I describe:").
+ */
+export function marketSkillPrompt(m: MarketplaceSkill): string {
+  const body = marketSkillInstructions(m);
+  if (!body) return m.template;
+  return [`Use the "${m.name}" skill. Its instructions:`, '', body, '', 'Task:', m.template].join('\n');
+}
+
 /** A marketplace skill as a runnable in-app SkillDef (once installed to Agent Nekko). */
 export function marketToSkillDef(m: MarketplaceSkill): SkillDef {
   return {
     id: m.id,
     name: m.name,
     description: m.description,
-    template: m.template,
+    template: marketSkillPrompt(m),
     category: m.category,
     tools: m.tools,
     workflow: marketWorkflow(m),

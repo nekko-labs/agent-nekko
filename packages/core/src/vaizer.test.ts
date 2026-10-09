@@ -97,6 +97,22 @@ describe('vaizerToMarketSkill', () => {
     expect(skillToMarkdown(m)).toBe(`${md}\n`);
   });
 
+  it('sends the SKILL.md body, not its frontmatter, when run in-app', () => {
+    const md = '---\nname: nyaa\ndescription: frontmatter-only text\nlicense: MIT\n---\n\n# nyaa\n\nFull real instructions.';
+    const def = marketToSkillDef(vaizerToMarketSkill(entry, md));
+    expect(def.template).toContain('# nyaa\n\nFull real instructions.');
+    expect(def.template).not.toContain('frontmatter-only text');
+    expect(def.template).not.toContain('license: MIT');
+    expect(def.template).not.toMatch(/^---/m);
+    expect(def.template.trimEnd().endsWith(`Use the ${entry.name} skill. ${entry.description}`)).toBe(true);
+  });
+
+  it('runs on its template alone when installed without a SKILL.md', () => {
+    const m = vaizerToMarketSkill(entry);
+    // The instructions are only the description, which the template already says.
+    expect(marketToSkillDef(m).template).toBe(m.template);
+  });
+
   it('falls back to the catalog description when no SKILL.md is available', () => {
     const m = vaizerToMarketSkill(entry);
     expect(m.markdown).toBeUndefined();
