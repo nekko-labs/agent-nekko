@@ -7,6 +7,7 @@ import {
   getMarketSkill,
   marketWorkflow,
   marketToSkillDef,
+  marketSkillInstructions,
   skillToMarkdown,
   layoutWorkflow,
   SKILLS,
@@ -33,6 +34,26 @@ describe('skills marketplace catalog', () => {
     }
     for (const s of NEKKO_SKILLS) expect(s.source).toBe('nekkolabs');
     for (const s of POPULAR_SKILLS) expect(s.source).toBe('community');
+  });
+
+  it('credits every catalog entry to Nekko Labs, who wrote its text', () => {
+    // The catalog's instructions are all our own words. A skill summarising
+    // someone else's links it as `basedOn`; it is never credited to them.
+    for (const s of MARKET_SKILLS) expect(s.author, s.id).toBe('Nekko Labs');
+  });
+
+  it('links each popular entry to the original it is based on, not as its homepage', () => {
+    for (const s of POPULAR_SKILLS) {
+      expect(s.basedOn, s.id).toMatch(/^https:\/\//);
+      expect(s.url, s.id).toBeUndefined();
+    }
+  });
+
+  it('only points at an anthropics/skills skill that exists, and only as a reference', () => {
+    // i18n-sweep used to link anthropics/skills, which has no such skill.
+    const anthropic = MARKET_SKILLS.filter((s) => `${s.url ?? ''} ${s.basedOn ?? ''}`.includes('anthropics/skills'));
+    expect(anthropic.map((s) => s.name).sort()).toEqual(['docx', 'pdf', 'xlsx']);
+    for (const s of anthropic) expect(s.basedOn).toBe(`https://github.com/anthropics/skills/tree/main/skills/${s.name}`);
   });
 
   it('ranks the popular shelf by stars', () => {
@@ -85,6 +106,38 @@ describe('install artifacts', () => {
     expect(md).toContain('name: pdf');
     expect(md).toContain('description: ');
     expect(md).toContain('# pdf');
-    expect(md).toContain('Anthropic');
+  });
+
+  it('skillToMarkdown credits our summary to Nekko Labs and links the original as a reference', () => {
+    const md = skillToMarkdown(getMarketSkill('anthropic-pdf')!);
+    expect(md).toContain('author: Nekko Labs');
+    expect(md).not.toContain('author: Anthropic');
+    expect(md).toContain('Based on https://github.com/anthropics/skills/tree/main/skills/pdf');
+  });
+
+  it('skillToMarkdown adds no "based on" line for our own skills', () => {
+    expect(skillToMarkdown(getMarketSkill('agent-nekko-changelog')!)).not.toContain('Based on');
+  });
+});
+
+describe('full instructions reach the model', () => {
+  it('a catalog skill sends its instructions, with the template as the task', () => {
+    const m = getMarketSkill('agent-nekko-changelog')!;
+    const def = marketToSkillDef(m);
+    expect(def.template).toContain(m.instructions);
+    expect(def.template).toContain(m.template);
+    // Instructions first, template last so the user's input follows it.
+    expect(def.template.indexOf(m.instructions)).toBeLessThan(def.template.indexOf(m.template));
+    expect(def.template.endsWith(m.template)).toBe(true);
+  });
+
+  it('every installed catalog skill carries its instructions', () => {
+    for (const m of MARKET_SKILLS) expect(marketToSkillDef(m).template).toContain(m.instructions);
+  });
+
+  it('a skill with no extra instructions runs on its template alone', () => {
+    const m = { ...getMarketSkill('agent-nekko-standup')!, instructions: '' };
+    expect(marketToSkillDef(m).template).toBe(m.template);
+    expect(marketSkillInstructions(m)).toBe('');
   });
 });

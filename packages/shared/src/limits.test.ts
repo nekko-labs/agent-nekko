@@ -7,6 +7,23 @@ import {
   MODEL_PRICING,
 } from './limits.js';
 
+import { MODEL_PRICING_SNAPSHOT } from './model-pricing-snapshot.js';
+
+describe('published pricing lookup', () => {
+  it('preserves first published route precedence for every exact and unqualified id', () => {
+    for (const entry of MODEL_PRICING_SNAPSHOT.models) {
+      for (const id of [entry.id, entry.id.split('/').slice(1).join('/')]) {
+        const normalized = id.toLowerCase().replace(/^(claude-[a-z]+)-(\d+)-(\d+)(?=$|-)/, '$1-$2.$3')
+          .replace(/^(qwen3|gpt-oss):(\d+b)(?=$|[-_])/, '$1-$2');
+        const expected = MODEL_PRICING_SNAPSHOT.models.find(p => p.id === normalized || p.id.split('/').slice(1).join('/') === normalized);
+        expect(getModelPrice(id)?.modelId, id).toBe(expected?.id);
+        expect(getModelPrice(id)?.input, id).toBe(expected?.input);
+        expect(getModelPrice(id)?.output, id).toBe(expected?.output);
+      }
+    }
+  });
+});
+
 describe('MODEL_PRICING', () => {
   it('keeps more-specific entries before broader ones', () => {
     const mini = MODEL_PRICING.findIndex((p) => p.match === 'gpt-4o-mini');
@@ -26,12 +43,12 @@ describe('MODEL_PRICING', () => {
 
 describe('getModelPrice', () => {
   it('matches by substring on the model id', () => {
-    expect(getModelPrice('claude-opus-4-8')?.match).toBe('claude-opus');
-    expect(getModelPrice('openai/gpt-4o-mini')?.match).toBe('gpt-4o-mini');
+    expect(getModelPrice('claude-opus-4-8')?.modelId).toBe('anthropic/claude-opus-4.8');
+    expect(getModelPrice('openai/gpt-4o-mini')?.modelId).toBe('openai/gpt-4o-mini');
   });
 
   it('is case-insensitive', () => {
-    expect(getModelPrice('Claude-Sonnet-4-6')?.match).toBe('claude-sonnet');
+    expect(getModelPrice('Claude-Sonnet-4-6')?.modelId).toBe('anthropic/claude-sonnet-4.6');
   });
 
   it('prices published GPT-5 API variants without inventing subscription-only prices', () => {
@@ -39,10 +56,10 @@ describe('getModelPrice', () => {
     expect(getModelPrice('gpt-5-mini')?.output).toBe(2);
     expect(getModelPrice('gpt-5-nano')?.input).toBe(0.05);
     expect(getModelPrice('gpt-5-codex')).toBeUndefined();
-    expect(getModelPrice('gpt-5.6-sol')?.input).toBe(4);
-    expect(getModelPrice('gpt-6-sol')).toBeUndefined();
+    expect(getModelPrice('gpt-5.6-sol')?.input).toBe(2);
+    expect(getModelPrice('gpt-6-sol')?.input).toBe(2);
     expect(formatModelPriceLabel({ modelId: 'gpt-5', auth: 'apikey' })).toBe('$1.25/$10.00 per MTok');
-    expect(formatModelPriceLabel({ modelId: 'gpt-6-sol', auth: 'subscription' })).toBe('Included in plan');
+    expect(formatModelPriceLabel({ modelId: 'gpt-6-sol', auth: 'subscription' })).toBe('Included in plan · ~$2.00/$10.00 per MTok');
     expect(estimateCost('gpt-5', { inputTokens: 1_000_000, outputTokens: 1_000_000 })).toBe(11.25);
   });
 
@@ -156,7 +173,7 @@ describe('formatModelPriceLabel', () => {
 
 describe('current subscription API equivalents', () => {
   it('prices published current models without billing subscription usage', () => {
-    for (const [id, total] of [['gpt-6-astra', 60], ['gpt-6.1-sol', 12], ['gpt-6-luna', 0.6], ['gpt-5.6-sol', 24], ['gpt-5.6-cyber', 87.5]] as const) {
+    for (const [id, total] of [['gpt-6-astra', 60], ['gpt-6.1-sol', 12], ['gpt-6-luna', 0.6], ['gpt-5.6-sol', 12], ['gpt-5.6-cyber', 87.5]] as const) {
       expect(estimateCostUSD(id, 1_000_000, 1_000_000)).toBeCloseTo(total);
       expect(estimateCost(id, { inputTokens: 1_000_000, outputTokens: 1_000_000, auth: 'subscription' })).toBe(0);
     }
@@ -166,3 +183,15 @@ describe('current subscription API equivalents', () => {
     expect(getModelPrice('gpt-6-astra-codex')).toBeUndefined();
   });
 });
+
+ describe('published pricing snapshot', () => {
+ it('corrects exact Fable pricing and uses distinct versioned rates', () => {
+ expect(getModelPrice('claude-fable-5-1')).toMatchObject({input:10,output:50,cacheRead:0.25,modelId:'anthropic/claude-fable-5.1'});
+ expect(getModelPrice('claude-opus-5-5')).toMatchObject({input:4,output:20});
+ });
+ it('matches known open model identities without guessing unknown sizes', () => {
+ expect(getModelPrice('gpt-oss:120b')).toMatchObject({input:0.037,output:0.17});
+ expect(getModelPrice('qwen3:32b')).toMatchObject({input:0.08,output:0.28});
+ expect(getModelPrice('qwen3:8b-custom')).toBeUndefined();
+ });
+ });

@@ -74,6 +74,13 @@ describe('downloads', () => {
     expect(await readFile(dest, 'utf8')).toBe('hello world');
   });
 
+  it('carries the group and file so the UI can show a model as one download', async () => {
+    const downloads = createDownloads({ fetch: serve('hello') });
+    await downloads.start({ ...request(join(dir, 'mmproj.gguf')), group: 'model:o/r:Q4', groupLabel: 'R · Q4', file: 'mmproj.gguf' });
+    const job = await settled(downloads.list, 'job-1');
+    expect(job).toMatchObject({ group: 'model:o/r:Q4', groupLabel: 'R · Q4', file: 'mmproj.gguf' });
+  });
+
   it('leaves no .part file behind on success', async () => {
     const dest = join(dir, 'model.gguf');
     const downloads = createDownloads({ fetch: serve('hello') });

@@ -20,7 +20,7 @@ import { ChevronIcon } from '../icons.js';
  * on Windows and Linux, `ioreg` on macOS).
  */
 
-const POLL_MS = 4000;
+const POLL_MS = 2000;
 
 export interface ResourceSample {
   gpu: GpuStats | null;

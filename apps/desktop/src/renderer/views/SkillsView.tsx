@@ -114,7 +114,7 @@ function OriginChip({ origin }: { origin?: SkillOrigin }) {
 
 /** Built-in skills, marketplace skills installed into Agent Nekko, and skills imported read-only from other tools. */
 function LibraryTab() {
-  const { sendToChat, installedSkillDefs } = useStore(useShallow((s) => ({ sendToChat: s.sendToChat, installedSkillDefs: s.installedSkillDefs })));
+  const { attachSkillToChat, installedSkillDefs } = useStore(useShallow((s) => ({ attachSkillToChat: s.attachSkillToChat, installedSkillDefs: s.installedSkillDefs })));
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string>(SKILLS[0]?.id ?? '');
 
@@ -219,8 +219,8 @@ function LibraryTab() {
             </div>
             <button
               className="btn btn-primary shrink-0 gap-1.5"
-              onClick={() => sendToChat(selected.template, false)}
-              title="Drop this skill into a chat composer"
+              onClick={() => attachSkillToChat(selected)}
+              title="Attach this skill to the chat composer"
             >
               <SendIcon className="h-4 w-4" /> Use in chat
             </button>
@@ -262,9 +262,9 @@ function fmtMetric(n: number): string {
 
 /** Browse + install skills: your installs, Nekko Labs' shelf, and popular online skills. */
 function MarketplaceTab() {
-  const { sendToChat, installedSkills, refreshSkills, pushToast } = useStore(
+  const { attachSkillToChat, installedSkills, refreshSkills, pushToast } = useStore(
     useShallow((s) => ({
-      sendToChat: s.sendToChat,
+      attachSkillToChat: s.attachSkillToChat,
       installedSkills: s.installedSkills,
       refreshSkills: s.refreshSkills,
       pushToast: s.pushToast,
@@ -500,6 +500,14 @@ function MarketplaceTab() {
                       {selected.url.replace(/^https?:\/\//, '')} ↗
                     </button>
                   )}
+                  {selected.basedOn && (
+                    <span>
+                      based on{' '}
+                      <button className="text-accent hover:underline" onClick={() => window.nekko.openPath(selected.basedOn!)}>
+                        {selected.basedOn.replace(/^https?:\/\//, '')} ↗
+                      </button>
+                    </span>
+                  )}
                 </div>
                 {selected.tools && selected.tools.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -515,8 +523,13 @@ function MarketplaceTab() {
               {selectedInstalls.some((r) => normalizeInstallTarget(r.target) === 'agent-nekko') && (
                 <button
                   className="btn btn-primary shrink-0 gap-1.5"
-                  onClick={() => sendToChat(marketToSkillDef(selected).template, false)}
-                  title="Drop this skill into a chat composer"
+                  // Prefer the installed snapshot: a Vaizer install carries the
+                  // SKILL.md it was installed with, the shelf entry does not.
+                  onClick={() => {
+                    const rec = selectedInstalls.find((r) => normalizeInstallTarget(r.target) === 'agent-nekko');
+                    attachSkillToChat(marketToSkillDef(rec?.skill ?? selected));
+                  }}
+                  title="Attach this skill to the chat composer"
                 >
                   <SendIcon className="h-4 w-4" /> Use in chat
                 </button>

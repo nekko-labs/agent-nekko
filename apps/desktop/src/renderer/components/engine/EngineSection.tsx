@@ -7,6 +7,7 @@ import { formatBytes } from '../runtimes/verdict.js';
 import { EngineInstallCard } from './EngineInstallCard.js';
 import { ModelsHome } from './ModelsHome.js';
 import { DownloadsPanel } from './DownloadsPanel.js';
+import { groupDownloads, isActive } from './downloadGroups.js';
 import { EngineServerSettings } from './EngineServerSettings.js';
 import { ModelFolders } from './ModelFolders.js';
 import { DiffusionInstallCard } from './DiffusionInstallCard.js';
@@ -90,7 +91,8 @@ export function EngineSection({
 
   const { install, running } = status;
   const installed = Boolean(install.binPath || status.diffusionInstall?.binPath);
-  const active = jobs.filter((j) => j.state === 'downloading' || j.state === 'queued' || j.state === 'verifying');
+  // A model's weights, shards and helper files are one download, so the count is per model, not per file.
+  const active = groupDownloads(jobs).filter((g) => isActive(g.state));
   const residentBytes = status.resident.reduce((n, r) => n + (r.vramBytes ?? 0), 0);
   const borrowed = models.filter((m) => m.managed === false).length;
 

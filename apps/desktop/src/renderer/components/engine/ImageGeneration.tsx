@@ -24,7 +24,14 @@ function ImageCompanions({ model, onChanged, onDefaults }: { model: LocalModel; 
     const t = setInterval(() => void window.nekko.engineImageCompanions(model.id).then(s => {
       setStatus(s);
       if (s?.ready) { setFetching(false); onChanged(); }
-    }).catch(() => {}), 3000);
+      else void window.nekko.engineDownloads().then(jobs => {
+        const relevant = jobs.filter(job => job.target === model.id && job.id.startsWith('image-companions:'));
+        if (relevant.length && !relevant.some(job => ['queued', 'downloading', 'verifying'].includes(job.state))) {
+          setFetching(false);
+          pushToast('error', 'Image setup did not finish. Check Downloads for details, then retry.');
+        }
+      }).catch(() => setFetching(false));
+    }).catch(() => setFetching(false)), 3000);
     return () => clearInterval(t);
   }, [fetching, model.id]);
   if (!status) return null;
@@ -34,7 +41,8 @@ function ImageCompanions({ model, onChanged, onDefaults }: { model: LocalModel; 
     if (res.ok) setFetching(true);
   };
   return <div className="rounded-lg border border-line p-3 text-[12px]">
-    <p className="font-medium">{status.label} companions</p>
+    <p className="font-medium">{status.ready ? 'Ready to create images' : 'Finish image setup'}</p>
+    <p className="mt-1 text-ink-soft">{status.label} needs supporting files to understand your prompt and turn it into a picture. Download them once, then generate locally. Downloads use your internet connection; your prompt is not sent.</p>
     <ul className="mt-1 space-y-0.5">
       {status.files.map(f => <li key={f.role} className="flex gap-2">
         <span aria-hidden>{f.path ? '✓' : '·'}</span>
@@ -43,7 +51,7 @@ function ImageCompanions({ model, onChanged, onDefaults }: { model: LocalModel; 
       </li>)}
     </ul>
     {!status.ready && <button className="btn btn-outline mt-2 py-1 text-[12px]" disabled={fetching} onClick={() => void download()}>
-      {fetching ? 'Downloading… progress is under Downloads' : `Download text encoders and VAE (${formatBytes(status.missingBytes)})`}
+      {fetching ? 'Downloading… progress is under Downloads' : `Download required files (${formatBytes(status.missingBytes)})`}
     </button>}
   </div>;
 }

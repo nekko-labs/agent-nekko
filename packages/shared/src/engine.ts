@@ -348,6 +348,18 @@ export interface DownloadJob {
   target: string;
   /** Where the file lands, so a completion hook can find it without reparsing the id. */
   dest?: string;
+  /**
+   * Jobs that make up one acquisition (a model's weights, its later shards,
+   * projector and tokenizer files) share a group id, so the UI can show them as
+   * one download with a row per file. Absent means the job stands alone.
+   */
+  group?: string;
+  /** What the UI calls the whole group, e.g. `Qwen3 4B · Q4_K_M`. */
+  groupLabel?: string;
+  /** The file this job fetches (repo-relative path or basename), for the per-file row. */
+  file?: string;
+  /** A role the caller already knows (an image model's "VAE"); otherwise the UI infers it from `file`. */
+  role?: string;
   state: DownloadState;
   receivedBytes: number;
   totalBytes?: number;
