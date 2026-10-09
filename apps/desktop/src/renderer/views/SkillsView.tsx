@@ -500,6 +500,14 @@ function MarketplaceTab() {
                       {selected.url.replace(/^https?:\/\//, '')} ↗
                     </button>
                   )}
+                  {selected.basedOn && (
+                    <span>
+                      based on{' '}
+                      <button className="text-accent hover:underline" onClick={() => window.nekko.openPath(selected.basedOn!)}>
+                        {selected.basedOn.replace(/^https?:\/\//, '')} ↗
+                      </button>
+                    </span>
+                  )}
                 </div>
                 {selected.tools && selected.tools.length > 0 && (
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">

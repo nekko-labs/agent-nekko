@@ -35,6 +35,26 @@ describe('skills marketplace catalog', () => {
     for (const s of POPULAR_SKILLS) expect(s.source).toBe('community');
   });
 
+  it('credits every catalog entry to Nekko Labs, who wrote its text', () => {
+    // The catalog's instructions are all our own words. A skill summarising
+    // someone else's links it as `basedOn`; it is never credited to them.
+    for (const s of MARKET_SKILLS) expect(s.author, s.id).toBe('Nekko Labs');
+  });
+
+  it('links each popular entry to the original it is based on, not as its homepage', () => {
+    for (const s of POPULAR_SKILLS) {
+      expect(s.basedOn, s.id).toMatch(/^https:\/\//);
+      expect(s.url, s.id).toBeUndefined();
+    }
+  });
+
+  it('only points at an anthropics/skills skill that exists, and only as a reference', () => {
+    // i18n-sweep used to link anthropics/skills, which has no such skill.
+    const anthropic = MARKET_SKILLS.filter((s) => `${s.url ?? ''} ${s.basedOn ?? ''}`.includes('anthropics/skills'));
+    expect(anthropic.map((s) => s.name).sort()).toEqual(['docx', 'pdf', 'xlsx']);
+    for (const s of anthropic) expect(s.basedOn).toBe(`https://github.com/anthropics/skills/tree/main/skills/${s.name}`);
+  });
+
   it('ranks the popular shelf by stars', () => {
     const shelf = popularSkills();
     for (let i = 1; i < shelf.length; i++) {
@@ -85,6 +105,16 @@ describe('install artifacts', () => {
     expect(md).toContain('name: pdf');
     expect(md).toContain('description: ');
     expect(md).toContain('# pdf');
-    expect(md).toContain('Anthropic');
+  });
+
+  it('skillToMarkdown credits our summary to Nekko Labs and links the original as a reference', () => {
+    const md = skillToMarkdown(getMarketSkill('anthropic-pdf')!);
+    expect(md).toContain('author: Nekko Labs');
+    expect(md).not.toContain('author: Anthropic');
+    expect(md).toContain('Based on https://github.com/anthropics/skills/tree/main/skills/pdf');
+  });
+
+  it('skillToMarkdown adds no "based on" line for our own skills', () => {
+    expect(skillToMarkdown(getMarketSkill('agent-nekko-changelog')!)).not.toContain('Based on');
   });
 });
