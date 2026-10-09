@@ -1,6 +1,6 @@
 ---
 status: active
-last-updated: 2026-10-08
+last-updated: 2026-10-09
 owner:
 ---
 
@@ -432,6 +432,7 @@ Philip's call: keep the UI on web technology, move the engine into a Rust daemon
   - Block-split markdown with memoized finished blocks; tail block parsed at most once per frame.
   - Built: `markdownSegments` splits chat text at fences and blank lines (every block kind ends at one), and each segment renders through a memoized component keyed by where it starts, so only the tail re-parses; it renders at most once per frame because the live turn does. Documents still parse whole. `Markdown.test.tsx` holds the split output to the whole-text output for every fixture and every prefix of a mixed reply, an unterminated fence included. · Done: 2026-09-30
 - [x] **PF5**, Switching chats, windows and tabs is instant.
+  - 2026-10-09 follow-up: returning to an already-selected pane preserves workspace/list identities, and unchanged mounted canvases are memoized. This avoids layout-subscriber invalidation and unrelated canvas renders without changing visibility, focus, warm-set size or the speed budgets. Shared Linux switch failures on PRs #394/#396/#399/#400/#401 also occur in their unchanged bases; CI gate resolution remains unverified until the fix is measured there.
   - Summary-only `listSessions`; renderer LRU session cache with stale-while-revalidate; last 3 chat windows kept mounted and hidden; cold chats paint their frame first and the newest history next.
   - Built: a new `sessions:summaries` channel (all five touches) returns `SessionSummary` (the session's fields plus message counts, first prompt, last reply, transcript tokens, stall flag, the last 8 turns capped at 4,000 characters each, PR URLs); the host builds it asynchronously and caches it by file mtime and size, refreshed on every write, so a listing parses only chats that changed. `sessions:list` still returns whole sessions for the CLI and MCP, which count messages. Every renderer consumer of `s.sessions` moved to the summary fields (sidebar cards, board lanes and turns, sub-agent rail, insights, agent classification). `sessionCache.ts` keeps the 8 most recent transcripts (at most about 24 MB of text) and a pane paints from it, then revalidates. The last three workspaces stay mounted, hidden with `content-visibility: hidden` rather than `display: none` (layout and scroll positions are kept, so showing one is a paint, not a style and layout rebuild); a hidden workspace keeps only its chats, and its terminals and browsers mount again when shown, as before. A pane's mount-time fetches and its composer focus wait for the first frame (`afterPaint.ts`), and the composer no longer measures itself on mount when empty. · Done: 2026-09-30
 - [x] **PF6**, The engine runs in its own Rust daemon, and a crash no longer takes the window with it. · Done: 2026-09-30

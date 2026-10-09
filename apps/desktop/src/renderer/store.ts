@@ -336,11 +336,14 @@ function locatePane(
  * panel and the sidebar card follow what you just clicked.
  */
 function focusPane(s: UiState, workspaceId: string, paneId: string): Partial<UiState> {
-  const pane = findPane(s.workspaces.find((w) => w.id === workspaceId)?.root ?? null, paneId);
+  const workspace = s.workspaces.find((w) => w.id === workspaceId);
+  const pane = findPane(workspace?.root ?? null, paneId);
   return {
     view: 'chat' as View,
     activeWorkspaceId: workspaceId,
-    workspaces: s.workspaces.map((w) => (w.id === workspaceId ? { ...w, activePaneId: paneId } : w)),
+    // Returning to the workspace's selected pane changes visibility, not layout.
+    workspaces: workspace?.activePaneId === paneId ? s.workspaces
+      : s.workspaces.map((w) => (w.id === workspaceId ? { ...w, activePaneId: paneId } : w)),
     activeSessionId: pane?.kind === 'chat' ? pane.refId : s.activeSessionId,
   };
 }
