@@ -15,6 +15,12 @@ export interface WorkspaceFolder {
   worktreeSetup?: string;
 }
 
+/** Whether two folder paths name the same folder, ignoring a trailing separator. */
+export function sameFolderPath(a: string, b: string): boolean {
+  const key = (p: string) => p.replace(/(?<=.)[\\/]+$/, '');
+  return key(a) === key(b);
+}
+
 /** One chat's isolated checkout, as Settings > Git management lists it. */
 export interface ChatWorktreeInfo {
   /** The linked worktree's folder. */

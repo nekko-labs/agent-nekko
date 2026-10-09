@@ -2,7 +2,7 @@ import { canResumeChildFailure, MAX_CHILD_RESUMES } from './delegation-recovery.
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, QueuedPrompt, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { ASK_CANCELLED, ASK_UNATTENDED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho, queueItemPayload } from '@agent-nekko/shared';
+import { ASK_CANCELLED, ASK_UNATTENDED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho, queueItemPayload, TurnStatsAccumulator, attachTurnStats } from '@agent-nekko/shared';
 import {
   runAgent,
   buildSystemPrompt,
@@ -659,7 +659,7 @@ async function runSubAgent(
   if (title !== undefined && typeof title !== 'string') throw new Error('Sub-agent title must be a string.');
   for (const key of ['provider_id', 'model_id']) {
     if (key in inp && (typeof inp[key] !== 'string' || !inp[key].trim() || inp[key] !== inp[key].trim())) {
-      throw new Error(`${key} must be a nonblank exact ID without surrounding whitespace.`);
+      throw new Error(`${key} must be a nonblank exact ID without surrounding whitespace. To inherit this chat's provider and model, omit provider_id and model_id entirely rather than sending them empty; to route elsewhere, call delegation_targets first and pass an exact ID it returns.`);
     }
   }
   const defaultRoute = !('provider_id' in inp) && !('model_id' in inp) ? settings.orchestration?.delegationRoute : undefined;
@@ -677,7 +677,11 @@ async function runSubAgent(
     try {
       const resolved = await resolveSubscriptionProvider(provider);
       models = await createProvider(resolved).listModels();
-    } catch {
+    } catch (error) {
+      // Provider errors can quote endpoints or tokens, so neither the tool
+      // result nor the log carries the message; the log names the provider and
+      // error class so the failure is not silent.
+      console.warn(`Sub-agent model list for provider ${targetProviderId} failed (${error instanceof Error ? error.name : typeof error}).`);
       throw new Error('Could not verify the target provider model list. Check its availability; no child was created and no fallback was used.');
     }
     const model = models.find((m) => m.id === targetModelId && m.providerId === targetProviderId);
@@ -944,6 +948,13 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   let eventsSeen = false;
   let lastError: Error | undefined;
   let lastStop: 'complete' | 'loop' | 'runaway' | undefined;
+  // This reply's totals, kept on its last message and in the reply log. The
+  // turn's own messages start after what the transcript held when it began.
+  const turnFrom = session.messages.length;
+  const turnStats = new TurnStatsAccumulator(
+    { providerId: opts.providerId, modelId: opts.modelId, effort: effectiveEffort(getSettings().effort, opts.modelId) },
+    Date.now(),
+  );
   while (attempts < 2 && !abort.signal.aborted) {
     abortControllers.set(opts.sessionId, abort);
     eventsSeen = false;
@@ -1211,6 +1222,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             event.cacheWriteTokens ??= cacheUsage.cacheWriteTokens;
             cacheUsage = {};
           }
+          turnStats.add(event);
           recordUsage({
             ts: Date.now(),
             providerId: opts.providerId,
@@ -1226,6 +1238,10 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         }
         // How the reply ended, for tuning the loop detector (counts only). Older engines omit `stop`; nothing is recorded then.
         if (event.type === 'done' && event.stop) lastStop = event.stop;
+        // Stats go on the transcript before the checkpoint below writes it, so a
+        // pane that re-reads the session on `done` already finds them.
+        const finished = event.type === 'done' ? turnStats.finish(Date.now(), { steps: event.steps, stop: event.stop }) : undefined;
+        if (finished) attachTurnStats(session.messages, turnFrom, finished);
         if (event.type === 'done' && event.stop && !incognito) {
           recordReply({
             ts: Date.now(),
@@ -1234,6 +1250,15 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             modelId: opts.modelId,
             steps: event.steps ?? 0,
             stop: event.stop,
+            ...(finished ? {
+              effort: finished.effort,
+              inputTokens: finished.inputTokens,
+              outputTokens: finished.outputTokens,
+              cacheReadTokens: finished.cacheReadTokens,
+              cacheWriteTokens: finished.cacheWriteTokens,
+              outputMs: finished.outputMs,
+              wallMs: finished.wallMs,
+            } : {}),
           });
         }
         if (event.type === 'done' && provider.auth === 'subscription' && provider.tokenKey) {

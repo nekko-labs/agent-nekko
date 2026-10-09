@@ -25,6 +25,15 @@ describe('reply measurements', () => {
     expect(renderToStaticMarkup(<ReplyStatus {...base} nextWakeAt={base.now - 1000} />)).toContain('Sleeping · will check in 1 min');
     expect(renderToStaticMarkup(<ReplyStatus {...base} nextWakeAt={null} />)).toContain('Done.');
   });
+  it('puts the measurements on the line after the sleeping label', () => {
+    const html = renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={1300} last={{ out: 1300, tps: 0, secs: 61 }} nextWakeAt={100000 + 13 * 60_000} now={100000} />);
+    expect(html).toMatch(/<span class="basis-full" data-reply-sleeping="true">Sleeping · will check in 13 mins<\/span><span[^>]*>— tok\/s<\/span>/);
+    expect(html).toContain('· 1.3k total tokens');
+    expect(html).toContain('· 61s');
+    const done = renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={0} last={{ out: 1, tps: 0, secs: 1 }} done="Done" />);
+    expect(done).toContain('>· — tok/s');
+    expect(done).not.toContain('basis-full');
+  });
   it('keeps active and blocked states ahead of sleeping', () => {
     const base = { status: 'Working', elapsed: 0, tps: 0, out: 0, last: null, nextWakeAt: 200000, now: 100000 };
     const active = renderToStaticMarkup(<ReplyStatus {...base} streaming />);
@@ -34,10 +43,18 @@ describe('reply measurements', () => {
     expect(blocked).toContain('Waiting for approval');
     expect(blocked).not.toContain('Sleeping');
   });
-  it('does not invent measurements for an unmeasured chat', () => {
+  it('shows nothing for an idle, unmeasured chat instead of a "Reply stats" placeholder', () => {
     const html = renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={0} last={null} />);
-    expect(html).toContain('Time unavailable');
-    expect(html).toContain('— total tokens');
+    expect(html).toBe('');
+    expect(html).not.toContain('Reply stats');
+  });
+  it('leaves finished numbers to the reply in the transcript once they are persisted', () => {
+    const last = { out: 120, tps: 24, secs: 9 };
+    expect(renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={0} last={last} done="Finished" persisted />)).toBe('');
+    // Sleeping still says so, without repeating the numbers.
+    const sleeping = renderToStaticMarkup(<ReplyStatus streaming={false} status="" elapsed={0} tps={0} out={0} last={last} persisted nextWakeAt={200000} now={100000} />);
+    expect(sleeping).toContain('Sleeping');
+    expect(sleeping).not.toContain('total tokens');
   });
 });
 

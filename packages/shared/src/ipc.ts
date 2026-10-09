@@ -199,6 +199,7 @@ export const IpcChannels = {
   designGenerate: 'design:generate',
 
   skillsInstalled: 'skills:installed',
+  skillsExternal: 'skills:external',
   skillsTargets: 'skills:targets',
   skillInstall: 'skill:install',
   skillUninstall: 'skill:uninstall',
@@ -249,6 +250,7 @@ export const IpcChannels = {
 
   usageSummary: 'usage:summary',
   limitsGet: 'limits:get',
+  limitsProblem: 'limits:problem',
 
   oauthBegin: 'oauth:begin',
   oauthFinish: 'oauth:finish',
@@ -622,6 +624,8 @@ export interface NekkoApi {
   deleteMemory(id: string): Promise<void>;
 
   listWorkspaces(): Promise<WorkspaceFolder[]>;
+  /** Ask the user for a folder; null when cancelled. Registers nothing. */
+  pickFolder(): Promise<string | null>;
   addWorkspace(): Promise<WorkspaceFolder[]>;
   addWorkspaceByPath(path: string): Promise<WorkspaceFolder[]>;
   removeWorkspace(id: string): Promise<WorkspaceFolder[]>;
@@ -682,6 +686,7 @@ export interface NekkoApi {
 
   /** Skills marketplace: what's installed, where installs can go, install/remove. */
   listInstalledSkills(): Promise<import('./skills-market.js').InstalledSkillRecord[]>;
+  listExternalSkills(): Promise<import('./skills.js').SkillDef[]>;
   skillTargets(): Promise<import('./skills-market.js').InstallTargetInfo[]>;
   installSkill(
     skillId: string,
@@ -750,6 +755,8 @@ export interface NekkoApi {
 
   getUsageSummary(): Promise<UsageSummary>;
   getLimits(tokenKey: string, refresh?: boolean): Promise<SubscriptionLimits | undefined>;
+  /** Why the last quota read for this key failed, when it did. */
+  getLimitsProblem(tokenKey: string): Promise<import('./limits.js').LimitsProblem | undefined>;
 
   oauthBegin(provider: OAuthProvider): Promise<OAuthSessionInfo>;
   oauthFinish(sessionId: string, pasted: string): Promise<OAuthStatus>;

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import type { PrInfo, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
+import type { BlockedReason, PrInfo, SessionLane, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
 import { getSessionWorkspaceIds, guessContextWindow, isLocalProvider } from '@agent-nekko/shared';
 import { useStore, type Workspace } from '../store.js';
 import { allPanes } from '../layout.js';
@@ -43,6 +43,13 @@ import { SessionPrLinks } from './SessionPrLinks.js';
 
 export type AgentStatus = 'working' | 'input' | 'error';
 
+/** A board lane as the glyph `StatusIcon` draws: an interrupted turn is an error, any other block needs input. */
+export function agentStatusOfLane(lane: SessionLane, blocked?: BlockedReason): AgentStatus | undefined {
+  if (lane === 'working') return 'working';
+  if (lane !== 'needs-you') return undefined;
+  return blocked === 'interrupted' ? 'error' : 'input';
+}
+
 /**
  * What an agent is doing, as a glyph rather than a dot, so the state reads by
  * shape before colour: a rocket in flight while it works, a question mark when
@@ -54,7 +61,7 @@ export function StatusIcon({ status, className = '' }: { status: AgentStatus | u
   if (status === 'working') {
     return (
       <span className={`status-rocket inline-grid place-items-center ${cls}`} title="Working…" role="img" aria-label="Working">
-        <RocketIcon className="h-3 w-3" />
+        <RocketIcon className="h-4 w-4" />
       </span>
     );
   }

@@ -1,6 +1,7 @@
 import type { DownloadJob } from '@agent-nekko/shared';
 import { CloseIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
+import { eta, fileRole, groupDownloads, isActive, type DownloadGroup } from './downloadGroups.js';
 
 /**
  * What is coming down the wire.
@@ -9,6 +10,10 @@ import { formatBytes } from '../runtimes/verdict.js';
  * going" at a glance and "how much longer" on a second look. Cancel is always
  * available, because a 20 GB file started by mistake should not be something you
  * have to wait out.
+ *
+ * One model is one row even when it arrives as several files (split weights, a
+ * vision projector, tokenizer files): the files are listed beneath it, each named
+ * for what it is and why it is needed.
  */
 
 const STATE_LABEL: Record<DownloadJob['state'], string> = {
@@ -19,6 +24,20 @@ const STATE_LABEL: Record<DownloadJob['state'], string> = {
   failed: 'Failed',
   cancelled: 'Cancelled',
 };
+
+function stateColor(state: DownloadJob['state']): string {
+  return state === 'failed' ? 'var(--danger)' : state === 'done' ? 'var(--success)' : 'var(--ink-faint)';
+}
+
+function progressLine(p: { receivedBytes: number; totalBytes?: number; bytesPerSecond?: number }): string {
+  return [
+    `${formatBytes(p.receivedBytes)}${p.totalBytes ? ` of ${formatBytes(p.totalBytes)}` : ''}`,
+    p.bytesPerSecond ? `${formatBytes(p.bytesPerSecond)}/s` : null,
+    eta(p),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+}
 
 export function DownloadsPanel({ jobs, onChanged }: { jobs: DownloadJob[]; onChanged: () => void }) {
   if (jobs.length === 0) {
@@ -31,83 +50,100 @@ export function DownloadsPanel({ jobs, onChanged }: { jobs: DownloadJob[]; onCha
 
   return (
     <div className="space-y-1.5">
-      {jobs.map((job) => {
-        const pct =
-          job.totalBytes && job.totalBytes > 0
-            ? Math.min(100, (job.receivedBytes / job.totalBytes) * 100)
-            : null;
-        const active = job.state === 'downloading' || job.state === 'queued' || job.state === 'verifying';
-        return (
-          <div key={job.id} className="rounded-lg px-2.5 py-2" style={{ background: 'var(--surface-2)' }}>
-            <div className="flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-[12.5px]">{job.label}</span>
-              <span
-                className="shrink-0 text-[11px]"
-                style={{
-                  color:
-                    job.state === 'failed'
-                      ? 'var(--danger)'
-                      : job.state === 'done'
-                        ? 'var(--success)'
-                        : 'var(--ink-faint)',
-                }}
-              >
-                {STATE_LABEL[job.state]}
-              </span>
-              <button
-                className="btn btn-ghost shrink-0 px-1.5 py-1"
-                title={active ? 'Cancel this download' : 'Remove from the list'}
-                onClick={async () => {
-                  if (active) await window.nekko.engineCancelDownload(job.id);
-                  else await window.nekko.engineDismissDownload(job.id);
-                  onChanged();
-                }}
-              >
-                <CloseIcon className="h-3.5 w-3.5" />
-              </button>
-            </div>
-
-            {active && (
-              <div
-                className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full"
-                style={{ background: 'color-mix(in srgb, var(--ink-faint) 15%, transparent)' }}
-              >
-                <div
-                  className="h-full rounded-full transition-[width]"
-                  style={{
-                    // An unknown total still shows motion rather than an empty
-                    // bar, which otherwise reads as "stuck".
-                    width: pct === null ? '35%' : `${pct}%`,
-                    background: 'var(--accent)',
-                    opacity: pct === null ? 0.5 : 1,
-                  }}
-                />
-              </div>
-            )}
-
-            <p className="mt-1 text-[11px] text-ink-faint">
-              {job.message ??
-                [
-                  `${formatBytes(job.receivedBytes)}${job.totalBytes ? ` of ${formatBytes(job.totalBytes)}` : ''}`,
-                  job.bytesPerSecond ? `${formatBytes(job.bytesPerSecond)}/s` : null,
-                  eta(job),
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-            </p>
-          </div>
-        );
-      })}
+      {groupDownloads(jobs).map((group) => (
+        <DownloadGroupRow key={group.id} group={group} onChanged={onChanged} />
+      ))}
     </div>
   );
 }
 
-/** Time left from the recent rate, omitted when either input is missing. */
-function eta(job: DownloadJob): string | null {
-  if (!job.totalBytes || !job.bytesPerSecond || job.bytesPerSecond < 1) return null;
-  const seconds = (job.totalBytes - job.receivedBytes) / job.bytesPerSecond;
-  if (seconds <= 0 || !Number.isFinite(seconds)) return null;
-  if (seconds < 90) return `${Math.round(seconds)}s left`;
-  if (seconds < 5400) return `${Math.round(seconds / 60)}m left`;
-  return `${(seconds / 3600).toFixed(1)}h left`;
+function DownloadGroupRow({ group, onChanged }: { group: DownloadGroup; onChanged: () => void }) {
+  const active = isActive(group.state);
+  const pct = group.totalBytes && group.totalBytes > 0 ? Math.min(100, (group.receivedBytes / group.totalBytes) * 100) : null;
+  const multi = group.jobs.length > 1;
+  const files = group.jobs.length;
+
+  return (
+    <div className="rounded-lg px-2.5 py-2" style={{ background: 'var(--surface-2)' }} data-download-group={group.id}>
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-[12.5px]">{group.label}</span>
+        {multi && <span className="shrink-0 text-[11px] text-ink-faint">{files} files</span>}
+        <span className="shrink-0 text-[11px]" style={{ color: stateColor(group.state) }}>
+          {STATE_LABEL[group.state]}
+        </span>
+        <button
+          className="btn btn-ghost shrink-0 px-1.5 py-1"
+          title={active ? (multi ? 'Cancel this download (every file)' : 'Cancel this download') : 'Remove from the list'}
+          aria-label={active ? 'Cancel download' : 'Remove from the list'}
+          onClick={async () => {
+            for (const job of group.jobs) {
+              if (isActive(job.state)) await window.nekko.engineCancelDownload(job.id);
+              else await window.nekko.engineDismissDownload(job.id);
+            }
+            onChanged();
+          }}
+        >
+          <CloseIcon className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {active && <ProgressBar pct={pct} />}
+
+      <p className="mt-1 text-[11px] text-ink-faint">{group.message ?? progressLine(group)}</p>
+
+      {multi && (
+        <ul className="mt-2 space-y-1 border-t pt-2" style={{ borderColor: 'color-mix(in srgb, var(--ink-faint) 15%, transparent)' }}>
+          {group.jobs.map((job) => (
+            <FileRow key={job.id} job={job} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function FileRow({ job }: { job: DownloadJob }) {
+  const file = job.file ?? job.label;
+  const name = file.split('/').pop() ?? file;
+  const role = fileRole(file, job.role);
+  const active = isActive(job.state);
+  const pct = job.totalBytes && job.totalBytes > 0 ? Math.min(100, (job.receivedBytes / job.totalBytes) * 100) : null;
+  return (
+    <li className="pl-2.5" style={{ borderLeft: '2px solid color-mix(in srgb, var(--ink-faint) 20%, transparent)' }} data-download-file={name}>
+      <div className="flex items-baseline gap-2">
+        <span className="shrink-0 text-[12px]">{role.title}</span>
+        <span className="min-w-0 flex-1 truncate font-mono text-[10.5px] text-ink-faint" title={file}>
+          {name}
+        </span>
+        <span className="shrink-0 text-[10.5px] text-ink-faint">
+          {job.state === 'done' ? formatBytes(job.totalBytes ?? job.receivedBytes) : progressLine({ ...job, bytesPerSecond: undefined })}
+        </span>
+        <span className="shrink-0 text-[10.5px]" style={{ color: stateColor(job.state) }}>
+          {job.state === 'downloading' && pct !== null ? `${Math.round(pct)}%` : STATE_LABEL[job.state]}
+        </span>
+      </div>
+      <p className="text-[10.5px] text-ink-faint">{job.state === 'failed' && job.message ? job.message : role.purpose}</p>
+      {active && <ProgressBar pct={pct} thin />}
+    </li>
+  );
+}
+
+function ProgressBar({ pct, thin }: { pct: number | null; thin?: boolean }) {
+  return (
+    <div
+      className={`${thin ? 'mt-1 h-1' : 'mt-1.5 h-1.5'} w-full overflow-hidden rounded-full`}
+      style={{ background: 'color-mix(in srgb, var(--ink-faint) 15%, transparent)' }}
+    >
+      <div
+        className="h-full rounded-full transition-[width]"
+        style={{
+          // An unknown total still shows motion rather than an empty
+          // bar, which otherwise reads as "stuck".
+          width: pct === null ? '35%' : `${pct}%`,
+          background: 'var(--accent)',
+          opacity: pct === null ? 0.5 : 1,
+        }}
+      />
+    </div>
+  );
 }

@@ -1,7 +1,7 @@
 import { needsProviderSetup } from './components/providers/providerSetup.js';
 import { create } from 'zustand';
 import type { AppSettings, Session, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
-import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS, currentPresetAccent } from '@agent-nekko/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 import { putCachedSession } from './sessionCache.js';
@@ -202,9 +202,11 @@ interface UiState {
   /** Open a PR's diff as a window in the active workspace. */
   openPrPane: (url: string) => void;
 
-  /** Marketplace installs (all targets) + the Agent Nekko ones as runnable skills. */
+  /** Marketplace installs (all targets), plus the runnable skills: Agent Nekko installs and imported ones. */
   installedSkills: InstalledSkillRecord[];
   installedSkillDefs: SkillDef[];
+  /** Agent Skills found in other tools' folders (Claude Code, Codex, Gemini CLI, .agents); also merged into installedSkillDefs. */
+  externalSkillDefs: SkillDef[];
   refreshSkills: () => Promise<void>;
 
   /** The skill armed in each chat's composer (highlighted pill, runs on send). */
@@ -253,6 +255,13 @@ interface UiState {
   openHypergatePane: () => void;
   /** Route text to a chat's composer, Add to prompt (run=false) or Run now (run=true). */
   sendToChat: (text: string, run: boolean) => Promise<void>;
+  /**
+   * Arm a skill as the usage chip in the active chat's composer (opening or
+   * creating a chat first), exactly as picking it from the `/` menu does. The
+   * draft is left alone. A goal skill has no chip, so it goes through
+   * `sendToChat` as `/goal ` text like before.
+   */
+  attachSkillToChat: (skill: SkillDef) => Promise<void>;
   /** Open the diff/approve review for a session's changed files. */
   openDiffPane: (sessionId: string) => void;
 
@@ -334,11 +343,14 @@ function locatePane(
  * panel and the sidebar card follow what you just clicked.
  */
 function focusPane(s: UiState, workspaceId: string, paneId: string): Partial<UiState> {
-  const pane = findPane(s.workspaces.find((w) => w.id === workspaceId)?.root ?? null, paneId);
+  const workspace = s.workspaces.find((w) => w.id === workspaceId);
+  const pane = findPane(workspace?.root ?? null, paneId);
   return {
     view: 'chat' as View,
     activeWorkspaceId: workspaceId,
-    workspaces: s.workspaces.map((w) => (w.id === workspaceId ? { ...w, activePaneId: paneId } : w)),
+    // Returning to the workspace's selected pane changes visibility, not layout.
+    workspaces: workspace?.activePaneId === paneId ? s.workspaces
+      : s.workspaces.map((w) => (w.id === workspaceId ? { ...w, activePaneId: paneId } : w)),
     activeSessionId: pane?.kind === 'chat' ? pane.refId : s.activeSessionId,
   };
 }
@@ -426,6 +438,20 @@ function updateWorkspace(s: UiState, id: string, fn: (w: Workspace) => Workspace
       ? s.activeWorkspaceId
       : workspaces[workspaces.length - 1]?.id ?? null,
   };
+}
+
+/** Target the active chat, creating one if there isn't a usable session, and show it. */
+async function openUsableChat(get: () => UiState, set: (p: Partial<UiState>) => void): Promise<string> {
+  let sid = get().activeSessionId;
+  if (!sid || !get().sessions.some((s) => s.id === sid)) {
+    const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    await get().refreshSessions();
+    sid = s.id;
+    set({ activeSessionId: sid });
+  }
+  set({ view: 'chat' });
+  get().openChatPane(sid);
+  return sid;
 }
 
 export const useStore = create<UiState>((set, get) => ({
@@ -556,19 +582,23 @@ export const useStore = create<UiState>((set, get) => ({
 
   installedSkills: [],
   installedSkillDefs: [],
+  externalSkillDefs: [],
   refreshSkills: async () => {
-    try {
-      const installedSkills = await window.nekko.listInstalledSkills();
-      const installedSkillDefs = installedSkills
-        .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
-        // Vaizer (non-catalog) installs carry their own snapshot on the record.
-        .map((r) => r.skill ?? getMarketSkill(r.skillId))
-        .filter((m): m is NonNullable<typeof m> => !!m)
-        .map(marketToSkillDef);
-      set({ installedSkills, installedSkillDefs });
-    } catch {
-      /* older host without the marketplace channels */
-    }
+    // Fetched independently: an older host without one of the channels keeps
+    // whatever the other one returns, and a failure keeps the previous list.
+    const [installed, external] = await Promise.allSettled([
+      window.nekko.listInstalledSkills(),
+      window.nekko.listExternalSkills(),
+    ]);
+    const installedSkills = installed.status === 'fulfilled' ? installed.value : get().installedSkills;
+    const externalSkillDefs = external.status === 'fulfilled' ? external.value : get().externalSkillDefs;
+    const marketDefs = installedSkills
+      .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
+      // Vaizer (non-catalog) installs carry their own snapshot on the record.
+      .map((r) => r.skill ?? getMarketSkill(r.skillId))
+      .filter((m): m is NonNullable<typeof m> => !!m)
+      .map(marketToSkillDef);
+    set({ installedSkills, externalSkillDefs, installedSkillDefs: [...marketDefs, ...externalSkillDefs] });
   },
 
   activeSkillBySession: {},
@@ -656,11 +686,13 @@ export const useStore = create<UiState>((set, get) => ({
     else root.removeAttribute('data-preset');
     const preset = presetId ? THEME_PRESETS.find((p) => p.id === presetId) : undefined;
 
-    if (settings?.accent) root.style.setProperty('--accent', settings.accent);
+    const accent = currentPresetAccent(presetId, settings?.accent);
+    const accent2 = currentPresetAccent(presetId, settings?.accent2);
+    if (accent) root.style.setProperty('--accent', accent);
     else if (preset) root.style.setProperty('--accent', preset.accent);
     else root.style.removeProperty('--accent');
 
-    if (settings?.accent2) root.style.setProperty('--accent-2', settings.accent2);
+    if (accent2) root.style.setProperty('--accent-2', accent2);
     else if (preset?.accent2) root.style.setProperty('--accent-2', preset.accent2);
     else root.style.removeProperty('--accent-2');
 
@@ -812,17 +844,14 @@ export const useStore = create<UiState>((set, get) => ({
   },
 
   sendToChat: async (text, run) => {
-    // Target the active chat; create one if there isn't a usable session.
-    let sid = get().activeSessionId;
-    if (!sid || !get().sessions.some((s) => s.id === sid)) {
-      const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
-      await get().refreshSessions();
-      sid = s.id;
-      set({ activeSessionId: sid });
-    }
-    set({ view: 'chat' });
-    get().openChatPane(sid);
+    const sid = await openUsableChat(get, set);
     set({ composerInbox: { sessionId: sid, text, run } });
+  },
+
+  attachSkillToChat: async (skill) => {
+    if (skill.kind === 'goal') return get().sendToChat(skill.template, false);
+    const sid = await openUsableChat(get, set);
+    get().setActiveSkill(sid, skill);
   },
 
   refreshSessionPrs: async (sessionId) => {

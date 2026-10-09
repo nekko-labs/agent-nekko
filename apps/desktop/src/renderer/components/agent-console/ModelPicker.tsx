@@ -25,7 +25,7 @@ export function ModelPicker({
   open,
   onOpenChange,
   needsChoice,
-  hint,
+  unavailableModel,
   onProvider,
   onModel,
   expanded = false,
@@ -41,8 +41,8 @@ export function ModelPicker({
   onOpenChange: (open: boolean) => void;
   /** No model picked yet: the chip asks for one instead of reading as a setting. */
   needsChoice?: boolean;
-  /** One-shot nudge shown over the chip; the pane retires it once the menu opens. */
-  hint?: string | null;
+  /** The chat's saved model id when its provider no longer offers it: the chip names it and marks it unavailable. */
+  unavailableModel?: string | null;
   onProvider: (id: string) => void;
   onModel: (providerId: string, id: string) => void;
   /** Render the list inline in an empty conversation instead of in a popover. */
@@ -63,7 +63,6 @@ export function ModelPicker({
   // right now can say so instead of quietly failing on send.
   const limitsByToken = useAllProviderLimits(providers, open);
   const ref = useRef<HTMLDivElement>(null);
-  const hintId = React.useId();
   const popupRef = useRef<HTMLDivElement>(null);
   const [placement, setPlacement] = useState<React.CSSProperties>({});
   useLayoutEffect(() => {
@@ -304,40 +303,16 @@ export function ModelPicker({
   return (
     <div ref={ref} className={expanded ? 'h-full min-h-0 w-full min-w-0' : 'relative min-w-0 max-w-[240px]'}>
       {menu && <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)}><ContextAction onClick={() => { void window.nekko.updateSettings({defaultProviderId:menu.pid,defaultModelId:menu.mid}).then(() => refreshSettings()).catch(e => useStore.getState().pushToast('error', String(e))); setMenu(null); }}>Set as default</ContextAction></ContextMenu>}
-      {/* The nudge rides above the chip as a tooltip rather than a strip in the
-          composer: it says its piece without pushing the composer down, and the
-          menu it asks for opens into the same space, replacing it. */}
-      {hint && !open && (
-        <div
-          id={hintId}
-          role="tooltip"
-          className="fade-in pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-max max-w-[260px] rounded-xl border px-2.5 py-1.5 text-[11px] leading-snug shadow-lg"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
-            background: 'var(--surface)',
-          }}
-        >
-          <span className="font-medium text-accent">Choose a model</span>
-          <span className="text-ink-soft"> · {hint}</span>
-          <span
-            className="absolute bottom-[-5px] left-4 h-2 w-2 rotate-45 border-b border-r"
-            style={{
-              borderColor: 'color-mix(in srgb, var(--accent) 40%, transparent)',
-              background: 'var(--surface)',
-            }}
-          />
-        </div>
-      )}
       {!expanded && <button
         className="ctl-menu max-w-full"
-        style={needsChoice ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+        style={unavailableModel ? { borderColor: 'var(--warning)', color: 'var(--warning)' } : needsChoice ? { borderColor: 'var(--accent)', color: 'var(--accent)' } : undefined}
+        data-model-unavailable={unavailableModel ? true : undefined}
         onClick={() => setOpen(!open)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-describedby={hint && !open ? hintId : undefined}
-        title={needsChoice ? 'This chat has no model yet - pick one' : `Model: ${currentName} · ${providerLabel}`}
+        title={unavailableModel ? `${unavailableModel} is not available right now. Pick a model again.` : needsChoice ? 'This chat has no model yet - pick one' : `Model: ${currentName} · ${providerLabel}`}
       >
-        <span className="min-w-0 truncate">{needsChoice ? 'Choose a model' : currentName}</span>
+        <span className="min-w-0 truncate">{unavailableModel ? <><s className="opacity-80">{unavailableModel}</s> · unavailable</> : needsChoice ? 'Choose a model' : currentName}</span>
         <span className="ctl-menu-label hidden min-w-0 truncate md:inline">· {providerLabel}</span>
         <span className="ctl-caret">▾</span>
       </button>}

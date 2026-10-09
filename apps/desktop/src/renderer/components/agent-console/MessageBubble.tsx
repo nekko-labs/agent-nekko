@@ -8,6 +8,7 @@ import { fmtDateTime, fmtTime } from './transcript.js';
 import { useRowState } from './rowState.js';
 import { isRecoveryNotice, RecoveryNotice } from './RecoveryNotice.js';
 import { RobotIcon } from '../../icons.js';
+import { DoneRow } from './TurnStatsLine.js';
 
 /**
  * One message. Memoized: a transcript row re-renders only when its message (or
@@ -88,7 +89,7 @@ export const MessageBubble = memo(function MessageBubble({
         <div key="text" className={`group ${entering ? 'fade-in ' : ''}flex justify-start`}>
           <div className="msg-ai">
             <Markdown basePath={basePath} text={message.content} />
-            {!entering && !message.interrupted && !message.toolCalls?.length && <div className="mt-1 flex items-center gap-1 text-[11px] text-ink-faint"><CheckIcon className="h-3 w-3" />Done.</div>}
+            {!entering && <DoneRow done={!message.interrupted && !message.toolCalls?.length} stats={message.turnStats} />}
             {displayText && message.content && (
               <div className="mt-1 flex gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
                 <button onClick={copy} title="Copy message" className="inline-flex items-center gap-1 hover:text-ink">{copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}{copied ? 'Copied' : 'Copy'}</button>
@@ -138,7 +139,7 @@ export const MessageBubble = memo(function MessageBubble({
             `code` in the composer and expect them to come out formatted. */}
         {displayText && <Markdown basePath={basePath} text={isUser ? displayText : message.content} />}
         {message.toolCalls?.map((c) => <ToolCard key={c.id} call={c} />)}
-        {!isUser && !entering && !message.interrupted && !message.toolCalls?.length && <div className="mt-1 flex items-center gap-1 text-[11px] text-ink-faint"><CheckIcon className="h-3 w-3" />Done.</div>}
+        {!isUser && !entering && <DoneRow done={!message.interrupted && !message.toolCalls?.length} stats={message.turnStats} />}
         {(displayText && message.content || (isUser && message.images?.length)) && (
           <div className={`mt-1.5 flex items-center gap-3 text-[11px] text-ink-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 ${isUser ? 'justify-end' : ''}`}>
             {isUser && message.createdAt > 0 && (

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Direction, DropTarget, PaneKind, WbPane } from '../layout.js';
-import { CheckIcon, CloseIcon, TrashIcon } from '../icons.js';
+import { CheckIcon, CloseIcon, TrashIcon, MinimizeIcon } from '../icons.js';
 import { useStore } from '../store.js';
 import { ContextAction, ContextMenu } from './ContextMenu.js';
 import { SplitCompass } from './SplitCompass.js';
@@ -117,12 +117,15 @@ export function PaneFrame({
   pane,
   title,
   icon,
+  statusIndicator,
   badge,
   isActive,
   dragging,
   canSplit,
   onSplit,
+  onAddWindow,
   onClose,
+  onMinimize,
   onFocus,
   onDragStart,
   onDragEnd,
@@ -138,6 +141,7 @@ export function PaneFrame({
   pane: WbPane;
   title: string;
   icon: React.ReactNode;
+  statusIndicator?: React.ReactNode;
   /** Optional trailing chip (the project a chat belongs to, a status dot). */
   badge?: React.ReactNode;
   isActive: boolean;
@@ -155,7 +159,10 @@ export function PaneFrame({
   dragging: string | null;
   canSplit: (dir: Direction) => boolean;
   onSplit: (dir: Direction, kind: WbPane['kind']) => void;
+  onAddWindow?: () => void;
   onClose: () => void;
+  /** Remove only the wall window, without completing or deleting its chat. */
+  onMinimize?: () => void;
   onFocus: () => void;
   onDragStart: () => void;
   onDragEnd: () => void;
@@ -220,6 +227,7 @@ export function PaneFrame({
         title="Drag to move this window"
       >
         {icon}
+        {statusIndicator}
         <span className="min-w-0 max-w-[35%] truncate text-[12px]" style={{ fontWeight: isActive ? 500 : 400 }}>
           {title}
         </span>
@@ -233,7 +241,16 @@ export function PaneFrame({
         {/* The pane's own actions, portalled in, so there is one bar per window
             rather than the frame's and the pane's stacked on each other. */}
         <div ref={setActionSlot} className="flex shrink-0 items-center gap-0.5" />
-        {!hideSplit && <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} addable={addable} />}
+        {!hideSplit && <SplitCompass kind={pane.kind} canSplit={canSplit} onSplit={onSplit} onOpen={onAddWindow} addable={addable} />}
+        {isChat && onMinimize && <button
+          type="button"
+          className="rounded-sm p-1 text-ink-faint hover:text-ink"
+          title="Minimize this window (keep chat incomplete)"
+          aria-label={`Minimize ${title}`}
+          onClick={onMinimize}
+        >
+          <MinimizeIcon className="h-3 w-3" />
+        </button>}
         <button
           className="rounded-sm p-1 text-ink-faint hover:text-ink"
           title={action === 'complete' ? 'Complete this chat' : action === 'delete' ? 'Delete this chat forever' : closeTitle}

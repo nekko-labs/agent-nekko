@@ -29,9 +29,21 @@ export interface SkillDef {
   tools?: string[];
   /** The step graph rendered in the Skills tab. */
   workflow: SkillWorkflow;
+  origin?: SkillOrigin;
 }
 
-export type SkillCategory = 'Research & planning' | 'Code quality' | 'Delivery' | 'Automation';
+export type SkillCategory = 'Research & planning' | 'Code quality' | 'Delivery' | 'Automation' | 'Imported';
+
+/** Agent tools whose SKILL.md folders Agent Nekko can read. */
+export type ExternalSkillTool = 'claude' | 'codex' | 'gemini' | 'agents';
+
+/** Where an imported skill came from; absent for built-in and marketplace skills. */
+export interface SkillOrigin {
+  tool: ExternalSkillTool;
+  scope: 'user' | 'project';
+  /** The skill's folder on disk. */
+  dir: string;
+}
 
 /** A node in a skill's workflow graph. */
 export type SkillNodeKind =
@@ -100,29 +112,31 @@ export const SKILLS: SkillDef[] = [
     id: 'research',
     name: 'research',
     description: 'Deep, multi-source research with a cited report',
-    template: 'Research the following thoroughly and produce a well-cited report:\n\n',
+    template: 'Research the following thoroughly and produce a well-cited report. Work from sources you can actually open: pages and links I give you, read with fetch_url, and the browser when it is available. If finding sources would need a web search engine you do not have, say so instead of guessing:\n\n',
     category: 'Research & planning',
-    tools: ['web_search', 'fetch_url'],
+    tools: ['fetch_url', 'browser'],
     workflow: wf(
       [
         { id: 't', kind: 'trigger', label: '/research <topic>' },
         { id: 'decompose', kind: 'agent', label: 'Decompose', detail: 'Sub-questions to answer' },
-        { id: 's1', kind: 'tool', label: 'Search', detail: 'Web search · angle 1' },
-        { id: 's2', kind: 'tool', label: 'Search', detail: 'Web search · angle 2' },
-        { id: 's3', kind: 'tool', label: 'Search', detail: 'Web search · angle 3' },
-        { id: 'read', kind: 'agent', label: 'Read sources', detail: 'Fetch + extract facts' },
+        { id: 'gather', kind: 'agent', label: 'Gather sources', detail: 'Find relevant URLs' },
+        { id: 'r1', kind: 'tool', label: 'Read source', detail: 'Fetch URL · source 1' },
+        { id: 'r2', kind: 'tool', label: 'Read source', detail: 'Fetch URL · source 2' },
+        { id: 'r3', kind: 'tool', label: 'Read source', detail: 'Fetch URL · source 3' },
+        { id: 'extract', kind: 'agent', label: 'Extract facts', detail: 'Read pages and extract information' },
         { id: 'verify', kind: 'agent', label: 'Verify claims', detail: 'Cross-check, drop weak ones' },
         { id: 'out', kind: 'output', label: 'Cited report' },
       ],
       [
         { from: 't', to: 'decompose' },
-        { from: 'decompose', to: 's1' },
-        { from: 'decompose', to: 's2' },
-        { from: 'decompose', to: 's3' },
-        { from: 's1', to: 'read' },
-        { from: 's2', to: 'read' },
-        { from: 's3', to: 'read' },
-        { from: 'read', to: 'verify' },
+        { from: 'decompose', to: 'gather' },
+        { from: 'gather', to: 'r1' },
+        { from: 'gather', to: 'r2' },
+        { from: 'gather', to: 'r3' },
+        { from: 'r1', to: 'extract' },
+        { from: 'r2', to: 'extract' },
+        { from: 'r3', to: 'extract' },
+        { from: 'extract', to: 'verify' },
         { from: 'verify', to: 'out' },
       ],
     ),
@@ -320,21 +334,23 @@ export const SKILLS: SkillDef[] = [
     id: 'pr',
     name: 'pr',
     description: 'Open a pull request for the current branch',
-    template: 'Push the current branch and open a pull request with a short, plain description of the changes.',
+    template: 'Push the current branch and open a pull request. Follow the repository\'s PR conventions (if any) and include an explicit **Unfinished work / release blockers** section listing incomplete scope, known bugs, unsupported platforms, missing tests or visual evidence, and verification limitations.',
     category: 'Delivery',
     tools: ['git push', 'gh pr create'],
     workflow: wf(
       [
         { id: 't', kind: 'trigger', label: '/pr' },
         { id: 'push', kind: 'tool', label: 'git push' },
-        { id: 'desc', kind: 'agent', label: 'Write description', detail: 'Short, plain summary' },
+        { id: 'desc', kind: 'agent', label: 'Write description', detail: 'Summary + unfinished work section' },
+        { id: 'review', kind: 'agent', label: 'Review PR', detail: 'Check conventions + visual evidence' },
         { id: 'create', kind: 'tool', label: 'gh pr create' },
         { id: 'out', kind: 'output', label: 'PR opened' },
       ],
       [
         { from: 't', to: 'push' },
         { from: 'push', to: 'desc' },
-        { from: 'desc', to: 'create' },
+        { from: 'desc', to: 'review' },
+        { from: 'review', to: 'create' },
         { from: 'create', to: 'out' },
       ],
     ),
@@ -360,6 +376,7 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
   'Code quality',
   'Delivery',
   'Automation',
+  'Imported'
 ];
 
 // --- Workflow layout (pure; consumed by the Skills tab visualizer) ---

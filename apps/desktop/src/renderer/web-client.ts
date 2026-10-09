@@ -25,6 +25,11 @@ function webApiServerStatus() {
   };
 }
 
+/** A server-side folder path typed by the user; null when cancelled or empty. */
+function promptFolder(): string | null {
+  return window.prompt('Folder path on the server to add as a workspace:')?.trim() || null;
+}
+
 function makeWebClient(): NekkoApi {
   // Token (only needed when the server is exposed beyond localhost). Accept it
   // from the URL once, then remember it for the session.
@@ -410,8 +415,9 @@ function makeWebClient(): NekkoApi {
 
     listWorkspaces: () => call(IpcChannels.workspaceList),
     // No native folder picker in the browser, ask for a server-side path.
+    pickFolder: async () => promptFolder(),
     addWorkspace: async () => {
-      const p = window.prompt('Folder path on the server to add as a workspace:');
+      const p = promptFolder();
       return p ? call(IpcChannels.workspaceAddByPath, p) : call(IpcChannels.workspaceList);
     },
     addWorkspaceByPath: (path) => call(IpcChannels.workspaceAddByPath, path),
@@ -449,6 +455,7 @@ function makeWebClient(): NekkoApi {
     generateDesign: (workspaceId, input) => call(IpcChannels.designGenerate, workspaceId, input),
 
     listInstalledSkills: () => call(IpcChannels.skillsInstalled),
+        listExternalSkills: () => call(IpcChannels.skillsExternal),
     skillTargets: () => call(IpcChannels.skillsTargets),
     installSkill: (skillId, target, payload) => call(IpcChannels.skillInstall, skillId, target, payload),
     uninstallSkill: (skillId, target) => call(IpcChannels.skillUninstall, skillId, target),
@@ -500,6 +507,7 @@ function makeWebClient(): NekkoApi {
 
     getUsageSummary: () => call(IpcChannels.usageSummary),
     getLimits: (tokenKey, refresh) => call(IpcChannels.limitsGet, tokenKey, refresh),
+    getLimitsProblem: (tokenKey) => call(IpcChannels.limitsProblem, tokenKey),
 
     oauthBegin: (provider) => call(IpcChannels.oauthBegin, provider),
     oauthFinish: (sessionId, pasted) => call(IpcChannels.oauthFinish, sessionId, pasted),

@@ -426,7 +426,7 @@ function lineBreaks(lines: string[], ctx: Ctx): React.ReactNode {
 // text so arithmetic like `2 * 3 * 4` isn't read as emphasis. A link target is
 // either a URL or something that looks like a path or anchor, so `arr[0](x)` in
 // prose about code isn't mistaken for a link.
-const LINK_TARGET = String.raw`https?:\/\/[^\s)]+|[.\/#][^\s)]*|[\w.-]+\.[a-zA-Z]{1,8}(?:#[^\s)]*)?`;
+const LINK_TARGET = String.raw`https?:\/\/[^\s)]+|[a-zA-Z]:[\\/][^\s)]+|[.\/#][^\s)]*|[\w.-]+(?:[\\/][^\s)]+|\.[a-zA-Z]{1,8}(?:#[^\s)]*)?)`;
 const INLINE_RE = new RegExp(
   [
     String.raw`!\[([^\]]*)\]\(([^\s)]+)\)`,
@@ -544,7 +544,9 @@ function ImageRef({ alt, src, basePath }: { alt: string; src: string; basePath?:
         try {
           const file = await window.nekko.readFile(target);
           if (file.imageDataUrl) setImage(file.imageDataUrl);
-          else setError('Preview unavailable');
+          else if (/\.svg$/i.test(target) && !file.binary && !file.truncated) {
+             useStore.getState().openFilePane(target);
+           } else setError('Preview unavailable');
         } catch { setError('Could not read image'); }
       }}
     >

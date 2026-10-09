@@ -101,6 +101,37 @@ describe('removePane', () => {
     expect(isSplit(root!) && root.sizes.reduce((x, y) => x + y, 0)).toBeCloseTo(1);
   });
 
+  it.each(['b', 'd'])('fills a grid vacancy vertically when removing %s', (removed) => {
+    const root: WbSplit = {
+      id: 'grid', dir: 'col', sizes: [0.4, 0.6], children: [
+        { id: 'top', dir: 'row', sizes: [0.3, 0.7], children: [pane('a'), pane('b')] },
+        { id: 'bottom', dir: 'row', sizes: [0.3, 0.7], children: [pane('c'), pane('d')] },
+      ],
+    };
+    const next = removePane(root, removed) as WbSplit;
+    expect(next.dir).toBe('row');
+    expect(next.sizes).toEqual([0.3, 0.7]);
+    expect(next.children[1]).toEqual(pane(removed === 'b' ? 'd' : 'b'));
+    expect(next.children[0]).toMatchObject({ dir: 'col', sizes: [0.4, 0.6], children: [pane('a'), pane('c')] });
+    expect(allPanes(next).map((p) => p.id).sort()).toEqual(['a', 'c', removed === 'b' ? 'd' : 'b'].sort());
+    expect(root.children[0]).toMatchObject({ dir: 'row', children: [pane('a'), pane('b')] });
+    expect(removePane(next, removed === 'b' ? 'd' : 'b')).toMatchObject({ dir: 'col', sizes: [0.4, 0.6] });
+  });
+
+  it('keeps horizontal removal for rows whose dividers are not aligned', () => {
+    const root: WbSplit = {
+      id: 'grid', dir: 'col', sizes: [0.5, 0.5], children: [
+        { id: 'top', dir: 'row', sizes: [0.3, 0.7], children: [pane('a'), pane('b')] },
+        { id: 'bottom', dir: 'row', sizes: [0.5, 0.5], children: [pane('c'), pane('d')] },
+      ],
+    };
+    const next = removePane(root, 'b') as WbSplit;
+    expect(next.dir).toBe('col');
+    expect(next.children[0]).toEqual(pane('a'));
+    expect(next.children[1]).toEqual(root.children[1]);
+    expect(removePane(root, 'missing')).toEqual(root);
+  });
+
   it('returns null when the last pane goes', () => {
     expect(removePane(pane('a'), 'a')).toBeNull();
   });

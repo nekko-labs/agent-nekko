@@ -201,6 +201,7 @@ const api: NekkoApi = {
 
   listWorkspaces: () => inv(IpcChannels.workspaceList),
   // The picker is native (main); adding the folder is the engine's.
+  pickFolder: () => ipcRenderer.invoke(PICK_FOLDER_CHANNEL),
   addWorkspace: async () => {
     const path: string | null = await ipcRenderer.invoke(PICK_FOLDER_CHANNEL);
     return path ? inv(IpcChannels.workspaceAddByPath, path) : inv(IpcChannels.workspaceList);
@@ -240,6 +241,7 @@ const api: NekkoApi = {
   generateDesign: (workspaceId, input) => inv(IpcChannels.designGenerate, workspaceId, input),
 
   listInstalledSkills: () => inv(IpcChannels.skillsInstalled),
+  listExternalSkills: () => inv(IpcChannels.skillsExternal),
   skillTargets: () => inv(IpcChannels.skillsTargets),
   installSkill: (skillId, target, payload) => inv(IpcChannels.skillInstall, skillId, target, payload),
   uninstallSkill: (skillId, target) => inv(IpcChannels.skillUninstall, skillId, target),
@@ -291,6 +293,7 @@ const api: NekkoApi = {
 
   getUsageSummary: () => inv(IpcChannels.usageSummary),
   getLimits: (tokenKey: string, refresh?: boolean) => inv(IpcChannels.limitsGet, tokenKey, refresh),
+  getLimitsProblem: (tokenKey: string) => inv(IpcChannels.limitsProblem, tokenKey),
 
   oauthBegin: (provider) => inv(IpcChannels.oauthBegin, provider),
   oauthFinish: (sessionId, pasted) => inv(IpcChannels.oauthFinish, sessionId, pasted),

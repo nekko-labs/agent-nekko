@@ -24,10 +24,10 @@ export function TitleBar() {
   return (
     <div className={`titlebar ${isMacChrome ? 'titlebar-mac' : ''}`}>
       <span className="titlebar-word"><BrandMark size={16} className="titlebar-mark" />Agent Nekko</span>
+      {view === 'command' && <h1 className="text-gradient ml-4 shrink-0 truncate text-sm font-semibold">Agents</h1>}
       <UpdateControl />
-      <div id="command-titlebar-slot" className="ml-4 flex min-w-0 flex-1 items-center">
-        {view === 'command' && <h1 className="text-gradient truncate text-sm font-semibold">Agents</h1>}
-      </div>
+      {/* Layout controls follow the heading and version in the same row. */}
+      <div id="command-titlebar-slot" className="ml-4 flex min-w-0 flex-1 items-center gap-3" />
       <DeveloperServerControls />
     </div>
   );

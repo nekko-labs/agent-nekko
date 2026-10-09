@@ -11,6 +11,7 @@ import { hasAppChrome } from './chrome.js';
 import { TitleBar } from './components/TitleBar.js';
 import { BrandMark } from './components/BrandMark.js';
 import { AutumnBackground } from './components/AutumnBackground.js';
+import { syncAppActivity } from './appActivity.js';
 import { Mascot, NekkoAvatar } from './components/Mascot.js';
 import { ResourceHud } from './components/ResourceMonitor.js';
 import { Toasts } from './components/Toasts.js';
@@ -44,7 +45,8 @@ import {
 } from './navIcons.js';
 
 /** The Agent destination wears Aphelion herself, so the cat is the way in. */
-const AgentCatIcon = (_p: { className?: string }) => <NekkoAvatar size={22} stationary />;
+// The nav rail's Agents cat is a plain silhouette: no eyes, so it reads as an icon beside the others rather than a face.
+const AgentCatIcon = (_p: { className?: string }) => <NekkoAvatar size={22} stationary eyes={false} />;
 
 const NAV: Array<{ view: View; labelKey: string; Icon: (p: { className?: string }) => React.JSX.Element }> = [
   { view: 'command', labelKey: 'nav.command', Icon: AgentCatIcon },
@@ -108,6 +110,8 @@ export function App() {
   useEffect(() => startCompactionStatus(), []);
   // An OS notification when a chat you are not looking at finishes or needs you.
   useEffect(() => startDesktopNotifications(), []);
+  // Hold looping decorations still while the window is unfocused or hidden.
+  useEffect(() => syncAppActivity(), []);
 
   // Archived chats past the retention window are deleted at launch and every
   // few hours after, whichever view the app opens on, so a long-running window
@@ -330,7 +334,7 @@ export function App() {
       <UpdateBanner />
       <RelayPairing />
       {view !== 'command' && <ResourceHud />}
-      <Mascot mood={mascotMood} enabled={settings?.mascotEnabled ?? true} />
+      <Mascot mood={mascotMood} enabled={settings?.mascotEnabled ?? true} wizardHat={settings?.themePreset === 'autumn'} />
       <CommandPalette />
       <DeepLinkListener />
       <Toasts />

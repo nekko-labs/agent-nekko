@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { DEFAULT_WALL_STATE } from '../commandWall.js';
 vi.mock('../store.js', () => ({ useStore: (select: (s: unknown) => unknown) => select({ settings: {} }) }));
-const quota = vi.hoisted(() => ({ byToken: {} as Record<string, any>, answered: new Set<string>() }));
+const quota = vi.hoisted(() => ({ byToken: {} as Record<string, any>, answered: new Set<string>(), nextRefreshAt: null as number | null }));
 vi.mock('../useLimits.js', () => ({ useProviderLimitsPortfolio: () => quota }));
 vi.mock('./InsightsBox.js', () => ({ InsightsBox: () => null }));
 vi.mock('./AutomationsPane.js', () => ({ AutomationsPane: () => null }));
@@ -34,6 +34,17 @@ describe('wall dock presentation', () => {
     expect(html).toContain(`width:${left}%;background:${tone}`);
     quota.byToken = {};
   });
+  it.each(['auth_expired', 'signed_out'] as const)('offers Sign in again right in the panel for %s', (kind) => {
+    quota.byToken = {};
+    (quota as any).problems = { claude: { kind, at: 0 } };
+    const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: false, automations: false, utilization: true, budget: false, insights: false, hardware: false } } };
+    const html = renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={0} sessions={[]} providers={[{ id: 'claude-sub', kind: 'anthropic', label: 'Claude', baseUrl: '', enabled: true, auth: 'subscription', tokenKey: 'claude' }]} usage={null} vitals={{ working: 0, waiting: 0, automations: 0, terminals: 0, tokensToday: 0, spend: '$0', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
+    expect(html).toContain('data-dock-signin');
+    expect(html).toContain('>Sign in again</button>');
+    expect(html).not.toContain('in Settings');
+    expect(html).toContain(kind === 'signed_out' ? 'Not signed in.' : 'Sign-in expired.');
+    (quota as any).problems = {};
+  });
   it('exposes both savings separately and never asks for a monthly budget', () => {
     const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: true, automations: false, utilization: false, budget: true, insights: false, hardware: false } } };
     const usage = { totalInput: 0, totalOutput: 0, totalCost: 0, byModel: {}, bySession: {}, byProvider: {}, bySessionCost: {}, daily: [], avoidedCosts: { local: 1.23, subscription: 4.56, benchmarkTokens: 100, unpricedTokens: 200 } };
@@ -46,6 +57,23 @@ describe('wall dock presentation', () => {
     expect(html).toContain('200 unpriced tokens excluded');
     expect(html).toContain('Resize Budget panel height');
     expect(html).not.toContain('Monthly budget (USD)');
+  });
+  it('filters Budget spend and tokens with the Insights time ranges', () => {
+    const state = { ...DEFAULT_WALL_STATE, dock: { ...DEFAULT_WALL_STATE.dock, panels: { vitals: false, automations: false, utilization: false, budget: true, insights: false, hardware: false } } };
+    const now = Date.parse('2026-10-08T12:00:00Z');
+    const usage = { avoidedCosts: { subscription: 2200, local: 0, benchmarkTokens: 0, unpricedTokens: 0 }, totalInput: 0, totalOutput: 0, totalCost: 0, byModel: {}, bySession: {}, byProvider: {}, bySessionCost: {}, daily: [
+      { date: '2026-10-08', input: 100, output: 50, cost: 1 },
+      { date: '2026-08-01', input: 1000, output: 500, cost: 10 },
+    ] };
+    const html = renderToStaticMarkup(<WallDock state={state} setState={vi.fn()} tasks={[]} running={new Set()} now={now} sessions={[]} providers={[]} usage={usage} vitals={{ working: 0, waiting: 0, automations: 0, terminals: 0, tokensToday: 0, spend: '$0', fleet: [] }} onOpenChat={vi.fn()} onOpenModels={vi.fn()} />);
+    expect(html).toContain('aria-label="Budget time range"');
+    for (const r of ['today', '1wk', '1m', '6m', '1y', 'all-time']) expect(html).toContain(`>${r}</button>`);
+    // Default 1m (last 30 days) excludes August.
+    expect(html).toContain('last 30 days');
+    expect(html).toContain('$2200.00');
+    expect(html).toContain('est. · all time');
+    expect(html).toContain('100 in · 50 out');
+    expect(html).toContain('$1.00');
   });
   it('uses named icon controls and meters with exact numbers below', () => {
     const html = render();

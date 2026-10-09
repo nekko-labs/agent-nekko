@@ -85,8 +85,9 @@ import type {
   LocalModel,
   ModelFolder,
   ModelFolderReport,
+  SkillDef,
 } from '@agent-nekko/shared';
-import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload } from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload, SKILLS, sameFolderPath } from '@agent-nekko/shared';
 import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
 import { createEngine } from './engine/index.js';
@@ -124,7 +125,8 @@ import {
   resolveDesignNote,
   generateDesign,
 } from './design.js';
-import { listInstalledSkills, skillTargets, installSkill, uninstallSkill } from './skills.js';
+import { listInstalledSkills, skillTargets, installSkill, uninstallSkill, listInstalledSkillDefs } from './skills.js';
+import { discoverExternalSkills } from './external-skills.js';
 import { getVaizerCatalog, getVaizerSkillMd } from './vaizer.js';
 import {
   listTasks,
@@ -170,7 +172,7 @@ import { isChatRunning, reconcileInterruptedChats, setDecisionRunner, sendChat, 
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';
 import { loopApprove, loopEnd, loopEvent, loopLog, loopTool } from './daemon-loop.js';
 import { compactSession, cancelSessionCompaction, isSessionCompacting, setCompactionSender } from './compaction.js';
-import { initLimits, getLimits, clearLimits } from './limits.js';
+import { initLimits, getLimits, clearLimits, getLimitsProblem } from './limits.js';
 import { startWorkflowListeners } from './listeners.js';
 import {
   initOAuth,
@@ -445,6 +447,7 @@ export interface Host {
 
   /** Skills marketplace installs. */
   listInstalledSkills(): InstalledSkillRecord[];
+  listExternalSkills(): SkillDef[];
   skillTargets(): InstallTargetInfo[];
   installSkill(
     skillId: string,
@@ -510,6 +513,7 @@ export interface Host {
   classifyCommand(command: string): GuardrailDecision;
   usageSummary(): UsageSummary;
   getLimits(tokenKey: string, refresh?: boolean): Promise<SubscriptionLimits | undefined>;
+  getLimitsProblem(tokenKey: string): Promise<import('@agent-nekko/shared').LimitsProblem | undefined>;
 
   /** Expose this machine over a relay so paired devices can reach it. */
   enableRemote(relayUrl: string): RemoteStatus;
@@ -975,13 +979,17 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
 
     listWorkspaces: () => getSettings().workspaces,
     addWorkspaceByPath: (path) => {
+      // A path already registered is reused, never added (or indexed) twice.
+      const current = getSettings().workspaces;
+      if (current.some((w) => sameFolderPath(w.path, path))) return current;
+
       const folder: WorkspaceFolder = {
         id: `ws_${Date.now().toString(36)}`,
         name: basename(path),
         path,
         addedAt: Date.now(),
       };
-      const workspaces = [...getSettings().workspaces, folder];
+      const workspaces = [...current, folder];
       saveSettings({ workspaces });
       setTimeout(() => indexWorkspace(folder, onIndexProgress), 50);
       return workspaces;
@@ -1024,6 +1032,12 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     resolveDesignNote,
     generateDesign,
     listInstalledSkills,
+    listExternalSkills: () =>
+      discoverExternalSkills({
+        projectRoots: getSettings().workspaces.map((w) => w.path),
+        exclude: listInstalledSkills().flatMap((r) => (r.path ? [r.path] : [])),
+        reserved: [...SKILLS, ...listInstalledSkillDefs()].map((s) => s.name),
+      }),
     skillTargets,
     installSkill,
     uninstallSkill,
@@ -1086,6 +1100,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     classifyCommand: (command) => classifyCommand(command, getSettings().guardrails),
     usageSummary,
     getLimits: (tokenKey, refresh) => getLimits(tokenKey, refresh),
+    getLimitsProblem: async (tokenKey) => getLimitsProblem(tokenKey),
 
     enableRemote: (relayUrl) => host.remote.enable(relayUrl),
     disableRemote: () => host.remote.disable(),

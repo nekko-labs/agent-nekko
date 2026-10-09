@@ -1,6 +1,10 @@
 /** Subscription limit state and per-model list-price estimates. */
 
 import type { ProviderConfig } from './models.js';
+import { MODEL_PRICING_SNAPSHOT } from './model-pricing-snapshot.js';
+
+export const MODEL_PRICING_SOURCE = MODEL_PRICING_SNAPSHOT.source;
+export const MODEL_PRICING_CHECKED_AT = MODEL_PRICING_SNAPSHOT.checkedAt;
 
 /**
  * Provider kinds that publish a documented usage/credit read authorized for the
@@ -65,10 +69,53 @@ export interface SubscriptionLimits {
   staleAfterMs: number;
 }
 
+/**
+ * Why the last quota read for an account produced nothing, so the UI can say
+ * what is wrong instead of a bare "unavailable". Counts and codes only: never
+ * a token, URL or response body.
+ *
+ * - `signed_out`: no stored sign-in for this account.
+ * - `auth_expired`: the sign-in expired and could not be renewed; polling
+ *   stops until the user signs in again.
+ * - `rate_limited`: the provider answered 429; `retryAt` honours Retry-After.
+ * - `http`: any other non-2xx answer, with its `status`.
+ * - `network`: the request did not complete (offline, DNS, TLS, timeout).
+ * - `unreadable`: a 2xx answer whose body could not be parsed.
+ */
+export interface LimitsProblem {
+  kind: 'signed_out' | 'auth_expired' | 'rate_limited' | 'http' | 'network' | 'unreadable';
+  status?: number;
+  /** Epoch ms of the failure. */
+  at: number;
+  /** Epoch ms before which the host will not ask the provider again; absent when it waits for the user. */
+  retryAt?: number;
+  /** Consecutive failures, for the backoff. */
+  failures: number;
+}
+
+/** One short sentence for a limits problem, for panels and tooltips. */
+export function describeLimitsProblem(problem: LimitsProblem, now = Date.now()): string {
+  const at = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const retry = problem.retryAt && problem.retryAt > now ? ` Retrying at ${at(problem.retryAt)}.` : '';
+  switch (problem.kind) {
+    case 'signed_out': return 'Not signed in. Sign in again in Settings.';
+    case 'auth_expired': return 'Sign-in expired. Sign in again in Settings.';
+    case 'rate_limited': return `Rate limited by the provider.${retry}`;
+    case 'http': return `Quota read failed (HTTP ${problem.status ?? '?'}).${retry}`;
+    case 'network': return `Could not reach the provider.${retry}`;
+    case 'unreadable': return `The provider sent a quota answer we could not read.${retry}`;
+  }
+}
+
 /** Published list-price entry for a model family ($/MTok). */
 export interface ModelPricing {
   /** Substring match against a model id, e.g. "sonnet" matches any claude-sonnet id. */
   match: string;
+  /** Published source model, when matched exactly. */
+  modelId?: string;
+  source?: string;
+  checkedAt?: string;
+  overrides?: readonly { minPromptTokens?: number; input: number; output: number; cacheRead?: number; cacheWrite?: number }[];
   /** Input tokens, USD per 1M. */
   input: number;
   /** Output tokens, USD per 1M. */
@@ -87,6 +134,14 @@ export interface ModelPricing {
  * estimate" while usage accounting falls back to $0.
  */
 export const DEFAULT_LOCAL_COST_BENCHMARK = 'qwen3-32b';
+
+export const MODEL_COMPARISON_TIERS = [
+  { label: 'Frontier: Fable / Astra', models: ['claude-fable-5.1', 'gpt-6-astra'] },
+  { label: 'Advanced: Opus / Sol', models: ['claude-opus-5.5', 'gpt-6.1-sol'] },
+  { label: 'Balanced: Sonnet', models: ['claude-sonnet-5.5'] },
+  { label: 'Fast: Haiku / Luna', models: ['claude-haiku-5.5', 'gpt-6-luna'] },
+  { label: 'Open models', models: ['qwen3-32b', 'gpt-oss-20b', 'gpt-oss-120b', 'gemma-3-27b-it'] },
+] as const;
 
 export const MODEL_PRICING: ModelPricing[] = [
   // DeepInfra via OpenRouter, verified 2026-10-06: https://openrouter.ai/qwen/qwen3-32b
@@ -118,17 +173,30 @@ export const MODEL_PRICING: ModelPricing[] = [
   { match: 'gpt-3.5', input: 0.5, output: 1.5 },
 ];
 
+// Build once: pricing is queried during streaming and chat switches. Preserve
+// first-entry precedence for unqualified ids shared by multiple hosted routes.
+const publishedModelPrices = new Map<string, (typeof MODEL_PRICING_SNAPSHOT.models)[number]>();
+for (const price of MODEL_PRICING_SNAPSHOT.models) {
+  for (const id of [price.id, price.id.split('/').slice(1).join('/')]) {
+    if (!publishedModelPrices.has(id)) publishedModelPrices.set(id, price);
+  }
+}
+const familyModelPrices = [...MODEL_PRICING].sort((a, b) => b.match.length - a.match.length);
+
 /** Find the pricing entry whose match is the longest substring of `modelId`. */
 export function getModelPrice(modelId: string | undefined): ModelPricing | undefined {
   if (!modelId) return undefined;
-  const id = modelId.toLowerCase().replace(/^qwen3:32b(?=$|[-_])/, 'qwen3-32b');
+  const id = modelId.toLowerCase().replace(/^(claude-[a-z]+)-(\d+)-(\d+)(?=$|-)/, '$1-$2.$3')
+    .replace(/^(qwen3|gpt-oss):(\d+b)(?=$|[-_])/, '$1-$2');
+  // Exact hosted ids and unambiguous local names beat legacy family prices.
+  // Do not treat a different size, fine-tune, batch or unpublished variant as exact.
+  const published = publishedModelPrices.get(id);
+  if (published) return { ...published, match: id, modelId: published.id, source: MODEL_PRICING_SOURCE, checkedAt: MODEL_PRICING_CHECKED_AT };
   // Only the published GPT-5 API ids have these prices. Subscription-only
   // Codex variants and later generations must not inherit the base price.
   if (/(?:^|\/)gpt-[5-9](?:[.\-]|$)/.test(id) &&
       !/(?:^|\/)gpt-(?:5(?:-(?:mini|nano))?|6-astra|6\.1-sol|6-luna|5\.6-(?:sol|cyber))(?:$|-\d{4}-\d{2}-\d{2}$)/.test(id)) return undefined;
-  return [...MODEL_PRICING]
-    .sort((a, b) => b.match.length - a.match.length)
-    .find((p) => id.includes(p.match));
+  return familyModelPrices.find((p) => id.includes(p.match));
 }
 
 export interface EstimateCostInputs {
@@ -162,12 +230,15 @@ export function estimateCost(
   if (usage.auth === 'subscription') return 0;
   const p = getModelPrice(modelId);
   if (!p) return undefined;
-  let cost = (usage.inputTokens / 1e6) * p.input + (usage.outputTokens / 1e6) * p.output;
+  // Analytics can aggregate several requests, so totals cannot determine a
+  // per-request long-context surcharge. These remain standard-rate estimates.
+  const rates = p;
+  let cost = (usage.inputTokens / 1e6) * rates.input + (usage.outputTokens / 1e6) * rates.output;
   if (usage.cacheReadTokens) {
-    cost += (usage.cacheReadTokens / 1e6) * (p.cacheRead ?? p.input);
+    cost += (usage.cacheReadTokens / 1e6) * (rates.cacheRead ?? rates.input);
   }
   if (usage.cacheWriteTokens) {
-    cost += (usage.cacheWriteTokens / 1e6) * (p.cacheWrite ?? p.input);
+    cost += (usage.cacheWriteTokens / 1e6) * (rates.cacheWrite ?? rates.input);
   }
   return cost;
 }

@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { THEME_PRESETS, type ThemePreset } from './themes.js';
+import { THEME_PRESETS, currentPresetAccent, type ThemePreset } from './themes.js';
+
+describe('currentPresetAccent', () => {
+  it('upgrades accents a retuned preset used to save', () => {
+    expect(currentPresetAccent('nebula', '#a78bfa')).toBe('#9d8ce6');
+    expect(currentPresetAccent('nebula', '#F472B6')).toBe('#d98bb6');
+    expect(currentPresetAccent('terminal', '#22c55e')).toBe('#3fb96a');
+  });
+  it('keeps the user’s own colors and other presets untouched', () => {
+    expect(currentPresetAccent('nebula', '#ff0000')).toBe('#ff0000');
+    expect(currentPresetAccent('dark', '#a78bfa')).toBe('#a78bfa');
+    expect(currentPresetAccent(undefined, '#a78bfa')).toBe('#a78bfa');
+    expect(currentPresetAccent('nebula', undefined)).toBeUndefined();
+  });
+});
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 

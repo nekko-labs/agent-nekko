@@ -55,6 +55,18 @@
 }
 .command-wall-add:hover { border-color: var(--accent); color: var(--accent); background: var(--surface-2); }
 .command-wall-empty { padding: 32px; color: var(--ink-faint); font-size: 13px; }
+/* An empty wall centres its illustration in the space the windows would use. */
+.command-wall-stage:has(> .command-wall-empty .command-wall-empty-state) { min-height: 100%; }
+.command-wall-empty:has(.command-wall-empty-state) { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.command-wall-empty-state { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 340px; text-align: center; line-height: 1.5; }
+.command-wall-empty-title { margin-top: 6px; color: var(--ink); font-size: 15px; font-weight: 600; }
+.wall-empty-art { position: relative; width: 240px; height: 150px; }
+.wall-empty-art > svg { display: block; }
+/* Nekko sits on the floor line, below the wall's frame. */
+.wall-empty-cat { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); line-height: 0; }
+.wall-empty-bat { transform-box: fill-box; transform-origin: center; animation: wall-empty-bat 3.2s ease-in-out infinite; }
+@keyframes wall-empty-bat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .wall-empty-bat { animation: none; } }
 .command-wall-divider-box { position: absolute; pointer-events: none; }
 .command-wall-divider-box > [role="separator"] {
   position: absolute;
@@ -81,11 +93,8 @@
 .command-wall-add { flex-direction: column; gap: 8px; background: var(--accent-soft); border-color: var(--accent); animation: wall-liquid-border 1800ms ease-in-out infinite; overflow: hidden; }
 .command-wall-add[data-solid] { animation: none; border-style: solid; border-radius: var(--pane-radius); background: var(--surface); }
 .command-wall-add-fill { display: flex; flex: 1; width: 100%; min-height: inherit; align-items: center; justify-content: center; flex-direction: column; gap: 8px; padding: 12px; }
-.command-wall-add-rail { position: absolute; display: grid; place-items: center; border: 1px dashed var(--line); border-radius: 12px; background: var(--surface); color: var(--ink-faint); font-size: 20px; transition: background 260ms ease, border-color 260ms ease; }
-.command-wall-add-rail:hover, .command-wall-add-rail:focus-visible { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.command-wall-add-rail:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @keyframes wall-liquid-border { 0%, 100% { border-radius: 22px 34px 24px 30px; } 50% { border-radius: 34px 20px 32px 22px; } }
-@media (prefers-reduced-motion: reduce) { .command-wall-add { animation: none; } .command-wall-add-rail { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .command-wall-add { animation: none; } }
 .command-wall-add-icon { display:grid; place-items:center; width:44px; height:44px; border-radius:14px; background:var(--accent-soft); color:var(--accent); font-size:24px; }
 .command-wall-companion > header { display:flex; gap:8px; justify-content:space-between; background:var(--surface); }
 .command-wall-companion > header span { overflow:hidden; text-overflow:ellipsis; }
@@ -101,6 +110,10 @@
 .numbered-chat-icon { position: relative; display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ink-faint); }
 .numbered-chat-icon > span { position: absolute; top: 5px; left: 5px; right: 4px; text-align: center; font-size: 10px; font-weight: 700; line-height: 13px; color: var(--ink); }
 [data-wall-selected] .numbered-chat-icon, [aria-pressed="true"] .numbered-chat-icon { color: var(--accent); }
+.numbered-agent-icon { position: relative; display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ink-faint); }
+/* The number is the robot's face: centred in the head, below the antenna. */
+.numbered-agent-icon > span { position: absolute; left: 0; right: 0; top: 10px; text-align: center; font-size: 10.5px; font-weight: 700; line-height: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+[data-wall-selected] .numbered-agent-icon, [data-wall-working] .numbered-agent-icon { color: var(--accent); }
 .wall-focus-agents { display: flex; gap: 6px; flex-shrink: 0; overflow-x: auto; padding: 2px; }
 .wall-focus-agent { display: flex; align-items: center; gap: 6px; max-width: 260px; flex-shrink: 0; padding: 3px 8px; border: 1px solid var(--line); border-radius: 12px; font-size: 12px; color: var(--ink-soft); }
 .wall-focus-agent[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
@@ -132,6 +145,59 @@
 /* Tab placement remains independent of focus/grid/fixed window layout. */
 .wall-agent-workspace { display: flex; flex: 1; flex-direction: column; min-width: 0; min-height: 0; }
 .wall-agent-workspace[data-tabs='left'] { flex-direction: row; gap: 8px; }
+.wall-agent-workspace[data-tabs='top'] { flex-direction: column; gap: 8px; }
+/* The Agents panel's own controls: icon pills that grow their label out to the
+   left on hover or focus. A stack in a column panel, a row in a row panel or
+   when collapsed beside the wall (AgentPanelControls animates the move). */
+.agent-panel-controls { display: flex; flex-direction: row; justify-content: flex-end; align-items: center; gap: 4px; }
+.agent-panel-controls[data-stacked] { flex-direction: column; }
+.agent-panel-pill {
+  display: inline-flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 0;
+  height: 28px; padding: 0 6px; border-radius: 999px; border: 1px solid transparent;
+  color: var(--ink-faint); font-size: 12px; font-weight: 500; white-space: nowrap;
+  transition: background var(--dur-med) var(--ease-out), border-color var(--dur-med) var(--ease-out), color var(--dur-fast) ease, gap var(--dur-med) var(--ease-out), padding var(--dur-med) var(--ease-out);
+}
+.agent-panel-pill-label { display: inline-block; max-width: 0; overflow: hidden; opacity: 0; transition: max-width var(--dur-slow) var(--ease-out), opacity var(--dur-med) ease; }
+.agent-panel-pill:hover, .agent-panel-pill:focus-visible {
+  gap: 6px; padding: 0 10px; color: var(--ink);
+  background: var(--surface-2); border-color: var(--line);
+}
+.agent-panel-pill:hover .agent-panel-pill-label, .agent-panel-pill:focus-visible .agent-panel-pill-label { max-width: 120px; opacity: 1; }
+.agent-panel-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Stacked pills sit against the workspace's left edge, where growing left
+   would leave the screen and growing in place would shove the cards beside
+   them. Their label rides out over the cards instead, as part of the pill. */
+.agent-panel-controls[data-stacked] .agent-panel-pill { position: relative; width: 28px; padding: 0; justify-content: center; }
+.agent-panel-controls[data-stacked] .agent-panel-pill-label {
+  position: absolute; left: calc(100% - 6px); top: -1px; height: 28px; display: inline-flex; align-items: center;
+  padding: 0 10px 0 8px; border: 1px solid var(--line); border-left: 0; border-radius: 0 999px 999px 0;
+  background: var(--surface-2); color: var(--ink); z-index: 20; pointer-events: none;
+}
+.agent-panel-controls[data-stacked] .agent-panel-pill:hover, .agent-panel-controls[data-stacked] .agent-panel-pill:focus-visible { padding: 0; gap: 0; border-radius: 999px 0 0 999px; }
+/* Collapsed: the controls hold the panel's corner so the way back is where it was. */
+.agent-panel-collapsed { display: flex; flex-shrink: 0; align-items: flex-start; padding: 4px 2px; }
+.agent-panel-collapsed[data-orientation='horizontal'] { justify-content: flex-start; }
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-panel-pill, .agent-panel-pill-label { transition: none; }
+}
+/* The Agents panel as a row: each project is a strip of cards, the strip
+   scrolls sideways, and the row stays about one card tall. */
+.agent-panel-row { max-height: 168px; }
+.agent-panel-row > * { flex: 0 0 auto; margin-bottom: 0 !important; }
+.agent-panel-row .collapse-wrap > div { display: flex; flex-direction: row; gap: 6px; }
+.agent-panel-row .collapse-wrap > div > * { flex: 0 0 240px; min-width: 0; }
+/* A closed group hides its cards completely. In the row its strip collapses to
+   nothing (a 0fr grid row leaves the cards' width behind), and in the column
+   no card stays clickable under the header. */
+.agent-panel-row .collapse-wrap.collapsed { display: none; }
+[data-agent-panel] .collapse-wrap.collapsed { visibility: hidden; pointer-events: none; }
+[data-agent-panel] .collapse-wrap.collapsed > div { padding-block: 0; }
+/* The column panel is bounded by the wall's height, so its list scrolls with
+   the mouse wheel instead of growing past the window. */
+.wall-agent-workspace[data-tabs='left'] > .agent-panel-host,
+.wall-agent-workspace[data-tabs='left'] > .agent-panel-host > aside { min-height: 0; max-height: 100%; }
+.agent-panel-host [data-agent-panel][data-orientation='vertical'] { min-height: 0; max-height: 100%; }
 .wall-agent-workspace[data-tabs='left'] > .wall-focus-agents { flex-direction: column; width: clamp(140px, 22vw, 260px); overflow-x: hidden; overflow-y: auto; }
 .wall-agent-workspace[data-tabs='left'] .wall-focus-agent { width: 100%; min-width: 0; flex-shrink: 0; }
 @media (max-width: 720px) {
@@ -149,5 +215,3 @@
   .command-wall-create .agent-window-picker__options, .command-wall-create .agent-window-picker__columns { grid-template-columns: minmax(0, 1fr); }
 }
 
-/* Optical alignment of the text glyph, without moving the hit target. */
-.command-wall-add-rail-bottom > span { transform: translateY(-3px); pointer-events: none; }

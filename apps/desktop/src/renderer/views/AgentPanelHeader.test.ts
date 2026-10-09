@@ -1,0 +1,44 @@
+import { readFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+
+// WorkspacesView pulls in the whole Agent tab, so these check its source.
+const source = readFileSync(new URL('./WorkspacesView.tsx', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+const toolbar = readFileSync(new URL('./CommandCenterView.tsx', import.meta.url), 'utf8');
+const controls = readFileSync(new URL('../components/AgentPanelControls.tsx', import.meta.url), 'utf8');
+
+describe('Agents panel header', () => {
+  it('hides with a left-panel icon rather than an X, and swaps sides with the curved-arrow icon', () => {
+    expect(controls).toContain("aria-label={show ? 'Hide the agent panel' : 'Show the agent panel'}");
+    expect(controls).toMatch(/Show the agent panel'\}[\s\S]{0,260}<PanelLeftIcon/);
+    expect(controls).toContain('<PanelSwapIcon');
+    expect(source).toContain('<AgentPanelControls show orientation={orientation}');
+    expect(source).not.toContain('Close the agent panel');
+    expect(source).not.toContain('<CloseIcon');
+  });
+  it('keeps the panel controls where the panel was when it is collapsed, and nowhere in the title bar', () => {
+    expect(toolbar).toContain('<AgentPanelControls show={false} orientation={panel.orientation}');
+    expect(toolbar).not.toContain("aria-label={panel.show ? 'Hide the agent panel' : 'Show the agent panel'}");
+    expect(toolbar).not.toContain('PanelSwapIcon');
+  });
+  it('draws no outer ring around the Agents tab panel in either orientation', () => {
+    expect(source).toContain("className={`panel ${sidebarOnly ? '' : 'panel-ring '}flex");
+  });
+  it('renders the + in the accent, a size up, with its menu portalled above the wall', () => {
+    expect(source).toContain('agent-panel-plus');
+    expect(source).toContain('<PlusIcon className="h-[22px] w-[22px]" />');
+    expect(css).toContain('.agent-panel-plus { color: var(--accent); }');
+    expect(source).toMatch(/newMenuOpen && newMenuPos && createPortal\(/);
+    expect(source).toContain('className="card fixed z-[1000] w-64 p-1.5 shadow-lg"');
+    expect(source).toContain('document.body,');
+  });
+  it('keeps Add window beside the composer in either docking position, with no elbow arrow', () => {
+    expect(toolbar).toContain("wall.composer.side === 'bottom' && composerRow");
+    expect(toolbar).toContain('>{composer}{addButton}</div>');
+    expect(toolbar).toContain("wall.composer.side === 'top' && composerRow");
+    expect(toolbar).not.toContain('wall-add-arrow');
+    expect(css).not.toContain('.wall-add-arrow');
+    expect(css).toContain('.wall-add-launch { display: flex; align-items: center; justify-content: center;');
+    expect(css).not.toContain('.wall-composer-row { flex-direction: column;');
+  });
+});

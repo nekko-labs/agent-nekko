@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { AgentEvent, QueuedPrompt, Session, SessionSummary } from '@agent-nekko/shared';
 import { DEFAULT_ORCHESTRATION, getStrategy, planProgress, queueItemPayload, summarizeToolCall } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
-import { CheckIcon, ChatIcon, CloseIcon, ListIcon, PencilIcon, RobotIcon } from '../icons.js';
+import { CheckIcon, ChatIcon, ListIcon, PencilIcon, RobotIcon } from '../icons.js';
 
 /** The agent's published plan, active delegates and queued follow-ups. */
 function queueLabel(item: QueuedPrompt): string {
@@ -19,11 +19,10 @@ export function appendPlanChangeRequest(draft: string): string {
   return draft.trim() ? `${draft}\n\n${PLAN_CHANGE_REQUEST}` : PLAN_CHANGE_REQUEST;
 }
 
-export function PlanRail({ sessionId, session, streaming, onClose, onChangePlan }: {
+export function PlanRail({ sessionId, session, streaming, onChangePlan }: {
   sessionId: string;
   session: Session | null;
   streaming: boolean;
-  onClose: () => void;
   /** Opens an editable follow-up, never mutates or submits the plan directly. */
   onChangePlan?: () => void;
 }) {
@@ -41,13 +40,11 @@ export function PlanRail({ sessionId, session, streaming, onClose, onChangePlan 
   const queued = session?.queue ?? [];
 
   return (
-    <aside className="flex h-full w-full flex-col overflow-hidden border-l border-line" style={{ background: 'var(--paper)' }} aria-label="Plan and sub-agents">
+    <aside className="flex h-full w-full flex-col overflow-hidden border-l border-line" style={{ background: 'transparent' }} aria-label="Plan and sub-agents">
       <header className="flex shrink-0 items-center gap-1.5 border-b border-line px-3 py-2">
         <ListIcon className="h-3.5 w-3.5 shrink-0 text-ink-faint" />
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-ink-faint">This prompt</span>
-        <button className="shrink-0 rounded-sm p-1 text-ink-faint hover:text-ink" title="Hide the plan panel" aria-label="Hide the plan panel" onClick={onClose}>
-          <CloseIcon className="h-3 w-3" />
-        </button>
+        {/* The chat area's floating plan toggle opens and closes this panel. */}
+        <span className="min-w-0 flex-1 truncate pr-8 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">This prompt</span>
       </header>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-3 py-3">
         <section>

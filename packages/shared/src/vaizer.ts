@@ -72,7 +72,8 @@ export function vaizerLegacySkillMdUrl(slug: string): string {
 
 /**
  * Bundled snapshot of the Vaizer catalog so the shelf works fully offline.
- * Kept in sync with the repo's catalog.json when the integration is touched.
+ * Kept in sync with the repo's catalog.json when the integration is touched
+ * (last synced 2026-10-09, from nekko-labs/vaizer@4fd8d88).
  */
 export const VAIZER_SNAPSHOT: VaizerCatalog = {
   marketplace: 'vaizer',
@@ -91,7 +92,7 @@ export const VAIZER_SNAPSHOT: VaizerCatalog = {
       author: 'Nekko Labs',
       version: '1.0.0',
       license: 'MIT',
-      installCommand: '/plugin install domain-finder@vaizer',
+      installCommand: '/plugin install vaizer@vaizer',
       sourceUrl: `${VAIZER_REPO_URL}/tree/main/plugins/vaizer/skills/domain-finder`,
     },
     {
@@ -101,12 +102,12 @@ export const VAIZER_SNAPSHOT: VaizerCatalog = {
       tier: 'nekko-official',
       category: 'engineering',
       description:
-        'Convene a council of four reviewer cats (security, deps/supply-chain, correctness/concurrency, style) over a PR or working diff, pulling in external bot reviews too.',
-      tags: ['code-review', 'pull-request', 'security', 'dependencies', 'supply-chain', 'concurrency', 'lint'],
+        'Five reviewer cats read your PR or working diff, one lens each. The first checks the code against what the PR description promised and against SPEC.md; the rest cover security, dependencies, correctness, and style. Choose which cats sit, and external bot reviews fold into a single verdict.',
+      tags: ['code-review', 'pull-request', 'pr-description', 'spec', 'spec-conformance', 'product-intent', 'security', 'dependencies', 'supply-chain', 'concurrency', 'lint'],
       author: 'Nekko Labs',
-      version: '1.0.0',
+      version: '1.3.0',
       license: 'MIT',
-      installCommand: '/plugin install nyaa@vaizer',
+      installCommand: '/plugin install vaizer@vaizer',
       sourceUrl: `${VAIZER_REPO_URL}/tree/main/plugins/vaizer/skills/nyaa`,
     },
     {
@@ -121,8 +122,23 @@ export const VAIZER_SNAPSHOT: VaizerCatalog = {
       author: 'Nekko Labs',
       version: '1.0.0',
       license: 'MIT',
-      installCommand: '/plugin install resume-checker@vaizer',
+      installCommand: '/plugin install vaizer@vaizer',
       sourceUrl: `${VAIZER_REPO_URL}/tree/main/plugins/vaizer/skills/resume-checker`,
+    },
+    {
+      id: 'codereview-spec',
+      name: 'codereview-spec',
+      slug: 'codereview-spec',
+      tier: 'nekko-official',
+      category: 'engineering',
+      description:
+        'Reviews a change against what its PR description promised and against your spec, then reviews the spec itself. Catches stated goals the code does not actually deliver, features shipped without a spec update, and the gaps in the spec that let them through.',
+      tags: ['code-review', 'spec', 'spec-conformance', 'product-intent', 'pr-description', 'drift', 'documentation', 'pull-request'],
+      author: 'Nekko Labs',
+      version: '1.2.0',
+      license: 'MIT',
+      installCommand: '/plugin install vaizer@vaizer',
+      sourceUrl: `${VAIZER_REPO_URL}/tree/main/plugins/vaizer/skills/codereview-spec`,
     },
   ],
 };

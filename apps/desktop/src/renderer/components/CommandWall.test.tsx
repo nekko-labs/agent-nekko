@@ -85,9 +85,10 @@ describe('command wall geometry', () => {
     const s = state();
     const before = JSON.stringify(s);
     const g = commandWallGeometry(s, 1000, 700);
-    expect(g.panes.get('a')).toEqual({ x: 0, y: 0, width: 496, height: 664 });
-    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 664 });
-    expect(g.panes.get('t')).toEqual({ x: 804, y: 0, width: 196, height: 664 });
+    // No Add rail is reserved: the windows take the full measured height.
+    expect(g.panes.get('a')).toEqual({ x: 0, y: 0, width: 496, height: 700 });
+    expect(g.panes.get('b')).toEqual({ x: 504, y: 0, width: 292, height: 700 });
+    expect(g.panes.get('t')).toEqual({ x: 804, y: 0, width: 196, height: 700 });
     expect(g.addGrid!.id).toBe(root.id);
     expect(g.deck.size).toBe(0);
     expect(JSON.stringify(s)).toBe(before);
@@ -106,11 +107,12 @@ describe('command wall geometry', () => {
     }
   });
 
-  it.each([[1000, 700], [2400, 400], [390, 700]])('keeps Add compact until preview at %i × %i', (width, height) => {
+  it.each([[1000, 700], [2400, 400], [390, 700]])('reserves no Add space until opened at %i × %i', (width, height) => {
     const before = JSON.stringify(root);
     const idle = commandWallGeometry(state(), width, height);
     const preview = commandWallGeometry(state(), width, height, new Set(), true);
-    expect(idle.add.height).toBe(28);
+    expect(idle.add.height).toBe(0);
+    expect(idle.add.width).toBe(0);
     expect(preview.add.height).toBeGreaterThan(28);
     expect(preview.panes.has('__wall_add__')).toBe(false);
     expect(JSON.stringify(root)).toBe(before);
@@ -148,18 +150,21 @@ describe('command wall geometry', () => {
     expect(commandWallGeometry(state({ layout: layout('focus'), filter: 'terminal' }), 1000, 700).hero).toBe('t');
   });
 
-  it('keeps Fixed overflow and Add reachable without a deck', () => {
+  it('keeps Grid (fixed) overflow scrollable without a deck or an Add rail', () => {
     const g = commandWallGeometry(state({ layout: layout('fixed') }), 1000, 700);
-    expect(g.add).toEqual({ x: 0, y: 1344, width: 1000, height: 28 });
-    expect(g.height).toBe(1372);
+    expect(g.add).toEqual({ x: 1000, y: 1408, width: 0, height: 0 });
+    expect(g.height).toBe(1408);
     expect(g.deck.size).toBe(0);
+    const opened = commandWallGeometry(state({ layout: layout('fixed') }), 1000, 700, new Set(), true);
+    // Opening Add takes the next free cell, beside the last window.
+    expect(opened.add).toEqual({ x: 504, y: 708, width: 496, height: 700 });
   });
 
   it('stacks narrow Grid and Fixed panes and handles unmeasured empty mounts', () => {
     for (const mode of ['grid', 'fixed'] as const) {
       const g = commandWallGeometry(state({ layout: layout(mode) }), 400, 700);
       expect(g.panes.get('a')!.height).toBe(440);
-      expect(g.add.y).toBe(1344);
+      expect(g.add.y).toBe(1336);
     }
     for (const mode of ['grid', 'fixed', 'focus'] as const) {
       const g = commandWallGeometry(state({ root: null, layout: layout(mode) }), 0, 0);
@@ -199,7 +204,9 @@ describe('workspace companions and stable bodies', () => {
       expect(html).toContain('data-explorer="files"');
       expect(html).toContain('data-browser="https://example.com"');
       expect(html).toContain('data-diff="chat-a"');
-      expect(html).toContain('aria-label="Add window"');
+      // Add window is the composer's; the wall itself has no edge + rails.
+      expect(html).not.toContain('command-wall-add-rail');
+      expect(html).not.toContain('aria-label="Add window"');
       expect(html).toContain('aria-label="Focus Chat"');
       expect(html).toContain('aria-label="Open Chat in the Agent tab"');
     } finally { fixture.workspaces = []; }
@@ -228,15 +235,35 @@ describe('click-only wall insertion and composer framing', () => {
     expect(source).not.toContain('onMouseEnter');
     expect(source).toContain('new Set(), !!addContent');
     expect(source).toContain('data-preview={!!addContent || undefined}');
-    expect(source).toContain('onClick={onAddWindow}');
+    // Only an empty wall's call-to-action still opens Add from inside the wall.
+    expect(source).toContain('onClick={onAddWindow} aria-label="Add window"');
+  });
+  it('offers Add from an empty wall', () => {
+    const html = renderToStaticMarkup(wall(state({ root: null })));
+    expect(html).toContain('aria-label="Add window"');
+    // The empty wall shows its illustration, centred, above the call to action.
+    expect(html).toContain('data-wall-empty');
+    expect(html).toContain('wall-empty-art');
+    expect(html).toContain('The wall is empty');
   });
   it('removes duplicate desktop branding and the outer composer fill', () => {
     const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
     const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
     expect(app).toContain('{!hasAppChrome && <div className="mb-3');
+    // One fill only: the composer card paints the chat-window surface and the
+    // panel around it stays transparent, so no band shows below the composer.
     expect(css).toContain('.wall-composer { position: relative; width: 75%; max-width: 100%; flex-shrink: 0; background: transparent; box-shadow: none; }');
+    expect(css).toContain('.wall-composer .composer { background: var(--win); }');
     expect(css).toContain('.send-avatar { margin-right: 4px; }');
   });
+});
+
+it('leaves shared composer sizing to CSS and reveals only focused carets', () => {
+  const source = readFileSync(new URL('./ChatPane.tsx', import.meta.url), 'utf8');
+  expect(source).toContain("if (!el || !pane || !section || surface === 'composer') return;");
+  expect(source).toContain('if (document.activeElement === el) revealEditorCaret(el);');
+  expect(source).toContain('if (!draft && composerH === null)');
+  expect(source).toContain("el.style.height = '';");
 });
 
 describe('Command Center header spacing', () => {

@@ -72,6 +72,7 @@ const { executeTool } = await import('./tools.js');
 const { terminalSnapshot, writeTerminal, closeTerminal } = await import('./terminal.js');
 const { createSession, getSession, saveSession, listSessions } = await import('./sessions.js');
 const { sendChat, previewContext, resolveApproval, suggestReplies, fillPromptPart } = await import('./chat.js');
+const { flushAgentLogs } = await import('./agent-log.js');
 const { BUILTIN_TOOLS } = await import('@agent-nekko/core');
 let dir: string;
 let providers: ProviderConfig[];
@@ -99,7 +100,14 @@ beforeEach(() => {
   mcpToolSpecs.mockReturnValue([]);
 });
 
-afterEach(() => rmSync(dir, { recursive: true, force: true }));
+// Command-log sidecars are written asynchronously (agent-log.ts): a test that
+// returns as soon as its shell is cancelled can still have an append queued,
+// which recreated `sessions/` under the directory being removed (ENOTEMPTY).
+// Drain them first, and retry for a child process still releasing a handle.
+afterEach(async () => {
+  await flushAgentLogs().catch(() => {});
+  rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+});
 
 it('propagates off through chat and sideband calls and preserves cache usage', async () => {
   saveSettings({ promptCaching: false });
@@ -111,6 +119,25 @@ it('propagates off through chat and sideband calls and preserves cache usage', a
   await fillPromptPart(session.id, 'Role', 'review');
   expect(suggestRequests[0].request.promptCaching).toBe(false);
   expect(fillRequests[0].request.promptCaching).toBe(false);
+});
+
+it('keeps the reply stats on the saved answer and in the reply log', async () => {
+  saveSettings({ effort: 'high' });
+  rounds = [[{ type: 'usage', inputTokens: 120, outputTokens: 40, cacheReadTokens: 900 }, { type: 'text', delta: 'answer' }, { type: 'done' }]];
+  const { session } = await run();
+  const saved = getSession(session.id)!;
+  const answer = [...saved.messages].reverse().find((m) => m.role === 'assistant')!;
+  expect(answer.turnStats).toMatchObject({ providerId: requests[0].providerId, modelId: requests[0].request.model, inputTokens: 120, outputTokens: 40, cacheReadTokens: 900, calls: 1 });
+  expect(answer.turnStats!.effort).toBeTruthy();
+  // Only the answer carries them; the user's message does not.
+  expect(saved.messages.filter((m) => m.turnStats)).toHaveLength(1);
+  const { readFileSync, existsSync } = await import('node:fs');
+  const log = join(dir, 'replies.jsonl');
+  if (existsSync(log)) {
+    const last = JSON.parse(readFileSync(log, 'utf8').trim().split('\n').pop()!);
+    expect(last).toMatchObject({ sessionId: session.id, inputTokens: 120, outputTokens: 40 });
+    expect(JSON.stringify(last)).not.toContain('answer');
+  }
 });
 
 function delegate(input: unknown) {
@@ -349,6 +376,13 @@ describe('explicit sub-agent routing', () => {
     expect(children(session)).toEqual([]);
     expect(listings).toEqual([]);
     expect(requests).toHaveLength(2);
+  });
+
+  it('tells the model to omit blank routing IDs to inherit the parent route', async () => {
+    delegate({ task: 'child', provider_id: '', model_id: '' });
+    const { session, result } = await run();
+    expect(result).toMatchObject({ result: { isError: true, output: expect.stringMatching(/omit provider_id and model_id entirely/) } });
+    expect(children(session)).toEqual([]);
   });
 
   it.each(['absent', 'nonchat', 'unavailable'])('rejects %s explicit models before creating a child', async (failure) => {

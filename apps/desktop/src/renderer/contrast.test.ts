@@ -35,6 +35,23 @@ const THEMES: Record<string, Record<string, string>> = {
 
 const AA = 4.5;
 
+describe('tinted dark presets', () => {
+  // Chat windows, the wall composer and the dock paint --win. A tinted preset
+  // that leaves it at the neutral dark value shows grey windows on a purple or
+  // green field, which is the mismatch this guards against.
+  it.each(['nebula', 'terminal', 'nord'])('%s sets its own window surface', (preset) => {
+    const vars = block(`[data-theme='dark'][data-preset='${preset}']`);
+    expect(vars['--win']).toBeDefined();
+    expect(vars['--win']).not.toBe(dark['--win']);
+  });
+  it('ink stays readable on the window surface', () => {
+    for (const [name, vars] of Object.entries(THEMES)) {
+      const ratio = contrastRatio(parseColor(vars['--ink-soft']), parseColor(vars['--win']));
+      expect(ratio, `${name}: ink-soft on win = ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA);
+    }
+  });
+});
+
 describe('contrast helper', () => {
   it('matches the WCAG reference points', () => {
     expect(contrastRatio(parseColor('#000'), parseColor('#fff'))).toBeCloseTo(21, 5);

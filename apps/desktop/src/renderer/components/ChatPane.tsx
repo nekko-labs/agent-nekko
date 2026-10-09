@@ -9,7 +9,7 @@ import { createPortal } from 'react-dom';
 import { DictationButton } from './DictationButton.js';
 import { decideApproval, type ApprovalScope } from './agent-console/approval-decision.js';
 import type { AgentEvent, AskAnswer, AskRequest, AutoQuality, Session, ContextBundle, IndexedFile, ModelInfo, ProviderConfig, SkillDef, PrInfo, QueuePayload, QueuedPrompt } from '@agent-nekko/shared';
-import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, getModelPrice, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText } from '@agent-nekko/shared';
+import { archiveDaysLeft, DEFAULT_IMAGE_CHAT_PARAMS, pickAutoModel, AUTO_MODEL_ID, matchSkills, estimateTokens, estimateTranscriptTokens, modelSupportsThinking, getSessionWorkspaceIds, extractPrUrls, collectSessionPrUrls, detectSessionWorkspace, decodeRate, accumulateDecodeMs, hasResumableProgress, isLocalProvider, resolveModelAvailability, estimateCostUSD, getModelPrice, shortLiveStatus, pickAcrossProviders, limitsKeyFor, queueItemPayload, queueItemText, planProgress } from '@agent-nekko/shared';
 import type { AutoProviderPick, ProviderPool } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
@@ -41,11 +41,15 @@ import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterr
 import { estimateRowHeight, toTranscriptRows, type TranscriptRow } from './agent-console/transcript.js';
 import { ContextGauge, EffortSlider } from './ChatMetrics.js';
 import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
+import { TurnStatsLine } from './agent-console/TurnStatsLine.js';
 import { ComposerQuestion } from './ComposerQuestion.js';
+import { QuestionCard } from './QuestionCard.js';
+import { AgentLogsBubble } from './AgentLogsBubble.js';
+import { StatusIcon, type AgentStatus } from './WorkspaceCard.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
-import { ChatControls, MODE_LABEL } from './ChatControls.js';
+import { ChatControls, InternetToggle, McpMenu, MODE_LABEL, ToolsMenu } from './ChatControls.js';
 import { useElementCompact } from './agent-console/useElementWidth.js';
 import { PromptAnalyzer } from './PromptAnalyzer.js';
 import { ScheduleTaskModal } from './ScheduleTaskModal.js';
@@ -53,7 +57,9 @@ import { PrCard, PrActionDock } from './PrCard.js';
 import { NekkoAvatar } from './Mascot.js';
 import { Modal } from './primitives/index.js';
 import { WorktreeChip } from './WorktreeChip.js';
-import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon } from '../icons.js';
+import { FolderPicker } from './FolderPicker.js';
+import { addFolderToChat, shouldAutoFile } from '../sessionFolders.js';
+import { PanelIcon, DownloadIcon, PlusIcon, CloseIcon, BoltIcon, ThoughtIcon, ListIcon, TerminalIcon, WorktreeIcon, CheckIcon, TrashIcon, UndoIcon, QuestionIcon } from '../icons.js';
 
 const NO_PRS: PrInfo[] = []; // stable empty ref so the store selector doesn't churn
 
@@ -90,11 +96,13 @@ const CTX_REFRESH_MS = 1_500;
 /**
  * Pane widths the layout keys off, measured on the pane itself.
  *
- * `PLAN_RAIL_MIN_PANE` is the point below which showing the rail would cost the
- * conversation more than the rail is worth; `NARROW_PANE` is where the 75%
- * column stops helping and the text should just use the pane.
+ * The plan rail is on by default; it only gives way when the window is about
+ * as narrow as two rails side by side (`PLAN_RAIL_MIN_PANE`), where it would
+ * leave the conversation no more room than itself. `NARROW_PANE` is where the
+ * 75% column stops helping and the text should just use the pane.
  */
-const PLAN_RAIL_MIN_PANE = 900;
+const PLAN_RAIL_WIDTH = 280;
+const PLAN_RAIL_MIN_PANE = PLAN_RAIL_WIDTH * 2;
 const NARROW_PANE = 620;
 
 /**
@@ -291,14 +299,21 @@ function ChatHeader({
   subAgent,
   metadata,
   children,
+  inWall = false,
 }: {
   title: string;
   subAgent: boolean;
   metadata?: React.ReactNode;
   children: React.ReactNode;
+  /**
+   * A window on the Agents wall: its strip always names the chat, so this
+   * never draws a second title row, even if the frame's slot context is not
+   * found (a hot-reloaded frame module gets a new context object).
+   */
+  inWall?: boolean;
 }) {
   const framed = useInPaneFrame();
-  if (framed) {
+  if (framed || inWall) {
     return (
       <>
         <PaneMetadata>{metadata}</PaneMetadata>
@@ -348,6 +363,7 @@ const TranscriptRowView = memo(function TranscriptRowView({
 }) {
   if (row.kind === 'activity') return <ActivityGroup items={row.items} />;
   if (row.kind === 'compaction') return <CompactionSummary message={row.message} latest={row.latest} />;
+  if (row.kind === 'stats') return <div className="msg-ai"><TurnStatsLine stats={row.stats} /></div>;
   if (row.kind === 'prs') {
     // Historical milestones stay anchored to their original transcript positions.
     return <>{row.urls.map((u) => <PrCard key={`${row.event}_${u}`} url={u} info={prByUrl.get(u)} event={row.event} />)}</>;
@@ -499,9 +515,21 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full' }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full', status, selected, header }: {
   sessionId: string;
+  /** What the agent is doing (rocket, Zz, ?), drawn in the far bottom-right corner of the window's footer. */
+  // A value, not an element: ChatPane is memoized, and a fresh <StatusIcon/>
+  // from the wall on every render made every window re-render on every switch.
+  status?: AgentStatus | 'idle';
   commandCenter?: boolean;
+  /** On the Agents wall: whether this window is the selected one. Undefined off the wall. */
+  selected?: boolean;
+  /**
+   * The wall composer's own top row (which agent it speaks for, its status and
+   * dock controls). Given, it replaces the controls strip: mode and incognito
+   * move to the bottom bar beside +, Automate to this row's right end.
+   */
+  header?: React.ReactNode;
   /**
    * Which part of the chat this instance shows. A window on the Command
    * Center wall shows the `transcript` alone; the wall's one composer shows
@@ -592,6 +620,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   const paneRef = useRef<HTMLDivElement>(null);
   const paneWidth = useElementWidth(paneRef, sessionId);
   const planRailOpen = planRailWanted && paneWidth >= PLAN_RAIL_MIN_PANE;
+  const planSteps = useMemo(() => { const p = planProgress(session?.agentPlan); return { done: p.done + p.skipped, total: p.total }; }, [session?.agentPlan]);
   const wideEnoughForRail = paneWidth >= PLAN_RAIL_MIN_PANE;
   // A small window (a cell on the Command Center wall, a sliver of a split)
   // folds the two control rows into one summary chip, so the transcript keeps
@@ -610,6 +639,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // caches it), so the header and the card never disagree.
   const git = useGitStatus(session ? `session:${session.id}` : undefined, session?.gitIsolation);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  // The agent's command log, bubbled out of this window (Agents wall).
+  const [logsOpen, setLogsOpen] = useState(false);
+  const chatViewOn = useStore((s) => s.settings?.developer?.chat === true);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
   const [changeCount, setChangeCount] = useState(0);
@@ -659,6 +691,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // The "choose a model" tooltip is a one-shot nudge: opening the picker means
   // the point landed, so it retires for this chat instead of hanging around.
   const [modelHintDone, setModelHintDone] = useState(false);
+  // The chat's saved model, when its provider's list came back without it (a
+  // signed-out subscription, a local server with nothing loaded). Kept so the
+  // chip can name what went missing instead of quietly reading "Choose a model".
+  const [unavailableModel, setUnavailableModel] = useState<string | null>(null);
   const recentModels = useStore((s) => s.sessions)
     .filter((s) => s.modelId && s.providerId)
     .sort((a, b) => b.updatedAt - a.updatedAt)
@@ -807,16 +843,20 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // has never had a model picked is left unset on purpose: the nudge below the
   // transcript asks for a choice rather than guessing one.
   useEffect(() => {
-    if (!providerId) { setModels([]); setModelsLoaded(false); return; }
+    if (!providerId) { setModels([]); setModelsLoaded(false); setUnavailableModel(null); return; }
     setModelsLoaded(false);
     let live = true;
     const cancel = afterPaint(() => {
       window.nekko.listModels(providerId).then((m) => {
         if (!live) return;
         setModels(m);
-        setModelId((cur) => (cur === AUTO_MODEL_ID || (cur && m.some((x) => x.id === cur)) ? cur : null));
+        setModelId((cur) => {
+          const keep = cur === AUTO_MODEL_ID || (!!cur && m.some((x) => x.id === cur));
+          setUnavailableModel(keep ? null : cur);
+          return keep ? cur : null;
+        });
         setModelsLoaded(true);
-      }).catch(() => { if (live) { setModels([]); setModelsLoaded(true); } });
+      }).catch(() => { if (live) { setModels([]); setModelId((cur) => { if (cur && cur !== AUTO_MODEL_ID) setUnavailableModel(cur); return cur === AUTO_MODEL_ID ? cur : null; }); setModelsLoaded(true); } });
     });
     return () => { live = false; cancel(); };
   }, [providerId]);
@@ -1082,16 +1122,23 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     const el = composerRef.current;
     const pane = paneRef.current;
     const section = composerSectionRef.current;
-    if (!el || !pane || !section) return;
+    if (!el || !pane || !section || surface === 'composer') return;
+    // Empty drafts already have their minimum height in CSS. Warm switching
+    // should not force layout merely to rediscover that same empty-editor size.
+    if (!draft && composerH === null) {
+      el.style.height = '';
+      el.style.maxHeight = '';
+      return;
+    }
+    // The shared wall composer uses flex sizing in CSS, including its editor.
+    // Measuring and rewriting that height forces layout without affecting it.
     const resize = () => {
       const chrome = section.getBoundingClientRect().height - el.getBoundingClientRect().height;
-      const limit = surface === 'composer'
-        ? Math.max(52, el.parentElement?.clientHeight ?? 52)
-        : Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
+      const limit = Math.max(0, Math.min(window.innerHeight, pane.getBoundingClientRect().height) * 0.5 - chrome);
       el.style.maxHeight = limit + 'px';
       el.style.height = 'auto';
-      el.style.height = Math.min(limit, Math.max(el.scrollHeight, surface === 'composer' ? limit : composerH ?? 0)) + 'px';
-      revealEditorCaret(el);
+      el.style.height = Math.min(limit, Math.max(el.scrollHeight, composerH ?? 0)) + 'px';
+      if (document.activeElement === el) revealEditorCaret(el);
     };
     resize();
     const observer = new ResizeObserver(resize);
@@ -1303,6 +1350,21 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       useStore.getState().pushToast('error', 'Pick an image model below the chat first.');
       return;
     }
+    try {
+      const [runtime, setup] = await Promise.all([
+        window.nekko.engineStatus(),
+        window.nekko.engineImageCompanions(params.modelId),
+      ]);
+      if (!runtime.diffusionInstall?.binPath || (setup && !setup.ready)) {
+        useStore.getState().pushToast('info', !runtime.diffusionInstall?.binPath
+          ? 'Install the image generator using the setup button below. Your prompt is kept here.'
+          : 'This model needs supporting files before it can create images. Click Finish image setup below. Your prompt is kept here.');
+        return;
+      }
+    } catch {
+      useStore.getState().pushToast('error', 'Could not check image setup. Try again or open Nekko Server.');
+      return;
+    }
     if (fromDraft) { setDraft(''); clearDraft(sessionId); }
     beginTurn();
     setSession((prev) => prev ? { ...prev, messages: [...prev.messages, { id: 'tmp', role: 'user', content: prompt, createdAt: Date.now() }] } : prev);
@@ -1392,7 +1454,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
     // Auto-file a project-less chat under the project it's about, inferred from
     // its attachments + first prompt, so it lands in the right sidebar group.
     // A general chat (no confident match) simply stays under "General".
-    if (session && !session.workspaceId) {
+    // The store's copy sees folders picked in the Context Inspector before send.
+    const folders = useStore.getState().sessions.find((x) => x.id === sessionId) ?? session;
+    if (session && shouldAutoFile(session, folders)) {
       const workspaces = useStore.getState().settings?.workspaces ?? [];
       const wsId = detectSessionWorkspace({ text, workspaces, attachedPaths: session.attachedPaths ?? [] });
       if (wsId) {
@@ -1596,10 +1660,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // Skills (standard agent skills + installed marketplace skills) show in the
   // `/` menu until the user types args.
   const installedSkillDefs = useStore((s) => s.installedSkillDefs);
+  // Rescan skills each time the `/` menu opens (not per keystroke), so a skill
+  // added to ~/.claude/skills etc. while the app is open shows up.
+  const slashOpen = slashQuery !== null;
+  useEffect(() => {
+    if (slashOpen) void useStore.getState().refreshSkills();
+  }, [slashOpen]);
   const skillMatches = slashQuery !== null && !slashQuery.includes(' ') ? matchSkills(slashQuery, installedSkillDefs) : [];
   // Every skill this chat can run, in the same order `/` offers them (built-ins
   // plus installed, highlighted first). The + menu lists these.
-  const allSkills = matchSkills('', installedSkillDefs);
+  const allSkills = useMemo(() => matchSkills('', installedSkillDefs), [installedSkillDefs]);
   const slashMenuOpen = !menuClosed && (skillMatches.length > 0 || slashMatches.length > 0);
 
   const atQuery = (draft.match(/(?:^|\s)@([^\s@]*)$/) ?? [])[1] ?? null;
@@ -1868,11 +1938,17 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   const needsModel = hasProvider && modelsLoaded && !modelId;
   // A tooltip on the model chip, not a banner in the strip: the nudge points at
   // the control that answers it and costs no layout while it waits.
+  // Inline, and only where the user is driving the chat: the wall's composer
+  // (always the selected window's) or a full pane. A wall of transcript windows
+  // must not each grow a popup when one provider goes away.
+  const drivesChat = surface === 'transcript' ? selected === true : true;
   const modelHint =
-    needsModel && !modelHintDone
-      ? models.length === 0
-        ? 'This provider has no models loaded. Start it, or switch provider in here.'
-        : 'This chat needs a model before it can reply.'
+    needsModel && !modelHintDone && drivesChat
+      ? unavailableModel
+        ? `${unavailableModel} is not available right now${models.length === 0 ? ' (this provider has no models loaded)' : ''}. Select a model again.`
+        : models.length === 0
+          ? 'This provider has no models loaded. Start it, or pick another provider.'
+          : 'This chat needs a model before it can reply.'
       : null;
   // Any route into the picker counts as the nudge being read.
   const openModelMenu = (open: boolean) => {
@@ -1890,7 +1966,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
    * sides. When the plan rail is showing it already takes the right quarter, so
    * the column below it goes full width rather than indenting twice.
    */
-  const contentWidth = planRailOpen || paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
+  // Full width beside the open rail keeps clear of the floating plan toggle.
+  const contentWidth = planRailOpen ? 'mx-auto w-full pr-11' : paneWidth < NARROW_PANE ? 'mx-auto w-full' : 'mx-auto w-[75%]';
 
   // --- The transcript, as windowed rows ---
   const messages = session?.messages;
@@ -1958,7 +2035,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       open={modelMenuOpen}
       onOpenChange={openModelMenu}
       needsChoice={needsModel}
-      hint={modelHint}
+      unavailableModel={needsModel ? unavailableModel : null}
       onProvider={setProviderId}
       onModel={(pid, v) => {
         if (session?.messages.length && (pid !== providerId || v !== modelId)) {
@@ -1967,6 +2044,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         }
         if (pid) setProviderId(pid);
         setModelId(v);
+        setUnavailableModel(null);
         // Park the pick on the chat itself. Switching tabs unmounts
         // this pane, so a renderer-only choice was lost on the way
         // back and the chat fell back to its old provider (which may
@@ -1987,7 +2065,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   );
 
   return (
-    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-chat-surface={surface} className="flex h-full min-h-0 min-w-0 overflow-hidden">
+    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable], [data-agent-logs]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-chat-surface={surface} className="relative flex h-full min-h-0 min-w-0 overflow-hidden">
       {contextChangeNotice && <Modal title="Context on your next reply" zIndex={100} overlayClassName="p-4" className="w-full max-w-md rounded-xl border border-line bg-surface p-5 text-ink shadow-xl" onClose={closeContextNotice}>
             <h2 className="font-semibold">Context on your next reply</h2>
             <p className="mt-3 text-sm text-ink-soft">Your selection is saved. Changing the model or effort does not send a request now or change an already-running reply. The next reply sends the assembled chat context again, as ordinary follow-up replies do.</p>
@@ -2004,7 +2082,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             title strip, which already shows the chat's name; standalone, the
             chat still needs a header of its own. */}
         {surface !== 'composer' && (
-        <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} metadata={
+        <ChatHeader title={session?.title || 'New chat'} subAgent={Boolean(session?.parentSessionId)} inWall={commandCenter} metadata={
             git && (
               <span className="flex min-w-0 shrink items-center gap-1 text-[11px]">
                 {session && <WorktreeChip session={session} git={git} disabled={hasLive} onChange={setSession} />}
@@ -2019,26 +2097,18 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {changeCount} change{changeCount === 1 ? '' : 's'}
               </button>
             )}
-            {!compact && (
             <button
-              className="btn btn-ghost px-2 py-1 text-[11px]"
-              onClick={() => useStore.getState().openTerminalPane(`agent_${sessionId}`)}
-              title="Open the agent's command log in a terminal window"
+              className="btn btn-ghost shrink-0 px-2 py-1 text-[11px]"
+              aria-label="Open agent logs"
+              aria-expanded={commandCenter ? logsOpen : undefined}
+              // On the Agents wall the log bubbles out of this window; the Chat
+              // view's workbench keeps opening it as a window beside the chat.
+              onClick={() => commandCenter ? setLogsOpen((o) => !o) : useStore.getState().openTerminalPane(`agent_${sessionId}`)}
+              title="Open the agent's command log"
             >
-              Logs
+              {compact ? <TerminalIcon className="h-4 w-4" /> : 'Logs'}
             </button>
-            )}
 
-            {!compact && wideEnoughForRail && (
-              <button
-                className={`btn btn-ghost px-2 py-1 ${planRailOpen ? 'text-accent' : ''}`}
-                onClick={() => useStore.getState().togglePlanRail()}
-                title="Toggle the plan, sub-agents, and queue panel"
-                aria-pressed={planRailOpen}
-              >
-                <ListIcon className="h-4 w-4" />
-              </button>
-            )}
             {!compact && (
             <button
               className={`btn btn-ghost hidden px-2 py-1 lg:inline-flex ${ctxOpen ? 'text-accent' : ''}`}
@@ -2052,6 +2122,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         </ChatHeader>
         )}
 
+        {/* A question the agent stopped to ask stays pinned at the top of the
+            window, above the transcript, where it cannot scroll away or sit
+            under the history. It says what it is plainly, in the warning tone
+            the window's ring wears. */}
+        {surface === 'transcript' && question && (
+          <div className="agent-question-pin shrink-0" data-agent-question role="region" aria-label="The agent asked you a question">
+            <p className="agent-question-pin-label"><QuestionIcon className="h-3.5 w-3.5" /> Asked you a question</p>
+            <div className="agent-question-pin-body"><QuestionCard key={question.callId} request={question} onAnswer={(answers) => { void answerQuestion(answers); }} onSkip={() => { void answerQuestion([]); }} tone="attention" /></div>
+          </div>
+        )}
         {surface !== 'composer' && (
         <div className="relative flex min-h-0 w-full flex-1">
           <VirtualTranscript
@@ -2091,7 +2171,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     <ModelPicker providers={providers} providerId={providerId} models={models} modelId={modelId}
                       open={false} onOpenChange={openModelMenu} expanded
                       recent={recentModels}
-                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) window.dispatchEvent(new CustomEvent('nekko-session-brain', { detail: { id: sessionId, session: s } })); }).catch((e) => useStore.getState().pushToast('error', String(e))); }} />}
+                      onProvider={setProviderId} onModel={(pid, mid) => { setProviderId(pid); setModelId(mid); setUnavailableModel(null); void window.nekko.setSessionOptions(sessionId, { providerId: pid, modelId: mid, autoModel: mid === AUTO_MODEL_ID }).then((s) => { if (s) window.dispatchEvent(new CustomEvent('nekko-session-brain', { detail: { id: sessionId, session: s } })); }).catch((e) => useStore.getState().pushToast('error', String(e))); }} />}
                 </div>}
               </div>
             ) : undefined}
@@ -2109,6 +2189,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   out={turnOut}
                   last={lastTurn}
                   done={doneSummary}
+                  persisted={!streaming && !![...(session?.messages ?? [])].reverse().find((m) => m.role === 'assistant')?.turnStats}
                   blocked={errorNotice ? 'Needs attention' : approval ? 'Waiting for approval' : question ? 'Waiting for your answer' : null}
                 />
                 {errorNotice && !question && !streaming && (() => {
@@ -2159,6 +2240,22 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               </>
             }
           />
+          {/* The plan panel's toggle floats in the chat area's top-right corner,
+              in its own place whether the panel is open or not. */}
+          {wideEnoughForRail && (
+            <button
+              type="button"
+              className={`plan-rail-toggle ${planRailOpen ? 'is-open' : ''}`}
+              data-plan-toggle
+              onClick={() => useStore.getState().togglePlanRail()}
+              title={planRailOpen ? 'Hide the plan panel' : 'Show the plan, sub-agents and queue panel'}
+              aria-label={planRailOpen ? 'Hide the plan panel' : 'Show the plan panel'}
+              aria-pressed={planRailOpen}
+            >
+              <ListIcon className="h-4 w-4" />
+              {!planRailOpen && planSteps.total > 0 && <span className="plan-rail-toggle-count tabular-nums">{planSteps.done}/{planSteps.total}</span>}
+            </button>
+          )}
           {showJump && (
             <button
               className="fade-in absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-line px-3 py-1 text-[12px] font-medium text-ink-soft shadow-md hover:text-ink"
@@ -2172,7 +2269,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         )}
 
         {approval && surface !== 'composer' && <ApprovalBar approval={approval} onDecide={approve} />}
-        {surface === 'transcript' && question && <div className="max-h-[60%] shrink-0 overflow-y-auto px-3"><ComposerQuestion request={question} onAnswer={(answers) => { void answerQuestion(answers); }} /></div>}
 
         {readOnly ? (
           surface === 'transcript' ? null : <ArchivedChatBar sessionId={sessionId} contentWidth={contentWidth} archivedAt={session?.archivedAt ?? null} />
@@ -2231,7 +2327,22 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 )}
               </div>
             )}
-            {showControls && (<>
+            {header && (
+              <div className="composer-head flex min-w-0 items-center gap-1.5 border-b border-line px-2 py-1 text-[12px]" data-composer-head>
+                {header}
+                {!imageMode && (
+                  <button
+                    className="ctl-toggle shrink-0 whitespace-nowrap"
+                    onClick={() => setScheduleOpen(true)}
+                    aria-label="Automate: schedule, repeat, or run in the background"
+                    title="Automate: schedule, repeat, or run in the background"
+                  >
+                    <span style={{ color: 'var(--warning)' }}><BoltIcon className="h-3 w-3" /></span> Automate
+                  </button>
+                )}
+              </div>
+            )}
+            {showControls && !header && (<>
             {/* Chat-wide switches live at the top of the input surface; the
                 model and its effort sit in the bottom bar beside Send. */}
             <div className="flex flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
@@ -2240,6 +2351,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 session={session}
                 isCloudModel={isCloudModel}
                 onChange={setSession}
+                toolsInWindow
               />
               </div>
               {!imageMode && (<>
@@ -2300,12 +2412,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 </button>
               )}
             </div>
-            {imageMode && session && (
+            </>)}
+            {showControls && imageMode && session && (
               <div className="flex min-w-0 flex-wrap items-center gap-1 border-b border-line px-2 py-1.5">
                 <ImageModeControls session={session} onChange={setSession} busy={streaming} />
               </div>
             )}
-            </>)}
 
             {/* Queued follow-ups expand inside the same surface as the input. */}
             <div className={`collapse-wrap ${queued.length > 0 ? '' : 'collapsed'}`} aria-hidden={queued.length === 0}>
@@ -2340,23 +2452,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 </div>
               </div>
             </div>
-
-            {!imageMode && (
-            <PromptAnalyzer
-              text={deferredDraft}
-              sessionId={sessionId}
-              canModelFill={hasProvider}
-              workspaces={settings?.workspaces ?? []}
-              contextItems={ctx?.items ?? []}
-              activeWorkspaceIds={session ? getSessionWorkspaceIds(session) : []}
-              onFill={({ snippet, placement }) => {
-                setDraft((d) =>
-                  placement === 'start' ? `${snippet}\n\n${d.replace(/^\s+/, '')}` : `${d.replace(/\s+$/, '')}\n\n${snippet}`,
-                );
-                composerRef.current?.focus();
-              }}
-            />
-            )}
 
             <div className="composer-editing-body relative w-full">
               {atMenuOpen && (
@@ -2435,8 +2530,10 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   )}
                 </div>
               )}
-            {/* Recovery is separate from the placeholder suggestion. */}
-            {!imageMode && (canContinueReply || canContinueWork) && !streaming && (
+            {/* Recovery is separate from the placeholder suggestion. The wall
+                composer shows no "Continue work" box: the window's error banner
+                carries Retry when a turn actually stopped. */}
+            {!imageMode && surface !== 'composer' && (canContinueReply || canContinueWork) && !streaming && (
               <div className="flex items-center border-b border-line px-3 py-2.5">
                 <button
                   className={canContinueReply ? suggestedReplyClassName : 'btn btn-outline py-1 text-[12px]'}
@@ -2452,7 +2549,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     a hairline. Floated above it they covered the instrument
                     strip. */}
                 {pendingImages.length > 0 && (
-                  <div className="flex gap-2 overflow-x-auto border-b border-line px-3 py-2.5">
+                  <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-line px-3 py-2.5" data-composer-attachments>
                     {pendingImages.map((image, i) => (
                       <div key={`${image.slice(0, 24)}-${i}`} className="group relative shrink-0">
                         <img
@@ -2478,7 +2575,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                   </div>
                 )}
                 {activeSkill && (
-                  <div className="flex items-center gap-2 px-3.5 pt-2.5">
+                  <div className="flex shrink-0 items-center gap-2 px-3.5 pt-2.5" data-composer-skill>
                     <span className="skill-pill text-[12px]" title={activeSkill.description}>
                       <span className="skill-pill-slash">/</span>{activeSkill.name}
                       <button
@@ -2564,7 +2661,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                         <button
                           role="menuitem"
                           className="flex w-full items-center rounded-lg px-2.5 py-1.5 text-left text-[12px] hover:bg-surface-2"
-                          onClick={() => { closeAttachMenu(); void window.nekko.addWorkspace(); }}
+                          onClick={() => {
+                            closeAttachMenu();
+                            const chat = useStore.getState().sessions.find((x) => x.id === sessionId) ?? session;
+                            addFolderToChat(sessionId, chat, 'include')
+                              .then((s) => { if (s) setSession(s); })
+                              .catch((e) => useStore.getState().pushToast('error', String(e)));
+                          }}
                           onMouseEnter={closeSkillsFly}
                         >
                           Folder
@@ -2644,8 +2747,33 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     />
                   </div>
                   </>)}
+                  {header && (
+                    <div className="composer-foot-controls flex min-w-0 items-center gap-1" data-composer-foot>
+                      <ChatControls session={session} isCloudModel={isCloudModel} onChange={setSession} toolsInWindow only="mode" />
+                      <ChatControls session={session} isCloudModel={isCloudModel} onChange={setSession} toolsInWindow only="privacy" />
+                    </div>
+                  )}
                   <div className="flex-1" />
                   {streaming && <button className="btn btn-outline h-8 px-3 py-0 text-[12px]" onClick={() => window.nekko.abortChat(sessionId)}>Stop</button>}
+                  {/* Prompt suggestions: one chip beside the microphone; its
+                      details open above it rather than pushing the editor. */}
+                  {!imageMode && (
+                    <PromptAnalyzer
+                      variant="chip"
+                      text={deferredDraft}
+                      sessionId={sessionId}
+                      canModelFill={hasProvider}
+                      workspaces={settings?.workspaces ?? []}
+                      contextItems={ctx?.items ?? []}
+                      activeWorkspaceIds={session ? getSessionWorkspaceIds(session) : []}
+                      onFill={({ snippet, placement }) => {
+                        setDraft((d) =>
+                          placement === 'start' ? `${snippet}\n\n${d.replace(/^\s+/, '')}` : `${d.replace(/\s+$/, '')}\n\n${snippet}`,
+                        );
+                        composerRef.current?.focus();
+                      }}
+                    />
+                  )}
                   <DictationButton key={sessionId} sessionId={sessionId} onText={(text) => { setDraft((current) => current + (current && !/\s$/.test(current) ? ' ' : '') + text); composerRef.current?.focus(); }} />
                     <button
                       className="send-avatar grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-all duration-150 disabled:opacity-40"
@@ -2654,7 +2782,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                       title={streaming ? 'Add to queue after this reply' : 'Send'}
                       aria-label={streaming ? 'Add to queue' : 'Send'}
                     >
-                      <NekkoAvatar size={24} wizardHat={settings?.themePreset === 'autumn'} />
+                      <NekkoAvatar size={24} />
                     </button>
                 </div>
               </div>
@@ -2662,11 +2790,18 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
           </div>
         </div>
         )}
-        <div className="shrink-0 border-t border-line bg-surface px-3 py-1.5" aria-label="Chat actions and information">
+        {/* In the wall composer this strip only carries the PR dock (the model,
+            folder and usage controls live in the agent window), so it draws no
+            chrome of its own: empty, it used to show as a bare band under the
+            composer. */}
+        <div className={surface === 'composer' ? 'shrink-0' : 'shrink-0 border-t border-line bg-surface px-3 py-1.5'} aria-label="Chat actions and information">
           <PrActionDock key={sessionId} sessionId={sessionId} prs={prs} urls={sessionPrUrls} />
-          {!imageMode && <div className="flex flex-wrap items-center gap-2">
-                  {surface !== 'composer' && modelControls}
-                  {surface !== 'composer' && <>
+          {/* Said once, next to the control that fixes it, in the window being driven. */}
+          {modelHint && !imageMode && surface !== 'composer' && <p role="status" data-model-note className="mb-1.5 flex items-center gap-1.5 text-[11.5px]" style={{ color: unavailableModel ? 'var(--warning)' : 'var(--accent)' }}><span aria-hidden>●</span>{modelHint}</p>}
+          {!imageMode && surface !== 'composer' && <div className="flex flex-wrap items-center gap-2">
+                  <FolderPicker sessionId={sessionId} session={session} disabled={hasLive} onChange={setSession} />
+                  {modelControls}
+                  <>
                   <LiveContextGauge
                     sessionId={sessionId}
                     marks={marks}
@@ -2689,22 +2824,41 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                     running={streaming}
                     unpriced={!!avoidedCosts?.unpricedTokens || (streaming && !getModelPrice(modelForCostRef.current ?? undefined))}
                   />
-                  </>}
-            {surface !== 'composer' && <button type="button" className="ml-auto flex items-center gap-1 text-[10px] text-ink-faint" aria-label={session?.offline ? 'Switch to online mode' : 'Switch to offline mode'} aria-pressed={!!session?.offline} onClick={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }}><span className="h-1.5 w-1.5 rounded-full" style={{ background: session?.offline ? 'var(--ink-faint)' : 'var(--success)' }} />{session?.offline ? 'Offline' : 'Online'}</button>}
+                  </>
+            {/* What this agent may reach and use, then its status in the far
+                bottom-right corner of the window. */}
+            <div className="agent-footer-reach ml-auto flex shrink-0 items-center gap-1" data-agent-footer-controls>
+              {session && <>
+                <ToolsMenu session={session} onChange={setSession} />
+                <McpMenu />
+              </>}
+              <InternetToggle session={session} cloudModel={isCloudModel} onToggle={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }} />
+              {status && <span className="agent-footer-status ml-1 inline-flex items-center" data-agent-status><StatusIcon status={status === 'idle' ? undefined : status} /></span>}
+            </div>
           </div>}
+          {/* An image chat runs no agent, so no tools or internet switch: just its status. */}
+          {imageMode && surface !== 'composer' && status && <div className="flex items-center justify-end"><span className="agent-footer-status inline-flex items-center" data-agent-status><StatusIcon status={status === 'idle' ? undefined : status} /></span></div>}
         </div>
       </section>
 
       {/* The work rail, in the quarter the transcript gives back. Kept inside
           the chat pane (not the workbench's right panel) because everything in
           it belongs to this one conversation. */}
+      {logsOpen && surface !== 'composer' && (
+        <AgentLogsBubble
+          sessionId={sessionId}
+          title={session?.title || 'this chat'}
+          onClose={() => setLogsOpen(false)}
+          onPopOut={chatViewOn ? () => { setLogsOpen(false); useStore.getState().openTerminalPane(`agent_${sessionId}`); } : undefined}
+        />
+      )}
+
       {surface !== 'composer' && planRailOpen && (
-        <div className="w-1/4 min-w-[224px] max-w-[320px] shrink-0">
+        <div className="shrink-0" style={{ width: PLAN_RAIL_WIDTH }}>
           <PlanRail
             sessionId={sessionId}
             session={session}
             streaming={streaming}
-            onClose={() => useStore.getState().togglePlanRail()}
             onChangePlan={readOnly ? undefined : () => {
               setDraft(appendPlanChangeRequest);
               composerRef.current?.focus();
