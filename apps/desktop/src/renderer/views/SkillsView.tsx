@@ -523,7 +523,12 @@ function MarketplaceTab() {
               {selectedInstalls.some((r) => normalizeInstallTarget(r.target) === 'agent-nekko') && (
                 <button
                   className="btn btn-primary shrink-0 gap-1.5"
-                  onClick={() => sendToChat(marketToSkillDef(selected).template, false)}
+                  // Prefer the installed snapshot: a Vaizer install carries the
+                  // SKILL.md it was installed with, the shelf entry does not.
+                  onClick={() => {
+                    const rec = selectedInstalls.find((r) => normalizeInstallTarget(r.target) === 'agent-nekko');
+                    sendToChat(marketToSkillDef(rec?.skill ?? selected).template, false);
+                  }}
                   title="Drop this skill into a chat composer"
                 >
                   <SendIcon className="h-4 w-4" /> Use in chat
