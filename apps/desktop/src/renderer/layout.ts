@@ -183,6 +183,26 @@ export function removePane(root: WbNode | null, paneId: string): WbNode | null {
   if (!root) return null;
   if (!isSplit(root)) return root.id === paneId ? null : root;
 
+  // A tiled grid is stored as rows, but a vacancy should grow its vertical
+  // neighbour rather than stretch the remaining row horizontally. Rewrite only
+  // aligned, leaf-only rows into columns, preserving every existing rectangle.
+  if (root.dir === 'col' && root.children.length > 1) {
+    const rows = root.children;
+    const first = rows[0];
+    if (isSplit(first) && first.dir === 'row' && rows.every((row) =>
+      isSplit(row) && row.dir === 'row' && row.children.length === first.children.length
+      && row.children.every((child) => !isSplit(child))
+      && row.sizes.every((size, i) => Math.abs(size - first.sizes[i]) < 1e-9),
+    ) && rows.some((row) => isSplit(row) && row.children.some((child) => child.id === paneId))) {
+      const columns: WbSplit[] = first.children.map((_, i) => ({
+        id: newSplitId(), dir: 'col',
+        children: rows.map((row) => (row as WbSplit).children[i]),
+        sizes: [...root.sizes],
+      }));
+      return removePane({ ...root, dir: 'row', children: columns, sizes: [...first.sizes] }, paneId);
+    }
+  }
+
   const children: WbNode[] = [];
   const sizes: number[] = [];
   root.children.forEach((child, i) => {
