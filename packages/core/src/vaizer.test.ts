@@ -24,6 +24,15 @@ describe('vaizer catalog snapshot', () => {
     }
   });
 
+  it('snapshot includes every skill published in the Vaizer catalog (synced 2026-10-09)', () => {
+    const slugs = VAIZER_SNAPSHOT.skills.map((s) => s.slug).sort();
+    expect(slugs).toEqual(['codereview-spec', 'domain-finder', 'nyaa', 'resume-checker']);
+    for (const s of VAIZER_SNAPSHOT.skills) {
+      expect(s.installCommand).toBe('/plugin install vaizer@vaizer');
+      expect(s.sourceUrl).toBe(`https://github.com/nekko-labs/vaizer/tree/main/plugins/vaizer/skills/${s.slug}`);
+    }
+  });
+
   it('snapshot ids do not collide with the built-in marketplace catalog', () => {
     const builtin = new Set(MARKET_SKILLS.map((s) => s.id));
     for (const s of VAIZER_SNAPSHOT.skills) expect(builtin.has(`vaizer-${s.id}`)).toBe(false);

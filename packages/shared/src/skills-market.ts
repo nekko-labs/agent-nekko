@@ -3,10 +3,12 @@
  * the Skills tab. Skills come from three shelves:
  *
  *  - **Nekko Labs**, first-party skills we author and maintain.
- *  - **Popular online**, well-known community skills (Anthropic's official
- *    skills repo, popular open-source skill packs), ranked by their public
- *    metrics (GitHub stars / installs). The catalog ships as a curated,
- *    offline-first snapshot so the marketplace works with no internet.
+ *  - **Popular online**, our own short versions of well-known skills from
+ *    around the ecosystem (obra/superpowers, Anthropic's skills repo, the
+ *    Conventional Commits spec), ranked by the public metrics of the original
+ *    (GitHub stars). The text is ours and credited to Nekko Labs; the original
+ *    is linked as a reference (`basedOn`), never copied. The catalog ships as a
+ *    curated, offline-first snapshot so the marketplace works with no internet.
  *  - **Installed**, what the user has installed, and where.
  *
  * A skill can be installed into **Agent Nekko** itself (it joins the `/` menu and
@@ -55,6 +57,11 @@ export interface MarketplaceSkill {
   category: SkillCategory;
   /** Homepage / repo, opened from the card. */
   url?: string;
+  /**
+   * The original skill or spec this one is a summary of, linked as a reference
+   * only. Its text is not copied: `author` is whoever wrote *our* text.
+   */
+  basedOn?: string;
   /** Public metric snapshots used for the "popular" ranking. */
   stars?: number;
   installs?: number;
@@ -195,22 +202,42 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
     instructions:
       'Sweep the UI components for accessibility problems: interactive elements without accessible names, missing alt text, keyboard traps or unreachable controls, missing focus styles, and color pairs likely to fail WCAG AA contrast. Report findings grouped by severity, each with the file, the problem, and a concrete fix.',
   },
+  {
+    // Kept its old id so existing installs still resolve. It used to sit on the
+    // Popular shelf linked to anthropics/skills, which has no such skill.
+    id: 'community-i18n-sweep',
+    name: 'i18n-sweep',
+    description: 'Find hardcoded user-facing strings and move them into the translation files',
+    author: 'Nekko Labs',
+    source: 'nekkolabs',
+    category: 'Code quality',
+    url: 'https://github.com/nekko-labs/agent-nekko',
+    tools: ['search', 'edit_file'],
+    template: 'Sweep the UI code for hardcoded user-facing strings, move them into the i18n catalog, and flag any that need context notes for translators.',
+    instructions:
+      'Search the UI code for hardcoded user-facing strings (labels, toasts, placeholders, errors). Move each into the project’s i18n catalog with a sensible key, replace the literal with the lookup, and flag strings whose meaning needs a translator note. Do not touch log lines or developer-only text.',
+  },
 ];
 
 /**
- * Popular skills from around the ecosystem. Metric snapshots (stars) are
- * curated with the catalog, they rank the shelf, not live-query GitHub.
+ * Popular skills from around the ecosystem, as our own short versions: each
+ * entry's text is written by Nekko Labs and links the original it is based on.
+ * Anthropic's document skills (pdf, docx, xlsx) are proprietary, so nothing of
+ * theirs is copied or downloaded; we only link them.
+ *
+ * `stars` are the original repository's GitHub stars, snapshotted from the
+ * GitHub API on 2026-10-09. They rank the shelf; they are not live.
  */
 export const POPULAR_SKILLS: MarketplaceSkill[] = [
   {
     id: 'anthropic-pdf',
     name: 'pdf',
-    description: 'Read, create, merge, split, and fill PDF files (from Anthropic’s official skills library)',
-    author: 'Anthropic',
+    description: 'Read, create, merge, split, and fill PDF files',
+    author: 'Nekko Labs',
     source: 'community',
     category: 'Automation',
-    url: 'https://github.com/anthropics/skills',
-    stars: 18400,
+    basedOn: 'https://github.com/anthropics/skills/tree/main/skills/pdf',
+    stars: 180100,
     tools: ['bash', 'read_file', 'write_file'],
     template: 'Work with the PDF file(s) I attach: extract text/tables, or create/merge/split/fill as I describe:\n\n',
     instructions:
@@ -220,11 +247,11 @@ export const POPULAR_SKILLS: MarketplaceSkill[] = [
     id: 'anthropic-docx',
     name: 'docx',
     description: 'Create and edit Word documents with proper formatting, styles, and tracked changes',
-    author: 'Anthropic',
+    author: 'Nekko Labs',
     source: 'community',
     category: 'Automation',
-    url: 'https://github.com/anthropics/skills',
-    stars: 18400,
+    basedOn: 'https://github.com/anthropics/skills/tree/main/skills/docx',
+    stars: 180100,
     tools: ['bash', 'write_file'],
     template: 'Create or edit the Word document as described, keeping professional formatting:\n\n',
     instructions:
@@ -234,11 +261,11 @@ export const POPULAR_SKILLS: MarketplaceSkill[] = [
     id: 'anthropic-xlsx',
     name: 'xlsx',
     description: 'Read, clean, analyze, and build spreadsheets with formulas and charts',
-    author: 'Anthropic',
+    author: 'Nekko Labs',
     source: 'community',
     category: 'Automation',
-    url: 'https://github.com/anthropics/skills',
-    stars: 18400,
+    basedOn: 'https://github.com/anthropics/skills/tree/main/skills/xlsx',
+    stars: 180100,
     tools: ['bash', 'read_file', 'write_file'],
     template: 'Work with the spreadsheet as described (read/clean/compute/chart):\n\n',
     instructions:
@@ -247,12 +274,12 @@ export const POPULAR_SKILLS: MarketplaceSkill[] = [
   {
     id: 'superpowers-brainstorm',
     name: 'brainstorm',
-    description: 'Structured brainstorming that interrogates the problem before proposing solutions (from obra/superpowers)',
-    author: 'Jesse Vincent (superpowers)',
+    description: 'Structured brainstorming that interrogates the problem before proposing solutions',
+    author: 'Nekko Labs',
     source: 'community',
     category: 'Research & planning',
-    url: 'https://github.com/obra/superpowers',
-    stars: 3900,
+    basedOn: 'https://github.com/obra/superpowers/tree/main/skills/brainstorming',
+    stars: 296700,
     tools: [],
     template: 'Brainstorm with me on the following. First interrogate the problem with clarifying questions, then propose distinct solution directions with tradeoffs:\n\n',
     instructions:
@@ -261,12 +288,12 @@ export const POPULAR_SKILLS: MarketplaceSkill[] = [
   {
     id: 'superpowers-debug',
     name: 'systematic-debug',
-    description: 'Systematic root-cause debugging: reproduce, bisect, instrument, prove the fix (from obra/superpowers)',
-    author: 'Jesse Vincent (superpowers)',
+    description: 'Systematic root-cause debugging: reproduce, bisect, instrument, prove the fix',
+    author: 'Nekko Labs',
     source: 'community',
     category: 'Code quality',
-    url: 'https://github.com/obra/superpowers',
-    stars: 3900,
+    basedOn: 'https://github.com/obra/superpowers/tree/main/skills/systematic-debugging',
+    stars: 296700,
     tools: ['read_file', 'edit_file', 'bash'],
     template: 'Debug this systematically: reproduce it first, isolate the cause (bisect/instrument), fix the root cause, and prove the fix with a test:\n\n',
     instructions:
@@ -296,29 +323,16 @@ export const POPULAR_SKILLS: MarketplaceSkill[] = [
     id: 'community-conventional-commits',
     name: 'conventional-commits',
     description: 'Stage and commit with strict Conventional Commits messages, splitting unrelated changes',
-    author: 'community',
+    author: 'Nekko Labs',
     source: 'community',
     category: 'Delivery',
-    url: 'https://www.conventionalcommits.org',
-    stars: 2600,
+    // Stars of the spec's repo, conventional-commits/conventionalcommits.org.
+    basedOn: 'https://www.conventionalcommits.org',
+    stars: 9300,
     tools: ['git status', 'git diff', 'git commit'],
     template: 'Commit the current changes using Conventional Commits. Split unrelated changes into separate commits.',
     instructions:
       'Inspect the working tree and group related changes. Commit each group with a strict Conventional Commits message (type(scope): subject, imperative, <72 chars, body explaining why when non-obvious). Never mix unrelated changes in one commit.',
-  },
-  {
-    id: 'community-i18n-sweep',
-    name: 'i18n-sweep',
-    description: 'Find hardcoded user-facing strings and move them into the translation files',
-    author: 'community',
-    source: 'community',
-    category: 'Code quality',
-    url: 'https://github.com/anthropics/skills',
-    stars: 1100,
-    tools: ['search', 'edit_file'],
-    template: 'Sweep the UI code for hardcoded user-facing strings, move them into the i18n catalog, and flag any that need context notes for translators.',
-    instructions:
-      'Search the UI code for hardcoded user-facing strings (labels, toasts, placeholders, errors). Move each into the project’s i18n catalog with a sensible key, replace the literal with the lookup, and flag strings whose meaning needs a translator note. Do not touch log lines or developer-only text.',
   },
 ];
 
@@ -377,6 +391,7 @@ export function skillToMarkdown(m: MarketplaceSkill): string {
     m.instructions,
     '',
     `> Installed from the Agent Nekko skills marketplace (author: ${m.author}${m.url ? `, ${m.url}` : ''}).`,
+    ...(m.basedOn ? [`> Based on ${m.basedOn}; this is our own summary, see the original for its full text.`] : []),
     '',
   ].join('\n');
 }
