@@ -693,6 +693,16 @@ Security tests must cover isolation, no silent local reads, raster bounds/signat
 ### Spooky theme
 The seasonal preset is displayed as Spooky in a dedicated Fun! group below the standard theme preset groups. Its persisted autumn ID remains compatible with existing settings. Seasonal merged-PR confetti is only shown while Spooky is active and disappears on theme changes. Only the bottom-left corner mascot wears the small orange wizard hat (changed 2026-10-08, reversing the earlier composer-avatar placement): the composer's send cat, the empty-wall cat and the title-bar brand mark stay undecorated, and the brand mark no longer carries a seasonal leaf. `[changed 2026-10-09]` The hat is drawn at 80% of its former size and sits higher, its brim on the crown between the ears rather than over the forehead.
 
+### Idle energy: working animations stop costing the GPU (2026-10-09)
+`[Implemented; measured in an isolated Electron benchmark on macOS (Apple Silicon); long-run Activity Monitor energy impact on a real session not yet re-measured]`
+
+User report: on macOS, Agent Nekko's Energy Impact stayed high and GPU use sat near 66% with no local model running. Cause: while agents work, the composer beam, each working wall window's beam, the sidebar status rockets and the needs-you glow ran smooth, infinite CSS animations. Chromium re-composited them at the display's full refresh rate (120 Hz on ProMotion). A window that stays visible behind another app is not throttled, so this went on all day.
+
+- The working beams, status rockets and needs-you glow use stepped timing: the composer beam is 48 steps a lap (15 fps), the wall beam 60 steps over its 5 s lap, and the glow and rockets 5–10 fps. Each indicator still visibly moves.
+- While the window is not focused or is hidden, `<html data-app-inactive>` pauses every animation on its current frame. Working state stays drawn (beam, rocket, glow), just still, and motion resumes on focus. Implemented in `apps/desktop/src/renderer/appActivity.ts`.
+- Acceptance (benchmark `apps/desktop/scripts/idle-energy-bench.cjs`, app CSS, inactive visible window, average GPU-process CPU): a busy wall (composer beam, 3 wall beams, dots, rockets, mascot) goes from 22.5% to 7.8% focused and to 0.1% unfocused. The composer beam alone goes from 14–40% to about 3%. Reduced-motion behaviour is unchanged. No new probes, requests or settings.
+- Not verified: Activity Monitor's 12 h energy figure on a long real session, and Windows/Linux (the same CSS applies, but it was not measured there).
+
 ### Polish 2026-10-09: nav cat, composer focus border, dock drag landing zone
 `[Implemented; verified in the isolated hidden Electron fixture 2026-10-09]`
 - The nav rail's **Agents** destination icon is the pixel cat head without eyes (a silhouette that reads as an icon beside the other destinations). The corner mascot, send cat and empty-wall cat keep their eyes.
