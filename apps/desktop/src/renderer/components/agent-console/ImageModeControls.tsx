@@ -44,6 +44,8 @@ export function ImageModeControls({ session, onChange, busy }: { session: Sessio
     if (models?.length && (!params.modelId || !models.some((m) => m.id === params.modelId))) void choose(models[0].id);
   }, [models]);
   useEffect(() => {
+    setFetching(false);
+    setCompanions(null);
     if (!params.modelId) return;
     window.nekko.engineImageCompanions(params.modelId).then(setCompanions).catch(() => setCompanions(null));
   }, [params.modelId]);
@@ -53,7 +55,14 @@ export function ImageModeControls({ session, onChange, busy }: { session: Sessio
       void window.nekko.engineImageCompanions(params.modelId as string).then((c) => {
         setCompanions(c);
         if (c?.ready) setFetching(false);
-      }).catch(() => {});
+        else void window.nekko.engineDownloads().then((jobs) => {
+          const relevant = jobs.filter((job) => job.target === params.modelId && job.id.startsWith('image-companions:'));
+          if (relevant.length && !relevant.some((job) => ['queued', 'downloading', 'verifying'].includes(job.state))) {
+            setFetching(false);
+            pushToast('error', 'Image setup did not finish. Open Nekko Server > Downloads for details, then retry.');
+          }
+        }).catch(() => setFetching(false));
+      }).catch(() => setFetching(false));
     }, 3000);
     return () => clearInterval(t);
   }, [fetching, params.modelId]);
@@ -122,7 +131,7 @@ export function ImageModeControls({ session, onChange, busy }: { session: Sessio
           onClick={() => void fetchCompanions()}
           title={`${companions.label} needs ${companions.files.filter((f) => !f.path).map((f) => f.role).join(', ')}`}
         >
-          {fetching ? 'Downloading encoders…' : `Needs encoders · Download ${gb(companions.missingBytes)}`}
+          {fetching ? 'Downloading setup files…' : `Finish image setup · Download ${gb(companions.missingBytes)}`}
         </button>
       ) : null}
     </>
