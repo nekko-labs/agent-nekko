@@ -47,14 +47,19 @@ fn is_agent(id: &str) -> bool {
 
 pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, String> {
     // Creation and execution-policy patches belong to the host, which owns defaults and setup.
-    if channel == "session:create" || (channel == "session:setOptions" && ["executionMode", "sandbox", "gitIsolation"].iter().any(|key| arg(&args, 1).get(*key).is_some())) {
+    if channel == "session:create"
+        || (channel == "session:setOptions"
+            && ["executionMode", "sandbox", "gitIsolation"].iter().any(|key| arg(&args, 1).get(*key).is_some()))
+    {
         return ctx.backend.call(channel, Value::Array(args)).await;
     }
     if matches!(channel, "loop:run" | "terminal:create" | "mcp:call") {
         if arg(&args, 0).get("executionMode").and_then(Value::as_str) == Some("sandbox") {
             return Err(format!("{channel} cannot execute sandbox work natively; use the host container router"));
         }
-        let session_id = arg(&args, 0).get("sessionId").and_then(Value::as_str)
+        let session_id = arg(&args, 0)
+            .get("sessionId")
+            .and_then(Value::as_str)
             .or_else(|| if channel == "mcp:call" { str_arg(&args, 1) } else { None });
         if let Some(id) = session_id {
             let session = if let Some(store) = &ctx.sessions {
@@ -63,7 +68,9 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
                 // Editions without a daemon store must ask the owning host.
                 ctx.backend.call("session:get", json!([id])).await?
             };
-            if session.get("id").and_then(Value::as_str) != Some(id) || !session.get("messages").is_some_and(Value::is_array) {
+            if session.get("id").and_then(Value::as_str) != Some(id)
+                || !session.get("messages").is_some_and(Value::is_array)
+            {
                 return Err("Cannot verify session execution mode: session not found".into());
             }
             if session.get("executionMode").and_then(Value::as_str) == Some("sandbox") {
@@ -384,7 +391,7 @@ async fn session_op(
                     return Err("Execution mode changes require the host setup route".into());
                 }
                 or_null(store.set_options(id, arg(&args, 1)))
-            },
+            }
             "session:setWorkspace" => or_null(store.set_workspace(id, str_arg(&args, 1))),
             "session:setSupportingWorkspaces" => or_null(store.set_supporting(id, arg(&args, 1))),
             "session:setAttachments" => or_null(store.set_attachments(id, arg(&args, 1))),

@@ -1,4 +1,5 @@
-import { assertHostExecution } from './indirect-execution-guard.js';\nimport { configureSandbox, sandboxStatus, sandboxDiff, applySandboxDiff } from './execution-router.js';
+import { assertHostExecution } from './indirect-execution-guard.js';
+import { configureSandbox, sandboxStatus, sandboxDiff, applySandboxDiff } from './execution-router.js';
 import { resourceQueue } from './resource-queue.js';
 import { EventEmitter } from 'events';
 import { basename, resolve } from 'path';
