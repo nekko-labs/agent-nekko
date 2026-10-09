@@ -1333,3 +1333,7 @@ Add window sits to the right of the shared composer in the same row, including t
 - [ ] Inspect all matching screenshot pixels and before/after motion recordings in .shots/pr-divider-1791479069034; captures alone do not establish visual acceptance. Publish media in a draft PR only, do not merge.
 - [ ] Verify real host/provider integration, native chrome and other supported platforms as appropriate; full suite/build and final-head CI are not locally verified in this checkpoint. User-owned app untouched.
 - [x] PR photo consent: shared TypeScript/Rust prompt guidance asks only in PR chats, honors scoped preferences, and preserves sensitive-media boundaries. Done: 2026-10-08. See SPEC.md, User-sent photos in PR descriptions. Live model compliance remains unverified.
+
+### Local quota history (added 2026-10-09)
+
+- [x] Persist whitelist-only existing quota observations and explicit reply start timestamps; provide read-only JSON correlation command with reset, missing-data and concurrent-activity caveats. See [spec](SPEC.md#local-quota-history-and-reply-comparison). Verified focused host tests, comparison tests and host typecheck. No UI change or extra polls; live account acceptance remains unverified.

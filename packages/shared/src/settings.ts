@@ -366,6 +366,8 @@ export interface UsageRecord {
  */
 export interface ReplyRecord {
   ts: number;
+  /** Start of model execution, absent in older records. */
+  startedAt?: number;
   sessionId: string;
   providerId: string;
   modelId: string;
