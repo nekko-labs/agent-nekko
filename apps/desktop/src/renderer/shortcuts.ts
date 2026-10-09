@@ -23,19 +23,18 @@ export const SHORTCUTS: Record<'palette' | 'newAgent' | 'newTerminal' | 'context
     label: `${MOD}K`,
     matches: (e) => mod(e) && !e.shiftKey && e.key.toLowerCase() === 'k',
   },
-  // New chat is ⌘N in Claude Desktop, ChatGPT's desktop app, and Cursor, so it
-  // is the one people already reach for.
+  // Keep the earlier new-chat chord as an alias.
   newAgent: {
-    label: `${MOD}N`,
-    matches: (e) => mod(e) && !e.shiftKey && e.key.toLowerCase() === 'n',
+    label: `${MOD}T`,
+    matches: (e) => mod(e) && !e.altKey && !e.shiftKey && ['t', 'n'].includes(e.key.toLowerCase()),
   },
   // Backtick is the terminal key in VS Code, Cursor, and Zed (Ctrl+` opens the
   // terminal there, Ctrl+Shift+` adds another). Agent Nekko has no terminal panel to
   // toggle, so both chords just spawn one. Shift+` arrives as "~" on US layouts.
   // ⌘J keeps working for anyone used to the shortcut shipped before the rename.
   newTerminal: {
-    label: `${MOD}\``,
-    matches: (e) => mod(e) && (e.key === '`' || e.key === '~' || e.key.toLowerCase() === 'j'),
+    label: `${MOD}Shift+T`,
+    matches: (e) => mod(e) && !e.altKey && ((e.shiftKey && e.key.toLowerCase() === 't') || e.key === '`' || e.key === '~' || e.key.toLowerCase() === 'j'),
   },
   contextPanel: {
     label: `${MOD}\\`,
