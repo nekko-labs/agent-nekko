@@ -998,7 +998,7 @@ function SubAgentRow({
  * the tree itself can't hold — which window is mid-drag, which every other
  * window needs to know so it can offer itself as a target.
  */
-function WorkspaceCanvas({
+const WorkspaceCanvas = React.memo(function WorkspaceCanvas({
   workspace, hidden, sessions, terminals, statuses, projects,
 }: {
   workspace: Workspace;
@@ -1148,7 +1148,7 @@ function WorkspaceCanvas({
       <PaneVisibleContext.Provider value={!hidden && tabVisible}>{renderNode(workspace.root!)}</PaneVisibleContext.Provider>
     </div>
   );
-}
+});
 
 function EmptyState({ onNewChat, onNewTerminal }: { onNewChat: () => void; onNewTerminal: () => void }) {
   return (
