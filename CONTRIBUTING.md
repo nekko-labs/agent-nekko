@@ -4,14 +4,13 @@ Thanks for your interest! Agent Nekko is an open-source, local-first AI coding &
 
 ## Development setup
 
-Requires Node 20+. The project uses **npm workspaces** (not pnpm/yarn).
+Requires Node 22.12+ and a Rust toolchain ([rustup.rs](https://rustup.rs)): `npm run dev` and `npm run build` compile the engine daemon (`nekkod`). The project uses **npm workspaces** (not pnpm/yarn).
 
 ```bash
 git clone https://github.com/nekko-labs/agent-nekko
 cd agent-nekko
 npm install
-npm run build:core   # build the shared + core packages first
-npm run dev          # launch the desktop app (electron-vite)
+npm run dev          # build the Rust daemon and the app, then launch the desktop app
 ```
 
 ## Project layout
@@ -43,9 +42,9 @@ After that, anyone can run the web edition with `npx agent-nekko`.
 Keep the build green and the suite passing:
 
 ```bash
-npm run build       # shared → core → desktop must all build
-npm test            # vitest in packages/core
-npm run typecheck   # all three workspaces
+npm run build       # Rust daemon (nekkod), then shared → core → host → cli → desktop
+npm test            # tests in every workspace
+npm run typecheck   # every TypeScript workspace
 ```
 
 - Add tests in `packages/core` for new engine behavior (providers, guardrails, agent loop, context).
