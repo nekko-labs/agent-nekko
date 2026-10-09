@@ -122,3 +122,36 @@ fn creates_and_deletes_chats_the_way_the_ts_host_does() {
     store.delete(&id).unwrap(); // deleting twice is fine
     std::fs::remove_dir_all(&data).ok();
 }
+
+#[test]
+fn clear_matches_the_ts_host() {
+    let cases: Vec<Value> =
+        serde_json::from_str(&std::fs::read_to_string(golden().join("clear.json")).unwrap()).unwrap();
+    for c in cases {
+        let data =
+            std::env::temp_dir().join(format!("nekko-clear-{}-{}", std::process::id(), c["scope"].as_str().unwrap()));
+        std::fs::create_dir_all(data.join("sessions")).unwrap();
+        for s in c["sessions"].as_array().unwrap() {
+            let id = s["id"].as_str().unwrap();
+            std::fs::write(data.join("sessions").join(format!("{id}.json")), s.to_string()).unwrap();
+            std::fs::write(data.join("sessions").join(format!("{id}.commands.log")), "log").unwrap();
+        }
+        std::fs::write(data.join("sessions/broken.json"), "{").unwrap();
+        let store = SessionStore::new(&data);
+        store.summaries();
+        assert_eq!(
+            store.clear_since(c["scope"] == "all", c["cutoff"].as_f64().unwrap()).unwrap(),
+            c["count"].as_u64().unwrap() as usize
+        );
+        for s in c["sessions"].as_array().unwrap() {
+            let id = s["id"].as_str().unwrap();
+            let kept = c["remaining"].as_array().unwrap().contains(&s["id"]);
+            assert_eq!(store.get(id).is_some(), kept);
+            // Sidecars are host-owned; the daemon coordinates their queue via callback.
+            assert!(data.join("sessions").join(format!("{id}.commands.log")).exists());
+        }
+        assert_eq!(store.summaries().len(), c["remaining"].as_array().unwrap().len());
+        assert!(data.join("sessions/broken.json").exists());
+        std::fs::remove_dir_all(data).unwrap();
+    }
+}

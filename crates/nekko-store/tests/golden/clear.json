@@ -1,0 +1,224 @@
+[
+  {
+    "scope": "today",
+    "cutoff": 1000,
+    "sessions": [
+      {
+        "id": "s_0",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 999
+      },
+      {
+        "id": "s_1",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 1000
+      },
+      {
+        "id": "s_2",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 1001
+      },
+      {
+        "id": "s_3",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 129601000
+      },
+      {
+        "id": "s_4",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 0
+      },
+      {
+        "id": "s_5",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": null
+      },
+      {
+        "id": "s_6",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": "1000"
+      },
+      {
+        "id": "s_7",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": "invalid"
+      },
+      {
+        "id": "s_8",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0
+      }
+    ],
+    "count": 4,
+    "remaining": [
+      "s_0",
+      "s_4",
+      "s_5",
+      "s_7",
+      "s_8"
+    ]
+  },
+  {
+    "scope": "month",
+    "cutoff": 1000,
+    "sessions": [
+      {
+        "id": "s_0",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 999
+      },
+      {
+        "id": "s_1",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 1000
+      },
+      {
+        "id": "s_2",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 1001
+      },
+      {
+        "id": "s_3",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 1339201000
+      },
+      {
+        "id": "s_4",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 0
+      },
+      {
+        "id": "s_5",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": null
+      },
+      {
+        "id": "s_6",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": "1000"
+      },
+      {
+        "id": "s_7",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": "invalid"
+      },
+      {
+        "id": "s_8",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0
+      }
+    ],
+    "count": 4,
+    "remaining": [
+      "s_0",
+      "s_4",
+      "s_5",
+      "s_7",
+      "s_8"
+    ]
+  },
+  {
+    "scope": "all",
+    "cutoff": 1000,
+    "sessions": [
+      {
+        "id": "s_0",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 999
+      },
+      {
+        "id": "s_1",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 1000
+      },
+      {
+        "id": "s_2",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 1001
+      },
+      {
+        "id": "s_3",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 129601000
+      },
+      {
+        "id": "s_4",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": 0
+      },
+      {
+        "id": "s_5",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": null
+      },
+      {
+        "id": "s_6",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": "1000"
+      },
+      {
+        "id": "s_7",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0,
+        "updatedAt": "invalid"
+      },
+      {
+        "id": "s_8",
+        "title": "Test",
+        "messages": [],
+        "createdAt": 0
+      }
+    ],
+    "count": 9,
+    "remaining": []
+  }
+]
