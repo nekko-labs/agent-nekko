@@ -245,14 +245,20 @@ export function createEngine(deps: EngineDeps) {
     // path: `<models>/mlx/<owner>_<repo>/`.
     const destFor = (file: string) => join(modelsDir(), type, modelId.replace('/', '_'), file.split('/').pop() as string);
     const jobId = `model:${modelId}:${quant.label}`;
+    // Every file of this build is one download in the UI: the weights, later
+    // shards, projector and tokenizer files all carry the same group.
+    const groupLabel = `${model.name} · ${quant.label}`;
+    const group = { group: jobId, groupLabel };
 
     const job = await downloads.start({
       id: jobId,
       kind: 'model',
-      label: `${model.name} · ${quant.label}`,
+      label: groupLabel,
       target: modelId,
       url: hfFileUrl(modelId, quant.file),
       dest: destFor(quant.file),
+      ...group,
+      file: quant.file,
       verify: mlx
         ? undefined
         : async (path) => {
@@ -275,6 +281,8 @@ export function createEngine(deps: EngineDeps) {
         target: modelId,
         url: hfFileUrl(modelId, extra),
         dest,
+        ...group,
+        file: extra,
       });
     }
 
@@ -327,6 +335,9 @@ export function createEngine(deps: EngineDeps) {
         target: modelId,
         url: hfFileUrl(repo, file),
         dest,
+        group: `companions:${modelId}`,
+        groupLabel: `${model.name} · companion files`,
+        file,
       });
       queued += 1;
     }
@@ -373,6 +384,10 @@ export function createEngine(deps: EngineDeps) {
         target: modelId,
         url: hfFileUrl(pick.repo, pick.file),
         dest: join(dir, pick.saveAs),
+        group: `image-companions:${modelId}`,
+        groupLabel: `${set.label} · text encoders and VAE`,
+        file: pick.file,
+        role: pick.role,
         headers: pick === file && file.gated && token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       queued += 1;
