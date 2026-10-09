@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RuntimeStatus } from '@agent-nekko/shared';
+import type { RuntimeStatus } from '@nekko-agent/shared';
 import { localRuntimeMetrics } from './wallDockMetrics.js';
 
 const status = (patch: Partial<RuntimeStatus> = {}): RuntimeStatus => ({

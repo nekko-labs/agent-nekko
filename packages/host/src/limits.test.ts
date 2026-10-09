@@ -7,7 +7,7 @@ import { setDataDir } from './paths.js';
 import { setToken } from './oauth.js';
 import { saveSettings } from './store.js';
 import { initLimits, recordFromHeaders, poll, get, getLimits } from './limits.js';
-import { limitsKeyFor } from '@agent-nekko/shared';
+import { limitsKeyFor } from '@nekko-agent/shared';
 
 const TEST_NOW = 1_700_000_000_000;
 
@@ -23,7 +23,7 @@ describe('LimitsService header capture', () => {
 
   it('emits a normalized snapshot from Anthropic response headers', () => {
     const events = new EventEmitter();
-    const emitted: Array<{ tokenKey: string; limits: import('@agent-nekko/shared').SubscriptionLimits }> = [];
+    const emitted: Array<{ tokenKey: string; limits: import('@nekko-agent/shared').SubscriptionLimits }> = [];
     events.on('limitsUpdated', (e) => emitted.push(e));
     initLimits(events);
 
@@ -366,7 +366,7 @@ describe('LimitsService ChatGPT /wham/usage poll', () => {
     );
 
     const events = new EventEmitter();
-    const emitted: Array<{ tokenKey: string; limits: import('@agent-nekko/shared').SubscriptionLimits }> = [];
+    const emitted: Array<{ tokenKey: string; limits: import('@nekko-agent/shared').SubscriptionLimits }> = [];
     events.on('limitsUpdated', (e) => emitted.push(e));
     initLimits(events);
 

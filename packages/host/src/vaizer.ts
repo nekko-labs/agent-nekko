@@ -1,12 +1,12 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import type { VaizerCatalog, VaizerCatalogSkill } from '@agent-nekko/shared';
+import type { VaizerCatalog, VaizerCatalogSkill } from '@nekko-agent/shared';
 import {
   VAIZER_CATALOG_URL,
   VAIZER_SNAPSHOT,
   vaizerLegacySkillMdUrl,
   vaizerSkillMdUrl,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { dataDir } from './store.js';
 
 /**

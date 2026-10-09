@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { App } from '../src/renderer/App';
 import { UpdateProvider } from '../src/renderer/components/UpdateBanner';
 import { useStore } from '../src/renderer/store';
-import { summarizeSession } from '@agent-nekko/shared';
+import { summarizeSession } from '@nekko-agent/shared';
 
 // Real App and store actions; only the host boundary is synthetic.
 const provider = { id: 'fixture', kind: 'ollama', enabled: true, baseUrl: 'http://invalid.local' };

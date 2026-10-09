@@ -5,7 +5,7 @@ import {
   type RuntimeMetrics,
   type RuntimeStatus,
   type StopResult,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { apiRoot, getJson, trimUrl, type RuntimeAdapter, type RuntimeContext } from './types.js';
 
 /**
@@ -36,7 +36,7 @@ export function createVllmAdapter(ctx: RuntimeContext): RuntimeAdapter {
         // We never start vLLM, so "installed" is not a thing we claim to know.
         installed: false,
         reason:
-          'vLLM is managed outside Agent Nekko: it serves one model per process, configured at launch. Start it yourself with the command shown in the fit drawer.',
+          'vLLM is managed outside Nekko Agent: it serves one model per process, configured at launch. Start it yourself with the command shown in the fit drawer.',
       };
     },
 

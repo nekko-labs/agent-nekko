@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import { WORKFLOW_ACTIONS } from '@agent-nekko/shared';
-import type { ConnectorConfig, WorkflowEvent } from '@agent-nekko/shared';
+import { WORKFLOW_ACTIONS } from '@nekko-agent/shared';
+import type { ConnectorConfig, WorkflowEvent } from '@nekko-agent/shared';
 import {
   getWorkflowAction,
   renderTemplate,
@@ -121,7 +121,7 @@ describe('action runners', () => {
     expect(String(url)).toBe('https://api.github.com/repos/acme/app/statuses/deadbeef');
     const body = JSON.parse((init as any).body as string);
     expect(body.state).toBe('failure');
-    expect(body.context).toBe('agent-nekko/nightly-ci');
+    expect(body.context).toBe('nekko-agent/nightly-ci');
   });
 
   it('github.setCommitStatus reads repo/sha out of a raw push webhook body', async () => {

@@ -1,11 +1,11 @@
 // Exercises the MCP streamable-HTTP transport against a running Hypergate
 // daemon (hypergated, default http://localhost:7777): detects the gateway,
-// adds a scratch echo server through the daemon API, connects Agent Nekko's
+// adds a scratch echo server through the daemon API, connects Nekko Agent's
 // host MCP client to the gateway URL, and lists + calls a tool through it.
 //
 // The checks below name `hypergated` and `../hypergate`.
 // Usage: node scripts/itest-mcp-http.mjs [daemonBase]
-import { createHost } from '@agent-nekko/host';
+import { createHost } from '@nekko-agent/host';
 import { mkdtempSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';

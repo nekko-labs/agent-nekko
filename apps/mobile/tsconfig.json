@@ -9,7 +9,7 @@
       "@/assets/*": [
         "./assets/*"
       ],
-      "@agent-nekko/shared": [
+      "@nekko-agent/shared": [
         "../../packages/shared/src/index.ts"
       ]
     }

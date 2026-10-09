@@ -11,7 +11,7 @@ import {
   skillToMarkdown,
   layoutWorkflow,
   SKILLS,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 
 describe('skills marketplace catalog', () => {
   it('has unique ids and names across the whole catalog', () => {
@@ -71,7 +71,7 @@ describe('skills marketplace catalog', () => {
 
 describe('marketWorkflow', () => {
   it('keeps a bespoke workflow when present', () => {
-    const council = getMarketSkill('agent-nekko-review-council')!;
+    const council = getMarketSkill('nekko-agent-review-council')!;
     expect(marketWorkflow(council)).toBe(council.workflow);
   });
 
@@ -94,7 +94,7 @@ describe('marketWorkflow', () => {
 
 describe('install artifacts', () => {
   it('marketToSkillDef produces a runnable in-app skill', () => {
-    const def = marketToSkillDef(getMarketSkill('agent-nekko-changelog')!);
+    const def = marketToSkillDef(getMarketSkill('nekko-agent-changelog')!);
     expect(def.name).toBe('changelog');
     expect(def.template.length).toBeGreaterThan(0);
     expect(def.workflow.nodes.length).toBeGreaterThan(2);
@@ -116,13 +116,13 @@ describe('install artifacts', () => {
   });
 
   it('skillToMarkdown adds no "based on" line for our own skills', () => {
-    expect(skillToMarkdown(getMarketSkill('agent-nekko-changelog')!)).not.toContain('Based on');
+    expect(skillToMarkdown(getMarketSkill('nekko-agent-changelog')!)).not.toContain('Based on');
   });
 });
 
 describe('full instructions reach the model', () => {
   it('a catalog skill sends its instructions, with the template as the task', () => {
-    const m = getMarketSkill('agent-nekko-changelog')!;
+    const m = getMarketSkill('nekko-agent-changelog')!;
     const def = marketToSkillDef(m);
     expect(def.template).toContain(m.instructions);
     expect(def.template).toContain(m.template);
@@ -136,7 +136,7 @@ describe('full instructions reach the model', () => {
   });
 
   it('a skill with no extra instructions runs on its template alone', () => {
-    const m = { ...getMarketSkill('agent-nekko-standup')!, instructions: '' };
+    const m = { ...getMarketSkill('nekko-agent-standup')!, instructions: '' };
     expect(marketToSkillDef(m).template).toBe(m.template);
     expect(marketSkillInstructions(m)).toBe('');
   });

@@ -1,5 +1,5 @@
 import { Fragment, memo, useMemo } from 'react';
-import { estimateTokens } from '@agent-nekko/shared';
+import { estimateTokens } from '@nekko-agent/shared';
 import { useLiveRun, type LiveRun } from '../../liveRuns.js';
 import { usePaneVisible } from '../../paneVisibility.js';
 import { ActivityGroup } from './ActivityGroup.js';

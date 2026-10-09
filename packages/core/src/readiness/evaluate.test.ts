@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { MachineFacts } from '@agent-nekko/shared';
+import type { MachineFacts } from '@nekko-agent/shared';
 import { evaluateReadiness } from './evaluate.js';
 import { OFFLINE_STACK_CATALOG } from './catalog.js';
 

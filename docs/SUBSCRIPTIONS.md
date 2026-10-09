@@ -1,6 +1,6 @@
 # Subscription sign-in
 
-Agent Nekko can run chat turns on your existing Claude (Pro/Max) or ChatGPT (Plus/Pro/Business) subscription instead of a metered API key. The subscription path is optional: API keys remain available for Anthropic and OpenAI, and local model servers (Ollama, LM Studio, vLLM) still cost $0.
+Nekko Agent can run chat turns on your existing Claude (Pro/Max) or ChatGPT (Plus/Pro/Business) subscription instead of a metered API key. The subscription path is optional: API keys remain available for Anthropic and OpenAI, and local model servers (Ollama, LM Studio, vLLM) still cost $0.
 
 ## How it works
 
@@ -14,7 +14,7 @@ The host keeps the actual access and refresh tokens in `tokens.json` inside the 
 
 ## Caveats
 
-Both OAuth clients are the same first-party clients used by the vendors' own CLI tools. Anthropic and OpenAI consumer terms are written around their own apps, so using a subscription token with a third-party app like Agent Nekko is off-label. The flows may stop working at any time if the vendor rotates a client id, changes a scope, or blocks the client.
+Both OAuth clients are the same first-party clients used by the vendors' own CLI tools. Anthropic and OpenAI consumer terms are written around their own apps, so using a subscription token with a third-party app like Nekko Agent is off-label. The flows may stop working at any time if the vendor rotates a client id, changes a scope, or blocks the client.
 
 Because of this, the subscription paths are offered as-is alongside the API key options, which are unaffected. The features are live-validated on the current versions of the vendor flows. If a flow breaks, the fallback paths below still work.
 
@@ -34,7 +34,7 @@ If a subscription session expires, the provider card shows the expiry and a "Re-
 
 ## Security
 
-- Tokens are stored in `tokens.json` under the Agent Nekko data directory. The file is created with mode `0600` and the host re-applies that permission on startup.
+- Tokens are stored in `tokens.json` under the Nekko Agent data directory. The file is created with mode `0600` and the host re-applies that permission on startup.
 - `tokens.json` is never included in a settings export. The export contains only provider configuration (base URL, label, and the opaque `tokenKey`), not the access or refresh tokens.
 - The host never sends token values to the renderer. The renderer can only request status, sign out, or re-auth through the host.
 - Removing a subscription provider also deletes its stored token from the host.

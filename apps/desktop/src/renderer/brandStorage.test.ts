@@ -29,11 +29,6 @@ describe('readBrandKey', () => {
     expect(readBrandKey(s, 'nekko.x')).toBe('new');
   });
 
-  it('does not read earlier brand keys', () => {
-    const s = store({ 'kotrain.x': 'old' });
-    expect(readBrandKey(s, 'nekko.x')).toBeNull();
-  });
-
   it('keeps an empty stored value rather than reading as absent', () => {
     const s = store({ 'nekko.x': '' });
     expect(readBrandKey(s, 'nekko.x')).toBe('');

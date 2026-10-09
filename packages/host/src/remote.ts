@@ -11,7 +11,7 @@ import {
   type RemoteHelloReply,
   type RemotePairing,
   type RemoteStatus,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { dataDir } from './store.js';
 import { ensurePrivateFile, writeJsonAtomic } from './secure-file.js';
 import { connectRelayAgent, type RelayAgentHandle } from './relay.js';

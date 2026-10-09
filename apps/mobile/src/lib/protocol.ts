@@ -1,6 +1,6 @@
 /**
  * The slice of the host's IPC surface the phone uses. Types come straight from
- * `@agent-nekko/shared` (type-only, erased at build time, so Metro never
+ * `@nekko-agent/shared` (type-only, erased at build time, so Metro never
  * bundles the package); channel names are mirrored here as plain strings and
  * pinned to `IpcChannels` by `protocol.test.ts`.
  */
@@ -17,7 +17,7 @@ import type {
   SessionSummary,
   ToolCall,
   WorkspaceFolder,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 
 export type {
   AgentEvent,

@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
-import type { AgentEvent, AppSettings, AskRequest, MessagingSettings, MessagingStatus, ModelInfo, SendOptions, Session } from '@agent-nekko/shared';
-import { pickAutoModel } from '@agent-nekko/shared';
+import type { AgentEvent, AppSettings, AskRequest, MessagingSettings, MessagingStatus, ModelInfo, SendOptions, Session } from '@nekko-agent/shared';
+import { pickAutoModel } from '@nekko-agent/shared';
 import { dataDir } from '../store.js';
 import { writeJsonAtomic } from '../secure-file.js';
 import { TelegramApi, type TelegramUpdate, type InlineButton } from './telegram.js';
@@ -219,7 +219,7 @@ export function createMessagingService(
     if (e.type === 'done') void flushOutbound(sessionId, true);
     if (e.type === 'error') {
       const chatId = out?.chatId ?? chatIdForSession(sessionId);
-      if (chatId) void tg.sendMessage(chatId, `Agent Nekko error: ${e.message}`).catch(() => {});
+      if (chatId) void tg.sendMessage(chatId, `Nekko Agent error: ${e.message}`).catch(() => {});
       void flushOutbound(sessionId, true);
     }
   };
@@ -243,7 +243,7 @@ export function createMessagingService(
     if (!allowed.includes(chatId)) {
       // The allowlist is the whole authorization boundary: refuse loudly rather
       // than silently, so a misrouted room knows it is not being read.
-      await tg.sendMessage(chatId, 'Agent Nekko: this chat is not on the allowlist.').catch(() => {});
+      await tg.sendMessage(chatId, 'Nekko Agent: this chat is not on the allowlist.').catch(() => {});
       return;
     }
     const session = sessionForChat(chatId);
@@ -258,7 +258,7 @@ export function createMessagingService(
 
     const target = await resolveChatTarget(session, text);
     if (!target) {
-      await tg.sendMessage(chatId, 'Agent Nekko: no provider/model is configured for this chat.').catch(() => {});
+      await tg.sendMessage(chatId, 'Nekko Agent: no provider/model is configured for this chat.').catch(() => {});
       return;
     }
     outbound.set(session.id, { chatId, text: '', status: 'queued…', dirty: true });
@@ -267,7 +267,7 @@ export function createMessagingService(
       await host.sendChat({ sessionId: session.id, providerId: target.providerId, modelId: target.modelId, text });
     } catch (err) {
       outbound.delete(session.id);
-      await tg.sendMessage(chatId, `Agent Nekko error: ${(err as Error).message}`).catch(() => {});
+      await tg.sendMessage(chatId, `Nekko Agent error: ${(err as Error).message}`).catch(() => {});
     }
   };
 

@@ -1,6 +1,6 @@
 /**
- * Agent-CLI tools Agent Nekko can be installed into as an MCP subagent. The
- * host detects each tool by its config directory and merges an `agent-nekko`
+ * Agent-CLI tools Nekko Agent can be installed into as an MCP subagent. The
+ * host detects each tool by its config directory and merges an `nekko-agent`
  * server entry into its MCP config file, backing the file up to `<file>.bak`
  * first. On the desktop the entry carries the local server's address and
  * bearer token (see `SubagentTarget`), so a snippet can hold that token: it is
@@ -16,7 +16,7 @@ export interface AgentToolStatus {
   configPath: string;
   /** The tool's config directory exists, i.e. the CLI is installed/has run. */
   detected: boolean;
-  /** The agent-nekko MCP entry is already present. */
+  /** The nekko-agent MCP entry is already present. */
   installed: boolean;
 }
 
@@ -34,9 +34,9 @@ export interface SubagentInstallResult {
 }
 
 /**
- * How a written MCP entry should reach this Agent Nekko.
+ * How a written MCP entry should reach this Nekko Agent.
  *
- * Without it the entry is `npx -y agent-nekko mcp` with no environment, which
+ * Without it the entry is `npx -y nekko-agent mcp` with no environment, which
  * starts a *second* copy of the agent on the same data directory rather than
  * driving the app the user is looking at. With it, the entry names the CLI the
  * app installed and carries the address and token of the running server, so

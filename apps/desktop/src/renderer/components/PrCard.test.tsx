@@ -4,7 +4,7 @@ vi.mock('../store.js', () => ({ useStore: (selector: (state: unknown) => unknown
 vi.mock('../prPolling.js', () => ({ subscribePrPolling: () => () => {} }));
 import { renderToStaticMarkup } from 'react-dom/server';
 import { PrActionDock } from './PrCard.js';
-import type { PrInfo } from '@agent-nekko/shared';
+import type { PrInfo } from '@nekko-agent/shared';
 
 const url = 'https://github.com/o/r/pull/1';
 describe('composer PR deck', () => {

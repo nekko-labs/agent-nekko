@@ -1,6 +1,6 @@
 [package]
 name = "nekkod"
-description = "The Agent Nekko engine daemon: one loopback wire for the UI, native services, and a supervised TS host for everything not ported yet."
+description = "The Nekko Agent engine daemon: one loopback wire for the UI, native services, and a supervised TS host for everything not ported yet."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

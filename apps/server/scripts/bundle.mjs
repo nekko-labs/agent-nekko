@@ -1,8 +1,8 @@
-// Produce a self-contained, publishable `agent-nekko` package under cli-dist/:
-//   - index.mjs : the server + @agent-nekko/host/core/shared bundled by esbuild
+// Produce a self-contained, publishable `nekko-agent` package under cli-dist/:
+//   - index.mjs : the server + @nekko-agent/host/core/shared bundled by esbuild
 //   - web/      : the built renderer (the UI)
-//   - package.json : name "agent-nekko", bin aliases, and the few runtime deps
-// Run after building the renderer (npm run build -w @agent-nekko/desktop).
+//   - package.json : name "nekko-agent", bin aliases, and the few runtime deps
+// Run after building the renderer (npm run build -w @nekko-agent/desktop).
 import { build } from 'esbuild';
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -15,7 +15,7 @@ const out = join(serverDir, 'cli-dist');
 
 const renderer = join(repoRoot, 'apps/desktop/out/renderer');
 if (!existsSync(join(renderer, 'index.html'))) {
-  console.error('Build the renderer first: npm run build -w @agent-nekko/desktop');
+  console.error('Build the renderer first: npm run build -w @nekko-agent/desktop');
   process.exit(1);
 }
 
@@ -41,14 +41,14 @@ cpSync(renderer, join(out, 'web'), { recursive: true });
 
 const version = JSON.parse(readFileSync(join(serverDir, 'package.json'), 'utf8')).version;
 const pkg = {
-  // `agent-nekko` is the thin CLI (apps/cli); this bundle is the self-hosted
+  // `nekko-agent` is the thin CLI (apps/cli); this bundle is the self-hosted
   // web edition, a different artifact, so it publishes under its own name.
-  name: 'agent-nekko-web',
+  name: 'nekko-agent-web',
   version,
-  description: 'AI help on your computer: the self-hosted web edition plus CLI/MCP. Run with `npx agent-nekko-web`.',
+  description: 'AI help on your computer: the self-hosted web edition plus CLI/MCP. Run with `npx nekko-agent-web`.',
   license: 'MIT',
   type: 'module',
-  bin: { 'agent-nekko-web': 'index.mjs' },
+  bin: { 'nekko-agent-web': 'index.mjs' },
   files: ['index.mjs', 'web'],
   engines: { node: '>=20' },
   dependencies: {
@@ -60,7 +60,7 @@ const pkg = {
 writeFileSync(join(out, 'package.json'), JSON.stringify(pkg, null, 2));
 writeFileSync(
   join(out, 'README.md'),
-  '# Agent Nekko (web edition + CLI/MCP)\n\nWeb server:\n\n```bash\nnpx agent-nekko-web\n```\n\nThen open http://localhost:1440.\n\nCLI / MCP (drive your local agent from the terminal or other tools):\n\n```bash\nnpx agent-nekko-web status\nnpx agent-nekko-web chat "summarize README.md"\nnpx agent-nekko-web mcp        # MCP server on stdio (e.g. claude mcp add agent-nekko -- npx agent-nekko-web mcp)\n```\n\nSee https://github.com/nekko-labs/agent-nekko\n',
+  '# Nekko Agent (web edition + CLI/MCP)\n\nWeb server:\n\n```bash\nnpx nekko-agent-web\n```\n\nThen open http://localhost:1440.\n\nCLI / MCP (drive your local agent from the terminal or other tools):\n\n```bash\nnpx nekko-agent-web status\nnpx nekko-agent-web chat "summarize README.md"\nnpx nekko-agent-web mcp        # MCP server on stdio (e.g. claude mcp add nekko-agent -- npx nekko-agent-web mcp)\n```\n\nSee https://github.com/nekko-labs/nekko-agent\n',
 );
 
 console.log(`\n✓ Bundled publishable package → ${out}`);

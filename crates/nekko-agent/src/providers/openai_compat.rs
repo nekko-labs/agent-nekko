@@ -77,8 +77,8 @@ impl OpenAiCompatProvider {
             h.push(("Authorization".into(), format!("Bearer {key}")));
         }
         if self.config.kind == ProviderKind::Openrouter {
-            h.push(("HTTP-Referer".into(), "https://github.com/nekko-labs/agent-nekko".into()));
-            h.push(("X-Title".into(), "Agent Nekko".into()));
+            h.push(("HTTP-Referer".into(), "https://github.com/nekko-labs/nekko-agent".into()));
+            h.push(("X-Title".into(), "Nekko Agent".into()));
         }
         h
     }

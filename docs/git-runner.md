@@ -1,6 +1,6 @@
 # Local CI runner
 
-Use a machine running Agent Nekko as a CI runner for a GitHub or GitLab repo: when a commit is
+Use a machine running Nekko Agent as a CI runner for a GitHub or GitLab repo: when a commit is
 pushed or a pull request opens, a workflow checks the code out, runs your build and tests **on
 that machine**, and reports the result back to the provider as a commit status - with a comment
 on the PR when it fails. It saves hosted-runner minutes by burning your own hardware instead.
@@ -16,10 +16,10 @@ Behind the scenes it is ordinary workflow pieces you already have:
 - **action steps** (`github.setCommitStatus`, `gitlab.setCommitStatus`, `github.commentPR`,
   `gitlab.commentMR`) that report the outcome back through the saved connector credentials.
 
-**This is not a GitHub Actions self-hosted runner.** Agent Nekko does not speak the
+**This is not a GitHub Actions self-hosted runner.** Nekko Agent does not speak the
 `actions/runner` broker protocol, will not pick up `runs-on: self-hosted` jobs, and does not use
 the Checks API (no annotations, no check-suite lifecycle). It produces a plain **commit status**
-(`agent-nekko/<workflow>` context) and PR comments - enough for "did this commit pass on my
+(`nekko-agent/<workflow>` context) and PR comments - enough for "did this commit pass on my
 machine", not a replacement for the Actions job queue. If you need real self-hosted runners, use
 GitHub's or GitLab's official runner.
 
@@ -38,7 +38,7 @@ build + test (shell) ──success──▶ report success (action) ──▶ en
 - **Check out the commit** - `git fetch origin {{trigger.branch}} && git checkout {{trigger.sha}}`
 - **Build and test** - `npm ci && npm run build && npm test`
 - **Report success / failure** - `github.setCommitStatus` with context
-  `agent-nekko/<your-workflow-name>` (the default when the `context` param is empty)
+  `nekko-agent/<your-workflow-name>` (the default when the `context` param is empty)
 - **Comment on the PR** - `github.commentPR` with the tail of the test step's output.
   On plain `push` events there is no PR number, so this step fails and the run still ends red.
 
@@ -47,7 +47,7 @@ your test command, your merge strategy. The action steps are ready as-is: they t
 and PR number from the event when the `{{trigger.*}}` params render empty.
 
 For GitLab, swap the action steps for `gitlab.setCommitStatus` (state `failed`/`success`,
-status name `agent-nekko/<workflow>`) and `gitlab.commentMR`.
+status name `nekko-agent/<workflow>`) and `gitlab.commentMR`.
 
 ## Getting events in
 
@@ -57,7 +57,7 @@ arming two means double runs.
 ### Poll mode - works anywhere, including the desktop app
 
 The desktop app can't receive real webhooks (it's behind NAT), so the honest default is polling:
-Agent Nekko asks the provider's API what's new, on an interval, with a per-trigger cursor stored
+Nekko Agent asks the provider's API what's new, on an interval, with a per-trigger cursor stored
 in `workflow-cursors.json` next to `workflows.json`.
 
 The template ships a disarmed **Connector** trigger as the starter:
@@ -75,7 +75,7 @@ that repo events APIs are shallow (recent events only).
 
 ### Webhook mode - server / Docker edition
 
-When Agent Nekko runs somewhere a provider can reach (the server edition, Docker, a VM with a
+When Nekko Agent runs somewhere a provider can reach (the server edition, Docker, a VM with a
 public URL), inbound webhooks give instant triggers:
 
 ```
@@ -131,7 +131,7 @@ understood - normalized names first, then the raw provider body:
 | PR / MR number | `number`, `pull_number` | `number`, `pull_request.number`, `issue.number` | `iid`, `object_attributes.iid` |
 | Branch | `branch` | `ref` (`refs/heads/…`) | `ref` |
 
-Reported statuses use context `agent-nekko/<workflow-slug>` on GitHub (states
+Reported statuses use context `nekko-agent/<workflow-slug>` on GitHub (states
 `success`/`failure`/`error`/`pending`) and the same name on GitLab (`success`/`failed`/
 `running`/`pending`/`canceled`) - each op accepts the other's spelling for `state`.
 
@@ -158,7 +158,7 @@ their code executed on this machine. Guardrails that actually help:
 
 ## Limits
 
-- Local execution only: runs happen on the machine hosting Agent Nekko, with its CPU, its
+- Local execution only: runs happen on the machine hosting Nekko Agent, with its CPU, its
   toolchain, and its uptime. A closed laptop is a runner that's down.
 - Shell steps time out after 600s by default (`timeoutSec` per step); step output kept in the
   run log is trimmed to ~4 KB.

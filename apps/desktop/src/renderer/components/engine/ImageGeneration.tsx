@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { LocalModel, ImageCompanionStatus } from '@agent-nekko/shared';
+import type { LocalModel, ImageCompanionStatus } from '@nekko-agent/shared';
 import { useStore } from '../../store.js';
 import { formatBytes } from '../runtimes/verdict.js';
 

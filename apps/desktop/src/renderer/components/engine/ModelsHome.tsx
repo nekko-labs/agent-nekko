@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { CatalogModel, EngineMemory, EngineSettings, LoadingModel, ResidentModel } from '@agent-nekko/shared';
+import type { CatalogModel, EngineMemory, EngineSettings, LoadingModel, ResidentModel } from '@nekko-agent/shared';
 import { ModelLibrary } from './ModelLibrary.js';
 import { ResidentModels } from './ResidentModels.js';
 import { ModelDetail } from './ModelDetail.js';

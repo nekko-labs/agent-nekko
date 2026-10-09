@@ -1,12 +1,12 @@
 {
-  "name": "agent-nekko",
+  "name": "nekko-agent",
   "version": "0.8.0",
   "type": "module",
-  "description": "Agent Nekko CLI + MCP server, drive your local agent from the terminal or other tools (Claude Code, Codex, …).",
+  "description": "Nekko Agent CLI + MCP server, drive your local agent from the terminal or other tools (Claude Code, Codex, …).",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nekko-labs/agent-nekko.git",
+    "url": "git+https://github.com/nekko-labs/nekko-agent.git",
     "directory": "apps/cli"
   },
   "keywords": [
@@ -28,7 +28,7 @@
     "LICENSE"
   ],
   "bin": {
-    "agent-nekko": "dist/index.js"
+    "nekko-agent": "dist/index.js"
   },
   "main": "./dist/index.js",
   "exports": {

@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Target {
-    /// Label in the report ("Agent Nekko engine", "Ollama", ...).
+    /// Label in the report ("Nekko Agent engine", "Ollama", ...).
     pub name: String,
     /// Up to and including `/v1`.
     pub base_url: String,

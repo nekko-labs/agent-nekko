@@ -1,6 +1,6 @@
 /**
  * Pairing links. The desktop's Settings → Remote access shows a QR that
- * carries `agent-nekko-pair:?relay=&room=&key=&pair=` (or, from the web
+ * carries `nekko-agent-pair:?relay=&room=&key=&pair=` (or, from the web
  * edition, `https://host/?relay=…`). Either form, or a bare query string,
  * parses to the same credentials.
  */
@@ -34,7 +34,7 @@ export function parsePairingLink(input: string): PairingLink | null {
   return { relayUrl: relayUrl.replace(/\/+$/, ''), room, key, pair };
 }
 
-/** Relay host for display ("agent-nekko-relay.fly.dev"). */
+/** Relay host for display ("nekko-agent-relay.fly.dev"). */
 export function relayHost(relayUrl: string): string {
   return relayUrl.replace(/^wss?:\/\//i, '').replace(/\/.*$/, '');
 }

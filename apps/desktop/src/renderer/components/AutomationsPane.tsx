@@ -1,6 +1,6 @@
 import React from 'react';
-import type { AutomationTask } from '@agent-nekko/shared';
-import { taskCadence } from '@agent-nekko/shared';
+import type { AutomationTask } from '@nekko-agent/shared';
+import { taskCadence } from '@nekko-agent/shared';
 import { PanelList } from './primitives/index.js';
 import { TrashIcon } from '../icons.js';
 import { PaneMetadata } from './PaneFrame.js';

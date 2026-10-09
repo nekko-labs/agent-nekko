@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatMessage } from '@agent-nekko/shared';
+import type { ChatMessage } from '@nekko-agent/shared';
 import { withToolImages } from './tool-images.js';
 
 describe('screenshot evidence transport', () => {

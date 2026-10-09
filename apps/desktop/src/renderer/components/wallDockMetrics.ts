@@ -1,5 +1,5 @@
-import { isLocalProvider } from '@agent-nekko/shared';
-import type { ResidentModel, RuntimeStatus } from '@agent-nekko/shared';
+import { isLocalProvider } from '@nekko-agent/shared';
+import type { ResidentModel, RuntimeStatus } from '@nekko-agent/shared';
 import { formatBytes } from './runtimes/verdict.js';
 import { insightDays, type InsightRange } from '../insightRanges.js';
 
@@ -41,7 +41,7 @@ function age(ms: number): string {
  * Spend and tokens over one of the Insights time ranges, from the usage
  * summary's UTC daily buckets. `null` when there is no usage snapshot.
  */
-export function budgetRange(usage: import('@agent-nekko/shared').UsageSummary | null, range: InsightRange, now = new Date()) {
+export function budgetRange(usage: import('@nekko-agent/shared').UsageSummary | null, range: InsightRange, now = new Date()) {
   if (!usage) return null;
   const daily = insightDays(usage.daily, range, now);
   return {
@@ -55,7 +55,7 @@ export function budgetRange(usage: import('@agent-nekko/shared').UsageSummary | 
 /** How a range reads in the Budget panel's labels. */
 export const BUDGET_RANGE_LABEL: Record<InsightRange, string> = { today: 'Today', '1wk': 'Last 7 days', '1m': 'Last 30 days', '6m': 'Last 6 months', '1y': 'Last year', 'all-time': 'All time' };
 
-export function recordedBudgetMetrics(usage: import('@agent-nekko/shared').UsageSummary | null, sessions: import('@agent-nekko/shared').SessionSummary[], providers: import('@agent-nekko/shared').ProviderConfig[]) {
+export function recordedBudgetMetrics(usage: import('@nekko-agent/shared').UsageSummary | null, sessions: import('@nekko-agent/shared').SessionSummary[], providers: import('@nekko-agent/shared').ProviderConfig[]) {
   if (!usage) return { topAgent: 'Unavailable', localTokens: 'Unavailable' };
   const top = Object.entries(usage.bySession).sort((a, b) => (b[1].input + b[1].output) - (a[1].input + a[1].output))[0];
   const localIds = new Set(providers.filter(p => isLocalProvider(p.kind)).map(p => p.id));

@@ -5,12 +5,12 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const temp = mkdtempSync(join(tmpdir(), 'agent-nekko-cli-pack-'));
+const temp = mkdtempSync(join(tmpdir(), 'nekko-agent-cli-pack-'));
 const tarballs = join(temp, 'tarballs');
 const unpacked = join(temp, 'package');
 const installed = join(temp, 'installed');
 const binDir = join(installed, 'node_modules/.bin');
-const executables = ['agent-nekko'];
+const executables = ['nekko-agent'];
 let mcp;
 let mcpClosed;
 const dataDir = join(temp, 'data');
@@ -29,7 +29,7 @@ function run(command, args, options = {}) {
   }).trim();
 }
 
-function jsonCommand(args, executable = 'agent-nekko') {
+function jsonCommand(args, executable = 'nekko-agent') {
   const output = run(join(binDir, executable), args, {
     cwd: temp,
     env: { ...process.env, NEKKO_URL: '', NEKKO_DATA_DIR: dataDir },
@@ -58,11 +58,11 @@ try {
   );
   if (executables.some((name) => bins[name] !== 'dist/index.js')) {
     throw new Error(
-      `Packed package is missing the agent-nekko bin entry (got ${JSON.stringify(packageJson.bin)}).`,
+      `Packed package is missing the nekko-agent bin entry (got ${JSON.stringify(packageJson.bin)}).`,
     );
   }
-  if (packageJson.name !== 'agent-nekko' || packageJson.repository?.url !== 'git+https://github.com/nekko-labs/agent-nekko.git') {
-    throw new Error('Published package identity must be agent-nekko.');
+  if (packageJson.name !== 'nekko-agent' || packageJson.repository?.url !== 'git+https://github.com/nekko-labs/nekko-agent.git') {
+    throw new Error('Published package identity must be nekko-agent.');
   }
   const packedDist = readdirSync(join(unpacked, 'dist')).sort();
   const expectedDist = ['index.d.ts', 'index.js', 'run.d.ts', 'run.js'];
@@ -76,14 +76,14 @@ try {
   }
 
   run('npm', ['install', '--prefix', unpacked, '--ignore-scripts', '--no-package-lock']);
-  symlinkSync('..', join(unpacked, 'node_modules/agent-nekko'), 'dir');
+  symlinkSync('..', join(unpacked, 'node_modules/nekko-agent'), 'dir');
   const runImport = run(
     process.execPath,
-    ['-e', "import('agent-nekko/run').then((m) => console.log(typeof m.runCli))"],
+    ['-e', "import('nekko-agent/run').then((m) => console.log(typeof m.runCli))"],
     { cwd: unpacked, stdio: ['ignore', 'pipe', 'inherit'] },
   );
-  if (runImport !== 'function') throw new Error(`agent-nekko/run import failed: ${runImport}`);
-  console.log(`agent-nekko/run import: ${runImport}`);
+  if (runImport !== 'function') throw new Error(`nekko-agent/run import failed: ${runImport}`);
+  console.log(`nekko-agent/run import: ${runImport}`);
   const nativeDependency = run(
     process.execPath,
     ['-e', "import('@lydell/node-pty').then(() => console.log('native node-pty: resolved'))"],
@@ -98,13 +98,13 @@ try {
   for (const executable of executables) {
     const options = { cwd: temp, env: { ...process.env, NEKKO_URL: '', NEKKO_DATA_DIR: dataDir } };
     const help = run(join(binDir, executable), ['--help'], options);
-    if (!help.startsWith('Agent Nekko CLI (agent-nekko ')) {
-      throw new Error(`${executable} --help did not identify Agent Nekko.`);
+    if (!help.startsWith('Nekko Agent CLI (nekko-agent ')) {
+      throw new Error(`${executable} --help did not identify Nekko Agent.`);
     }
     const version = run(join(binDir, executable), ['--version'], options);
     if (version !== packageJson.version) throw new Error(`${executable} --version returned ${version}.`);
     const humanStatus = run(join(binDir, executable), ['status'], options);
-    if (!humanStatus.startsWith('Agent Nekko, ')) throw new Error(`${executable} status used the wrong identity.`);
+    if (!humanStatus.startsWith('Nekko Agent, ')) throw new Error(`${executable} status used the wrong identity.`);
     const status = jsonCommand(['status', '--json'], executable);
     if (!Array.isArray(status.workspaces)) throw new Error(`${executable} status did not return workspaces.`);
     console.log(`${executable}: installed binary help, version, and status passed`);
@@ -166,22 +166,22 @@ try {
     if (initialize.result?.protocolVersion !== '2025-06-18') {
       throw new Error(`Unexpected MCP protocol version: ${initialize.result?.protocolVersion}`);
     }
-    if (initialize.result?.serverInfo?.name !== 'agent-nekko' || initialize.result?.serverInfo?.title !== 'Agent Nekko') {
-      throw new Error('MCP initialize did not identify Agent Nekko.');
+    if (initialize.result?.serverInfo?.name !== 'nekko-agent' || initialize.result?.serverInfo?.title !== 'Nekko Agent') {
+      throw new Error('MCP initialize did not identify Nekko Agent.');
     }
     console.log(`${executable} MCP initialize: ${JSON.stringify(initialize)}`);
     mcp.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n');
     const tools = await request(2, 'tools/list');
-    if (!tools.result?.tools?.some((tool) => tool.name === 'agent-nekko_status') ||
-        !tools.result.tools.every((tool) => tool.name.startsWith('agent-nekko_'))) {
-      throw new Error('MCP tools/list must advertise only canonical agent-nekko_* tools, including agent-nekko_status.');
+    if (!tools.result?.tools?.some((tool) => tool.name === 'nekko-agent_status') ||
+        !tools.result.tools.every((tool) => tool.name.startsWith('nekko-agent_'))) {
+      throw new Error('MCP tools/list must advertise only canonical nekko-agent_* tools, including nekko-agent_status.');
     }
     console.log(`${executable} MCP tools/list: ${tools.result.tools.length} canonical tools`);
-    const canonical = await request(3, 'tools/call', { name: 'agent-nekko_status', arguments: {} });
+    const canonical = await request(3, 'tools/call', { name: 'nekko-agent_status', arguments: {} });
     if (canonical.result?.isError || !canonical.result?.content?.[0]?.text?.includes('"workspaces"')) {
-      throw new Error('MCP agent-nekko_status returned no status payload.');
+      throw new Error('MCP nekko-agent_status returned no status payload.');
     }
-    console.log(`${executable} MCP tools/call: agent-nekko_status ok`);
+    console.log(`${executable} MCP tools/call: nekko-agent_status ok`);
     mcp.kill();
     await mcpClosed;
     mcp = undefined;

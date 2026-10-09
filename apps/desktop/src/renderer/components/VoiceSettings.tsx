@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { VoiceStatus, VoiceSettings as Preferences } from '@agent-nekko/shared';
+import type { VoiceStatus, VoiceSettings as Preferences } from '@nekko-agent/shared';
 import { useStore } from '../store.js';
 import { startVoiceCapture } from '../voiceCapture.js';
 

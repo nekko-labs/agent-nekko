@@ -6,17 +6,17 @@ import { randomUUID } from 'node:crypto';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import { createHost, createDispatcher, defaultUserDataDir, prepareUserDataRoot } from '@agent-nekko/host';
-import { brandEnv, IpcChannels, IpcEvents } from '@agent-nekko/shared';
+import { createHost, createDispatcher, defaultUserDataDir, prepareUserDataRoot } from '@nekko-agent/host';
+import { brandEnv, IpcChannels, IpcEvents } from '@nekko-agent/shared';
 import { runRelayAgent } from './relay-agent.js';
-import { runCli } from 'agent-nekko/run';
+import { runCli } from 'nekko-agent/run';
 import { isLoopbackHost, tokenMatches, validateBindSecurity } from './security.js';
 import { createApiSecurityHook } from './request-security.js';
 import { registerWebhookRoutes } from './webhooks.js';
-import { reviewRepository } from '@agent-nekko/host';
+import { reviewRepository } from '@nekko-agent/host';
 import { githubReviewConfig, registerGitHubReviewRoutes, ReviewReplayLedger } from './github-review.js';
 
-/** Subcommands handled by the embedded CLI (so `npx agent-nekko mcp|chat|…` works). */
+/** Subcommands handled by the embedded CLI (so `npx nekko-agent mcp|chat|…` works). */
 const CLI_SUBCOMMANDS = new Set([
   'mcp', 'chat', 'status', 'sessions', 'watch', 'workspace', 'prompts', 'tasks',
   'skills', 'tools', 'models', 'train', 'help', 'version',
@@ -54,7 +54,7 @@ function findRendererDir(): string {
 const RENDERER_DIR = findRendererDir();
 
 async function main() {
-  // Subcommand → embedded CLI (e.g. `npx agent-nekko mcp`, `agent-nekko status`).
+  // Subcommand → embedded CLI (e.g. `npx nekko-agent mcp`, `nekko-agent status`).
   const sub = process.argv[2];
   if (sub && CLI_SUBCOMMANDS.has(sub)) {
     await runCli(process.argv.slice(2));
@@ -78,8 +78,8 @@ async function main() {
 
   if (!existsSync(join(RENDERER_DIR, 'index.html'))) {
     console.error(
-      `[agent-nekko] Renderer not found at ${RENDERER_DIR}.\n` +
-        `Build it first (npm run build -w @agent-nekko/desktop) or set NEKKO_RENDERER_DIR.`,
+      `[nekko-agent] Renderer not found at ${RENDERER_DIR}.\n` +
+        `Build it first (npm run build -w @nekko-agent/desktop) or set NEKKO_RENDERER_DIR.`,
     );
     process.exit(1);
   }
@@ -190,7 +190,7 @@ async function main() {
 
   await app.listen({ port: PORT, host: HOST });
   const url = `http://${isLocal ? 'localhost' : HOST}:${PORT}`;
-  console.log(`\nAgent Nekko web edition running at ${url}`);
+  console.log(`\nNekko Agent web edition running at ${url}`);
   console.log(`   data dir: ${DATA_DIR}`);
   if (requireAuth) console.log(`   auth: token required (use Authorization: Bearer <token>; browser URLs may use ?token=… for WebSocket access)`);
   else if (!isLocal) console.log(`   ⚠ unauthenticated mode explicitly enabled; ensure an external auth layer protects this service.`);

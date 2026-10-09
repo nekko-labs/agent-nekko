@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'fs';
-import type { FileChange } from '@agent-nekko/shared';
+import type { FileChange } from '@nekko-agent/shared';
 import { daemonCall } from './engine/daemon.js';
 import { daemonOwns } from './daemon-loop.js';
 

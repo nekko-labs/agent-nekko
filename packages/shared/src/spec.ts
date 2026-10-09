@@ -37,7 +37,7 @@ export interface SpecMethodology {
 
 /**
  * Built-in methodologies. `spec-tasks` is the default lightweight
- * spec/tasks flow; `agent-nekko` matches this project's spec/plan/tasks
+ * spec/tasks flow; `nekko-agent` matches this project's spec/plan/tasks
  * convention; `kiro` mirrors Amazon Kiro's requirements/design/tasks naming;
  * `lean` is the original single-spec flow.
  */
@@ -52,9 +52,9 @@ export const SPEC_METHODOLOGIES: SpecMethodology[] = [
     ],
   },
   {
-    id: 'agent-nekko',
+    id: 'nekko-agent',
     label: 'Spec → Plan → Tasks',
-    description: 'Agent Nekko default: a spec, a technical plan, then a task checklist.',
+    description: 'Nekko Agent default: a spec, a technical plan, then a task checklist.',
     docs: [
       { id: 'spec', filename: 'spec.md', label: 'Spec', role: 'spec', description: 'What & why, vision, users, requirements.' },
       { id: 'plan', filename: 'plan.md', label: 'Plan', role: 'plan', description: 'How, architecture, stack, conventions.' },

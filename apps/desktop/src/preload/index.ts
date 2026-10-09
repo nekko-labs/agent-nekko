@@ -16,8 +16,8 @@ import type {
   TerminalEvent,
   OAuthStatus,
   SubscriptionLimits,
-} from '@agent-nekko/shared';
-import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
+import { IpcChannels, IpcEvents } from '@nekko-agent/shared';
 import { ENGINE_ENDPOINT_CHANNEL, PICK_FOLDER_CHANNEL, SERVICE_CONTROL_CHANNEL } from '../engineChannels.js';
 import { createEngineSocket, type Listener } from './engine-socket.js';
 import {
@@ -354,22 +354,22 @@ const api: NekkoApi = {
     return () => bus.removeListener(IpcEvents.changesUpdated, listener);
   },
   onTasksUpdated: (cb) => {
-    const listener = (_: unknown, tasks: import('@agent-nekko/shared').AutomationTask[]) => cb(tasks);
+    const listener = (_: unknown, tasks: import('@nekko-agent/shared').AutomationTask[]) => cb(tasks);
     bus.on(IpcEvents.tasksUpdated, listener);
     return () => bus.removeListener(IpcEvents.tasksUpdated, listener);
   },
   onTrainingUpdated: (cb) => {
-    const listener = (_: unknown, runs: import('@agent-nekko/shared').TrainingRun[]) => cb(runs);
+    const listener = (_: unknown, runs: import('@nekko-agent/shared').TrainingRun[]) => cb(runs);
     bus.on(IpcEvents.trainingUpdated, listener);
     return () => bus.removeListener(IpcEvents.trainingUpdated, listener);
   },
   onWorkflowsUpdated: (cb) => {
-    const listener = (_: unknown, snapshot: import('@agent-nekko/shared').WorkflowsSnapshot) => cb(snapshot);
+    const listener = (_: unknown, snapshot: import('@nekko-agent/shared').WorkflowsSnapshot) => cb(snapshot);
     bus.on(IpcEvents.workflowsUpdated, listener);
     return () => bus.removeListener(IpcEvents.workflowsUpdated, listener);
   },
   onDownloadsUpdated: (cb) => {
-    const listener = (_: unknown, jobs: import('@agent-nekko/shared').DownloadJob[]) => cb(jobs);
+    const listener = (_: unknown, jobs: import('@nekko-agent/shared').DownloadJob[]) => cb(jobs);
     bus.on(IpcEvents.downloadsUpdated, listener);
     return () => bus.removeListener(IpcEvents.downloadsUpdated, listener);
   },
@@ -383,8 +383,8 @@ const api: NekkoApi = {
     bus.on(IpcEvents.modelsUpdated, listener);
     return () => bus.removeListener(IpcEvents.modelsUpdated, listener);
   },
-  onSkillsUpdated: (cb: (catalog: import('@agent-nekko/shared').VaizerCatalog) => void) => {
-    const listener = (_: unknown, catalog: import('@agent-nekko/shared').VaizerCatalog) => cb(catalog);
+  onSkillsUpdated: (cb: (catalog: import('@nekko-agent/shared').VaizerCatalog) => void) => {
+    const listener = (_: unknown, catalog: import('@nekko-agent/shared').VaizerCatalog) => cb(catalog);
     bus.on(IpcEvents.skillsUpdated, listener);
     return () => bus.removeListener(IpcEvents.skillsUpdated, listener);
   },

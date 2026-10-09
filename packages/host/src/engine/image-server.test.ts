@@ -4,7 +4,7 @@ import { mkdtemp, rm, writeFile } from 'fs/promises';
 import { createServer } from 'net';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { DEFAULT_ENGINE_SETTINGS, type LocalModel } from '@agent-nekko/shared';
+import { DEFAULT_ENGINE_SETTINGS, type LocalModel } from '@nekko-agent/shared';
 import { createEngineServer, type EngineServer } from './server.js';
 const dirs: string[] = [], engines: EngineServer[] = [];
 afterEach(async () => { for (const s of engines.splice(0)) await s.stop(); for (const d of dirs.splice(0)) await rm(d,{recursive:true,force:true}); });

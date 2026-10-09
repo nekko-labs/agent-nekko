@@ -16,7 +16,7 @@ const sessions = [
   base('s_empty', []),
   base('s_plain', [msg('u1', 'user', 'Refactor the parser'), msg('a1', 'assistant', '  Done.\n\nAll   green.  ')]),
   base('s_tools', [
-    msg('u1', 'user', 'Open a PR for https://github.com/nekko-labs/agent-nekko/pull/219 follow-up'),
+    msg('u1', 'user', 'Open a PR for https://github.com/nekko-labs/nekko-agent/pull/219 follow-up'),
     msg('a1', 'assistant', '', { toolCalls: [
       { id: 'c1', name: 'bash', input: { command: 'gh pr create', retries: 1.0, ratio: 0.25, big: 1e21, tiny: 1e-7, list: [1, 'two', null, true], nested: { b: 2, a: 1 } } },
       { id: 'c2', name: 'noop', input: null },

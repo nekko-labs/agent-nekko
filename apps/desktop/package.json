@@ -1,14 +1,14 @@
 {
-  "name": "@agent-nekko/desktop",
+  "name": "@nekko-agent/desktop",
   "version": "0.8.0",
   "private": true,
-  "description": "Agent Nekko desktop app.",
+  "description": "Nekko Agent desktop app.",
   "author": {
     "name": "Nekko Labs",
-    "email": "support@agentnekko.com"
+    "email": "support@nekkoagent.com"
   },
-  "homepage": "https://github.com/nekko-labs/agent-nekko",
-  "desktopName": "Agent Nekko",
+  "homepage": "https://github.com/nekko-labs/nekko-agent",
+  "desktopName": "Nekko Agent",
   "main": "./out/main/index.js",
   "scripts": {
     "predev": "node scripts/ensure-electron.mjs",
@@ -26,9 +26,9 @@
     "release": "npm run build:app --prefix ../cli && electron-vite build && node scripts/stage-daemon.mjs && electron-builder --publish always"
   },
   "dependencies": {
-    "@agent-nekko/core": "*",
-    "@agent-nekko/host": "*",
-    "@agent-nekko/shared": "*",
+    "@nekko-agent/core": "*",
+    "@nekko-agent/host": "*",
+    "@nekko-agent/shared": "*",
     "@lydell/node-pty": "^1.2.0-beta.15",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",

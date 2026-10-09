@@ -1,14 +1,14 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { homedir } from 'os';
 import { basename, join, resolve } from 'path';
-import type { ExternalSkillTool, SkillDef, SkillWorkflow } from '@agent-nekko/shared';
-import { parseSkillMarkdown } from '@agent-nekko/shared';
+import type { ExternalSkillTool, SkillDef, SkillWorkflow } from '@nekko-agent/shared';
+import { parseSkillMarkdown } from '@nekko-agent/shared';
 
 /**
  * Skills other agent tools already keep on this machine, in the Agent Skills
  * format (agentskills.io): a folder holding a SKILL.md with `name` and
  * `description` frontmatter followed by instructions. Reading them lets a user's
- * existing Claude Code / Codex / Gemini CLI skills run in Agent Nekko with any
+ * existing Claude Code / Codex / Gemini CLI skills run in Nekko Agent with any
  * model. Nothing here writes to those folders.
  */
 
@@ -30,7 +30,7 @@ export interface DiscoverOptions {
   home?: string;
   /** Project roots whose own `.claude/skills` etc. are scanned too. They win name collisions. */
   projectRoots?: string[];
-  /** Skill folders Agent Nekko wrote itself (marketplace exports), so they are not imported back. */
+  /** Skill folders Nekko Agent wrote itself (marketplace exports), so they are not imported back. */
   exclude?: Iterable<string>;
   /** Names already taken (built-in and installed skills win collisions). */
   reserved?: Iterable<string>;

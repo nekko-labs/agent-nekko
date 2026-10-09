@@ -1,19 +1,19 @@
 {
   "expo": {
-    "name": "Agent Nekko",
-    "slug": "agent-nekko",
+    "name": "Nekko Agent",
+    "slug": "nekko-agent",
     "owner": "nekkolabs",
     "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": [
-      "agent-nekko",
-      "agent-nekko-pair"
+      "nekko-agent",
+      "nekko-agent-pair"
     ],
     "userInterfaceStyle": "automatic",
     "backgroundColor": "#0c0c11",
     "ios": {
-      "bundleIdentifier": "dev.nekkolabs.agentnekko",
+      "bundleIdentifier": "dev.nekkolabs.nekkoagent",
       "supportsTablet": true,
       "icon": "./assets/images/icon.png",
       "infoPlist": {
@@ -22,7 +22,7 @@
       }
     },
     "android": {
-      "package": "dev.nekkolabs.agentnekko",
+      "package": "dev.nekkolabs.nekkoagent",
       "adaptiveIcon": {
         "backgroundColor": "#101714",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
-import type { NekkoApi, Session, AppSettings } from '@agent-nekko/shared';
+import type { NekkoApi, Session, AppSettings } from '@nekko-agent/shared';
 import { decideApproval } from './approval-decision.js';
 import { ApprovalBar } from './ApprovalBar.js';
 

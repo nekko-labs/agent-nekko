@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { AgentEvent, QueuedPrompt, Session, SessionSummary } from '@agent-nekko/shared';
-import { DEFAULT_ORCHESTRATION, getStrategy, planProgress, queueItemPayload, summarizeToolCall } from '@agent-nekko/shared';
+import type { AgentEvent, QueuedPrompt, Session, SessionSummary } from '@nekko-agent/shared';
+import { DEFAULT_ORCHESTRATION, getStrategy, planProgress, queueItemPayload, summarizeToolCall } from '@nekko-agent/shared';
 import { useStore } from '../store.js';
 import { CheckIcon, ChatIcon, ListIcon, PencilIcon, RobotIcon } from '../icons.js';
 

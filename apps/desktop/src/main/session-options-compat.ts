@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { IpcChannels, type Session } from '@agent-nekko/shared';
+import { IpcChannels, type Session } from '@nekko-agent/shared';
 import type { EngineProcess } from './engine-process.js';
 
 export type SessionOptionsPatch = Partial<Pick<Session, 'archivedAt'>> & Record<string, unknown>;

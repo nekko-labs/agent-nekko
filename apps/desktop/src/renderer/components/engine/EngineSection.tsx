@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { DownloadJob, EngineStatus, LocalModel } from '@agent-nekko/shared';
+import type { DownloadJob, EngineStatus, LocalModel } from '@nekko-agent/shared';
 import { useStore } from '../../store.js';
 import { Toggle } from '../primitives/index.js';
 import { CheckIcon, CopyIcon } from '../../icons.js';
@@ -17,7 +17,7 @@ import { LocalServerSection } from '../server/LocalServerSection.js';
 import { ServerPowerPill } from '../server/ServerPowerPill.js';
 
 /**
- * The engine Agent Nekko runs itself, and the models it serves.
+ * The engine Nekko Agent runs itself, and the models it serves.
  *
  * These are one block rather than two because they are one thing: the server and
  * the models it can load are useless apart, and the questions people actually

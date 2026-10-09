@@ -1,4 +1,4 @@
-# Agent Nekko relay
+# Nekko Agent relay
 
 A dumb, end-to-end-encrypted pipe that pairs remote devices (your phone) with a
 local agent (your desktop) by room code, so a phone can drive your local model
@@ -14,20 +14,20 @@ per-connection rate limit, and client/room limits. Full user-facing guide,
 including self-hosting (Docker / Compose / Coolify / Fly): [docs/REMOTE.md](../../docs/REMOTE.md).
 
 ```bash
-npm run build -w @agent-nekko/relay
-npm run start -w @agent-nekko/relay      # ws://0.0.0.0:4400/relay
+npm run build -w @nekko-agent/relay
+npm run start -w @nekko-agent/relay      # ws://0.0.0.0:4400/relay
 
 # or the container (build from the repo root)
-docker build -f apps/relay/Dockerfile -t agent-nekko-relay .
-docker run -p 4400:4400 agent-nekko-relay
+docker build -f apps/relay/Dockerfile -t nekko-agent-relay .
+docker run -p 4400:4400 nekko-agent-relay
 ```
 
 Env: `NEKKO_RELAY_PORT` (4400), `NEKKO_RELAY_HOST` (0.0.0.0),
-`NEKKO_RELAY_AUTHZ_URL` (optional: gate agent enrollment on a Agent Nekko Cloud
+`NEKKO_RELAY_AUTHZ_URL` (optional: gate agent enrollment on a Nekko Agent Cloud
 account for managed hosting; agents then connect with `&access=<bearer>` and the
 relay POSTs it to this URL, expecting `{ok:true}`).
 
-The managed instance lives at `wss://agent-nekko-relay.fly.dev`
+The managed instance lives at `wss://nekko-agent-relay.fly.dev`
 (`fly deploy -c apps/relay/fly.toml --dockerfile apps/relay/Dockerfile .` from
 the repo root; keep it at one machine, rooms are in-memory).
 
@@ -42,7 +42,7 @@ the token the phone registered (`register-push` frame). Configure APNs:
 | `APNS_KEY_P8` | Contents of the APNs auth key `.p8` (PEM, with newlines) |
 | `APNS_KEY_ID` | The key's 10-char Key ID |
 | `APNS_TEAM_ID` | Apple Team ID |
-| `APNS_BUNDLE_ID` | App bundle id (default `dev.nekkolabs.agentnekko`) |
+| `APNS_BUNDLE_ID` | App bundle id (default `dev.nekkolabs.nekkoagent`) |
 | `APNS_PRODUCTION` | `1` for the production APNs host (default: sandbox) |
 
 **Android (FCM)**: set `FCM_SERVICE_ACCOUNT` to the full service-account JSON

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DesignPage } from '@agent-nekko/shared';
+import type { DesignPage } from '@nekko-agent/shared';
 import { reviseDesign } from './design-revisions.js';
 const page: DesignPage = { id: 'a', label: 'Design', url: '', kind: 'concept', html: '<p>one</p>', notes: [], createdAt: 1, updatedAt: 1 };
 describe('design history', () => {

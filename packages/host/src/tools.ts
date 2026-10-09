@@ -9,8 +9,8 @@ import {
   writeFileSync,
 } from 'fs';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'path';
-import type { ToolCall, ToolResult, AppSettings, ChatMode } from '@agent-nekko/shared';
-import { classifyCommand } from '@agent-nekko/core';
+import type { ToolCall, ToolResult, AppSettings, ChatMode } from '@nekko-agent/shared';
+import { classifyCommand } from '@nekko-agent/core';
 import { recordOriginal } from './changes.js';
 import { appendAgentTerminal } from './terminal.js';
 import { describeProcess, killProcess, listProcesses, readProcess, startProcess } from './processes.js';

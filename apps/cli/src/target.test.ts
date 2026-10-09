@@ -14,7 +14,7 @@ describe('resolveTarget', () => {
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'nekko-link-'));
-    for (const k of Object.keys(process.env)) if (/^(NEKKO|KOTRAIN|NEKKOS|OPENPAW)_/.test(k)) delete process.env[k];
+    for (const k of Object.keys(process.env)) if (/^NEKKO_/.test(k)) delete process.env[k];
     process.env.NEKKO_DATA_DIR = dir;
   });
   afterEach(() => {
@@ -63,7 +63,7 @@ describe('a link left by an app that is gone', () => {
 
   it('is not a target once its process has exited', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nekko-deadlink-'));
-    for (const k of Object.keys(process.env)) if (/^(NEKKO|KOTRAIN|NEKKOS|OPENPAW)_/.test(k)) delete process.env[k];
+    for (const k of Object.keys(process.env)) if (/^NEKKO_/.test(k)) delete process.env[k];
     process.env.NEKKO_DATA_DIR = dir;
     const write = (pid: number) =>
       writeFileSync(join(dir, 'cli-link.json'), JSON.stringify({ url: 'http://127.0.0.1:1439', token: 't', enabled: true, updatedAt: 1, pid }));

@@ -3,7 +3,7 @@
 // Windows box (RTX 5090). Covers the feature's open live checks: a real Ollama
 // adapter pass (R6) and the discrete-GPU spill path (R5).
 // Usage: node scripts/itest-runtimes.mjs
-import { createHost } from '@agent-nekko/host';
+import { createHost } from '@nekko-agent/host';
 import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

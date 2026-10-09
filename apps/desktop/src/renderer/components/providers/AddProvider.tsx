@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind } from '@agent-nekko/shared';
-import { PROVIDER_DEFAULTS } from '@agent-nekko/shared';
+import type { OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind } from '@nekko-agent/shared';
+import { PROVIDER_DEFAULTS } from '@nekko-agent/shared';
 import { useStore } from '../../store.js';
 import { SubscriptionSignIn } from '../SubscriptionSignIn.js';
 import { ProviderChoices } from './ProviderChoices.js';

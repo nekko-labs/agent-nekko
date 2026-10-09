@@ -1,4 +1,4 @@
-import type { UsageSummary } from '@agent-nekko/shared';
+import type { UsageSummary } from '@nekko-agent/shared';
 
 export const INSIGHT_RANGES = ['today', '1wk', '1m', '6m', '1y', 'all-time'] as const;
 export type InsightRange = typeof INSIGHT_RANGES[number];

@@ -14,7 +14,7 @@
  * can match it exactly. Mirror any change there.
  */
 
-import type { ToolCall, ToolResult } from '@agent-nekko/shared';
+import type { ToolCall, ToolResult } from '@nekko-agent/shared';
 
 /** Recent tool results examined for repeats. */
 export const LOOP_WINDOW = 12;

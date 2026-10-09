@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { AskQuestion } from '@agent-nekko/shared';
-import { isAskComplete } from '@agent-nekko/shared';
+import type { AskQuestion } from '@nekko-agent/shared';
+import { isAskComplete } from '@nekko-agent/shared';
 import { toAnswers, togglePick } from './QuestionCard.js';
 
 const questions: AskQuestion[] = [

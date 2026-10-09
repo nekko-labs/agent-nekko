@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { FileChange } from '@agent-nekko/shared';
+import type { FileChange } from '@nekko-agent/shared';
 import { FileTypeIcon } from '../fileIcons.js';
 
 /**

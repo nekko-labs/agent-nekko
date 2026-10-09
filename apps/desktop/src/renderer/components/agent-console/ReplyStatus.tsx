@@ -1,4 +1,4 @@
-import { formatRate } from '@agent-nekko/shared';
+import { formatRate } from '@nekko-agent/shared';
 import { CheckIcon } from '../../icons.js';
 import { MiniNekko } from '../Mascot.js';
 import { fmtTok } from './transcript.js';

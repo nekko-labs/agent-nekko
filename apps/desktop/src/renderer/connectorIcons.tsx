@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ConnectorKind } from '@agent-nekko/shared';
+import type { ConnectorKind } from '@nekko-agent/shared';
 
 /**
  * Official brand marks for the connectors (single-path logos from Simple Icons,

@@ -12,7 +12,7 @@ vi.mock('./store.js', () => ({ getSettings: () => ({ promptCaching }) }));
 const recordUsage = vi.fn();
 vi.mock('./usage.js', () => ({ recordUsage }));
 const chat = vi.fn();
-vi.mock('@agent-nekko/core', () => ({ createProvider: () => ({ chat }) }));
+vi.mock('@nekko-agent/core', () => ({ createProvider: () => ({ chat }) }));
 
 const { completeText } = await import('./sideband.js');
 
