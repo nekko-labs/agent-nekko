@@ -70,7 +70,17 @@ describe('PR milestones and composer actions', () => {
     expect(markup).toContain('justify-end gap-0');
     expect(markup).toContain('</p></div><div class="flex max-w-[55%]');
   });
-  it.each(['merged', 'closed'] as const)('automatically removes a %s PR from the dock', (state) => {
-    expect(renderToStaticMarkup(<PrActionDock sessionId="s" prs={[{ ...pr, state }]} urls={[url]} />)).toBe('');
+  it.each(['merged', 'closed'] as const)('automatically collapses a %s PR in the dock', (state) => {
+    const markup = renderToStaticMarkup(<PrActionDock sessionId="s" prs={[{ ...pr, state }]} urls={[url]} />);
+    expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain('1 pull request');
+    expect(markup).not.toContain('data-pr-actions');
+  });
+  it('expands mixed statuses while keeping resolved PRs out of actions', () => {
+    const second = { ...pr, url: 'https://github.com/o/r/pull/2', number: 2, state: 'merged' as const };
+    const markup = renderToStaticMarkup(<PrActionDock sessionId="s" prs={[pr, second]} urls={[url, second.url]} />);
+    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).toContain('2 pull requests');
+    expect(markup.match(/data-pr-actions=/g)).toHaveLength(1);
   });
 });
