@@ -1,7 +1,7 @@
 import { anthropicCachePrefix, tokenCount } from './prompt-caching.js';
 import { withToolImages } from './tool-images.js';
 import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@nekko-agent/shared';
-import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels } from '@nekko-agent/shared';
+import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels, parseClaudeModel } from '@nekko-agent/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { parseSSE } from './sse.js';
 import { httpError } from './errors.js';
@@ -26,6 +26,19 @@ const CLAUDE_MODELS: Array<{ id: string; name: string; availability?: ModelAvail
   { id: 'claude-fable-5-1', name: 'Claude Fable 5.1' },
   { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
 ];
+
+/**
+ * Picker order by family, as the shipped list has it. The API lists newest
+ * release first, which would put a new Haiku above Opus; the sort is stable,
+ * so newest-first holds within each family. Ids that aren't a known family go
+ * last.
+ */
+const FAMILY_ORDER = ['opus', 'sonnet', 'fable', 'mythos', 'haiku'];
+
+function familyRank(id: string): number {
+  const family = parseClaudeModel(id)?.family;
+  return family ? FAMILY_ORDER.indexOf(family) : FAMILY_ORDER.length;
+}
 
 /**
  * Subscription (OAuth) requests ride the Claude Code public client. The
@@ -254,6 +267,7 @@ export class AnthropicProvider implements Provider {
       const apiWindow = typeof m.max_input_tokens === 'number' && m.max_input_tokens > 0 ? m.max_input_tokens : undefined;
       return [{ id, providerId: this.config.id, name, contextLength: apiWindow ?? claudeContextWindow(id) ?? 200_000 }];
     });
+    models.sort((a, b) => familyRank(a.id) - familyRank(b.id));
     return models.length ? models : null;
   }
 

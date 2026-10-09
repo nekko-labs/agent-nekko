@@ -145,10 +145,10 @@ describe('the live Claude catalog', () => {
     { type: 'model', display_name: 'no id' },
   ];
 
-  it('serves the models the API lists, in its order', async () => {
+  it('serves the models the API lists', async () => {
     const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(live));
     const models = await new AnthropicProvider(apiKeyCfg).listModels();
-    expect(models.map((m) => m.id)).toEqual(['claude-opus-6', 'claude-opus-5-5', 'claude-labs-x', 'claude-haiku-5-5', 'claude-no-name']);
+    expect(models.map((m) => m.id)).toEqual(['claude-opus-6', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-labs-x', 'claude-no-name']);
     expect(models.every((m) => m.providerId === 'p1')).toBe(true);
 
     const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
@@ -161,13 +161,30 @@ describe('the live Claude catalog', () => {
   it('names each model by its display name, else its id', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(live));
     const models = await new AnthropicProvider(apiKeyCfg).listModels();
-    expect(models.map((m) => m.name)).toEqual(['Claude Opus 6', 'Claude Opus 5.5', 'Claude Labs X', 'Claude Haiku 5.5', 'claude-no-name']);
+    expect(models.map((m) => m.name)).toEqual(['Claude Opus 6', 'Claude Opus 5.5', 'Claude Haiku 5.5', 'Claude Labs X', 'claude-no-name']);
   });
 
   it('takes the context window from the API, then the model table, then 200k', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(live));
     const models = await new AnthropicProvider(apiKeyCfg).listModels();
-    expect(models.map((m) => m.contextLength)).toEqual([1_000_000, 1_000_000, 500_000, 1_000_000, 200_000]);
+    expect(models.map((m) => m.contextLength)).toEqual([1_000_000, 1_000_000, 1_000_000, 500_000, 200_000]);
+  });
+
+  it('groups by family, Opus to Haiku, newest first within each, unknown ids last', async () => {
+    // The API's own order: newest release first, whatever the family.
+    const newestFirst = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-labs-x', 'claude-fable-5-1', 'claude-opus-5', 'claude-mythos-1', 'claude-haiku-4-5-20251001'];
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(newestFirst.map((id) => ({ type: 'model', id }))));
+    const ids = (await new AnthropicProvider(apiKeyCfg).listModels()).map((m) => m.id);
+    expect(ids).toEqual([
+      'claude-opus-5-5',
+      'claude-opus-5',
+      'claude-sonnet-5-5',
+      'claude-fable-5-1',
+      'claude-mythos-1',
+      'claude-haiku-5-5',
+      'claude-haiku-4-5-20251001',
+      'claude-labs-x',
+    ]);
   });
 
   it('asks with the subscription token in subscription mode', async () => {

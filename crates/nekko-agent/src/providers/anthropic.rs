@@ -5,7 +5,10 @@
 //! provider only has to send it the way the endpoint requires.
 
 use super::Io;
-use crate::claude::{SamplingMemory, SamplingShape, anthropic_effort, claude_context_window, next_sampling_shape};
+use crate::claude::{
+    Family, SamplingMemory, SamplingShape, anthropic_effort, claude_context_window, next_sampling_shape,
+    parse_claude_model,
+};
 use crate::http::{HttpRequest, headers};
 use crate::js;
 use crate::sse::SseParser;
@@ -27,6 +30,21 @@ const CLAUDE_MODELS: &[(&str, &str)] = &[
     ("claude-fable-5-1", "Claude Fable 5.1"),
     ("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
 ];
+
+/// Picker order by family, as the shipped list has it. The API lists newest
+/// release first, which would put a new Haiku above Opus; the sort is stable,
+/// so newest-first holds within each family. Ids that aren't a known family go
+/// last.
+fn family_rank(id: &str) -> usize {
+    match parse_claude_model(id).map(|c| c.family) {
+        Some(Family::Opus) => 0,
+        Some(Family::Sonnet) => 1,
+        Some(Family::Fable) => 2,
+        Some(Family::Mythos) => 3,
+        Some(Family::Haiku) => 4,
+        None => 5,
+    }
+}
 
 /// Subscription requests ride the Claude Code public client: the endpoint
 /// requires this beta flag and a first system block that is the Claude Code
@@ -208,7 +226,7 @@ impl AnthropicProvider {
         let text = res.text().await;
         let json: Value = serde_json::from_str(&text).ok()?;
         let rows = json.get("data").and_then(Value::as_array)?;
-        let models: Vec<ModelInfo> = rows
+        let mut models: Vec<ModelInfo> = rows
             .iter()
             .filter_map(|m| {
                 let id = m.get("id").and_then(Value::as_str).filter(|id| !id.is_empty())?;
@@ -223,6 +241,7 @@ impl AnthropicProvider {
                 })
             })
             .collect();
+        models.sort_by_key(|m| family_rank(&m.id));
         (!models.is_empty()).then_some(models)
     }
 

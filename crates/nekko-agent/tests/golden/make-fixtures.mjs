@@ -758,16 +758,17 @@ const models = [
     },
   },
   { name: 'ollama-unreachable', provider: 'ollama', responses: {} },
-  // GET /v1/models: display names, the API's window before the table's, rows without an id dropped.
+  // GET /v1/models: grouped by family (Opus first, stable within one), display names, the API's window
+  // before the table's, rows without an id dropped.
   {
     name: 'anthropic-live',
     provider: 'anthropic',
-    responses: { 'https://api.anthropic.com/v1/models?limit=1000': { status: 200, body: "{\"data\":[{\"type\":\"model\",\"id\":\"claude-opus-6\",\"display_name\":\"Claude Opus 6\",\"created_at\":\"2026-10-01T00:00:00Z\"},{\"type\":\"model\",\"id\":\"claude-haiku-4-5-20251001\",\"display_name\":\"Claude Haiku 4.5\"},{\"type\":\"model\",\"id\":\"claude-haiku-5-5\",\"display_name\":\"Claude Haiku 5.5\",\"max_input_tokens\":1000000},{\"type\":\"model\",\"id\":\"claude-labs-x\",\"display_name\":\"Claude Labs X\",\"max_input_tokens\":500000},{\"type\":\"model\",\"id\":\"claude-no-name\",\"display_name\":\"\"},{\"type\":\"model\",\"display_name\":\"no id\"}],\"has_more\":false}" } },
+    responses: { 'https://api.anthropic.com/v1/models?limit=1000': { status: 200, body: "{\"data\":[{\"type\":\"model\",\"id\":\"claude-haiku-4-5-20251001\",\"display_name\":\"Claude Haiku 4.5\"},{\"type\":\"model\",\"id\":\"claude-haiku-5-5\",\"display_name\":\"Claude Haiku 5.5\",\"max_input_tokens\":1000000},{\"type\":\"model\",\"id\":\"claude-labs-x\",\"display_name\":\"Claude Labs X\",\"max_input_tokens\":500000},{\"type\":\"model\",\"id\":\"claude-no-name\",\"display_name\":\"\"},{\"type\":\"model\",\"display_name\":\"no id\"},{\"type\":\"model\",\"id\":\"claude-opus-6\",\"display_name\":\"Claude Opus 6\",\"created_at\":\"2026-10-01T00:00:00Z\"}],\"has_more\":false}" } },
   },
   {
     name: 'anthropic-sub-live',
     provider: 'anthropic-sub',
-    responses: { 'https://api.anthropic.com/v1/models?limit=1000': { status: 200, body: "{\"data\":[{\"type\":\"model\",\"id\":\"claude-opus-6\",\"display_name\":\"Claude Opus 6\",\"created_at\":\"2026-10-01T00:00:00Z\"},{\"type\":\"model\",\"id\":\"claude-haiku-4-5-20251001\",\"display_name\":\"Claude Haiku 4.5\"},{\"type\":\"model\",\"id\":\"claude-haiku-5-5\",\"display_name\":\"Claude Haiku 5.5\",\"max_input_tokens\":1000000},{\"type\":\"model\",\"id\":\"claude-labs-x\",\"display_name\":\"Claude Labs X\",\"max_input_tokens\":500000},{\"type\":\"model\",\"id\":\"claude-no-name\",\"display_name\":\"\"},{\"type\":\"model\",\"display_name\":\"no id\"}],\"has_more\":false}" } },
+    responses: { 'https://api.anthropic.com/v1/models?limit=1000': { status: 200, body: "{\"data\":[{\"type\":\"model\",\"id\":\"claude-haiku-4-5-20251001\",\"display_name\":\"Claude Haiku 4.5\"},{\"type\":\"model\",\"id\":\"claude-haiku-5-5\",\"display_name\":\"Claude Haiku 5.5\",\"max_input_tokens\":1000000},{\"type\":\"model\",\"id\":\"claude-labs-x\",\"display_name\":\"Claude Labs X\",\"max_input_tokens\":500000},{\"type\":\"model\",\"id\":\"claude-no-name\",\"display_name\":\"\"},{\"type\":\"model\",\"display_name\":\"no id\"},{\"type\":\"model\",\"id\":\"claude-opus-6\",\"display_name\":\"Claude Opus 6\",\"created_at\":\"2026-10-01T00:00:00Z\"}],\"has_more\":false}" } },
   },
   // Every failure serves the shipped list.
   { name: 'anthropic-offline-falls-back', provider: 'anthropic', responses: {} },
