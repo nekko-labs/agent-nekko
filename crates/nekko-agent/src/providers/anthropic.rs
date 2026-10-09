@@ -16,6 +16,7 @@ use crate::stream::{ChunkStream, DecodeClock, Sink, Stop, spawn};
 use crate::types::*;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
+use std::time::Duration;
 
 /// The shipped Claude catalog, served when `GET /v1/models` can't be reached.
 /// Newest first within a family, the previous generation included so a chat
@@ -30,6 +31,11 @@ const CLAUDE_MODELS: &[(&str, &str)] = &[
     ("claude-fable-5-1", "Claude Fable 5.1"),
     ("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
 ];
+
+/// How long the catalog may take, body included, before the shipped list is
+/// served instead. Opening a chat waits on this list, so a stalled connection
+/// must not hold it for the transport's minutes-long idle limit.
+const CATALOG_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Picker order by family, as the shipped list has it. The API lists newest
 /// release first, which would put a new Haiku above Opus; the sort is stable,
@@ -213,17 +219,20 @@ impl AnthropicProvider {
 
     /// The live catalog: `GET {base}/v1/models`, every model this key or
     /// subscription can call, including ones released after this build. One
-    /// page of up to 1000 holds the whole list. None on any failure so the
-    /// caller falls back to the shipped list.
+    /// page of up to 1000 holds the whole list. None on any failure, or after
+    /// `CATALOG_TIMEOUT`, so the caller falls back to the shipped list.
     async fn fetch_catalog(&self) -> Option<Vec<ModelInfo>> {
         self.config.api_key.as_deref().filter(|k| !k.is_empty())?;
         let req = HttpRequest::get(format!("{}/v1/models?limit=1000", self.config.base_url), self.headers());
-        let mut res = self.io.transport.send(&req).await.ok()?;
-        if !res.ok() {
-            return None;
-        }
+        let fetch = async {
+            let mut res = self.io.transport.send(&req).await.ok()?;
+            if !res.ok() {
+                return None;
+            }
+            Some(res.text().await)
+        };
+        let text = tokio::time::timeout(CATALOG_TIMEOUT, fetch).await.ok()??;
 
-        let text = res.text().await;
         let json: Value = serde_json::from_str(&text).ok()?;
         let rows = json.get("data").and_then(Value::as_array)?;
         let mut models: Vec<ModelInfo> = rows

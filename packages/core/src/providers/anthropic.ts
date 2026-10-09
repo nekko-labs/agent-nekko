@@ -35,6 +35,13 @@ const CLAUDE_MODELS: Array<{ id: string; name: string; availability?: ModelAvail
  */
 const FAMILY_ORDER = ['opus', 'sonnet', 'fable', 'mythos', 'haiku'];
 
+/**
+ * How long the catalog may take, body included, before the shipped list is
+ * served instead. Opening a chat waits on this list, so a stalled connection
+ * must not hold it for the transport's minutes-long idle limit.
+ */
+const CATALOG_TIMEOUT_MS = 5_000;
+
 function familyRank(id: string): number {
   const family = parseClaudeModel(id)?.family;
   return family ? FAMILY_ORDER.indexOf(family) : FAMILY_ORDER.length;
@@ -246,19 +253,24 @@ export class AnthropicProvider implements Provider {
   /**
    * The live catalog: `GET {base}/v1/models`, every model this key or
    * subscription can call, including ones released after this build. One page
-   * of up to 1000 holds the whole list. Returns null on any failure so the
-   * caller can fall back to the shipped list.
+   * of up to 1000 holds the whole list. Returns null on any failure, or after
+   * CATALOG_TIMEOUT_MS, so the caller can fall back to the shipped list.
    */
   private async fetchCatalog(): Promise<ModelInfo[] | null> {
     if (!this.config.apiKey) return null;
-    let res: Response;
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), CATALOG_TIMEOUT_MS);
+    let json: any;
     try {
-      res = await fetch(`${this.config.baseUrl}/v1/models?limit=1000`, { headers: this.headers() });
+      const res = await fetch(`${this.config.baseUrl}/v1/models?limit=1000`, { headers: this.headers(), signal: abort.signal });
+      if (!res.ok) return null;
+      json = await res.json().catch(() => null);
     } catch {
       return null;
+    } finally {
+      clearTimeout(timer);
     }
-    if (!res.ok) return null;
-    const json: any = await res.json().catch(() => null);
+
     const rows: any[] = Array.isArray(json?.data) ? json.data : [];
     const models = rows.flatMap((m): ModelInfo[] => {
       const id = typeof m?.id === 'string' ? m.id : '';

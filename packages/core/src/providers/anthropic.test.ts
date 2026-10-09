@@ -197,6 +197,24 @@ describe('the live Claude catalog', () => {
     expect(headers['x-api-key']).toBeUndefined();
   });
 
+  it('gives up after 5 seconds and serves the shipped list', async () => {
+    vi.useFakeTimers();
+    try {
+      // A server that accepts the connection and never answers.
+      vi.spyOn(globalThis, 'fetch').mockImplementation(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          }),
+      );
+      const pending = new AnthropicProvider(apiKeyCfg).listModels();
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect((await pending).map((m) => m.id)).toContain('claude-opus-5-5');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('falls back to the shipped list when offline', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
     const ids = (await new AnthropicProvider(apiKeyCfg).listModels()).map((m) => m.id);
