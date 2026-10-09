@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
-import { RUNTIME_CAPABILITIES, MODEL_PRICING, DEFAULT_LOCAL_COST_BENCHMARK, describeLimitsProblem, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
+import { RUNTIME_CAPABILITIES, MODEL_PRICING, MODEL_COMPARISON_TIERS, MODEL_PRICING_SOURCE, MODEL_PRICING_CHECKED_AT, getModelPrice, DEFAULT_LOCAL_COST_BENCHMARK, describeLimitsProblem, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
 import { DOCK_PANELS, normalizeDockPanelOrder, placeDockPanel, reorderDockPanel, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
@@ -10,14 +10,14 @@ import { InsightsBox, type Vitals } from './InsightsBox.js';
 import { RangeToggles } from './RangeToggles.js';
 import type { InsightRange } from '../insightRanges.js';
 import { useMonitors, useResourceSample } from './ResourceMonitor.js';
-import { BoltIcon, BrainIcon, ServerIcon, GridIcon, ListIcon, GearIcon, CloseIcon, MinimizeIcon } from '../icons.js';
+import { BoltIcon, BrainIcon, ServerIcon, MoneyIcon, ListIcon, GearIcon, CloseIcon, MinimizeIcon } from '../icons.js';
 import './wallDock.css';
 import type { OAuthStatus } from '@agent-nekko/shared';
 import { SubscriptionSignIn } from './SubscriptionSignIn.js';
 import { SUBSCRIPTION_KINDS, reconnectProviderConfig } from './providers/AddProvider.js';
 import { dockMinimizeTransition } from './dockMinimize.js';
 
-const PANEL_ICONS = { vitals: BoltIcon, automations: GearIcon, utilization: ListIcon, budget: GridIcon, insights: BrainIcon, hardware: ServerIcon };
+const PANEL_ICONS = { vitals: BoltIcon, automations: GearIcon, utilization: ListIcon, budget: MoneyIcon, insights: BrainIcon, hardware: ServerIcon };
 
 export interface WallDockProps {
   state: CommandWallState;
@@ -415,7 +415,8 @@ function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage'
   const spend = ranged?.spend;
   const avoided = usage?.avoidedCosts;
   const top = Object.entries(usage?.bySessionCost ?? {}).sort((a, b) => b[1] - a[1])[0];
-  const price = MODEL_PRICING.find(p => p.match === benchmark);
+  const price = getModelPrice(benchmark);
+  const comparedModels = Object.keys(usage?.byModel ?? {}).map(id => ({ id, price: getModelPrice(id) }));
   const changeBenchmark = async (value: string) => {
     setSaving(true); setError(null);
     try {
@@ -440,12 +441,17 @@ function Budget({ usage, now, sessions, providers }: Pick<WallDockProps, 'usage'
       <label className="wall-dock__benchmark">Fallback for unpriced local models
         <select value={benchmark} disabled={saving} onChange={(e) => void changeBenchmark(e.target.value)}>
           <option value="">None (leave unpriced)</option>
-          {MODEL_PRICING.map(p => <option key={p.match} value={p.match}>{p.match} · ${p.input} in / ${p.output} out</option>)}
+          {MODEL_COMPARISON_TIERS.map(tier => <optgroup key={tier.label} label={tier.label}>
+            {tier.models.map(id => { const p = getModelPrice(id); return p && <option key={id} value={id}>{id} · ${p.input} in / ${p.output} out</option>; })}
+          </optgroup>)}
+          <optgroup label="Legacy comparisons">{MODEL_PRICING.filter(p => !MODEL_COMPARISON_TIERS.some(t => (t.models as readonly string[]).includes(p.match))).map(p => <option key={p.match} value={p.match}>{p.match} · ${p.input} in / ${p.output} out</option>)}</optgroup>
         </select>
       </label>
       <p className="wall-dock__note">USD per million tokens. Matched models use their published price; the fallback is a comparison, not the same model.</p>
       {price && <p className="wall-dock__note">Fallback: ${price.input} input / ${price.output} output per 1M tokens.</p>}
-      <p className="wall-dock__note"><a href="https://openrouter.ai/qwen/qwen3-32b" target="_blank" rel="noreferrer">Qwen3 32B: DeepInfra via OpenRouter</a> · checked Oct 6, 2026. <a href="https://platform.claude.com/docs/en/about-claude/pricing" target="_blank" rel="noreferrer">Anthropic prices</a></p>
+      <p className="wall-dock__note"><a href={MODEL_PRICING_SOURCE} target="_blank" rel="noreferrer">OpenRouter pricing catalog</a> · checked {MODEL_PRICING_CHECKED_AT}. <a href="https://ollama.com/pricing" target="_blank" rel="noreferrer">Ollama cloud rates</a></p>
+      <p className="wall-dock__note">Standard text-token estimates, not invoices. Provider routes, long context, tools and batch rates can differ. Tiers are comparison choices, not verified capability rankings. No monthly plan fees are included.</p>
+      {comparedModels.map(({ id, price: p }) => <p className="wall-dock__note" key={id}>{id}: {p ? `${p.input} input / ${p.output} output per 1M${p.modelId ? ' · exact hosted model' : ' · legacy family estimate'}` : 'No published exact price; local usage uses the selected fallback'}</p>)}
       {!!avoided?.benchmarkTokens && <p className="wall-dock__note">{avoided.benchmarkTokens.toLocaleString()} local tokens use the fallback.</p>}
     </details>
     {!!avoided?.unpricedTokens && <p className="wall-dock__note">{avoided.unpricedTokens.toLocaleString()} unpriced tokens excluded from savings.</p>}

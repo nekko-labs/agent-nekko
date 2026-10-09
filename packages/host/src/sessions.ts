@@ -165,7 +165,8 @@ export function deleteSession(id: string): void {
   const file = pathFor(id);
   summaryCache.delete(file);
   if (existsSync(file)) rmSync(file);
-  deleteAgentLog(id);
+  // Legacy synchronous callers observe persistence errors through flushAgentLogs.
+  void deleteAgentLog(id).catch(() => {});
 }
 
 export function setSessionWorkspace(id: string, workspaceId?: string): Session | null {

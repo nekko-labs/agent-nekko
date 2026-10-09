@@ -29,6 +29,11 @@ describe('artifact previews', () => {
     expect(html).not.toContain('<img');
     expect(html).not.toContain('src=');
   });
+  it('recognizes generated artifact links in relative folders and Windows paths', () => {
+    expect(renderToStaticMarkup(<Markdown text="[Download the editable SVG](nekko-designs/autumn-spooky-cat.svg)" basePath="/project" />)).toContain('Open /project/nekko-designs/autumn-spooky-cat.svg');
+    expect(renderToStaticMarkup(<Markdown text="[Art](C:/project/cat.svg)" />)).toContain('Open C:/project/cat.svg');
+    expect(renderToStaticMarkup(<Markdown text="arr[0](x)" />)).not.toContain('<button');
+  });
   it('opens local artifacts but rejects executable and network-share targets', () => {
     expect(renderToStaticMarkup(<Markdown text="[Report](/project/report.md)" />)).toContain('Open /project/report.md');
     for (const path of ['javascript:alert', 'data:text/html,hello', '//server/share']) {

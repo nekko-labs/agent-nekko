@@ -44,6 +44,8 @@ import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
 import { TurnStatsLine } from './agent-console/TurnStatsLine.js';
 import { ComposerQuestion } from './ComposerQuestion.js';
 import { QuestionCard } from './QuestionCard.js';
+import { AgentLogsBubble } from './AgentLogsBubble.js';
+import { StatusIcon, type AgentStatus } from './WorkspaceCard.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
 import { ContextWarning } from './ContextWarning.js';
@@ -513,10 +515,12 @@ function ComposerFocus({ target, sessionId, ready }: { target: React.RefObject<M
   return null;
 }
 
-function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full', statusGlyph, selected, header }: {
+function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCenter = false, surface = 'full', status, selected, header }: {
   sessionId: string;
   /** What the agent is doing (rocket, Zz, ?), drawn in the far bottom-right corner of the window's footer. */
-  statusGlyph?: React.ReactNode;
+  // A value, not an element: ChatPane is memoized, and a fresh <StatusIcon/>
+  // from the wall on every render made every window re-render on every switch.
+  status?: AgentStatus | 'idle';
   commandCenter?: boolean;
   /** On the Agents wall: whether this window is the selected one. Undefined off the wall. */
   selected?: boolean;
@@ -635,6 +639,9 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // caches it), so the header and the card never disagree.
   const git = useGitStatus(session ? `session:${session.id}` : undefined, session?.gitIsolation);
   const [lightbox, setLightbox] = useState<string | null>(null);
+  // The agent's command log, bubbled out of this window (Agents wall).
+  const [logsOpen, setLogsOpen] = useState(false);
+  const chatViewOn = useStore((s) => s.settings?.developer?.chat === true);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
   const [changeCount, setChangeCount] = useState(0);
@@ -1343,6 +1350,21 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       useStore.getState().pushToast('error', 'Pick an image model below the chat first.');
       return;
     }
+    try {
+      const [runtime, setup] = await Promise.all([
+        window.nekko.engineStatus(),
+        window.nekko.engineImageCompanions(params.modelId),
+      ]);
+      if (!runtime.diffusionInstall?.binPath || (setup && !setup.ready)) {
+        useStore.getState().pushToast('info', !runtime.diffusionInstall?.binPath
+          ? 'Install the image generator using the setup button below. Your prompt is kept here.'
+          : 'This model needs supporting files before it can create images. Click Finish image setup below. Your prompt is kept here.');
+        return;
+      }
+    } catch {
+      useStore.getState().pushToast('error', 'Could not check image setup. Try again or open Nekko Server.');
+      return;
+    }
     if (fromDraft) { setDraft(''); clearDraft(sessionId); }
     beginTurn();
     setSession((prev) => prev ? { ...prev, messages: [...prev.messages, { id: 'tmp', role: 'user', content: prompt, createdAt: Date.now() }] } : prev);
@@ -2049,7 +2071,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   );
 
   return (
-    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-session-id={sessionId} data-chat-surface={surface} className="flex h-full min-h-0 min-w-0 overflow-hidden">
+    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable], [data-agent-logs]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-session-id={sessionId} data-chat-surface={surface} className="relative flex h-full min-h-0 min-w-0 overflow-hidden">
       {contextChangeNotice && <Modal title="Context on your next reply" zIndex={100} overlayClassName="p-4" className="w-full max-w-md rounded-xl border border-line bg-surface p-5 text-ink shadow-xl" onClose={closeContextNotice}>
             <h2 className="font-semibold">Context on your next reply</h2>
             <p className="mt-3 text-sm text-ink-soft">Your selection is saved. Changing the model or effort does not send a request now or change an already-running reply. The next reply sends the assembled chat context again, as ordinary follow-up replies do.</p>
@@ -2084,9 +2106,16 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             <button
               className="btn btn-ghost shrink-0 px-2 py-1 text-[11px]"
               aria-label="Open agent logs"
+              aria-expanded={commandCenter ? logsOpen : undefined}
               disabled={session?.executionMode === 'sandbox'}
-              onClick={() => { if (session?.executionMode !== 'sandbox') useStore.getState().openTerminalPane(`agent_${sessionId}`); }}
-              title="Open the agent's command log in a terminal window"
+              // On the Agents wall the log bubbles out of this window; the Chat
+              // view's workbench keeps opening it as a window beside the chat.
+              onClick={() => {
+                if (session?.executionMode === 'sandbox') return;
+                if (commandCenter) setLogsOpen((o) => !o);
+                else useStore.getState().openTerminalPane(`agent_${sessionId}`);
+              }}
+              title="Open the agent's command log"
             >
               {compact ? <TerminalIcon className="h-4 w-4" /> : 'Logs'}
             </button>
@@ -2815,17 +2844,26 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
                 {session?.executionMode === 'sandbox' ? <span className="text-[11px] text-ink-faint">MCP unavailable in Sandbox</span> : <McpMenu />}
               </>}
               <InternetToggle session={session} cloudModel={isCloudModel} onToggle={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }} />
-              {statusGlyph && <span className="agent-footer-status ml-1 inline-flex items-center" data-agent-status>{statusGlyph}</span>}
+              {status && <span className="agent-footer-status ml-1 inline-flex items-center" data-agent-status><StatusIcon status={status === 'idle' ? undefined : status} /></span>}
             </div>
           </div>}
           {/* An image chat runs no agent, so no tools or internet switch: just its status. */}
-          {imageMode && surface !== 'composer' && statusGlyph && <div className="flex items-center justify-end"><span className="agent-footer-status inline-flex items-center" data-agent-status>{statusGlyph}</span></div>}
+          {imageMode && surface !== 'composer' && status && <div className="flex items-center justify-end"><span className="agent-footer-status inline-flex items-center" data-agent-status><StatusIcon status={status === 'idle' ? undefined : status} /></span></div>}
         </div>
       </section>
 
       {/* The work rail, in the quarter the transcript gives back. Kept inside
           the chat pane (not the workbench's right panel) because everything in
           it belongs to this one conversation. */}
+      {logsOpen && surface !== 'composer' && (
+        <AgentLogsBubble
+          sessionId={sessionId}
+          title={session?.title || 'this chat'}
+          onClose={() => setLogsOpen(false)}
+          onPopOut={chatViewOn ? () => { setLogsOpen(false); useStore.getState().openTerminalPane(`agent_${sessionId}`); } : undefined}
+        />
+      )}
+
       {surface !== 'composer' && planRailOpen && (
         <div className="shrink-0" style={{ width: PLAN_RAIL_WIDTH }}>
           <PlanRail

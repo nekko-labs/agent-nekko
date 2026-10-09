@@ -105,8 +105,8 @@ it('sums all historical subscription records and caches without filtering dates 
   record('gpt-6-astra', { sessionId: 'new', auth: 'subscription', outputTokens: 100_000 });
   record('gpt-6-sol', { auth: 'subscription' });
   const summary = usageSummary();
-  expect(summary.avoidedCosts?.subscription).toBeCloseTo(18.2);
-  expect(summary.avoidedCosts?.unpricedTokens).toBe(2_000_000);
+  expect(summary.avoidedCosts?.subscription).toBeCloseTo(30.2);
+  expect(summary.avoidedCosts?.unpricedTokens).toBe(0);
   expect(summary.totalCost).toBe(0);
-  expect(Object.values(summary.bySessionAvoidedCosts ?? {}).reduce((sum, v) => sum + v.subscription, 0)).toBeCloseTo(18.2);
+  expect(Object.values(summary.bySessionAvoidedCosts ?? {}).reduce((sum, v) => sum + v.subscription, 0)).toBeCloseTo(30.2);
 });

@@ -263,6 +263,13 @@ interface UiState {
   openHypergatePane: () => void;
   /** Route text to a chat's composer, Add to prompt (run=false) or Run now (run=true). */
   sendToChat: (text: string, run: boolean) => Promise<void>;
+  /**
+   * Arm a skill as the usage chip in the active chat's composer (opening or
+   * creating a chat first), exactly as picking it from the `/` menu does. The
+   * draft is left alone. A goal skill has no chip, so it goes through
+   * `sendToChat` as `/goal ` text like before.
+   */
+  attachSkillToChat: (skill: SkillDef) => Promise<void>;
   /** Open the diff/approve review for a session's changed files. */
   openDiffPane: (sessionId: string) => void;
 
@@ -344,11 +351,14 @@ function locatePane(
  * panel and the sidebar card follow what you just clicked.
  */
 function focusPane(s: UiState, workspaceId: string, paneId: string): Partial<UiState> {
-  const pane = findPane(s.workspaces.find((w) => w.id === workspaceId)?.root ?? null, paneId);
+  const workspace = s.workspaces.find((w) => w.id === workspaceId);
+  const pane = findPane(workspace?.root ?? null, paneId);
   return {
     view: 'chat' as View,
     activeWorkspaceId: workspaceId,
-    workspaces: s.workspaces.map((w) => (w.id === workspaceId ? { ...w, activePaneId: paneId } : w)),
+    // Returning to the workspace's selected pane changes visibility, not layout.
+    workspaces: workspace?.activePaneId === paneId ? s.workspaces
+      : s.workspaces.map((w) => (w.id === workspaceId ? { ...w, activePaneId: paneId } : w)),
     activeSessionId: pane?.kind === 'chat' ? pane.refId : s.activeSessionId,
   };
 }
@@ -441,6 +451,20 @@ function updateWorkspace(s: UiState, id: string, fn: (w: Workspace) => Workspace
 function defaultChatFolder(state: UiState): string | undefined {
   const id = state.activeProjectId;
   return id && (!state.settingsLoaded || state.settings?.workspaces.some((w) => w.id === id)) ? id : undefined;
+}
+
+/** Target the active chat, creating one if there isn't a usable session, and show it. */
+async function openUsableChat(get: () => UiState, set: (p: Partial<UiState>) => void): Promise<string> {
+  let sid = get().activeSessionId;
+  if (!sid || !get().sessions.some((s) => s.id === sid)) {
+    const s = await window.nekko.createSession(defaultChatFolder(get()));
+    await get().refreshSessions();
+    sid = s.id;
+    set({ activeSessionId: sid });
+  }
+  set({ view: 'chat' });
+  get().openChatPane(sid);
+  return sid;
 }
 
 export const useStore = create<UiState>((set, get) => ({
@@ -834,17 +858,14 @@ export const useStore = create<UiState>((set, get) => ({
   },
 
   sendToChat: async (text, run) => {
-    // Target the active chat; create one if there isn't a usable session.
-    let sid = get().activeSessionId;
-    if (!sid || !get().sessions.some((s) => s.id === sid)) {
-      const s = await window.nekko.createSession(defaultChatFolder(get()));
-      await get().refreshSessions();
-      sid = s.id;
-      set({ activeSessionId: sid });
-    }
-    set({ view: 'chat' });
-    get().openChatPane(sid);
+    const sid = await openUsableChat(get, set);
     set({ composerInbox: { sessionId: sid, text, run } });
+  },
+
+  attachSkillToChat: async (skill) => {
+    if (skill.kind === 'goal') return get().sendToChat(skill.template, false);
+    const sid = await openUsableChat(get, set);
+    get().setActiveSkill(sid, skill);
   },
 
   refreshSessionPrs: async (sessionId) => {

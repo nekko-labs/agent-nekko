@@ -1,0 +1,51 @@
+[
+  {
+    "name": "midnight gap",
+    "timezone": "America/Sao_Paulo",
+    "nowMs": 1541343600000,
+    "scope": "today",
+    "expectedMs": 1541300400000
+  },
+  {
+    "name": "repeated midnight first occurrence",
+    "timezone": "America/Havana",
+    "nowMs": 1604205000000,
+    "scope": "today",
+    "expectedMs": 1604203200000
+  },
+  {
+    "name": "repeated midnight second occurrence",
+    "timezone": "America/Havana",
+    "nowMs": 1604208600000,
+    "scope": "today",
+    "expectedMs": 1604203200000
+  },
+  {
+    "name": "month retains gap-adjusted hour",
+    "timezone": "America/Sao_Paulo",
+    "nowMs": 1541343600000,
+    "scope": "month",
+    "expectedMs": 1541044800000
+  },
+  {
+    "name": "month first-day gap",
+    "timezone": "America/Havana",
+    "nowMs": 1334505600000,
+    "scope": "month",
+    "expectedMs": 1333256400000
+  },
+  {
+    "name": "month repeated first day",
+    "timezone": "America/Havana",
+    "nowMs": 1605459600000,
+    "scope": "month",
+    "expectedMs": 1604203200000
+  },
+  {
+    "name": "skipped calendar day month order",
+    "timezone": "Pacific/Apia",
+    "nowMs": 1325246400000,
+    "scope": "month",
+    "expectedMs": 1322733600000
+  }
+]

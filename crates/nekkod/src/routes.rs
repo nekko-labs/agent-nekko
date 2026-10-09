@@ -141,7 +141,7 @@ pub async fn route(ctx: &Ctx, channel: &str, args: Vec<Value>) -> Result<Value, 
         "mcp:call" => Ok(ctx.mcp.call(arg(&args, 0)).await),
         "provider:complete" => crate::sideband::complete(arg(&args, 0)).await,
         c if SESSION_CHANNELS.contains(&c) && ctx.sessions.is_some() => {
-            session_op(ctx.sessions.clone().expect("checked"), channel, args).await
+            session_op(ctx.sessions.clone().expect("checked"), ctx.backend.clone(), channel, args).await
         }
         _ => {
             if let Some(r) = crate::engine::route(&ctx.engine, channel, &args).await {
@@ -175,6 +175,7 @@ pub const OWNED: &[&str] = &[
     "mcp:call",
     "sessions:summaries",
     "sessions:list",
+    "sessions:clear",
     "session:get",
     "session:images",
     "session:create",
@@ -334,11 +335,11 @@ pub fn forward_terminal_events(ctx: &Ctx) {
 }
 
 /// The channels `nekko-store` serves when the daemon knows the data dir.
-/// Clearing chats by date and everything a running turn writes stay with the
-/// TS host (the agent loop moves later, PF14).
+/// Running-turn checkpoints still stay with the TS host (PF14).
 const SESSION_CHANNELS: &[&str] = &[
     "sessions:summaries",
     "sessions:list",
+    "sessions:clear",
     "session:get",
     "session:images",
     "session:create",
@@ -355,18 +356,29 @@ const SESSION_CHANNELS: &[&str] = &[
 
 /// Session reads and the UI's own writes, off the async threads: a listing
 /// reads every changed chat file, and one image chat can be tens of megabytes.
-async fn session_op(store: Arc<nekko_store::SessionStore>, channel: &str, args: Vec<Value>) -> Result<Value, String> {
+async fn session_op(
+    store: Arc<nekko_store::SessionStore>,
+    backend: Arc<Backend>,
+    channel: &str,
+    args: Vec<Value>,
+) -> Result<Value, String> {
     let channel = channel.to_string();
+    let runtime = tokio::runtime::Handle::current();
     tokio::task::spawn_blocking(move || {
         let id = str_arg(&args, 0).unwrap_or_default();
+        let delete_log = |id: &str| runtime.block_on(backend.call("sessions:deleteAgentLog", json!([id]))).map(|_| ());
         let or_null = |r: Result<Option<Value>, String>| r.map(|v| v.unwrap_or(Value::Null));
         match channel.as_str() {
             "sessions:summaries" => Ok(Value::Array(store.summaries())),
             "sessions:list" => Ok(Value::Array(store.list())),
+            "sessions:clear" => store.clear_with(id, delete_log).map(|n| json!(n)),
             "session:get" => Ok(store.get(id).unwrap_or(Value::Null)),
             "session:images" => Ok(Value::Array(store.images(id, arg(&args, 1).as_f64().unwrap_or(1.0)))),
             "session:create" => store.create(str_arg(&args, 0)),
-            "session:delete" => store.delete(id).map(|()| Value::Null),
+            "session:delete" => {
+                delete_log(id)?;
+                store.delete(id).map(|()| Value::Null)
+            }
             "session:setOptions" => {
                 if arg(&args, 1).get("executionMode").is_some() || arg(&args, 1).get("sandbox").is_some() {
                     return Err("Execution mode changes require the host setup route".into());

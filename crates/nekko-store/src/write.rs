@@ -91,6 +91,45 @@ fn write_atomic(file: &Path, text: &str) -> std::io::Result<()> {
     }
 }
 
+// Inject the timezone for deterministic parity tests without process-global TZ.
+fn clear_cutoff<T: chrono::TimeZone>(zone: &T, now_ms: i64, scope: &str) -> f64 {
+    use chrono::Datelike;
+    let now = zone.timestamp_millis_opt(now_ms).single().unwrap();
+    let today = resolve_local(zone, now.date_naive().and_hms_opt(0, 0, 0).unwrap());
+    // JS resolves setHours first, then setDate retains the resolved clock.
+    let boundary = if scope == "month" { today.naive_local().with_day(1).unwrap() } else { today.naive_local() };
+    resolve_local(zone, boundary).timestamp_millis() as f64
+}
+
+fn resolve_local<T: chrono::TimeZone>(zone: &T, local: chrono::NaiveDateTime) -> chrono::DateTime<T> {
+    use chrono::Offset;
+    if let Some(time) = zone.from_local_datetime(&local).earliest() {
+        return time;
+    }
+    // Date shifts by the gap duration, rather than rounding to its end.
+    let mut before = local;
+    let before_offset = loop {
+        before -= chrono::Duration::minutes(1);
+        if let Some(time) = zone.from_local_datetime(&before).earliest() {
+            break time.offset().fix().local_minus_utc();
+        }
+    };
+    let mut after = local;
+    let after_offset = loop {
+        after += chrono::Duration::minutes(1);
+        if let Some(time) = zone.from_local_datetime(&after).earliest() {
+            break time.offset().fix().local_minus_utc();
+        }
+    };
+    zone.from_local_datetime(&(local + chrono::Duration::seconds(i64::from(after_offset - before_offset))))
+        .earliest()
+        .unwrap()
+}
+
+#[cfg(test)]
+#[path = "../tests/timezone/cutoff.rs"]
+mod timezone_cutoff;
+
 impl SessionStore {
     fn path(&self, id: &str) -> std::path::PathBuf {
         self.dir.join(format!("{id}.json"))
@@ -148,6 +187,58 @@ impl SessionStore {
             Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
             _ => Ok(()),
         }
+    }
+
+    /// `clearSessions`: local calendar boundaries, inclusive on updatedAt.
+    pub fn clear(&self, scope: &str) -> Result<usize, String> {
+        self.clear_with(scope, |_| Ok(()))
+    }
+
+    /// Coordinate host-owned sidecars before removing selected sessions.
+    pub fn clear_with(&self, scope: &str, before_delete: impl Fn(&str) -> Result<(), String>) -> Result<usize, String> {
+        let cutoff = clear_cutoff(&chrono::Local, chrono::Local::now().timestamp_millis(), scope);
+        self.clear_since_with(scope == "all", cutoff, before_delete)
+    }
+
+    /// Explicit cutoff for parity fixtures; production computes it locally.
+    pub fn clear_since(&self, all: bool, cutoff: f64) -> Result<usize, String> {
+        self.clear_since_with(all, cutoff, |_| Ok(()))
+    }
+
+    fn clear_since_with(
+        &self,
+        all: bool,
+        cutoff: f64,
+        before_delete: impl Fn(&str) -> Result<(), String>,
+    ) -> Result<usize, String> {
+        let _guard = self.writes.lock().unwrap_or_else(|e| e.into_inner());
+        let mut count = 0;
+        for session in self.list() {
+            let updated = js::to_number(session.get("updatedAt"));
+            if !all
+                && !matches!(
+                    updated.partial_cmp(&cutoff),
+                    Some(std::cmp::Ordering::Equal | std::cmp::Ordering::Greater)
+                )
+            {
+                continue;
+            }
+            let id = session
+                .get("id")
+                .and_then(Value::as_str)
+                .filter(|id| valid_id(id))
+                .ok_or("a session without a valid id")?;
+            before_delete(id)?;
+            let file = self.path(id);
+            match std::fs::remove_file(&file) {
+                Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e.to_string()),
+                _ => {}
+            }
+            self.cache.lock().unwrap_or_else(|e| e.into_inner()).remove(&file);
+
+            count += 1;
+        }
+        Ok(count)
     }
 
     /// `setSessionOptions`.

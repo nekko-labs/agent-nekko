@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { discoverExternalSkills, MAX_SKILL_BYTES, parseSkillMarkdown } from './external-skills';
+import { discoverExternalSkills, MAX_SKILL_BYTES } from './external-skills';
 
 let root: string;
 let home: string;
@@ -27,21 +27,6 @@ beforeEach(() => {
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
-
-describe('parseSkillMarkdown', () => {
-  it('reads plain, quoted and folded frontmatter values', () => {
-    const parsed = parseSkillMarkdown(
-      '---\nname: "pdf"\ndescription: >\n  Work with PDFs.\n  Use for forms.\nlicense: MIT\nmetadata:\n  name: nested\n---\n# PDF\nBody',
-    );
-    expect(parsed.name).toBe('pdf');
-    expect(parsed.description).toBe('Work with PDFs. Use for forms.');
-    expect(parsed.body).toBe('# PDF\nBody');
-  });
-
-  it('treats a file without frontmatter as body only', () => {
-    expect(parseSkillMarkdown('Just instructions')).toEqual({ body: 'Just instructions' });
-  });
-});
 
 describe('discoverExternalSkills', () => {
   it('finds skills from every tool folder and records where they came from', () => {

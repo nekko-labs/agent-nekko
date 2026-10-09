@@ -53,13 +53,15 @@ export async function readAgentLog(sessionId: string, maxBytes: number): Promise
 }
 
 /** Queue removal after existing writes so deletion cannot recreate the sidecar. */
-export function deleteAgentLog(sessionId: string): void {
+export async function deleteAgentLog(sessionId: string): Promise<void> {
   const path = agentLogPath(sessionId);
   removed.add(path);
   enqueue(path, async () => {
     await unlink(path).catch(error => { if (error.code !== 'ENOENT') throw error; });
     failures.delete(path);
   });
+  await pending.get(path);
+  if (failures.has(path)) throw failures.get(path);
 }
 
 /** Explicit drain for graceful shutdown and deterministic persistence checks. */

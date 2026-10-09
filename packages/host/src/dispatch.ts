@@ -1,5 +1,6 @@
 import { IpcChannels } from '@agent-nekko/shared';
 import type { Host } from './host.js';
+import { deleteAgentLog } from './agent-log.js';
 
 /**
  * Maps an IPC channel + positional args to the matching Host method. Shared by
@@ -52,6 +53,8 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     'loop:end': ([runId, payload]) => host.loopEnd(String(runId), payload as never),
     'loop:approve': ([runId, call, reason, severity]) => host.loopApprove(String(runId), call as never, String(reason), severity as never),
     'loop:log': ([sessionId, workspaceId, data]) => host.loopLog(String(sessionId), (workspaceId as string | null) ?? undefined, String(data)),
+    // Internal daemon callback, using the host queue and deletion tombstone.
+    'sessions:deleteAgentLog': ([id]) => deleteAgentLog(String(id)),
     'changes:notify': ([sessionId]) => host.changesNotify(String(sessionId)),
     'engine:routerModels': () => host.engineRouterModels(),
     'engine:routerModel': ([id]) => host.engineRouterModel(String(id)),

@@ -8,6 +8,10 @@ repository.workspace = true
 publish.workspace = true
 
 [dependencies]
+chrono = { version = "0.4.45", default-features = false, features = ["clock"] }
 getrandom.workspace = true
 nekko-js = { path = "../nekko-js" }
 serde_json.workspace = true
+
+[dev-dependencies]
+chrono-tz = "0.10"

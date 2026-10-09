@@ -500,7 +500,7 @@ export function WallToolbar({
   }, []);
 
   const controls = (
-    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${slot ? 'wall-toolbar-titlebar no-drag' : ''}`} data-wall-toolbar>
+    <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${slot ? 'wall-toolbar-titlebar' : ''}`} data-wall-toolbar>
       {!hasAppChrome && <h1 className="text-gradient text-2xl font-semibold">Agents</h1>}
       <div className={`ml-auto flex flex-wrap items-center ${slot ? 'gap-2' : 'gap-3'}`}>
 

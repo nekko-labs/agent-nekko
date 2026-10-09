@@ -55,7 +55,10 @@ fn fake_backend() {
                                 (axum::http::StatusCode::OK, axum::Json(session))
                             },
                             "settings:get" => (axum::http::StatusCode::OK, axum::Json(json!({ "workspaces": [] }))),
-                            "loop:end" => {
+                            "sessions:deleteAgentLog" if body.0["args"][0] == "callback_fail" => {
+                                (axum::http::StatusCode::BAD_REQUEST, axum::Json(json!({ "error": "command log unlink failed" })))
+                            }
+                            "sessions:deleteAgentLog" | "loop:end" => {
                                 recorded.lock().unwrap().push(body.0["args"].clone());
                                 (axum::http::StatusCode::OK, axum::Json(Value::Null))
                             }
@@ -210,6 +213,9 @@ async fn forwards_unported_channels_and_serves_owned_ones() {
     let (status, body) = post(d.port, "sessions:list", json!([1, "two"]), Some(TOKEN)).await;
     assert_eq!(status, 200);
     assert_eq!(body, json!({ "echo": "sessions:list", "args": [1, "two"] }));
+    let (status, body) = post(d.port, "sessions:clear", json!(["month"]), Some(TOKEN)).await;
+    assert_eq!(status, 200);
+    assert_eq!(body, json!({ "echo": "sessions:clear", "args": ["month"] }));
 
     let (status, body) = post(d.port, "fail:please", json!([]), Some(TOKEN)).await;
     assert_eq!(status, 400);
@@ -536,9 +542,51 @@ async fn serves_session_reads_from_disk_when_it_knows_the_data_dir() {
     post(d.port, "session:delete", json!([new_id]), Some(TOKEN)).await;
     let (_, gone) = post(d.port, "session:get", json!([new_id]), Some(TOKEN)).await;
     assert_eq!(gone, Value::Null);
-    // Clearing by date is still the backend's.
+    // Clearing is owned by the daemon, not echoed by the backend.
+    let (_, fresh) = post(d.port, "session:create", json!([]), Some(TOKEN)).await;
     let (_, cleared) = post(d.port, "sessions:clear", json!(["today"]), Some(TOKEN)).await;
-    assert_eq!(cleared["echo"], "sessions:clear");
+    assert_eq!(cleared, json!(1));
+    assert!(!sessions.join(format!("{}.json", fresh["id"].as_str().unwrap())).exists());
+    let (_, cleared) = post(d.port, "sessions:clear", json!(["all"]), Some(TOKEN)).await;
+    assert_eq!(cleared, json!(1));
+    assert!(!sessions.join("s_one.json").exists());
+    let (_, callbacks) = post(d.port, "test:completions", json!([]), Some(TOKEN)).await;
+    assert_eq!(callbacks, json!([[new_id], [fresh["id"]], ["s_one"]]));
     drop(d);
     std::fs::remove_dir_all(data).ok();
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn failed_log_callback_retains_json_for_delete_and_clear() {
+    assert_log_callback_failure_retains_json(true).await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn disabled_backend_retains_json_for_delete_and_clear() {
+    assert_log_callback_failure_retains_json(false).await;
+}
+
+async fn assert_log_callback_failure_retains_json(with_backend: bool) {
+    let data = std::env::temp_dir().join(format!("nekkod-retention-{}-{with_backend}", std::process::id()));
+    let sessions = data.join("sessions");
+    std::fs::create_dir_all(&sessions).unwrap();
+    let path = sessions.join("callback_fail.json");
+    let bytes = serde_json::to_vec_pretty(&json!({
+        "id": "callback_fail", "title": "Keep me", "updatedAt": 5, "messages": []
+    }))
+    .unwrap();
+    std::fs::write(&path, &bytes).unwrap();
+    let d = start_with(with_backend, Some(&data));
+    for (channel, args) in [("session:delete", json!(["callback_fail"])), ("sessions:clear", json!(["all"]))] {
+        let (status, body) = post(d.port, channel, args, Some(TOKEN)).await;
+        assert_eq!(status, 400, "{channel}: {body}");
+        let expected = if with_backend { "command log unlink failed" } else { "no backend is configured" };
+        assert!(body["error"].as_str().unwrap().contains(expected), "{body}");
+        assert_eq!(std::fs::read(&path).unwrap(), bytes, "{channel} must retain unchanged JSON");
+        let (status, got) = post(d.port, "session:get", json!(["callback_fail"]), Some(TOKEN)).await;
+        assert_eq!(status, 200);
+        assert_eq!(got["title"], "Keep me");
+    }
+    drop(d);
+    std::fs::remove_dir_all(data).unwrap();
 }

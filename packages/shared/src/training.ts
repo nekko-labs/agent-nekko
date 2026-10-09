@@ -331,8 +331,8 @@ export interface PlanUpdateResult {
  * share — goal-run plans on a TrainingRun and the live `agentPlan` on an
  * ordinary chat session.
  *
- * `replace` (or having no plan yet) writes the list wholesale; otherwise steps
- * upsert by id, falling back to a case-insensitive title match so the model
+ * `replace` rewrites unfinished scope while retaining done/skipped history;
+ * otherwise steps upsert by id, falling back to a case-insensitive title match so the model
  * can update a step whose id it forgot. Titles cap at 160 chars, notes at 240,
  * and unknown statuses are ignored rather than rejected.
  */
@@ -347,7 +347,10 @@ export function applyPlanUpdate(
   const now = Date.now();
   const hadPlan = (current ?? []).length > 0;
   const replace = input.replace === true || !hadPlan;
-  const next: PlanStep[] = replace ? [] : [...(current ?? [])];
+  // Re-planning can replace unfinished scope, never the conversation's settled history.
+  const next: PlanStep[] = (current ?? [])
+    .filter((step) => !replace || step.status === 'done' || step.status === 'skipped')
+    .map((step) => ({ ...step }));
   const finished: PlanStep[] = [];
   const skippedNow: PlanStep[] = [];
 
@@ -364,17 +367,19 @@ export function applyPlanUpdate(
       : undefined;
     const note = typeof r.note === 'string' && r.note.trim() ? r.note.trim().slice(0, 240) : undefined;
     let step = id ? next.find((s) => s.id === id) : undefined;
-    if (!step && !replace && title) step = next.find((s) => s.title.toLowerCase() === title.toLowerCase());
+    // A fresh plan often starts numbering at step_1 again. Do not rename history.
+    if (replace && step && title && step.title.toLowerCase() !== title.toLowerCase()) step = undefined;
+    if (!step && title) step = next.find((s) => s.title.toLowerCase() === title.toLowerCase());
     if (step) {
       const was = step.status;
       if (title) step.title = title;
-      if (status) step.status = status;
+      if (status && !(replace && (was === 'done' || was === 'skipped'))) step.status = status;
       if (note) step.note = note;
       step.updatedAt = now;
-      if (status === 'done' && was !== 'done') finished.push(step);
-      else if (status === 'skipped' && was !== 'skipped') skippedNow.push(step);
+      if (step.status === 'done' && was !== 'done') finished.push(step);
+      else if (step.status === 'skipped' && was !== 'skipped') skippedNow.push(step);
     } else if (title) {
-      next.push({ id: id || freshId(), title, status: status ?? 'pending', note, createdAt: now, updatedAt: now });
+      next.push({ id: id && !next.some((s) => s.id === id) ? id : freshId(), title, status: status ?? 'pending', note, createdAt: now, updatedAt: now });
     }
   }
   if (!next.length) return { error: 'The plan cannot be empty; pass the full step list.' };

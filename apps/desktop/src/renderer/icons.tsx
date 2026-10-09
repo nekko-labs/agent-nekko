@@ -21,6 +21,9 @@ const S = (props: { children: React.ReactNode } & P) => (
   </svg>
 );
 
+export const MoneyIcon = (p: P) => (
+  <S {...p}><rect x="2" y="5" width="20" height="14" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M6 9h.01M18 15h.01" /></S>
+);
 export const ChatIcon = (p: P) => (
   <S {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></S>
 );

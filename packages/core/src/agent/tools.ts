@@ -289,7 +289,7 @@ export const UPDATE_PLAN_TOOL: ToolSpec = {
   parameters: {
     type: 'object',
     properties: {
-      replace: { type: 'boolean', description: 'Replace the whole plan with `steps` (initial plan or a re-plan).' },
+      replace: { type: 'boolean', description: 'Replace unfinished scope with `steps`, preserving done/skipped history. For later requests, upsert existing steps and append only genuinely new work.' },
       steps: {
         type: 'array',
         description: 'Plan steps, in execution order when replace=true.',

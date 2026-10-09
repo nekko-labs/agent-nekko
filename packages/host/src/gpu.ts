@@ -22,7 +22,7 @@ import { queryLlamaDevices, type RunText } from './gpu-vulkan.js';
  */
 
 let cache: { at: number; stats: GpuStats | null } | null = null;
-const TTL_MS = 2500;
+const TTL_MS = 1000;
 let inFlight: Promise<GpuStats | null> | null = null;
 
 export async function getGpuStats(): Promise<GpuStats | null> {

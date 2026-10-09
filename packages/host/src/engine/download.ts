@@ -29,6 +29,11 @@ export interface DownloadRequest {
   url: string;
   /** Final path. The transfer writes `<dest>.part` until it succeeds. */
   dest: string;
+  /** See `DownloadJob.group`: jobs sharing one are shown as a single download. */
+  group?: string;
+  groupLabel?: string;
+  file?: string;
+  role?: string;
   headers?: Record<string, string>;
   /**
    * Check the bytes before they are accepted, given the `.part` path. Return a
@@ -107,6 +112,9 @@ export function createDownloads(deps: DownloadsDeps = {}) {
       label: req.label,
       target: req.target,
       dest: req.dest,
+      ...(req.group ? { group: req.group, groupLabel: req.groupLabel } : {}),
+      ...(req.file ? { file: req.file } : {}),
+      ...(req.role ? { role: req.role } : {}),
       state: 'queued',
       receivedBytes: 0,
       startedAt: Date.now(),
