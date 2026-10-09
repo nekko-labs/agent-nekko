@@ -1,4 +1,4 @@
-import type { ChatMessage, EffortLevel, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import type { ChatMessage, EffortLevel, ModelInfo, ProviderConfig, ToolCall } from '@nekko-agent/shared';
 
 /** A tool the model may call, in a provider-neutral shape. */
 export interface ToolSpec {

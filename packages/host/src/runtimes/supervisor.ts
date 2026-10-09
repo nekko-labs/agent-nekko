@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'child_process';
-import type { StopResult } from '@agent-nekko/shared';
+import type { StopResult } from '@nekko-agent/shared';
 import { stopLocalServer } from '../servers.js';
 
 /**
@@ -53,7 +53,7 @@ export function createSupervisor(deps: SupervisorDeps) {
   const spawnFn = deps.spawnFn ?? spawn;
   const now = deps.now ?? Date.now;
 
-  // Quitting Agent Nekko must not leave orphaned model servers holding VRAM.
+  // Quitting Nekko Agent must not leave orphaned model servers holding VRAM.
   const killAll = () => {
     for (const { child } of owned.values()) {
       try {
@@ -156,7 +156,7 @@ export function createSupervisor(deps: SupervisorDeps) {
       return {
         ok: false,
         message:
-          'This server was not started by Agent Nekko. Stopping it means ending a process something else may be using.',
+          'This server was not started by Nekko Agent. Stopping it means ending a process something else may be using.',
         needsConfirmation: true,
         processName: baseUrl,
       };

@@ -1,7 +1,7 @@
 /**
  * Vaizer skills integration: an optional connection to the public Agent Skills
  * marketplace at github.com/nekko-labs/vaizer (browsable at vaizer.app/skills).
- * Vaizer is a separate app; Agent Nekko only reads its machine-readable catalog and
+ * Vaizer is a separate app; Nekko Agent only reads its machine-readable catalog and
  * installs skills the user explicitly picks.
  *
  * Offline-first: the marketplace shelf renders from the bundled snapshot
@@ -10,7 +10,6 @@
  * the real, current instructions are installed).
  *
  * (Until 2026-08-02 these skills lived in a separate repo,
- * `nekko-labs/nekko-dojo-skills`, and the shelf was labelled "Kotrain Dojo".)
  */
 
 import type { MarketplaceSkill } from './skills-market.js';
@@ -143,7 +142,7 @@ export const VAIZER_SNAPSHOT: VaizerCatalog = {
   ],
 };
 
-/** Map Vaizer's free-form category onto Agent Nekko's skill categories. */
+/** Map Vaizer's free-form category onto Nekko Agent's skill categories. */
 export function vaizerCategory(cat: string): SkillCategory {
   const c = cat.toLowerCase();
   if (/research|planning|naming|brainstorm|career|resume|job/.test(c)) return 'Research & planning';

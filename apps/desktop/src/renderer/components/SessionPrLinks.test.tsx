@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { PrInfo } from '@agent-nekko/shared';
+import type { PrInfo } from '@nekko-agent/shared';
 import { MAX_INLINE_PRS, SessionPrLinks, prTone } from './SessionPrLinks.js';
 
 const pr = (number: number, state: PrInfo['state'] = 'open', isDraft = false) =>

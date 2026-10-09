@@ -8,7 +8,7 @@ import type {
   RuntimeStatus,
   StartOptions,
   StopResult,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 
 /**
  * One interface over three quite different servers.

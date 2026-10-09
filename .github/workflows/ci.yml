@@ -22,8 +22,8 @@ jobs:
       - run: npm ci
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-      # Build every workspace first: the cloud test suite imports @agent-nekko/host,
-      # and @agent-nekko/server imports the CLI package, so their dists must exist
+      # Build every workspace first: the cloud test suite imports @nekko-agent/host,
+      # and @nekko-agent/server imports the CLI package, so their dists must exist
       # before `npm test` / typecheck run.
       - run: npm run build:web
       - uses: dtolnay/rust-toolchain@stable
@@ -61,7 +61,7 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
       - run: npm run build:core
       - name: Session clearing and command-log callback parity
-        run: npm run test -w @agent-nekko/host -- src/session-clear.golden.test.ts src/session-clear.timezone.test.ts src/session-log-callback.test.ts src/session-clear.daemon.test.ts
+        run: npm run test -w @nekko-agent/host -- src/session-clear.golden.test.ts src/session-clear.timezone.test.ts src/session-log-callback.test.ts src/session-clear.daemon.test.ts
 
   capture:
     strategy:
@@ -77,9 +77,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:core
-      - run: npm run build -w @agent-nekko/host
+      - run: npm run build -w @nekko-agent/host
       - name: Grid model selection and mode-menu regressions
-        run: npm run test:grid-bugs -w @agent-nekko/desktop
+        run: npm run test:grid-bugs -w @nekko-agent/desktop
       - name: Grouped Agents sidebar regressions
         run: node apps/desktop/scripts/agent-sidebar-integration.cjs
       - name: Hidden owned-window screenshots

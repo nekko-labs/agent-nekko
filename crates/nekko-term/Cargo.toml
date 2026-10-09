@@ -1,6 +1,6 @@
 [package]
 name = "nekko-term"
-description = "Pseudo-terminal sessions for the Agent Nekko engine daemon: ring-buffer scrollback, frame-coalesced output and acknowledgement flow control."
+description = "Pseudo-terminal sessions for the Nekko Agent engine daemon: ring-buffer scrollback, frame-coalesced output and acknowledgement flow control."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

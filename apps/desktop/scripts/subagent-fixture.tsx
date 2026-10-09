@@ -5,7 +5,7 @@ import { putCachedSession, __resetSessionCache } from '../src/renderer/sessionCa
 import { CommandCenterView } from '../src/renderer/views/CommandCenterView';
 import { WorkspacesView } from '../src/renderer/views/WorkspacesView';
 import { DEFAULT_WALL_STATE } from '../src/renderer/commandWall';
-import { summarizeSession } from '@agent-nekko/shared';
+import { summarizeSession } from '@nekko-agent/shared';
 import '../src/renderer/styles.css';
 
 // Synthetic records only. This fixture never connects to a host or daemon.

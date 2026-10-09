@@ -4,7 +4,7 @@ import {
   orchestrationPromptHint,
   ORCHESTRATION_STRATEGIES,
   DEFAULT_ORCHESTRATION,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 
 describe('getStrategy', () => {
   it('falls back to balanced for unknown/undefined ids', () => {

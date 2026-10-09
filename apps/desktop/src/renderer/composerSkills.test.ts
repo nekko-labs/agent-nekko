@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SKILLS, type SkillDef } from '@agent-nekko/shared';
+import { SKILLS, type SkillDef } from '@nekko-agent/shared';
 import { draftAfterSkillSelection } from './composerSkills.js';
 
 const plan = SKILLS.find((skill) => skill.name === 'plan')!;

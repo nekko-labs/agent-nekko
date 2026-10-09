@@ -4,7 +4,7 @@ import type {
   GuardrailMatch,
   GuardrailAction,
   GuardrailSeverity,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { DEFAULT_GUARDRAILS } from './rules.js';
 
 const ACTION_RANK: Record<GuardrailAction, number> = { allow: 0, ask: 1, deny: 2 };

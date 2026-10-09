@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { PrInfo } from '@agent-nekko/shared';
+import type { PrInfo } from '@nekko-agent/shared';
 
 /**
  * The PRs a chat made, as links on its sidebar card: one `#123` per PR, up to

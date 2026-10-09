@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { DEFAULT_GUARDRAILS, promptCachingEnabled } from '@agent-nekko/shared';
-import type { AppSettings, ChatMode, ChatWorktreeInfo, GuardrailRule, GuardrailAction, HookEvent, HookRule, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@agent-nekko/shared';
+import { DEFAULT_GUARDRAILS, promptCachingEnabled } from '@nekko-agent/shared';
+import type { AppSettings, ChatMode, ChatWorktreeInfo, GuardrailRule, GuardrailAction, HookEvent, HookRule, McpServerStatus, SandboxMode, TerminalRenderer, UpdateCheckSettings } from '@nekko-agent/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
 import { UpdateProgress, useUpdater } from '../components/UpdateBanner.js';
 import { ThemePresetPicker } from '../components/ThemePresetPicker.js';
-import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION, updateChecks, DEFAULT_TURN_WRAPPER } from '@agent-nekko/shared';
+import { DEFAULT_SPEC_METHODOLOGY, SPEC_METHODOLOGIES, ORCHESTRATION_STRATEGIES, DEFAULT_ORCHESTRATION, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_RANGE, clampMaxOutputTokens, ONBOARDING_VERSION, updateChecks, DEFAULT_TURN_WRAPPER } from '@nekko-agent/shared';
 import { ShieldIcon, SunIcon, TrashIcon, RobotIcon, WandIcon } from '../icons.js';
 import { VoiceSettings } from '../components/VoiceSettings.js';
 import { RemoteAccess } from '../components/RemoteAccess.js';
@@ -146,7 +146,7 @@ export function SettingsView() {
         {/* Sandbox */}
         <section className="card mt-5 p-5">
           <div className="flex items-center gap-2"><ShieldIcon className="h-4 w-4" /><h2 className="font-semibold">{tr('settings.sandbox')}</h2></div>
-          <p className="mt-1 text-[12px] text-ink-faint">How Agent Nekko is allowed to touch your machine.</p>
+          <p className="mt-1 text-[12px] text-ink-faint">How Nekko Agent is allowed to touch your machine.</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {SANDBOX_OPTS.map((o) => (
               <button key={o.value} onClick={() => update({ sandboxMode: o.value })} className={`card p-3 text-left ${settings.sandboxMode === o.value ? 'border-accent' : ''}`}>
@@ -311,7 +311,7 @@ export function SettingsView() {
         {/* Data & privacy */}
         <DataSection onSettings={(s) => { setSettings(s); useStore.setState({ settings: s }); applyTheme(); }} />
 
-        <p className="mt-6 text-center text-[11px] text-ink-faint">Agent Nekko · open source · MIT</p>
+        <p className="mt-6 text-center text-[11px] text-ink-faint">Nekko Agent · open source · MIT</p>
       </div>
     </div>
   );
@@ -345,7 +345,7 @@ function AgentLoopSection({ settings, update }: { settings: AppSettings; update:
     <section className="card mt-5 p-5">
       <div className="flex items-center gap-2"><RobotIcon className="h-4 w-4" /><h2 className="font-semibold">Agent loop</h2></div>
       <p className="mt-1 text-[12px] text-ink-faint">
-        Agent Nekko keeps working until the task is finished or you press Stop. Loop detection catches repeated tool
+        Nekko Agent keeps working until the task is finished or you press Stop. Loop detection catches repeated tool
         calls and error streaks; output safeguards remain active.
       </p>
       <div className="mt-3 flex min-h-[40px] items-center justify-between gap-3">
@@ -513,7 +513,7 @@ function BackupSection({ settings, onSettings }: { settings: AppSettings; onSett
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'agent-nekko-settings.json';
+    a.download = 'nekko-agent-settings.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -584,7 +584,7 @@ function DataSection({ onSettings }: { onSettings: (s: AppSettings) => void }) {
 
   const wipe = async () => {
     if (!window.confirm('Delete EVERYTHING, all chats, settings, memory, and usage? This cannot be undone.')) return;
-    if (!window.confirm('Are you absolutely sure? This wipes all Agent Nekko data.')) return;
+    if (!window.confirm('Are you absolutely sure? This wipes all Nekko Agent data.')) return;
     setBusy(true);
     const s = await window.nekko.wipeAllData();
     onSettings(s);
@@ -720,7 +720,7 @@ function McpSection({
               <p className="text-[11.5px] text-ink-faint">
                 {connected
                   ? `Connected${hypergate.agent ? ` as ${hypergate.agent}` : ''}. Every server it manages is one entry here, and its tools are in every chat.`
-                  : 'One click registers Agent Nekko with it, adds the gateway below, and opens Hypergate as a tab in this window.'}
+                  : 'One click registers Nekko Agent with it, adds the gateway below, and opens Hypergate as a tab in this window.'}
               </p>
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap">
@@ -1116,7 +1116,7 @@ function UpdatesSection({ settings, update }: { settings: AppSettings; update: (
     <section className="card mt-5 p-5">
       <div className="flex items-center gap-2"><SunIcon className="h-4 w-4" /><h2 className="font-semibold">Updates</h2></div>
       <p className="mt-1 text-[12px] text-ink-faint">
-        {info ? `Agent Nekko ${info.version} · ${info.edition} edition` : ' '}
+        {info ? `Nekko Agent ${info.version} · ${info.edition} edition` : ' '}
       </p>
       <div className="mt-3 flex min-h-[40px] items-center justify-between">
         <div>

@@ -1,5 +1,5 @@
-import type { ProviderConfig, ProviderPool, Session, SubscriptionLimits } from '@agent-nekko/shared';
-import { isChatModel, isLocalProvider, modelTier, pickAutoModel, resolveModelAvailability, windowCoversModel } from '@agent-nekko/shared';
+import type { ProviderConfig, ProviderPool, Session, SubscriptionLimits } from '@nekko-agent/shared';
+import { isChatModel, isLocalProvider, modelTier, pickAutoModel, resolveModelAvailability, windowCoversModel } from '@nekko-agent/shared';
 
 /** CP6 foundation only: callers must supply verified model lists, not guessed IDs.
  * No discovery, polling, credentials, or provider calls occur in this module.

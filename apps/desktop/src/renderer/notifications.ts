@@ -13,8 +13,8 @@
  * it to the event stream and the Notification API.
  */
 
-import type { AgentEvent } from '@agent-nekko/shared';
-import { summarizeAsk } from '@agent-nekko/shared';
+import type { AgentEvent } from '@nekko-agent/shared';
+import { summarizeAsk } from '@nekko-agent/shared';
 import { useStore } from './store.js';
 
 export interface NotificationContext {
@@ -52,7 +52,7 @@ export function decideNotification(event: AgentEvent, ctx: NotificationContext):
       if (STOPS.has(event.message.trim())) return null;
       return { sessionId: event.sessionId, kind: 'failed', title: 'Reply failed', body: `${chat}: ${event.message.slice(0, 120)}` };
     case 'question':
-      return { sessionId: event.sessionId, kind: 'question', title: 'Agent Nekko has a question', body: `${chat}: ${summarizeAsk(event.request).slice(0, 120)}` };
+      return { sessionId: event.sessionId, kind: 'question', title: 'Nekko Agent has a question', body: `${chat}: ${summarizeAsk(event.request).slice(0, 120)}` };
     case 'tool_approval_required':
       return { sessionId: event.sessionId, kind: 'approval', title: 'Approval needed', body: `${chat}: ${event.reason || event.call.name}` };
     default:

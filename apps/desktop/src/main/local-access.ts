@@ -1,14 +1,14 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { App } from 'electron';
-import { defaultUserDataDir, type Host } from '@agent-nekko/host';
-import { brandEnv, withApiServerDefaults, type SubagentTarget } from '@agent-nekko/shared';
+import { defaultUserDataDir, type Host } from '@nekko-agent/host';
+import { brandEnv, withApiServerDefaults, type SubagentTarget } from '@nekko-agent/shared';
 import { apiServerStatus, ensureApiServerToken, syncApiServer } from './api-server.js';
 import { cliInstallStatus, installCli, writeCliLink } from './cli-install.js';
 
 /**
  * Everything that makes "installed the app" mean "the CLI and the MCP entries
- * already work": the local API server, the `agent-nekko` launcher on PATH, the
+ * already work": the local API server, the `nekko-agent` launcher on PATH, the
  * link file the CLI reads, and the MCP entries other agent tools hold.
  *
  * Kept in one place because the four go stale together. Rolling the token or
@@ -47,7 +47,7 @@ export function subagentTarget(app: AppLike, host: Host): SubagentTarget {
 
 /**
  * Bring the link file and the already-installed MCP entries in line with the
- * current server settings. Only tools that already carry an agent-nekko entry
+ * current server settings. Only tools that already carry a nekko-agent entry
  * are touched, and of those only the ones this app wrote: installing into a
  * new tool is the user's call (onboarding or the Add button), and an entry
  * someone wrote by hand is theirs; keeping our own working is ours.

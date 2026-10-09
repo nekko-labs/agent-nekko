@@ -9,7 +9,7 @@ import {
   verifyHello,
   type PairingGrant,
   type RemoteDevice,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 
 const NOW = 1_700_000_000_000;
 

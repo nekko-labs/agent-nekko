@@ -1,7 +1,7 @@
 /** Host-side subscription-limits capture and polling service. */
 
 import { EventEmitter } from 'node:events';
-import type { LimitWindow, LimitsProblem, OAuthProvider, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
+import type { LimitWindow, LimitsProblem, OAuthProvider, ProviderConfig, ProviderKind, SubscriptionLimits } from '@nekko-agent/shared';
 import { getToken, ensureFreshToken } from './oauth.js';
 import { getSettings } from './store.js';
 import { recordQuotaHistory } from './quota-history.js';

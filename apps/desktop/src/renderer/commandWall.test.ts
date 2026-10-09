@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { PendingInput, SessionSummary, TerminalInfo } from '@agent-nekko/shared';
+import type { PendingInput, SessionSummary, TerminalInfo } from '@nekko-agent/shared';
 import { allPanes, extent, isSplit, type WbPane } from './layout.js';
 import {
   DEFAULT_AGENT_PANEL,

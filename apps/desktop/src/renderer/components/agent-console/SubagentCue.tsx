@@ -1,5 +1,5 @@
 import { BranchIcon, RobotIcon } from '../../icons.js';
-import { truncateWords, type ToolCall } from '@agent-nekko/shared';
+import { truncateWords, type ToolCall } from '@nekko-agent/shared';
 
 export function subagentSummary(call: ToolCall): string {
   const task = typeof call.input.task === 'string' ? call.input.task.replace(/\s+/g, ' ').trim() : '';

@@ -6,7 +6,7 @@ members = ["crates/*"]
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-repository = "https://github.com/nekko-labs/agent-nekko"
+repository = "https://github.com/nekko-labs/nekko-agent"
 publish = false
 
 [workspace.dependencies]

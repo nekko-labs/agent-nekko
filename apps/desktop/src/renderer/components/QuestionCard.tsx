@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { AskAnswer, AskQuestion, AskRequest } from '@agent-nekko/shared';
-import { ASK_OTHER_LABEL, isAskComplete } from '@agent-nekko/shared';
+import type { AskAnswer, AskQuestion, AskRequest } from '@nekko-agent/shared';
+import { ASK_OTHER_LABEL, isAskComplete } from '@nekko-agent/shared';
 
 /**
  * The agent's question, asked one at a time.

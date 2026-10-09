@@ -1,5 +1,5 @@
 /**
- * Parsing the `agent-nekko://` URLs other apps use to reach this one.
+ * Parsing the `nekko-agent://` URLs other apps use to reach this one.
  *
  * Kept apart from the component that acts on them because this is the security
  * boundary: the URL is the only part of the exchange another program controls,
@@ -12,10 +12,10 @@
 export const DEFAULT_HYPERGATE_PORT = 7777;
 
 /** Schemes that reach this app. */
-export const LINK_SCHEMES = ['agent-nekko'] as const;
+export const LINK_SCHEMES = ['nekko-agent'] as const;
 
 /**
- * The port in an `agent-nekko://hypergate/connect` link, or null if the URL is
+ * The port in an `nekko-agent://hypergate/connect` link, or null if the URL is
  * not one. A link with no `port` means the default, which is what Hypergate
  * emits when it is running where it always runs.
  */
@@ -27,7 +27,7 @@ export function hypergateConnectPort(url: string): number | null {
     return null;
   }
   if (!LINK_SCHEMES.some((scheme) => parsed.protocol === `${scheme}:`)) return null;
-  // `agent-nekko://hypergate/connect` parses with "hypergate" as the host.
+  // `nekko-agent://hypergate/connect` parses with "hypergate" as the host.
   if (parsed.host !== 'hypergate' || parsed.pathname.replace(/\/+$/, '') !== '/connect') return null;
   const raw = parsed.searchParams.get('port');
   if (raw === null) return DEFAULT_HYPERGATE_PORT;

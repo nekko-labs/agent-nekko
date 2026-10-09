@@ -1,5 +1,5 @@
 //! The provider-neutral shapes: what a caller asks for and what a provider
-//! streams back. Ports of `@agent-nekko/shared` (`models.ts`, `chat.ts`) and
+//! streams back. Ports of `@nekko-agent/shared` (`models.ts`, `chat.ts`) and
 //! `packages/core/src/providers/types.ts`, with the same JSON field names, so a
 //! config or a transcript the TS host wrote deserializes as it is.
 
@@ -19,7 +19,7 @@ pub enum ProviderKind {
     Ollama,
     Lmstudio,
     Vllm,
-    /// The engine Agent Nekko runs itself (llama.cpp behind its own router).
+    /// The engine Nekko Agent runs itself (llama.cpp behind its own router).
     Llamacpp,
     OpenaiCompat,
 }

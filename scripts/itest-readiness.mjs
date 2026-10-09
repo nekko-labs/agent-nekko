@@ -1,7 +1,7 @@
 // Live check for the AN9b machine-readiness advisor on real hardware: gathers
 // MachineFacts through the host probes and evaluates this machine against the
 // curated offline-stack catalog. Usage: node scripts/itest-readiness.mjs
-import { createHost } from '@agent-nekko/host';
+import { createHost } from '@nekko-agent/host';
 import { mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';

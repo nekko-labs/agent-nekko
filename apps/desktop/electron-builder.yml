@@ -1,10 +1,10 @@
-appId: dev.nekkolabs.agentnekko
-productName: Agent Nekko
-# electron-builder 26 derives this from the npm package name (@agent-nekko/desktop
-# → "@agent-nekkodesktop") and then rejects the @ as unsafe, so pin it. Spelled
-# without the space in "Agent Nekko" on purpose: this is the on-disk binary
+appId: dev.nekkolabs.nekkoagent
+productName: Nekko Agent
+# electron-builder 26 derives this from the npm package name (@nekko-agent/desktop
+# → "@nekko-agentdesktop") and then rejects the @ as unsafe, so pin it. Spelled
+# without the space in "Nekko Agent" on purpose: this is the on-disk binary
 # name, and artifactName below matches it so download URLs need no escaping.
-executableName: AgentNekko
+executableName: NekkoAgent
 copyright: Copyright © 2026 Nekko Labs
 afterPack: scripts/after-pack.cjs
 directories:
@@ -16,12 +16,12 @@ files:
   - package.json
 # @lydell/node-pty ships a native .node binary that must live outside the asar
 # archive so it can be dlopen'd at runtime (and its prebuilt platform package).
-# The agent-nekko CLI, bundled as one CommonJS file (apps/cli/scripts/bundle-app.mjs)
+# The nekko-agent CLI, bundled as one CommonJS file (apps/cli/scripts/bundle-app.mjs)
 # and run by this app's own Electron binary, so installing the app installs the
 # CLI with no Node or npm. main/cli-install.ts links it onto PATH on first run.
 extraResources:
-  - from: ../cli/app-dist/agent-nekko-cli.cjs
-    to: cli/agent-nekko-cli.cjs
+  - from: ../cli/app-dist/nekko-agent-cli.cjs
+    to: cli/nekko-agent-cli.cjs
   # The engine daemon (crates/nekkod), built and staged by scripts/stage-daemon.mjs.
   # main/engine-process.ts starts it from <resources>/bin.
   - from: resources/bin
@@ -34,17 +34,17 @@ extraMetadata:
 # macOS resolves URL schemes from Info.plist, so setAsDefaultProtocolClient in
 # main is not enough for a packaged build.
 protocols:
-  - name: Agent Nekko
+  - name: Nekko Agent
     schemes:
-      - agent-nekko
+      - nekko-agent
 publish:
   provider: github
   owner: nekko-labs
-  repo: agent-nekko
+  repo: nekko-agent
 win:
   target:
     - nsis
-  artifactName: AgentNekko-${version}-${arch}.${ext}
+  artifactName: NekkoAgent-${version}-${arch}.${ext}
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
@@ -55,7 +55,7 @@ nsis:
   # Add/Remove Programs + Start Menu uninstall entry, with a Start Menu folder.
   menuCategory: true
   createStartMenuShortcut: true
-  uninstallDisplayName: Agent Nekko
+  uninstallDisplayName: Nekko Agent
   # Custom uninstall hook lives at build/installer.nsh, electron-builder picks
   # it up automatically (its customUnInstall macro offers to remove user data).
 msi:
@@ -65,7 +65,7 @@ mac:
     - dmg
     - zip
   category: public.app-category.developer-tools
-  artifactName: AgentNekko-${version}-${arch}.${ext}
+  artifactName: NekkoAgent-${version}-${arch}.${ext}
   # Developer ID signing + notarization. electron-builder signs when CSC_LINK
   # and CSC_KEY_PASSWORD are in the environment, and skips signing entirely
   # when they are not — in which case the afterPack hook ad-hoc signs instead
@@ -82,14 +82,14 @@ mac:
   extendInfo:
     # Required for the QR pairing scanner (QrScanner.tsx → getUserMedia).
     # Without it macOS kills the process instead of prompting.
-    NSCameraUsageDescription: Agent Nekko uses the camera to scan the pairing QR code shown by the Agent Nekko mobile app.
+    NSCameraUsageDescription: Nekko Agent uses the camera to scan the pairing QR code shown by the Nekko Agent mobile app.
 linux:
   target:
     - AppImage
     - deb
   category: Development
   syncDesktopName: true
-  artifactName: AgentNekko-${version}-${arch}.${ext}
+  artifactName: NekkoAgent-${version}-${arch}.${ext}
 deb:
   # Replace this GitHub noreply fallback when the project publishes a mailbox.
   maintainer: Nekko Labs <nekko-labs@users.noreply.github.com>

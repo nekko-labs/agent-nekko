@@ -1,5 +1,5 @@
 import { withToolImages } from './tool-images.js';
-import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import type { ModelInfo, ProviderConfig, ToolCall } from '@nekko-agent/shared';
 import { httpError } from './errors.js';
 import { readWithIdle } from './sse.js';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';

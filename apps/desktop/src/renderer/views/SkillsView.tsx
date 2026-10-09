@@ -22,7 +22,7 @@ import {
   type InstallTarget,
   type SkillOrigin,
   normalizeInstallTarget,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { StarIcon, SendIcon } from '../icons.js';
@@ -105,14 +105,14 @@ function OriginChip({ origin }: { origin?: SkillOrigin }) {
     <span
       className="shrink-0 rounded-full px-1.5 py-0 text-[9px]"
       style={{ background: 'var(--surface-2)', color: 'var(--ink-soft)' }}
-      title={`Read from ${origin.dir}. Agent Nekko never edits or removes these files.`}
+      title={`Read from ${origin.dir}. Nekko Agent never edits or removes these files.`}
     >
       {ORIGIN_TOOL_LABEL[origin.tool]} · {origin.scope}
     </span>
   );
 }
 
-/** Built-in skills, marketplace skills installed into Agent Nekko, and skills imported read-only from other tools. */
+/** Built-in skills, marketplace skills installed into Nekko Agent, and skills imported read-only from other tools. */
 function LibraryTab() {
   const { attachSkillToChat, installedSkillDefs } = useStore(useShallow((s) => ({ attachSkillToChat: s.attachSkillToChat, installedSkillDefs: s.installedSkillDefs })));
   const [query, setQuery] = useState('');
@@ -339,7 +339,7 @@ function MarketplaceTab() {
       hint: 'Skills you added, and where they live',
       items: [...installedBySkill.keys()].map(resolve).filter((s): s is MarketplaceSkill => !!s).filter(matches),
     },
-    { key: 'agent-nekko', title: 'Nekko Labs', hint: 'First-party skills we maintain', items: NEKKO_SKILLS.filter(matches) },
+    { key: 'nekko-agent', title: 'Nekko Labs', hint: 'First-party skills we maintain', items: NEKKO_SKILLS.filter(matches) },
     { key: 'vaizer', title: 'Vaizer', hint: 'The public skills hub, official + community', items: vaizerSkills.filter(matches) },
     { key: 'popular', title: 'Popular online', hint: 'Ranked by public stars/installs', items: popular.filter(matches) },
   ];
@@ -390,7 +390,7 @@ function MarketplaceTab() {
         <div className="p-4">
           <h1 className="text-lg font-semibold text-gradient">Marketplace</h1>
           <p className="mt-0.5 text-[12px] text-ink-faint">
-            Install skills into Agent Nekko, or export them to Claude Code / Codex.
+            Install skills into Nekko Agent, or export them to Claude Code / Codex.
           </p>
           <input
             className="input mt-3"
@@ -520,13 +520,13 @@ function MarketplaceTab() {
                   </div>
                 )}
               </div>
-              {selectedInstalls.some((r) => normalizeInstallTarget(r.target) === 'agent-nekko') && (
+              {selectedInstalls.some((r) => normalizeInstallTarget(r.target) === 'nekko-agent') && (
                 <button
                   className="btn btn-primary shrink-0 gap-1.5"
                   // Prefer the installed snapshot: a Vaizer install carries the
                   // SKILL.md it was installed with, the shelf entry does not.
                   onClick={() => {
-                    const rec = selectedInstalls.find((r) => normalizeInstallTarget(r.target) === 'agent-nekko');
+                    const rec = selectedInstalls.find((r) => normalizeInstallTarget(r.target) === 'nekko-agent');
                     attachSkillToChat(marketToSkillDef(rec?.skill ?? selected));
                   }}
                   title="Attach this skill to the chat composer"

@@ -82,7 +82,7 @@ export function WizardShell({
       className="absolute inset-0 z-50 flex flex-col bg-paper"
       role="dialog"
       aria-modal="true"
-      aria-label="Agent Nekko setup"
+      aria-label="Nekko Agent setup"
       onKeyDown={handleKey}
     >
       {/* Header: step dots centered, Skip setup tucked in the trailing corner. */}

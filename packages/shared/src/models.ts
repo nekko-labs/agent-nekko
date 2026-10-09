@@ -10,7 +10,7 @@ export type ProviderKind =
   | 'ollama'
   | 'lmstudio'
   | 'vllm'
-  /** The engine Agent Nekko runs itself (llama.cpp behind its own router). */
+  /** The engine Nekko Agent runs itself (llama.cpp behind its own router). */
   | 'llamacpp'
   | 'openai-compat';
 
@@ -170,7 +170,7 @@ export const PROVIDER_DEFAULTS: Record<ProviderKind, { baseUrl: string; needsKey
   ollama: { baseUrl: 'http://localhost:11434', needsKey: false, label: 'Ollama' },
   lmstudio: { baseUrl: 'http://localhost:1234/v1', needsKey: false, label: 'LM Studio' },
   vllm: { baseUrl: 'http://localhost:8000/v1', needsKey: false, label: 'vLLM' },
-  llamacpp: { baseUrl: `http://127.0.0.1:${ENGINE_PORT_DEFAULT}/v1`, needsKey: false, label: 'Agent Nekko engine' },
+  llamacpp: { baseUrl: `http://127.0.0.1:${ENGINE_PORT_DEFAULT}/v1`, needsKey: false, label: 'Nekko Agent engine' },
   'openai-compat': { baseUrl: 'http://localhost:8080/v1', needsKey: false, label: 'OpenAI-compatible' },
 };
 

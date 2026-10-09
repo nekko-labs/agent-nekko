@@ -17,7 +17,7 @@ describe('session capability contract', () => {
   for (const policy of ['ask', 'guardrails', 'yolo'] as const) {
     it(`${policy} never falls back to the host or controls host apps`, () => {
       expect(evaluateCapability(context(policy, { runtimeReady: false }), 'tool:read_file').action).toBe('deny');
-      for (const app of ['app:agent-nekko', 'app:notepad'] as const) {
+      for (const app of ['app:nekko-agent', 'app:notepad'] as const) {
         expect(evaluateCapability(context(policy, { granted: new Set([app]) }), app).action).toBe('deny');
       }
     });
@@ -39,7 +39,7 @@ describe('session capability contract', () => {
   });
 
   it('requires a connection in Normal, even for YOLO and self-control', () => {
-    expect(evaluateCapability(context('yolo', { environment: 'normal' }), 'app:agent-nekko').action).toBe('request');
-    expect(evaluateCapability(context('yolo', { environment: 'normal', connected: new Set(['app:agent-nekko']) }), 'app:agent-nekko').action).toBe('allow');
+    expect(evaluateCapability(context('yolo', { environment: 'normal' }), 'app:nekko-agent').action).toBe('request');
+    expect(evaluateCapability(context('yolo', { environment: 'normal', connected: new Set(['app:nekko-agent']) }), 'app:nekko-agent').action).toBe('allow');
   });
 });

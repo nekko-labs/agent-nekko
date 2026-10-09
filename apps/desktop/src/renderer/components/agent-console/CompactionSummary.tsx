@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { ChatMessage } from '@agent-nekko/shared';
+import type { ChatMessage } from '@nekko-agent/shared';
 import { Markdown } from '../Markdown.js';
 import { ChevronIcon } from '../../icons.js';
 

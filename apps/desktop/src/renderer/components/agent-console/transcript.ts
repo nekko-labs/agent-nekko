@@ -1,4 +1,4 @@
-import type { ChatMessage, ToolCall, ToolResult, PrInfo, PrState } from '@agent-nekko/shared';
+import type { ChatMessage, ToolCall, ToolResult, PrInfo, PrState } from '@nekko-agent/shared';
 
 /**
  * Pure transcript model for the agent console: how a raw message list folds
@@ -94,7 +94,7 @@ export type TranscriptRow =
   /** A compaction summary: a divider under the turns it replaced, then the summary. */
   | { key: string; kind: 'compaction'; message: ChatMessage; latest: boolean; gapAfter?: number }
   /** A reply's stats when its last message was folded into working steps. */
-  | { key: string; kind: 'stats'; stats: import('@agent-nekko/shared').TurnStats; gapAfter?: number };
+  | { key: string; kind: 'stats'; stats: import('@nekko-agent/shared').TurnStats; gapAfter?: number };
 
 /**
  * Fold a transcript into rows with PR discovery and resolution milestones.

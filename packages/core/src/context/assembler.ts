@@ -1,5 +1,5 @@
-import { estimateTokens, historyText } from '@agent-nekko/shared';
-import type { ContextBundle, ContextItem, HistoryMessage, MemoryEntry } from '@agent-nekko/shared';
+import { estimateTokens, historyText } from '@nekko-agent/shared';
+import type { ContextBundle, ContextItem, HistoryMessage, MemoryEntry } from '@nekko-agent/shared';
 
 export type { HistoryMessage };
 
@@ -89,7 +89,7 @@ export function assembleContext(input: AssembleInput): ContextBundle {
       id: 'system:base',
       source: 'system',
       label: 'System prompt',
-      origin: 'Agent Nekko',
+      origin: 'Nekko Agent',
       tokens: estimateTokens(input.systemText),
       pinned: false,
       included: true,

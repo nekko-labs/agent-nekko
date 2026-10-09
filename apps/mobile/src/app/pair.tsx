@@ -14,7 +14,7 @@ import { radius, space, usePalette } from '@/ui/theme';
 
 /**
  * Pair with a computer: scan the QR from Settings → Remote access, or paste
- * the link. Opening an `agent-nekko-pair:` link from the camera app lands here
+ * the link. Opening an `nekko-agent-pair:` link from the camera app lands here
  * too, with the link prefilled.
  */
 export default function PairScreen() {
@@ -81,7 +81,7 @@ export default function PairScreen() {
                 <Icon name="qr" size={36} color={p.accent} />
                 <T variant="small" tone="soft" style={{ textAlign: 'center' }}>
                   {permission?.canAskAgain === false
-                    ? 'Camera access is off for Agent Nekko. Turn it on in Settings, or paste the link below.'
+                    ? 'Camera access is off for Nekko Agent. Turn it on in Settings, or paste the link below.'
                     : 'Scan the pairing QR shown on your computer.'}
                 </T>
                 {permission?.canAskAgain !== false ? <Button label="Allow camera" onPress={() => void requestPermission()} /> : null}
@@ -94,7 +94,7 @@ export default function PairScreen() {
         {!busy ? (
           <>
             <T variant="small" tone="soft">
-              On your computer: Agent Nekko → Settings → Remote access → Pair a device. {canScan ? 'Or copy the link and paste it here:' : 'Copy the pairing link and paste it here:'}
+              On your computer: Nekko Agent → Settings → Remote access → Pair a device. {canScan ? 'Or copy the link and paste it here:' : 'Copy the pairing link and paste it here:'}
             </T>
             <TextInput
               value={text}
@@ -102,7 +102,7 @@ export default function PairScreen() {
                 setText(v);
                 setError('');
               }}
-              placeholder="agent-nekko-pair:?relay=…"
+              placeholder="nekko-agent-pair:?relay=…"
               placeholderTextColor={p.inkFaint}
               autoCapitalize="none"
               autoCorrect={false}
