@@ -951,9 +951,10 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   // This reply's totals, kept on its last message and in the reply log. The
   // turn's own messages start after what the transcript held when it began.
   const turnFrom = session.messages.length;
+  const replyStartedAt = Date.now();
   const turnStats = new TurnStatsAccumulator(
     { providerId: opts.providerId, modelId: opts.modelId, effort: effectiveEffort(getSettings().effort, opts.modelId) },
-    Date.now(),
+    replyStartedAt,
   );
   while (attempts < 2 && !abort.signal.aborted) {
     abortControllers.set(opts.sessionId, abort);
@@ -1245,6 +1246,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         if (event.type === 'done' && event.stop && !incognito) {
           recordReply({
             ts: Date.now(),
+            startedAt: replyStartedAt,
             sessionId: opts.sessionId,
             providerId: opts.providerId,
             modelId: opts.modelId,
