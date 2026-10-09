@@ -442,6 +442,7 @@ export function ChatControls({
               <button
                 key={m}
                 role="menuitemradio"
+                data-chat-mode={m}
                 aria-checked={mode === m}
                 className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2 ${mode === m ? 'text-accent' : ''}`}
                 onClick={() => { patch({ mode: m }); setModeOpen(false); modeButton.current?.focus({ preventScroll: true }); }}

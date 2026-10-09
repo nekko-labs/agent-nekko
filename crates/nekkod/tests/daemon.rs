@@ -46,11 +46,11 @@ fn fake_backend() {
                             "session:get" => (axum::http::StatusCode::OK, axum::Json(json!({ "id": body.0["args"][0], "messages": [], "executionMode": if body.0["args"][0] == "sandbox" { "sandbox" } else { "worktree" } }))),
                             "session:create" => {
                                 let session = json!({ "id": "s_created", "workspaceId": body.0["args"][0], "messages": [], "executionMode": "worktree", "gitIsolation": true });
-                                if let Ok(dir) = std::env::var("FAKE_DATA_DIR") {
-                                    if !dir.is_empty() {
-                                        std::fs::create_dir_all(std::path::Path::new(&dir).join("sessions")).unwrap();
-                                        std::fs::write(std::path::Path::new(&dir).join("sessions/s_created.json"), session.to_string()).unwrap();
-                                    }
+                                if let Ok(dir) = std::env::var("FAKE_DATA_DIR")
+                                    && !dir.is_empty()
+                                {
+                                    std::fs::create_dir_all(std::path::Path::new(&dir).join("sessions")).unwrap();
+                                    std::fs::write(std::path::Path::new(&dir).join("sessions/s_created.json"), session.to_string()).unwrap();
                                 }
                                 (axum::http::StatusCode::OK, axum::Json(session))
                             },
