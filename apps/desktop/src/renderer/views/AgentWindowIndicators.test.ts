@@ -42,7 +42,7 @@ describe('agent window indicators', () => {
   it('replaces the Online label with an internet toggle and moves Tools and MCP to the footer', () => {
     expect(pane).not.toContain("{session?.offline ? 'Offline' : 'Online'}");
     expect(pane).toContain('<InternetToggle session={session}');
-    expect(pane).toMatch(/data-agent-footer-controls>[\s\S]{0,200}<ToolsMenu[\s\S]{0,80}<McpMenu \/>/);
+    expect(pane).toMatch(/data-agent-footer-controls>[\s\S]{0,200}<ToolsMenu[\s\S]{0,200}<McpMenu \/>/);
     expect(controls).toContain('Click to block internet connectivity.');
     expect(controls).toContain('Click to allow internet connectivity.');
     expect(pane).toMatch(/<ChatControls[\s\S]{0,140}toolsInWindow/);

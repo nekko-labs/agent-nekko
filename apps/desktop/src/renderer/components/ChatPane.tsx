@@ -34,6 +34,7 @@ import { ImageModeControls } from './agent-console/ImageModeControls.js';
 import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
 import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
+import { MarkdownSandbox } from './Markdown.js';
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
 import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
@@ -2071,6 +2072,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   );
 
   return (
+    <MarkdownSandbox.Provider value={session?.executionMode === 'sandbox'}>
     <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable], [data-agent-logs]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-session-id={sessionId} data-chat-surface={surface} className="relative flex h-full min-h-0 min-w-0 overflow-hidden">
       {contextChangeNotice && <Modal title="Context on your next reply" zIndex={100} overlayClassName="p-4" className="w-full max-w-md rounded-xl border border-line bg-surface p-5 text-ink shadow-xl" onClose={closeContextNotice}>
             <h2 className="font-semibold">Context on your next reply</h2>
@@ -2112,8 +2114,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               // view's workbench keeps opening it as a window beside the chat.
               onClick={() => {
                 if (session?.executionMode === 'sandbox') return;
-                if (commandCenter) setLogsOpen((o) => !o);
-                else useStore.getState().openTerminalPane(`agent_${sessionId}`);
+                commandCenter ? setLogsOpen((o) => !o) : useStore.getState().openTerminalPane(`agent_${sessionId}`);
               }}
               title="Open the agent's command log"
             >
@@ -2917,6 +2918,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         <ImageMenu x={imageMenu.x} y={imageMenu.y} src={imageMenu.src} onClose={() => setImageMenu(null)} />
       )}
     </div>
+    </MarkdownSandbox.Provider>
   );
 }
 
