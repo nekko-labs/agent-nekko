@@ -255,6 +255,13 @@ interface UiState {
   openHypergatePane: () => void;
   /** Route text to a chat's composer, Add to prompt (run=false) or Run now (run=true). */
   sendToChat: (text: string, run: boolean) => Promise<void>;
+  /**
+   * Arm a skill as the usage chip in the active chat's composer (opening or
+   * creating a chat first), exactly as picking it from the `/` menu does. The
+   * draft is left alone. A goal skill has no chip, so it goes through
+   * `sendToChat` as `/goal ` text like before.
+   */
+  attachSkillToChat: (skill: SkillDef) => Promise<void>;
   /** Open the diff/approve review for a session's changed files. */
   openDiffPane: (sessionId: string) => void;
 
@@ -428,6 +435,20 @@ function updateWorkspace(s: UiState, id: string, fn: (w: Workspace) => Workspace
       ? s.activeWorkspaceId
       : workspaces[workspaces.length - 1]?.id ?? null,
   };
+}
+
+/** Target the active chat, creating one if there isn't a usable session, and show it. */
+async function openUsableChat(get: () => UiState, set: (p: Partial<UiState>) => void): Promise<string> {
+  let sid = get().activeSessionId;
+  if (!sid || !get().sessions.some((s) => s.id === sid)) {
+    const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    await get().refreshSessions();
+    sid = s.id;
+    set({ activeSessionId: sid });
+  }
+  set({ view: 'chat' });
+  get().openChatPane(sid);
+  return sid;
 }
 
 export const useStore = create<UiState>((set, get) => ({
@@ -820,17 +841,14 @@ export const useStore = create<UiState>((set, get) => ({
   },
 
   sendToChat: async (text, run) => {
-    // Target the active chat; create one if there isn't a usable session.
-    let sid = get().activeSessionId;
-    if (!sid || !get().sessions.some((s) => s.id === sid)) {
-      const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
-      await get().refreshSessions();
-      sid = s.id;
-      set({ activeSessionId: sid });
-    }
-    set({ view: 'chat' });
-    get().openChatPane(sid);
+    const sid = await openUsableChat(get, set);
     set({ composerInbox: { sessionId: sid, text, run } });
+  },
+
+  attachSkillToChat: async (skill) => {
+    if (skill.kind === 'goal') return get().sendToChat(skill.template, false);
+    const sid = await openUsableChat(get, set);
+    get().setActiveSkill(sid, skill);
   },
 
   refreshSessionPrs: async (sessionId) => {
