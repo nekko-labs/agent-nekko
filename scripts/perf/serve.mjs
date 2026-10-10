@@ -14,6 +14,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startMockProvider } from './lib/mock-provider.mjs';
 import { seedDataDir } from './lib/seed.mjs';
+import { killTree } from './lib/browser.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const argv = process.argv.slice(2);
@@ -30,12 +31,13 @@ const server = spawn(process.execPath, [join(ROOT, 'apps/server/dist/index.js')]
   cwd: ROOT,
   env: { ...process.env, NEKKO_DATA_DIR: dir, NEKKO_PORT: String(port), NEKKO_HOST: '127.0.0.1' },
   stdio: 'inherit',
+  detached: process.platform !== 'win32',
 });
 console.log(`[perf] scratch data dir ${dir}`);
 console.log(`[perf] open http://127.0.0.1:${port}/`);
 
 const stop = async () => {
-  server.kill();
+  killTree(server);
   await mock.close();
   rmSync(dir, { recursive: true, force: true });
   process.exit(0);

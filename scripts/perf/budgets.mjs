@@ -25,3 +25,25 @@ export const BUDGETS = [
   { id: 'cold_switch_frame', label: 'Switch to a cold chat, frame painted', target: 8.3, ci: 25 },
   { id: 'cold_switch_history', label: 'Switch to a cold chat, newest screenful of history painted', target: 100, ci: 250 },
 ];
+
+/**
+ * The memory contract: what the app may hold, measured once a run (counts
+ * vary far less than timings). `measure` reads the figure from the memory
+ * phase's result; a run fails when it is above `budget`.
+ *
+ * Calibrated 2026-10-10 (Grid wall, six agents streaming, 2x, SwiftShader):
+ * - Overdraw: no animated layer is bigger than its clip today (0x). The beam
+ *   that rotated an oversized square (fixed in #419) measured 9.6x, and it
+ *   was ~70 MB of tiles per busy window on a real display.
+ * - Tiles: 175-185 MB today; that beam put it at 265 MB. Chromium's tile
+ *   budget is 512 MB, past which it logs "tile memory limits exceeded" and
+ *   content stops drawing, so the gate holds well clear of it.
+ * - Leaks: 0.2-0.5 MB of heap and no DOM nodes or listeners kept per lap.
+ */
+export const MEMORY_BUDGETS = [
+  { id: 'gpu_overdraw', label: 'Worst animated compositor layer against the box that clips it, Grid wall of streaming agents', unit: 'x', budget: 2, measure: (m) => m.gpu.overdraw },
+  { id: 'gpu_tiles', label: 'Compositor tile memory, Grid wall of streaming agents at 2x', unit: 'MB', budget: 320, measure: (m) => m.gpu.tileMb },
+  { id: 'heap_per_lap', label: 'JS heap kept per lap of chat switches, after warm-up', unit: 'MB', budget: 2, measure: (m) => m.leak.heapMbPerLap },
+  { id: 'nodes_per_lap', label: 'DOM nodes kept per lap of chat switches, after warm-up', unit: 'nodes', budget: 50, measure: (m) => m.leak.nodesPerLap },
+  { id: 'listeners_per_lap', label: 'Event listeners kept per lap of chat switches, after warm-up', unit: 'listeners', budget: 20, measure: (m) => m.leak.listenersPerLap },
+];

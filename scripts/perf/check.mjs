@@ -16,7 +16,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectCdp } from './lib/cdp.mjs';
-import { launchBrowser } from './lib/browser.mjs';
+import { killTree, launchBrowser } from './lib/browser.mjs';
 import { startMockProvider, STREAM_TRIGGER } from './lib/mock-provider.mjs';
 import { seedDataDir, chatTitle, lastMarker } from './lib/seed.mjs';
 import { INSTALL, locate } from './lib/probes.mjs';
@@ -44,6 +44,7 @@ const server = spawn(process.execPath, [join(APP_ROOT, 'apps/server/dist/index.j
   cwd: APP_ROOT,
   env: { ...process.env, NEKKO_DATA_DIR: dir, NEKKO_PORT: String(PORTS.app), NEKKO_HOST: '127.0.0.1' },
   stdio: 'ignore',
+  detached: process.platform !== 'win32',
 });
 const appUrl = `http://127.0.0.1:${PORTS.app}/`;
 for (let i = 0; i < 120; i++) {
@@ -52,7 +53,7 @@ for (let i = 0; i < 120; i++) {
 }
 const browser = await launchBrowser({ port: PORTS.cdp, width: 1440, height: 1000, vsync: true });
 const cdp = await connectCdp(browser.wsUrl);
-const cleanup = () => { try { cdp.close(); } catch {} browser.proc.kill(); server.kill(); mock.close(); setTimeout(() => rmSync(dir, { recursive: true, force: true }), 500); };
+const cleanup = () => { try { cdp.close(); } catch {} void browser.close(); killTree(server); mock.close(); setTimeout(() => rmSync(dir, { recursive: true, force: true }), 500); };
 
 try {
   await cdp.send('Page.enable');
