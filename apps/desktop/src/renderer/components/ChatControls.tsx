@@ -419,17 +419,19 @@ export function ChatControls({
       {/* An image chat runs no agent: no tool policy, tools or MCP to set. */}
       {session.chatType !== 'image' && showMode && (<>
       {/* Mode */}
-      <div className="relative shrink-0">
+      {/* In a composer's footer (`only`) the label shrinks and truncates
+          rather than overflowing under the mic beside it on a narrow window. */}
+      <div className={only ? 'relative min-w-0' : 'relative shrink-0'}>
         <button
           ref={modeButton}
-          className="ctl-menu whitespace-nowrap"
+          className="ctl-menu max-w-full whitespace-nowrap"
           onClick={() => { setModeOpen((o) => !o); setToolsOpen(false); }}
           aria-haspopup="menu"
           aria-expanded={modeOpen}
           title={MODE_DESC[mode]}
         >
           <span className="ctl-menu-label">Mode</span>
-          {execution === 'worktree' ? 'Worktree' : sandbox ? 'Sandbox' : 'Unified'} - {MODE_LABEL[mode]}
+          <span className="min-w-0 truncate">{execution === 'worktree' ? 'Worktree' : sandbox ? 'Sandbox' : 'Unified'} - {MODE_LABEL[mode]}</span>
           <span className="ctl-caret">▾</span>
         </button>
         {modeOpen && createPortal(
