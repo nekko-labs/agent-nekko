@@ -712,6 +712,8 @@ Observation: the fixed per-reply step budget (`DEFAULT_MAX_STEPS`, was 80) was h
 
 ## Shipped
 
+- [x] **Default folders + Logs drawer** (2026-10-11, [SPEC.md](SPEC.md#default-folders-for-new-agents-and-the-logs-drawer-2026-10-11)): `AppSettings.defaultWorkspaceIds` (ordered, first is primary; stale ids ignored via `defaultFolderIds`). Add window's Folders step saves/clears it and preticks it; `CommandCenterView.newChat` applies it to picker-less chats with supporting folders, and the store's `defaultChatFolder` takes the first. The wall's Logs bubble (`AgentLogsBubble`, inside ChatPane) is replaced by `AgentLogsDrawer`, rendered by `CommandWall` from a small zustand store (`wallLogs.ts`: one open session, `closing` kept mounted for the absorb animation). `layoutWithLogsDrawer` is pure: drawer at 90% height off the target's right edge; same-row windows to the right shift and squeeze (min 240px; the drawer narrows to 280px first); the rightmost target narrows instead. The saved split tree is never touched. Clip-path keyframes for slide-out/absorb, existing 260ms left/width transitions move the neighbours. Tests: layout, toggle state, picker defaults; full desktop suite 848 passing.
+
 - [x] **Routine package refresh (2026-10-09)**: audited every direct root-workspace npm dependency, adopted compatible stable releases including Vitest 5 and Electron 44, and kept the standalone Expo mobile ecosystem unchanged. Compatibility decisions, original primary changes, security findings, and verification are recorded in [the package refresh report](reports/package-refresh-2026-10-09.md). No user-visible feature change; SPEC.md does not need an artificial feature entry.
 
 

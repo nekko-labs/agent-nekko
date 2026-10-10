@@ -1786,25 +1786,43 @@
   --panel-ring-color: color-mix(in srgb, var(--accent) 60%, var(--line)) !important;
   box-shadow: 0 0 10px 0 color-mix(in srgb, var(--accent) 24%, transparent);
 }
-/* An agent's command log, bubbling out of the middle of its window's right
-   edge: anchored at the edge's midpoint and grown from there. */
-.agent-logs-bubble {
-  position: absolute; right: 12px; top: 50%; z-index: 30;
-  display: flex; flex-direction: column;
-  width: min(560px, calc(100% - 24px)); height: min(380px, calc(100% - 24px));
-  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); border-radius: 14px;
-  background: var(--win, var(--surface)); overflow: hidden;
-  box-shadow: 0 18px 48px -18px rgb(0 0 0 / .55), 0 0 0 1px rgb(0 0 0 / .04);
-  transform: translateY(-50%); transform-origin: 100% 50%;
-  animation: agent-logs-bubble-in 200ms cubic-bezier(.22, 1.2, .36, 1);
+/* An agent's command log as a drawer of its own, out of its window's right
+   edge (CommandWall places it and moves the windows to its right over). It is
+   90% of the window's height and centred on it; its left side has no border
+   and sits one pixel over the window's edge, so the two read as one shape.
+   It slides out from behind the edge and is absorbed back into it on close. */
+.agent-logs-drawer {
+  --logs-ring: color-mix(in srgb, var(--accent) 35%, var(--line));
+  position: absolute; z-index: 25;
+  transition: left 260ms ease, top 260ms ease, width 260ms ease, height 260ms ease;
+  animation: agent-logs-drawer-out 300ms cubic-bezier(.22, 1, .36, 1) both;
 }
-.agent-logs-bubble-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 6px 8px 6px 10px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 500; }
-.agent-logs-bubble-body { position: relative; flex: 1; min-height: 0; }
-@keyframes agent-logs-bubble-in {
-  from { opacity: 0; transform: translateY(-50%) scale(.2, .35); }
-  to { opacity: 1; transform: translateY(-50%) scale(1); }
+.agent-logs-drawer[data-selected] { --logs-ring: color-mix(in srgb, var(--accent) 60%, var(--line)); }
+.agent-logs-drawer[data-closing] { animation: agent-logs-drawer-in 220ms cubic-bezier(.55, 0, .75, .2) both; pointer-events: none; }
+.agent-logs-drawer-inner {
+  display: flex; flex-direction: column; width: 100%; height: 100%; overflow: hidden;
+  background: var(--win, var(--surface));
+  border: 1px solid var(--logs-ring); border-left: 0;
+  border-radius: 0 var(--pane-radius, 12px) var(--pane-radius, 12px) 0;
+  box-shadow: 14px 0 32px -22px rgb(0 0 0 / .6);
 }
-@media (prefers-reduced-motion: reduce) { .agent-logs-bubble { animation: none; } }
+/* On a one-column wall it floats over the window's right side: a full card. */
+.agent-logs-drawer[data-overlay] { z-index: 30; }
+.agent-logs-drawer[data-overlay] .agent-logs-drawer-inner { border-left: 1px solid var(--logs-ring); border-radius: var(--pane-radius, 12px); box-shadow: 0 18px 48px -18px rgb(0 0 0 / .55); }
+.agent-logs-drawer-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 500; }
+.agent-logs-drawer-body { position: relative; flex: 1; min-height: 0; }
+/* The window gives up its right-hand rounding where the drawer joins it. */
+.command-wall-window[data-wall-logs-open] > .panel { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.command-wall-window[data-wall-logs-open] > .panel::after { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+@keyframes agent-logs-drawer-out {
+  from { clip-path: inset(0 100% 0 0); opacity: .4; }
+  to { clip-path: inset(0 0 0 0); opacity: 1; }
+}
+@keyframes agent-logs-drawer-in {
+  from { clip-path: inset(0 0 0 0); opacity: 1; }
+  to { clip-path: inset(0 100% 0 0); opacity: .4; }
+}
+@media (prefers-reduced-motion: reduce) { .agent-logs-drawer, .agent-logs-drawer[data-closing] { animation: none; transition: none; } }
 /* The plan panel's toggle: a plan icon floating in the chat area's top-right
    corner, over the transcript (or beside the open panel's heading). */
 .plan-rail-toggle {
