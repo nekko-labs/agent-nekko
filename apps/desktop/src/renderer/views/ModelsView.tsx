@@ -87,7 +87,7 @@ export function ModelsView() {
       <div className="mx-auto max-w-4xl px-8 py-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold">Model Providers</h1>
+            <h1 className="view-title">Model Providers</h1>
             <p className="mt-1 text-[13px] text-ink-faint">
               Where models come from: cloud APIs, subscriptions, and model servers already running on this
               machine or another one.

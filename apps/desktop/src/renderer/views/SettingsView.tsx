@@ -73,7 +73,7 @@ export function SettingsView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-8">
-        <h1 className="text-2xl font-semibold">{tr('settings.title')}</h1>
+        <h1 className="view-title">{tr('settings.title')}</h1>
 
         {/* Appearance */}
         <section className="card mt-6 p-5">

@@ -737,10 +737,19 @@
 }
 
 @utility titlebar-heading {
-  /* The current view's name beside the brand mark. Deliberately a step above
-     the 11.5px version pill that follows it, so the heading leads the row. */
-  @apply ml-3 shrink-0 truncate text-[17px] font-semibold tracking-tight;
-  line-height: 1.2;
+  /* The current view's name beside the brand mark, the same size as every
+     other view's title (`view-title`) and well above the 10.5px version pill
+     that follows it, so the heading leads the row. */
+  @apply ml-3 shrink-0 truncate text-[24px] font-semibold tracking-tight;
+  line-height: 1.3;
+}
+
+@utility view-title {
+  /* Every view's page title (Agents off the desktop shell, Settings, Skills,
+     Workflows...), one size so moving between tabs doesn't jump. Matches
+     `titlebar-heading`. */
+  @apply text-[24px] font-semibold tracking-tight;
+  line-height: 1.3;
 }
 
 .developer-server-controls {
@@ -771,7 +780,7 @@
   min-height: 28px;
   margin-left: 10px;
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: 10.5px;
   white-space: nowrap;
   -webkit-app-region: no-drag;
 }
@@ -785,11 +794,11 @@
 
 .update-pill {
   display: inline-flex;
-  min-height: 20px;
+  min-height: 18px;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 0 9px;
+  padding: 0 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface-2);
@@ -798,7 +807,7 @@
 }
 
 .update-version {
-  min-width: 112px;
+  min-width: 104px;
   cursor: pointer;
   transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
 }
@@ -1705,8 +1714,10 @@
 
 /* ---------- Command Center wall ---------- */
 
-/* The brand mark at the leading edge of the desktop title bar. */
-.titlebar-mark { flex: none; display: block; color: var(--ink-soft); }
+/* The brand mark at the leading edge of the desktop title bar. Nudged 4px down:
+   centred by its box it sits visibly high next to the
+   heading, whose x-height (not its line box) is what the eye lines up with. */
+.titlebar-mark { flex: none; display: block; color: var(--ink-soft); position: relative; top: 4px; }
 
 /* Everything waiting on a person, in one line above the wall, with a jump to each. */
 .wall-ribbon {

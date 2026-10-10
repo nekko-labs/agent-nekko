@@ -11,7 +11,7 @@ export function ConnectorsView() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl px-8 py-8">
-        <h1 className="text-2xl font-semibold">Connectors</h1>
+        <h1 className="view-title">Connectors</h1>
         <p className="mt-1 text-[13px] text-ink-faint">
           Pull issues, messages, and docs into context. Credentials are stored locally and validated on
           connect.
