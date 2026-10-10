@@ -18,12 +18,14 @@
  *                budget on its best attempt; every attempt's p95 is reported
  * --report-only  write the report but exit 0 even when a budget is missed
  * --dump-trace   also write the streaming trace (large) to the output directory
- * --only <part>  run just 'latency' (keypress, switching) or 'frames' (streaming)
+ * --only <part>  run just 'latency' (keypress, switching), 'frames' (streaming) or
+ *                'memory' (GPU tile memory and leaks, see measureMemory)
  * --profile      write a CPU profile and a main-thread trace of each switch phase
  *                and print where the time went
  * --timeline     only the main-thread traces of --profile (no CPU profiler overhead)
  * --debug        forward the page's console to this one
  * --app <dir>    measure the web edition built in another checkout (before/after)
+ * --extra-css <f> add a stylesheet on top of the app (try a change, or prove a gate fails)
  * PERF_BROWSER   path to a Chromium binary, when auto-detection picks wrong
  *
  * Latency budgets (keypress, switching) run in a browser with the frame-rate
@@ -37,18 +39,18 @@
  * 1 when any budget is exceeded (2 when the run itself failed).
  */
 import { spawn } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
 import { connectCdp } from './lib/cdp.mjs';
-import { launchBrowser } from './lib/browser.mjs';
+import { killTree, launchBrowser } from './lib/browser.mjs';
 import { startMockProvider, STREAM_TRIGGER } from './lib/mock-provider.mjs';
 import { seedDataDir, chatTitle, lastMarker } from './lib/seed.mjs';
 import { INSTALL, locate } from './lib/probes.mjs';
 import { summarize } from './lib/stats.mjs';
 import { frameWorkFromTrace } from './lib/trace.mjs';
-import { BUDGETS } from './budgets.mjs';
+import { BUDGETS, MEMORY_BUDGETS } from './budgets.mjs';
 import { startProfile, startTimeline, stopProfile } from './lib/profile.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -77,6 +79,9 @@ const CFG = {
   coldCycles: QUICK ? 1 : 3,
   traceSeconds: QUICK ? 3 : 6,
   viewport: { width: 1440, height: 1000 },
+  // The memory phase: wall windows working at once (a Grid shows six), at a
+  // HiDPI scale; and laps of switches across chats for the leak check.
+  memory: { working: 6, scale: 2, laps: QUICK ? 3 : 5, lapChats: 6 },
   mockPort: Number(opt('mock-port', 4391)),
   appPort: Number(opt('app-port', 4392)),
   cdpPort: Number(opt('cdp-port', 9391)),
@@ -114,10 +119,10 @@ const wallState = (ids) => {
 };
 
 /** One browser on the app, with the handful of gestures the scenarios need. */
-async function openApp({ appUrl, cdpPort, vsync }) {
-  const browser = await launchBrowser({ port: cdpPort, ...CFG.viewport, vsync, gpu: !flag('no-gpu') });
+async function openApp({ appUrl, cdpPort, vsync, gpu = flag('no-gpu') ? false : true }) {
+  const browser = await launchBrowser({ port: cdpPort, ...CFG.viewport, vsync, gpu });
   const cdp = await connectCdp(browser.wsUrl);
-  const close = async () => { try { cdp.close(); } catch { /* gone */ } browser.proc.kill(); await sleep(300); };
+  const close = async () => { try { cdp.close(); } catch { /* gone */ } await browser.close(); };
   cleanups.push(close);
 
   await cdp.send('Page.enable');
@@ -175,6 +180,9 @@ async function openApp({ appUrl, cdpPort, vsync }) {
 
   await waitFor(`!!document.querySelector('nav button[aria-label="Agents"]')`, 'the app shell');
   await cdp.evaluate(INSTALL);
+  // --extra-css: measure the app with a stylesheet on top, e.g. a candidate
+  // change or a known regression the gates should catch.
+  if (opt('extra-css')) await cdp.call((css) => document.head.appendChild(Object.assign(document.createElement('style'), { textContent: css })) && true, readFileSync(opt('extra-css'), 'utf8'));
 
   /** Open a seeded chat from the Command Center (setup, not measured). */
   /** `marker` is what the newest reply must contain; '' accepts any (a chat that has grown since seeding). */
@@ -431,6 +439,169 @@ async function measureFrames({ appUrl, mock, api, bigChat }) {
 }
 
 /**
+ * Memory the app holds, in two parts.
+ *
+ * GPU: a Grid wall of agents all streaming at once, at HiDPI scale. Two
+ * figures: the compositor's tile memory as Chromium accounts it, and the
+ * worst animated layer against the box that clips it. A decoration that
+ * animates a layer much bigger than what it shows (the working beam once
+ * rotated a square twice its window's longest side, ~70 MB a window) turns up
+ * in the second long before it fills Chromium's 512 MB tile budget and
+ * starves the desktop of GPU memory.
+ *
+ * Leaks: chats are switched round and round; after the first lap (caches
+ * warm) and after the last, garbage is collected and the JS heap and DOM node
+ * count read. What a lap adds after warm-up is what a long session keeps
+ * adding until the app slows.
+ */
+async function measureMemory({ appUrl, mock, api, ids }) {
+  // Always a GPU-style raster, emulated in software (SwiftShader) so CI and a
+  // desktop agree: plain software compositing rasters an overlap-promoted
+  // scroll layer whole (512 MB for one 1,000-message chat), which is not what
+  // a user's GPU does, so --no-gpu would measure the wrong thing.
+  const app = await openApp({ appUrl, cdpPort: CFG.cdpPort + 2, vsync: false, gpu: 'swiftshader' });
+  const { cdp } = app;
+  await cdp.send('Performance.enable');
+  const metrics = async () => {
+    await cdp.send('HeapProfiler.collectGarbage');
+    await sleep(200);
+    await cdp.send('HeapProfiler.collectGarbage');
+    const { metrics: m } = await cdp.send('Performance.getMetrics');
+    const get = (name) => m.find((x) => x.name === name)?.value ?? 0;
+    return { heapMb: get('JSHeapUsedSize') / 2 ** 20, nodes: get('Nodes'), listeners: get('JSEventListeners') };
+  };
+
+  // ---- leaks: laps of switches between the seeded chats.
+  log(`switching ${CFG.memory.lapChats} chats for ${CFG.memory.laps} laps, reading the heap after each`);
+  await app.openChat(1);
+  const laps = [];
+  for (let lap = 0; lap < CFG.memory.laps; lap++) {
+    for (let i = 2; i < 2 + CFG.memory.lapChats; i++) await app.switchTo(i);
+    await app.switchTo(1);
+    laps.push(await metrics());
+  }
+  const warm = laps[0];
+  const last = laps[laps.length - 1];
+  const perLap = (k) => (last[k] - warm[k]) / Math.max(1, laps.length - 1);
+
+  // ---- GPU layers: every visible wall window working at once.
+  await cdp.send('Emulation.setDeviceMetricsOverride', { ...CFG.viewport, deviceScaleFactor: CFG.memory.scale, mobile: false });
+  // Ctrl+Shift+3 is the 3 x 2 Grid; the Grid button itself opens a size picker.
+  await cdp.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit3', key: '#', ctrlKey: true, shiftKey: true, bubbles: true }))`);
+  await app.waitFor(`[...document.querySelectorAll('.wall-layout-segments button')].some(b => b.textContent.trim() === 'Grid' && b.getAttribute('aria-pressed') === 'true')`, 'the Grid wall layout', 5000);
+  const working = ids.slice(0, CFG.memory.working);
+  const before = mock.state.streamsStarted;
+  for (const id of working) {
+    // Not awaited: the call returns when the turn ends.
+    api('chat:send', { sessionId: id, providerId: 'mock', modelId: 'mock-1', text: `${STREAM_TRIGGER} write the long report` }).catch(() => {});
+  }
+  const t = Date.now();
+  while (mock.state.streamsStarted - before < working.length && Date.now() - t < 20000) await sleep(50);
+  await sleep(1500);
+  const beams = await cdp.evaluate(`document.querySelectorAll('[data-wall-working]').length`);
+  const tiles = await tileMemory(cdp);
+  const overdraw = await layerOverdraw(cdp);
+  writeFileSync(join(OUT, 'memory-wall.png'), Buffer.from((await cdp.send('Page.captureScreenshot', { format: 'png' })).data, 'base64'));
+  for (const id of working) await api('chat:abort', id);
+  await app.close();
+  return {
+    browser: app.browser.version,
+    gpu: { working: beams, tileMb: tiles, overdraw: overdraw.worst, overdrawLayer: overdraw.layer, layers: overdraw.layers },
+    leak: { laps: laps.length, heapMbPerLap: perLap('heapMb'), nodesPerLap: perLap('nodes'), listenersPerLap: perLap('listeners'), warm, last },
+  };
+}
+
+/**
+ * The worst ratio of a drawing layer's area to the box that clips it (its
+ * nearest ancestor with overflow other than visible, or the viewport). The
+ * working beam that once rotated a square twice its window's longest side was
+ * 4x or more; a compositor rasters such a layer whole, every pixel of it, even
+ * though the clip shows a thin ring. Scroll containers are skipped: their
+ * content is taller than their box by design and is rastered only near view.
+ */
+async function layerOverdraw(cdp) {
+  let layers = [];
+  const off = cdp.on('LayerTree.layerTreeDidChange', (p) => { if (p.layers) layers = p.layers; });
+  await cdp.send('DOM.enable');
+  await cdp.send('LayerTree.enable');
+  // A compositor-only animation leaves the tree alone; a DOM change makes it report.
+  await cdp.evaluate(`(() => { const i = document.createElement('i'); document.body.appendChild(i); requestAnimationFrame(() => i.remove()); return true; })()`);
+  for (let k = 0; k < 50 && !layers.length; k++) await sleep(100);
+  // The first report can be a partial tree; let it settle and keep the latest.
+  await sleep(800);
+  off();
+  let worst = 0;
+  let layer = '';
+  const drawn = layers.filter((l) => l.drawsContent && l.backendNodeId && l.width * l.height > 0);
+  // Only layers big enough to matter: a few percent of the viewport or more.
+  const minArea = 0.05 * CFG.viewport.width * CFG.viewport.height;
+  for (const l of drawn) {
+    if (l.width * l.height < minArea) continue;
+    let clip;
+    try {
+      const { object } = await cdp.send('DOM.resolveNode', { backendNodeId: l.backendNodeId });
+      clip = (await cdp.send('Runtime.callFunctionOn', {
+        objectId: object.objectId,
+        returnByValue: true,
+        functionDeclaration: `function () {
+          if (!(this instanceof Element)) return null;
+          const s = getComputedStyle(this);
+          // Only layers rastered whole: under a running animation or a
+          // will-change hint. A still layer partly scrolled out of its clip is
+          // rastered only near view.
+          if (s.willChange === 'auto' && !this.getAnimations().length) return null;
+          if (/(auto|scroll)/.test(s.overflowY + s.overflowX) && (this.scrollHeight > this.clientHeight || this.scrollWidth > this.clientWidth)) return null;
+          let a = this.parentElement;
+          while (a && getComputedStyle(a).overflow === 'visible') a = a.parentElement;
+          const r = a ? a.getBoundingClientRect() : { width: innerWidth, height: innerHeight };
+          // A pseudo-element (::after) is named by the element it belongs to.
+          const host = this.tagName.startsWith('::') ? this.parentElement : this;
+          const name = host.tagName.toLowerCase() + '.' + String(host.getAttribute('class') ?? '').trim().split(' ').filter(Boolean).slice(0, 3).join('.');
+          return { area: Math.max(1, r.width * r.height), what: host === this ? name : name + this.tagName.toLowerCase() };
+        }`,
+      })).result.value;
+    } catch { continue; }
+    if (!clip) continue;
+    const ratio = (l.width * l.height) / clip.area;
+    if (ratio > worst) { worst = ratio; layer = `${clip.what} ${Math.round(l.width)}x${Math.round(l.height)}`; }
+  }
+  await cdp.send('LayerTree.disable');
+  return { worst, layer, layers: drawn.length };
+}
+
+/**
+ * Compositor tile memory, as Chromium itself accounts it (memory-infra). Layer
+ * sizes alone mislead: a long transcript's scroll layer is 50,000 px tall but
+ * only the tiles near the viewport are ever rastered, while a layer under a
+ * running transform animation is rastered whole.
+ */
+async function tileMemory(cdp) {
+  const events = [];
+  const offData = cdp.on('Tracing.dataCollected', (p) => { for (const e of p.value) events.push(e); });
+  const done = new Promise((r) => { const off = cdp.on('Tracing.tracingComplete', () => { off(); r(); }); });
+  await cdp.send('Tracing.start', {
+    transferMode: 'ReportEvents',
+    traceConfig: { includedCategories: ['disabled-by-default-memory-infra'], memoryDumpConfig: { triggers: [] } },
+  });
+  await sleep(500);
+  await cdp.send('Tracing.requestMemoryDump', { deterministic: true, levelOfDetail: 'detailed' });
+  await cdp.send('Tracing.end');
+  await done;
+  offData();
+  const sizes = {};
+  for (const e of events) {
+    const allocators = e.ph === 'v' && e.args?.dumps?.allocators;
+    if (!allocators) continue;
+    for (const [name, a] of Object.entries(allocators)) {
+      const size = a.attrs?.size?.value;
+      if (size != null) sizes[name] = Math.max(sizes[name] ?? 0, parseInt(size, 16) / 2 ** 20);
+    }
+  }
+  // provider_N is one compositor's pool; its children are the tiles in it.
+  return Object.entries(sizes).filter(([n]) => /^cc\/tile_memory\/[^/]+$/.test(n)).reduce((sum, [, v]) => sum + v, 0);
+}
+
+/**
  * Put a seeded chat back as it was: the streaming phases append a prompt and
  * a reply to it, and the next attempt expects its seeded newest message.
  */
@@ -477,11 +648,13 @@ async function main() {
     cwd: APP_ROOT,
     env: { ...process.env, NEKKO_DATA_DIR: dataDir, NEKKO_PORT: String(CFG.appPort), NEKKO_HOST: '127.0.0.1' },
     stdio: ['ignore', 'pipe', 'pipe'],
+    // Its own process group on POSIX, so killTree reaches its ptys and tool children.
+    detached: process.platform !== 'win32',
   });
   let serverLog = '';
   server.stdout.on('data', (d) => (serverLog += d));
   server.stderr.on('data', (d) => (serverLog += d));
-  cleanups.push(() => server.kill());
+  cleanups.push(() => killTree(server));
   const appUrl = `http://127.0.0.1:${CFG.appPort}/`;
   const api = (channel, ...args) =>
     fetch(`${appUrl}api/${channel}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ args }) });
@@ -505,8 +678,8 @@ async function main() {
   let frames = null;
   for (let a = 0; a < attempts; a++) {
     if (a > 0) log(`a budget was missed; measuring again (attempt ${a + 1} of ${attempts})`);
-    latency = only === 'frames' ? null : await measureLatency({ appUrl, mock, api, bigChat: ids[0] });
-    frames = only === 'latency' ? null : await measureFrames({ appUrl, mock, api, bigChat: ids[0] });
+    latency = only && only !== 'latency' ? null : await measureLatency({ appUrl, mock, api, bigChat: ids[0] });
+    frames = only && only !== 'frames' ? null : await measureFrames({ appUrl, mock, api, bigChat: ids[0] });
     tries.push(resultsOf(latency, frames));
     await resetChat(api, ids[0], CFG.chats[0]);
     rows = BUDGETS.map((b) => {
@@ -523,7 +696,15 @@ async function main() {
     });
     if (rows.every((r) => r.pass)) break;
   }
-  const browserVersion = latency?.browser ?? frames?.browser ?? '';
+  // Memory is a count, not a timing: one measurement, no retries.
+  const memory = only && only !== 'memory' ? null : await measureMemory({ appUrl, mock, api, ids });
+  if (memory) for (const id of ids.slice(0, CFG.memory.working)) await resetChat(api, id, CFG.chats[ids.indexOf(id)]);
+  const memoryRows = MEMORY_BUDGETS.map((b) => {
+    if (!memory) return { ...b, skipped: `not run (--only ${only})`, pass: true };
+    const value = b.measure(memory);
+    return { ...b, value, pass: value <= b.budget };
+  });
+  const browserVersion = latency?.browser ?? frames?.browser ?? memory?.browser ?? '';
   const results = tries[tries.length - 1];
 
   // ------------------------------------------------------------------ report
@@ -536,6 +717,8 @@ async function main() {
     judgedAgainst: strict ? 'SPEC target (--strict)' : 'CI regression gate (2x the SPEC target)',
     attempts: tries.length,
     budgets: rows,
+    memory,
+    memoryBudgets: memoryRows.map(({ measure, ...r }) => r),
     eventTiming: {
       note: 'Event Timing entries at or above 16 ms (the API minimum) recorded while typing',
       count: latency?.eventTiming.length ?? 0,
@@ -548,7 +731,7 @@ async function main() {
   writeFileSync(join(OUT, 'perf-report.json'), JSON.stringify(report, null, 2));
   writeFileSync(join(OUT, 'perf-report.md'), markdown(report));
   console.log(`\n${markdown(report)}`);
-  return rows.every((r) => r.pass);
+  return rows.every((r) => r.pass) && memoryRows.every((r) => r.pass);
 }
 
 function markdown(report) {
@@ -574,6 +757,22 @@ function markdown(report) {
       : []),
     `- Event Timing entries of 16 ms or more while typing: ${report.eventTiming.count} (max ${report.eventTiming.max.toFixed(0)} ms)`,
     '',
+    '## Memory contract',
+    '',
+    '| Check | Budget | Measured | Result |',
+    '| --- | --- | --- | --- |',
+    ...report.memoryBudgets.map((b) =>
+      b.skipped
+        ? `| ${b.label} | ${b.budget} ${b.unit} | - | skipped |`
+        : `| ${b.label} | ${b.budget} ${b.unit} | ${b.value.toFixed(2)} ${b.unit} | ${b.pass ? 'pass' : '**FAIL**'} |`),
+    '',
+    ...(report.memory
+      ? [
+        `- GPU: ${report.memory.gpu.working} wall windows working, Grid wall at ${CFG.memory.scale}x scale on SwiftShader; ${report.memory.gpu.layers} drawing layers; worst layer against its clip: ${report.memory.gpu.overdrawLayer || "-"}`,
+        `- Leaks: ${report.memory.leak.laps} laps of ${CFG.memory.lapChats + 1} chat switches; after warm-up the heap went ${report.memory.leak.warm.heapMb.toFixed(1)} -> ${report.memory.leak.last.heapMb.toFixed(1)} MB, DOM nodes ${report.memory.leak.warm.nodes} -> ${report.memory.leak.last.nodes}, listeners ${report.memory.leak.warm.listeners} -> ${report.memory.leak.last.listeners}`,
+        '',
+      ]
+      : []),
   ].join('\n');
 }
 

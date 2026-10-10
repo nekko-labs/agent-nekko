@@ -356,6 +356,22 @@ Agent tools feel slow when the UI waits on something or redraws too much. Nekko 
 | Switch to a cold chat, frame painted | 8.3 ms | 25 ms (3x) |
 | Switch to a cold chat, newest screenful of history painted | 100 ms | 250 ms |
 
+**The memory contract.** `[added 2026-10-10]` A long session must not slow the app, or the rest of the desktop, down. A wall of busy agents once held ~70 MB of GPU tiles per window for a decorative beam, filled Chromium's 512 MB tile budget ("tile memory limits exceeded") and starved Windows' own compositor. So:
+
+- **No animated layer is bigger than what it shows.** A decoration that runs an animation or carries `will-change` is rastered whole, so it is drawn at the size of its own box, never as an oversized surface clipped down to a ring or a glow.
+- **Nothing a chat switch builds is kept.** Switching round the chats again and again leaves the heap, the DOM and the event listeners where the first lap left them.
+- **Helpers end what they start.** Every browser, server or child process the app or its tooling spawns is ended with its whole process tree, and its scratch profile deleted. The tooling uses Chromium (Playwright's or Chrome), never the user's own Edge.
+
+The same `perf` job measures these, on a Grid wall of six agents streaming at 2x scale, with a software GPU (SwiftShader) so a CI runner and a desktop count tiles the same way (`node scripts/perf/run.mjs --only memory`; budgets in `scripts/perf/budgets.mjs`):
+
+| Check | CI gate |
+| --- | --- |
+| Worst animated compositor layer against the box that clips it | 2x |
+| Compositor tile memory | 320 MB |
+| JS heap kept per lap of chat switches, after warm-up | 2 MB |
+| DOM nodes kept per lap | 50 |
+| Event listeners kept per lap | 20 |
+
 **The engine can fail without taking the window with it.** `[shipped 2026-09-30, desktop]` The desktop window no longer runs the engine: a separate engine daemon (`nekkod`, in Rust) owns the terminals and supervises the rest of the engine as its own process. If either crashes it is restarted and the UI reconnects; the window, drafts and scroll positions survive. If the daemon binary is missing, the app still starts, running the rest of the engine directly with its older terminals.
 
 **The terminal keeps up with any output.** `[shipped 2026-09-30, desktop]` Terminals render on the GPU with xterm.js on WebGL by default. Ghostty's terminal core compiled to WebAssembly is offered in Settings as an experimental renderer: it draws correctly, but under a 40 MB flood it held the UI thread 20-30 ms a frame where xterm stayed inside one, so it is not the default until that changes. Output is delivered at most once per frame rather than once per chunk, and a flood of output (a large `cat`, a runaway build log) slows the program producing it instead of freezing the app. Measured on the desktop app: a keypress in another input while a visible terminal prints 40 MB reaches the screen in 7.1 ms p95 (7.6 ms before), and the longest frame dropped from 20.9 ms to 4.4 ms. Keystroke echo through the engine takes under 1 ms on its own; PowerShell adds about 15 ms of its own before it echoes, which no terminal can remove (Command Prompt and Git Bash echo in under 1 ms). Prompt themes built on Nerd Fonts render when one is installed.

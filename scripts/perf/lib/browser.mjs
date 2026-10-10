@@ -1,6 +1,12 @@
 /**
- * Find and launch a headless Chromium (Chrome, Edge or Chromium, whichever the
- * machine has) with the DevTools port open.
+ * Find and launch a headless Chromium (Playwright's Chromium, Chrome or
+ * Chromium, whichever the machine has) with the DevTools port open. Never
+ * Edge: it is the user's own browser on Windows, and a headless copy of it
+ * shows up in their Task Manager next to their real one.
+ *
+ * `close()` ends the whole process tree and deletes the throwaway profile:
+ * killing only the browser process left GPU and renderer children running
+ * on Windows.
  *
  * Frame-rate limiting and vsync are switched off unless `vsync` is asked for.
  * The latency budgets are about how long the app takes to put a change on
@@ -11,8 +17,8 @@
  * a 120 Hz (or faster) display would see the same work.
  */
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -36,24 +42,53 @@ export function findBrowser() {
     if (!existsSync(override)) throw new Error(`PERF_BROWSER points at ${override}, which does not exist`);
     return override;
   }
-  const candidates = [];
+  const candidates = [playwrightChromium()].filter(Boolean);
   if (process.platform === 'win32') {
     const roots = [process.env['PROGRAMFILES'], process.env['PROGRAMFILES(X86)'], process.env.LOCALAPPDATA].filter(Boolean);
-    for (const r of roots) {
-      candidates.push(join(r, 'Google', 'Chrome', 'Application', 'chrome.exe'));
-      candidates.push(join(r, 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
-    }
+    for (const r of roots) candidates.push(join(r, 'Google', 'Chrome', 'Application', 'chrome.exe'));
   } else if (process.platform === 'darwin') {
     candidates.push('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome');
-    candidates.push('/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge');
     candidates.push('/Applications/Chromium.app/Contents/MacOS/Chromium');
   }
   for (const c of candidates) if (existsSync(c)) return c;
-  for (const cmd of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'microsoft-edge']) {
+  for (const cmd of ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']) {
     const hit = onPath(cmd);
     if (hit) return hit;
   }
-  throw new Error('No Chrome, Edge or Chromium found. Set PERF_BROWSER to a Chromium binary.');
+  throw new Error('No Chromium found. Run `npx playwright install chromium`, or set PERF_BROWSER to a Chromium binary.');
+}
+
+/** The newest Chromium Playwright has downloaded, if any. */
+function playwrightChromium() {
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH
+    || (process.platform === 'win32' ? join(process.env.LOCALAPPDATA ?? '', 'ms-playwright')
+      : process.platform === 'darwin' ? join(homedir(), 'Library', 'Caches', 'ms-playwright')
+        : join(homedir(), '.cache', 'ms-playwright'));
+  let dirs = [];
+  try { dirs = readdirSync(root).filter((d) => /^chromium-\d+$/.test(d)).sort((a, b) => Number(b.split('-')[1]) - Number(a.split('-')[1])); } catch { return null; }
+  const inside = process.platform === 'win32' ? [['chrome-win64', 'chrome.exe'], ['chrome-win', 'chrome.exe']]
+    : process.platform === 'darwin' ? [['chrome-mac-arm64', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'], ['chrome-mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium']]
+      : [['chrome-linux64', 'chrome'], ['chrome-linux', 'chrome']];
+  for (const d of dirs) for (const parts of inside) {
+    const bin = join(root, d, ...parts);
+    if (existsSync(bin)) return bin;
+  }
+  return null;
+}
+
+/**
+ * End a spawned process and everything it started. Chromium's GPU, renderer
+ * and utility processes, and the web edition's ptys and tool children, outlive
+ * a plain `kill()` of their parent on Windows.
+ */
+export function killTree(proc) {
+  if (!proc?.pid || proc.exitCode !== null) return;
+  if (process.platform === 'win32') {
+    try { execFileSync('taskkill', ['/PID', String(proc.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ }
+  } else {
+    // Spawned detached, so the pid leads its own process group.
+    try { process.kill(-proc.pid, 'SIGKILL'); } catch { try { proc.kill('SIGKILL'); } catch { /* already gone */ } }
+  }
 }
 
 export async function launchBrowser({ port, width, height, vsync = false, gpu = true }) {
@@ -73,10 +108,11 @@ export async function launchBrowser({ port, width, height, vsync = false, gpu = 
 }
 
 async function launchOnce(bin, { port, width, height, vsync, gpu }) {
+  const profile = mkdtempSync(join(tmpdir(), 'nekko-perf-browser-'));
   const args = [
     '--headless=new',
     `--remote-debugging-port=${port}`,
-    `--user-data-dir=${mkdtempSync(join(tmpdir(), 'nekko-perf-browser-'))}`,
+    `--user-data-dir=${profile}`,
     `--window-size=${width},${height}`,
     '--no-first-run',
     '--no-default-browser-check',
@@ -96,10 +132,20 @@ async function launchOnce(bin, { port, width, height, vsync, gpu }) {
   // emulator. Without it, compositing is plain software and WebGL is off, so
   // the terminal draws with xterm's DOM renderer.
   if (!gpu) args.unshift('--disable-gpu', '--disable-webgl', '--disable-3d-apis');
+  // A GPU in software, the same on every machine: GPU-style tiling and raster
+  // policy, which is what memory figures need to mean anything.
+  if (gpu === 'swiftshader') args.unshift('--use-angle=swiftshader', '--enable-unsafe-swiftshader');
   // CI containers run as root without the user namespaces the sandbox needs.
   // /dev/shm on a container runner is small enough to crash Chrome's renderer.
   if (process.platform === 'linux') args.unshift('--no-sandbox', '--disable-dev-shm-usage');
-  const proc = spawn(bin, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+  const proc = spawn(bin, args, { stdio: ['ignore', 'ignore', 'pipe'], detached: process.platform !== 'win32' });
+  const close = async () => {
+    killTree(proc);
+    // The profile stays locked until every child has exited.
+    for (let i = 0; i < 20; i++) {
+      try { rmSync(profile, { recursive: true, force: true }); return; } catch { await sleep(150); }
+    }
+  };
   let stderr = '';
   proc.stderr.on('data', (chunk) => { stderr = (stderr + chunk).slice(-4000); });
   let exited = null;
@@ -118,7 +164,7 @@ async function launchOnce(bin, { port, width, height, vsync, gpu }) {
   }
   const page = targets?.find((t) => t.type === 'page');
   if (!page) {
-    proc.kill();
+    await close();
     const how = exited ? `exited (code ${exited.code}, signal ${exited.signal})` : 'still running after 30 s';
     throw new Error(`${bin} did not expose a page target on port ${port}: ${how}${stderr.trim() ? `\n--- browser stderr (tail) ---\n${stderr.trim()}` : ''}`);
   }
@@ -128,5 +174,5 @@ async function launchOnce(bin, { port, width, height, vsync, gpu }) {
   } catch {
     /* informational only */
   }
-  return { proc, bin, version, wsUrl: page.webSocketDebuggerUrl };
+  return { proc, bin, version, wsUrl: page.webSocketDebuggerUrl, close };
 }

@@ -1328,3 +1328,7 @@ Add window sits to the right of the shared composer in the same row, including t
 ### Local quota history (added 2026-10-09)
 
 - [x] Persist whitelist-only existing quota observations and explicit reply start timestamps; provide read-only JSON correlation command with reset, missing-data and concurrent-activity caveats. See [spec](SPEC.md#local-quota-history-and-reply-comparison). Verified focused host tests, comparison tests and host typecheck. No UI change or extra polls; live account acceptance remains unverified.
+
+### Memory contract (added 2026-10-10)
+
+- [x] Gate GPU tile memory, oversized animated layers and per-lap heap/DOM/listener growth in the `perf` job; harness uses Chromium (never Edge) and ends every spawned process tree. Done: 2026-10-10. See [spec](SPEC.md#speed--responsiveness-the-speed-contract), The memory contract.
