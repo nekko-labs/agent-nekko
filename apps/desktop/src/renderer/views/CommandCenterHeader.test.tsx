@@ -23,7 +23,11 @@ describe('Agents header placement', () => {
   it.each([false, true])('puts a single heading beside the brand in desktop chrome (mac=%s)', (mac) => {
     state.mac = mac;
     const title = renderToStaticMarkup(<TitleBar />);
-    expect(title).toContain('Nekko Agent</span>');
+    // The brand mark stands alone (no wordmark), still named for assistive tech.
+    expect(title).not.toContain('Nekko Agent</span>');
+    expect(title).toContain('<title>Nekko Agent</title>');
+    expect(title).toContain('width="22"');
+    expect(title).toContain('class="titlebar-heading');
     expect(title.indexOf('>Agents</h1>')).toBeLessThan(title.indexOf('data-version'));
     expect(title.indexOf('data-version')).toBeLessThan(title.indexOf('id="command-titlebar-slot"'));
     expect(title.match(/<h1/g)).toHaveLength(1);
