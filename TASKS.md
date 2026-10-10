@@ -1333,6 +1333,10 @@ Add window sits to the right of the shared composer in the same row, including t
 
 - [x] Gate GPU tile memory, oversized animated layers and per-lap heap/DOM/listener growth in the `perf` job; harness uses Chromium (never Edge) and ends every spawned process tree. Done: 2026-10-10. See [spec](SPEC.md#speed--responsiveness-the-speed-contract), The memory contract.
 
+### Wall toolbar add bar (added 2026-10-10)
+
+- [x] Replace the composer-side Add window with a toolbar icon bar: new agent, new terminal, Changes/Browser/Files companions for the selected agent, More (picker). Done: 2026-10-10. See SPEC.md, Toolbar add bar replaces Add window.
+
 ### T187: Playwright drives the in-app browser through Electron's own Chromium (2026-10-10) · [spec](SPEC.md#in-app-browser-automation-2026-10-10)
 
 - [x] **T187** `playwright-core` (pinned 1.63.0, no install script, no browsers) added to the desktop app and kept external to the main bundle. Playwright connects with `connectOverCDP(transport)` over an in-process transport (`agentCdpTransport.ts`) that reaches each agent window through `webContents.debugger`: no remote-debugging port, only the chat's own windows as targets, a page-session command policy (no file uploads, no target discovery or attachment, no download or certificate overrides, HTTP(S) or about:blank navigation). Rejected alternative: `--remote-debugging-port` on loopback, which any local process (including the agent's own shell commands) could use to drive the Nekko UI. The `browser` tool keeps navigate/inspect/click/fill/close and adds wait, type, press, scroll, extract, evaluate, screenshot (pixels as chat images), tabs, tab_new, tab_switch, tab_close and logs in dedicated mode; existing (Stagehand) mode refuses the new ones. Validation is shared in `packages/shared/src/browser-tool.ts` and runs in both the host and the bridge. Debuggers are detached before a window is destroyed, since destroying an attached window stalled Electron's main thread in the smoke run. Done: 2026-10-10

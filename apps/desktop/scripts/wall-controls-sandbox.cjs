@@ -38,7 +38,7 @@ app.whenReady().then(async () => {
     }
     throw Error('Reset did not finish mounting shared composer controls');
   };
-  const open = async category => { await click('Add window'); if (category) { await run(`[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(category)}).click()`); await sleep(180); } };
+  const open = async category => { await run("document.querySelector('[data-wall-add-button]').click()");await sleep(180); if (category) { await run(`[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(category)}).click()`); await sleep(180); } };
   const image = async () => { await open('Media'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()"); await sleep(200); };
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
@@ -246,7 +246,7 @@ app.whenReady().then(async () => {
       for (const theme of ['light','dark']) for (const width of [1400,400]) {
         win.setContentSize(width,900);await reset();await run(`document.documentElement.dataset.theme='${theme}'`);await sleep(400);
         await capture(`composer-${theme}-${width}-rest`);
-        if(fixed) await check('Add beside composer '+width,"(()=>{const a=document.querySelector('[data-wall-add-button]').getBoundingClientRect(),c=document.querySelector('[data-wall-composer]').getBoundingClientRect();return a.left>=c.right && a.top>=c.top && a.bottom<=c.bottom})()");
+        if(fixed) await check('Add lives in the toolbar '+width,"!!document.querySelector('[data-wall-toolbar] .wall-add-bar [data-wall-add-button]') && !document.querySelector('[data-wall-composer-row] [data-wall-add-button], .wall-composer-row [data-wall-add-button]')");
         for(let i=0;i<4;i++) {
           await run("integration.route('chat')");await sleep(200);
           await run("integration.route('command')");await sleep(300);
@@ -262,15 +262,15 @@ app.whenReady().then(async () => {
         }
         await capture(`composer-${theme}-${width}-returned`);
         await run("(()=>{const s=document.querySelector('.wall-composer-side[data-edge=right]');s.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))})()");await sleep(200);
-        if(fixed)await check('resized composer keeps Add beside',"(()=>{const a=document.querySelector('[data-wall-add-button]').getBoundingClientRect(),c=document.querySelector('[data-wall-composer]').getBoundingClientRect();return a.left>=c.right && a.right<=innerWidth})()");
-        await click('Add window');await check('same-row Add opens picker',"!!document.querySelector('.agent-window-picker')");
+        if(fixed)await check('resized composer leaves Add in the toolbar',"!!document.querySelector('[data-wall-toolbar] .wall-add-bar [data-wall-add-button]') && !document.querySelector('[data-wall-composer-row] [data-wall-add-button], .wall-composer-row [data-wall-add-button]')");
+        await run("document.querySelector('[data-wall-add-button]').click()");await sleep(180);await check('same-row Add opens picker',"!!document.querySelector('.agent-window-picker')");
         await run("document.querySelector('.agent-window-picker').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");await sleep(200);
         await run("document.querySelector('[data-wall-composer] .wall-composer-side').dispatchEvent(new KeyboardEvent('keydown',{key:'Home',bubbles:true}))");
         for (const nextWidth of [1000,1200,width]) {win.setContentSize(nextWidth,900);await sleep(250);if(fixed)await check('toolbar follows viewport '+nextWidth,"(()=>{const t=document.querySelector('[data-wall-toolbar]');return !!t && (innerWidth<1100 ? !t.closest('#command-titlebar-slot') : !!t.closest('#command-titlebar-slot'))})()");}
 
       }
       win.setContentSize(1400,900);await reset();await run("integration.dock('top')");await sleep(400);
-      if(fixed)await check('top dock keeps Add beside composer',"(()=>{const a=document.querySelector('[data-wall-add-button]').getBoundingClientRect(),c=document.querySelector('[data-wall-composer]').getBoundingClientRect(),w=document.querySelector('[data-command-wall]').getBoundingClientRect();return a.left>=c.right && a.top>=c.top && a.bottom<=c.bottom && c.top<w.top})()");
+      if(fixed)await check('top dock leaves Add in the toolbar',"!!document.querySelector('[data-wall-toolbar] .wall-add-bar [data-wall-add-button]') && !document.querySelector('[data-wall-composer-row] [data-wall-add-button], .wall-composer-row [data-wall-add-button]')");
       await reset();await sleep(400);
       const frames=path.join(runDir,'motion');fs.mkdirSync(frames);
       for(let i=0;i<24;i++){if(i===4)await run("integration.route('chat')");if(i===12)await run("integration.route('command')");fs.writeFileSync(path.join(frames,String(i).padStart(3,'0')+'.png'),(await win.capturePage(undefined,{stayHidden:true})).toPNG());await sleep(80);}
@@ -293,7 +293,7 @@ app.whenReady().then(async () => {
         if (fixed) await check('compass directions enabled', "[...document.querySelectorAll('[role=dialog][aria-label=\"Add a window\"] button[aria-disabled]')].every(b=>b.getAttribute('aria-disabled')==='false')");
         await capture(`focus-${theme}-${width}-compass`);
         await run("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
-        await click('Focus'); await sleep(300); await click('Add window'); await sleep(500);
+        await click('Focus'); await sleep(300); await run("document.querySelector('[data-wall-add-button]').click()");await sleep(180); await sleep(500);
         if (await mode() !== (fixed ? 'grid' : 'focus')) throw Error('Wrong toolbar mode');
         await check('picker opens', "!!document.querySelector('.agent-window-picker')");
         await capture(`focus-${theme}-${width}-picker`);

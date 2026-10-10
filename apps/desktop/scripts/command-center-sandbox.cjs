@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
     await sleep(180);
   };
   const reset = async () => { await run('window.integration.reset()'); await sleep(350); };
-  const open = async category => { await click('Add window'); if (category) { await run(`[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(category)}).click()`); await sleep(180); } };
+  const open = async category => { await run("document.querySelector('[data-wall-add-button]').click()");await sleep(180); if (category) { await run(`[...document.querySelectorAll('.agent-window-picker__option')].find(b=>b.querySelector('strong')?.textContent===${JSON.stringify(category)}).click()`); await sleep(180); } };
   const image = async () => { await open('Media'); await run("[...document.querySelectorAll('.agent-window-picker button')].find(b=>b.textContent.includes('Create image session')).click()"); await sleep(200); };
   const capture = async name => { await sleep(350); fs.writeFileSync(path.join(runDir, name + '.png'), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG()); report.captures.push(path.join(runDir, name + '.png')); };
   try {
@@ -43,7 +43,7 @@ app.whenReady().then(async () => {
     await check('picker initial focus', "document.activeElement.classList.contains('agent-window-picker__option')");
     await run("document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))");
     await check('Escape dismissal restores toolbar focus', "!document.querySelector('.agent-window-picker') && document.activeElement.textContent.includes('Add window')");
-    await open(); await click('Add window');
+    await open(); await run("document.querySelector('[data-wall-add-button]').click()");await sleep(180);
     await check('toolbar toggle dismisses and restores focus', "!document.querySelector('.agent-window-picker') && document.activeElement.textContent.includes('Add window')");
     await reset(); await run('integration.failures.create=true'); await image();
     await check('creation failure stays open with error', "!!document.querySelector('[role=alert]') && integration.records().length===1");
@@ -87,7 +87,7 @@ app.whenReady().then(async () => {
           await run("(document.querySelector('.command-wall-add-tile') || document.querySelector('#wall-window-picker'))?.scrollIntoView({block:'start'})"); await capture(`create-${mode}-${theme}-${label}`);
           await run("document.querySelector('.agent-window-picker__primary')?.scrollIntoView({block:'end'})"); await capture(`create-${mode}-actions-${theme}-${label}`);
         }
-        await click('Add window'); await click('Focus'); await capture(`full-focus-${theme}-${label}`);
+        await run("document.querySelector('[data-wall-add-button]').click()");await sleep(180); await click('Focus'); await capture(`full-focus-${theme}-${label}`);
         await run("integration.route('workspace')"); await sleep(500);
         await run("(()=>{const b=document.querySelector('[title=\"New agent with a terminal\"]'); b.focus(); b.dispatchEvent(new FocusEvent('focusin',{bubbles:true}));})()"); await capture(`workspace-image-menu-${theme}-${label}`);
       }
@@ -124,7 +124,7 @@ app.whenReady().then(async () => {
     win.setContentSize(1200, 900); await reset(); await run("document.documentElement.dataset.theme='light'");
     const motion = path.join(runDir, 'motion'); fs.mkdirSync(motion);
     for (let frame = 0; frame < 36; frame++) {
-      if (frame === 4 || frame === 16) await click('Add window');
+      if (frame === 4 || frame === 16) await run("document.querySelector('[data-wall-add-button]').click()");await sleep(180);
       if (frame === 22) await click('Focus');
       if (frame === 29) await click('Dynamic');
       fs.writeFileSync(path.join(motion, `${String(frame).padStart(3, '0')}.png`), (await win.capturePage(undefined, { stayHidden: true, stayAwake: false })).toPNG());
