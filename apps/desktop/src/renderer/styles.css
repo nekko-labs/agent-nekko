@@ -1806,6 +1806,9 @@
   border-radius: 0 var(--pane-radius, 12px) var(--pane-radius, 12px) 0;
   box-shadow: 14px 0 32px -22px rgb(0 0 0 / .6);
 }
+/* On a one-column wall it floats over the window's right side: a full card. */
+.agent-logs-drawer[data-overlay] { z-index: 30; }
+.agent-logs-drawer[data-overlay] .agent-logs-drawer-inner { border-left: 1px solid var(--logs-ring); border-radius: var(--pane-radius, 12px); box-shadow: 0 18px 48px -18px rgb(0 0 0 / .55); }
 .agent-logs-drawer-head { display: flex; align-items: center; gap: 6px; flex-shrink: 0; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--line); font-size: 12px; font-weight: 500; }
 .agent-logs-drawer-body { position: relative; flex: 1; min-height: 0; }
 /* The window gives up its right-hand rounding where the drawer joins it. */

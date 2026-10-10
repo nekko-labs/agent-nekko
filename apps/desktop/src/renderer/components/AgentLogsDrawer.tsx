@@ -11,10 +11,12 @@ import { useWallLogs, type Rect } from '../wallLogs.js';
  * windows to its right) and, closed, it is absorbed back into the window. Its
  * left side has no border and covers the window's edge, so the two read as one.
  */
-export function AgentLogsDrawer({ sessionId, title, rect, selected }: {
+export function AgentLogsDrawer({ sessionId, title, rect, overlay, selected }: {
   sessionId: string;
   title: string;
   rect: Rect;
+  /** A one-column wall: the drawer sits over its window instead of beside it. */
+  overlay?: boolean;
   selected?: boolean;
 }) {
   const closing = useWallLogs((s) => s.closing);
@@ -37,7 +39,8 @@ export function AgentLogsDrawer({ sessionId, title, rect, selected }: {
       data-agent-logs
       data-closing={closing || undefined}
       data-selected={selected || undefined}
-      style={{ left: rect.x - 1, top: rect.y, width: rect.width + 1, height: rect.height }}
+      data-overlay={overlay || undefined}
+      style={overlay ? { left: rect.x, top: rect.y, width: rect.width, height: rect.height } : { left: rect.x - 1, top: rect.y, width: rect.width + 1, height: rect.height }}
       onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }}
       onAnimationEnd={(e) => { if (e.target === ref.current && closing) closed(); }}
     >

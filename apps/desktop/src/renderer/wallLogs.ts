@@ -87,3 +87,19 @@ export function layoutWithLogsDrawer(
   const h = Math.round(t.height * LOGS_DRAWER_HEIGHT);
   return { panes: next, drawer: { x: t.x + targetWidth, y: t.y + Math.round((t.height - h) / 2), width, height: h } };
 }
+
+/**
+ * On a wall too narrow to make room (one column), the drawer sits over the
+ * right of its window instead, so Logs still opens it there. Nothing moves.
+ */
+export function overlayLogsDrawer(
+  panes: Map<string, Rect>,
+  targetId: string,
+): { panes: Map<string, Rect>; drawer: Rect | null; overlay: true } {
+  const t = panes.get(targetId);
+  if (!t) return { panes, drawer: null, overlay: true };
+  const inset = 12;
+  const width = Math.max(1, Math.min(560, t.width - inset * 2));
+  const h = Math.max(1, Math.round(t.height * LOGS_DRAWER_HEIGHT));
+  return { panes, drawer: { x: t.x + t.width - inset - width, y: t.y + Math.round((t.height - h) / 2), width, height: h }, overlay: true };
+}

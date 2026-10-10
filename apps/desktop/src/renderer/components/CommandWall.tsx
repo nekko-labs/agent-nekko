@@ -80,7 +80,7 @@ import { PaneActions, PaneFrame } from './PaneFrame.js';
 import { Divider } from './Divider.js';
 import { WallEmptyIllustration } from './WallEmptyIllustration.js';
 import { AgentLogsDrawer } from './AgentLogsDrawer.js';
-import { layoutWithLogsDrawer, useWallLogs } from '../wallLogs.js';
+import { layoutWithLogsDrawer, overlayLogsDrawer, useWallLogs } from '../wallLogs.js';
 import { BoltIcon, ChatIcon, ExternalIcon, LayoutIcon, TerminalIcon } from '../icons.js';
 import './commandWallLayouts.css';
 
@@ -305,9 +305,11 @@ export function CommandWall({
   const logsFor = useWallLogs((s) => s.sessionId);
   const logsClosing = useWallLogs((s) => s.closing);
   const logsPane = logsFor ? allPanes(state.root).find((p) => p.kind === 'chat' && p.refId === logsFor && geometry.panes.has(p.id) && !geometry.deck.has(p.id)) : undefined;
-  const logsLayout = useMemo(() => logsPane && size.width >= NARROW_WIDTH ? layoutWithLogsDrawer(geometry.panes, logsPane.id, size.width) : null, [geometry, logsPane?.id, size.width]);
+  // A one-column wall has no room to make: the drawer sits over its window.
+  const logsLayout = useMemo(() => !logsPane ? null : size.width >= NARROW_WIDTH ? layoutWithLogsDrawer(geometry.panes, logsPane.id, size.width) : overlayLogsDrawer(geometry.panes, logsPane.id), [geometry, logsPane?.id, size.width]);
+  const logsOverlay = !!logsLayout && 'overlay' in logsLayout;
   const shownPanes = logsLayout && !logsClosing ? logsLayout.panes : geometry.panes;
-  // A drawer whose window left the wall, or a wall too narrow for one, closes.
+  // A drawer whose window left the wall closes.
   useEffect(() => { if (logsFor && size.width > 0 && !logsLayout) { useWallLogs.setState({ sessionId: null, closing: false }); } }, [logsFor, logsLayout, size.width]);
   const densityOf = (paneId: string): boolean | null => {
     const r = geometry.panes.get(paneId);
@@ -416,7 +418,7 @@ export function CommandWall({
         data-wall-selected={selected || undefined}
         data-wall-working={agentStatus === 'working' || undefined}
         data-wall-needs-you={needsYou || undefined}
-        data-wall-logs-open={(logsPane?.id === pane.id && !logsClosing) || undefined}
+        data-wall-logs-open={(logsPane?.id === pane.id && !logsClosing && !logsOverlay) || undefined}
       >
         {/* The composer's beam, quieter: a working agent window says so at a glance. */}
         {agentStatus === 'working' && <span className="composer-beam-ring wall-window-beam" aria-hidden><span className="composer-beam-spin" /></span>}
@@ -524,7 +526,7 @@ export function CommandWall({
       <div className="command-wall-stage" style={{ height: Math.max(geometry.height, addContent ? geometry.add.y + createHeight + 64 : 0), width: size.width }}>
         <div className="command-wall-pane-stage" style={{ position: 'absolute', inset: 0, top: 0 }}>
         {allPanes(state.root).map(renderLeaf)}
-        {logsPane && logsLayout?.drawer && <AgentLogsDrawer key={logsPane.refId} sessionId={logsPane.refId} title={titleOf(logsPane)} rect={logsLayout.drawer} selected={logsPane.refId === selectedId} />}
+        {logsPane && logsLayout?.drawer && <AgentLogsDrawer key={logsPane.refId} sessionId={logsPane.refId} title={titleOf(logsPane)} rect={logsLayout.drawer} overlay={logsOverlay} selected={logsPane.refId === selectedId} />}
         {!addContent && state.layout.mode === 'grid' && size.width >= NARROW_WIDTH && geometry.addGrid && renderDividers(geometry.addGrid)}
         </div>
         {/* Add window lives beside the composer; the wall only shows the slot it opens. */}

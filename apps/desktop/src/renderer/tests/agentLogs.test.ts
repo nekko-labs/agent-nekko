@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { beforeEach, expect, it } from 'vitest';
-import { layoutWithLogsDrawer, logsDrawerWidth, useWallLogs, type Rect } from '../wallLogs.js';
+import { layoutWithLogsDrawer, logsDrawerWidth, overlayLogsDrawer, useWallLogs, type Rect } from '../wallLogs.js';
 
 const source = readFileSync(new URL('../components/ChatPane.tsx', import.meta.url), 'utf8');
 const wall = readFileSync(new URL('../components/CommandWall.tsx', import.meta.url), 'utf8');
@@ -88,6 +88,16 @@ it('keeps three windows in a row on the wall, narrowing the drawer before pushin
   expect(panes.get('b')!.width).toBeGreaterThanOrEqual(240 - 1e-6);
   expect(drawer!.width).toBeGreaterThanOrEqual(280);
   expect(drawer!.height).toBe(630);
+});
+
+it('still opens on a one-column wall, over the window instead of beside it', () => {
+  const col = new Map<string, Rect>([['a', { x: 0, y: 0, width: 600, height: 400 }]]);
+  const { panes, drawer, overlay } = overlayLogsDrawer(col, 'a');
+  expect(overlay).toBe(true);
+  expect(panes.get('a')).toEqual(col.get('a'));
+  expect(drawer).toEqual({ x: 28, y: 20, width: 560, height: 360 });
+  // The wall picks the overlay below NARROW_WIDTH rather than closing the drawer.
+  expect(wall).toContain('overlayLogsDrawer(geometry.panes, logsPane.id)');
 });
 
 it('leaves windows in other rows where they are', () => {
