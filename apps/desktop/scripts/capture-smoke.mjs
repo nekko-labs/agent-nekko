@@ -61,6 +61,12 @@ app.whenReady().then(async () => {
     if(owned.isVisible() || owned.isFocused() || activations) throw new Error('Background actions surfaced the owned window');
     if(!screenshot.width || !screenshot.height || screenshot.source !== 'owned-page') throw new Error('Invalid hidden screenshot');
     result.hiddenOwned = {width:screenshot.width,height:screenshot.height,source:screenshot.source,visible:owned.isVisible(),focused:owned.isFocused(),activations,dialogSuppressed:true,focusable:process.platform==='linux'?null:owned.isFocusable()};
+    // Host tools check the chat's execution mode, so the fixture chat must
+    // exist as a normal (host) session in a throwaway data dir.
+    const { setDataDir } = await import(${JSON.stringify(pathToFileURL(join(root, 'packages/host/dist/paths.js')).href)});
+    const { createSession, saveSession } = await import(${JSON.stringify(pathToFileURL(join(root, 'packages/host/dist/sessions.js')).href)});
+    setDataDir(join(out, 'host-data'));
+    saveSession({ ...createSession(), id: 'fixture' });
     const { executeTool } = await import(${JSON.stringify(pathToFileURL(join(root, 'packages/host/dist/tools.js')).href)});
     const transported = await executeTool({id:'shot',name:'capture',input:{action:'screenshot',window_id:id,path:'hidden-transport.png'}}, {settings:{sandboxMode:'workspace-jail',workspaces:[{path:out}]},defaultCwd:out,sessionId:'fixture',allowBrowserControl:true,requestApproval:async (_call,reason) => { if(!reason.includes('selected chat model')) throw new Error('Missing disclosure'); return true; }});
     if(transported.isError || !transported.images?.[0]?.startsWith('data:image/png;base64,')) throw new Error('Screenshot pixels did not reach tool result');
