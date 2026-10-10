@@ -15,6 +15,7 @@ import { EngineProcess } from './engine-process.js';
 import { createDesktopTray } from './tray.js';
 import { startAgentBrowser } from './agentBrowser.js';
 import { registerArtifactPreview } from './artifactPreview.js';
+import { offerLegacyCleanup } from './legacyPrompt.js';
 const applicationWindows = new Set<number>();
 
 let desktopTray: ReturnType<typeof createDesktopTray> | null = null;
@@ -341,6 +342,16 @@ app.whenReady().then(async () => {
     }
     catch (failure) { dialog.showErrorBox('Data migration stopped', (failure as Error).message); app.quit(); return; }
   }
+  // Earlier names of the app leave their own folders behind. Offer to fold them
+  // in on every launch while any remain; the engine is not running yet, so the
+  // data folder is quiet.
+  offerLegacyCleanup({
+    ask: (message, detail) => {
+      const pick = dialog.showMessageBoxSync({ type: 'question', title: 'Nekko Agent', message, detail, buttons: ['Merge and clean up', 'Merge, keep old copies', 'Not now'], defaultId: 0, cancelId: 2, noLink: true });
+      return pick === 0 ? 'merge-clean' : pick === 1 ? 'merge-keep' : 'later';
+    },
+    tell: (title, detail, error) => { dialog.showMessageBoxSync({ type: error ? 'warning' : 'info', title: 'Nekko Agent', message: title, detail, buttons: ['OK'] }); },
+  });
   // The engine runs in its own processes (see engine-process.ts); the window
   // only needs to know where it listens.
   const rendererUrl = process.env['ELECTRON_RENDERER_URL'];
