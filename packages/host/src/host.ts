@@ -1012,8 +1012,12 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       const current = getSettings().workspaces;
       if (current.some((w) => sameFolderPath(w.path, path))) return current;
 
+      // Two folders added in the same millisecond must not share an id.
+      const stamp = `ws_${Date.now().toString(36)}`;
+      let id = stamp;
+      for (let n = 1; current.some((w) => w.id === id); n++) id = `${stamp}_${n}`;
       const folder: WorkspaceFolder = {
-        id: `ws_${Date.now().toString(36)}`,
+        id,
         name: basename(path),
         path,
         addedAt: Date.now(),
