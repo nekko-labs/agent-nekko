@@ -163,6 +163,26 @@ describe('bundled main/preload externals', () => {
   }
 });
 
+// The agent browser drives Electron's own Chromium through playwright-core.
+// It must stay a runtime dependency that electron-builder packs (it reads its
+// own files at runtime, so it is not inlined), and it must never fetch a
+// browser at install: playwright-core has no install script, unlike playwright.
+describe('playwright-core runtime dependency', () => {
+  it('is a production dependency without browsers', () => {
+    expect(pkg.dependencies['playwright-core']).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(pkg.dependencies).not.toHaveProperty('playwright');
+    expect(pkg.dependencies).not.toHaveProperty('@playwright/test');
+    const pwPkg = JSON.parse(readFileSync(createRequire(join(root, 'package.json')).resolve('playwright-core/package.json'), 'utf8'));
+    expect(Object.keys(pwPkg.scripts ?? {}).filter((s) => /install/.test(s))).toEqual([]);
+  });
+
+  it('is required at runtime by the main bundle, not bundled into it', () => {
+    const src = readFileSync(join(root, 'out/main/index.js'), 'utf8');
+    expect(src).toMatch(/require\(\s*["']playwright-core["']\s*\)/);
+    expect(src).not.toContain('class CRBrowser');
+  });
+});
+
 // The other half of the launch fix: v0.4.0 shipped react 18 and react 19
 // side by side in one renderer bundle (zustand is hoisted to the monorepo root
 // and its `react` peer resolved to the root react 18), which left the hook

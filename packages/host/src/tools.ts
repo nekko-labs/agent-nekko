@@ -1,4 +1,4 @@
-import { getExecutionMode } from '@nekko-agent/shared';
+import { getExecutionMode, isDedicatedOnlyBrowserAction, validateBrowserInput } from '@nekko-agent/shared';
 import { getSession } from './sessions.js';
 import { executeSandboxTool } from './execution-router.js';
 import { execFile, spawn, type ChildProcess, type ExecFileOptions } from 'child_process';
@@ -114,16 +114,23 @@ async function controlBrowser(call: ToolCall, opts: ToolHostOptions): Promise<To
   const action = input.action;
   if (input.visible !== undefined && (typeof input.visible !== 'boolean' || mode !== 'dedicated')) return err(call, 'visible is a boolean for dedicated mode only.');
   if (mode !== 'dedicated' && mode !== 'existing') return err(call, 'Choose dedicated or existing browser mode.');
-  if (!['navigate', 'inspect', 'click', 'fill', 'close'].includes(String(action))) return err(call, 'Unsupported browser action.');
+  try { validateBrowserInput(input); }
+  catch (e) { return err(call, (e as Error).message); }
+  if (mode === 'existing' && isDedicatedOnlyBrowserAction(action)) return err(call, `The ${String(action)} action needs dedicated mode (the in-app browser). Existing mode supports navigate, inspect, click, fill and close.`);
   const port = mode === 'existing' ? Number(input.port ?? 9222) : undefined;
   if (port !== undefined && (!Number.isInteger(port) || port < 1 || port > 65535)) return err(call, 'CDP port must be a local TCP port.');
-  const url = action === 'navigate' ? String(input.url ?? '') : '';
-  if (action === 'navigate' && !/^https?:\/\//i.test(url)) return err(call, 'Only HTTP(S) pages can be opened.');
+  const url = action === 'navigate' || action === 'tab_new' ? String(input.url ?? '') : '';
   const selector = String(input.selector ?? '');
-  if (['click', 'fill'].includes(String(action)) && (!selector || selector.length > 500)) return err(call, 'A CSS selector is required.');
   const existing = browsers.get(opts.sessionId);
   if ((mode === 'existing' && dedicatedBrowsers.has(opts.sessionId)) || (existing && (existing.mode !== mode || existing.port !== port))) return err(call, 'Close the current browser session before switching modes or ports.');
-  const approved = await opts.requestApproval(call, `Browser ${mode}: ${action}${url ? ` ${url}` : ''}${selector ? ` ${selector}` : ''}`, 'high');
+  const detail = action === 'evaluate' ? ` ${String(input.expression).slice(0, 300)}`
+    : action === 'type' ? ` ${JSON.stringify(String(input.text).slice(0, 120))}`
+    : action === 'press' ? ` ${String(input.key)}`
+    : action === 'wait' && !selector ? ` text ${JSON.stringify(String(input.text ?? ''))}`
+    : action === 'tab_switch' || action === 'tab_close' ? ` ${input.tab ?? 'current'}` : '';
+  const disclosure = action === 'screenshot' ? ' Page pixels will be sent to the selected chat model for inspection.'
+    : action === 'evaluate' ? ' The expression runs as script inside the page.' : '';
+  const approved = await opts.requestApproval(call, `Browser ${mode}: ${action}${url ? ` ${url}` : ''}${selector ? ` ${selector}` : ''}${detail}.${disclosure}`, 'high');
   if (!approved) return err(call, 'Browser action not approved.');
   if (mode === 'dedicated') {
     const bridgeUrl = process.env.NEKKO_BROWSER_URL;
@@ -133,14 +140,21 @@ async function controlBrowser(call: ToolCall, opts: ToolHostOptions): Promise<To
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...input, sessionId: opts.sessionId }),
-      signal: AbortSignal.timeout(30_000),
+      signal: opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
     });
-    const result = await response.json() as { output?: string; error?: string };
+    const result = await response.json() as { output?: string; error?: string; image?: { data?: unknown; mime?: unknown } };
     if (response.ok) {
       if (action === 'close') dedicatedBrowsers.delete(opts.sessionId);
       else dedicatedBrowsers.add(opts.sessionId);
     }
-    return response.ok ? ok(call, result.output ?? '') : err(call, result.error ?? 'In-app browser action failed.');
+    if (!response.ok) return err(call, result.error ?? 'In-app browser action failed.');
+    // Pixels travel as an image attachment, never as base64 in the text output.
+    const image = result.image;
+    if (action === 'screenshot') {
+      if (!image || typeof image.data !== 'string' || image.mime !== 'image/png' || !image.data || image.data.length > 7 * 1024 * 1024) return err(call, 'In-app browser returned an invalid screenshot.');
+      return { ...ok(call, `${result.output ?? 'Screenshot taken.'}\nPixels attached to the selected model; vision support is required.`), images: [`data:image/png;base64,${image.data}`] };
+    }
+    return ok(call, result.output ?? '');
   }
   if (action === 'close') {
     if (existing) {

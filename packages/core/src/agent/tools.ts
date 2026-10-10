@@ -1,4 +1,5 @@
 import type { ToolSpec } from '../providers/types.js';
+import { BROWSER_ACTIONS, BROWSER_EXTRACT_KINDS, BROWSER_MAX_WAIT_MS, BROWSER_SCROLL_DIRECTIONS, BROWSER_WAIT_STATES } from '@nekko-agent/shared';
 
 /**
  * The built-in agent toolset. These specs are sent to the model; the actual
@@ -138,16 +139,25 @@ export const BUILTIN_TOOLS: ToolSpec[] = [
   },
   {
     name: 'browser',
-    description: 'Control a local Chromium browser. Dedicated windows run hidden by default without taking focus. Set visible=true only when the user needs to see the window; it shows without activation. Each action requires approval unless the user has enabled allow-all (YOLO) for this chat. Dedicated mode opens an isolated in-app Nekko browser window (use this by default); existing mode attaches only to an explicitly started localhost CDP port. Start with navigate or inspect, then use CSS selectors for click and fill. No cloud browser is used.',
+    description: 'Control a local Chromium browser. Dedicated mode (use this by default) drives an isolated, hidden in-app Nekko browser with Playwright; it never takes focus. Set visible=true only when the user needs to see the window; it shows without activation. Existing mode attaches only to an explicitly started localhost CDP port and supports navigate, inspect, click, fill and close. Each action requires approval unless the user has enabled allow-all (YOLO) for this chat. Start with navigate or inspect, then use CSS selectors. Dedicated-only actions: wait (selector or text to reach a state), type (keyboard text, into selector or the focused element), press (a key such as Enter or Control+A), scroll (direction and amount, or a selector into view), extract (what=text of a selector, or what=links), evaluate (a JavaScript expression in the page; the JSON result is returned, keep it read-only), screenshot (attaches the page pixels to this chat, requires vision support), tabs, tab_new, tab_switch, tab_close, and logs (console messages, page errors and failed requests since the last logs call). Only HTTP(S) pages; downloads, popups, dialogs and device permissions are blocked. No cloud browser is used.',
     parameters: {
       type: 'object',
       properties: {
         mode: { type: 'string', enum: ['dedicated', 'existing'] },
-        action: { type: 'string', enum: ['navigate', 'inspect', 'click', 'fill', 'close'] },
-        url: { type: 'string', description: 'HTTP(S) destination for navigate.' },
+        action: { type: 'string', enum: [...BROWSER_ACTIONS] },
+        url: { type: 'string', description: 'HTTP(S) destination for navigate, or optionally for tab_new.' },
         port: { type: 'number', description: 'Existing Chromium localhost CDP port, commonly 9222.' },
-        selector: { type: 'string', description: 'CSS selector for click or fill.' },
+        selector: { type: 'string', description: 'CSS or Playwright selector (the first match is used) for click, fill, wait, type, press, scroll and extract.' },
         value: { type: 'string', description: 'Text to enter for fill.' },
+        text: { type: 'string', description: 'Text to type for type, or visible text to wait for with wait.' },
+        key: { type: 'string', description: 'Key for press, for example Enter, Tab, Escape, ArrowDown or Control+A.' },
+        state: { type: 'string', enum: [...BROWSER_WAIT_STATES], description: 'State wait waits for; visible by default.' },
+        timeout_ms: { type: 'number', description: `Longest wait in milliseconds for wait (default 5000, at most ${BROWSER_MAX_WAIT_MS}).` },
+        direction: { type: 'string', enum: [...BROWSER_SCROLL_DIRECTIONS], description: 'Scroll direction; down by default.' },
+        amount: { type: 'number', description: 'Pixels to scroll; 600 by default.' },
+        what: { type: 'string', enum: [...BROWSER_EXTRACT_KINDS], description: 'extract: text (innerText of selector, or the page) or links (label and URL, within selector if given).' },
+        expression: { type: 'string', description: 'JavaScript expression for evaluate, for example document.querySelectorAll("li").length.' },
+        tab: { type: 'number', description: 'Tab index from the tabs action, for tab_switch and tab_close.' },
         visible: { type: 'boolean', description: 'Dedicated mode only: true shows without activation, false hides, omitted keeps current visibility. New windows start hidden.' },
       },
       required: ['mode', 'action'],
