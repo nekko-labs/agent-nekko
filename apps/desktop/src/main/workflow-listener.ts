@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { URL } from 'node:url';
-import { brandEnv } from '@agent-nekko/shared';
-import type { Host } from '@agent-nekko/host';
+import { brandEnv } from '@nekko-agent/shared';
+import type { Host } from '@nekko-agent/host';
 
 /**
  * Opt-in loopback webhook listener for the desktop app.

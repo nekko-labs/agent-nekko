@@ -1,7 +1,7 @@
 import { cacheUsage, geminiCachePrefix, geminiExplicitCacheModel, type CacheCapableProviderConfig } from './prompt-caching.js';
 import { withToolImages } from './tool-images.js';
-import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
-import { effectiveEffort } from '@agent-nekko/shared';
+import type { ModelInfo, ProviderConfig, ToolCall } from '@nekko-agent/shared';
+import { effectiveEffort } from '@nekko-agent/shared';
 import type { Provider, ChatRequest, ProviderChunk, ToolSpec } from './types.js';
 import { parseSSE } from './sse.js';
 import { httpError } from './errors.js';
@@ -36,8 +36,8 @@ export class OpenAICompatProvider implements Provider {
     const h: Record<string, string> = { 'Content-Type': 'application/json' };
     if (this.config.apiKey) h['Authorization'] = `Bearer ${this.config.apiKey}`;
     if (this.config.kind === 'openrouter') {
-      h['HTTP-Referer'] = 'https://github.com/nekko-labs/agent-nekko';
-      h['X-Title'] = 'Agent Nekko';
+      h['HTTP-Referer'] = 'https://github.com/nekko-labs/nekko-agent';
+      h['X-Title'] = 'Nekko Agent';
     }
     return h;
   }

@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { AskRequest } from '@agent-nekko/shared';
+import type { AskRequest } from '@nekko-agent/shared';
 import { QuestionCard } from './QuestionCard.js';
 
 const request: AskRequest = {

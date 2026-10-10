@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import type { PairingGrant, RemoteDevice, RemoteStatus } from '@agent-nekko/shared';
+import type { PairingGrant, RemoteDevice, RemoteStatus } from '@nekko-agent/shared';
 import { Badge } from './primitives/index.js';
 
 /**
@@ -10,9 +10,9 @@ import { Badge } from './primitives/index.js';
  * sees ciphertext. Self-hosting the relay is documented and first-class.
  */
 
-/** Managed relay (free during beta; becomes an Agent Nekko Cloud perk). */
-export const MANAGED_RELAY_URL = 'wss://agent-nekko-relay.fly.dev';
-const SELF_HOST_DOCS = 'https://github.com/nekko-labs/agent-nekko/blob/main/docs/REMOTE.md';
+/** Managed relay (free during beta; becomes a Nekko Agent Cloud perk). */
+export const MANAGED_RELAY_URL = 'wss://nekko-agent-relay.fly.dev';
+const SELF_HOST_DOCS = 'https://github.com/nekko-labs/nekko-agent/blob/main/docs/REMOTE.md';
 
 export function RemoteAccess() {
   const [status, setStatus] = useState<RemoteStatus>({ enabled: false });
@@ -55,7 +55,7 @@ export function RemoteAccess() {
 
   // Pairing link: on an http origin (web edition) the link opens this same UI;
   // the desktop app has no web origin, so the QR carries the raw pairing params
-  // (the Agent Nekko phone app parses those directly).
+  // (the Nekko Agent phone app parses those directly).
   useEffect(() => {
     if (!status.enabled || !liveGrant) {
       setLink('');
@@ -63,7 +63,7 @@ export function RemoteAccess() {
     }
     void window.nekko.getRemotePairing().then((p) => {
       if (!p) return setLink('');
-      setLink(`${location.protocol.startsWith('http') ? location.origin + '/' : 'agent-nekko-pair:'}?relay=${encodeURIComponent(
+      setLink(`${location.protocol.startsWith('http') ? location.origin + '/' : 'nekko-agent-pair:'}?relay=${encodeURIComponent(
         p.relayUrl,
       )}&room=${p.room}&key=${p.key}&pair=${liveGrant.code}`);
     });
@@ -148,7 +148,7 @@ export function RemoteAccess() {
             </button>
           </div>
           <p className="text-[11.5px] text-ink-faint">
-            The default is the managed Agent Nekko relay (free during beta). Privacy purists can{' '}
+            The default is the managed Nekko Agent relay (free during beta). Privacy purists can{' '}
             <a className="underline" href={SELF_HOST_DOCS} target="_blank" rel="noreferrer">
               self-host the relay
             </a>{' '}
@@ -220,7 +220,7 @@ export function RemoteAccess() {
               {qr && <img src={qr} alt="Pairing QR" width={132} height={132} className="rounded-lg border border-line" />}
               <div className="min-w-0">
                 <div className="text-[12px]">
-                  Scan from the Agent Nekko app (or open the link in your phone's browser). One device,{' '}
+                  Scan from the Nekko Agent app (or open the link in your phone's browser). One device,{' '}
                   <span className="font-mono font-medium">{Math.floor(secsLeft / 60)}:{String(secsLeft % 60).padStart(2, '0')}</span>{' '}
                   left.
                 </div>

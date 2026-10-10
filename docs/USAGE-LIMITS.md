@@ -1,6 +1,6 @@
 # Usage limits and price estimates
 
-This page explains where Agent Nekko's usage numbers come from and what they mean.
+This page explains where Nekko Agent's usage numbers come from and what they mean.
 
 ## Where the limit numbers come from
 
@@ -16,18 +16,18 @@ Both providers are normalized into the same `SubscriptionLimits` shape in `packa
 
 ## Live reads, not estimates
 
-The numbers in the chat header chip and the Models card are live reads from the provider. They update after each subscription response and on a throttled poll. Agent Nekko does not extrapolate or predict your usage locally; if a provider does not return a window, that window is simply not shown.
+The numbers in the chat header chip and the Models card are live reads from the provider. They update after each subscription response and on a throttled poll. Nekko Agent does not extrapolate or predict your usage locally; if a provider does not return a window, that window is simply not shown.
 
 ## Off-label caveat
 
-The Anthropic and ChatGPT usage endpoints used here are documented by or reverse-engineered from the providers' subscription flows. They can change, move, or stop returning data at any time. Agent Nekko is not affiliated with Anthropic or OpenAI, and the readouts are provided as a convenience for subscribers, not as an official feature of those services.
+The Anthropic and ChatGPT usage endpoints used here are documented by or reverse-engineered from the providers' subscription flows. They can change, move, or stop returning data at any time. Nekko Agent is not affiliated with Anthropic or OpenAI, and the readouts are provided as a convenience for subscribers, not as an official feature of those services.
 
 ## Prices are list estimates, not a bill
 
 `MODEL_PRICING` in `packages/shared/src/limits.ts` is a table of published list prices, matched by model id substring. The per-model labels (`$X/$Y per MTok`) and the session total in the chat header are estimates only.
 
-Your actual provider bill may differ because of taxes, discounts, cached-token pricing, batch pricing, enterprise agreements, image or tool-token costs, or mid-rate changes. Local models (Ollama, LM Studio, vLLM) and subscription providers are shown as `Free` or `Included in plan` because they are not metered through an API key in Agent Nekko.
+Your actual provider bill may differ because of taxes, discounts, cached-token pricing, batch pricing, enterprise agreements, image or tool-token costs, or mid-rate changes. Local models (Ollama, LM Studio, vLLM) and subscription providers are shown as `Free` or `Included in plan` because they are not metered through an API key in Nekko Agent.
 
 ## Limits are provider-side
 
-Agent Nekko can only read and surface the limits that Anthropic and OpenAI return. It cannot raise, reset, or bypass them. If a window is reported as rate limited, that state comes from the provider; Agent Nekko does not create or remove the limit.
+Nekko Agent can only read and surface the limits that Anthropic and OpenAI return. It cannot raise, reset, or bypass them. If a window is reported as rate limited, that state comes from the provider; Nekko Agent does not create or remove the limit.

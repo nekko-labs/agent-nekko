@@ -6,7 +6,7 @@ import {
   type ModelFacts,
   type RuntimeCapabilities,
   type RuntimeKind,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { CheckIcon, CopyIcon } from '../../icons.js';
 import { formatTokens } from './verdict.js';
 
@@ -178,7 +178,7 @@ function LaunchCommand({ facts, request }: { facts: ModelFacts; request: FitRequ
       <p className="text-[12px]">Launch command</p>
       <p className="mt-0.5 text-[11px] text-ink-faint">
         vLLM serves one model per process and takes its whole configuration at launch, so these
-        settings are a command to run rather than controls Agent Nekko can apply.
+        settings are a command to run rather than controls Nekko Agent can apply.
       </p>
       <div className="mt-2 flex items-start gap-1.5">
         <code className="flex-1 break-all rounded bg-[color-mix(in_srgb,var(--ink-faint)_10%,transparent)] px-2 py-1.5 font-mono text-[11px]">

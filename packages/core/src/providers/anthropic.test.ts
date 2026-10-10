@@ -10,7 +10,7 @@ import {
   rejectsSampling,
   resetLearnedSampling,
 } from './anthropic.js';
-import type { EffortLevel, ProviderConfig } from '@agent-nekko/shared';
+import type { EffortLevel, ProviderConfig } from '@nekko-agent/shared';
 
 const apiKeyCfg: ProviderConfig = {
   id: 'p1',
@@ -129,7 +129,126 @@ describe('AnthropicProvider subscription auth', () => {
   });
 });
 
+/** A `GET /v1/models` answer with these rows. */
+function modelsResponse(data: unknown[], status = 200): Response {
+  return new Response(JSON.stringify({ data, has_more: false }), { status });
+}
+
+describe('the live Claude catalog', () => {
+  const live = [
+    { type: 'model', id: 'claude-opus-6', display_name: 'Claude Opus 6' },
+    { type: 'model', id: 'claude-opus-5-5', display_name: 'Claude Opus 5.5' },
+    { type: 'model', id: 'claude-labs-x', display_name: 'Claude Labs X', max_input_tokens: 500_000 },
+    // The table says 200k for every Haiku; the API knows better.
+    { type: 'model', id: 'claude-haiku-5-5', display_name: 'Claude Haiku 5.5', max_input_tokens: 1_000_000 },
+    { type: 'model', id: 'claude-no-name' },
+    { type: 'model', display_name: 'no id' },
+  ];
+
+  it('serves the models the API lists', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(live));
+    const models = await new AnthropicProvider(apiKeyCfg).listModels();
+    expect(models.map((m) => m.id)).toEqual(['claude-opus-6', 'claude-opus-5-5', 'claude-haiku-5-5', 'claude-labs-x', 'claude-no-name']);
+    expect(models.every((m) => m.providerId === 'p1')).toBe(true);
+
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('https://api.anthropic.com/v1/models?limit=1000');
+    const headers = init.headers as Record<string, string>;
+    expect(headers['x-api-key']).toBe('sk-ant-test');
+    expect(headers['anthropic-version']).toBe('2023-06-01');
+  });
+
+  it('names each model by its display name, else its id', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(live));
+    const models = await new AnthropicProvider(apiKeyCfg).listModels();
+    expect(models.map((m) => m.name)).toEqual(['Claude Opus 6', 'Claude Opus 5.5', 'Claude Haiku 5.5', 'Claude Labs X', 'claude-no-name']);
+  });
+
+  it('takes the context window from the API, then the model table, then 200k', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(live));
+    const models = await new AnthropicProvider(apiKeyCfg).listModels();
+    expect(models.map((m) => m.contextLength)).toEqual([1_000_000, 1_000_000, 1_000_000, 500_000, 200_000]);
+  });
+
+  it('groups by family, Opus to Haiku, newest first within each, unknown ids last', async () => {
+    // The API's own order: newest release first, whatever the family.
+    const newestFirst = ['claude-haiku-5-5', 'claude-sonnet-5-5', 'claude-opus-5-5', 'claude-labs-x', 'claude-fable-5-1', 'claude-opus-5', 'claude-mythos-1', 'claude-haiku-4-5-20251001'];
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(newestFirst.map((id) => ({ type: 'model', id }))));
+    const ids = (await new AnthropicProvider(apiKeyCfg).listModels()).map((m) => m.id);
+    expect(ids).toEqual([
+      'claude-opus-5-5',
+      'claude-opus-5',
+      'claude-sonnet-5-5',
+      'claude-fable-5-1',
+      'claude-mythos-1',
+      'claude-haiku-5-5',
+      'claude-haiku-4-5-20251001',
+      'claude-labs-x',
+    ]);
+  });
+
+  it('asks with the subscription token in subscription mode', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(modelsResponse(live));
+    const models = await new AnthropicProvider(subCfg).listModels();
+    expect(models[0].id).toBe('claude-opus-6');
+    const headers = (spy.mock.calls[0] as unknown as [string, RequestInit])[1].headers as Record<string, string>;
+    expect(headers.Authorization).toBe('Bearer oauth-access-token');
+    expect(headers['anthropic-beta']).toBe('oauth-2025-04-20');
+    expect(headers['x-api-key']).toBeUndefined();
+  });
+
+  it('gives up after 5 seconds and serves the shipped list', async () => {
+    vi.useFakeTimers();
+    try {
+      // A server that accepts the connection and never answers.
+      vi.spyOn(globalThis, 'fetch').mockImplementation(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')));
+          }),
+      );
+      const pending = new AnthropicProvider(apiKeyCfg).listModels();
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect((await pending).map((m) => m.id)).toContain('claude-opus-5-5');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('falls back to the shipped list when offline', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
+    const ids = (await new AnthropicProvider(apiKeyCfg).listModels()).map((m) => m.id);
+    expect(ids).toContain('claude-opus-5-5');
+  });
+
+  it('falls back to the shipped list on an error status, an empty list or a malformed body', async () => {
+    for (const res of [
+      modelsResponse([], 401),
+      modelsResponse([]),
+      new Response('not json', { status: 200 }),
+      new Response('{"data":"nope"}', { status: 200 }),
+    ]) {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(res);
+      const ids = (await new AnthropicProvider(apiKeyCfg).listModels()).map((m) => m.id);
+      expect(ids).toContain('claude-opus-5-5');
+      vi.restoreAllMocks();
+    }
+  });
+
+  it('serves the shipped list without a network call when there is no key', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch');
+    const models = await new AnthropicProvider({ ...apiKeyCfg, apiKey: undefined }).listModels();
+    expect(models.length).toBeGreaterThan(0);
+    expect(spy).not.toHaveBeenCalled();
+  });
+});
+
 describe('the shipped Claude catalog', () => {
+  // The fallback list, reached here with the network down.
+  beforeEach(() => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
+  });
+
   it('lists Opus 5.5, newest Opus first', async () => {
     const models = await new AnthropicProvider(apiKeyCfg).listModels();
     const ids = models.map((m) => m.id);

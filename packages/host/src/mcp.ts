@@ -1,8 +1,8 @@
 import { assertHostExecution } from './indirect-execution-guard.js';
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
-import type { ToolSpec } from '@agent-nekko/core';
-import { brandEnv } from '@agent-nekko/shared';
-import type { McpServerConfig, McpServerStatus, HypergateInfo, ToolResult, ToolCall } from '@agent-nekko/shared';
+import type { ToolSpec } from '@nekko-agent/core';
+import { brandEnv } from '@nekko-agent/shared';
+import type { McpServerConfig, McpServerStatus, HypergateInfo, ToolResult, ToolCall } from '@nekko-agent/shared';
 import { daemonCall } from './engine/daemon.js';
 import { daemonOwns } from './daemon-loop.js';
 
@@ -48,7 +48,7 @@ class McpServer {
     await this.request('initialize', {
       protocolVersion: '2024-11-05',
       capabilities: {},
-      clientInfo: { name: 'agent-nekko', version: '1' },
+      clientInfo: { name: 'nekko-agent', version: '1' },
     });
     this.notify('notifications/initialized');
     const res = await this.request('tools/list', {});
@@ -328,11 +328,11 @@ function portOf(base: string): number {
 }
 
 /**
- * The bearer token this Agent Nekko install should use on the gateway.
+ * The bearer token this Nekko Agent install should use on the gateway.
  *
- * Asks Hypergate for an agent called "Agent Nekko", creating it on first connect.
+ * Asks Hypergate for an agent called "Nekko Agent", creating it on first connect.
  * A scoped agent token beats the master one for the same reason a login beats
- * a root password: Hypergate can then show Agent Nekko in its Agents list, scope
+ * a root password: Hypergate can then show Nekko Agent in its Agents list, scope
  * which servers it may reach, attribute tool calls to it, and revoke it on its
  * own. Daemons predating that endpoint fall back to the gateway token, so an
  * older Hypergate still connects in one click.
@@ -343,7 +343,7 @@ async function hypergateToken(base: string): Promise<{ token?: string; agent?: s
     const res = await fetch(`${base}/api/clients/resolve`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ key: 'agent-nekko', create: true }),
+      body: JSON.stringify({ key: 'nekko-agent', create: true }),
       signal,
     });
     if (res.ok) {
@@ -362,7 +362,7 @@ async function hypergateToken(base: string): Promise<{ token?: string; agent?: s
 }
 
 /**
- * Everything the connect button (and the `agent-nekko://` deep link) needs: probe
+ * Everything the connect button (and the `nekko-agent://` deep link) needs: probe
  * the daemon, then get this install its own credential on it.
  *
  * Returns null when nothing is listening, so both callers can say "Hypergate

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { AskAnswer, AskRequest } from '@agent-nekko/shared';
+import type { AskAnswer, AskRequest } from '@nekko-agent/shared';
 import { QuestionCard } from './QuestionCard.js';
 
 /** Retain the last question for the exit transition without keeping it interactive. */

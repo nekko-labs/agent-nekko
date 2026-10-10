@@ -4,13 +4,13 @@
 // devices, remote device management (pairing a second device from the first),
 // and live revocation (kick + re-deny).
 //
-// Usage: node scripts/itest-relay.mjs [--relay=wss://agent-nekko-relay.fly.dev] [baseUrl] [model]
+// Usage: node scripts/itest-relay.mjs [--relay=wss://nekko-agent-relay.fly.dev] [baseUrl] [model]
 // With no --relay, spawns a local relay from apps/relay/dist.
 import { spawn } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { deriveKey, seal, open } from '@agent-nekko/shared';
+import { deriveKey, seal, open } from '@nekko-agent/shared';
 
 const args = process.argv.slice(2);
 const relayArg = args.find((a) => a.startsWith('--relay='));

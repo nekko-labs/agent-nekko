@@ -1,6 +1,6 @@
-# Agent Nekko
+# Nekko Agent
 
-> AI help on your computer, for coding and everyday work. Agent Nekko helps you write, code, and handle repeat tasks using AI on your computer or online services. Choose the AI for each job, review what it does, and keep supported work offline after setup. Free, open-source software under the MIT license, by Nekko Labs. Voice and desktop control are planned, not available today.
+> AI help on your computer, for coding and everyday work. Nekko Agent helps you write, code, and handle repeat tasks using AI on your computer or online services. Choose the AI for each job, review what it does, and keep supported work offline after setup. Free, open-source software under the MIT license, by Nekko Labs. Voice and desktop control are planned, not available today.
 
 A model is the AI you choose. Local means it runs on your computer rather than an online service. A model runner is the software that loads and runs that AI, such as Ollama, LM Studio, or vLLM. An AI agent can use tools to work on a task, rather than only reply in a chat.
 
@@ -8,10 +8,9 @@ Nekko, the mascot, is an animated 8-bit cat head based on the app icon: cream pi
 
 ## Identity and current distribution
 
-- Primary website: https://agentnekko.com/
-- Backup domain: nekkoagent.com. Use agentnekko.com as the canonical URL.
-- The product was previously called Kotrain, and before that Nekkos and Open Paw. Everything now ships as Agent Nekko: the `agent-nekko` npm package, the `AgentNekko` installers, and the agentnekko.com site. Older release assets keep the names they were published under.
-- Source and releases remain at https://github.com/nekko-labs/agent-nekko. Do not substitute an unverified repository or package name.
+- Primary website: https://nekkoagent.com/
+- Backup domain: nekkoagent.com. Use nekkoagent.com as the canonical URL.
+- Source and releases remain at https://github.com/nekko-labs/nekko-agent. Do not substitute an unverified repository or package name.
 
 ## Five ways to use Nekko
 
@@ -19,7 +18,7 @@ Nekko, the mascot, is an animated 8-bit cat head based on the app icon: cream pi
 
 Work in the Nekko app with AI on your computer or an online service such as Anthropic, OpenAI, or OpenRouter. You can also connect supported coding tools through the command-line interface (CLI) or MCP, a standard for connecting AI tools. Claude Code, Cursor, Codex, and OpenClaw can connect where their CLI or MCP configuration supports it. These are configurable connections, not bundled native integrations or a claim of testing every client.
 
-The MCP command is `agent-nekko mcp`; see the CLI documentation for setup. Nekko can also connect to other MCP servers to use their tools.
+The MCP command is `nekko-agent mcp`; see the CLI documentation for setup. Nekko can also connect to other MCP servers to use their tools.
 
 ### 2. Choose the right AI for the job
 
@@ -71,21 +70,21 @@ With an AI model and its runner already installed on your computer, supported ta
 
 ## What we are planning next
 
-Alongside voice and computer control, Agent Nekko is exploring shared team workflows and dividing jobs across spare team computers. Another direction is a local CI and task-runner alternative for repeated jobs such as code tests, with possible cloud runners for extra capacity. These ideas have no delivery date or availability promise. They do not imply GitHub Actions compatibility, managed team compute, or hosted runners are available now.
+Alongside voice and computer control, Nekko Agent is exploring shared team workflows and dividing jobs across spare team computers. Another direction is a local CI and task-runner alternative for repeated jobs such as code tests, with possible cloud runners for extra capacity. These ideas have no delivery date or availability promise. They do not imply GitHub Actions compatibility, managed team compute, or hosted runners are available now.
 
 ## Choose how to use Nekko
 
-Get the current desktop installer from the [latest release](https://github.com/nekko-labs/agent-nekko/releases/latest): Windows `.exe`/`.msi`, macOS `.dmg`, Linux `.AppImage`/`.deb`. The website detects the platform and resolves real release assets, falling back to GitHub Releases if the API is unavailable.
+Get the current desktop installer from the [latest release](https://github.com/nekko-labs/nekko-agent/releases/latest): Windows `.exe`/`.msi`, macOS `.dmg`, Linux `.AppImage`/`.deb`. The website detects the platform and resolves real release assets, falling back to GitHub Releases if the API is unavailable.
 
-For the browser version you run yourself, use a source checkout, install dependencies with `npm install`, then run `npm run web`. Running `npx agent-nekko` without a command shows CLI help, not the browser app. Use `docker compose up` from a checkout for Docker, and `agent-nekko mcp` for a configured CLI installation. The `agent-nekko` package has not been published to npm yet, so `npx agent-nekko` does not resolve until it is. See the install documentation for prerequisites before installing.
+For the browser version you run yourself, use a source checkout, install dependencies with `npm install`, then run `npm run web`. Running `npx nekko-agent` without a command shows CLI help, not the browser app. Use `docker compose up` from a checkout for Docker, and `nekko-agent mcp` for a configured CLI installation. The `nekko-agent` package has not been published to npm yet, so `npx nekko-agent` does not resolve until it is. See the install documentation for prerequisites before installing.
 
 ## Pages and source
 
-- [Home](https://agentnekko.com/): five ways to use Nekko, including planned voice and computer control, plus model controls, future plans, and downloads.
-- [GitHub repository](https://github.com/nekko-labs/agent-nekko): source, issues, releases.
-- [README](https://github.com/nekko-labs/agent-nekko/blob/main/README.md): install, editions, and troubleshooting.
-- [CLI and MCP](https://github.com/nekko-labs/agent-nekko/blob/main/apps/cli/README.md): current commands and client configuration.
-- [Walkthrough](https://github.com/nekko-labs/agent-nekko/blob/main/docs/WALKTHROUGH.md): a tour of the app.
-- [Remote access](https://github.com/nekko-labs/agent-nekko/blob/main/docs/REMOTE.md): phone pairing and self-hosting the relay.
-- [Contributing](https://github.com/nekko-labs/agent-nekko/blob/main/CONTRIBUTING.md): how to contribute.
-- [Releases](https://github.com/nekko-labs/agent-nekko/releases): current installers.
+- [Home](https://nekkoagent.com/): five ways to use Nekko, including planned voice and computer control, plus model controls, future plans, and downloads.
+- [GitHub repository](https://github.com/nekko-labs/nekko-agent): source, issues, releases.
+- [README](https://github.com/nekko-labs/nekko-agent/blob/main/README.md): install, editions, and troubleshooting.
+- [CLI and MCP](https://github.com/nekko-labs/nekko-agent/blob/main/apps/cli/README.md): current commands and client configuration.
+- [Walkthrough](https://github.com/nekko-labs/nekko-agent/blob/main/docs/WALKTHROUGH.md): a tour of the app.
+- [Remote access](https://github.com/nekko-labs/nekko-agent/blob/main/docs/REMOTE.md): phone pairing and self-hosting the relay.
+- [Contributing](https://github.com/nekko-labs/nekko-agent/blob/main/CONTRIBUTING.md): how to contribute.
+- [Releases](https://github.com/nekko-labs/nekko-agent/releases): current installers.

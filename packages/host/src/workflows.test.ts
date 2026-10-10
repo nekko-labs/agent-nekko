@@ -2,8 +2,8 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { WorkflowStep } from '@agent-nekko/shared';
-import { MAX_STEP_LOOPS } from '@agent-nekko/shared';
+import type { WorkflowStep } from '@nekko-agent/shared';
+import { MAX_STEP_LOOPS } from '@nekko-agent/shared';
 import { setDataDir } from './paths.js';
 import {
   cancelWorkflowRun,
@@ -219,7 +219,7 @@ describe('running a workflow', () => {
       triggers: [{ id: 't', kind: 'git', provider: 'github', events: ['pr_opened'] }],
     });
     const [run] = await dispatchWorkflowEvent({
-      kind: 'git', provider: 'github', event: 'pr_opened', repo: 'nekko-labs/agent-nekko', branch: 'main',
+      kind: 'git', provider: 'github', event: 'pr_opened', repo: 'nekko-labs/nekko-agent', branch: 'main',
     });
     expect(run.workflowId).toBe(wf.id);
     expect(run.triggerKind).toBe('git');

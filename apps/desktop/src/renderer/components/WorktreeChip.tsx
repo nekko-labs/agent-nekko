@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { GitStatus, Session } from '@agent-nekko/shared';
+import type { GitStatus, Session } from '@nekko-agent/shared';
 import { WorktreeIcon, BranchIcon, CheckIcon, CloseIcon } from '../icons.js';
 import { useStore } from '../store.js';
 

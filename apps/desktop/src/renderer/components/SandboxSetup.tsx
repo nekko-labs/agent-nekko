@@ -37,7 +37,7 @@ function useDialogFocus(onClose: () => void, busy: boolean) {
   return ref;
 }
 import { createPortal } from 'react-dom';
-import type { Session, SandboxDiff } from '@agent-nekko/shared';
+import type { Session, SandboxDiff } from '@nekko-agent/shared';
 import { useStore } from '../store.js';
 
 export const SANDBOX_APPLY_BLOCKER = 'Apply-back is unavailable: the host API is fail-closed until safe conflict checking and application are implemented.';

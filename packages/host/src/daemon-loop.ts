@@ -1,8 +1,8 @@
-import { getExecutionMode } from '@agent-nekko/shared';
+import { getExecutionMode } from '@nekko-agent/shared';
 import { randomBytes } from 'crypto';
 import { appendAgentTerminal } from './terminal.js';
 import { getSession, saveSession } from './sessions.js';
-import type { AgentEvent, ChatMessage, EffortLevel, ProviderConfig, ToolCall, ToolResult } from '@agent-nekko/shared';
+import type { AgentEvent, ChatMessage, EffortLevel, ProviderConfig, ToolCall, ToolResult } from '@nekko-agent/shared';
 
 /**
  * A chat turn's run, driven by the engine daemon (`loop:run`, crates/nekkod

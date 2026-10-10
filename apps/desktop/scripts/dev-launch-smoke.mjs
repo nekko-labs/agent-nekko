@@ -20,20 +20,20 @@ const original = readFileSync(resolve(electron, '../../Info.plist'));
 const { launcher, bundle } = prepareMacBundle();
 const plist = join(bundle, 'Contents/Info.plist');
 const get = key => spawnSync('/usr/libexec/PlistBuddy', ['-c', `Print :${key}`, plist], { encoding: 'utf8' }).stdout.trim();
-if (get('CFBundleIdentifier') !== 'com.agentnekko.desktop.dev' || get('CFBundleDisplayName') !== 'Agent Nekko') throw Error('Bundle identity mismatch');
+if (get('CFBundleIdentifier') !== 'com.nekkoagent.desktop.dev' || get('CFBundleDisplayName') !== 'Nekko Agent') throw Error('Bundle identity mismatch');
 if (spawnSync('/usr/bin/codesign', ['--verify', '--deep', '--strict', bundle], { stdio: 'inherit' }).status !== 0) throw Error('Invalid bundle signature');
 if (!original.equals(readFileSync(resolve(electron, '../../Info.plist')))) throw Error('Shared Electron runtime changed');
 await build({ entryPoints: ['src/main/devLaunchProcess.ts'], outfile: join(entry, 'register.cjs'), bundle: true, platform: 'node', format: 'cjs' });
-writeFileSync(join(entry, 'package.json'), JSON.stringify({ name: 'agent-nekko-native-fixture', main: 'index.cjs' }));
+writeFileSync(join(entry, 'package.json'), JSON.stringify({ name: 'nekko-agent-native-fixture', main: 'index.cjs' }));
 writeFileSync(join(entry, 'index.cjs'), `
 const {app,BrowserWindow,Menu,systemPreferences}=require('electron');
 const fs=require('node:fs'),path=require('node:path');
 require('./register.cjs').registerDevLaunch(app);
-app.setName('Agent Nekko');
+app.setName('Nekko Agent');
 app.setPath('userData',path.join(process.env.NEKKO_DATA_DIR,'desktop'));
 app.whenReady().then(async()=>{
- const win=new BrowserWindow({width:900,height:640,title:'Agent Nekko native verification'});
- await win.loadURL('data:text/html,<title>Agent Nekko</title><h1>Agent Nekko</h1><p>Isolated development bundle verification</p>');
+ const win=new BrowserWindow({width:900,height:640,title:'Nekko Agent native verification'});
+ await win.loadURL('data:text/html,<title>Nekko Agent</title><h1>Nekko Agent</h1><p>Isolated development bundle verification</p>');
  win.show();app.focus({steal:true});
  const report={name:app.getName(),execPath:process.execPath,userData:app.getPath('userData'),pid:process.pid,menu:Menu.getApplicationMenu()?.items.map(i=>i.label)};
  fs.writeFileSync(path.join(process.env.NEKKO_DATA_DIR,'report.json'),JSON.stringify(report));
@@ -53,7 +53,7 @@ try {
     child = spawn(launcher, [entry], { env, stdio: 'inherit' });
     let report;
     await waitFor(() => { try { report = JSON.parse(readFileSync(join(data, 'report.json'), 'utf8')); return !!report; } catch { return false; } }, 'native window');
-    if (report.name !== 'Agent Nekko' || !report.execPath.startsWith(bundle) || !report.userData.startsWith(data)) throw Error('Native identity or isolated profile mismatch');
+    if (report.name !== 'Nekko Agent' || !report.execPath.startsWith(bundle) || !report.userData.startsWith(data)) throw Error('Native identity or isolated profile mismatch');
     writeFileSync(join(out, `launch-${launch}.json`), JSON.stringify(report, null, 2));
     if (launch === 1) {
       await sleep(1000);
@@ -75,7 +75,7 @@ try {
   settings.commandWall = { root: { id: 'native_split', dir: 'row', sizes: [.5, .5], children: seeded.ids.map(id => ({ id: 'pane_' + id, kind: 'chat', refId: id })) }, autoAdd: false, filter: 'all', layout: { mode: 'grid', cols: 2, rows: 1 }, dock: { side: 'right', show: false, panels: {}, minimized: {} }, folded: {}, composer: { side: 'bottom', align: 'center' }, insights: { panels: {} }, watermark: Date.now() };
   writeFileSync(settingsFile, JSON.stringify(settings));
   const fullEntry = join(data, 'full-app'); mkdirSync(fullEntry);
-  writeFileSync(join(fullEntry, 'package.json'), JSON.stringify({ name: 'agent-nekko-full-fixture', main: 'index.cjs' }));
+  writeFileSync(join(fullEntry, 'package.json'), JSON.stringify({ name: 'nekko-agent-full-fixture', main: 'index.cjs' }));
   writeFileSync(join(fullEntry, 'index.cjs'), `
 const {app,BrowserWindow}=require('electron');
 const fs=require('node:fs'),path=require('node:path');

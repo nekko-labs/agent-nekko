@@ -1,5 +1,5 @@
-import type { AgentEvent, ChatMessage, EffortLevel, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { COMPACTION_PREAMBLE, latestCompactionIndex } from '@agent-nekko/shared';
+import type { AgentEvent, ChatMessage, EffortLevel, ToolCall, ToolResult } from '@nekko-agent/shared';
+import { COMPACTION_PREAMBLE, latestCompactionIndex } from '@nekko-agent/shared';
 import type { Provider, ToolSpec } from '../providers/types.js';
 import { BUILTIN_TOOLS } from './tools.js';
 import { RUNAWAY_NOTE, createRunawayGuard } from './runaway.js';

@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Session, SessionMeta, WorkspaceFolder } from '@agent-nekko/shared';
+import type { Session, SessionMeta, WorkspaceFolder } from '@nekko-agent/shared';
 import { CloseIcon, FolderIcon, PlusIcon } from '../icons.js';
 import { useStore } from '../store.js';
 import { addFolderToChat, applyFolderSelection, withoutPrimary, withPrimary } from '../sessionFolders.js';

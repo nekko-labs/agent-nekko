@@ -1,4 +1,4 @@
-import type { FitPlan, FitRequest, FitSuggestion, ModelFacts } from '@agent-nekko/shared';
+import type { FitPlan, FitRequest, FitSuggestion, ModelFacts } from '@nekko-agent/shared';
 import { kvCacheBytes } from './kv.js';
 
 /**

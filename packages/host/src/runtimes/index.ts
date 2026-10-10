@@ -14,8 +14,8 @@ import {
   type StopResult,
   type SystemStats,
   type GpuStats,
-} from '@agent-nekko/shared';
-import { autoFit, planFit, type AutoFitResult } from '@agent-nekko/core';
+} from '@nekko-agent/shared';
+import { autoFit, planFit, type AutoFitResult } from '@nekko-agent/core';
 import { execFile } from 'child_process';
 import { createOllamaAdapter } from './ollama.js';
 import { createLmStudioAdapter } from './lmstudio.js';

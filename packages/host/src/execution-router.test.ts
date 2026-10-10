@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { getExecutionMode } from '@agent-nekko/shared';
+import { getExecutionMode } from '@nekko-agent/shared';
 import { executeSandboxTool, SANDBOX_TOOLS, sandboxWorkspaces } from './execution-router.js';
 import { evaluateCapability, initialSandboxCapabilities } from './session-capabilities.js';
 

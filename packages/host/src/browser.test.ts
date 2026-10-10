@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS } from '@agent-nekko/shared';
+import { DEFAULT_SETTINGS } from '@nekko-agent/shared';
 import { executeTool } from './tools.js';
 
 const call = { id: 'browser-1', name: 'browser', input: { mode: 'dedicated', action: 'navigate', url: 'https://example.com' } };

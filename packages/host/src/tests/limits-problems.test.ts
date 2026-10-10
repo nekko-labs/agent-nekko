@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { describeLimitsProblem } from '@agent-nekko/shared';
+import { describeLimitsProblem } from '@nekko-agent/shared';
 import { setDataDir } from '../paths.js';
 import { setToken } from '../oauth.js';
 import { classifyLimitsError, getLimitsProblem, initLimits, limitsBackoffMs, parseRetryAfter, poll } from '../limits.js';

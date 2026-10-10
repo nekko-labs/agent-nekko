@@ -1,9 +1,9 @@
 {
-  "name": "@agent-nekko/server",
+  "name": "@nekko-agent/server",
   "version": "0.8.0",
   "private": true,
   "type": "module",
-  "description": "Agent Nekko self-hosted web server, same engine + UI as the desktop app.",
+  "description": "Nekko Agent self-hosted web server, same engine + UI as the desktop app.",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -13,15 +13,15 @@
     "bundle": "node scripts/bundle.mjs"
   },
   "dependencies": {
-    "@agent-nekko/host": "*",
-    "@agent-nekko/shared": "*",
-    "@fastify/rate-limit": "^10.3.0",
-    "@fastify/static": "^10.1.2",
-    "@fastify/websocket": "^11.3.0",
-    "agent-nekko": "*",
-    "fastify": "^5.11.2"
+    "@nekko-agent/host": "*",
+    "@nekko-agent/shared": "*",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.5",
+    "@fastify/websocket": "^11.3.3",
+    "nekko-agent": "*",
+    "fastify": "^5.12.5"
   },
   "devDependencies": {
-    "esbuild": "^0.25.12"
+    "esbuild": "^0.28.2"
   }
 }

@@ -6,7 +6,7 @@ import {
   type HardwareFacts,
   type KvCacheDtype,
   type ModelFacts,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { computeFit, type PlanOptions } from './plan.js';
 
 /**

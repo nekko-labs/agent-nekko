@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { ConnectorConfig, ConnectorKind, Workflow, WorkflowEvent, WorkflowTrigger } from '@agent-nekko/shared';
-import { getConnector } from '@agent-nekko/core';
+import type { ConnectorConfig, ConnectorKind, Workflow, WorkflowEvent, WorkflowTrigger } from '@nekko-agent/shared';
+import { getConnector } from '@nekko-agent/core';
 import { dataDir } from './paths.js';
 import { getSettings } from './store.js';
 import { writeJsonAtomic } from './secure-file.js';

@@ -2,13 +2,13 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProviderConfig } from '@agent-nekko/shared';
-import type { Provider } from '@agent-nekko/core';
+import type { ProviderConfig } from '@nekko-agent/shared';
+import type { Provider } from '@nekko-agent/core';
 
 let started: (() => void) | undefined;
 let calls = 0;
-vi.mock('@agent-nekko/core', async () => {
-  const actual = await vi.importActual<typeof import('@agent-nekko/core')>('@agent-nekko/core');
+vi.mock('@nekko-agent/core', async () => {
+  const actual = await vi.importActual<typeof import('@nekko-agent/core')>('@nekko-agent/core');
   return {
     ...actual,
     createProvider: (config: ProviderConfig): Provider => ({
@@ -34,7 +34,7 @@ vi.mock('@agent-nekko/core', async () => {
 
 const { createHost } = await import('./host.js');
 const { getSession } = await import('./sessions.js');
-const { IpcChannels } = await import('@agent-nekko/shared');
+const { IpcChannels } = await import('@nekko-agent/shared');
 const { createDispatcher } = await import('./dispatch.js');
 
 beforeEach(() => { calls = 0; started = undefined; process.env.NEKKO_AGENT_LOOP = 'ts'; });

@@ -39,11 +39,11 @@ export interface HypergateInfo {
   /** The loopback port the daemon answered on. */
   port: number;
   /**
-   * The name Hypergate knows this Agent Nekko install by, once connected.
+   * The name Hypergate knows this Nekko Agent install by, once connected.
    *
    * Connecting mints (or reuses) a *scoped* agent there rather than borrowing
    * the master gateway token, which is what makes the pairing visible from
-   * Hypergate's side too: its Agents list shows Agent Nekko online, with its own
+   * Hypergate's side too: its Agents list shows Nekko Agent online, with its own
    * per-server permissions and its own usage history.
    */
   agent?: string;

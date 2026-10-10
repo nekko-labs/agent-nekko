@@ -1,8 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { createHost, defaultUserDataDir, prepareUserDataRoot } from '@agent-nekko/host';
-import { brandEnv, CLI_LINK_FILE, isCliLink, IpcEvents, type CliLink } from '@agent-nekko/shared';
+import { createHost, defaultUserDataDir, prepareUserDataRoot } from '@nekko-agent/host';
+import { brandEnv, CLI_LINK_FILE, isCliLink, IpcEvents, type CliLink } from '@nekko-agent/shared';
 import type {
   AppSettings,
   Session,
@@ -26,7 +26,7 @@ import type {
   MarketplaceSkill,
   UsageSummary,
   VaizerCatalog,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 
 /** The data dir for the in-process (local) client. NEKKO_DATA_DIR wins, then ~/.nekko. */
 export function dataDir(): string {
@@ -207,7 +207,7 @@ function httpClient(url: string, token?: string): Client {
     };
     openP = new Promise<void>((resolve, reject) => {
       ws!.onopen = () => resolve();
-      ws!.onerror = () => reject(new Error(`Cannot reach Agent Nekko server at ${base}`));
+      ws!.onerror = () => reject(new Error(`Cannot reach Nekko Agent server at ${base}`));
     });
     return openP;
   };

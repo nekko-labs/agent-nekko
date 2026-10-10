@@ -8,7 +8,7 @@ import {
   type RuntimeStatus,
   type StartOptions,
   type StopResult,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { isLocalhostUrl, lmsBin } from '../lms.js';
 import { apiRoot, getJson, trimUrl, type RuntimeAdapter, type RuntimeContext } from './types.js';
 

@@ -1,9 +1,10 @@
 /** Host-side subscription-limits capture and polling service. */
 
 import { EventEmitter } from 'node:events';
-import type { LimitWindow, LimitsProblem, OAuthProvider, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
+import type { LimitWindow, LimitsProblem, OAuthProvider, ProviderConfig, ProviderKind, SubscriptionLimits } from '@nekko-agent/shared';
 import { getToken, ensureFreshToken } from './oauth.js';
 import { getSettings } from './store.js';
+import { recordQuotaHistory } from './quota-history.js';
 
 let events: EventEmitter | null = null;
 
@@ -217,6 +218,7 @@ export function recordFromHeaders(
   // which is why the Fable limit appeared after a poll and then vanished on the
   // next message. Header windows are newer for the windows they mention, so they
   // win per id, and windows they say nothing about are carried forward.
+  recordQuotaHistory(tokenKey, 'headers', parsed);
   const previous = get(tokenKey);
   const limits: SubscriptionLimits = {
     ...parsed,
@@ -287,7 +289,7 @@ export async function poll(tokenKey: string): Promise<SubscriptionLimits | undef
         } else if (fresh.provider === 'openrouter') {
           next = await pollOpenRouter(tokenKey, accessToken);
         } else {
-          next = get(tokenKey);
+          next = undefined;
         }
       }
 
@@ -295,6 +297,7 @@ export async function poll(tokenKey: string): Promise<SubscriptionLimits | undef
         return get(tokenKey);
       }
       if (next) {
+        recordQuotaHistory(tokenKey, 'poll', next);
         store.set(tokenKey, next);
         problems.delete(tokenKey);
         try {

@@ -1,5 +1,5 @@
 import { Menu, Tray, nativeImage, type MenuItemConstructorOptions } from 'electron';
-import { IpcChannels, type EngineStatus } from '@agent-nekko/shared';
+import { IpcChannels, type EngineStatus } from '@nekko-agent/shared';
 import type { EngineProcess } from './engine-process.js';
 
 export function createDesktopTray(options: {
@@ -13,7 +13,7 @@ export function createDesktopTray(options: {
 }) {
   const { engine } = options;
   const tray = new Tray(nativeImage.createFromPath(options.iconPath).resize({ width: 20, height: 20 }));
-  tray.setToolTip('Agent Nekko');
+  tray.setToolTip('Nekko Agent');
   let busy = false;
   let disposed = false;
   let modelStatus: EngineStatus | null = null;
@@ -35,7 +35,7 @@ export function createDesktopTray(options: {
     if (disposed) return;
     const entries: MenuItemConstructorOptions[] = [
       { label: 'Open a new chat', enabled: !busy, click: () => run(async () => { if (!engine.running) await startService(); options.newChat(); }) },
-      { label: 'Open Agent Nekko', click: options.showUi },
+      { label: 'Open Nekko Agent', click: options.showUi },
       { type: 'separator' },
       { label: engine.running ? 'Stop Nekko service' : 'Start Nekko service', enabled: !busy, click: () => run(async () => { if (engine.running) { await engine.stop(); modelStatus = null; } else await startService(); }) },
       { label: 'Restart Nekko service', enabled: !busy, click: () => run(async () => { await engine.stop(); modelStatus = null; await startService(); }) },
@@ -51,7 +51,7 @@ export function createDesktopTray(options: {
         }
       }) },
       { type: 'separator' },
-      { label: 'Quit Agent Nekko', enabled: !busy, click: options.quit },
+      { label: 'Quit Nekko Agent', enabled: !busy, click: options.quit },
     ];
     tray.setContextMenu(Menu.buildFromTemplate(entries));
   };

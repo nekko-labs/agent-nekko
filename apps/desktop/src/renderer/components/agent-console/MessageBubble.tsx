@@ -1,6 +1,6 @@
 import { CheckIcon, CopyIcon } from '../../icons.js';
 import React, { memo, useState } from 'react';
-import type { ChatMessage } from '@agent-nekko/shared';
+import type { ChatMessage } from '@nekko-agent/shared';
 import { Markdown } from '../Markdown.js';
 import { ReasoningBlock } from './ReasoningBlock.js';
 import { ToolCard } from './ToolCard.js';

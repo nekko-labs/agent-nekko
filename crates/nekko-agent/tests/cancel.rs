@@ -131,3 +131,39 @@ async fn a_signal_whose_controller_is_gone_never_fires() {
     assert!(fired.is_err());
     assert!(!AbortSignal::never().aborted());
 }
+
+/// Accepts the request and never answers, not even with headers.
+struct NeverAnswers;
+
+impl Transport for NeverAnswers {
+    fn send<'a>(&'a self, _req: &'a HttpRequest) -> BoxFuture<'a, Result<HttpResponse, TransportError>> {
+        Box::pin(std::future::pending())
+    }
+}
+
+fn anthropic(transport: Arc<dyn Transport>) -> AnyProvider {
+    let config: ProviderConfig = serde_json::from_value(json!({
+        "id": "p", "kind": "anthropic", "baseUrl": "https://api.anthropic.com", "apiKey": "k", "enabled": true,
+    }))
+    .unwrap();
+    create_provider_with(config, Io { transport, clock: nekko_agent::stream::system_clock() })
+}
+
+/// Opening a chat waits on the model list, so a stalled catalog gives up after
+/// five seconds and serves the shipped list.
+#[tokio::test(start_paused = true)]
+async fn a_stalled_anthropic_catalog_falls_back_after_five_seconds() {
+    let headers_never_come = anthropic(Arc::new(NeverAnswers));
+    let body_never_ends = anthropic(Arc::new(Stalling {
+        first: "{\"data\":[",
+        dropped: Arc::new(AtomicBool::new(false)),
+        sends: AtomicUsize::new(0),
+    }));
+
+    for p in [headers_never_come, body_never_ends] {
+        let started = tokio::time::Instant::now();
+        let models = p.list_models().await.unwrap();
+        assert_eq!(started.elapsed(), Duration::from_secs(5));
+        assert!(models.iter().any(|m| m.id == "claude-opus-5-5"));
+    }
+}

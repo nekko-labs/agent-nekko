@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
-/// `ToolCall` from `@agent-nekko/shared`.
+/// `ToolCall` from `@nekko-agent/shared`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ToolCall {
     pub id: String,
@@ -23,7 +23,7 @@ pub struct ToolCall {
     pub input: Value,
 }
 
-/// `ToolResult` from `@agent-nekko/shared`: `isError` is left out on success.
+/// `ToolResult` from `@nekko-agent/shared`: `isError` is left out on success.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ToolResult {

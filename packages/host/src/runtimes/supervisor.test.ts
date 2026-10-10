@@ -53,7 +53,7 @@ describe('supervisor', () => {
     const res = await sup.stop('p1', 'http://localhost:11434');
     expect(res.ok).toBe(false);
     expect(res.needsConfirmation).toBe(true);
-    expect(res.message).toContain('not started by Agent Nekko');
+    expect(res.message).toContain('not started by Nekko Agent');
   });
 
   it('does not adopt a server that was already running', async () => {

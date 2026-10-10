@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@agent-nekko/shared';
+import type { ChatMessage } from '@nekko-agent/shared';
 
 /**
  * Picking a run back up after it stopped part-way.

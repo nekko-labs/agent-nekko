@@ -1,7 +1,7 @@
 import { appendFileSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
-import type { UsageRecord, UsageSummary } from '@agent-nekko/shared';
-import { DEFAULT_LOCAL_COST_BENCHMARK, estimateCost, isLocalProvider } from '@agent-nekko/shared';
+import type { UsageRecord, UsageSummary } from '@nekko-agent/shared';
+import { DEFAULT_LOCAL_COST_BENCHMARK, estimateCost, isLocalProvider } from '@nekko-agent/shared';
 import { getSettings } from './store.js';
 import { dataDir } from './store.js';
 import { clearReplies, replyStats } from './replies.js';

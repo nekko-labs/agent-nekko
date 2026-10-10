@@ -1,14 +1,14 @@
 import { anthropicCachePrefix, tokenCount } from './prompt-caching.js';
 import { withToolImages } from './tool-images.js';
-import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
-import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels } from '@agent-nekko/shared';
+import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@nekko-agent/shared';
+import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels, parseClaudeModel } from '@nekko-agent/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { parseSSE } from './sse.js';
 import { httpError } from './errors.js';
 import { DecodeClock } from './decode-clock.js';
 
 /**
- * Known Claude models surfaced when the /models endpoint isn't used.
+ * Known Claude models, served when `GET /v1/models` can't be reached.
  *
  * The whole catalog ships, including the previous generation, because a chat
  * pinned to `claude-opus-4-8` still needs a name for it and because "Opus 5 or
@@ -26,6 +26,26 @@ const CLAUDE_MODELS: Array<{ id: string; name: string; availability?: ModelAvail
   { id: 'claude-fable-5-1', name: 'Claude Fable 5.1' },
   { id: 'claude-haiku-4-5-20251001', name: 'Claude Haiku 4.5' },
 ];
+
+/**
+ * Picker order by family, as the shipped list has it. The API lists newest
+ * release first, which would put a new Haiku above Opus; the sort is stable,
+ * so newest-first holds within each family. Ids that aren't a known family go
+ * last.
+ */
+const FAMILY_ORDER = ['opus', 'sonnet', 'fable', 'mythos', 'haiku'];
+
+/**
+ * How long the catalog may take, body included, before the shipped list is
+ * served instead. Opening a chat waits on this list, so a stalled connection
+ * must not hold it for the transport's minutes-long idle limit.
+ */
+const CATALOG_TIMEOUT_MS = 5_000;
+
+function familyRank(id: string): number {
+  const family = parseClaudeModel(id)?.family;
+  return family ? FAMILY_ORDER.indexOf(family) : FAMILY_ORDER.length;
+}
 
 /**
  * Subscription (OAuth) requests ride the Claude Code public client. The
@@ -230,15 +250,51 @@ export class AnthropicProvider implements Provider {
     return blocks;
   }
 
+  /**
+   * The live catalog: `GET {base}/v1/models`, every model this key or
+   * subscription can call, including ones released after this build. One page
+   * of up to 1000 holds the whole list. Returns null on any failure, or after
+   * CATALOG_TIMEOUT_MS, so the caller can fall back to the shipped list.
+   */
+  private async fetchCatalog(): Promise<ModelInfo[] | null> {
+    if (!this.config.apiKey) return null;
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), CATALOG_TIMEOUT_MS);
+    let json: any;
+    try {
+      const res = await fetch(`${this.config.baseUrl}/v1/models?limit=1000`, { headers: this.headers(), signal: abort.signal });
+      if (!res.ok) return null;
+      json = await res.json().catch(() => null);
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    const rows: any[] = Array.isArray(json?.data) ? json.data : [];
+    const models = rows.flatMap((m): ModelInfo[] => {
+      const id = typeof m?.id === 'string' ? m.id : '';
+      if (!id) return [];
+      const name = typeof m.display_name === 'string' && m.display_name ? m.display_name : id;
+      const apiWindow = typeof m.max_input_tokens === 'number' && m.max_input_tokens > 0 ? m.max_input_tokens : undefined;
+      return [{ id, providerId: this.config.id, name, contextLength: apiWindow ?? claudeContextWindow(id) ?? 200_000 }];
+    });
+    models.sort((a, b) => familyRank(a.id) - familyRank(b.id));
+    return models.length ? models : null;
+  }
+
   async listModels(): Promise<ModelInfo[]> {
-    return CLAUDE_MODELS.map((m) => ({
-      id: m.id,
-      providerId: this.config.id,
-      name: m.name,
-      // 1M on everything current, 200k on Haiku: see model-capabilities.ts.
-      contextLength: claudeContextWindow(m.id) ?? 200_000,
-      ...(m.availability ? { availability: m.availability } : {}),
-    }));
+    return (
+      (await this.fetchCatalog()) ??
+      CLAUDE_MODELS.map((m) => ({
+        id: m.id,
+        providerId: this.config.id,
+        name: m.name,
+        // 1M on everything current, 200k on Haiku: see model-capabilities.ts.
+        contextLength: claudeContextWindow(m.id) ?? 200_000,
+        ...(m.availability ? { availability: m.availability } : {}),
+      }))
+    );
   }
 
   async test(): Promise<{ ok: boolean; message: string }> {

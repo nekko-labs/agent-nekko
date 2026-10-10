@@ -75,15 +75,15 @@ describe('MCP tool identity and legacy dispatch', () => {
   it('advertises only canonical tools and skill targets', () => {
     receive(JSON.stringify({ id: 1, method: 'tools/list' }) + '\n');
     expect(messages[0].result.tools.map((tool: { name: string }) => tool.name)).toEqual(
-      toolCases.map(([suffix]) => `agent-nekko_${suffix}`),
+      toolCases.map(([suffix]) => `nekko-agent_${suffix}`),
     );
-    const install = messages[0].result.tools.find((tool: { name: string }) => tool.name === 'agent-nekko_skill_install');
+    const install = messages[0].result.tools.find((tool: { name: string }) => tool.name === 'nekko-agent_skill_install');
     expect(install.inputSchema.properties.target.enum).toEqual([
-      'agent-nekko', 'claude', 'codex',
+      'nekko-agent', 'claude', 'codex',
     ]);
   });
 
-  describe.each(['agent-nekko'])('%s tools', (prefix) => {
+  describe.each(['nekko-agent'])('%s tools', (prefix) => {
     it.each(toolCases)('dispatches %s through %s', async (suffix, method, args) => {
       receive(JSON.stringify({ id: 1, method: 'tools/call', params: { name: `${prefix}_${suffix}`, arguments: args } }) + '\n');
       await vi.waitFor(() => expect(messages).toHaveLength(1));
@@ -96,12 +96,12 @@ describe('MCP tool identity and legacy dispatch', () => {
         ]);
       }
       if (suffix === 'skill_install') {
-        expect(client.installSkill).toHaveBeenCalledWith('skill', 'agent-nekko', undefined);
+        expect(client.installSkill).toHaveBeenCalledWith('skill', 'nekko-agent', undefined);
       }
     });
   });
 
-  it.each(['agent-nekko_missing', 'other_status'])('rejects unknown tool %s', async (name) => {
+  it.each(['nekko-agent_missing', 'other_status'])('rejects unknown tool %s', async (name) => {
     receive(JSON.stringify({ id: 1, method: 'tools/call', params: { name } }) + '\n');
     await vi.waitFor(() => expect(messages).toHaveLength(1));
     expect(messages[0].result).toMatchObject({ isError: true, content: [{ text: `Error: Unknown tool: ${name}` }] });
@@ -109,7 +109,7 @@ describe('MCP tool identity and legacy dispatch', () => {
 });
 
 describe('MCP stdio transport', () => {
-  it('negotiates, lists canonical tools, and rejects a legacy tool name with JSON-only stdout', async () => {
+  it('negotiates and lists tools with JSON-only stdout', async () => {
     const binary = fileURLToPath(new URL('../dist/index.js', import.meta.url));
     if (!existsSync(binary)) {
       throw new Error(`Build the CLI before running this integration test: ${binary}`);
@@ -132,7 +132,7 @@ describe('MCP stdio transport', () => {
           buffer = buffer.slice(newline + 1);
           newline = buffer.indexOf('\n');
         }
-        if (lines.length >= 4) {
+        if (lines.length >= 3) {
           clearTimeout(timeout);
           resolveResponse();
         }
@@ -152,22 +152,18 @@ describe('MCP stdio transport', () => {
     })}\n`);
     child.stdin.write('{"jsonrpc":"2.0","method":"notifications/initialized"}\n');
     child.stdin.write('{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}\n');
-    child.stdin.write('{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"agent-nekko_status","arguments":{}}}\n');
-    child.stdin.write('{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"kotrain_status","arguments":{}}}\n');
+    child.stdin.write('{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"nekko-agent_status","arguments":{}}}\n');
 
     try {
       await response;
       const messages = new Map(lines.map((line) => { const message = JSON.parse(line); return [message.id, message]; }));
       expect(messages.get(1).result.protocolVersion).toBe('2025-06-18');
-      expect(messages.get(1).result.serverInfo).toMatchObject({ name: 'agent-nekko', title: 'Agent Nekko' });
+      expect(messages.get(1).result.serverInfo).toMatchObject({ name: 'nekko-agent', title: 'Nekko Agent' });
       expect(messages.get(2).result.tools.map((tool: { name: string }) => tool.name)).toEqual(
-        toolCases.map(([suffix]) => `agent-nekko_${suffix}`),
+        toolCases.map(([suffix]) => `nekko-agent_${suffix}`),
       );
       expect(messages.get(3).result.isError).toBeUndefined();
       expect(messages.get(3).result.content[0].text).toContain('"providers"');
-      // The legacy prefix is gone: kotrain_status is just an unknown tool now.
-      expect(messages.get(4).result.isError).toBe(true);
-      expect(messages.get(4).result.content[0].text).toContain('Unknown tool: kotrain_status');
     } finally {
       clearTimeout(timeout!);
       const closed = new Promise<void>((resolve) => child.once('close', () => resolve()));

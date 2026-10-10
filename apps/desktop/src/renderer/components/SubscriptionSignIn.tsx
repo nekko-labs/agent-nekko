@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { OAuthProvider, OAuthSessionInfo, OAuthStatus } from '@agent-nekko/shared';
+import type { OAuthProvider, OAuthSessionInfo, OAuthStatus } from '@nekko-agent/shared';
 import { useStore } from '../store.js';
 import { ExternalIcon } from '../icons.js';
 
@@ -49,7 +49,7 @@ export function SubscriptionSignIn({
   const consentNote =
     oauthProvider === 'openrouter'
       ? 'Approving in the browser creates an API key on your OpenRouter account and hands it to this app. Usage bills to your OpenRouter balance, and you can revoke the key from openrouter.ai at any time.'
-      : `The authorization page will say ${oauthProvider === 'claude' ? 'Claude Code' : 'Codex CLI'}, not Agent Nekko: a plan can only be used through its provider's own sign-in client, and Agent Nekko connects through that.`;
+      : `The authorization page will say ${oauthProvider === 'claude' ? 'Claude Code' : 'Codex CLI'}, not Nekko Agent: a plan can only be used through its provider's own sign-in client, and Nekko Agent connects through that.`;
   const onConnectedRef = useRef(onConnected);
   useEffect(() => {
     onConnectedRef.current = onConnected;

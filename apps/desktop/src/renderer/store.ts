@@ -1,7 +1,7 @@
 import { needsProviderSetup } from './components/providers/providerSetup.js';
 import { create } from 'zustand';
-import type { AppSettings, Session, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@agent-nekko/shared';
-import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS, currentPresetAccent } from '@agent-nekko/shared';
+import type { AppSettings, Session, SessionSummary, ProviderConfig, ModelInfo, TerminalInfo, InstalledSkillRecord, SkillDef, PrInfo, HypergateInfo } from '@nekko-agent/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, isArchived, getMarketSkill, marketToSkillDef, normalizeInstallTarget, summarizeSession, THEME_PRESETS, currentPresetAccent } from '@nekko-agent/shared';
 import type { MascotMood } from './components/Mascot.js';
 import { syncTitleBarOverlay } from './chrome.js';
 import { putCachedSession } from './sessionCache.js';
@@ -191,7 +191,7 @@ interface UiState {
    *
    * Kept in the store rather than in Settings' local state because the pairing
    * is app-wide: the sidebar offers the tab, the command palette connects, and
-   * an `agent-nekko://` deep link can arrive with no view mounted at all.
+   * an `nekko-agent://` deep link can arrive with no view mounted at all.
    */
   hypergate: HypergateInfo | null | undefined;
   /** Re-probe for the daemon. Cheap and side-effect free; safe to call on a timer. */
@@ -210,7 +210,7 @@ interface UiState {
   /** Open a PR's diff as a window in the active workspace. */
   openPrPane: (url: string) => void;
 
-  /** Marketplace installs (all targets), plus the runnable skills: Agent Nekko installs and imported ones. */
+  /** Marketplace installs (all targets), plus the runnable skills: Nekko Agent installs and imported ones. */
   installedSkills: InstalledSkillRecord[];
   installedSkillDefs: SkillDef[];
   /** Agent Skills found in other tools' folders (Claude Code, Codex, Gemini CLI, .agents); also merged into installedSkillDefs. */
@@ -607,7 +607,7 @@ export const useStore = create<UiState>((set, get) => ({
     const installedSkills = installed.status === 'fulfilled' ? installed.value : get().installedSkills;
     const externalSkillDefs = external.status === 'fulfilled' ? external.value : get().externalSkillDefs;
     const marketDefs = installedSkills
-      .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
+      .filter((r) => normalizeInstallTarget(r.target) === 'nekko-agent')
       // Vaizer (non-catalog) installs carry their own snapshot on the record.
       .map((r) => r.skill ?? getMarketSkill(r.skillId))
       .filter((m): m is NonNullable<typeof m> => !!m)

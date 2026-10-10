@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { InstallTarget, InstallTargetInfo, InstalledSkillRecord, MarketplaceSkill, SkillDef } from '@agent-nekko/shared';
-import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, skillToMarkdown } from '@agent-nekko/shared';
+import type { InstallTarget, InstallTargetInfo, InstalledSkillRecord, MarketplaceSkill, SkillDef } from '@nekko-agent/shared';
+import { getMarketSkill, marketToSkillDef, normalizeInstallTarget, skillToMarkdown } from '@nekko-agent/shared';
 import { dataDir } from './store.js';
 
 /**
  * Skills marketplace installs. Records live in skills.json under the data dir.
- * The `agent-nekko` target is purely a record (installed skills join the `/` menu
+ * The `nekko-agent` target is purely a record (installed skills join the `/` menu
  * and the Skills tab); `claude`/`codex` write a SKILL.md folder into the app's
  * user-level skills directory so other agents pick the skill up too.
  */
@@ -46,13 +46,13 @@ export function listInstalledSkills(): InstalledSkillRecord[] {
 }
 
 /**
- * Agent Nekko-target installs as runnable skills. Non-catalog installs (Vaizer)
+ * Nekko Agent-target installs as runnable skills. Non-catalog installs (Vaizer)
  * carry their own snapshot on the record; catalog ones resolve by id. Used by a
  * workflow's skill step to find what it should run.
  */
 export function listInstalledSkillDefs(): SkillDef[] {
   return listInstalledSkills()
-    .filter((r) => normalizeInstallTarget(r.target) === 'agent-nekko')
+    .filter((r) => normalizeInstallTarget(r.target) === 'nekko-agent')
     .map((r) => r.skill ?? getMarketSkill(r.skillId))
     .filter((m): m is MarketplaceSkill => !!m)
     .map(marketToSkillDef);
@@ -62,7 +62,7 @@ export function skillTargets(): InstallTargetInfo[] {
   const claudeDir = join(homedir(), '.claude');
   const codexDir = join(homedir(), '.codex');
   return [
-    { id: 'agent-nekko', label: 'Agent Nekko', hint: 'joins the / menu and Skills tab', available: true },
+    { id: 'nekko-agent', label: 'Nekko Agent', hint: 'joins the / menu and Skills tab', available: true },
     {
       id: 'claude',
       label: 'Claude Code',
@@ -103,7 +103,7 @@ export function installSkill(
   }
 
   let path: string | undefined;
-  if (target !== 'agent-nekko') {
+  if (target !== 'nekko-agent') {
     const base = targetDir(target)!;
     path = join(base, skill.name);
     // Never clobber a skill folder we didn't create (no record for it).

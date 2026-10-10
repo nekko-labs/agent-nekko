@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { randomUUID, createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { getExecutionMode, getSessionWorkspaceIds, type Session, type SandboxStatus, type SandboxDiff, type ToolCall, type ToolResult } from '@agent-nekko/shared';
+import { getExecutionMode, getSessionWorkspaceIds, type Session, type SandboxStatus, type SandboxDiff, type ToolCall, type ToolResult } from '@nekko-agent/shared';
 import { ContainerSandbox, defaultSandboxRunner } from './container-sandbox.js';
 import { dataDir, getSettings } from './store.js';
 import { getSession, saveSession } from './sessions.js';

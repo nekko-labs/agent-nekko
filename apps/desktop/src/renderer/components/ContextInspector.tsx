@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { ContextBundle, SessionMeta, WorkspaceFolder } from '@agent-nekko/shared';
-import { getSessionWorkspaceIds, estimateTokens } from '@agent-nekko/shared';
+import type { ContextBundle, SessionMeta, WorkspaceFolder } from '@nekko-agent/shared';
+import { getSessionWorkspaceIds, estimateTokens } from '@nekko-agent/shared';
 import { FolderIcon, FileIcon, PlusIcon, TrashIcon, ExternalIcon, ChevronIcon } from '../icons.js';
 import { useStore } from '../store.js';
 import { afterPaint } from '../afterPaint.js';
@@ -53,7 +53,7 @@ function baseName(p: string): string {
 }
 
 /**
- * The Context Inspector, Agent Nekko's signature panel. Two stacked sections split
+ * The Context Inspector, Nekko Agent's signature panel. Two stacked sections split
  * by a draggable divider, the way VS Code stacks its sidebar views:
  *  1. Folders (top), the project folders grounding this chat as accordions. Each
  *     one expands into its file tree, so browsing and opening a file happens in

@@ -1,4 +1,4 @@
-import type { FitPlan } from '@agent-nekko/shared';
+import type { FitPlan } from '@nekko-agent/shared';
 import { formatBytes, verdictColor } from './verdict.js';
 
 /**

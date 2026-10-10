@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-vi.mock('@agent-nekko/shared', () => ({ getExecutionMode: (s?: { executionMode?: string }) => s?.executionMode ?? 'local' }));
+vi.mock('@nekko-agent/shared', () => ({ getExecutionMode: (s?: { executionMode?: string }) => s?.executionMode ?? 'local' }));
 vi.mock('./terminal.js', () => ({ appendAgentTerminal: vi.fn() }));
 vi.mock('./sessions.js', () => ({ getSession: (id: string) => ({ executionMode: id === 'sandbox' ? 'sandbox' : 'local' }) }));
 const { assertHostExecution } = await import('./indirect-execution-guard.js');

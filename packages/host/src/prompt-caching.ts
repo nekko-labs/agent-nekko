@@ -1,5 +1,5 @@
-import { createProvider, type Provider } from '@agent-nekko/core';
-import { promptCachingEnabled, type ProviderConfig } from '@agent-nekko/shared';
+import { createProvider, type Provider } from '@nekko-agent/core';
+import { promptCachingEnabled, type ProviderConfig } from '@nekko-agent/shared';
 import { getSettings } from './store.js';
 
 let managedEndpoint: (() => string | undefined) | undefined;

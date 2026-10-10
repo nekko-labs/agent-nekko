@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { DesignPage } from '@agent-nekko/shared';
+import type { DesignPage } from '@nekko-agent/shared';
 
 /** Restore is a new revision, never destructive history rewriting. */
 export function reviseDesign(page: DesignPage, patch: Partial<Pick<DesignPage, 'label' | 'url' | 'html'>>): DesignPage {

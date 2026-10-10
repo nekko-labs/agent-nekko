@@ -7,8 +7,8 @@ import type {
   ModelFolder,
   ModelFolderProviderId,
   ModelFolderStatus,
-} from '@agent-nekko/shared';
-import { modelModality } from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
+import { modelModality } from '@nekko-agent/shared';
 import { readGgufMetadata } from './gguf.js';
 import { listOllamaModels } from './ollama.js';
 import { companionsDir } from './companions.js';
@@ -377,7 +377,7 @@ export function createLibrary(deps: LibraryDeps) {
       .catch(() => 0);
     if (!size) return { ok: false, message: 'That file does not exist.' };
     if (!path.toLowerCase().endsWith('.gguf')) {
-      return { ok: false, message: 'Agent Nekko runs GGUF files. Convert or download a GGUF build of this model.' };
+      return { ok: false, message: 'Nekko Agent runs GGUF files. Convert or download a GGUF build of this model.' };
     }
     const meta = await readGgufMetadata(path);
     if (!meta) return { ok: false, message: "That file isn't a readable GGUF." };
@@ -399,7 +399,7 @@ export function createLibrary(deps: LibraryDeps) {
     if (model.managed === false) {
       return {
         ok: false,
-        message: `${model.name} lives in a folder Agent Nekko only reads. Delete it in the app that downloaded it.`,
+        message: `${model.name} lives in a folder Nekko Agent only reads. Delete it in the app that downloaded it.`,
       };
     }
 

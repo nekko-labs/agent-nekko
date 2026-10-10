@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ProviderKind } from '@agent-nekko/shared';
-import { PROVIDER_DEFAULTS } from '@agent-nekko/shared';
+import type { ProviderKind } from '@nekko-agent/shared';
+import { PROVIDER_DEFAULTS } from '@nekko-agent/shared';
 
 const choices: { kind: ProviderKind; icon?: string; description: string }[] = [
   { kind: 'chatgpt', icon: 'openai', description: 'Sign in with your ChatGPT plan' },

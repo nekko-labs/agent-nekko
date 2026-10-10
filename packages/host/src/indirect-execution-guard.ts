@@ -1,4 +1,4 @@
-import { getExecutionMode } from '@agent-nekko/shared';
+import { getExecutionMode } from '@nekko-agent/shared';
 import { getSession } from './sessions.js';
 
 /** Unscoped user APIs remain host APIs, not sandbox capabilities. */

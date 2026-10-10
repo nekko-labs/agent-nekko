@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import type { LimitsProblem, ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
-import { limitsKeyFor } from '@agent-nekko/shared';
+import type { LimitsProblem, ProviderConfig, SubscriptionLimits } from '@nekko-agent/shared';
+import { limitsKeyFor } from '@nekko-agent/shared';
 import { useStore } from './store.js';
 import { useRunningSessionsSnapshot } from './liveRuns.js';
 import { limitsRefreshInterval, nextLimitsRefresh } from './limitsSchedule.js';

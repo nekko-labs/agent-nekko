@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { Session } from '@agent-nekko/shared';
-import { summarizeSession } from '@agent-nekko/shared';
+import type { Session } from '@nekko-agent/shared';
+import { summarizeSession } from '@nekko-agent/shared';
 import { setDataDir } from './paths.js';
 import { createSession, deleteSession, getSession, listSessionSummaries, saveSession, setSessionOptions } from './sessions.js';
 

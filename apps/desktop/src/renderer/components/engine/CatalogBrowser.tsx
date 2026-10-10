@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { CatalogModel, EngineMemory } from '@agent-nekko/shared';
-import { downloadFitVerdict } from '@agent-nekko/shared';
+import type { CatalogModel, EngineMemory } from '@nekko-agent/shared';
+import { downloadFitVerdict } from '@nekko-agent/shared';
 import { CheckIcon, ChevronIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
 

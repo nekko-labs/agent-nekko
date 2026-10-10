@@ -1,10 +1,10 @@
-import { getExecutionMode } from '@agent-nekko/shared';
+import { getExecutionMode } from '@nekko-agent/shared';
 import { executeSandboxTool, sandboxWorkspaces, SANDBOX_TOOLS } from './execution-router.js';
 import { canResumeChildFailure, MAX_CHILD_RESUMES } from './delegation-recovery.js';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, QueuedPrompt, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@agent-nekko/shared';
-import { ASK_CANCELLED, ASK_UNATTENDED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho, queueItemPayload, TurnStatsAccumulator, attachTurnStats } from '@agent-nekko/shared';
+import type { AgentEvent, AskAnswer, ChatMessage, ContextBundle, PendingInput, ProviderConfig, QueuedPrompt, ReplySuggestions, SendOptions, Session, ToolCall, ToolResult } from '@nekko-agent/shared';
+import { ASK_CANCELLED, ASK_UNATTENDED, EFFORT_TEMPERATURE, applyPlanUpdate, effectiveEffort, guessContextWindow, DEFAULT_ORCHESTRATION, clampMaxOutputTokens, formatAskAnswers, getSessionWorkspaceIds, getStrategy, isChatModel, isLocalProvider, sinceCompaction, orchestrationPromptHint, parseAskRequest, parseReplySuggestions, planEcho, queueItemPayload, TurnStatsAccumulator, attachTurnStats } from '@nekko-agent/shared';
 import {
   runAgent,
   buildSystemPrompt,
@@ -21,10 +21,10 @@ import {
   UPDATE_PLAN_TOOL,
   repairInterruptedHistory,
   INTERRUPTED_NOTE,
-} from '@agent-nekko/core';
+} from '@nekko-agent/core';
 import { reportExperiment, reportArtifact, updateRunPlan, runPlanForSession } from './training.js';
 import { getSettings } from './store.js';
-import { DEFAULT_TURN_WRAPPER } from '@agent-nekko/shared';
+import { DEFAULT_TURN_WRAPPER } from '@nekko-agent/shared';
 import { chatWorkspaces, prepareChatWorktrees, runWorktreeSetup } from './chat-worktrees.js';
 
 /**
@@ -33,8 +33,8 @@ import { chatWorkspaces, prepareChatWorktrees, runWorktreeSetup } from './chat-w
  * Laya first, then TypeSafe when a key is set), or null to leave the tool out.
  */
 interface DecisionRunner {
-  available(): Promise<import('@agent-nekko/shared').DecisionProvider | null>;
-  run(provider: import('@agent-nekko/shared').DecisionProvider, request: import('@agent-nekko/shared').DecisionRequest): Promise<import('@agent-nekko/shared').DecisionResponse>;
+  available(): Promise<import('@nekko-agent/shared').DecisionProvider | null>;
+  run(provider: import('@nekko-agent/shared').DecisionProvider, request: import('@nekko-agent/shared').DecisionRequest): Promise<import('@nekko-agent/shared').DecisionResponse>;
 }
 let decisions: DecisionRunner | null = null;
 export function setDecisionRunner(runner: DecisionRunner | null): void {
@@ -813,7 +813,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   const allowSpawn = getStrategy(orchestration.strategy).allowsSpawn;
   const canAsk = !session.parentSessionId && !session.taskId && !session.trainingRunId;
   let tools: typeof BUILTIN_TOOLS = [];
-  let decideWith: import('@agent-nekko/shared').DecisionProvider | null = null;
+  let decideWith: import('@nekko-agent/shared').DecisionProvider | null = null;
   if (!offline) {
     if (!sandbox && settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
     const disabled = new Set(session.disabledTools ?? []);
@@ -959,9 +959,10 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   // This reply's totals, kept on its last message and in the reply log. The
   // turn's own messages start after what the transcript held when it began.
   const turnFrom = session.messages.length;
+  const replyStartedAt = Date.now();
   const turnStats = new TurnStatsAccumulator(
     { providerId: opts.providerId, modelId: opts.modelId, effort: effectiveEffort(getSettings().effort, opts.modelId) },
-    Date.now(),
+    replyStartedAt,
   );
   while (attempts < 2 && !abort.signal.aborted) {
     abortControllers.set(opts.sessionId, abort);
@@ -1255,6 +1256,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         if (event.type === 'done' && event.stop && !incognito) {
           recordReply({
             ts: Date.now(),
+            startedAt: replyStartedAt,
             sessionId: opts.sessionId,
             providerId: opts.providerId,
             modelId: opts.modelId,

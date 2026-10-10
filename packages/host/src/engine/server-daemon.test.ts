@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { EngineSettings, LocalModel } from '@agent-nekko/shared';
-import { DEFAULT_ENGINE_SETTINGS } from '@agent-nekko/shared';
+import type { EngineSettings, LocalModel } from '@nekko-agent/shared';
+import { DEFAULT_ENGINE_SETTINGS } from '@nekko-agent/shared';
 import type { DaemonChild, DaemonSpawnSpec, EngineDaemon } from './daemon.js';
 import { createEngineServer } from './server.js';
 

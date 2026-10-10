@@ -1,7 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { ChatMode, McpServerStatus, Session } from '@agent-nekko/shared';
-import { getExecutionMode, type ExecutionMode } from '@agent-nekko/shared';
+import type { ChatMode, McpServerStatus, Session } from '@nekko-agent/shared';
+import { getExecutionMode, type ExecutionMode } from '@nekko-agent/shared';
 import { SandboxSetup, SandboxReview } from './SandboxSetup.js';
 import { useStore } from '../store.js';
 import { WrenchIcon, PlaneIcon, IncognitoIcon, PlugIcon, PlusIcon, GlobeIcon, GlobeOffIcon } from '../icons.js';

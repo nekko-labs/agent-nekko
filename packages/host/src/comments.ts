@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
-import type { LineComment } from '@agent-nekko/shared';
+import type { LineComment } from '@nekko-agent/shared';
 import { dataDir } from './store.js';
 
 /**
