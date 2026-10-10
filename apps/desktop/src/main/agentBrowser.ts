@@ -1,12 +1,32 @@
 import { BrowserWindow } from 'electron';
 import { createServer } from 'node:http';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { captureWindow } from './windowCapture.js';
+
+/** A hidden browser nobody has touched for this long is closed. Each one is a
+ *  full renderer that keeps painting (backgroundThrottling is off), and agents
+ *  rarely send `close`, so they used to pile up until the app quit. */
+const IDLE_CLOSE_MS = 10 * 60_000;
 
 /** Private tool bridge. Only the backend receives its capability token, never page content. */
 export async function startAgentBrowser(): Promise<{ url: string; token: string; close: () => void }> {
   const token = randomBytes(32).toString('hex');
   const windows = new Map<string, BrowserWindow>();
+  const lastUsed = new Map<string, number>();
+  // Electron never frees a partition's session, so a fresh random partition
+  // per window grew without bound. One in-memory partition per chat (salted
+  // per launch) keeps chats isolated and is reused when a window reopens.
+  const partitionSalt = randomBytes(16).toString('hex');
+  const guardedPartitions = new Set<string>();
+  const partitionFor = (sessionId: string) => `nekko-browser-${createHash('sha256').update(partitionSalt + sessionId).digest('hex').slice(0, 32)}`;
+  const reaper = setInterval(() => {
+    const now = Date.now();
+    for (const [sessionId, win] of windows) {
+      if (win.isDestroyed() || win.isVisible() || now - (lastUsed.get(sessionId) ?? 0) < IDLE_CLOSE_MS) continue;
+      win.destroy(); windows.delete(sessionId); lastUsed.delete(sessionId);
+    }
+  }, 60_000);
+  reaper.unref();
   let recorderUrl: string | undefined;
   const recorderPath = `/recorder-${randomBytes(24).toString('hex')}`;
   const server = createServer(async (req, res) => {
@@ -39,6 +59,7 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
       }
       if (typeof sessionId !== 'string' || !sessionId || !['navigate', 'inspect', 'click', 'fill', 'close'].includes(action)) throw new Error('Invalid browser request.');
       let win = windows.get(sessionId);
+      lastUsed.set(sessionId, Date.now());
       if (action === 'close') {
         win?.destroy(); windows.delete(sessionId);
         reply(200, { output: 'In-app browser closed.' }); return;
@@ -52,7 +73,7 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
           show: false, skipTaskbar: true,
           // On Linux, focusable=false changes window-manager stacking behavior.
           ...(process.platform !== 'linux' ? { focusable: false } : {}),
-          webPreferences: { partition: `nekko-browser-${randomBytes(16).toString('hex')}`, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, disableDialogs: true },
+          webPreferences: { partition: partitionFor(sessionId), sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false, disableDialogs: true },
         });
         const owned = win;
         windows.set(sessionId, win);
@@ -62,7 +83,9 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
         win.webContents.on('will-redirect', (event, target) => { if (!/^https?:\/\//i.test(target)) event.preventDefault(); });
         win.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
         win.webContents.session.setPermissionCheckHandler(() => false);
-        win.webContents.session.on('will-download', event => event.preventDefault());
+        // The partition outlives a reaped window; listen once, not per reopen.
+        const partition = partitionFor(sessionId);
+        if (!guardedPartitions.has(partition)) { guardedPartitions.add(partition); win.webContents.session.on('will-download', event => event.preventDefault()); }
       }
       // Visibility is explicit and never activates the window or OS input.
       if (input.visible === true) win.showInactive();
@@ -92,5 +115,5 @@ export async function startAgentBrowser(): Promise<{ url: string; token: string;
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('Browser bridge did not start.');
   recorderUrl = `http://127.0.0.1:${address.port}${recorderPath}`;
-  return { url: `http://127.0.0.1:${address.port}/`, token, close: () => { for (const win of windows.values()) win.destroy(); server.close(); } };
+  return { url: `http://127.0.0.1:${address.port}/`, token, close: () => { clearInterval(reaper); for (const win of windows.values()) win.destroy(); server.close(); } };
 }
