@@ -32,13 +32,15 @@ describe('Agents panel header', () => {
     expect(source).toContain('className="card fixed z-[1000] w-64 p-1.5 shadow-lg"');
     expect(source).toContain('document.body,');
   });
-  it('keeps Add window beside the composer in either docking position, with no elbow arrow', () => {
+  it('keeps the composer row to the composer alone in either docking position; adding lives in the toolbar', () => {
     expect(toolbar).toContain("wall.composer.side === 'bottom' && composerRow");
-    expect(toolbar).toContain('>{composer}{addButton}</div>');
+    expect(toolbar).toContain('>{composer}</div>');
+    expect(toolbar).not.toContain('addButton');
     expect(toolbar).toContain("wall.composer.side === 'top' && composerRow");
     expect(toolbar).not.toContain('wall-add-arrow');
     expect(css).not.toContain('.wall-add-arrow');
-    expect(css).toContain('.wall-add-launch { display: flex; align-items: center; justify-content: center;');
+    expect(css).not.toContain('.wall-add-launch');
+    expect(css).toContain('.wall-add-bar { display: inline-flex;');
     expect(css).not.toContain('.wall-composer-row { flex-direction: column;');
   });
 });

@@ -272,6 +272,13 @@ interface UiState {
   attachSkillToChat: (skill: SkillDef) => Promise<void>;
   /** Open the diff/approve review for a session's changed files. */
   openDiffPane: (sessionId: string) => void;
+  /**
+   * Give a chat a companion window (Changes, Browser or Files) in its own
+   * workspace, where the Command Center shows it under the chat's window.
+   * Unlike the open*Pane actions this stays on the current view. Returns false
+   * when the chat's workspace has no room left to split.
+   */
+  openCompanion: (sessionId: string, kind: 'diff' | 'browser' | 'files') => boolean;
 
   /** Switch to a workspace (and to the chat it is about). */
   setActiveWorkspace: (id: string) => void;
@@ -891,6 +898,35 @@ export const useStore = create<UiState>((set, get) => ({
       if (hit) return focusPane(s, hit.workspaceId, hit.paneId);
       return openInActive(s, { id: newPaneId(), kind: 'diff', refId: sessionId });
     });
+  },
+
+  openCompanion: (sessionId, kind) => {
+    let opened = false;
+    set((s) => {
+      // The chat's own workspace, made if the chat has none yet. Never the
+      // active one, and never a change of view: the wall stays where it is.
+      let workspaces = s.workspaces;
+      let hit = locatePane(workspaces, 'chat', sessionId);
+      if (!hit) {
+        const created = addWorkspace(s, { id: newPaneId(), kind: 'chat', refId: sessionId });
+        workspaces = created.workspaces ?? workspaces;
+        hit = locatePane(workspaces, 'chat', sessionId);
+      }
+      const ws = hit && workspaces.find((w) => w.id === hit!.workspaceId);
+      if (!hit || !ws?.root) return {};
+      const refId = kind === 'diff' ? sessionId : kind === 'browser' ? 'about:blank' : '';
+      // One of each per chat: asking again just keeps the one already there.
+      if (allPanes(ws.root).some((p) => p.kind === kind && (kind !== 'diff' || p.refId === sessionId))) {
+        opened = true;
+        return workspaces === s.workspaces ? {} : { workspaces };
+      }
+      const dir: Direction | null = canSplit(ws.root, hit.paneId, 'right') ? 'right' : canSplit(ws.root, hit.paneId, 'down') ? 'down' : null;
+      if (!dir) return workspaces === s.workspaces ? {} : { workspaces };
+      const pane: WbPane = { id: newPaneId(), kind, refId };
+      opened = true;
+      return { workspaces: workspaces.map((w) => (w.id === ws.id ? { ...w, root: splitInTree(w.root, hit!.paneId, dir, pane) } : w)) };
+    });
+    return opened;
   },
 
   setActiveWorkspace: (id) => {

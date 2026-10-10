@@ -1969,21 +1969,22 @@ html[data-app-inactive] *, html[data-app-inactive] *::before, html[data-app-inac
 .wall-composer-row[data-dock$='-center'] { justify-content: center; }
 .wall-composer-row[data-dock$='-right'] { justify-content: flex-end; }
 .wall-composer-row > .wall-composer { align-self: auto; min-width: 0; flex-shrink: 1; }
-/* Add window stays beside the composer, without a separate vertical row. */
-.wall-add-launch { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.wall-add-button {
-  display: inline-flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: 14px;
-  background: var(--brand-grad); color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap;
-  box-shadow: 0 4px 12px -6px color-mix(in srgb, var(--accent) 45%, transparent);
-  transition: transform 0.12s ease, filter 0.12s ease;
+/* Adding to the wall: a row of quiet icon buttons at the toolbar's right end
+   (agent, terminal, then the selected agent's Changes, Browser and Files, then
+   More), in place of the Add window button that used to sit by the composer. */
+.wall-add-bar { display: inline-flex; align-items: center; gap: 2px; }
+.wall-add-icon {
+  display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 7px;
+  color: var(--ink-faint); transition: color 0.12s ease, background-color 0.12s ease;
 }
-.wall-add-button:hover { filter: brightness(1.08) saturate(1.05); transform: translateY(-1px); }
-.wall-add-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.wall-add-button[aria-expanded='true'] { filter: brightness(0.95); }
+.wall-add-icon:hover:not(:disabled), .wall-add-icon[aria-expanded='true'] { color: var(--ink); background: var(--surface-2); }
+.wall-add-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.wall-add-icon:disabled { opacity: 0.4; cursor: default; }
+/* The agent cat as a line icon like its neighbours: its dark fill and light
+   outline read as a black blob on the light theme. */
+.wall-add-icon [data-part='pixel-head'] > path:first-child { fill: none; stroke: currentColor; }
 @media (max-width: 767px) {
   .wall-composer-row { gap: 8px; }
-  .wall-add-button { padding-inline: 8px; font-size: 11px; gap: 4px; }
-  .wall-composer-row > .wall-composer { width: calc(100% - 112px); max-width: calc(100% - 112px); }
 }
 /* The Agents panel's + : the primary action, in the accent and a size up. */
 .agent-panel-plus { color: var(--accent); }
