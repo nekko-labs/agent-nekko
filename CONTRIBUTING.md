@@ -13,6 +13,8 @@ npm install
 npm run dev          # build the Rust daemon and the app, then launch the desktop app
 ```
 
+To stop a dev run, press **Enter** or **q** (or Ctrl+C) in its terminal. The app quits the normal way, stopping the engine and any model servers it started; press again to force it, which ends the whole process tree. A run that hasn't exited after 10 seconds is forced too.
+
 ## Project layout
 
 | Path | What |
