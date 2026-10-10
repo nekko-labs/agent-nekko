@@ -99,6 +99,7 @@ export function createDispatcher(host: Host): (channel: string, args: any[]) => 
     [C.sessionNextWatch]: ([id]) => host.nextAgentWatchAt(id),
     [C.sessionsSummaries]: () => host.listSessionSummaries(),
     [C.sandboxConfigure]: ([id, image]) => host.configureSandbox(id, image),
+    [C.sandboxCleanup]: ([id, identity]) => host.cleanupSandbox(id, identity),
     [C.sandboxStatus]: ([id]) => host.sandboxStatus(id),
     [C.sandboxDiff]: ([id]) => host.sandboxDiff(id),
     [C.sandboxApplyDiff]: ([id, identity, diffId, paths]) => host.applySandboxDiff(id, identity, diffId, paths),

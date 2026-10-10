@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+
+// These unit fixtures use synthetic normal-session handles, not persisted user data.
+vi.mock('./sessions.js', () => ({ getSession: (id: string) => ({ id, executionMode: 'unified' }) }));
 import type { AgentEvent } from '@nekko-agent/shared';
 import { loopEnd, runAgentViaDaemon } from './daemon-loop.js';
 

@@ -69,10 +69,17 @@ export function SandboxSetup({ session, onChange, onClose }: { session: Session;
     <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Set up Sandbox" className="card mx-4 w-[480px] max-w-full space-y-3 p-5 shadow-lg">
       <h2 className="font-medium">Set up Sandbox</h2>
       <p className="text-sm text-ink-soft">Use an already-local container image pinned by SHA-256 digest. No images will be pulled. Sandbox supports scoped files and bash only. Setup starts with fresh Ask permissions.</p>
+      {session.sandbox && <p className="text-sm text-ink-soft">This sandbox identity is immutable. After a restart, Review sandbox diff verifies and reconnects to a running owned container. Failed or stopped sandboxes must be cleaned up, then continued in a new sandbox chat. Cleanup permanently deletes the copied files, not the source folders.</p>}
+      {session.sandbox && <button className="ctl-menu" disabled={busy || !consent} onClick={async () => {
+        setBusy(true); setError('');
+        try { await window.nekko.cleanupSandbox(session.id, session.sandbox!.identity); setError('Sandbox resources deleted. Create a new sandbox chat to resume.'); }
+        catch (e) { setError(String((e as Error).message ?? e)); }
+        finally { setBusy(false); }
+      }}>Delete sandbox resources</button>}
       <label className="block text-sm">Local image digest<input className="input mt-1 w-full" value={image} onChange={(e) => setImage(e.target.value)} placeholder="image@sha256:…" /></label>
-      <label className="flex gap-2 text-sm"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />I consent to copying this chat's scoped folders into a local sandbox.</label>
+      <label className="flex gap-2 text-sm"><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />{session.sandbox ? 'I understand cleanup permanently deletes this sandbox copy, including unsaved changes.' : "I consent to copying this chat's scoped folders into a local sandbox."}</label>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <div className="flex justify-end gap-2"><button className="ctl-menu" disabled={busy} onClick={onClose}>Cancel</button><button className="ctl-menu" disabled={busy || !consent || !isPinnedSandboxImage(image)} onClick={() => void configure()}>{busy ? 'Configuring…' : 'Configure Sandbox'}</button></div>
+      <div className="flex justify-end gap-2"><button className="ctl-menu" disabled={busy} onClick={onClose}>Cancel</button><button className="ctl-menu" disabled={busy || !!session.sandbox || !consent || !isPinnedSandboxImage(image)} onClick={() => void configure()}>{busy ? 'Configuring…' : 'Configure Sandbox'}</button></div>
     </div>
   </div>, document.body);
 }

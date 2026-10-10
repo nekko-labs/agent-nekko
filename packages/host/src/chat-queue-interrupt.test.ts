@@ -54,7 +54,10 @@ describe('session options', () => {
     expect(() => host.setSessionOptions(s.id, { title: 'Still allowed' })).not.toThrow();
     host.abortChat(s.id);
     await running;
-    expect(host.setSessionOptions(s.id, { gitIsolation: false })?.gitIsolation).toBe(false);
+    // A finished turn is still nonempty: execution environment remains immutable.
+    expect(() => host.setSessionOptions(s.id, { gitIsolation: false })).toThrow(/empty, idle chat/);
+    const empty = host.createSession();
+    expect(host.setSessionOptions(empty.id, { gitIsolation: false })?.gitIsolation).toBe(false);
   });
 });
 

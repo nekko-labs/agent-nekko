@@ -25,6 +25,8 @@ function fixture() {
       container = args[args.indexOf('--name') + 1]; token = container.slice(6);
       volume = `nekko-${token}-workspace`;
     }
+    if (args[0] === 'container' && args[1] === 'ls') result = JSON.stringify(container);
+    if (args[0] === 'volume' && args[1] === 'ls') result = volume;
     if (args[0] === 'inspect') result = [{ Image: imageId, State: { Running: true }, Config: { User: '1000:1000', Labels: { 'dev.nekko.sandbox': badIdentity ? 'other' : token } }, HostConfig: { NetworkMode: 'none', ReadonlyRootfs: true, CapDrop: ['ALL'], SecurityOpt: ['no-new-privileges'], Memory: 512 * 1024 * 1024, MemorySwap: 512 * 1024 * 1024, Tmpfs: { '/tmp': 'rw,noexec,nosuid,nodev,size=64m' }, PidsLimit: 128, NanoCpus: 1000000000 }, Mounts: [{ Type: 'volume', Name: volume, Destination: '/workspace', RW: true }] }];
     if (args[0] === 'volume' && args[1] === 'inspect') result = [{ Labels: { 'dev.nekko.sandbox': token } }];
     if (args[0] === 'exec' && args.includes('-c') && args.at(-1)?.startsWith('{')) {
@@ -56,9 +58,9 @@ it.skipIf(!process.env.NEKKO_SANDBOX_TEST_IMAGE)('real preinstalled Docker image
     expect(await sandbox.execute('grep', { pattern: 'world' })).toEqual([{ path: 'folder-0/b.txt', line: 1, text: 'world' }]);
     const shell = await sandbox.execute('bash', { command: 'id -u; printf shell > folder-0/a.txt' }) as { stdout: string };
     expect(shell.stdout.trim()).toBe('1000');
-    await sandbox.applyBack(await sandbox.diff());
-    expect(fs.readFileSync(path.join(f.source, 'a.txt'), 'utf8')).toBe('shell');
-    expect(fs.readFileSync(path.join(f.source, 'b.txt'), 'utf8')).toBe('world');
+    await expect(sandbox.applyBack(await sandbox.diff())).rejects.toThrow('Apply-back is disabled');
+    expect(fs.readFileSync(path.join(f.source, 'a.txt'), 'utf8')).toBe('original');
+    expect(fs.existsSync(path.join(f.source, 'b.txt'))).toBe(false);
     await sandbox.execute('bash', { command: 'ln -s /etc/passwd folder-0/alias' });
     await expect(sandbox.snapshot()).rejects.toThrow();
     await sandbox.execute('bash', { command: 'rm folder-0/alias' });
@@ -95,6 +97,40 @@ describe('container sandbox', () => {
     expect(f.calls.every((c) => !['pull', 'service'].includes(c[0]))).toBe(true);
     await resumed.destroy(); expect(f.calls.some((c) => c[0] === 'rm')).toBe(true);
   });
+  it('cleans up a partial creation with only its owned volume present', async () => {
+    const f = fixture();
+    const run: SandboxRunner = async (exe, args, options) => {
+      if (args[0] === 'create') throw new Error('creation interrupted');
+      if (args[0] === 'container' && args[1] === 'ls') return { stdout: '', stderr: '' };
+      if (args[0] === 'volume' && args[1] === 'ls') {
+        const m = JSON.parse(fs.readFileSync(path.join(f.config.stateDirectory, 'session.sandbox.json'), 'utf8'));
+        return { stdout: m.volume, stderr: '' };
+      }
+      if (args[0] === 'volume' && args[1] === 'inspect') {
+        const m = JSON.parse(fs.readFileSync(path.join(f.config.stateDirectory, 'session.sandbox.json'), 'utf8'));
+        return { stdout: JSON.stringify([{ Labels: { 'dev.nekko.sandbox': m.token } }]), stderr: '' };
+      }
+      return f.run(exe, args, options);
+    };
+    await expect(new ContainerSandbox(f.config, run).initialize()).rejects.toThrow('interrupted');
+    await new ContainerSandbox(f.config, run).destroy();
+    expect(f.calls.some(c => c[0] === 'volume' && c[1] === 'rm')).toBe(true);
+    expect(f.calls.some(c => c[0] === 'rm')).toBe(false);
+  });
+  it('cleans up stopped resources after restart without touching source files', async () => {
+    const f = fixture(); await f.sandbox.initialize();
+    const run: SandboxRunner = async (exe, args, options) => {
+      const result = await f.run(exe, args, options);
+      if (args[0] === 'inspect') {
+        const containers = JSON.parse(result.stdout); containers[0].State.Running = false;
+        return { ...result, stdout: JSON.stringify(containers) };
+      }
+      return result;
+    };
+    await new ContainerSandbox(f.config, run).destroy();
+    expect(f.calls.some(c => c[0] === 'rm')).toBe(true);
+    expect(fs.readFileSync(path.join(f.source, 'a.txt'), 'utf8')).toBe('original');
+  });
   it('fails closed for non-Linux or unavailable engine and missing image', async () => {
     for (const mode of ['windows', 'offline', 'missing']) {
       const f = fixture();
@@ -130,7 +166,8 @@ describe('container sandbox', () => {
   it('rejects container identity mismatch', async () => {
     const f = fixture(); await f.sandbox.initialize(); f.badIdentity();
     await expect(f.sandbox.snapshot()).rejects.toThrow('isolation');
-    await expect(f.sandbox.destroy()).rejects.toThrow('isolation');
+    await expect(f.sandbox.destroy()).rejects.toThrow('identity');
+    expect(f.calls.some(c => c[0] === 'rm')).toBe(false);
   });
   it('validates hostile exports, collisions and hashes before host writes', async () => {
     const f = fixture(); await f.sandbox.initialize();
@@ -142,37 +179,18 @@ describe('container sandbox', () => {
     await expect(f.sandbox.snapshot()).rejects.toThrow('hash');
     expect(fs.readFileSync(path.join(f.source, 'a.txt'), 'utf8')).toBe('original');
   });
-  it('applies explicit changes only, rejecting all baseline conflicts before any write', async () => {
-    const f = fixture(); fs.writeFileSync(path.join(f.source, 'b.txt'), 'before'); await f.sandbox.initialize();
-    f.files.set('folder-0/a.txt', f.file('folder-0/a.txt', 'after'));
-    f.files.set('folder-0/b.txt', f.file('folder-0/b.txt', 'after'));
-    const changes = await f.sandbox.diff(); expect(changes).toHaveLength(2);
-    fs.writeFileSync(path.join(f.source, 'b.txt'), 'host edit');
-    await expect(f.sandbox.applyBack(changes)).rejects.toThrow('baseline conflict');
-    expect(fs.readFileSync(path.join(f.source, 'a.txt'), 'utf8')).toBe('original');
-    fs.writeFileSync(path.join(f.source, 'b.txt'), 'before');
-    await f.sandbox.applyBack(changes.slice(0, 1));
-    expect(fs.readFileSync(path.join(f.source, 'a.txt'), 'utf8')).toBe('after');
-    expect(fs.readFileSync(path.join(f.source, 'b.txt'), 'utf8')).toBe('before');
-    expect(await f.sandbox.diff()).toHaveLength(1);
-  });
-  it('rejects stale selections, implicit overwrite additions and missing parents', async () => {
+  it('denies additions, replacements and deletions without touching external host edits', async () => {
     const f = fixture(); await f.sandbox.initialize();
+    f.files.set('folder-0/a.txt', f.file('folder-0/a.txt', 'sandbox edit'));
     f.files.set('folder-0/new.txt', f.file('folder-0/new.txt', 'new'));
-    const changes = await f.sandbox.diff(); fs.writeFileSync(path.join(f.source, 'new.txt'), 'host');
-    await expect(f.sandbox.applyBack(changes)).rejects.toThrow('addition conflict');
-    fs.unlinkSync(path.join(f.source, 'new.txt'));
-    f.files.set('folder-0/new.txt', f.file('folder-0/new.txt', 'changed'));
-    await expect(f.sandbox.applyBack(changes)).rejects.toThrow('Stale');
-    f.files.delete('folder-0/new.txt'); f.files.set('folder-0/nested/new.txt', f.file('folder-0/nested/new.txt', 'new'));
-    await expect(f.sandbox.applyBack(await f.sandbox.diff())).rejects.toThrow();
-  });
-  it('handles selected additions and deletions', async () => {
-    const f = fixture(); await f.sandbox.initialize();
-    f.files.delete('folder-0/a.txt'); f.files.set('folder-0/new.txt', f.file('folder-0/new.txt', 'new'));
-    await f.sandbox.applyBack(await f.sandbox.diff());
-    expect(fs.existsSync(path.join(f.source, 'a.txt'))).toBe(false);
-    expect(fs.readFileSync(path.join(f.source, 'new.txt'), 'utf8')).toBe('new');
-    expect(await f.sandbox.diff()).toEqual([]);
+    const changes = await f.sandbox.diff();
+    fs.writeFileSync(path.join(f.source, 'a.txt'), 'external edit');
+    await expect(f.sandbox.applyBack(changes)).rejects.toThrow('Apply-back is disabled');
+    expect(fs.readFileSync(path.join(f.source, 'a.txt'), 'utf8')).toBe('external edit');
+    expect(fs.existsSync(path.join(f.source, 'new.txt'))).toBe(false);
+    f.files.delete('folder-0/a.txt');
+    await expect(f.sandbox.applyBack(await f.sandbox.diff())).rejects.toThrow('Apply-back is disabled');
+    expect(fs.readFileSync(path.join(f.source, 'a.txt'), 'utf8')).toBe('external edit');
+    await f.sandbox.applyBack([]);
   });
 });

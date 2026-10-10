@@ -139,7 +139,7 @@ export class ContainerSandbox {
     return this.runner(this.docker, args, { windowsHide: true, timeout: this.limits.timeoutMs, maxBuffer: this.limits.outputBytes });
   }
   private save() { writeJsonAtomic(this.manifestPath, this.manifest); }
-  private async discover() {
+  private async discover(requireImage = true) {
     const candidates = this.config.dockerPath ? [this.config.dockerPath] : process.platform === 'win32' ? ['C:/Program Files/Docker/Docker/resources/bin/docker.exe', 'docker.exe'] : ['docker'];
     let found = false;
     for (const candidate of candidates) {
@@ -148,6 +148,7 @@ export class ContainerSandbox {
     if (!found) throw new Error('Docker CLI unavailable');
     const info = JSON.parse((await this.run(['info', '--format', '{{json .}}'])).stdout);
     if (info.OSType !== 'linux' || !info.ServerVersion) throw new Error('Ready Linux Docker engine required');
+    if (!requireImage) return '';
     const image = JSON.parse((await this.run(['image', 'inspect', this.config.image])).stdout)[0];
     if (image?.Os !== 'linux' || Object.keys(image.Config?.Volumes ?? {}).length || !/^sha256:[a-f0-9]{64}$/.test(image.Id)) throw new Error('Pinned Linux image must already be installed');
     return image.Id as string;
@@ -255,53 +256,35 @@ export class ContainerSandbox {
       return before === (after?.hash ?? null) ? [] : [{ path: p, before, after }];
     });
   }
-  /** Explicit selections only. All conflicts are checked before any host write. */
+  /** Disabled at the lowest boundary: hashes and advisory locks cannot exclude external writers. */
   async applyBack(selected: SandboxChange[]): Promise<void> {
     if (!selected.length) return;
-    return this.exclusive(async () => {
-      await this.verify();
-      const current = new Map(this.validateSnapshot(await this.python('snapshot')).map((f) => [f.path, f]));
-      const seen = new Set<string>();
-      const prepared = selected.map((change) => {
-        const p = relativeFile(change.path); const m = /^folder-(\d+)\/(.+)$/.exec(p);
-        if (!m || seen.has(p.toLowerCase()) || !this.manifest!.roots[Number(m[1])]) throw new Error('Invalid apply selection');
-        seen.add(p.toLowerCase());
-        const before = this.manifest!.baseline[p] ?? null;
-        const after = current.get(p) ?? null;
-        if (before !== change.before || (after?.hash ?? null) !== (change.after?.hash ?? null) || (after?.base64 ?? null) !== (change.after?.base64 ?? null)) throw new Error('Stale apply selection');
-        const target = path.join(this.manifest!.roots[Number(m[1])], ...m[2].split('/'));
-        assertPlain(path.dirname(target)); // Missing parents fail conservatively, never create host trees implicitly.
-        if (before === null) { if (fs.existsSync(target)) throw new Error('Host addition conflict'); }
-        else if (!fs.existsSync(target) || hash(plainRead(target)) !== before) throw new Error('Host baseline conflict');
-        return { p, target, before, after };
-      });
-      // Synchronous preconditions and writes avoid JS-level interleaving. Concurrent external
-      // filesystem mutation still requires caller-enforced exclusive host ownership.
-      for (const item of prepared) {
-        assertPlain(path.dirname(item.target));
-        if (item.before !== null && hash(plainRead(item.target)) !== item.before) throw new Error('Host baseline changed during apply');
-        if (item.after) {
-          const fd = fs.openSync(item.target, item.before === null ? 'wx' : fs.constants.O_RDWR | (fs.constants.O_NOFOLLOW ?? 0), 0o600);
-          try {
-            const stat = fs.fstatSync(fd);
-            if (!stat.isFile() || stat.nlink !== 1) throw new Error('Unsafe apply target');
-            if (item.before !== null && hash(fs.readFileSync(fd)) !== item.before) throw new Error('Host baseline changed during open');
-            fs.ftruncateSync(fd, 0); fs.writeSync(fd, Buffer.from(item.after.base64, 'base64'), 0, Buffer.from(item.after.base64, 'base64').length, 0); fs.fsyncSync(fd);
-          } finally { fs.closeSync(fd); }
-          this.manifest!.baseline[item.p] = item.after.hash;
-        } else { fs.unlinkSync(item.target); delete this.manifest!.baseline[item.p]; }
-      }
-      this.save();
-    });
+    throw new Error('Apply-back is disabled: exclusive host filesystem ownership cannot be guaranteed against concurrent external writes.');
   }
   async destroy(): Promise<void> {
     return this.exclusive(async () => {
-      await this.verify();
-      const m = this.manifest!;
-      const v = JSON.parse((await this.run(['volume', 'inspect', m.volume])).stdout)[0];
-      if (v?.Labels?.['dev.nekko.sandbox'] !== m.token) throw new Error('Volume identity mismatch');
-      await this.run(['rm', '-f', m.container]); await this.run(['volume', 'rm', m.volume]);
-      m.phase = 'destroyed'; this.save();
+      // Cleanup must work after a restart or failed creation, without requiring
+      // a running container or readable source folders. Never delete by name alone.
+      if (!this.docker) await this.discover(false);
+      const m = this.manifest ?? JSON.parse(plainRead(this.manifestPath).toString()) as Manifest;
+      if (m.version !== 1 || m.sessionId !== this.config.sessionId || !/^[a-f0-9-]{36}$/.test(m.token) || m.container !== `nekko-${m.token}` || m.volume !== `nekko-${m.token}-workspace`) throw new Error('Manifest identity mismatch');
+      if (m.phase === 'destroyed') return;
+      const containers = (await this.run(['container', 'ls', '-a', '--format', '{{json .Names}}'])).stdout.split('\n').filter(Boolean).map(line => JSON.parse(line) as string);
+      const volumes = (await this.run(['volume', 'ls', '--format', '{{.Name}}'])).stdout.split('\n');
+      const hasContainer = containers.includes(m.container);
+      const hasVolume = volumes.includes(m.volume);
+      // Verify both identities before removing either resource.
+      if (hasContainer) {
+        const c = JSON.parse((await this.run(['inspect', m.container])).stdout)[0];
+        if (c?.Config?.Labels?.['dev.nekko.sandbox'] !== m.token) throw new Error('Container identity mismatch');
+      }
+      if (hasVolume) {
+        const v = JSON.parse((await this.run(['volume', 'inspect', m.volume])).stdout)[0];
+        if (v?.Labels?.['dev.nekko.sandbox'] !== m.token) throw new Error('Volume identity mismatch');
+      }
+      if (hasContainer) await this.run(['rm', '-f', m.container]);
+      if (hasVolume) await this.run(['volume', 'rm', m.volume]);
+      this.manifest = m; m.phase = 'destroyed'; this.save();
     });
   }
 }

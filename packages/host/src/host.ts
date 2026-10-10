@@ -1,5 +1,5 @@
 import { assertHostExecution } from './indirect-execution-guard.js';
-import { configureSandbox, sandboxStatus, sandboxDiff, applySandboxDiff } from './execution-router.js';
+import { configureSandbox, sandboxStatus, sandboxDiff, applySandboxDiff, cleanupSandbox } from './execution-router.js';
 import { resourceQueue } from './resource-queue.js';
 import { EventEmitter } from 'events';
 import { basename, resolve } from 'path';
@@ -330,6 +330,7 @@ export interface Host {
   /** Every chat without its transcript, from a cache that re-reads only changed files. */
   listSessionSummaries(): Promise<SessionSummary[]>;
   configureSandbox(sessionId: string, image: string): Promise<import('@nekko-agent/shared').SandboxStatus>;
+  cleanupSandbox(sessionId: string, identity: string): Promise<void>;
   sandboxStatus(sessionId: string): import('@nekko-agent/shared').SandboxStatus;
   sandboxDiff(sessionId: string): Promise<import('@nekko-agent/shared').SandboxDiff>;
   applySandboxDiff(sessionId: string, identity: string, diffId: string, paths: string[]): Promise<never>;
@@ -875,6 +876,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     nextAgentWatchAt: (id) => nextAgentWatchAt(id),
     listSessionSummaries: sessions.listSessionSummaries,
     configureSandbox: (id, image) => { if (isChatRunning(id) || activeChats.has(id)) throw new Error('Wait for the current reply to finish before sandbox setup.'); return configureSandbox(id, image); },
+    cleanupSandbox: (id, identity) => { if (isChatRunning(id) || activeChats.has(id)) throw new Error('Wait for the current reply to finish before sandbox cleanup.'); return cleanupSandbox(id, identity); },
     sandboxStatus,
     sandboxDiff,
     applySandboxDiff,

@@ -392,6 +392,7 @@ function makeWebClient(): NekkoApi {
     setSpecLinked: (sessionId, linked) => call(IpcChannels.specSetLinked, sessionId, linked),
     specPath: (sessionId) => call(IpcChannels.specPath, sessionId),
     configureSandbox: (id, image) => call(IpcChannels.sandboxConfigure, id, image),
+  cleanupSandbox: (id, identity) => call(IpcChannels.sandboxCleanup, id, identity),
   sandboxStatus: (id) => call(IpcChannels.sandboxStatus, id),
   sandboxDiff: (id) => call(IpcChannels.sandboxDiff, id),
   applySandboxDiff: (id, identity, diffId, paths) => call(IpcChannels.sandboxApplyDiff, id, identity, diffId, paths) as Promise<never>,

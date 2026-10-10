@@ -55,6 +55,16 @@ app.whenReady().then(async () => {
       await capture('setup-error-light-390'); await click(button('Cancel')); await check('setup close label and dismissal', "!document.querySelector('[role=dialog]')");
       await reset(); await mode(); await click(button('Sandbox')); await run('document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))'); await check('Escape dismisses setup', "!document.querySelector('[role=dialog]')");
     }
+    if (tag === 'after') {
+      await reset(); await run('integration.configureRecord()'); await sleep(180); await click(button('Sandbox setup'));
+      await check('cleanup requires explicit destructive consent', `${button('Delete sandbox resources')}.disabled&&${button('Configure Sandbox')}.disabled`);
+      await click("document.querySelector('[role=dialog] input[type=checkbox]')");
+      await click(button('Delete sandbox resources'));
+      await check('cleanup propagates exact identity and reports recovery', "integration.calls.some(c=>c.api==='cleanup'&&c.id==='fixture'&&c.identity==='synthetic-owned')&&document.querySelector('[role=alert]').textContent.includes('Create a new sandbox chat')");
+      for (const theme of ['light', 'dark']) for (const width of [1200, 390]) {
+        win.setContentSize(width, 800); await run(`document.documentElement.dataset.theme='${theme}'`); await capture(`cleanup-${theme}-${width}`);
+      }
+    }
     if (report.errors.length) throw Error(report.errors.join('\n'));
     await reset(); await folder(); save(); console.log(JSON.stringify({ dir, checks: report.checks.length, captures: report.captures.length }));
     if (process.env.NEKKO_FIXTURE_HOLD) { setTimeout(() => app.quit(), 30 * 60 * 1000); fs.watchFile(path.join(dir, 'stop'), () => { if (fs.existsSync(path.join(dir, 'stop'))) app.quit(); }); }

@@ -173,6 +173,7 @@ export const IpcChannels = {
   workspaceGitStatus: 'workspace:gitStatus',
   sandboxConfigure: 'sandbox:configure',
   sandboxStatus: 'sandbox:status',
+  sandboxCleanup: 'sandbox:cleanup',
   sandboxDiff: 'sandbox:diff',
   sandboxApplyDiff: 'sandbox:applyDiff',
   chatWorktreesList: 'chatWorktrees:list',
@@ -503,6 +504,7 @@ export interface NekkoApi {
    */
   listSessionSummaries(): Promise<import('./session-summary.js').SessionSummary[]>;
   configureSandbox(sessionId: string, image: string): Promise<import('./chat.js').SandboxStatus>;
+  cleanupSandbox(sessionId: string, identity: string): Promise<void>;
   sandboxStatus(sessionId: string): Promise<import('./chat.js').SandboxStatus>;
   sandboxDiff(sessionId: string): Promise<import('./chat.js').SandboxDiff>;
   applySandboxDiff(sessionId: string, identity: string, diffId: string, paths: string[]): Promise<never>;

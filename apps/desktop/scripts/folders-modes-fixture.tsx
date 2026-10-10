@@ -23,6 +23,7 @@ const bridge = {
   removeWorkspace: async (id: string) => { if (failures.remove) throw Error('Synthetic removal failure'); settings.workspaces = settings.workspaces.filter((w: any) => w.id !== id); if (record.workspaceId === id) record.workspaceId = undefined; record.supportingWorkspaceIds = record.supportingWorkspaceIds.filter((v: string) => v !== id); },
   pickFolder: async () => '/synthetic/added',
   addWorkspaceByPath: async (path: string) => { settings.workspaces.push({ id: 'added', name: 'Added folder', path }); return copy(settings.workspaces); },
+  cleanupSandbox: async (id: string, identity: string) => { calls.push({ api: 'cleanup', id, identity }); },
   configureSandbox: async (_id: string, image: string) => { calls.push({ api: 'configure', image }); return failures.configure ? { phase: 'error', error: 'Synthetic local image unavailable' } : { phase: 'ready' }; },
 };
 Object.assign(window, { nekko: bridge });
@@ -36,7 +37,7 @@ function Fixture() {
     useStore.setState({ settings: copy(settings), sessions: [copy(record)], activeProjectId: 'alpha', toasts: [] } as any);
     setSession(copy(record)); setEpoch(e => e + 1);
   };
-  Object.assign(window, { integration: { reset, failures, calls, record: () => copy(record), state: () => useStore.getState(), persisted: () => JSON.parse(localStorage.getItem('nekko.lastPrimaryFolder') ?? 'null') } });
+  Object.assign(window, { integration: { reset, configureRecord: () => { record.executionMode = 'sandbox'; record.sandbox = { identity: 'synthetic-owned', image: 'local@sha256:' + 'a'.repeat(64), sourceWorkspaceIds: ['alpha'], configuredAt: 1 }; setSession(copy(record)); }, failures, calls, record: () => copy(record), state: () => useStore.getState(), persisted: () => JSON.parse(localStorage.getItem('nekko.lastPrimaryFolder') ?? 'null') } });
   React.useEffect(reset, []);
   return <main style={{ height: '100vh', padding: 16, display: 'flex', alignItems: 'flex-end', background: 'var(--surface)' }}><section className="card w-full p-4"><h1 className="mb-3 text-sm">Synthetic folder and execution controls</h1><div key={epoch} className="flex flex-wrap items-center gap-2"><FolderPicker sessionId="fixture" session={session} onChange={setSession} /><ChatControls session={session} isCloudModel={false} onChange={setSession} only="mode" /></div></section></main>;
 }

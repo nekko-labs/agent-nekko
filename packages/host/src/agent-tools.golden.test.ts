@@ -1,4 +1,7 @@
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'fs';
+
+// These unit fixtures use synthetic normal-session handles, not persisted user data.
+vi.mock('./sessions.js', () => ({ getSession: (id: string) => ({ id, executionMode: 'unified' }) }));
 import { tmpdir } from 'os';
 import { dirname, join, posix, resolve, win32 } from 'path';
 import { afterAll, describe, expect, it, vi } from 'vitest';

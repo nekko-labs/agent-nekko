@@ -184,6 +184,7 @@ const api: NekkoApi = {
   setSpecLinked: (sessionId, linked) => inv(IpcChannels.specSetLinked, sessionId, linked),
   specPath: (sessionId) => inv(IpcChannels.specPath, sessionId),
   configureSandbox: (id, image) => inv(IpcChannels.sandboxConfigure, id, image),
+  cleanupSandbox: (id, identity) => inv(IpcChannels.sandboxCleanup, id, identity),
   sandboxStatus: (id) => inv(IpcChannels.sandboxStatus, id),
   sandboxDiff: (id) => inv(IpcChannels.sandboxDiff, id),
   applySandboxDiff: (id, identity, diffId, paths) => inv(IpcChannels.sandboxApplyDiff, id, identity, diffId, paths) as Promise<never>,

@@ -2,12 +2,13 @@ import { execFile } from 'node:child_process';
 import { randomUUID, createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { getExecutionMode, getSessionWorkspaceIds, type Session, type SandboxStatus, type SandboxDiff, type ToolCall, type ToolResult } from '@nekko-agent/shared';
-import { ContainerSandbox, defaultSandboxRunner } from './container-sandbox.js';
+import { ContainerSandbox } from './container-sandbox.js';
 import { dataDir, getSettings } from './store.js';
 import { getSession, saveSession } from './sessions.js';
 
 export const SANDBOX_TOOLS = new Set(['read_file', 'write_file', 'edit_file', 'list_dir', 'glob', 'grep', 'bash']);
 const runtimes = new Map<string, { sandbox: ContainerSandbox; identity: string; signal?: AbortSignal; error?: string; ready: boolean }>();
+const activeTools = new WeakSet<object>();
 function sessionFor(id: string): Session {
   const s = getSession(id);
   if (!s || getExecutionMode(s) !== 'sandbox') throw new Error('Sandbox session required');
@@ -29,14 +30,21 @@ function runtime(s: Session) {
   entry.sandbox = new ContainerSandbox({ sessionId: s.id, stateDirectory: join(dataDir(), 'sandboxes', entry.identity), sourceFolders: folders, image: s.sandbox.image }, async (executable, args, options) => {
     if (entry.signal?.aborted) throw new Error('Sandbox execution cancelled');
     const container = args[0] === 'exec' ? args.find(a => /^nekko-[a-f0-9-]{36}$/.test(a)) : undefined;
+    let cancelled = false;
     const cancel = () => {
+      if (cancelled) return;
+      cancelled = true;
       entry.error = 'Sandbox stopped by cancellation. Create a new sandbox chat to resume.';
       // Stop the container, not just the CLI: docker exec cancellation alone leaves its shell running.
       if (container) execFile(executable, ['kill', container], { windowsHide: true, timeout: 10000 }, () => {});
     };
     entry.signal?.addEventListener('abort', cancel, { once: true });
     try {
-      const result = await defaultSandboxRunner(executable, args, options);
+      const result = await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        execFile(executable, args, { ...options, signal: entry.signal }, (error, stdout, stderr) => {
+          if (error) reject(error); else resolve({ stdout, stderr });
+        });
+      });
       if (entry.signal?.aborted) throw new Error('Sandbox execution cancelled');
       return result;
     } catch (error) {
@@ -63,6 +71,15 @@ export async function configureSandbox(sessionId: string, image: string): Promis
   try { await r.sandbox.initialize(); r.ready = true; } catch (error) { r.error = (error as Error).message; throw error; }
   return sandboxStatus(sessionId);
 }
+export async function cleanupSandbox(sessionId: string, identity: string): Promise<void> {
+  const s = sessionFor(sessionId);
+  if (s.activeRun || s.sandbox?.identity !== identity) throw new Error('Sandbox is busy or identity is stale');
+  const r = runtime(s);
+  if (activeTools.has(r)) throw new Error('Sandbox operation already in progress');
+  await r.sandbox.destroy();
+  r.ready = false;
+  r.error = 'Sandbox resources deleted. Create a new sandbox chat to resume.';
+}
 export function sandboxStatus(sessionId: string): SandboxStatus {
   const s = getSession(sessionId);
   if (!s) throw new Error('Session not found');
@@ -73,6 +90,7 @@ async function ready(s: Session) {
   const r = runtime(s);
   if (r.error) throw new Error(r.error);
   try { await r.sandbox.initialize(); } catch (error) { r.error = (error as Error).message; throw error; }
+  r.ready = true;
   return r;
 }
 export async function sandboxDiff(sessionId: string): Promise<SandboxDiff> {
@@ -92,12 +110,19 @@ export async function executeSandboxTool(sessionId: string, call: ToolCall, appr
     if (signal?.aborted) return failure('Sandbox execution cancelled');
     if (!await approve(call, `Sandbox ${call.name}: access only the copied workspace`, call.name === 'bash' ? 'high' : call.name === 'write_file' || call.name === 'edit_file' ? 'medium' : 'low')) return failure('Sandbox action not approved');
     if (signal?.aborted) return failure('Sandbox execution cancelled');
-    const r = await ready(sessionFor(sessionId));
+    const s = sessionFor(sessionId);
+    const r = runtime(s);
+    // Own the signal before readiness checks. Reject overlapping calls rather than
+    // letting a second caller replace the signal of an operation already in flight.
+    if (activeTools.has(r)) return failure('Sandbox operation already in progress');
+    activeTools.add(r);
     r.signal = signal;
     try {
+      await ready(s);
+      if (signal?.aborted) return failure('Sandbox execution cancelled');
       const result = await r.sandbox.execute(call.name, call.input);
       return { toolCallId: call.id, output: typeof result === 'string' ? result : JSON.stringify(result) };
-    } finally { r.signal = undefined; }
+    } finally { r.signal = undefined; activeTools.delete(r); }
   } catch (error) { return failure((error as Error).message); }
 }
 /** Context is not silently read from host attachments, guidelines, memory or indices. */
