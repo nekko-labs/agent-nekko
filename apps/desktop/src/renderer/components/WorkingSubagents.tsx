@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PendingInput, SessionSummary } from '@nekko-agent/shared';
+import type { PendingInput, SessionSummary } from '@agent-nekko/shared';
 import { RobotIcon } from '../icons.js';
 
 /** Only active children belong in this transient window-local indicator. */

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@nekko-agent/shared';
-import { formatUSD, isLocalProvider } from '@nekko-agent/shared';
+import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
+import { formatUSD, isLocalProvider } from '@agent-nekko/shared';
 import { afterPaint } from '../afterPaint.js';
 
 /** Relative time from now to a future timestamp, in compact words. */
@@ -61,7 +61,7 @@ export function UsageLimitsChip({
   provider?: ProviderConfig;
   session?: { id?: string } | null;
   cost?: number;
-  avoidedCosts?: import('@nekko-agent/shared').AvoidedCosts;
+  avoidedCosts?: import('@agent-nekko/shared').AvoidedCosts;
   /**
    * What the reply now running has cost so far, accumulated live from the
    * turn's usage events. Zero between turns.

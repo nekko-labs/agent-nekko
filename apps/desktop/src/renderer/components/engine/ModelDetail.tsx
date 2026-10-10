@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { CatalogModelDetail, CatalogQuant, EngineMemory, LocalModel } from '@nekko-agent/shared';
-import { downloadFitVerdict, modelModality } from '@nekko-agent/shared';
+import type { CatalogModelDetail, CatalogQuant, EngineMemory, LocalModel } from '@agent-nekko/shared';
+import { downloadFitVerdict, modelModality } from '@agent-nekko/shared';
 import { DiffusionInstallCard } from './DiffusionInstallCard.js';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
@@ -46,7 +46,7 @@ export function ModelDetail({
   const [model, setModel] = useState<CatalogModelDetail | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'missing'>('loading');
   const [downloading, setDownloading] = useState<string | null>(null);
-  const [imageInstall, setImageInstall] = useState<import('@nekko-agent/shared').EngineInstall>();
+  const [imageInstall, setImageInstall] = useState<import('@agent-nekko/shared').EngineInstall>();
   const [recommendRuntime, setRecommendRuntime] = useState(false);
   const refreshImageRuntime = () => window.nekko.engineStatus().then(s => { setImageInstall(s.diffusionInstall); return s.diffusionInstall; }).catch(() => undefined);
 

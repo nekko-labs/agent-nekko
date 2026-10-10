@@ -1,5 +1,5 @@
-import { isLocalProvider, type ProviderConfig } from '@nekko-agent/shared';
-import type { ChatRequest, ProviderChunk } from '@nekko-agent/core';
+import { isLocalProvider, type ProviderConfig } from '@agent-nekko/shared';
+import type { ChatRequest, ProviderChunk } from '@agent-nekko/core';
 import { recordUsage } from './usage.js';
 import { createHostProvider as createProvider, hostProviderConfig, promptCachingForHost } from './prompt-caching.js';
 import { daemonCall } from './engine/daemon.js';

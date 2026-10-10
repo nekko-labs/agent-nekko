@@ -32,7 +32,7 @@ function startApp(root: ReturnType<typeof createRoot>) {
 
 async function boot() {
   const root = createRoot(document.getElementById('root')!);
-  // Only the hosted (Nekko Agent Cloud) edition gates on sign-in; everything else
+  // Only the hosted (Agent Nekko Cloud) edition gates on sign-in; everything else
   // mounts straight away.
   if (await cloudAuthRequired()) {
     root.render(<CloudLogin onAuthed={() => startApp(root)} />);

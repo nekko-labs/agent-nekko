@@ -1,11 +1,11 @@
 import { spawn } from 'child_process';
-import type { AppSettings, HookEvent, HookRule, ToolCall, ToolResult } from '@nekko-agent/shared';
+import type { AppSettings, HookEvent, HookRule, ToolCall, ToolResult } from '@agent-nekko/shared';
 
 /**
  * Lifecycle hooks: your own commands around the agent's actions.
  *
  * Claude Code has PreToolUse/PostToolUse/Stop hooks, Codex a `notify`
- * command, OpenClaw plugins; Nekko Agent had guardrails (pattern rules on
+ * command, OpenClaw plugins; Agent Nekko had guardrails (pattern rules on
  * shell commands) and nothing programmable. A hook is a shell command run
  * with the event as JSON on stdin:
  *

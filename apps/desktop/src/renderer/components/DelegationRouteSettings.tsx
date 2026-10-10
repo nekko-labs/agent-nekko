@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { isChatModel, DEFAULT_ORCHESTRATION } from '@nekko-agent/shared';
-import type { AppSettings, ModelInfo } from '@nekko-agent/shared';
+import { isChatModel, DEFAULT_ORCHESTRATION } from '@agent-nekko/shared';
+import type { AppSettings, ModelInfo } from '@agent-nekko/shared';
 
 export function DelegationRouteSettings({ settings, update }: { settings: AppSettings; update: (patch: Partial<AppSettings>) => Promise<void> }) {
   const cur = settings.orchestration ?? DEFAULT_ORCHESTRATION;

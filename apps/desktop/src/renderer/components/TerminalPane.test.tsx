@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { TerminalEvent, TerminalSnapshot } from '@nekko-agent/shared';
+import type { TerminalEvent, TerminalSnapshot } from '@agent-nekko/shared';
 
 const fixture = vi.hoisted(() => ({
   effect: undefined as (() => (() => void) | void) | undefined,

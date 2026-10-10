@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { OpenAICompatProvider, friendlyError, resetLearnedParams } from './openai-compat.js';
-import type { ProviderConfig } from '@nekko-agent/shared';
+import type { ProviderConfig } from '@agent-nekko/shared';
 
 const cfg: ProviderConfig = {
   id: 'p1',

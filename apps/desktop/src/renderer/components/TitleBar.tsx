@@ -23,7 +23,7 @@ export function TitleBar() {
   if (!hasAppChrome) return null;
   return (
     <div className={`titlebar ${isMacChrome ? 'titlebar-mac' : ''}`}>
-      <span className="titlebar-word"><BrandMark size={16} className="titlebar-mark" />Nekko Agent</span>
+      <span className="titlebar-word"><BrandMark size={16} className="titlebar-mark" />Agent Nekko</span>
       {view === 'command' && <h1 className="text-gradient ml-4 shrink-0 truncate text-sm font-semibold">Agents</h1>}
       <UpdateControl />
       {/* Layout controls follow the heading and version in the same row. */}

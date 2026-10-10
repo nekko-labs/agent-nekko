@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HookRule } from '@nekko-agent/shared';
+import type { HookRule } from '@agent-nekko/shared';
 import { decisionOf, hasToolHooks, matchingHooks, postToolHooks, preToolHooks, runHook } from './hooks.js';
 
 const cwd = process.cwd();

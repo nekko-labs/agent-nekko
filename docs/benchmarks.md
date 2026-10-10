@@ -1,6 +1,6 @@
 # Local inference benchmarks
 
-How fast Nekko Agent's engine runs a model compared with Ollama and LM Studio, on the same machine and the same model file, measured the same way. vLLM is supported by the harness but not measured here (it has no native Windows build).
+How fast Agent Nekko's engine runs a model compared with Ollama and LM Studio, on the same machine and the same model file, measured the same way. vLLM is supported by the harness but not measured here (it has no native Windows build).
 
 The numbers are from one machine. They are not a promise about yours; run the harness (below) to get your own.
 
@@ -8,7 +8,7 @@ The numbers are from one machine. They are not a promise about yours; run the ha
 
 **Model:** `gemma-4-12B-it-Q4_K_M.gguf` (lmstudio-community), the same file for every server. **Machine:** NVIDIA RTX 5090 32 GB, AMD Ryzen 9 9950X3D, Windows 11. Median of 3 runs; 32k context; everything on the GPU.
 
-| Measure | Nekko Agent engine | llama.cpp as the engine ran it before | Ollama 0.23.0 | LM Studio (llama.cpp CUDA 12, 2.46.0) |
+| Measure | Agent Nekko engine | llama.cpp as the engine ran it before | Ollama 0.23.0 | LM Studio (llama.cpp CUDA 12, 2.46.0) |
 | --- | --- | --- | --- | --- |
 | Decode, tokens/s | **154** | 127 | 115 | 116 |
 | Code edit that repeats its input, tokens/s | **534** | 117 | 106 | 108 |
@@ -21,17 +21,17 @@ The numbers are from one machine. They are not a promise about yours; run the ha
 
 Six chats visited in turn, three rounds each, more chats than the server has slots (what a person with several agent chats open does):
 
-| | Nekko Agent engine | llama.cpp default prompt cache | llama.cpp, no RAM prompt cache | Ollama | LM Studio |
+| | Agent Nekko engine | llama.cpp default prompt cache | llama.cpp, no RAM prompt cache | Ollama | LM Studio |
 | --- | --- | --- | --- | --- | --- |
 | Revisit of a chat, to first token | **790 ms** | 1,729 ms | 1,894 ms | 1,290 ms | 1,600 ms |
 | All three rounds, end to end | **27.1 s** | 32.0 s | 38.4 s | 31.7 s | 33.3 s |
 
 ### Reading the results honestly
 
-- **Where Nekko Agent is clearly ahead:** edits that repeat their input (about 4.5x the other servers, from n-gram speculative decoding), plain decode (about a third faster), coming back to a chat that lost its slot (about 40% faster than Ollama), and parallel requests (Ollama serves one at a time by default).
+- **Where Agent Nekko is clearly ahead:** edits that repeat their input (about 4.5x the other servers, from n-gram speculative decoding), plain decode (about a third faster), coming back to a chat that lost its slot (about 40% faster than Ollama), and parallel requests (Ollama serves one at a time by default).
 - **Where it is not:** the first turn of a brand-new long conversation is slower than Ollama's (1.7 s against 1.3 s), and prefill is level with everyone. The first-turn gap was 2.3 s before this work; the remaining difference is under investigation.
 - **Noise:** run-to-run variation was about 10% on prefill and larger on the four-request number (the same configuration measured 256, 283 and 343 tokens/s across runs). Differences smaller than that are not claims.
-- "Nekko Agent engine" here is `llama-server` from the pinned llama.cpp build started with exactly the flags the engine now passes, measured without the engine's router in front of it. The router (Rust, in the engine daemon) adds about 0.1 ms per request: 27.39 ms against 27.29 ms straight to the model server, median of 30 one-token requests.
+- "Agent Nekko engine" here is `llama-server` from the pinned llama.cpp build started with exactly the flags the engine now passes, measured without the engine's router in front of it. The router (Rust, in the engine daemon) adds about 0.1 ms per request: 27.39 ms against 27.29 ms straight to the model server, median of 30 one-token requests.
 
 ### What changed to get there
 
@@ -62,7 +62,7 @@ Start each server with the same GGUF, then list them in a config file:
   "model": "gemma-4-12B-it Q4_K_M",
   "repeats": 3,
   "targets": [
-    { "name": "Nekko Agent engine", "baseUrl": "http://127.0.0.1:18095/v1", "model": "gemma" },
+    { "name": "Agent Nekko engine", "baseUrl": "http://127.0.0.1:18095/v1", "model": "gemma" },
     { "name": "Ollama", "baseUrl": "http://127.0.0.1:11434/v1", "model": "bench-gemma" },
     { "name": "LM Studio", "baseUrl": "http://127.0.0.1:1234/v1", "model": "bench-gemma" }
   ]
@@ -77,7 +77,7 @@ target/release/nekko-bench bench.json --out results.json --markdown results.md
 
 How each server was started for the results above:
 
-- **Nekko Agent engine:** `llama-server --model <gguf> --alias gemma --port 18095 --ctx-size 32768 --n-gpu-layers 999 --cache-reuse 256 --spec-default --no-cache-idle-slots`
+- **Agent Nekko engine:** `llama-server --model <gguf> --alias gemma --port 18095 --ctx-size 32768 --n-gpu-layers 999 --cache-reuse 256 --spec-default --no-cache-idle-slots`
 - **llama.cpp as before:** the same without the last three flags.
 - **Ollama:** a Modelfile with `FROM <gguf>`, `PARAMETER num_ctx 32768`, `PARAMETER num_gpu 999`, then `ollama create bench-gemma -f Modelfile`.
 - **LM Studio:** `lms server start` and `lms load google/gemma-4-12b --context-length 32768 --gpu max --identifier bench-gemma`.

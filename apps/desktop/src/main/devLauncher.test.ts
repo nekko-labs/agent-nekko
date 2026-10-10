@@ -5,11 +5,11 @@ describe('development launcher safety', () => {
   it('copies a versioned private runtime with relative framework symlinks preserved', () => {
     expect(source).toContain("require('electron/package.json').version");
     expect(source).toContain('verbatimSymlinks: true');
-    expect(source).toContain("'Nekko Agent.app'");
+    expect(source).toContain("'Agent Nekko.app'");
   });
   it('uses LaunchServices and a distinct development bundle identity', () => {
     expect(readFileSync(new URL('../../scripts/dev-launch-wrapper.cjs', import.meta.url), 'utf8')).toContain("'/usr/bin/open'");
-    expect(source).toContain('com.nekkoagent.desktop.dev');
+    expect(source).toContain('com.agentnekko.desktop.dev');
     expect(source).toContain("env.ELECTRON_EXEC_PATH = prepared.launcher");
   });
   it('rejects node-mode Electron and leaves user privacy grants alone', () => {

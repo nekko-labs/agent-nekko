@@ -10,7 +10,7 @@
 
 import { appendFileSync, existsSync, readFileSync, rmSync } from 'fs';
 import { join } from 'path';
-import type { ReplyRecord, ReplyStats, ReplyStop } from '@nekko-agent/shared';
+import type { ReplyRecord, ReplyStats, ReplyStop } from '@agent-nekko/shared';
 import { dataDir } from './store.js';
 
 const LOG = () => join(dataDir(), 'replies.jsonl');

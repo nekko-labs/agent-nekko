@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const chat = vi.hoisted(() => vi.fn());
-vi.mock('@nekko-agent/core', () => ({ createProvider: () => ({ chat }) }));
+vi.mock('@agent-nekko/core', () => ({ createProvider: () => ({ chat }) }));
 vi.mock('./store.js', () => ({ getSettings: () => ({ providers: [{ id: 'p' }], defaultProviderId: 'p', defaultModelId: 'model' }) }));
 vi.mock('./oauth.js', () => ({ resolveSubscriptionProvider: async (p: unknown) => p }));
 import { parseRepositoryVerdict, reviewRepository } from './repository-review.js';

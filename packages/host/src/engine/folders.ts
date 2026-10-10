@@ -1,6 +1,6 @@
 import { homedir, platform } from 'os';
 import { join } from 'path';
-import type { ModelFolder, ModelFolderProviderId } from '@nekko-agent/shared';
+import type { ModelFolder, ModelFolderProviderId } from '@agent-nekko/shared';
 
 /**
  * Where the other model apps keep their models.

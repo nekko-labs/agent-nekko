@@ -1,6 +1,6 @@
 [package]
 name = "nekko-tools"
-description = "The Nekko Agent agent's built-in tools and guardrails for the engine daemon: file tools, the shell tool and pending changes, exactly as the TS host runs them."
+description = "The Agent Nekko agent's built-in tools and guardrails for the engine daemon: file tools, the shell tool and pending changes, exactly as the TS host runs them."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

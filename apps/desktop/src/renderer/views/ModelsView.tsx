@@ -1,8 +1,8 @@
 import { FirstProviderSetup } from '../components/providers/FirstProviderSetup.js';
 import { needsProviderSetup } from '../components/providers/providerSetup.js';
 import React, { useEffect, useState } from 'react';
-import type { LimitWindow, ModelInfo, OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind, SubscriptionLimits } from '@nekko-agent/shared';
-import { formatUSD, isLocalProvider, isRuntimeKind, formatModelPriceLabel, modelPricing } from '@nekko-agent/shared';
+import type { LimitWindow, ModelInfo, OAuthProvider, OAuthStatus, ProviderConfig, ProviderKind, SubscriptionLimits } from '@agent-nekko/shared';
+import { formatUSD, isLocalProvider, isRuntimeKind, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { Badge } from '../components/primitives/index.js';
@@ -75,7 +75,7 @@ export function ModelsView() {
   };
 
   // The built-in engine lives on the Model Server tab: it is the one local
-  // server Nekko Agent installs, holds models for, and configures, so a generic
+  // server Agent Nekko installs, holds models for, and configures, so a generic
   // provider card could never have carried it.
   const local = providers.filter((p) => isLocal(p.kind) && p.kind !== 'llamacpp');
   const cloud = providers.filter((p) => !isLocal(p.kind));
@@ -123,7 +123,7 @@ export function ModelsView() {
         <section className="mt-7">
           <div className="card flex flex-wrap items-center gap-3 p-5">
             <div className="min-w-0 flex-1">
-              <h2 className="text-[15px] font-semibold">Nekko Agent's own engine</h2>
+              <h2 className="text-[15px] font-semibold">Agent Nekko's own engine</h2>
               <p className="mt-0.5 text-[12px] text-ink-faint">
                 The models this machine runs itself, the folders they come from, and the address it serves them on
                 now have their own tab.

@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
-import type { Session } from '@nekko-agent/shared';
-import { summarizeSession } from '@nekko-agent/shared';
+import type { Session } from '@agent-nekko/shared';
+import { summarizeSession } from '@agent-nekko/shared';
 
 /**
  * The summaries the engine daemon's Rust port (crates/nekko-store) must

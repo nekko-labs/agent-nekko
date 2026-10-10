@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { PrInfo, PrAction, PrDiff, PrChecks } from '@nekko-agent/shared';
-import { parsePrUrl } from '@nekko-agent/shared';
+import type { PrInfo, PrAction, PrDiff, PrChecks } from '@agent-nekko/shared';
+import { parsePrUrl } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { subscribePrPolling } from '../prPolling.js';
 import { BranchIcon, CheckIcon, CloseIcon } from '../icons.js';

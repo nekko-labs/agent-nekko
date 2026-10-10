@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile, rename, rm, readdir, stat, chmod, open } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
-import type { VoiceStatus, AppSettings } from '@nekko-agent/shared';
+import type { VoiceStatus, AppSettings } from '@agent-nekko/shared';
 
 const MODEL = { url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en-q5_1.bin', hash: 'c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b' };
 export const VOICE_BUILDS: Record<string, { name: string; hash: string }> = {

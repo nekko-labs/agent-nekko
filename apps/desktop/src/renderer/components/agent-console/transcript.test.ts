@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatMessage } from '@nekko-agent/shared';
+import type { ChatMessage } from '@agent-nekko/shared';
 import { collectSessionPrUrls, extractPrUrls } from '../../../../../../packages/shared/src/pr.js';
 import { estimateRowHeight, fmtDateTime, fmtTime, toTranscriptRows } from './transcript.js';
 

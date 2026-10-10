@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 const theme = vi.hoisted(() => ({ preset: 'autumn' as string | undefined }));
 vi.mock('../store.js', () => ({ useStore: Object.assign(vi.fn((selector) => selector({ settings: { themePreset: theme.preset }, openPrPane: vi.fn() })), { getState: vi.fn() }) }));
-import type { PrInfo } from '@nekko-agent/shared';
+import type { PrInfo } from '@agent-nekko/shared';
 import { PrCard, PrActionDock, PrBadge } from './PrCard.js';
 const url = 'https://github.com/o/r/pull/1';
 const pr = { url, owner: 'o', repo: 'r', number: 1, title: 'A change', state: 'open', checks: 'pending', source: 'gh' } as PrInfo;

@@ -8,7 +8,7 @@ import type {
   DecisionResponse,
   DecisionStatus,
   InstalledDecisionModel,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import type { createDownloads } from './download.js';
 import type { EngineDaemon } from './daemon.js';
 

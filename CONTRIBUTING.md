@@ -1,14 +1,14 @@
-# Contributing to Nekko Agent
+# Contributing to Agent Nekko
 
-Thanks for your interest! Nekko Agent is an open-source, local-first AI coding & cowork desktop app. Contributions of all sizes are welcome.
+Thanks for your interest! Agent Nekko is an open-source, local-first AI coding & cowork desktop app. Contributions of all sizes are welcome.
 
 ## Development setup
 
 Requires Node 22.12+ and a Rust toolchain ([rustup.rs](https://rustup.rs)): `npm run dev` and `npm run build` compile the engine daemon (`nekkod`). The project uses **npm workspaces** (not pnpm/yarn).
 
 ```bash
-git clone https://github.com/nekko-labs/nekko-agent
-cd nekko-agent
+git clone https://github.com/nekko-labs/agent-nekko
+cd agent-nekko
 npm install
 npm run dev          # build the Rust daemon and the app, then launch the desktop app
 ```
@@ -25,7 +25,7 @@ npm run dev          # build the Rust daemon and the app, then launch the deskto
 
 **Rule of thumb:** business logic goes in `packages/core` (so it's testable without Electron); the desktop app wires it to the filesystem, shell, and UI.
 
-## Publishing the `npx nekko-agent` package
+## Publishing the `npx agent-nekko` package
 
 `npm run bundle:web` produces a self-contained package in `apps/server/cli-dist/`
 (server + engine bundled by esbuild, plus the built `web/` UI). To release it:
@@ -35,7 +35,7 @@ npm run bundle:web
 cd apps/server/cli-dist && npm publish
 ```
 
-After that, anyone can run the web edition with `npx nekko-agent`.
+After that, anyone can run the web edition with `npx agent-nekko`.
 
 ## Before you open a PR
 

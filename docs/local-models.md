@@ -1,13 +1,13 @@
 # Running models locally
 
-Nekko Agent runs models two ways: with its **own engine**, which needs nothing else
+Agent Nekko runs models two ways: with its **own engine**, which needs nothing else
 installed, or by driving a server you already run (Ollama, LM Studio, vLLM). Either way
 it loads a model with the settings you choose and tells you honestly whether it will fit
 before you wait through the load. This is what the Models page shows you and why.
 
 ## The Nekko engine
 
-The engine is llama.cpp, managed by Nekko Agent. You press one button, a few hundred
+The engine is llama.cpp, managed by Agent Nekko. You press one button, a few hundred
 megabytes come down from llama.cpp's own releases, and the app can serve models. Nothing
 is downloaded before that press.
 
@@ -15,7 +15,7 @@ is downloaded before that press.
 CUDA only where `nvidia-smi` answers, Vulkan for a GPU we cannot identify, Metal on Apple
 Silicon, CPU where there is no evidence of anything else. A slow engine that runs beats a
 fast one that fails to start. Every other build for your machine stays in the list if you
-disagree. If you already have a `llama-server`, point at it instead: Nekko Agent will run
+disagree. If you already have a `llama-server`, point at it instead: Agent Nekko will run
 it and never update or remove it.
 
 **Where models come from.** A short curated list answers "what should I run"; search
@@ -75,7 +75,7 @@ between those two numbers is exactly what did not fit. `/api/show` publishes the
 count, KV head count, and embedding length, which is what lets the planner compute an
 exact KV cache rather than an estimate.
 
-**LM Studio** keeps most of its control surface in the `lms` CLI, so Nekko Agent drives
+**LM Studio** keeps most of its control surface in the `lms` CLI, so Agent Nekko drives
 that: `lms server start` and `lms server stop` are a real lifecycle, and `lms load`
 carries the context length and GPU share. It publishes no layer geometry anywhere, so
 its projections are partial (see below). Driving it needs the CLI on the same machine as
@@ -83,7 +83,7 @@ the server, so a remote LM Studio can be read but not controlled.
 
 **vLLM** is deliberately connect-existing only. It serves one model per process with
 everything fixed by the launch command, and it is Linux plus NVIDIA plus Python in
-practice. Nekko Agent detects it, shows its live `/metrics`, and can stop it, but never
+practice. Agent Nekko detects it, shows its live `/metrics`, and can stop it, but never
 starts it: instead the fit drawer renders the exact `vllm serve` command for you to run.
 Nothing that could not be verified against real hardware ships as a working button.
 
@@ -111,7 +111,7 @@ live in system RAM instead.
 | **Will not load** | It does not fit even using system memory, or the context exceeds the model's own maximum. |
 | **Unknown** | The server did not report enough to project it. |
 
-**Unknown is a real answer, not a bug.** Nekko Agent will not infer a model's memory use
+**Unknown is a real answer, not a bug.** Agent Nekko will not infer a model's memory use
 from its name. If the layer count is missing, it says so and names what is missing. A
 confident wrong number costs you a long load and every number after it.
 
@@ -140,7 +140,7 @@ offered, so clicking a suggestion always improves the verdict.
 ## Apple Silicon
 
 A Mac shares one memory pool between the CPU and GPU. The budget is therefore system
-memory, and Nekko Agent never adds a "VRAM" figure on top of RAM, which would make a
+memory, and Agent Nekko never adds a "VRAM" figure on top of RAM, which would make a
 64 GB Mac look like it has 128 GB. The fit drawer says so explicitly when it applies.
 
 ## Multiple GPUs
@@ -161,8 +161,8 @@ way to fit a longer context.
 
 ## Stopping a server
 
-A server Nekko Agent started is stopped with its own handle, cleanly, and it will not
-outlive the app. A server that was already running when Nekko Agent found it is somebody
+A server Agent Nekko started is stopped with its own handle, cleanly, and it will not
+outlive the app. A server that was already running when Agent Nekko found it is somebody
 else's process: stopping that one asks first and names what it would end, because the
 thing holding port 11434 might be a service you depend on.
 
@@ -173,4 +173,4 @@ command rather than a process to kill.
 
 Browsing and downloading models from inside the app, and a bundled inference engine so a
 fresh install can run a model with nothing else present, are both planned as separate
-pieces of work. Today Nekko Agent manages the runtimes you already have.
+pieces of work. Today Agent Nekko manages the runtimes you already have.

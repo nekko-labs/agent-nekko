@@ -17,7 +17,7 @@ const items: any[] = [
   { kind: 'tool', call: calls[2] },
 ];
 function Fixture() {
-  return <div className="fixture-shell"><header>Nekko Agent <span>Component verification · synthetic transcript</span></header><main>
+  return <div className="fixture-shell"><header>Agent Nekko <span>Component verification · synthetic transcript</span></header><main>
     <p className="fixture-label">Delegation steps</p>
     <ActivityGroup items={items} />
     <p className="fixture-label">Standalone tool call</p><ToolCard call={calls[0] as any} />

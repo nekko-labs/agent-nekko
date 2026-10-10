@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import type { ProviderConfig } from '@nekko-agent/shared';
+import type { ProviderConfig } from '@agent-nekko/shared';
 import { needsProviderSetup } from './providerSetup.js';
 import { ProviderChoices } from './ProviderChoices.js';
 const engine: ProviderConfig = { id: 'nekko-engine', kind: 'llamacpp', label: 'Engine', enabled: true, baseUrl: 'http://localhost:8080' };

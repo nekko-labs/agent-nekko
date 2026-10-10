@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import type { GpuFit, LocalModel, ModelModality, ResidentModel } from '@nekko-agent/shared';
-import { MODALITY_LABELS, MODEL_FOLDER_PROVIDERS, unsupportedLoadReason } from '@nekko-agent/shared';
+import type { GpuFit, LocalModel, ModelModality, ResidentModel } from '@agent-nekko/shared';
+import { MODALITY_LABELS, MODEL_FOLDER_PROVIDERS, unsupportedLoadReason } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { CheckIcon, TrashIcon, WarningIcon } from '../../icons.js';
 import { formatBytes, formatTokens, placementLabel, placementTitle } from '../runtimes/verdict.js';
@@ -198,7 +198,7 @@ export function ModelLibrary({
       byLoc.set(loc, list);
     }
     return [...byLoc.entries()].sort(([a], [b]) =>
-      a === b ? 0 : a === 'Nekko Agent' ? -1 : b === 'Nekko Agent' ? 1 : a.localeCompare(b),
+      a === b ? 0 : a === 'Agent Nekko' ? -1 : b === 'Agent Nekko' ? 1 : a.localeCompare(b),
     );
   }, [visible]);
 
@@ -521,7 +521,7 @@ function locationOf(m: LocalModel): string {
   return m.folderProvider
     ? MODEL_FOLDER_PROVIDERS[m.folderProvider].label
     : !m.folderId || m.folderId === 'primary'
-      ? 'Nekko Agent'
+      ? 'Agent Nekko'
       : 'Another folder';
 }
 

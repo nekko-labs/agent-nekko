@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@nekko-agent/shared';
+import type { Session } from '@agent-nekko/shared';
 import { __resetSessionCache, getCachedSession } from './sessionCache.js';
 
 vi.hoisted(() => {

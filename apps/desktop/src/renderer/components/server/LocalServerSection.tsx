@@ -6,21 +6,21 @@ import type {
   ApiServerStatus,
   CliInstallStatus,
   SubagentSnippet,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import {
   apiServerEnvLines,
   apiServerEnvLinesPowerShell,
   apiServerMcpConfig,
   apiServerRefusal,
   apiServerUrl,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge, Toggle } from '../primitives/index.js';
 import { CheckIcon, CopyIcon, TerminalIcon } from '../../icons.js';
 import { ServerPowerPill } from './ServerPowerPill.js';
 
 /**
- * Nekko Agent as something other programs can drive, as one block on the Models
+ * Agent Nekko as something other programs can drive, as one block on the Models
  * tab.
  *
  * The engine section above it answers "what runs my models"; this one answers
@@ -119,7 +119,7 @@ export function LocalServerSection() {
         </div>
       </div>
       <p className="mt-0.5 text-[12px] text-ink-faint">
-        Drive this app from other programs, the <span className="font-mono">nekko-agent</span> CLI, or other agents
+        Drive this app from other programs, the <span className="font-mono">agent-nekko</span> CLI, or other agents
         over MCP.
       </p>
 
@@ -167,7 +167,7 @@ export function LocalServerSection() {
                 <ServerTab status={status} busy={busy} onSave={save} />
               ) : (
                 <p className="text-[12px] text-ink-soft">
-                  This edition already is the Nekko Agent server — it is serving this page. Point the CLI and MCP
+                  This edition already is the Agent Nekko server — it is serving this page. Point the CLI and MCP
                   clients at <span className="font-mono">{url}</span> with the token that server was started with
                   (<span className="font-mono">NEKKO_TOKEN</span>).
                 </p>
@@ -339,7 +339,7 @@ function ServerTab({
         </div>
         <Command value={shownEnv.join('\n')} copyValue={env.join('\n')} />
         <p className="mt-1 text-[11px] text-ink-faint">
-          Not needed for the <span className="font-mono">nekko-agent</span> command or the MCP entries this app
+          Not needed for the <span className="font-mono">agent-nekko</span> command or the MCP entries this app
           added: they read the address and token from the app. Use these for scripts and anything else.
         </p>
       </div>
@@ -386,7 +386,7 @@ function CliTab({ running }: { running: boolean }) {
     }
   };
 
-  const command = cli?.command ?? 'nekko-agent';
+  const command = cli?.command ?? 'agent-nekko';
   const bundled = cli?.available !== false;
 
   return (
@@ -401,7 +401,7 @@ function CliTab({ running }: { running: boolean }) {
       ) : bundled ? (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border p-2.5" style={{ borderColor: 'var(--line)' }}>
           <TerminalIcon className="h-4 w-4 shrink-0 text-ink-faint" />
-          <span className="font-mono text-[12.5px]">nekko-agent</span>
+          <span className="font-mono text-[12.5px]">agent-nekko</span>
           {cli.installed && cli.onPath ? (
             <Badge tone="success" variant="soft">On your PATH</Badge>
           ) : cli.installed ? (
@@ -426,7 +426,7 @@ function CliTab({ running }: { running: boolean }) {
         </div>
       ) : (
         <Step n={1} label="Install it">
-          <Command value="npm install -g nekko-agent" />
+          <Command value="npm install -g agent-nekko" />
         </Step>
       )}
 
@@ -492,7 +492,7 @@ function McpTab({ url, token, running }: { url: string; token: string; running: 
   return (
     <div className="space-y-3">
       <p className="text-[12px] text-ink-soft">
-        Nekko Agent is also an MCP server, so Claude Code, Codex, Cursor or Windsurf can use it as a subagent: your
+        Agent Nekko is also an MCP server, so Claude Code, Codex, Cursor or Windsurf can use it as a subagent: your
         workspaces, skills and sessions become tools they can call. Each entry is written pointing at this app, with
         its address and token, and kept up to date when they change.
       </p>

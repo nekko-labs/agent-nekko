@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { McpServerConfig } from '@nekko-agent/shared';
+import type { McpServerConfig } from '@agent-nekko/shared';
 
 const daemon = vi.fn();
 vi.mock('./engine/daemon.js', () => ({ daemonCall: () => daemon }));

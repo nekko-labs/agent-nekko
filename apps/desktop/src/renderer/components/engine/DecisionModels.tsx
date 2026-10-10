@@ -8,7 +8,7 @@ import type {
   DecisionResponse,
   DecisionStatus,
   InstalledDecisionModel,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { formatBytes } from '../runtimes/verdict.js';
 

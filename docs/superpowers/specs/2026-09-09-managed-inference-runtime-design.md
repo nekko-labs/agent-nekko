@@ -4,7 +4,7 @@
 (VRAM fit planner). Phases C (model catalog + downloads) and D (bundled engine) get their own
 specs and are explicitly out of scope here.
 
-**Goal:** make running a model locally something a non-expert can do from inside Nekko Agent in
+**Goal:** make running a model locally something a non-expert can do from inside Agent Nekko in
 one click, while telling the truth about what the machine can actually hold. Two halves: a
 control plane that turns local model servers on and off and loads models into them, and a
 capacity planner that answers "will this fit, where will it run, and why" *before* the load,

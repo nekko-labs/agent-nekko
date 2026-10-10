@@ -1,4 +1,4 @@
-import type { TerminalStream, TerminalStreamHandlers } from '@nekko-agent/shared';
+import type { TerminalStream, TerminalStreamHandlers } from '@agent-nekko/shared';
 
 /**
  * The preload's connection to the engine: one WebSocket carrying requests,

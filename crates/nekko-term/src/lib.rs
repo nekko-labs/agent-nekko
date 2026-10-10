@@ -1,4 +1,4 @@
-//! Pseudo-terminal sessions for `nekkod`, the Nekko Agent engine daemon.
+//! Pseudo-terminal sessions for `nekkod`, the Agent Nekko engine daemon.
 //!
 //! See `session.rs` for the data path and its flow-control rules.
 

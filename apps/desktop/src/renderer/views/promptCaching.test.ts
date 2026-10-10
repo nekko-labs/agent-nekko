@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('../chrome.js', () => ({ hasAppChrome: false, isMacChrome: false }));
 vi.mock('../store.js', () => ({ useStore: Object.assign(() => ({}), { getState: () => ({}), setState: () => {} }) }));
-import { promptCachingEnabled } from '@nekko-agent/shared';
-import type { AppSettings } from '@nekko-agent/shared';
+import { promptCachingEnabled } from '@agent-nekko/shared';
+import type { AppSettings } from '@agent-nekko/shared';
 import { Toggle } from './SettingsView.js';
 
 // The real Settings mount/remount path is also exercised in the isolated Electron fixture.

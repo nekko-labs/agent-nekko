@@ -1,6 +1,6 @@
-# @nekko-agent/cloud, Nekko Agent Cloud (hosted edition)
+# @agent-nekko/cloud, Agent Nekko Cloud (hosted edition)
 
-The multi-account, hosted edition. It wraps the **same** host engine (`@nekko-agent/host`)
+The multi-account, hosted edition. It wraps the **same** host engine (`@agent-nekko/host`)
 and the **same** React UI as the desktop and self-hosted web editions, just per
 authenticated account, with feature limits enforced server-side by plan.
 

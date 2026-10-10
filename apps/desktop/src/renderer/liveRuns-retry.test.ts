@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentEvent } from '@nekko-agent/shared';
+import type { AgentEvent } from '@agent-nekko/shared';
 import { __resetLiveRuns, applyEvent, getLiveRun } from './liveRuns.js';
 
 vi.stubGlobal('requestAnimationFrame', () => 0);

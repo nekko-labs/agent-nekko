@@ -3,8 +3,8 @@ import { extractPrUrls, parsePrUrl, collectSessionPrUrls } from '../../shared/sr
 
 describe('extractPrUrls', () => {
   it('pulls unique PR URLs out of text and trims trailing punctuation', () => {
-    const text = 'Opened https://github.com/nekko-labs/nekko-agent/pull/12 and see (https://github.com/nekko-labs/nekko-agent/pull/12).';
-    expect(extractPrUrls(text)).toEqual(['https://github.com/nekko-labs/nekko-agent/pull/12']);
+    const text = 'Opened https://github.com/nekko-labs/agent-nekko/pull/12 and see (https://github.com/nekko-labs/agent-nekko/pull/12).';
+    expect(extractPrUrls(text)).toEqual(['https://github.com/nekko-labs/agent-nekko/pull/12']);
   });
 
   it('handles multiple distinct PRs', () => {
@@ -20,8 +20,8 @@ describe('extractPrUrls', () => {
 
 describe('parsePrUrl', () => {
   it('parses owner/repo/number', () => {
-    expect(parsePrUrl('https://github.com/nekko-labs/nekko-agent/pull/42')).toEqual({
-      owner: 'nekko-labs', repo: 'nekko-agent', number: 42,
+    expect(parsePrUrl('https://github.com/nekko-labs/agent-nekko/pull/42')).toEqual({
+      owner: 'nekko-labs', repo: 'agent-nekko', number: 42,
     });
   });
 

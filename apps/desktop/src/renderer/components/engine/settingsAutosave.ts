@@ -1,4 +1,4 @@
-import type { EngineSettings } from '@nekko-agent/shared';
+import type { EngineSettings } from '@agent-nekko/shared';
 
 export function validateServerSettings(s: EngineSettings): string | null {
   if (!Number.isInteger(s.port) || s.port < 1024 || s.port > 65535) return 'Port must be an integer between 1024 and 65535.';

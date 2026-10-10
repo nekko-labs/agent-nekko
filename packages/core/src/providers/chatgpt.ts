@@ -1,7 +1,7 @@
 import { cacheUsage } from './prompt-caching.js';
 import { withToolImages } from './tool-images.js';
-import type { ModelInfo, ProviderConfig, ToolCall } from '@nekko-agent/shared';
-import { effectiveEffort } from '@nekko-agent/shared';
+import type { ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import { effectiveEffort } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { randomUUID } from 'node:crypto';
 import { parseSSE } from './sse.js';

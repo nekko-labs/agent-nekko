@@ -1,4 +1,4 @@
-# On-device models for Nekko Agent: SwiftUI versus React Native
+# On-device models for Agent Nekko: SwiftUI versus React Native
 
 Research against repository baseline `f39374c`; sources accessed 2026-10-06.
 

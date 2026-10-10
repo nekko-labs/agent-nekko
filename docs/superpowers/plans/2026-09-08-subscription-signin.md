@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let users run Nekko Agent on their existing Claude (Pro/Max) or ChatGPT (Plus/Pro/Business) subscription instead of a metered API key, with a one-click browser sign-in; API keys remain available as the secondary path.
+**Goal:** Let users run Agent Nekko on their existing Claude (Pro/Max) or ChatGPT (Plus/Pro/Business) subscription instead of a metered API key, with a one-click browser sign-in; API keys remain available as the secondary path.
 
 **Architecture:** A host-side OAuth service (`packages/host/src/oauth.ts`) runs the PKCE flow (browser authorize + loopback callback, with a paste-the-code fallback for headless/remote). Token sets live in `tokens.json` in the data dir, written with `writeJsonAtomic` (0600). Providers stay pure: the host resolves a fresh access token at chat time and injects it, so `packages/core` never owns refresh state. Claude subscription reuses `AnthropicProvider` with a different auth header + beta flag; ChatGPT subscription is a new `ChatGptProvider` speaking the OpenAI Responses API (different wire format than chat completions).
 

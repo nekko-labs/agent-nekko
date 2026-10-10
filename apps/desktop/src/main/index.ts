@@ -4,8 +4,8 @@ import { join, resolve, sep } from 'path';
 import { existsSync } from 'fs';
 // Only the data-root helpers: the host itself runs in the engine process, and
 // importing the package root would load all of it (node-pty included) here.
-import { defaultUserDataDir, legacyUserDataDirs, migrateUserData, prepareUserDataRoot } from '@nekko-agent/host/user-data';
-import { brandEnv, IpcEvents, type AppSettings } from '@nekko-agent/shared';
+import { defaultUserDataDir, legacyUserDataDirs, migrateUserData, prepareUserDataRoot } from '@agent-nekko/host/user-data';
+import { brandEnv, IpcEvents, type AppSettings } from '@agent-nekko/shared';
 import { registerIpc } from './ipc.js';
 import { checkForUpdates } from './update.js';
 import { initialWindowBounds, loadWindowBounds, MIN_WINDOW, saveWindowBounds, setWindowStateDir } from './windowState.js';
@@ -43,11 +43,11 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
   // it into plain Node: no `app`, no BrowserWindow, and the first real API
   // call dies with a confusing stack (electron-updater's lazy getter). Say so
   // plainly instead.
-  console.error('ELECTRON_RUN_AS_NODE is set: Nekko Agent must run as Electron, not Node. Unset it and retry.');
+  console.error('ELECTRON_RUN_AS_NODE is set: Agent Nekko must run as Electron, not Node. Unset it and retry.');
   process.exit(1);
 }
 
-app.setName('Nekko Agent');
+app.setName('Agent Nekko');
 registerDevLaunch(app);
 const previousProfile = app.getPath('userData');
 preservePackagedProfile(app);
@@ -62,13 +62,13 @@ preservePackagedProfile(app);
 const DEFAULT_OVERLAY: TitleBarOverlayTheme = { color: '#0c0c11', symbolColor: '#a3a1b0' };
 
 /**
- * The URL scheme other apps use to reach Nekko Agent
- * (`nekko-agent://hypergate/connect`).
+ * The URL scheme other apps use to reach Agent Nekko
+ * (`agent-nekko://hypergate/connect`).
  */
-const PROTOCOLS = ['nekko-agent'] as const;
+const PROTOCOLS = ['agent-nekko'] as const;
 
 /**
- * An `nekko-agent://` URL waiting for a window to hand it to.
+ * An `agent-nekko://` URL waiting for a window to hand it to.
  *
  * A cold launch *from* a link arrives before the renderer exists, so the link
  * is parked here and replayed once the page says it is listening. Only the
@@ -77,7 +77,7 @@ const PROTOCOLS = ['nekko-agent'] as const;
  */
 let pendingLink: string | null = null;
 
-/** Pick an `nekko-agent://` URL out of a command line (Windows and Linux pass it as an argument). */
+/** Pick an `agent-nekko://` URL out of a command line (Windows and Linux pass it as an argument). */
 function linkFromArgv(argv: string[]): string | null {
   return argv.find((a) => PROTOCOLS.some((scheme) => a.startsWith(`${scheme}://`))) ?? null;
 }
@@ -86,7 +86,7 @@ function linkFromArgv(argv: string[]): string | null {
  * Send a deep link to the window, or hold it until one is ready.
  *
  * Also raises the window: the point of the link is that the user clicked
- * something in *another* app and expects Nekko Agent to come forward and show them
+ * something in *another* app and expects Agent Nekko to come forward and show them
  * the result.
  */
 function deliverLink(url: string): void {
@@ -259,11 +259,11 @@ function registerTitleBarOverlaySync(): void {
 }
 
 /**
- * Register `nekko-agent://` with the OS and make sure a link reaches the app that
+ * Register `agent-nekko://` with the OS and make sure a link reaches the app that
  * is already open.
  *
  * The single-instance lock is what makes that true: without it the OS answers
- * a link by starting a *second* Nekko Agent on the same data directory, two hosts
+ * a link by starting a *second* Agent Nekko on the same data directory, two hosts
  * writing one settings file. With it, the second process hands its argument to
  * the first and exits. Returns false when another instance already holds the
  * lock, meaning this process should quit immediately.
@@ -287,7 +287,7 @@ function claimSingleInstance(): boolean {
       deliverLink(link);
       return;
     }
-    // Launched again without a link: the user asked for Nekko Agent, so show the
+    // Launched again without a link: the user asked for Agent Nekko, so show the
     // window they already have rather than doing nothing at all.
     const win = BrowserWindow.getAllWindows()[0];
     if (win) {
@@ -325,7 +325,7 @@ app.whenReady().then(async () => {
   // Where user data lives is decided here, before the engine starts, because a
   // move from an older profile needs a native dialog and the user's answer.
   let dataDir = defaultUserDataDir();
-  const devSource = join(previousProfile, 'nekko-agent');
+  const devSource = join(previousProfile, 'agent-nekko');
   try {
     if (!brandEnv('DATA_DIR') && !existsSync(join(dataDir, 'settings.json')) && existsSync(join(devSource, 'settings.json'))) throw new Error('An existing desktop profile needs confirmation before moving.');
     dataDir = prepareUserDataRoot();
@@ -333,11 +333,11 @@ app.whenReady().then(async () => {
     if (brandEnv('DATA_DIR')) throw e;
     const sources = [...new Set([...legacyUserDataDirs(undefined, app.getPath('appData')), ...(existsSync(join(devSource, 'settings.json')) ? [devSource] : [])])];
     if (!sources.length) { dialog.showErrorBox('Data migration needs attention', (e as Error).message); app.quit(); return; }
-    const choice = dialog.showMessageBoxSync({ type: 'question', title: 'Move Nekko Agent data', message: 'Choose the profile to move into ~/.nekko-agent', detail: `Close all other Nekko Agent desktop, web and CLI instances first. Settings, sessions and managed model files will move to ${dataDir}. Borrowed model folders are unchanged. Other profiles are not merged or deleted.`, buttons: ['Cancel', ...sources.map(p => `Move ${p}`)], defaultId: 0, cancelId: 0, noLink: true });
+    const choice = dialog.showMessageBoxSync({ type: 'question', title: 'Move Agent Nekko data', message: 'Choose the profile to move into ~/.agent-nekko', detail: `Close all other Agent Nekko desktop, web and CLI instances first. Settings, sessions and managed model files will move to ${dataDir}. Borrowed model folders are unchanged. Other profiles are not merged or deleted.`, buttons: ['Cancel', ...sources.map(p => `Move ${p}`)], defaultId: 0, cancelId: 0, noLink: true });
     if (choice === 0) { app.quit(); return; }
     try {
       const source = sources[choice - 1];
-      migrateUserData(source, dataDir, source.endsWith('nekko-agent') ? join(source, '..') : undefined);
+      migrateUserData(source, dataDir, source.endsWith('agent-nekko') ? join(source, '..') : undefined);
     }
     catch (failure) { dialog.showErrorBox('Data migration stopped', (failure as Error).message); app.quit(); return; }
   }
@@ -375,10 +375,10 @@ app.whenReady().then(async () => {
       iconPath,
       engine,
       showUi: showWindow,
-      newChat: () => deliverLink('nekko-agent://chat/new'),
+      newChat: () => deliverLink('agent-nekko://chat/new'),
       serviceStarted: () => { for (const win of BrowserWindow.getAllWindows()) win.webContents.reload(); },
       quit: () => app.quit(),
-      onError: message => dialog.showErrorBox('Nekko Agent', message),
+      onError: message => dialog.showErrorBox('Agent Nekko', message),
     });
   }
 

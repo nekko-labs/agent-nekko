@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import type { AppSettings } from '@nekko-agent/shared';
-import { DEFAULT_PROMPTS, DEFAULT_SPEC_METHODOLOGY, DEFAULT_ORCHESTRATION, DEFAULT_ACCENT, LEGACY_ACCENTS } from '@nekko-agent/shared';
-import { DEFAULT_GUARDRAILS } from '@nekko-agent/core';
+import type { AppSettings } from '@agent-nekko/shared';
+import { DEFAULT_PROMPTS, DEFAULT_SPEC_METHODOLOGY, DEFAULT_ORCHESTRATION, DEFAULT_ACCENT, LEGACY_ACCENTS } from '@agent-nekko/shared';
+import { DEFAULT_GUARDRAILS } from '@agent-nekko/core';
 import { dataDir } from './paths.js';
 import { ensurePrivateFile, writeJsonAtomic } from './secure-file.js';
 
@@ -29,7 +29,7 @@ function defaults(): AppSettings {
   };
 }
 
-// Keyed by data dir so a single process serving many accounts (Nekko Agent Cloud)
+// Keyed by data dir so a single process serving many accounts (Agent Nekko Cloud)
 // never bleeds one account's settings into another. Single-data-dir editions
 // (desktop/server/CLI) just use the one entry.
 const cache = new Map<string, AppSettings>();

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { SettingsAutosave } from './settingsAutosave.js';
-import type { EngineInstall, EngineSettings } from '@nekko-agent/shared';
-import { ENGINE_BACKEND_LABELS, ENGINE_PORT_DEFAULT, engineBaseUrl } from '@nekko-agent/shared';
+import type { EngineInstall, EngineSettings } from '@agent-nekko/shared';
+import { ENGINE_BACKEND_LABELS, ENGINE_PORT_DEFAULT, engineBaseUrl } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Toggle } from '../primitives/index.js';
 
@@ -146,12 +146,12 @@ export function EngineServerSettings({
         <input
           className="input mt-1 w-full font-mono text-[12px]"
           value={draft.modelsDir ?? ''}
-          placeholder="~/.nekko-agent/models/{type}"
+          placeholder="~/.agent-nekko/models/{type}"
           spellCheck={false}
           onChange={(e) => setDraft({ ...draft, modelsDir: e.target.value })}
         />
         <p className="mt-0.5 text-[11px] text-ink-faint">
-          The one folder Nekko Agent writes to. To read models out of folders another app fills — Ollama, LM Studio,
+          The one folder Agent Nekko writes to. To read models out of folders another app fills — Ollama, LM Studio,
           a Hugging Face cache — use <strong>Folders</strong>. Files are never moved.
         </p>
       </div>
@@ -165,7 +165,7 @@ export function EngineServerSettings({
         <p className="text-[11.5px] text-ink-faint">
           Engine: {install.version ?? 'unknown build'}
           {install.backend ? ` · ${ENGINE_BACKEND_LABELS[install.backend]}` : ''}
-          {install.source === 'external' ? ' · yours, not managed by Nekko Agent' : ''}
+          {install.source === 'external' ? ' · yours, not managed by Agent Nekko' : ''}
         </p>
         {install.binPath && <p className="mt-0.5 truncate font-mono text-[10.5px] text-ink-faint">{install.binPath}</p>}
         {install.source === 'managed' && (

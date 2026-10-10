@@ -1,6 +1,6 @@
 import { readdir, stat } from 'fs/promises';
 import { dirname, join } from 'path';
-import type { ImageCompanionRole, ImageCompanionStatus, LocalModel } from '@nekko-agent/shared';
+import type { ImageCompanionRole, ImageCompanionStatus, LocalModel } from '@agent-nekko/shared';
 
 /**
  * The text encoders and VAEs an image model needs beside its diffusion weights.

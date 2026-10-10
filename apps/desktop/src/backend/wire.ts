@@ -2,8 +2,8 @@ import { timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo, Socket } from 'node:net';
 import { URL } from 'node:url';
-import { IpcEvents } from '@nekko-agent/shared';
-import { createDispatcher, type Host } from '@nekko-agent/host';
+import { IpcEvents } from '@agent-nekko/shared';
+import { createDispatcher, type Host } from '@agent-nekko/host';
 import { acceptKey, encodeFrame, FrameReader, OP_CLOSE, OP_PING, OP_PONG, OP_TEXT } from './ws.js';
 
 /**

@@ -1,4 +1,4 @@
-import { sameFolderPath, type Session, type SessionMeta } from '@nekko-agent/shared';
+import { sameFolderPath, type Session, type SessionMeta } from '@agent-nekko/shared';
 import { useStore } from './store.js';
 
 /**

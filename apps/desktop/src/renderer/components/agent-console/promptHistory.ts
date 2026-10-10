@@ -1,4 +1,4 @@
-import type { Session } from '@nekko-agent/shared';
+import type { Session } from '@agent-nekko/shared';
 
 export function promptHistory(messages: Session['messages']): string[] {
   return messages.filter((m) => m.role === 'user')

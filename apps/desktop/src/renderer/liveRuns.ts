@@ -28,9 +28,9 @@
  */
 
 import { useCallback, useSyncExternalStore } from 'react';
-import type { AgentEvent, ToolCall } from '@nekko-agent/shared';
+import type { AgentEvent, ToolCall } from '@agent-nekko/shared';
 import type { Activity } from './components/agent-console/transcript.js';
-import { accumulateDecodeMs, describeLiveActivity, emptyLiveActivity, reduceLiveActivity, type LiveActivity } from '@nekko-agent/shared';
+import { accumulateDecodeMs, describeLiveActivity, emptyLiveActivity, reduceLiveActivity, type LiveActivity } from '@agent-nekko/shared';
 
 export type LiveBlock = { kind: 'text'; text: string } | { kind: 'activity'; items: Activity[] };
 

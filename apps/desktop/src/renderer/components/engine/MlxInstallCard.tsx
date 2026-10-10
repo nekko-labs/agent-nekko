@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { EngineInstall, EngineInstallPreview } from '@nekko-agent/shared';
+import type { EngineInstall, EngineInstallPreview } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { formatBytes } from '../runtimes/verdict.js';
 

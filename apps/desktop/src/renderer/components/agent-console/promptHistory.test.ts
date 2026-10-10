@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { promptHistory, recallPrompt } from './promptHistory.js';
-import type { Session } from '@nekko-agent/shared';
+import type { Session } from '@agent-nekko/shared';
 
 describe('composer prompt history', () => {
   it('uses user prompts and original skill input, excluding empty image prompts', () => {

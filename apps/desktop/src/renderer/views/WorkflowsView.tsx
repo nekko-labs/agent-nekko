@@ -9,7 +9,7 @@ import type {
   WorkflowTrigger,
   WorkflowTriggerKind,
   WorkflowsSnapshot,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import {
   UNCATEGORIZED,
   WORKFLOW_TEMPLATES,
@@ -23,7 +23,7 @@ import {
   runDurationMs,
   stepSummary,
   triggerLabel,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Badge, EmptyHint, Modal, StatusDot } from '../components/primitives/index.js';
 import { WorkflowCanvas } from '../components/WorkflowCanvas.js';
@@ -263,7 +263,7 @@ export function WorkflowsView() {
               <div className="flex gap-2">
                 <dt className="w-32 shrink-0 font-medium">Manual trigger</dt>
                 <dd className="text-ink-faint">
-                  Started by you: the <strong>Run</strong> button, or <code className="font-mono text-[11px]">nekko-agent workflow run</code> in a
+                  Started by you: the <strong>Run</strong> button, or <code className="font-mono text-[11px]">agent-nekko workflow run</code> in a
                   terminal. Every workflow can run by hand, even one whose other triggers are off.
                 </dd>
               </div>
@@ -581,7 +581,7 @@ function WorkflowDetail({ wf, runs, live }: { wf: Workflow; runs: WorkflowRun[];
           </Badge>
         ))}
         {wf.triggers.some((t) => t.kind === 'cli') && (
-          <span className="font-mono text-[10.5px] text-ink-faint">nekko-agent workflow run {cliCommand(wf)}</span>
+          <span className="font-mono text-[10.5px] text-ink-faint">agent-nekko workflow run {cliCommand(wf)}</span>
         )}
       </div>
 

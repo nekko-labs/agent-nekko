@@ -28,7 +28,7 @@ writeFileSync(
   `// Stands in for @lydell/node-pty inside the app-bundled CLI. See bundle-app.mjs.
 const unavailable = () => {
   throw new Error(
-    'Terminals are not available in the bundled CLI. Use the Nekko Agent app, or install the npm package: npm install -g nekko-agent',
+    'Terminals are not available in the bundled CLI. Use the Agent Nekko app, or install the npm package: npm install -g agent-nekko',
   );
 };
 module.exports = { spawn: unavailable, open: unavailable };
@@ -52,7 +52,7 @@ const inlineVersion = {
 
 await build({
   entryPoints: [resolve(cliDir, 'src/index.ts')],
-  outfile: resolve(out, 'nekko-agent-cli.cjs'),
+  outfile: resolve(out, 'agent-nekko-cli.cjs'),
   bundle: true,
   platform: 'node',
   format: 'cjs',
@@ -62,4 +62,4 @@ await build({
   logLevel: 'info',
 });
 
-console.log(`\n✓ Bundled the in-app CLI → ${out}/nekko-agent-cli.cjs`);
+console.log(`\n✓ Bundled the in-app CLI → ${out}/agent-nekko-cli.cjs`);

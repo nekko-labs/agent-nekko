@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { recommendModel, pickAutoModel, pickAcrossProviders, providerSwitchTrigger, isComplexPrompt, modelTier } from '@nekko-agent/shared';
-import type { ModelInfo, ProviderPool, SubscriptionLimits } from '@nekko-agent/shared';
+import { recommendModel, pickAutoModel, pickAcrossProviders, providerSwitchTrigger, isComplexPrompt, modelTier } from '@agent-nekko/shared';
+import type { ModelInfo, ProviderPool, SubscriptionLimits } from '@agent-nekko/shared';
 
 const model = (id: string, name = id): ModelInfo => ({ id, providerId: 'p', name });
 

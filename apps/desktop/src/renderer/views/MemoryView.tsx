@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { MemoryEntry, MemoryScope } from '@nekko-agent/shared';
+import type { MemoryEntry, MemoryScope } from '@agent-nekko/shared';
 import { PlusIcon, TrashIcon } from '../icons.js';
 
 export function MemoryView() {
@@ -64,7 +64,7 @@ export function MemoryView() {
           <div className="mx-auto w-full max-w-2xl space-y-3">
             <input className="input text-lg font-semibold" placeholder="Title" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} />
             <input className="input" placeholder="tags, comma separated" value={editing.tags.join(', ')} onChange={(e) => setEditing({ ...editing, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) })} />
-            <textarea className="input min-h-[300px] resize-none" placeholder="What should Nekko Agent remember?" value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} />
+            <textarea className="input min-h-[300px] resize-none" placeholder="What should Agent Nekko remember?" value={editing.body} onChange={(e) => setEditing({ ...editing, body: e.target.value })} />
             <div className="flex justify-end gap-2">
               <button className="btn btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
               <button className="btn btn-primary" onClick={save}>Save</button>
@@ -74,7 +74,7 @@ export function MemoryView() {
           <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <div className="grid h-14 w-14 place-items-center rounded-2xl text-3xl" style={{ background: 'var(--accent-soft)' }}>🧠</div>
             <div>
-              <h2 className="text-lg font-semibold">Nekko Agent's long-term memory</h2>
+              <h2 className="text-lg font-semibold">Agent Nekko's long-term memory</h2>
               <p className="mx-auto mt-1 max-w-sm text-[13px] text-ink-faint">
                 Notes saved here are injected into every chat's context. Select one on the left, or write a new one.
               </p>

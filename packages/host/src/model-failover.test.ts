@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ProviderConfig, ProviderPool, Session, SubscriptionLimits } from '@nekko-agent/shared';
+import type { ProviderConfig, ProviderPool, Session, SubscriptionLimits } from '@agent-nekko/shared';
 import { eligibleForModelFailover, exhaustedSubscription, selectModelFailover } from './model-failover.js';
 
 const session = { autoModel: true, autoProviderSwitch: true } as Session;

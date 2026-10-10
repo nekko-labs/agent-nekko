@@ -20,8 +20,8 @@
  */
 
 import { execFile } from 'child_process';
-import type { GitStatus } from '@nekko-agent/shared';
-import { trimTrailingSlashes } from '@nekko-agent/shared';
+import type { GitStatus } from '@agent-nekko/shared';
+import { trimTrailingSlashes } from '@agent-nekko/shared';
 import { getSettings } from './store.js';
 import { branchPr } from './pr.js';
 import { getSession } from './sessions.js';

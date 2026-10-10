@@ -7,8 +7,8 @@ import {
   type RuntimeDetection,
   type RuntimeStatus,
   type StopResult,
-} from '@nekko-agent/shared';
-import { headDimOf } from '@nekko-agent/core';
+} from '@agent-nekko/shared';
+import { headDimOf } from '@agent-nekko/core';
 import { apiRoot, getJson, postJson, type RuntimeAdapter, type RuntimeContext } from './types.js';
 
 /**

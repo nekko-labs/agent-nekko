@@ -1,6 +1,6 @@
 {
-  "name": "Nekko Agent",
-  "short_name": "Nekko Agent",
+  "name": "Agent Nekko",
+  "short_name": "Agent Nekko",
   "description": "Local-first AI coding & cowork, drive your local model from anywhere.",
   "start_url": "./",
   "scope": "./",

@@ -2,9 +2,9 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('../i18n.js', () => ({ useT: () => (key: string) => key }));
-vi.mock('@nekko-agent/shared', () => import('../../../../../packages/shared/src/themes.js'));
+vi.mock('@agent-nekko/shared', () => import('../../../../../packages/shared/src/themes.js'));
 import { slicedSwatch, ThemePresetPicker } from './ThemePresetPicker.js';
-import type { AppSettings } from '@nekko-agent/shared';
+import type { AppSettings } from '@agent-nekko/shared';
 
 describe('theme palette slices', () => {
   it('uses adjacent hard stops rather than blending colors', () => {

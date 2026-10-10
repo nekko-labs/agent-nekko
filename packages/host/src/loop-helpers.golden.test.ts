@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
-import type { ChatMessage } from '@nekko-agent/shared';
-import { asSeenByChatModel, createRunawayGuard, fromLatestCompaction, repairInterruptedHistory, windowHistory } from '@nekko-agent/core';
+import type { ChatMessage } from '@agent-nekko/shared';
+import { asSeenByChatModel, createRunawayGuard, fromLatestCompaction, repairInterruptedHistory, windowHistory } from '@agent-nekko/core';
 
 /**
  * What the agent loop's message helpers do, which the engine daemon's port

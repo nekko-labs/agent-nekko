@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { preservePackagedProfile } from './main/appIdentity.js';
 
-// Guards the launch crash that shipped in v0.4.0. The @nekko-agent/* workspace packages are
+// Guards the launch crash that shipped in v0.4.0. The @agent-nekko/* workspace packages are
 // ESM-only (their "exports" map offers just an "import" condition) while main and
 // preload build to CJS, so if electron-vite leaves them external the packaged app
 // dies immediately with ERR_PACKAGE_PATH_NOT_EXPORTED. They must be bundled in.
@@ -17,13 +17,13 @@ import { preservePackagedProfile } from './main/appIdentity.js';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-const workspaceDeps = Object.keys(pkg.dependencies ?? {}).filter((d) => d.startsWith('@nekko-agent/'));
+const workspaceDeps = Object.keys(pkg.dependencies ?? {}).filter((d) => d.startsWith('@agent-nekko/'));
 
 describe('staged product identity', () => {
   let appData: string;
 
   beforeEach(() => {
-    appData = mkdtempSync(join(tmpdir(), 'nekko-agent-profile-'));
+    appData = mkdtempSync(join(tmpdir(), 'agent-nekko-profile-'));
   });
 
   afterEach(() => {
@@ -52,7 +52,7 @@ describe('staged product identity', () => {
     ]);
     expect(statSync(profile).isDirectory()).toBe(true);
     expect(readdirSync(profile)).toEqual([]);
-    expect(existsSync(join(profile, 'nekko-agent'))).toBe(false);
+    expect(existsSync(join(profile, 'agent-nekko'))).toBe(false);
     const main = readFileSync(join(root, 'src/main/index.ts'), 'utf8');
     const pin = main.indexOf('preservePackagedProfile(app);');
     expect(pin).toBeGreaterThan(0);
@@ -75,20 +75,20 @@ describe('staged product identity', () => {
 
   it('leaves an existing profile alone on repeat runs', () => {
     const profile = join(appData, 'desktop');
-    mkdirSync(join(profile, 'nekko-agent'), { recursive: true });
-    writeFileSync(join(profile, 'nekko-agent', 'settings.json'), '{"theme":"current"}\n');
+    mkdirSync(join(profile, 'agent-nekko'), { recursive: true });
+    writeFileSync(join(profile, 'agent-nekko', 'settings.json'), '{"theme":"current"}\n');
 
     preservePackagedProfile(mockApp(), appData);
 
-    expect(readdirSync(profile)).toEqual(['nekko-agent']);
-    expect(readFileSync(join(profile, 'nekko-agent', 'settings.json'), 'utf8')).toBe('{"theme":"current"}\n');
+    expect(readdirSync(profile)).toEqual(['agent-nekko']);
+    expect(readFileSync(join(profile, 'agent-nekko', 'settings.json'), 'utf8')).toBe('{"theme":"current"}\n');
   });
 
   it('preserves existing browser and host data across repeated initialization', () => {
     const app = mockApp();
     const profile = join(appData, 'desktop');
     const browserData = join(profile, 'Local Storage');
-    const hostData = join(profile, 'nekko-agent');
+    const hostData = join(profile, 'agent-nekko');
     mkdirSync(browserData, { recursive: true });
     mkdirSync(hostData, { recursive: true });
     const sentinel = Buffer.from([0, 1, 127, 128, 255]);
@@ -101,7 +101,7 @@ describe('staged product identity', () => {
 
     expect(readFileSync(join(browserData, 'sentinel'))).toEqual(sentinel);
     expect(readFileSync(join(hostData, 'settings.json'), 'utf8')).toBe(settings);
-    expect(readdirSync(profile).sort()).toEqual(['Local Storage', 'nekko-agent']);
+    expect(readdirSync(profile).sort()).toEqual(['Local Storage', 'agent-nekko']);
     expect(app.setPath.mock.calls).toEqual([
       ['userData', profile],
       ['sessionData', profile],
@@ -120,19 +120,19 @@ describe('staged product identity', () => {
 
   it('carries the current brand through every packaged identity and filename', () => {
     const builder = readFileSync(join(root, 'electron-builder.yml'), 'utf8');
-    expect(builder).toContain('productName: Nekko Agent');
-    expect(builder).toContain('appId: dev.nekkolabs.nekkoagent');
-    expect(builder).toContain('executableName: NekkoAgent');
-    expect(builder.match(/artifactName: NekkoAgent-\$\{version\}-\$\{arch\}\.\$\{ext\}/g)).toHaveLength(3);
-    expect(builder).toContain('repo: nekko-agent');
-    expect(pkg.name).toBe('@nekko-agent/desktop');
+    expect(builder).toContain('productName: Agent Nekko');
+    expect(builder).toContain('appId: dev.nekkolabs.agentnekko');
+    expect(builder).toContain('executableName: AgentNekko');
+    expect(builder.match(/artifactName: AgentNekko-\$\{version\}-\$\{arch\}\.\$\{ext\}/g)).toHaveLength(3);
+    expect(builder).toContain('repo: agent-nekko');
+    expect(pkg.name).toBe('@agent-nekko/desktop');
     const mobile = JSON.parse(readFileSync(join(root, '../mobile/app.json'), 'utf8')).expo;
-    expect(mobile.name).toBe('Nekko Agent');
-    expect(mobile.ios.bundleIdentifier).toBe('dev.nekkolabs.nekkoagent');
-    expect(mobile.android.package).toBe('dev.nekkolabs.nekkoagent');
+    expect(mobile.name).toBe('Agent Nekko');
+    expect(mobile.ios.bundleIdentifier).toBe('dev.nekkolabs.agentnekko');
+    expect(mobile.android.package).toBe('dev.nekkolabs.agentnekko');
     const manifest = JSON.parse(readFileSync(join(root, 'src/renderer/public/manifest.webmanifest'), 'utf8'));
-    expect(manifest.name).toBe('Nekko Agent');
-    expect(manifest.short_name).toBe('Nekko Agent');
+    expect(manifest.name).toBe('Agent Nekko');
+    expect(manifest.short_name).toBe('Agent Nekko');
     expect(manifest.start_url).toBe('./');
     expect(manifest.scope).toBe('./');
   });

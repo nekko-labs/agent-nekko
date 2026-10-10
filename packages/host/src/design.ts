@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join, extname } from 'path';
 import { randomUUID } from 'crypto';
 import { createHostProvider as createProvider } from './prompt-caching.js';
-import type { DesignBoard, DesignPage, GenerateDesignInput } from '@nekko-agent/shared';
+import type { DesignBoard, DesignPage, GenerateDesignInput } from '@agent-nekko/shared';
 import { dataDir, getSettings } from './store.js';
 import { resolveSubscriptionProvider } from './oauth.js';
 import { readFile } from './files.js';

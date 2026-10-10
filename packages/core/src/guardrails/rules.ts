@@ -1,1 +1,1 @@
-export { DEFAULT_GUARDRAILS } from '@nekko-agent/shared';
+export { DEFAULT_GUARDRAILS } from '@agent-nekko/shared';

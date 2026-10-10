@@ -1,5 +1,5 @@
 {
-  "name": "@nekko-agent/mobile",
+  "name": "@agent-nekko/mobile",
   "main": "expo-router/entry",
   "version": "0.2.0",
   "dependencies": {
@@ -58,5 +58,5 @@
     "llama:native": "node ./node_modules/llama.rn/install/download-native-artifacts.js"
   },
   "private": true,
-  "description": "Nekko Agent for iOS and Android: drive the agent on your computer over the E2E relay, or chat with a model that runs on the phone."
+  "description": "Agent Nekko for iOS and Android: drive the agent on your computer over the E2E relay, or chat with a model that runs on the phone."
 }

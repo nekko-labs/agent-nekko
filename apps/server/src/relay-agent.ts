@@ -1,4 +1,4 @@
-import { createHost } from '@nekko-agent/host';
+import { createHost } from '@agent-nekko/host';
 
 /**
  * Relay-agent mode for the server CLI: create a host and expose it over a relay
@@ -11,7 +11,7 @@ export async function runRelayAgent(opts: { relayUrl: string; room: string; key:
   const host = createHost({ dataDir: opts.dataDir });
   host.remote.attach({ relayUrl: opts.relayUrl, room: opts.room, secret: opts.key });
   const grant = host.remote.pair();
-  console.log(`\nNekko Agent relay-agent → ${opts.relayUrl}`);
+  console.log(`\nAgent Nekko relay-agent → ${opts.relayUrl}`);
   console.log(`   room=${opts.room}  key=${opts.key}`);
   console.log(`   one-time pairing code (10 min): ${grant.code}`);
   console.log(`   pairing link: <ui-origin>/?relay=${encodeURIComponent(opts.relayUrl)}&room=${opts.room}&key=${opts.key}&pair=${grant.code}`);

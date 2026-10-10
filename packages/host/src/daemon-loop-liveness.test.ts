@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AgentEvent } from '@nekko-agent/shared';
+import type { AgentEvent } from '@agent-nekko/shared';
 import { loopEnd, runAgentViaDaemon } from './daemon-loop.js';
 
 const opts = {

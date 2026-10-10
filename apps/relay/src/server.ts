@@ -4,13 +4,13 @@ import websocket from '@fastify/websocket';
 import { createPushSender, type PushSender } from './push.js';
 
 /**
- * Nekko Agent relay v2, the piece that lets a paired phone reach a local agent
+ * Agent Nekko relay v2, the piece that lets a paired phone reach a local agent
  * (your desktop/server) without inbound ports. Both ends dial in over an
  * outbound WebSocket and are matched by a room code; the relay routes frames
  * between them. It never inspects payloads beyond the routing envelope, so it
  * carries end-to-end-encrypted traffic unchanged (zero-knowledge for content).
  *
- * v2 protocol (see @nekko-agent/shared remote.ts for the same contract):
+ * v2 protocol (see @agent-nekko/shared remote.ts for the same contract):
  *   - every client connection gets a `cid`; client frames reach the agent as
  *     { type:'c', cid, data } and the agent unicasts { type:'d', cid, data }.
  *     No client ever receives another client's traffic.
@@ -210,7 +210,7 @@ export function buildRelay(opts: RelayOptions = {}): { app: FastifyInstance; roo
               // Content-free push when no device has a live connection.
               if (r.clients.size === 0 && r.pushTokens.size > 0) {
                 const payload = {
-                  title: String(ctrl.title || 'Nekko Agent'),
+                  title: String(ctrl.title || 'Agent Nekko'),
                   body: String(ctrl.body || 'Your task finished.'),
                 };
                 for (const { token, platform } of r.pushTokens.values()) void pushSender.send(token, platform, payload);

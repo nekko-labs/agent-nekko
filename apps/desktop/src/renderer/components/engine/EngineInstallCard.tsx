@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ENGINE_BACKEND_LABELS, type EngineInstall } from '@nekko-agent/shared';
+import { ENGINE_BACKEND_LABELS, type EngineInstall } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { DownloadIcon } from '../../icons.js';
 
@@ -50,7 +50,7 @@ export function EngineInstallCard({
       <h3 className="text-[14px] font-semibold">Run models without installing anything else</h3>
       <p className="mt-1 text-[12.5px] text-ink-faint">
         {install.reason ??
-          'Nekko Agent can download a small engine and serve models itself, so you do not need LM Studio, Ollama, or vLLM.'}
+          'Agent Nekko can download a small engine and serve models itself, so you do not need LM Studio, Ollama, or vLLM.'}
       </p>
 
       {install.recommended ? (
@@ -92,7 +92,7 @@ export function EngineInstallCard({
         </>
       ) : (
         <p className="mt-3 text-[12px]" style={{ color: 'var(--warning, #d1a054)' }}>
-          There is no published build for this platform. Point Nekko Agent at a llama-server you built yourself.
+          There is no published build for this platform. Point Agent Nekko at a llama-server you built yourself.
         </p>
       )}
 
@@ -114,7 +114,7 @@ export function EngineInstallCard({
             </button>
           </div>
           <p className="mt-1.5 text-[11px] text-ink-faint">
-            A binary you point at is yours: Nekko Agent runs it but never updates or removes it.
+            A binary you point at is yours: Agent Nekko runs it but never updates or removes it.
           </p>
         </div>
       )}

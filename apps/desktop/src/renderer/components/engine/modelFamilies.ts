@@ -1,4 +1,4 @@
-import type { CatalogModel, EngineMemory, GpuFit, LocalModel } from '@nekko-agent/shared';
+import type { CatalogModel, EngineMemory, GpuFit, LocalModel } from '@agent-nekko/shared';
 
 export type LibraryModel = LocalModel & { loaded: boolean; gpuFit?: GpuFit };
 export interface ModelFamily {

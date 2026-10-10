@@ -1,11 +1,11 @@
-# Nekko Agent, self-hosted web edition in Docker.
+# Agent Nekko, self-hosted web edition in Docker.
 #   docker compose up        (build + run)
 # Then open http://localhost:1440
 services:
-  nekko-agent:
+  agent-nekko:
     build: .
     # Or use a published image instead of building:
-    # image: ghcr.io/nekko-labs/nekko-agent:latest
+    # image: ghcr.io/nekko-labs/agent-nekko:latest
     # Published to the host's localhost only. To expose on your LAN, change to
     # "1440:1440" AND set NEKKO_TOKEN below (or read the generated token from
     # `docker compose logs`).
@@ -15,7 +15,7 @@ services:
       # Codebases the agent may read/edit (workspace-jail sandbox confines it here).
       - ./workspace:/workspace
       # Settings, sessions, memory, usage.
-      - nekko-agent-data:/data
+      - agent-nekko-data:/data
     environment:
       - NEKKO_SANDBOX=workspace-jail
     # Lets the container reach a model server (Ollama/LM Studio/vLLM) on the host,
@@ -25,4 +25,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  nekko-agent-data: {}
+  agent-nekko-data: {}

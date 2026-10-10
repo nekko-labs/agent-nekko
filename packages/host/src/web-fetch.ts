@@ -112,7 +112,7 @@ export async function fetchUrl(rawUrl: string, opts: { maxChars?: number; signal
       headers: {
         accept: 'text/html, application/xhtml+xml, text/plain;q=0.9, application/json;q=0.8, */*;q=0.5',
         'accept-language': 'en, *;q=0.5',
-        'user-agent': 'Mozilla/5.0 (compatible; NekkoAgent/1.0; +https://nekkoagent.com)',
+        'user-agent': 'Mozilla/5.0 (compatible; AgentNekko/1.0; +https://agentnekko.com)',
       },
     });
   } catch (e) {

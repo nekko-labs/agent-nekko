@@ -1,5 +1,5 @@
 import { randomInt } from 'crypto';
-import type { AgentEvent, ChatMessage, ImageGenerationRequest, ImageGenerationResult, ImageTurnOptions } from '@nekko-agent/shared';
+import type { AgentEvent, ChatMessage, ImageGenerationRequest, ImageGenerationResult, ImageTurnOptions } from '@agent-nekko/shared';
 import { getSession, saveSession, saveTurnSession } from './sessions.js';
 
 /**

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ProviderConfig } from '@nekko-agent/shared';
+import type { ProviderConfig } from '@agent-nekko/shared';
 import { CheckIcon, CopyIcon, PencilIcon } from '../../icons.js';
 
 /**

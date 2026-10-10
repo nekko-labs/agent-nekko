@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { DownloadJob } from '@nekko-agent/shared';
+import type { DownloadJob } from '@agent-nekko/shared';
 import { createDownloads } from './download.js';
 
 /**
