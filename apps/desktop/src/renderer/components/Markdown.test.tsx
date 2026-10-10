@@ -24,7 +24,7 @@ describe('Markdown', () => {
     vi.stubGlobal('window', { nekko: { openPath } });
     vi.stubGlobal('navigator', { clipboard: { writeText } });
     try {
-      const url = 'https://github.com/nekko-labs/agent-nekko/pull/309';
+      const url = 'https://github.com/nekko-labs/nekko-agent/pull/309';
       const actions = linkContextActions(url);
       expect(actions.map((a) => a.label)).toEqual(['Open in external browser', 'Open in in-app browser', 'Copy link']);
       actions.forEach((a) => a.run());
@@ -36,12 +36,12 @@ describe('Markdown', () => {
     } finally { vi.unstubAllGlobals(); }
   });
   it('renders the reported GitHub PR reply as a labeled link', () => {
-    const out = html('Yes—the GitHub integration is in [PR #309](https://github.com/nekko-labs/agent-nekko/pull/309). It’s an open draft with passing checks, not merged or verified against a live GitHub installation.');
-    expect(out).toContain('href="https://github.com/nekko-labs/agent-nekko/pull/309"');
+    const out = html('Yes—the GitHub integration is in [PR #309](https://github.com/nekko-labs/nekko-agent/pull/309). It’s an open draft with passing checks, not merged or verified against a live GitHub installation.');
+    expect(out).toContain('href="https://github.com/nekko-labs/nekko-agent/pull/309"');
     expect(out).not.toContain('[PR #309]');
   });
   it('renders links nested inside emphasis without losing surrounding links', () => {
-    const out = html('**[PR #309](https://github.com/nekko-labs/agent-nekko/pull/309)** and *[docs](https://example.com/docs)* then [next](https://example.com/next)');
+    const out = html('**[PR #309](https://github.com/nekko-labs/nekko-agent/pull/309)** and *[docs](https://example.com/docs)* then [next](https://example.com/next)');
     expect(out.match(/href=/g)).toHaveLength(3);
     expect(out).not.toContain('[PR #309]');
   });
@@ -49,8 +49,8 @@ describe('Markdown', () => {
   it('turns a dashed run glued to a sentence into a real list', () => {
     // The shape people actually type into the composer: a lead-in line with no
     // blank line before the dashes.
-    const out = html('Agent Nekko project.\n- first thing\n- second thing');
-    expect(out).toContain('<p>Agent Nekko project.</p>');
+    const out = html('Nekko Agent project.\n- first thing\n- second thing');
+    expect(out).toContain('<p>Nekko Agent project.</p>');
     expect(out.match(/<li>/g)).toHaveLength(2);
     expect(out).toContain('<li>first thing</li>');
     expect(out).toContain('list-style-type:disc');
@@ -96,16 +96,16 @@ describe('Markdown', () => {
   });
 
   it('covers inline bold, italic, strike, code and links', () => {
-    const out = html('**b** *i* ~~s~~ `c` [text](https://agentnekko.com)');
+    const out = html('**b** *i* ~~s~~ `c` [text](https://nekkoagent.com)');
     expect(out).toContain('<strong>b</strong>');
     expect(out).toContain('<em>i</em>');
     expect(out).toContain('>s</s>');
     expect(out).toContain('>c</code>');
-    expect(out).toContain('href="https://agentnekko.com"');
+    expect(out).toContain('href="https://nekkoagent.com"');
   });
 
   it('auto-links a bare url', () => {
-    expect(html('see https://agentnekko.com now')).toContain('href="https://agentnekko.com"');
+    expect(html('see https://nekkoagent.com now')).toContain('href="https://nekkoagent.com"');
   });
 
   it('never renders a link to a script-bearing scheme', () => {
@@ -117,9 +117,9 @@ describe('Markdown', () => {
   });
 
   it('passes only web schemes through the link-target guard', () => {
-    expect(safeHref('https://agentnekko.com')).toBe('https://agentnekko.com');
-    expect(safeHref('http://agentnekko.com')).toBe('http://agentnekko.com');
-    expect(safeHref('mailto:hi@agentnekko.com')).toBe('mailto:hi@agentnekko.com');
+    expect(safeHref('https://nekkoagent.com')).toBe('https://nekkoagent.com');
+    expect(safeHref('http://nekkoagent.com')).toBe('http://nekkoagent.com');
+    expect(safeHref('mailto:hi@nekkoagent.com')).toBe('mailto:hi@nekkoagent.com');
     expect(safeHref('JavaScript:alert(1)')).toBeNull();
     expect(safeHref('data:text/html,<script>alert(1)</script>')).toBeNull();
     expect(safeHref('file:///etc/passwd')).toBeNull();
@@ -197,7 +197,7 @@ const whole = (text: string) =>
   renderToStaticMarkup(<div className="space-y-1 text-[14px] leading-relaxed">{renderWhole(text, { doc: false })}</div>);
 
 const FIXTURES = [
-  'Agent Nekko project.\n- first thing\n- second thing',
+  'Nekko Agent project.\n- first thing\n- second thing',
   '- top\n  - child\n  - sibling\n- next top',
   'one\ntwo',
   '- bullet\n1. number',
@@ -207,8 +207,8 @@ const FIXTURES = [
   '---',
   '| Item | Count |\n| --- | --- |\n| Alpha | 1 |',
   '```ts\n- not a bullet\n```',
-  '**b** *i* ~~s~~ `c` [text](https://agentnekko.com)',
-  'see https://agentnekko.com now',
+  '**b** *i* ~~s~~ `c` [text](https://nekkoagent.com)',
+  'see https://nekkoagent.com now',
   'call some_long_name(x) when 2 * 3 * 4 is odd',
   '',
   '   \n  ',

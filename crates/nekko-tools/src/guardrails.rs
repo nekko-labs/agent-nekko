@@ -25,7 +25,7 @@ pub enum Action {
     Deny,
 }
 
-/// `GuardrailRule` from `@agent-nekko/shared`, as settings store it.
+/// `GuardrailRule` from `@nekko-agent/shared`, as settings store it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct GuardrailRule {
     pub id: String,

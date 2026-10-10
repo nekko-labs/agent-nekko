@@ -10,7 +10,7 @@ Repository configuration is in `.coderabbit.yaml`: quiet, automatic draft and in
 
 1. Sign in at https://app.coderabbit.ai/login using GitHub.
 2. Install https://github.com/apps/coderabbitai on `nekko-labs`.
-3. Choose **Only select repositories** → `agent-nekko`. Inspect GitHub's current requested permissions before consenting. Do not grant unrelated private repository access.
+3. Choose **Only select repositories** → `nekko-agent`. Inspect GitHub's current requested permissions before consenting. Do not grant unrelated private repository access.
 4. Confirm the public repository receives the free open-source offering. Leave usage-based billing and paid agent/scan add-ons off; no credit card is required for basic onboarding.
 5. After installation, verify a real review on the setup PR. If needed, comment `@coderabbitai review` and confirm actual findings/status rather than merely an installation badge. New draft PRs and pushes should be reviewed automatically.
 6. Initially leave CodeRabbit advisory. Only consider a required review check after its exact check name, reliability, contributor/fork handling, and interaction with existing auto-merge have been verified.

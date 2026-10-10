@@ -164,7 +164,7 @@ function Welcome() {
         Your agent, in your pocket
       </T>
       <T tone="soft" style={{ textAlign: 'center' }}>
-        Drive Agent Nekko on your computer from here, or chat with an AI model that runs entirely on this phone.
+        Drive Nekko Agent on your computer from here, or chat with an AI model that runs entirely on this phone.
       </T>
       <View style={{ gap: space.md, alignSelf: 'stretch', marginTop: space.lg }}>
         <Pressable accessibilityRole="button" onPress={() => router.push('/pair')}>

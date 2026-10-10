@@ -1852,7 +1852,7 @@
   50% { box-shadow: 0 0 20px 3px color-mix(in srgb, var(--warning) 30%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) { .command-wall-window[data-wall-needs-you] > .panel { animation: none; } }
-/* While Agent Nekko is not the focused app (or the window is hidden), every
+/* While Nekko Agent is not the focused app (or the window is hidden), every
    looping decoration holds its current frame. Working windows still show a
    beam, rocket and glow, just still, so a wall of busy agents left on screen
    behind another app stops costing the GPU. See appActivity.ts. */

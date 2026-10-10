@@ -1,5 +1,5 @@
 {
-  "name": "@agent-nekko/shared",
+  "name": "@nekko-agent/shared",
   "version": "0.1.0",
   "private": true,
   "type": "module",

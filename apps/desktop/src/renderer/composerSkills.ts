@@ -1,4 +1,4 @@
-import type { SkillDef } from '@agent-nekko/shared';
+import type { SkillDef } from '@nekko-agent/shared';
 
 /** Attaching a skill must not consume the prompt; only a lone slash query is consumed. */
 export function draftAfterSkillSelection(draft: string, skill: SkillDef): string {

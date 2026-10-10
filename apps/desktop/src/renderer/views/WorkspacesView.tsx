@@ -1,8 +1,8 @@
 import { AgentPanelControls } from '../components/AgentPanelControls.js';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
-import { AUTO_MODEL_ID, archiveDaysLeft, archiveDeletesAt, parsePrUrl } from '@agent-nekko/shared';
+import type { AgentEvent, SessionSummary, ShellOption, TerminalInfo, WorkspaceFolder } from '@nekko-agent/shared';
+import { AUTO_MODEL_ID, archiveDaysLeft, archiveDeletesAt, parsePrUrl } from '@nekko-agent/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore, type Workspace } from '../store.js';
 import { PaneVisibleContext, usePaneVisible } from '../paneVisibility.js';

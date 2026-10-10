@@ -9,7 +9,7 @@ import { UpdateProvider } from '../src/renderer/components/UpdateBanner';
 import { ReplyStatus } from '../src/renderer/components/agent-console/ReplyStatus';
 import { Mascot, NekkoAvatar } from '../src/renderer/components/Mascot';
 import { DEFAULT_WALL_STATE } from '../src/renderer/commandWall';
-import { summarizeSession } from '@agent-nekko/shared';
+import { summarizeSession } from '@nekko-agent/shared';
 import '../src/renderer/styles.css';
 
 // Synthetic records only. This fixture never connects to a host or daemon.
@@ -97,7 +97,7 @@ function Fixture() {
     const dock = opts.dockAll ? { ...DEFAULT_WALL_STATE.dock, show: true, side: 'right', panelOrder: ['vitals', 'hardware', 'budget', 'utilization', 'automations', 'insights'], panels: { vitals: true, automations: false, utilization: true, budget: true, insights: false, hardware: true } }
       : opts.dock || opts.expired ? { ...DEFAULT_WALL_STATE.dock, show: true, panels: { vitals: false, automations: false, utilization: !!opts.expired, budget: !opts.expired, insights: false, hardware: false } } : { ...DEFAULT_WALL_STATE.dock, show: false };
     const agentPanel = opts.horizontal ? { show: true, orientation: 'horizontal' } : undefined;
-    useStore.setState({ view: 'command', providers: opts.expired ? [provider, claude] : [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: null, settings: { providers: opts.expired ? [provider, claude] : [provider], workspaceFolders: [], workspaces: opts.many ? [{ id: 'ws-a', name: 'agent-nekko', path: 'C:/fixture/a' }, { id: 'ws-b', name: 'mynichi', path: 'C:/fixture/b' }] : [], theme: 'dark', themePreset: opts.preset, experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root, hero: opts.empty ? null : 'alpha', autoAdd: false, watermark: Date.now(), dock, ...(opts.focus ? { layout: { ...DEFAULT_WALL_STATE.layout, mode: 'focus' } } : {}), ...(agentPanel ? { agentPanel } : {}) } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: !!opts.planOpen } as any);
+    useStore.setState({ view: 'command', providers: opts.expired ? [provider, claude] : [provider], models, activeProviderId: 'fixture', sessions: records.map(summarizeSession), terminals: [], workspaces: [], activeWorkspaceId: null, activeSessionId: null, activeProjectId: null, settings: { providers: opts.expired ? [provider, claude] : [provider], workspaceFolders: [], workspaces: opts.many ? [{ id: 'ws-a', name: 'nekko-agent', path: 'C:/fixture/a' }, { id: 'ws-b', name: 'mynichi', path: 'C:/fixture/b' }] : [], theme: 'dark', themePreset: opts.preset, experimental: {}, agent: {}, ui: {}, commandWall: { ...DEFAULT_WALL_STATE, root, hero: opts.empty ? null : 'alpha', autoAdd: false, watermark: Date.now(), dock, ...(opts.focus ? { layout: { ...DEFAULT_WALL_STATE.layout, mode: 'focus' } } : {}), ...(agentPanel ? { agentPanel } : {}) } }, activeSkillBySession: {}, prsBySession: {}, installedSkillDefs: [], contextPanelOpen: false, planRailOpen: !!opts.planOpen } as any);
     records.forEach(putCachedSession); setRoute('command'); setEpoch(e => e + 1);
   };
   Object.assign(window, { integration: { reset, calls, route: setRoute, state: () => useStore.getState(), records: () => records } });

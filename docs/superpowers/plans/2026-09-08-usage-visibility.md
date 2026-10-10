@@ -75,7 +75,7 @@ On-demand read: `GET https://api.anthropic.com/api/oauth/usage` (Bearer + the be
 - Modify: `apps/desktop/src/renderer/views/ModelsView.tsx` — provider card: subscription cards show the full limits breakdown (windows + reset times + plan type + credits) + "Included in plan · ~$X/Y per MTok" muted; metered cards show the estimate.
 - Modify: model-picker surfaces (wherever a model is selected — `ChatControls`/model select + the onboarding `DefaultOffer` selects) — append the per-model price label ("$3/$15 per MTok" or "Included in plan").
 - Modify: `apps/desktop/src/renderer/views/CommandCenterView.tsx` — keep the "Subscription" labeling consistent with the new chip copy.
-- Create: `docs/USAGE-LIMITS.md` — where the numbers come from, that they're live reads not estimates, the off-label caveat, and that limits are provider-side (Agent Nekko can't change them).
+- Create: `docs/USAGE-LIMITS.md` — where the numbers come from, that they're live reads not estimates, the off-label caveat, and that limits are provider-side (Nekko Agent can't change them).
 - Tests: `limits.test.ts` (header → normalized state, ChatGPT payload → normalized, throttle behavior, `estimateCost` for known/unknown models, subscription-vs-metered labeling).
 
 ## Tasks

@@ -1,5 +1,5 @@
-import { IpcChannels, withApiServerDefaults, type AgentToolId, type ApiServerSettings, type SubagentTarget } from '@agent-nekko/shared';
-import { listAgentTerminals, type Host } from '@agent-nekko/host';
+import { IpcChannels, withApiServerDefaults, type AgentToolId, type ApiServerSettings, type SubagentTarget } from '@nekko-agent/shared';
+import { listAgentTerminals, type Host } from '@nekko-agent/host';
 import { apiServerStatus, newApiToken, syncApiServer } from '../main/api-server.js';
 import { cliInstallStatus, installCli } from '../main/cli-install.js';
 import { refreshLocalAccess, subagentTarget, type AppLike } from '../main/local-access.js';

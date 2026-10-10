@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { ContextItem, SpecDocStatus, WorkspaceFolder } from '@agent-nekko/shared';
+import type { ContextItem, SpecDocStatus, WorkspaceFolder } from '@nekko-agent/shared';
 import {
   analyzePrompt,
   detectFolderMentions,

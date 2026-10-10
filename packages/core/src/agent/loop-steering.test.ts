@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { runAgent } from './loop.js';
 import type { Provider, ProviderChunk } from '../providers/types.js';
-import type { ChatMessage } from '@agent-nekko/shared';
+import type { ChatMessage } from '@nekko-agent/shared';
 
 function msg(role: ChatMessage['role'], content: string): ChatMessage {
   return { id: `${role}_${content}`, role, content, createdAt: 0 };

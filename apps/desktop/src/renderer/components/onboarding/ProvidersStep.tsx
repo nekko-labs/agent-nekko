@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@agent-nekko/shared';
-import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
+import type { ModelInfo, OAuthStatus, ProviderConfig, ProviderKind } from '@nekko-agent/shared';
+import { PROVIDER_DEFAULTS, isLocalProvider, formatModelPriceLabel, modelPricing } from '@nekko-agent/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
@@ -114,7 +114,7 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
     setTests((m) => ({ ...m, [id]: { state: 'done', ...r } }));
   };
 
-  // "Agent Nekko (this app)" is a deep link: close the wizard and land on Model
+  // "Nekko Agent (this app)" is a deep link: close the wizard and land on Model
   // Server, which is where the engine, the model library and the folders other
   // apps already keep models in all live.
   const openModels = () => {
@@ -130,7 +130,7 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
     <div className="w-full">
       <h1 className="text-center text-2xl font-semibold tracking-tight">Connect a model</h1>
       <p className="mx-auto mt-2 max-w-md text-center text-[14px] leading-relaxed text-ink-soft">
-        Agent Nekko chats through providers you connect: a Claude or ChatGPT subscription, an API key,
+        Nekko Agent chats through providers you connect: a Claude or ChatGPT subscription, an API key,
         or a local server like Ollama or LM Studio.
       </p>
 
@@ -246,7 +246,7 @@ export function ProvidersStep({ onExit }: { onExit?: (after?: () => void) => voi
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <h3 className="text-[14px] font-semibold">
-                  Agent Nekko <span className="font-normal text-ink-faint">(this app)</span>
+                  Nekko Agent <span className="font-normal text-ink-faint">(this app)</span>
                 </h3>
                 <p className="mt-0.5 text-[12px] text-ink-faint">
                   Run models here, with nothing else installed. Nekko Server downloads the engine, and picks up

@@ -1,6 +1,6 @@
 import * as nodePty from '@lydell/node-pty';
 import { existsSync } from 'fs';
-import type { TerminalInfo, TerminalEvent, TerminalSnapshot, ShellOption } from '@agent-nekko/shared';
+import type { TerminalInfo, TerminalEvent, TerminalSnapshot, ShellOption } from '@nekko-agent/shared';
 import { getSettings } from './store.js';
 import { getSession } from './sessions.js';
 import { appendAgentLog, readAgentLog } from './agent-log.js';

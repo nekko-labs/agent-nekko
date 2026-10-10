@@ -1,6 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react';
 
-import type { ToolCall } from '@agent-nekko/shared';
+import type { ToolCall } from '@nekko-agent/shared';
 import { ShieldIcon } from '../../icons.js';
 import type { ApprovalScope } from './approval-decision.js';
 

@@ -1,9 +1,9 @@
 {
-  "name": "@agent-nekko/cloud",
+  "name": "@nekko-agent/cloud",
   "version": "0.1.5",
   "private": true,
   "type": "module",
-  "description": "Agent Nekko Cloud, multi-account hosted edition. Wraps the same host engine + UI per account behind accounts/auth/entitlements.",
+  "description": "Nekko Agent Cloud, multi-account hosted edition. Wraps the same host engine + UI per account behind accounts/auth/entitlements.",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -14,8 +14,8 @@
   "dependencies": {
     "@fastify/static": "^10.1.5",
     "@fastify/websocket": "^11.3.3",
-    "@agent-nekko/host": "*",
-    "@agent-nekko/shared": "*",
+    "@nekko-agent/host": "*",
+    "@nekko-agent/shared": "*",
     "fastify": "^5.12.5"
   }
 }

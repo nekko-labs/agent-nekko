@@ -11,7 +11,7 @@
  *    curated, offline-first snapshot so the marketplace works with no internet.
  *  - **Installed**, what the user has installed, and where.
  *
- * A skill can be installed into **Agent Nekko** itself (it joins the `/` menu and
+ * A skill can be installed into **Nekko Agent** itself (it joins the `/` menu and
  * the Skills tab) or exported to another agent app that reads the SKILL.md
  * convention (Claude Code `~/.claude/skills`, Codex `~/.codex/skills`).
  */
@@ -22,18 +22,18 @@ import { parseSkillMarkdown } from './skill-markdown.js';
 export type SkillSource = 'nekkolabs' | 'community' | 'vaizer';
 
 /** Where a skill can be installed. */
-export type InstallTarget = 'agent-nekko' | 'claude' | 'codex';
+export type InstallTarget = 'nekko-agent' | 'claude' | 'codex';
 
 /** Every value accepted for a target (drives the MCP enum). */
 export const INSTALL_TARGETS: readonly string[] = [
-  'agent-nekko',
+  'nekko-agent',
   'claude',
   'codex',
 ];
 
 /** Resolve a caller-supplied target onto a known one. */
 export function normalizeInstallTarget(target: string | undefined): InstallTarget {
-  if (!target || !INSTALL_TARGETS.includes(target)) return 'agent-nekko';
+  if (!target || !INSTALL_TARGETS.includes(target)) return 'nekko-agent';
   return target as InstallTarget;
 }
 
@@ -50,7 +50,7 @@ export interface InstallTargetInfo {
 
 export interface MarketplaceSkill {
   id: string;
-  /** Invoked as `/name` once installed into Agent Nekko. */
+  /** Invoked as `/name` once installed into Nekko Agent. */
   name: string;
   description: string;
   author: string;
@@ -68,13 +68,13 @@ export interface MarketplaceSkill {
   installs?: number;
   tools?: string[];
   /**
-   * Short task prompt. Inside Agent Nekko it is sent last, after the full
+   * Short task prompt. Inside Nekko Agent it is sent last, after the full
    * instructions (see `marketSkillPrompt`), so the user's input follows it.
    */
   template: string;
   /**
    * Longer instructions: written to SKILL.md for file-based installs and sent
-   * to the model ahead of `template` when run inside Agent Nekko.
+   * to the model ahead of `template` when run inside Nekko Agent.
    */
   instructions: string;
   /** Optional bespoke workflow graph; `marketWorkflow` derives one otherwise. */
@@ -105,13 +105,13 @@ export interface InstalledSkillRecord {
 /** First-party skills by Nekko Labs. */
 export const NEKKO_SKILLS: MarketplaceSkill[] = [
   {
-    id: 'agent-nekko-review-council',
+    id: 'nekko-agent-review-council',
     name: 'review-council',
     description: 'Summon a council of specialised reviewers over your diff: correctness, security, and simplicity, each reporting separately',
     author: 'Nekko Labs',
     source: 'nekkolabs',
     category: 'Code quality',
-    url: 'https://github.com/nekko-labs/agent-nekko',
+    url: 'https://github.com/nekko-labs/nekko-agent',
     installs: 4820,
     tools: ['git diff', 'read_file', 'spawn_agent'],
     template: 'Run a review council over the current changes: spawn three parallel reviewers (correctness bugs, security, simplification), then merge their findings into one ranked report.',
@@ -140,13 +140,13 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
     },
   },
   {
-    id: 'agent-nekko-spec-sync',
+    id: 'nekko-agent-spec-sync',
     name: 'spec-sync',
     description: 'Reconcile SPEC.md with the code: find shipped features the spec missed and spec promises the code broke',
     author: 'Nekko Labs',
     source: 'nekkolabs',
     category: 'Research & planning',
-    url: 'https://github.com/nekko-labs/agent-nekko',
+    url: 'https://github.com/nekko-labs/nekko-agent',
     installs: 3110,
     tools: ['read_file', 'search'],
     template: 'Compare SPEC.md against the actual code: list shipped features the spec does not mention, and spec claims the code no longer satisfies. Then update SPEC.md to match reality.',
@@ -154,13 +154,13 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
       'Read the workspace SPEC.md, then survey the codebase (entry points, routes, views, commands). Produce two lists: features that exist in code but are missing from the spec, and spec statements the code contradicts. Update SPEC.md so it describes the system as it actually is, keeping its existing voice and structure.',
   },
   {
-    id: 'agent-nekko-changelog',
+    id: 'nekko-agent-changelog',
     name: 'changelog',
     description: 'Write a user-facing changelog entry from the commits since the last release tag',
     author: 'Nekko Labs',
     source: 'nekkolabs',
     category: 'Delivery',
-    url: 'https://github.com/nekko-labs/agent-nekko',
+    url: 'https://github.com/nekko-labs/nekko-agent',
     installs: 2740,
     tools: ['git log', 'write_file'],
     template: 'Write a user-facing changelog entry from the commits since the last release tag: group by Added / Changed / Fixed, plain language, no commit hashes.',
@@ -168,13 +168,13 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
       'Run git log from the last release tag to HEAD. Group the changes into Added / Changed / Fixed sections written for end users (plain language, no commit hashes, no internal refactors unless user-visible). Prepend the entry to CHANGELOG.md with the version and date.',
   },
   {
-    id: 'agent-nekko-standup',
+    id: 'nekko-agent-standup',
     name: 'standup',
     description: 'Summarize what changed in this workspace since yesterday, written as a standup update',
     author: 'Nekko Labs',
     source: 'nekkolabs',
     category: 'Delivery',
-    url: 'https://github.com/nekko-labs/agent-nekko',
+    url: 'https://github.com/nekko-labs/nekko-agent',
     installs: 1980,
     tools: ['git log', 'git diff'],
     template: 'Summarize what changed in this repo in the last 24h as a standup update: done / in progress / blockers, three bullets each max.',
@@ -182,13 +182,13 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
       'Inspect git log and the working tree for the last 24 hours. Write a standup update with three short sections: Done (merged/committed), In progress (uncommitted or branch work), Blockers (failing tests, TODOs, unresolved conflicts). Keep each section to three bullets.',
   },
   {
-    id: 'agent-nekko-dep-audit',
+    id: 'nekko-agent-dep-audit',
     name: 'dep-audit',
     description: 'Audit dependencies for known vulnerabilities, unused packages, and majors you are behind on',
     author: 'Nekko Labs',
     source: 'nekkolabs',
     category: 'Code quality',
-    url: 'https://github.com/nekko-labs/agent-nekko',
+    url: 'https://github.com/nekko-labs/nekko-agent',
     installs: 1540,
     tools: ['bash', 'read_file'],
     template: 'Audit the dependencies: run the package manager audit, find unused packages, and list majors we are behind on, with a prioritized upgrade plan.',
@@ -196,13 +196,13 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
       'Run the package manager audit (npm audit / cargo audit / pip-audit as appropriate), cross-check package manifests against actual imports to find unused dependencies, and list major versions the project is behind on. Produce a prioritized plan: security fixes first, then easy majors, then risky ones with their breaking changes.',
   },
   {
-    id: 'agent-nekko-a11y-audit',
+    id: 'nekko-agent-a11y-audit',
     name: 'a11y-audit',
     description: 'Audit UI code for accessibility: contrast, keyboard navigation, labels, and focus handling',
     author: 'Nekko Labs',
     source: 'nekkolabs',
     category: 'Code quality',
-    url: 'https://github.com/nekko-labs/agent-nekko',
+    url: 'https://github.com/nekko-labs/nekko-agent',
     installs: 1210,
     tools: ['read_file', 'search'],
     template: 'Audit the UI components for accessibility issues: missing labels/alt text, keyboard traps, focus handling, contrast risks. Report by severity with fixes.',
@@ -218,7 +218,7 @@ export const NEKKO_SKILLS: MarketplaceSkill[] = [
     author: 'Nekko Labs',
     source: 'nekkolabs',
     category: 'Code quality',
-    url: 'https://github.com/nekko-labs/agent-nekko',
+    url: 'https://github.com/nekko-labs/nekko-agent',
     tools: ['search', 'edit_file'],
     template: 'Sweep the UI code for hardcoded user-facing strings, move them into the i18n catalog, and flag any that need context notes for translators.',
     instructions:
@@ -395,7 +395,7 @@ export function marketSkillPrompt(m: MarketplaceSkill): string {
   return [`Use the "${m.name}" skill. Its instructions:`, '', body, '', 'Task:', m.template].join('\n');
 }
 
-/** A marketplace skill as a runnable in-app SkillDef (once installed to Agent Nekko). */
+/** A marketplace skill as a runnable in-app SkillDef (once installed to Nekko Agent). */
 export function marketToSkillDef(m: MarketplaceSkill): SkillDef {
   return {
     id: m.id,
@@ -422,7 +422,7 @@ export function skillToMarkdown(m: MarketplaceSkill): string {
     '',
     m.instructions,
     '',
-    `> Installed from the Agent Nekko skills marketplace (author: ${m.author}${m.url ? `, ${m.url}` : ''}).`,
+    `> Installed from the Nekko Agent skills marketplace (author: ${m.author}${m.url ? `, ${m.url}` : ''}).`,
     ...(m.basedOn ? [`> Based on ${m.basedOn}; this is our own summary, see the original for its full text.`] : []),
     '',
   ].join('\n');

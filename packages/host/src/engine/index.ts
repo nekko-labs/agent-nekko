@@ -25,9 +25,9 @@ import type {
   ModelFolderReport,
   ModelFolderSuggestion,
   StopResult,
-} from '@agent-nekko/shared';
-import { DEFAULT_ENGINE_SETTINGS, defaultContextTokens, engineBaseUrl, modelModality } from '@agent-nekko/shared';
-import { autoFit, computeFit } from '@agent-nekko/core';
+} from '@nekko-agent/shared';
+import { DEFAULT_ENGINE_SETTINGS, defaultContextTokens, engineBaseUrl, modelModality } from '@nekko-agent/shared';
+import { autoFit, computeFit } from '@nekko-agent/core';
 import { overheadFloorFor } from '../runtimes/calibration.js';
 import { createCatalog, hfFileUrl } from './catalog.js';
 import { companionsDir } from './companions.js';
@@ -622,9 +622,9 @@ export function createEngine(deps: EngineDeps) {
      * whether it first has to load the model, which is most of a cold request.
      */
     generateImage: async (
-      request: import('@agent-nekko/shared').ImageGenerationRequest,
+      request: import('@nekko-agent/shared').ImageGenerationRequest,
       onStage?: (stage: 'loading' | 'generating') => void,
-    ): Promise<import('@agent-nekko/shared').ImageGenerationResult> => {
+    ): Promise<import('@nekko-agent/shared').ImageGenerationResult> => {
       const { modelId, prompt, width, height, steps = 28, cfgScale = 4.5, seed = -1 } = request;
       if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 20_000 || ![width, height].every(n => Number.isInteger(n) && n >= 256 && n <= 2048 && n % 64 === 0) || !Number.isInteger(steps) || steps < 1 || steps > 100 || !Number.isFinite(cfgScale) || cfgScale < 0 || cfgScale > 30 || !Number.isSafeInteger(seed) || seed < -1) throw new Error('Use a prompt, dimensions from 256 to 2048 in multiples of 64, 1 to 100 steps and CFG from 0 to 30.');
       const model = await library.find(modelId);
@@ -639,7 +639,7 @@ export function createEngine(deps: EngineDeps) {
         body: JSON.stringify({ model: modelId, prompt: `${prompt}\n<sd_cpp_extra_args>${JSON.stringify({ sample_params: { sample_steps: steps, guidance: { txt_cfg: cfgScale } }, seed })}</sd_cpp_extra_args>`, size: `${width}x${height}`, n: 1, output_format: 'png' }),
         signal: AbortSignal.timeout(30 * 60_000),
       });
-      const result = await res.json() as import('@agent-nekko/shared').ImageGenerationResult & { error?: { message?: string } };
+      const result = await res.json() as import('@nekko-agent/shared').ImageGenerationResult & { error?: { message?: string } };
       if (!res.ok || !result.data?.length) throw new Error(result.error?.message ?? `Image generation failed (HTTP ${res.status}).`);
       return result;
     },

@@ -79,11 +79,11 @@ describe('parsePorcelainV2', () => {
 
 describe('parseWorktree', () => {
   it('says nothing for the main checkout', () => {
-    expect(parseWorktree('.git\n.git\nC:/code/agent-nekko\n', 'C:/code/agent-nekko')).toBeUndefined();
+    expect(parseWorktree('.git\n.git\nC:/code/nekko-agent\n', 'C:/code/nekko-agent')).toBeUndefined();
   });
 
   it('names a linked worktree by its folder', () => {
-    const out = 'C:/code/agent-nekko/.git/worktrees/fix-chat\nC:/code/agent-nekko/.git\nC:/code/.worktrees/fix-chat\n';
+    const out = 'C:/code/nekko-agent/.git/worktrees/fix-chat\nC:/code/nekko-agent/.git\nC:/code/.worktrees/fix-chat\n';
     expect(parseWorktree(out, 'C:/code/.worktrees/fix-chat')).toEqual({
       name: 'fix-chat',
       path: 'C:/code/.worktrees/fix-chat',

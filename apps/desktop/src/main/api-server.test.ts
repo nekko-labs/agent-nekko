@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { AppSettings } from '@agent-nekko/shared';
-import type { Host } from '@agent-nekko/host';
+import type { AppSettings } from '@nekko-agent/shared';
+import type { Host } from '@nekko-agent/host';
 import {
   acceptKey,
   apiServerStatus,

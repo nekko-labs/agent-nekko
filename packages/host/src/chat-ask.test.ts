@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentEvent, ProviderConfig } from '@agent-nekko/shared';
-import type { Provider, ProviderChunk } from '@agent-nekko/core';
+import type { AgentEvent, ProviderConfig } from '@nekko-agent/shared';
+import type { Provider, ProviderChunk } from '@nekko-agent/core';
 
 /**
  * `ask_user` end to end through the host: the turn parks on the question, the
@@ -26,8 +26,8 @@ const callMcpTool = vi.hoisted(() => vi.fn(async (call: { id: string }) => ({ to
 
 vi.mock('./spec.js', () => ({ buildSpec: vi.fn(async () => ({ ok: true })) }));
 vi.mock('./mcp.js', () => ({ syncMcp, mcpToolSpecs, isMcpTool, callMcpTool }));
-vi.mock('@agent-nekko/core', async () => {
-  const actual = await vi.importActual<typeof import('@agent-nekko/core')>('@agent-nekko/core');
+vi.mock('@nekko-agent/core', async () => {
+  const actual = await vi.importActual<typeof import('@nekko-agent/core')>('@nekko-agent/core');
   return {
     ...actual,
     getConnector: () => ({ fetch: async () => [] }),

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import type { SubscriptionLimits } from '@agent-nekko/shared';
+import type { SubscriptionLimits } from '@nekko-agent/shared';
 import { setDataDir } from './paths.js';
 import { saveSettings } from './store.js';
 import { setToken } from './oauth.js';

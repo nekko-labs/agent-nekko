@@ -1,5 +1,5 @@
-import type { TurnStats } from '@agent-nekko/shared';
-import { formatRate, turnTokensPerSecond } from '@agent-nekko/shared';
+import type { TurnStats } from '@nekko-agent/shared';
+import { formatRate, turnTokensPerSecond } from '@nekko-agent/shared';
 import { fmtTok } from './transcript.js';
 import { CheckIcon } from '../../icons.js';
 

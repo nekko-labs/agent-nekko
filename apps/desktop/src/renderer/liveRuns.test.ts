@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentEvent } from '@agent-nekko/shared';
+import type { AgentEvent } from '@nekko-agent/shared';
 import { LIVE_STREAM_MAX, __resetLiveRuns, applyEvent, clampLive, clearLiveRun, getLiveRun, runningSessionIds, takeFinishedRun } from './liveRuns.js';
 
 // The registry repaints on an animation frame; the folding itself is synchronous

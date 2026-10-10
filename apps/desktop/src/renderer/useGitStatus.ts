@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { GitStatus } from '@agent-nekko/shared';
+import type { GitStatus } from '@nekko-agent/shared';
 import { afterPaint } from './afterPaint.js';
 
 /** How often a visible card re-reads git. The host caches under this anyway. */

@@ -1,5 +1,5 @@
 import { execFile } from 'child_process';
-import type { GpuDevice, GpuStats } from '@agent-nekko/shared';
+import type { GpuDevice, GpuStats } from '@nekko-agent/shared';
 
 /**
  * A GPU reading taken from the engine itself, for machines where the vendor

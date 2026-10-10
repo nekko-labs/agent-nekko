@@ -36,10 +36,10 @@ Evidence: `.shots/composer-editing/status.json`, `harness-before-fallback.log`, 
 
 ## Full desktop checks and failures
 
-1. Initial `npm test --workspace @agent-nekko/desktop`: 87 files passed; 572 tests passed; 3 suites failed to load missing `@agent-nekko/host` / `@agent-nekko/host/user-data` build exports.
-2. Built shared/core/host using `npm run build:core` and `npm run build -w @agent-nekko/host`. Next full test run: 89 files passed, 600 tests passed; 4 bundle-external assertions failed because desktop `out/main/index.js`, `out/preload/index.js`, and `out/renderer/assets` had not yet been built.
-3. `npm run build -w @agent-nekko/desktop` succeeded. Final `npm test --workspace @agent-nekko/desktop`: **90 files, 604 tests passed**, no remaining failures.
-4. `npm run typecheck -w @agent-nekko/desktop`: passed.
+1. Initial `npm test --workspace @nekko-agent/desktop`: 87 files passed; 572 tests passed; 3 suites failed to load missing `@nekko-agent/host` / `@nekko-agent/host/user-data` build exports.
+2. Built shared/core/host using `npm run build:core` and `npm run build -w @nekko-agent/host`. Next full test run: 89 files passed, 600 tests passed; 4 bundle-external assertions failed because desktop `out/main/index.js`, `out/preload/index.js`, and `out/renderer/assets` had not yet been built.
+3. `npm run build -w @nekko-agent/desktop` succeeded. Final `npm test --workspace @nekko-agent/desktop`: **90 files, 604 tests passed**, no remaining failures.
+4. `npm run typecheck -w @nekko-agent/desktop`: passed.
 
 Logs are in `.shots/composer-editing/desktop-tests.log`, `desktop-tests-built.log`, `desktop-build.log`, `desktop-tests-final.log`, and `desktop-typecheck.log`. The intermediate failures were missing build prerequisites, not fixed by changing test expectations. Full desktop tests here means the desktop package's `vitest run` suite, not every separate live-app integration script.
 

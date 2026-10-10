@@ -8,7 +8,7 @@ import {
   type ReadinessVerdict,
   type RoleAssessment,
   type StackRole,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 
 /**
  * The machine-readiness advisor (AN9b): given what a machine provably has and a

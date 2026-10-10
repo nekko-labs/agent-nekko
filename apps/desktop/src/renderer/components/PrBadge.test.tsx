@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('../store.js', () => ({ useStore: vi.fn() }));
-import type { PrInfo } from '@agent-nekko/shared';
+import type { PrInfo } from '@nekko-agent/shared';
 import { PrBadge } from './PrCard.js';
 
 const pr = (state: PrInfo['state']) => ({ state } as PrInfo);

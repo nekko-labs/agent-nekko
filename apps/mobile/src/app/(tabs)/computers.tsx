@@ -19,7 +19,7 @@ export default function ComputersScreen() {
     <ScrollView style={{ backgroundColor: p.paper }} contentContainerStyle={{ paddingTop: insets.top + space.md, paddingBottom: insets.bottom + 96 }}>
       <View style={{ paddingHorizontal: space.lg, gap: space.xs }}>
         <T variant="title">Computers</T>
-        <T tone="soft">Run Agent Nekko on your computer and steer it from here: start chats, follow runs, approve what it wants to do.</T>
+        <T tone="soft">Run Nekko Agent on your computer and steer it from here: start chats, follow runs, approve what it wants to do.</T>
       </View>
 
       {s.computers.length ? <SectionHeader title="Paired" /> : null}
@@ -32,7 +32,7 @@ export default function ComputersScreen() {
 
       <SectionHeader title="How it works" />
       <Card style={{ marginHorizontal: space.lg, gap: space.md }}>
-        <Step n={1} text="On your computer, open Agent Nekko → Settings → Remote access and turn it on." />
+        <Step n={1} text="On your computer, open Nekko Agent → Settings → Remote access and turn it on." />
         <Step n={2} text="Choose “Pair a device” and scan the QR with this app. The code works once and expires in 10 minutes." />
         <Step n={3} text="Your computer dials out to a relay; it never opens a port. Everything is end-to-end encrypted with a key only your devices hold." />
         <Step n={4} text="Remove this phone any time from the same screen on your computer. It loses access immediately." />

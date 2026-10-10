@@ -1,7 +1,7 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { emptyLiveActivity, reduceLiveActivity } from '@agent-nekko/shared';
+import { emptyLiveActivity, reduceLiveActivity } from '@nekko-agent/shared';
 import { quietMinutes, toolQuietSince, watchQuietMinutes } from './toolProgress.js';
 import { ToolProgressChip } from './ToolProgressChip.js';
 import { ActivityGroup } from './ActivityGroup.js';

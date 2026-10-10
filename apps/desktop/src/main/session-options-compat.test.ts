@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Session } from '@agent-nekko/shared';
-import { IpcChannels } from '@agent-nekko/shared';
+import type { Session } from '@nekko-agent/shared';
+import { IpcChannels } from '@nekko-agent/shared';
 import { setSessionOptionsCompat } from './session-options-compat.js';
 
 function session(over: Partial<Session> = {}): Session {

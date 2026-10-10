@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ChatMessage } from '@agent-nekko/shared';
+import type { ChatMessage } from '@nekko-agent/shared';
 
 const RESTART_NOTICE = '_The app closed while this reply was running._\n\n_This reply was cut off before it finished. Everything above is kept, resume to carry on from here._';
 

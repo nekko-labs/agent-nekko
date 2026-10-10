@@ -12,8 +12,8 @@ import type {
   LocalModel,
   ResidentModel,
   StopResult,
-} from '@agent-nekko/shared';
-import { defaultContextTokens, MODEL_FOLDER_PROVIDERS, unsupportedLoadReason } from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
+import { defaultContextTokens, MODEL_FOLDER_PROVIDERS, unsupportedLoadReason } from '@nekko-agent/shared';
 import { DAEMON_PORT, type EngineDaemon } from './daemon.js';
 import { mlxArgs } from './mlx.js';
 import { diffusionArgs } from './diffusion.js';
@@ -84,7 +84,7 @@ interface Child {
 }
 
 /**
- * Quitting Agent Nekko must not leave orphaned model servers holding VRAM.
+ * Quitting Nekko Agent must not leave orphaned model servers holding VRAM.
  *
  * One process-level hook for the module rather than one per engine: a listener
  * per instance is a slow leak in anything that constructs more than one, and the
@@ -723,7 +723,7 @@ export function createEngineServer(deps: EngineServerDeps) {
     // Health is deliberately unauthenticated: it carries nothing, and something
     // has to be able to tell whether the port is ours without a key.
     if (path === '/health' || path === '/') {
-      return json(res, 200, { status: 'ok', service: 'agent-nekko-engine', models: children.size });
+      return json(res, 200, { status: 'ok', service: 'nekko-agent-engine', models: children.size });
     }
     if (settings.apiKey && !authorized(req, settings.apiKey)) {
       return json(res, 401, { error: { message: 'Invalid API key.', type: 'invalid_request_error' } });
@@ -1065,7 +1065,7 @@ function modelRow(model: LocalModel, loaded: boolean) {
     id: model.id,
     object: 'model',
     created: Math.floor(model.addedAt / 1000),
-    owned_by: 'agent-nekko',
+    owned_by: 'nekko-agent',
     // Extras beyond the OpenAI schema, which compatible clients ignore and ours
     // uses to show state without a second request.
     state: loaded ? 'loaded' : 'not-loaded',

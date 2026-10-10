@@ -3,11 +3,11 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 
 /**
  * The host's data directory is injected by each runtime (Electron passes
- * `app.getPath('userData')/agent-nekko`; the web server passes its own dir) so the
+ * `app.getPath('userData')/nekko-agent`; the web server passes its own dir) so the
  * service layer stays free of any runtime-specific dependency.
  *
  * A single process normally serves one data dir (`_dir`, set via `setDataDir`).
- * Agent Nekko Cloud runs many accounts in one process, so it wraps each authenticated
+ * Nekko Agent Cloud runs many accounts in one process, so it wraps each authenticated
  * request in `withDataDir(accountDir, …)`; `dataDir()` then prefers the
  * request-scoped dir over the global default. Editions that never call
  * `withDataDir` (Electron, the self-hosted server, the CLI) are unaffected.
@@ -28,7 +28,7 @@ export function dataDir(): string {
 }
 
 /**
- * Run `fn` with a request-scoped data dir. Used by Agent Nekko Cloud to isolate each
+ * Run `fn` with a request-scoped data dir. Used by Nekko Agent Cloud to isolate each
  * account's data within a single process; the scope propagates across awaits.
  */
 export function withDataDir<T>(dir: string, fn: () => T): T {

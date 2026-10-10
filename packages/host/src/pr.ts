@@ -1,7 +1,7 @@
 import { execFile } from 'child_process';
 import { PrReadCache, PrReadQueue, githubReadCooldownMs } from './pr-cache.js';
-import type { PrAction, PrActionResult, PrChecks, PrDiff, PrDiffFile, PrInfo, PrState } from '@agent-nekko/shared';
-import { collectSessionPrUrls, parsePrUrl } from '@agent-nekko/shared';
+import type { PrAction, PrActionResult, PrChecks, PrDiff, PrDiffFile, PrInfo, PrState } from '@nekko-agent/shared';
+import { collectSessionPrUrls, parsePrUrl } from '@nekko-agent/shared';
 import { getSettings } from './store.js';
 import { getSession } from './sessions.js';
 
@@ -61,7 +61,7 @@ function apiHeaders(): Record<string, string> {
   return {
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
-    'User-Agent': 'agent-nekko',
+    'User-Agent': 'nekko-agent',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }

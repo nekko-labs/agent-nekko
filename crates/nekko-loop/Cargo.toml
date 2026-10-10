@@ -1,6 +1,6 @@
 [package]
 name = "nekko-loop"
-description = "The agent loop for the Agent Nekko engine daemon: resuming an interrupted run, catching runaway output, and windowing history, as the TS loop does."
+description = "The agent loop for the Nekko Agent engine daemon: resuming an interrupted run, catching runaway output, and windowing history, as the TS loop does."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

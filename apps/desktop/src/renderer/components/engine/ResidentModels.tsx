@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { EngineSettings, LoadingModel, LocalModel, ResidentModel } from '@agent-nekko/shared';
+import type { EngineSettings, LoadingModel, LocalModel, ResidentModel } from '@nekko-agent/shared';
 import { useStore } from '../../store.js';
 import { formatBytes, formatTokens, placementLabel, placementTitle } from '../runtimes/verdict.js';
 import { EngineLoadDrawer } from './EngineLoadDrawer.js';

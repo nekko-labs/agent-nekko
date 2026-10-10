@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { AgentEvent } from '@agent-nekko/shared';
+import type { AgentEvent } from '@nekko-agent/shared';
 
 /**
  * The reply being made in an image chat: a placeholder frame with the stage

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AgentEvent } from '@agent-nekko/shared';
+import type { AgentEvent } from '@nekko-agent/shared';
 
 vi.mock('./store.js', () => ({ useStore: { getState: () => ({}) } }));
 

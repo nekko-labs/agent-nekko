@@ -12,8 +12,8 @@ import {
 import { runMcpServer } from './mcp.js';
 import { resolveInstall } from './skills.js';
 import { VERSION } from './version.js';
-import { cliCommand, normalizeInstallTarget, triggerLabel } from '@agent-nekko/shared';
-import type { AgentEvent, NewTask } from '@agent-nekko/shared';
+import { cliCommand, normalizeInstallTarget, triggerLabel } from '@nekko-agent/shared';
+import type { AgentEvent, NewTask } from '@nekko-agent/shared';
 
 export const EXIT_CODES = {
   success: 0,
@@ -49,19 +49,19 @@ export function parseFlags(argv: string[]): { _: string[]; flags: Record<string,
   return { _, flags };
 }
 
-const HELP = `Agent Nekko CLI (agent-nekko ${VERSION}), drive your local agent from the terminal.
+const HELP = `Nekko Agent CLI (nekko-agent ${VERSION}), drive your local agent from the terminal.
 
 Usage:
-  agent-nekko status|sessions|watch [--json]
-  agent-nekko chat "<prompt>" [--approve guardrails|yolo|ask] [opts]
-  agent-nekko workspace list|add|remove|index|search [opts]
-  agent-nekko prompts|tasks|skills|tools|models [opts]
-  agent-nekko workflow list|run <name>|trigger <command>|runs [--json]
-  agent-nekko train start|status|hint|stop [opts]
-  agent-nekko mcp
-  agent-nekko --help | --version
+  nekko-agent status|sessions|watch [--json]
+  nekko-agent chat "<prompt>" [--approve guardrails|yolo|ask] [opts]
+  nekko-agent workspace list|add|remove|index|search [opts]
+  nekko-agent prompts|tasks|skills|tools|models [opts]
+  nekko-agent workflow list|run <name>|trigger <command>|runs [--json]
+  nekko-agent train start|status|hint|stop [opts]
+  nekko-agent mcp
+  nekko-agent --help | --version
 
-Install: shipped with the Agent Nekko app, or npm install -g agent-nekko
+Install: shipped with the Nekko Agent app, or npm install -g nekko-agent
 
 Target (first one that applies wins):
   --url <http://host:port>       Remote server, with --token <token>
@@ -112,7 +112,7 @@ async function promptInput(args: string[], flags: Record<string, string | boolea
   if (file) return readFileSync(file, 'utf8');
   if (args[1] === '-' || (!args[1] && !stdin.isTTY)) return readStdin();
   if (args[1]) return args[1];
-  throw new CliError('Usage: agent-nekko chat "<prompt>" (or provide --file / stdin)', EXIT_CODES.usage);
+  throw new CliError('Usage: nekko-agent chat "<prompt>" (or provide --file / stdin)', EXIT_CODES.usage);
 }
 
 function taskFrom(flags: Record<string, string | boolean>): NewTask {
@@ -206,7 +206,7 @@ export async function runCli(argv: string[]): Promise<void> {
           : target.source === 'local'
             ? ' (local data directory, the app is not serving)'
             : '';
-      console.log(`Agent Nekko, ${target.url ?? dataDir()}${via}`);
+      console.log(`Nekko Agent, ${target.url ?? dataDir()}${via}`);
       console.log(`Providers: ${s.providers.map((p) => `${p.label} (${p.id})`).join(', ') || 'none'}`);
       console.log(`Default model: ${s.defaultModelId ?? '-'}`);
       console.log(`Workspaces: ${s.workspaces.map((w) => w.name).join(', ') || 'none'}`);
@@ -325,7 +325,7 @@ export async function runCli(argv: string[]): Promise<void> {
           json,
         );
       }
-      throw new CliError('Usage: agent-nekko workspace list|add|remove|index|search', EXIT_CODES.usage);
+      throw new CliError('Usage: nekko-agent workspace list|add|remove|index|search', EXIT_CODES.usage);
     }
     if (cmd === 'prompts') return void print((await client.getSettings()).prompts ?? [], json);
     if (cmd === 'tasks') {
@@ -339,7 +339,7 @@ export async function runCli(argv: string[]): Promise<void> {
       if (sub === 'delete') {
         return void print(await client.deleteTask(value(flags, 'id') ?? _[2] ?? ''), json);
       }
-      throw new CliError('Usage: agent-nekko tasks list|add|run|delete', EXIT_CODES.usage);
+      throw new CliError('Usage: nekko-agent tasks list|add|run|delete', EXIT_CODES.usage);
     }
     if (cmd === 'workflow' || cmd === 'workflows') {
       const sub = _[1] ?? 'list';
@@ -368,7 +368,7 @@ export async function runCli(argv: string[]): Promise<void> {
         // Named by CLI command (what a `cli` trigger answers to), by exact name,
         // or by id, so a script doesn't have to know a uuid.
         const target = value(flags, 'name') ?? _[2] ?? '';
-        if (!target) throw new CliError('Usage: agent-nekko workflow run <name>', EXIT_CODES.usage);
+        if (!target) throw new CliError('Usage: nekko-agent workflow run <name>', EXIT_CODES.usage);
         // `run` fires the named workflow directly; `trigger` offers the name as a
         // CLI event, so every workflow with a matching cli trigger reacts.
         if (sub === 'trigger') {
@@ -390,14 +390,14 @@ export async function runCli(argv: string[]): Promise<void> {
         }
         return void print(json ? run : { workflow: wf.name, status: run.status, steps: run.steps.length }, json);
       }
-      throw new CliError('Usage: agent-nekko workflow list|run <name>|trigger <command>|runs', EXIT_CODES.usage);
+      throw new CliError('Usage: nekko-agent workflow list|run <name>|trigger <command>|runs', EXIT_CODES.usage);
     }
     if (cmd === 'skills') {
       if (_[1] === 'install') {
         const id = value(flags, 'id') ?? _[2];
         if (!id) {
           throw new CliError(
-            'Usage: agent-nekko skills install <id> [--target agent-nekko|claude|codex]',
+            'Usage: nekko-agent skills install <id> [--target nekko-agent|claude|codex]',
             EXIT_CODES.usage,
           );
         }
@@ -455,7 +455,7 @@ export async function runCli(argv: string[]): Promise<void> {
         await client.startTrainingRun(run.id);
         return void print({ runId: run.id, sessionId: run.sessionId, status: 'running' }, json);
       }
-      throw new CliError('Usage: agent-nekko train start|status|hint|stop', EXIT_CODES.usage);
+      throw new CliError('Usage: nekko-agent train start|status|hint|stop', EXIT_CODES.usage);
     }
     throw new CliError(`Unknown command: ${cmd}`, EXIT_CODES.usage);
   } catch (e) {

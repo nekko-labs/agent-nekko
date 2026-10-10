@@ -29,7 +29,7 @@ export function evaluateCapability(
 ): CapabilityDecision {
   if (context.environment === 'sandboxed') {
     if (!context.runtimeReady) return { action: 'deny', reason: 'Sandbox runtime is unavailable. Host fallback is forbidden.' };
-    if (capability.startsWith('app:')) return { action: 'deny', reason: 'Sandboxed sessions cannot control host applications, including Agent Nekko.' };
+    if (capability.startsWith('app:')) return { action: 'deny', reason: 'Sandboxed sessions cannot control host applications, including Nekko Agent.' };
     if (!context.granted.has(capability)) return { action: 'request', reason: 'This capability has not been provided to the isolated session.' };
   } else if (!context.connected.has(capability)) {
     return { action: 'request', reason: 'Connect this capability with user approval before using it.' };
