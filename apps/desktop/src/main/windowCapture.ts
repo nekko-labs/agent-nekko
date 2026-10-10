@@ -31,7 +31,10 @@ export async function captureWindow(sessionId: string, input: Record<string, unk
   recording = true;
   let win: BrowserWindow | undefined;
   try {
-    win = new BrowserWindow({ show: false, focusable: false, skipTaskbar: true, width: 1, height: 1, webPreferences: { partition: `capture-${sessionId}-${Date.now()}`, sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+    // One shared in-memory partition: Electron never frees a partition's
+    // session, so a fresh one per capture leaked. `recording` serializes
+    // captures and the finally block clears the grant, so sharing is safe.
+    win = new BrowserWindow({ show: false, focusable: false, skipTaskbar: true, width: 1, height: 1, webPreferences: { partition: 'nekko-capture', sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
     const source = (await desktopCapturer.getSources({ types: ['window'], thumbnailSize: { width: 0, height: 0 }, fetchWindowIcons: false })).find((s) => s.id === id && s.name === title);
     if (!source) throw new Error('Selected window disappeared; list windows again');
     // Only this isolated, temporary recorder gets a display-media grant. It
