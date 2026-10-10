@@ -9,7 +9,8 @@ import { AUTO_MODEL_ID, classifyAgent, classifySession, formatUSD, summarizeSess
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { runningSessionIds } from '../liveRuns.js';
-import { GridIcon, PlusIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, WandIcon } from '../icons.js';
+import { DiffIcon, FolderIcon, GlobeIcon, GridIcon, MoreVerticalIcon, TerminalIcon, FocusLayoutIcon, FixedLayoutIcon, PanelIcon, WandIcon } from '../icons.js';
+import { NekkoAvatar } from '../components/Mascot.js';
 import { AgentPanelControls } from '../components/AgentPanelControls.js';
 import { CommandWall } from '../components/CommandWall.js';
 import { WallComposer, type WallAgent } from '../components/WallComposer.js';
@@ -354,27 +355,20 @@ export function CommandCenterView() {
       panelRef={composerRef}
     />
   );
-  // Add shares the composer row so it does not reserve vertical wall space.
-  const addButton = (
-    <div className="wall-add-launch" data-side={wall.composer.side}>
-      <button
-        type="button"
-        className="wall-add-button"
-        data-wall-add-button
-        onClick={() => setAddOpen((o) => !o)}
-        aria-controls="wall-window-picker"
-        aria-expanded={addOpen}
-        title="Add an agent, a terminal, or a chat already running"
-      >
-        <PlusIcon className="h-4 w-4" /> Add window
-      </button>
-    </div>
-  );
-  const composerRow = <div className="wall-composer-row" data-dock={`${wall.composer.side}-${wall.composer.align}`}>{composer}{addButton}</div>;
+  // Adding windows lives in the toolbar's icon bar, so the composer row is the composer alone.
+  const composerRow = <div className="wall-composer-row" data-dock={`${wall.composer.side}-${wall.composer.align}`}>{composer}</div>;
+  // Changes, Browser and Files open in the selected agent's workspace, which
+  // the wall shows as companions under its window: unfold them so they show.
+  const openCompanion = (kind: 'diff' | 'browser' | 'files') => {
+    if (!selected) return;
+    if (useStore.getState().openCompanion(selected, kind)) setWall((w) => ({ ...w, folded: { ...w.folded, [selected]: false } }));
+  };
 
   return (
     <div ref={viewRef} className="flex h-full min-h-0 flex-col gap-3 px-4 pb-4 pt-1 xl:px-6">
-      <WallToolbar wall={wall} setWall={setWall} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen} showAdd={wall.layout.mode === 'focus' || !!completedId} />
+      <WallToolbar wall={wall} setWall={setWall} onAutoArrange={autoArrange} addOpen={addOpen} setAddOpen={setAddOpen}
+        onAdd={(kind) => { setCompletedId(null); void addFromToolbar(kind); }}
+        onCompanion={openCompanion} companionFor={completedId ? null : selectedAgent?.session.title ?? null} />
       <div className="wall-workspace" data-dock-side={wall.dock.side}>
         <WallDock state={wall} setState={setWall} tasks={tasks} running={running} now={now} sessions={sessions} providers={providers} usage={usage} vitals={vitals} onOpenChat={openChat} onOpenModels={() => setView('models')} />
         <div className="wall-agent-workspace" data-tabs={panel.show && panel.orientation === 'horizontal' ? 'top' : 'left'}>
@@ -444,21 +438,34 @@ const FILTERS: Array<{ key: WallFilter; label: string }> = [
   { key: 'terminal', label: 'Terminals' },
 ];
 
+type CompanionKind = 'diff' | 'browser' | 'files';
+const COMPANIONS: Array<{ kind: CompanionKind; label: string; Icon: (p: { className?: string }) => React.JSX.Element }> = [
+  { kind: 'diff', label: 'Changes', Icon: DiffIcon },
+  { kind: 'browser', label: 'Browser', Icon: GlobeIcon },
+  { kind: 'files', label: 'Files', Icon: FolderIcon },
+];
+
 export function WallToolbar({
   wall,
   setWall,
   onAutoArrange,
   addOpen,
   setAddOpen,
-  showAdd = false,
+  onAdd,
+  onCompanion,
+  companionFor,
 }: {
   wall: CommandWallState;
   setWall: (update: (s: CommandWallState) => CommandWallState) => void;
   onAutoArrange: () => void;
   addOpen: boolean;
   setAddOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  /** Focus has no composer row to carry Add window, so the toolbar keeps it. */
-  showAdd?: boolean;
+  /** A new agent or terminal window on the wall. */
+  onAdd: (kind: 'chat' | 'terminal') => void;
+  /** A companion window for the selected agent. */
+  onCompanion: (kind: CompanionKind) => void;
+  /** The selected agent's title; companions are off without one. */
+  companionFor: string | null;
 }) {
   const [fixedOpen, setFixedOpen] = useState(false);
   const [hoverSize, setHoverSize] = useState({ rows: wall.layout.rows, cols: wall.layout.cols });
@@ -545,20 +552,33 @@ export function WallToolbar({
           ))}
         </div>
         <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-pressed={wall.dock.show} onClick={() => setWall((w) => ({ ...w, dock: { ...w.dock, show: !w.dock.show } }))}><PanelIcon className="h-4 w-4" />Panels</button>
-        {showAdd && <div className="relative">
+        {/* Adding to the wall: an agent or a terminal of its own, or a
+            companion (Changes, Browser, Files) under the selected agent. More
+            opens the full picker: chats already running, image sessions. */}
+        <div className="wall-add-bar" role="group" aria-label="Add to the wall">
+          <button type="button" className="wall-add-icon" title="New agent" aria-label="New agent" onClick={() => onAdd('chat')}><NekkoAvatar size={16} stationary eyes={false} /></button>
+          <button type="button" className="wall-add-icon" title="New terminal" aria-label="New terminal" onClick={() => onAdd('terminal')}><TerminalIcon className="h-4 w-4" /></button>
+          {COMPANIONS.map(({ kind, label, Icon }) => (
+            <button key={kind} type="button" className="wall-add-icon" disabled={!companionFor}
+              title={companionFor ? `${label} for ${companionFor}` : `${label}: select an agent first`}
+              aria-label={label} onClick={() => onCompanion(kind)}><Icon className="h-4 w-4" /></button>
+          ))}
           <button
-            className="btn btn-outline gap-1.5 py-1 text-[12px] disabled:opacity-50"
+            type="button"
+            className="wall-add-icon"
+            data-wall-add-button
             onClick={() => {
               if (!addOpen) setWall((w) => w.layout.mode === 'focus' ? { ...w, layout: { ...w.layout, mode: 'grid' } } : w);
               setAddOpen((o) => !o);
             }}
             aria-controls="wall-window-picker"
             aria-expanded={addOpen}
-            title="Add an agent, a terminal, or a chat already running"
+            aria-label="Add window"
+            title="More: a chat already running, an image session, or a new chat with details"
           >
-            <PlusIcon className="h-3.5 w-3.5" /> Add window
+            <MoreVerticalIcon className="h-4 w-4" />
           </button>
-        </div>}
+        </div>
       </div>
     </div>
   );

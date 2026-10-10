@@ -16,7 +16,7 @@ import { TitleBar } from '../components/TitleBar.js';
 import { DEFAULT_WALL_STATE } from '../commandWall.js';
 import { LAYOUT_LABEL, WallToolbar } from './CommandCenterView.js';
 
-const toolbar = () => renderToStaticMarkup(<WallToolbar wall={DEFAULT_WALL_STATE} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />);
+const toolbar = () => renderToStaticMarkup(<WallToolbar wall={DEFAULT_WALL_STATE} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} onAdd={() => {}} onCompanion={() => {}} companionFor={null} />);
 
 describe('Agents header placement', () => {
   beforeEach(() => { state.chrome = true; state.mac = false; state.view = 'command'; });
@@ -47,13 +47,16 @@ describe('Agents header placement', () => {
     expect(html).not.toContain('0 terminals');
     for (const label of ['Wall layout', 'Focus', 'Dynamic', 'Grid', 'Show', 'Auto-arrange', 'Panels']) expect(html).toContain(label);
     expect(html).not.toContain('>Fixed<');
-    // Add window rides beside the composer; the toolbar keeps it only in Focus.
-    expect(html).not.toContain('Add window');
-    const focus = renderToStaticMarkup(<WallToolbar wall={DEFAULT_WALL_STATE} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} showAdd />);
-    expect(focus).toContain('Add window');
+    // Adding lives in the toolbar's icon bar in every layout: agent, terminal,
+    // the selected agent's companions, then More (the full picker).
+    for (const label of ['New agent', 'New terminal', 'Changes', 'Browser', 'Files', 'Add window']) expect(html).toContain(`aria-label="${label}"`);
+    expect(html).toContain('Changes: select an agent first');
+    const focus = renderToStaticMarkup(<WallToolbar wall={DEFAULT_WALL_STATE} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} onAdd={() => {}} onCompanion={() => {}} companionFor="Perf chat 00" />);
+    expect(focus).toContain('title="Changes for Perf chat 00"');
+    expect(focus).not.toMatch(/aria-label="Changes"[^>]*disabled/);
   });
   it.each(['focus', 'grid', 'fixed'] as const)('only exposes magic in Dynamic (%s)', (mode) => {
-    const html = renderToStaticMarkup(<WallToolbar wall={{ ...DEFAULT_WALL_STATE, layout: { ...DEFAULT_WALL_STATE.layout, mode } }} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />);
+    const html = renderToStaticMarkup(<WallToolbar wall={{ ...DEFAULT_WALL_STATE, layout: { ...DEFAULT_WALL_STATE.layout, mode } }} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} onAdd={() => {}} onCompanion={() => {}} companionFor={null} />);
     expect(html).toContain(`class="wall-auto-arrange" data-visible="${mode === 'grid'}"`);
     expect(html).toContain(`tabindex="${mode === 'grid' ? 0 : -1}"`);
     // The agent panel's own controls moved into the panel; the title bar has none.
@@ -68,7 +71,7 @@ describe('Agents header placement', () => {
   it('leaves the agent panel controls out of the title bar, open or closed', () => {
     const closed = { ...DEFAULT_WALL_STATE, agentPanel: { show: false, orientation: 'vertical' as const } };
     for (const wall of [closed, DEFAULT_WALL_STATE]) {
-      const html = renderToStaticMarkup(<WallToolbar wall={wall} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} />);
+      const html = renderToStaticMarkup(<WallToolbar wall={wall} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} onAdd={() => {}} onCompanion={() => {}} companionFor={null} />);
       expect(html).not.toContain('Show the agent panel');
       expect(html).not.toContain('Hide the agent panel');
       expect(html).not.toContain('Show agents in a');

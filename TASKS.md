@@ -1332,3 +1332,7 @@ Add window sits to the right of the shared composer in the same row, including t
 ### Memory contract (added 2026-10-10)
 
 - [x] Gate GPU tile memory, oversized animated layers and per-lap heap/DOM/listener growth in the `perf` job; harness uses Chromium (never Edge) and ends every spawned process tree. Done: 2026-10-10. See [spec](SPEC.md#speed--responsiveness-the-speed-contract), The memory contract.
+
+### Wall toolbar add bar (added 2026-10-10)
+
+- [x] Replace the composer-side Add window with a toolbar icon bar: new agent, new terminal, Changes/Browser/Files companions for the selected agent, More (picker). Done: 2026-10-10. See SPEC.md, Toolbar add bar replaces Add window.
