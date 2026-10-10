@@ -511,6 +511,33 @@ export function WallToolbar({
       {!hasAppChrome && <h1 className="text-gradient text-2xl font-semibold">Agents</h1>}
       <div className={`ml-auto flex flex-wrap items-center ${slot ? 'gap-2' : 'gap-3'}`}>
 
+        {/* Adding to the wall, first in the row: an agent or a terminal of its own, or a
+            companion (Changes, Browser, Files) under the selected agent. More
+            opens the full picker: chats already running, image sessions. */}
+        <div className="wall-add-bar" role="group" aria-label="Add to the wall">
+          <button type="button" className="wall-add-icon" title="New agent" aria-label="New agent" onClick={() => onAdd('chat')}><NekkoAvatar size={16} stationary eyes={false} /></button>
+          <button type="button" className="wall-add-icon" title="New terminal" aria-label="New terminal" onClick={() => onAdd('terminal')}><TerminalIcon className="h-4 w-4" /></button>
+          {COMPANIONS.map(({ kind, label, Icon }) => (
+            <button key={kind} type="button" className="wall-add-icon" disabled={!companionFor}
+              title={companionFor ? `${label} for ${companionFor}` : `${label}: select an agent first`}
+              aria-label={label} onClick={() => onCompanion(kind)}><Icon className="h-4 w-4" /></button>
+          ))}
+          <button
+            type="button"
+            className="wall-add-icon"
+            data-wall-add-button
+            onClick={() => {
+              if (!addOpen) setWall((w) => w.layout.mode === 'focus' ? { ...w, layout: { ...w.layout, mode: 'grid' } } : w);
+              setAddOpen((o) => !o);
+            }}
+            aria-controls="wall-window-picker"
+            aria-expanded={addOpen}
+            aria-label="Add window"
+            title="More: a chat already running, an image session, or a new chat with details"
+          >
+            <MoreVerticalIcon className="h-4 w-4" />
+          </button>
+        </div>
         <div className="wall-layout-control" ref={fixedRef}>
           <div className="wall-layout-segments" role="group" aria-label="Wall layout">
             {(['focus', 'grid', 'fixed'] as const).map((mode) => (
@@ -552,33 +579,6 @@ export function WallToolbar({
           ))}
         </div>
         <button type="button" className="btn btn-outline gap-1.5 py-1 text-[12px]" aria-pressed={wall.dock.show} onClick={() => setWall((w) => ({ ...w, dock: { ...w.dock, show: !w.dock.show } }))}><PanelIcon className="h-4 w-4" />Panels</button>
-        {/* Adding to the wall: an agent or a terminal of its own, or a
-            companion (Changes, Browser, Files) under the selected agent. More
-            opens the full picker: chats already running, image sessions. */}
-        <div className="wall-add-bar" role="group" aria-label="Add to the wall">
-          <button type="button" className="wall-add-icon" title="New agent" aria-label="New agent" onClick={() => onAdd('chat')}><NekkoAvatar size={16} stationary eyes={false} /></button>
-          <button type="button" className="wall-add-icon" title="New terminal" aria-label="New terminal" onClick={() => onAdd('terminal')}><TerminalIcon className="h-4 w-4" /></button>
-          {COMPANIONS.map(({ kind, label, Icon }) => (
-            <button key={kind} type="button" className="wall-add-icon" disabled={!companionFor}
-              title={companionFor ? `${label} for ${companionFor}` : `${label}: select an agent first`}
-              aria-label={label} onClick={() => onCompanion(kind)}><Icon className="h-4 w-4" /></button>
-          ))}
-          <button
-            type="button"
-            className="wall-add-icon"
-            data-wall-add-button
-            onClick={() => {
-              if (!addOpen) setWall((w) => w.layout.mode === 'focus' ? { ...w, layout: { ...w.layout, mode: 'grid' } } : w);
-              setAddOpen((o) => !o);
-            }}
-            aria-controls="wall-window-picker"
-            aria-expanded={addOpen}
-            aria-label="Add window"
-            title="More: a chat already running, an image session, or a new chat with details"
-          >
-            <MoreVerticalIcon className="h-4 w-4" />
-          </button>
-        </div>
       </div>
     </div>
   );
