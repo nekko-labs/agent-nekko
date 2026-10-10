@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { afterEach, expect, it, vi } from 'vitest';
-import type { PendingInput, SessionSummary } from '@nekko-agent/shared';
+import type { PendingInput, SessionSummary } from '@agent-nekko/shared';
 import { WorkingSubagents } from './WorkingSubagents.js';
 vi.mock('react', async (original) => ({
   ...await original<typeof import('react')>(),

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ReplyRecord } from '@nekko-agent/shared';
+import type { ReplyRecord } from '@agent-nekko/shared';
 import { summarizeReplies } from './replies.js';
 
 const rec = (steps: number, stop: ReplyRecord['stop'], ts = steps): ReplyRecord => ({

@@ -187,7 +187,7 @@ export function App() {
         off = window.nekko.onAgentEvent((e) => {
           if (e.type === 'done' && document.hidden) {
             LocalNotifications.schedule({
-              notifications: [{ id: nid++, title: 'Nekko Agent finished', body: 'Your task is ready in Nekko Agent.' }],
+              notifications: [{ id: nid++, title: 'Agent Nekko finished', body: 'Your task is ready in Agent Nekko.' }],
             }).catch(() => {});
           }
         });
@@ -242,8 +242,8 @@ export function App() {
                 there is no title bar to carry it (web and phone builds), so the
                 name is never shown twice. */}
             {!hasAppChrome && <div className="mb-3 flex h-9 items-center gap-2 px-1.5">
-              <span className="grid h-8 w-8 shrink-0 place-items-center text-ink"><BrandMark size={24} title={hasAppChrome ? undefined : 'Nekko Agent'} /></span>
-              {!hasAppChrome && <span className="rail-label text-[15px] font-semibold tracking-tight">Nekko Agent</span>}
+              <span className="grid h-8 w-8 shrink-0 place-items-center text-ink"><BrandMark size={24} title={hasAppChrome ? undefined : 'Agent Nekko'} /></span>
+              {!hasAppChrome && <span className="rail-label text-[15px] font-semibold tracking-tight">Agent Nekko</span>}
             </div>}
             {visibleNav.map(({ view: v, labelKey, Icon }) => (
               <button

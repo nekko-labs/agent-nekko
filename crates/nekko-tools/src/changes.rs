@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
-/// `FileChange` from `@nekko-agent/shared`.
+/// `FileChange` from `@agent-nekko/shared`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FileChange {
     pub path: String,

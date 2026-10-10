@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { describe, expect, it } from 'vitest';
-import { assembleContext, buildSystemPrompt, renderContextBlock } from '@nekko-agent/core';
+import { assembleContext, buildSystemPrompt, renderContextBlock } from '@agent-nekko/core';
 import { collectAttached, collectGuidelines } from './chat.js';
 import { listMemory } from './memory.js';
 import { setDataDir } from './paths.js';

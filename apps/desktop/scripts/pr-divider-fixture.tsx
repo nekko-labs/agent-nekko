@@ -9,15 +9,15 @@ import { ChatPane } from '../src/renderer/components/ChatPane';
 import { CommandCenterView } from '../src/renderer/views/CommandCenterView';
 import { WorkspacesView } from '../src/renderer/views/WorkspacesView';
 import { DEFAULT_WALL_STATE } from '../src/renderer/commandWall';
-import { summarizeSession } from '@nekko-agent/shared';
+import { summarizeSession } from '@agent-nekko/shared';
 import '../src/renderer/styles.css';
 
 // Synthetic records only. This fixture never connects to a host or daemon.
 const provider = { name: 'Fixture provider', id: 'fixture', kind: 'openai', enabled: true, label: 'Fixture provider' };
 const models = [{ id: 'fixture-model', providerId: 'fixture', name: 'Fixture model', contextWindow: 128000 }, { id:'fixture-fast',providerId:'fixture',name:'Fast fixture',contextWindow:32000 }];
-const makeSession = (id: string) => ({ id, title: id === 'existing' ? 'Existing conversation' : `Synthetic ${id}`, createdAt: Date.now(), updatedAt: Date.now(), providerId: 'fixture', modelId: 'fixture-model', mode: 'guardrails', chatType: 'multimodal', messages: [{ id: 'synthetic-user', role: 'user', content: 'Please verify https://github.com/nekko-labs/nekko-agent/pull/401 and https://github.com/nekko-labs/nekko-agent/pull/402', createdAt: 1 }, { id: 'synthetic-reply', role: 'assistant', content: 'The verification reply is complete.', createdAt: 2 }], attachments: [], queuedPrompts: [] });
+const makeSession = (id: string) => ({ id, title: id === 'existing' ? 'Existing conversation' : `Synthetic ${id}`, createdAt: Date.now(), updatedAt: Date.now(), providerId: 'fixture', modelId: 'fixture-model', mode: 'guardrails', chatType: 'multimodal', messages: [{ id: 'synthetic-user', role: 'user', content: 'Please verify https://github.com/nekko-labs/agent-nekko/pull/401 and https://github.com/nekko-labs/agent-nekko/pull/402', createdAt: 1 }, { id: 'synthetic-reply', role: 'assistant', content: 'The verification reply is complete.', createdAt: 2 }], attachments: [], queuedPrompts: [] });
 const originalMakeSession = makeSession;
-const sessionWithPrs = (id: string) => { const s = originalMakeSession(id); (s.messages as any[]).push(...[401,402].flatMap(number => [{id:'call-'+number,role:'assistant',content:'Created synthetic PR',createdAt:3,toolCalls:[{id:'pr-'+number,name:'bash',input:{command:'gh pr create --title synthetic --body synthetic'}}]},{id:'result-'+number,role:'tool',content:'',createdAt:4,toolResult:{toolCallId:'pr-'+number,output:'https://github.com/nekko-labs/nekko-agent/pull/'+number,isError:false}}])); return s; };
+const sessionWithPrs = (id: string) => { const s = originalMakeSession(id); (s.messages as any[]).push(...[401,402].flatMap(number => [{id:'call-'+number,role:'assistant',content:'Created synthetic PR',createdAt:3,toolCalls:[{id:'pr-'+number,name:'bash',input:{command:'gh pr create --title synthetic --body synthetic'}}]},{id:'result-'+number,role:'tool',content:'',createdAt:4,toolResult:{toolCallId:'pr-'+number,output:'https://github.com/nekko-labs/agent-nekko/pull/'+number,isError:false}}])); return s; };
 let pending: any = {};
 const listeners = new Set<(e: any) => void>();
 let records: any[] = [];
@@ -26,7 +26,7 @@ let serial = 0;
 const calls: any[] = [];
 const failures = { create: false, options: false, cleanup: false };
 const contextBundle = () => assembleContext({ attached: [{path:'synthetic.txt',content:'context '.repeat(100)}], guidelines:[{path:'AGENTS.md',content:'Preserve existing work.'}], memory:[], connectorSnippets:[], indexSnippets:[], history:records[0]?.messages ?? [], systemText:'Synthetic system instructions', contextWindow:128000 });
-let fixturePrs = [401,402].map(number => ({url:`https://github.com/nekko-labs/nekko-agent/pull/${number}`,owner:'nekko-labs',repo:'nekko-agent',number,title:number===401?'Keep pull request actions beside the composer':'A longer synthetic title to exercise wrapping and truncation',state:'open',checks:'passing',isDraft:false,reviewDecision:'APPROVED'}));
+let fixturePrs = [401,402].map(number => ({url:`https://github.com/nekko-labs/agent-nekko/pull/${number}`,owner:'nekko-labs',repo:'agent-nekko',number,title:number===401?'Keep pull request actions beside the composer':'A longer synthetic title to exercise wrapping and truncation',state:'open',checks:'passing',isDraft:false,reviewDecision:'APPROVED'}));
 Object.assign(window,{setFixturePrState:(state:string)=>{fixturePrs=fixturePrs.map(p=>({...p,state}));useStore.setState({prsBySession:{existing:fixturePrs}} as any);}});
 const bridge: any = {
   listSessionPrs: async () => fixturePrs,

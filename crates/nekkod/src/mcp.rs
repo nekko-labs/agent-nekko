@@ -169,7 +169,7 @@ impl Server {
     async fn start(&self) -> Result<(), String> {
         self.request(
             "initialize",
-            json!({ "protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": { "name": "nekko-agent", "version": "1" } }),
+            json!({ "protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": { "name": "agent-nekko", "version": "1" } }),
         )
         .await?;
         self.notify("notifications/initialized").await;

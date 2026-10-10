@@ -5,7 +5,7 @@ import {
   type ImageCompanionStatus,
   type LocalModel,
   type Session,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 
 const SIZES = ['512x512', '768x768', '1024x1024', '1024x768', '768x1024', '1344x768', '768x1344'];

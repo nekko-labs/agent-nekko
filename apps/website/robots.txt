@@ -1,4 +1,4 @@
-# nekkoagent.com
+# agentnekko.com
 # Everyone is welcome, including AI crawlers and answer engines.
 
 User-agent: *
@@ -67,4 +67,4 @@ Allow: /
 User-agent: Bytespider
 Allow: /
 
-Sitemap: https://nekkoagent.com/sitemap.xml
+Sitemap: https://agentnekko.com/sitemap.xml

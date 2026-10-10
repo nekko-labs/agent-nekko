@@ -49,16 +49,16 @@ describe('api server addresses', () => {
 
 describe('mcp entries', () => {
   it('is the portable npx form, with no env, when there is nothing to point at', () => {
-    expect(mcpServerEntry('', '')).toEqual({ command: 'npx', args: ['-y', 'nekko-agent', 'mcp'] });
+    expect(mcpServerEntry('', '')).toEqual({ command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] });
   });
 
   it('names the installed launcher and carries the address and token', () => {
-    expect(mcpServerEntry('http://127.0.0.1:1439', 'abc', 'C:/bin/nekko-agent.cmd')).toEqual({
-      command: 'C:/bin/nekko-agent.cmd',
+    expect(mcpServerEntry('http://127.0.0.1:1439', 'abc', 'C:/bin/agent-nekko.cmd')).toEqual({
+      command: 'C:/bin/agent-nekko.cmd',
       args: ['mcp'],
       env: { NEKKO_URL: 'http://127.0.0.1:1439', NEKKO_TOKEN: 'abc' },
     });
-    expect(JSON.parse(apiServerMcpConfig('http://x:1', 'k')).mcpServers['nekko-agent'].env).toEqual({
+    expect(JSON.parse(apiServerMcpConfig('http://x:1', 'k')).mcpServers['agent-nekko'].env).toEqual({
       NEKKO_URL: 'http://x:1',
       NEKKO_TOKEN: 'k',
     });

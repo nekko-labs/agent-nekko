@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_ENGINE_SETTINGS } from '@nekko-agent/shared';
+import { DEFAULT_ENGINE_SETTINGS } from '@agent-nekko/shared';
 import { SettingsAutosave } from './settingsAutosave.js';
 
 afterEach(() => vi.useRealTimers());

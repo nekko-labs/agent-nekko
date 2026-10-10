@@ -29,7 +29,7 @@ export const SHORTCUTS: Record<'palette' | 'newAgent' | 'newTerminal' | 'context
     matches: (e) => mod(e) && !e.altKey && !e.shiftKey && ['t', 'n'].includes(e.key.toLowerCase()),
   },
   // Backtick is the terminal key in VS Code, Cursor, and Zed (Ctrl+` opens the
-  // terminal there, Ctrl+Shift+` adds another). Nekko Agent has no terminal panel to
+  // terminal there, Ctrl+Shift+` adds another). Agent Nekko has no terminal panel to
   // toggle, so both chords just spawn one. Shift+` arrives as "~" on US layouts.
   // ⌘J keeps working for anyone used to the shortcut shipped before the rename.
   newTerminal: {

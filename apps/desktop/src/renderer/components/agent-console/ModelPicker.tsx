@@ -2,11 +2,11 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { pickerPlacement } from './pickerPlacement.js';
 import { filteredModelGroups, isModelPickerEscape, nextFavoriteModels, shouldDismissModelPickerPointer } from './modelPickerInteractions.js';
-import type { AutoQuality, ModelInfo, ProviderConfig } from '@nekko-agent/shared';
+import type { AutoQuality, ModelInfo, ProviderConfig } from '@agent-nekko/shared';
 import {
   AUTO_MODEL_ID, AUTO_QUALITIES, AUTO_QUALITY_META, blockLabel, formatModelPriceLabel,
   isLocalProvider, modelPricing, resolveModelAvailability,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { useAllProviderLimits } from '../../useLimits.js';
 import { ContextMenu, ContextAction } from '../ContextMenu.js';
@@ -258,7 +258,7 @@ export function ModelPicker({
                 aria-selected={modelId === AUTO_MODEL_ID}
                 className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] hover:bg-surface-2 ${modelId === AUTO_MODEL_ID ? 'text-accent' : ''}`}
                 onClick={() => { onModel(providerId ?? '', AUTO_MODEL_ID); setOpen(false); }}
-                title="Nekko Agent picks the best model for each message"
+                title="Agent Nekko picks the best model for each message"
               >
                 ✨ Auto <span className="text-[11px] text-ink-faint">(pick best)</span>
               </button>

@@ -1,4 +1,4 @@
-import type { DownloadJob, DownloadState } from '@nekko-agent/shared';
+import type { DownloadJob, DownloadState } from '@agent-nekko/shared';
 
 /**
  * Folds the per-file download jobs of one model into one download.

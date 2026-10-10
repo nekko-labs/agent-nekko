@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_SETTINGS } from '@nekko-agent/shared';
+import { DEFAULT_SETTINGS } from '@agent-nekko/shared';
 import { executeTool, type ToolHostOptions } from './tools.js';
 
 describe('window capture tool', () => {

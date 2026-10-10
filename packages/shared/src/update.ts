@@ -29,4 +29,4 @@ export interface UpdateInfo {
   edition: 'desktop' | 'web';
 }
 
-export const RELEASE_NOTES_URL = 'https://github.com/nekko-labs/nekko-agent/releases/latest';
+export const RELEASE_NOTES_URL = 'https://github.com/nekko-labs/agent-nekko/releases/latest';

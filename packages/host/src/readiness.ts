@@ -1,7 +1,7 @@
 import os from 'os';
 import { execFile } from 'child_process';
 import { readFile, statfs } from 'fs/promises';
-import type { MachineFacts } from '@nekko-agent/shared';
+import type { MachineFacts } from '@agent-nekko/shared';
 import { getGpuStats } from './gpu.js';
 import { dataDir } from './paths.js';
 

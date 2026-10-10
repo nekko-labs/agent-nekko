@@ -1,7 +1,7 @@
-# Nekko Agent relay: tiny, stateless, self-hostable. Build from the REPO ROOT:
-#   docker build -f apps/relay/Dockerfile -t nekko-agent-relay .
+# Agent Nekko relay: tiny, stateless, self-hostable. Build from the REPO ROOT:
+#   docker build -f apps/relay/Dockerfile -t agent-nekko-relay .
 # Run:
-#   docker run -p 4400:4400 nekko-agent-relay
+#   docker run -p 4400:4400 agent-nekko-relay
 # The relay only routes end-to-end-encrypted frames; it holds no data worth
 # backing up, so horizontal scaling / restarts are painless (agents reconnect).
 
@@ -10,7 +10,7 @@ WORKDIR /repo
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY apps/relay/package.json apps/relay/package.json
 # --include-workspace-root pulls the root devDeps (typescript, @types/node).
-RUN npm ci -w @nekko-agent/relay --include-workspace-root
+RUN npm ci -w @agent-nekko/relay --include-workspace-root
 COPY apps/relay apps/relay
 RUN npx tsc -p apps/relay/tsconfig.json
 
@@ -18,7 +18,7 @@ FROM node:22-slim AS deps
 WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY apps/relay/package.json apps/relay/package.json
-RUN npm ci -w @nekko-agent/relay --omit=dev
+RUN npm ci -w @agent-nekko/relay --omit=dev
 
 FROM node:22-slim
 ENV NODE_ENV=production

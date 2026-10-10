@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type { AgentEvent, ChatMessage, CompactionProgress, ProviderConfig, Session } from '@nekko-agent/shared';
-import { estimateTranscriptTokens, guessContextWindow, latestCompactionIndex } from '@nekko-agent/shared';
+import type { AgentEvent, ChatMessage, CompactionProgress, ProviderConfig, Session } from '@agent-nekko/shared';
+import { estimateTranscriptTokens, guessContextWindow, latestCompactionIndex } from '@agent-nekko/shared';
 import { createHostProvider as createProvider } from './prompt-caching.js';
 import { getSettings } from './store.js';
 import { forkSession, getSession, saveSession } from './sessions.js';

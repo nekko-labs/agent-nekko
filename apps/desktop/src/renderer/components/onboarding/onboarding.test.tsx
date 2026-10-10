@@ -1,8 +1,8 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { AppSettings, OAuthStatus, ProviderConfig } from '@nekko-agent/shared';
-import { ONBOARDING_VERSION } from '@nekko-agent/shared';
+import type { AppSettings, OAuthStatus, ProviderConfig } from '@agent-nekko/shared';
+import { ONBOARDING_VERSION } from '@agent-nekko/shared';
 import { WizardShell } from './WizardShell.js';
 import { WelcomeStep } from './WelcomeStep.js';
 import { ProvidersStep } from './ProvidersStep.js';
@@ -109,7 +109,7 @@ describe('WizardShell', () => {
     const html = shell(1);
     expect(html).toContain('role="dialog"');
     expect(html).toContain('aria-modal="true"');
-    expect(html).toContain('aria-label="Nekko Agent setup"');
+    expect(html).toContain('aria-label="Agent Nekko setup"');
     expect(html).toContain('aria-label="Setup progress"');
     expect(html).toContain('aria-current="step"');
     expect(html.match(/aria-label="Step \d of 3:/g)).toHaveLength(3);
@@ -132,13 +132,13 @@ describe('WizardShell', () => {
 });
 
 describe('onboarding step content', () => {
-  it('greets with the mascot and the Nekko Agent name', () => {
+  it('greets with the mascot and the Agent Nekko name', () => {
     const html = renderToStaticMarkup(<WelcomeStep />);
-    expect(html).toContain('Welcome to Nekko Agent');
+    expect(html).toContain('Welcome to Agent Nekko');
     expect(html).toContain('aria-label="Nekko"');
   });
 
-  it('offers the online options, a local scan, and the Nekko Agent deep link', () => {
+  it('offers the online options, a local scan, and the Agent Nekko deep link', () => {
     mockStoreState.providers = [];
     const html = renderToStaticMarkup(<ProvidersStep />);
     expect(html).toContain('Connect a model');
@@ -147,7 +147,7 @@ describe('onboarding step content', () => {
     expect(html).toContain('OpenRouter');
     expect(html).toContain('OpenAI-compatible');
     expect(html).toContain('aria-expanded="false"');
-    expect(html).toContain('Nekko Agent');
+    expect(html).toContain('Agent Nekko');
     expect(html).toContain('Open Nekko Server');
     expect(html).toContain('Model Providers');
     // The local probe runs on mount; SSR shows the in-flight state.

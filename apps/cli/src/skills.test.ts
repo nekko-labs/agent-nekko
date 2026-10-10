@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { VAIZER_SNAPSHOT, getMarketSkill } from '@nekko-agent/shared';
-import type { VaizerCatalog } from '@nekko-agent/shared';
+import { VAIZER_SNAPSHOT, getMarketSkill } from '@agent-nekko/shared';
+import type { VaizerCatalog } from '@agent-nekko/shared';
 import { resolveInstall, type SkillResolverClient } from './skills.js';
 
 const SKILL_MD = `---
@@ -22,7 +22,7 @@ function stubClient(over: Partial<SkillResolverClient> = {}): SkillResolverClien
 
 describe('resolveInstall', () => {
   it('passes built-in catalog skills straight through with no payload', async () => {
-    const builtIn = 'nekko-agent-review-council';
+    const builtIn = 'agent-nekko-review-council';
     expect(getMarketSkill(builtIn)).toBeDefined();
 
     const res = await resolveInstall(stubClient(), builtIn);

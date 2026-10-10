@@ -18,7 +18,7 @@ export function isRuntimeKind(kind: ProviderKind): kind is RuntimeKind {
   return kind === 'ollama' || kind === 'lmstudio' || kind === 'vllm' || kind === 'llamacpp';
 }
 
-/** The one runtime Nekko Agent runs itself, rather than connects to. */
+/** The one runtime Agent Nekko runs itself, rather than connects to. */
 export function isManagedRuntime(kind: ProviderKind): boolean {
   return kind === 'llamacpp';
 }
@@ -44,7 +44,7 @@ export interface RuntimeCapabilities {
   /** Reports per-model VRAM, so a measurement can reconcile the projection. */
   reportsPerModelVram: boolean;
   /**
-   * Nekko Agent owns this runtime end to end: it installs the engine, holds the
+   * Agent Nekko owns this runtime end to end: it installs the engine, holds the
    * models, and configures the server. Only the managed engine sets this, and it
    * is what earns the extra surfaces (catalog, downloads, server settings) rather
    * than a kind check in the renderer.
@@ -96,7 +96,7 @@ export const RUNTIME_CAPABILITIES: Record<RuntimeKind, RuntimeCapabilities> = {
     configuredAtLaunch: true,
     reportsPerModelVram: false,
   },
-  // The engine Nekko Agent runs itself. llama.cpp takes context, GPU layers,
+  // The engine Agent Nekko runs itself. llama.cpp takes context, GPU layers,
   // parallel slots and KV cache type as per-load flags, which makes it the most
   // controllable runtime here rather than the least: nothing needs a restart and
   // nothing has to be set as an environment variable.

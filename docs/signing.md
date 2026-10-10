@@ -1,6 +1,6 @@
 # Release signing
 
-How Nekko Agent's macOS builds get signed and notarized, what is wired, and what
+How Agent Nekko's macOS builds get signed and notarized, what is wired, and what
 needs a human with an Apple account.
 
 Everything here is **secret-gated**. With no signing secrets configured the
@@ -19,7 +19,7 @@ worked.
 
 ## macOS
 
-Nekko Agent is packaged by electron-builder, which does the signing, hardened
+Agent Nekko is packaged by electron-builder, which does the signing, hardened
 runtime, and notarization itself. There is no hand-rolled `codesign` pipeline
 here, and no `Developer ID Installer` certificate is needed, because the
 artifacts are `.dmg`/`.zip` rather than a `.pkg`.
@@ -37,7 +37,7 @@ Silicon. It steps aside when `CSC_LINK` is set.
 
 ### The entitlements, and why each one is there
 
-The hardened runtime disables things Electron and Nekko Agent need. See the
+The hardened runtime disables things Electron and Agent Nekko need. See the
 comments in [`build/entitlements.mac.plist`](../apps/desktop/build/entitlements.mac.plist);
 the short version:
 
@@ -143,7 +143,7 @@ against a candidate `.p8`:
 xcrun notarytool history --key AuthKey_XXXXXXXX.p8 --key-id XXXXXXXX --issuer <issuer UUID>
 ```
 
-A live key lists past submissions (Nekko Agent's and hypergate's, since they
+A live key lists past submissions (Agent Nekko's and hypergate's, since they
 share the team). A revoked one returns the 401 above. The issuer id is per
 team and does not change when the key does.
 
@@ -159,7 +159,7 @@ gh secret set APPLE_API_KEY_ID --org nekko-labs --visibility all --body XXXXXXXX
 Then re-run the Release workflow at the tag that failed:
 
 ```bash
-gh workflow run release.yml --repo nekko-labs/nekko-agent --ref vX.Y.Z
+gh workflow run release.yml --repo nekko-labs/agent-nekko --ref vX.Y.Z
 ```
 
 The secrets are organization-wide, so one rotation also repairs hypergate and
@@ -211,7 +211,7 @@ message directing the maintainer to configure the trusted publisher or add
 
 npm's documented setup is under an existing package's settings, and npm does
 not currently provide a PyPI-style pending publisher for a package name that
-has never been published. Publish `nekko-agent` once manually with account
+has never been published. Publish `agent-nekko` once manually with account
 authentication and 2FA:
 
 ```bash
@@ -219,13 +219,13 @@ npm login
 npm publish --workspace=apps/cli --access public
 ```
 
-Then open the `nekko-agent` package settings on npmjs.com and add a GitHub Actions
+Then open the `agent-nekko` package settings on npmjs.com and add a GitHub Actions
 trusted publisher with:
 
 | Field | Value |
 | --- | --- |
 | Organization or user | `nekko-labs` |
-| Repository | `nekko-agent` |
+| Repository | `agent-nekko` |
 | Workflow filename | `release.yml` |
 | Allowed action | `npm publish` |
 
@@ -259,9 +259,9 @@ The release workflow already runs these on every signed macOS build and fails
 if any of them do. To check a downloaded `.dmg` by hand:
 
 ```bash
-codesign --verify --deep --strict --verbose=2 /Applications/Nekko Agent.app
-spctl --assess --type execute --verbose=4 /Applications/Nekko Agent.app
-xcrun stapler validate /Applications/Nekko Agent.app
+codesign --verify --deep --strict --verbose=2 /Applications/Agent Nekko.app
+spctl --assess --type execute --verbose=4 /Applications/Agent Nekko.app
+xcrun stapler validate /Applications/Agent Nekko.app
 ```
 
 `spctl` should say `accepted` with `source=Notarized Developer ID`.
@@ -271,7 +271,7 @@ xcrun stapler validate /Applications/Nekko Agent.app
 Only needed when debugging the signing config itself.
 
 ```bash
-CSC_NAME="Nekko Labs LLC (3HM5598S99)" npm run dist -w @nekko-agent/desktop
+CSC_NAME="Nekko Labs LLC (3HM5598S99)" npm run dist -w @agent-nekko/desktop
 ```
 
 `CSC_NAME` takes the certificate's **common name without the type prefix**.

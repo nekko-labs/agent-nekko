@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { assembleContext, isGuidelineFile, renderContextBlock } from './assembler.js';
-import { estimateTokens } from '@nekko-agent/shared';
-import type { MemoryEntry } from '@nekko-agent/shared';
+import { estimateTokens } from '@agent-nekko/shared';
+import type { MemoryEntry } from '@agent-nekko/shared';
 
 const mem: MemoryEntry = {
   id: 'm1',

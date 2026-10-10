@@ -12,15 +12,15 @@ import {
   withApiServerDefaults,
   type ApiServerSettings,
   type ApiServerStatus,
-} from '@nekko-agent/shared';
-import { createDispatcher, type Host } from '@nekko-agent/host';
+} from '@agent-nekko/shared';
+import { createDispatcher, type Host } from '@agent-nekko/host';
 
 /**
  * The desktop app, served to other programs.
  *
  * `POST /api/:channel` with `{ args: [...] }` and a `/api/events` socket are the
  * surface the CLI and the MCP server already speak, so switching this on makes
- * `nekko-agent chat "…"` and an MCP client drive *this* window's host — the same
+ * `agent-nekko chat "…"` and an MCP client drive *this* window's host — the same
  * providers, workspaces and sessions — instead of a second process on the same
  * files.
  *
@@ -219,7 +219,7 @@ async function handle(
   // A "what is this port" probe, so a misconfigured client gets a name instead
   // of a 404 it has to guess at.
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    send(res, 200, { ok: true, app: 'nekko-agent', edition: 'desktop' });
+    send(res, 200, { ok: true, app: 'agent-nekko', edition: 'desktop' });
     return;
   }
   const channel = url.pathname.startsWith('/api/') ? url.pathname.slice('/api/'.length) : '';

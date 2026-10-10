@@ -1,6 +1,6 @@
 [package]
 name = "nekko-js"
-description = "JavaScript string, number and JSON semantics for the Rust ports of Nekko Agent's TS host, where output must match it exactly."
+description = "JavaScript string, number and JSON semantics for the Rust ports of Agent Nekko's TS host, where output must match it exactly."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

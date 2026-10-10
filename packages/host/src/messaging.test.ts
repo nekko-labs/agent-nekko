@@ -3,7 +3,7 @@ import { EventEmitter } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import type { AgentEvent, AppSettings, SendOptions, Session } from '@nekko-agent/shared';
+import type { AgentEvent, AppSettings, SendOptions, Session } from '@agent-nekko/shared';
 import { setDataDir } from './paths.js';
 import { createMessagingService, type MessagingHost } from './messaging/service.js';
 import type { TelegramApi, TelegramUpdate } from './messaging/telegram.js';

@@ -6,7 +6,7 @@ import {
   type RuntimeDetection,
   type RuntimeStatus,
   type StopResult,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import type { Engine } from '../engine/index.js';
 import type { RuntimeAdapter } from './types.js';
 

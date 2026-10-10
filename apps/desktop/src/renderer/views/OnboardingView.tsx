@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { OnboardingState } from '@nekko-agent/shared';
-import { ONBOARDING_VERSION } from '@nekko-agent/shared';
+import type { OnboardingState } from '@agent-nekko/shared';
+import { ONBOARDING_VERSION } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { WizardShell } from '../components/onboarding/WizardShell.js';

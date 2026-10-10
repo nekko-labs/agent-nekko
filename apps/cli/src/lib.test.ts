@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { approvalPolicy, runChat, type Client } from './lib.js';
 import { CliError, EXIT_CODES, exitCodeForError, parseFlags, runCli } from './run.js';
-import { normalizeInstallTarget } from '@nekko-agent/shared';
+import { normalizeInstallTarget } from '@agent-nekko/shared';
 
 function fakeClient(events: any[] = [], mode: 'ask' | 'guardrails' | 'yolo' = 'ask') {
   let listener: ((event: any) => void) | undefined;
@@ -26,22 +26,22 @@ function fakeClient(events: any[] = [], mode: 'ask' | 'guardrails' | 'yolo' = 'a
 }
 
 describe('CLI identity and compatibility', () => {
-  it('publishes under nekko-agent with canonical and legacy executable aliases', () => {
+  it('publishes under agent-nekko with canonical and legacy executable aliases', () => {
     const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-    expect(manifest.name).toBe('nekko-agent');
-    expect(manifest.repository.url).toBe('git+https://github.com/nekko-labs/nekko-agent.git');
+    expect(manifest.name).toBe('agent-nekko');
+    expect(manifest.repository.url).toBe('git+https://github.com/nekko-labs/agent-nekko.git');
     expect(manifest.bin).toEqual({
-      'nekko-agent': 'dist/index.js',
+      'agent-nekko': 'dist/index.js',
     });
   });
 
-  it.each([{ argv: [] }, { argv: ['--help'] }, { argv: ['help'] }])('leads help with Nekko Agent for $argv', async ({ argv }) => {
+  it.each([{ argv: [] }, { argv: ['--help'] }, { argv: ['help'] }])('leads help with Agent Nekko for $argv', async ({ argv }) => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {});
     try {
       await runCli(argv);
       const help = String(log.mock.calls[0][0]);
-      expect(help).toMatch(/^Nekko Agent CLI \(nekko-agent /);
-      expect(help).toContain('nekko-agent status|sessions|watch');
+      expect(help).toMatch(/^Agent Nekko CLI \(agent-nekko /);
+      expect(help).toContain('agent-nekko status|sessions|watch');
       expect(help).toContain('NEKKO_URL');
       expect(help).toContain('NEKKO_TOKEN');
       expect(help).toContain('NEKKO_DATA_DIR');
@@ -52,18 +52,18 @@ describe('CLI identity and compatibility', () => {
 
   it.each(['workspace', 'tasks', 'workflow', 'train'])('uses canonical %s usage without changing exit codes', async (command) => {
     await expect(runCli([command, 'invalid', '--url', 'http://127.0.0.1:1'])).rejects.toMatchObject({
-      message: expect.stringContaining(`Usage: nekko-agent ${command}`),
+      message: expect.stringContaining(`Usage: agent-nekko ${command}`),
       exitCode: EXIT_CODES.usage,
     });
   });
 
   it('shows the canonical skill target in usage and normalizes unknown values', async () => {
     await expect(runCli(['skills', 'install', '--url', 'http://127.0.0.1:1'])).rejects.toMatchObject({
-      message: 'Usage: nekko-agent skills install <id> [--target nekko-agent|claude|codex]',
+      message: 'Usage: agent-nekko skills install <id> [--target agent-nekko|claude|codex]',
       exitCode: EXIT_CODES.usage,
     });
     expect(normalizeInstallTarget('claude')).toBe('claude');
-    expect(normalizeInstallTarget('bogus')).toBe('nekko-agent');
+    expect(normalizeInstallTarget('bogus')).toBe('agent-nekko');
   });
 });
 

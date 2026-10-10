@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { MessagingStatus, TelegramMessagingConfig } from '@nekko-agent/shared';
+import type { MessagingStatus, TelegramMessagingConfig } from '@agent-nekko/shared';
 import { Badge } from './primitives/index.js';
 
 /**

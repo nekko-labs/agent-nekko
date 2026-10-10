@@ -5,7 +5,7 @@ import {
   type ProviderConfig,
   type RuntimeKind,
   type RuntimeStatus,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { AddressField } from './AddressField.js';
 import { FitDrawer } from './FitDrawer.js';
@@ -99,7 +99,7 @@ export function RuntimeCard({
         <span className="text-[13px]">{running ? 'Running' : 'Stopped'}</span>
         {status?.version && <span className="text-[11px] text-ink-faint">v{status.version}</span>}
         {status?.owned && (
-          <span className="text-[11px] text-ink-faint" title="Nekko Agent started this server, so it will stop cleanly">
+          <span className="text-[11px] text-ink-faint" title="Agent Nekko started this server, so it will stop cleanly">
             started here
           </span>
         )}
@@ -136,7 +136,7 @@ export function RuntimeCard({
             <span
               className="rounded-full border px-2 py-0.5 text-[11px] text-ink-faint"
               style={{ borderColor: 'var(--line)' }}
-              title="This runtime is started outside Nekko Agent"
+              title="This runtime is started outside Agent Nekko"
             >
               Connect only
             </span>

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { isArchived } from '@nekko-agent/shared';
+import { isArchived } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
-import { AUTO_MODEL_ID } from '@nekko-agent/shared';
+import { AUTO_MODEL_ID } from '@agent-nekko/shared';
 import { ModelPicker } from './agent-console/ModelPicker.js';
 import { EffortSlider } from './ChatMetrics.js';
 import { CheckIcon, ChevronIcon } from '../icons.js';

@@ -2,7 +2,7 @@ import { expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { promptCachingEnabled, estimateCost } from '@nekko-agent/shared';
+import { promptCachingEnabled, estimateCost } from '@agent-nekko/shared';
 import { withDataDir } from './paths.js';
 import { getSettings, saveSettings } from './store.js';
 import { buildArgs } from './engine/server.js';

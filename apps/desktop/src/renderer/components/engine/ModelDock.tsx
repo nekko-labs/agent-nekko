@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DEFAULT_FIT_REQUEST } from '@nekko-agent/shared';
+import { DEFAULT_FIT_REQUEST } from '@agent-nekko/shared';
 import type {
   EngineStatus,
   FitPlan,
@@ -8,7 +8,7 @@ import type {
   LoadParams,
   LocalModel,
   ResidentModel,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { readBrandKey } from '../../brandStorage.js';
 import { useStore } from '../../store.js';
 import { ChevronIcon } from '../../icons.js';

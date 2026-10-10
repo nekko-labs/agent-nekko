@@ -1,10 +1,10 @@
 # Decision models
 
-A decision model answers typed questions about a piece of text with calibrated probabilities, in one forward pass, without generating any text. Nekko Agent runs one natively in its engine daemon: **Laya**, an open-weight model from Convai Innovations (Apache 2.0).
+A decision model answers typed questions about a piece of text with calibrated probabilities, in one forward pass, without generating any text. Agent Nekko runs one natively in its engine daemon: **Laya**, an open-weight model from Convai Innovations (Apache 2.0).
 
 ## What Laya and Jev are
 
-TypeSafe Jev is a closed, hosted "System One" decision API: you send a `state` (text or JSON) and named questions, and get back typed answers. [Laya](https://huggingface.co/convaiinnovations/laya) is an open-weight model trained for the same job, and its own server (`laya-serve`) speaks Jev's request and response shape. Nekko Agent speaks it too, so a Jev client works against the local engine by changing its base URL.
+TypeSafe Jev is a closed, hosted "System One" decision API: you send a `state` (text or JSON) and named questions, and get back typed answers. [Laya](https://huggingface.co/convaiinnovations/laya) is an open-weight model trained for the same job, and its own server (`laya-serve`) speaks Jev's request and response shape. Agent Nekko speaks it too, so a Jev client works against the local engine by changing its base URL.
 
 Three question types:
 

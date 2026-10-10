@@ -1,4 +1,4 @@
-import type { CatalogModel, CatalogModelDetail, CatalogQuant } from '@nekko-agent/shared';
+import type { CatalogModel, CatalogModelDetail, CatalogQuant } from '@agent-nekko/shared';
 
 /**
  * Where models come from.
@@ -156,7 +156,7 @@ export function createCatalog(deps: CatalogDeps = {}) {
     const token = deps.token?.();
     return {
       accept: 'application/json',
-      'user-agent': 'nekko-agent',
+      'user-agent': 'agent-nekko',
       ...(token ? { authorization: `Bearer ${token}` } : {}),
     };
   }

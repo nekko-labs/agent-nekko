@@ -9,8 +9,8 @@
  * A runner returns a ToolResult-shaped outcome (`output` + `isError`); thrown
  * errors (missing params, bad URLs) are normalized by runWorkflowAction.
  */
-import type { ConnectorConfig, ToolResult, WorkflowActionSpec, WorkflowEvent } from '@nekko-agent/shared';
-import { findWorkflowAction, slugify } from '@nekko-agent/shared';
+import type { ConnectorConfig, ToolResult, WorkflowActionSpec, WorkflowEvent } from '@agent-nekko/shared';
+import { findWorkflowAction, slugify } from '@agent-nekko/shared';
 import { gitlabBase } from './index.js';
 
 /** An action's outcome, ToolResult-shaped: text for the run log + an error flag. */
@@ -20,7 +20,7 @@ export type WorkflowActionResult = Omit<ToolResult, 'toolCallId'>;
 export interface WorkflowActionContext {
   /** The event that fired the run (undefined for a manual start). */
   event?: WorkflowEvent;
-  /** The run the step belongs to, for defaults like the `nekko-agent/<wf>` context. */
+  /** The run the step belongs to, for defaults like the `agent-nekko/<wf>` context. */
   run?: {
     id: string;
     workflowId: string;
@@ -208,7 +208,7 @@ function adfDoc(text: string) {
 const GITHUB_HEADERS = (tok: string) => ({
   Authorization: `Bearer ${tok}`,
   Accept: 'application/vnd.github+json',
-  'User-Agent': 'nekko-agent',
+  'User-Agent': 'agent-nekko',
   'Content-Type': 'application/json',
 });
 
@@ -350,7 +350,7 @@ const RUNNERS: Partial<Record<string, WorkflowActionRunner>> = {
       headers: GITHUB_HEADERS(needToken(config, 'GitHub')),
       body: JSON.stringify({
         state,
-        context: str(params.context) || `nekko-agent/${slugify(ctx.run?.workflowName ?? 'workflow')}`,
+        context: str(params.context) || `agent-nekko/${slugify(ctx.run?.workflowName ?? 'workflow')}`,
         ...(str(params.description) ? { description: str(params.description).slice(0, 140) } : {}),
         ...(str(params.targetUrl) ? { target_url: str(params.targetUrl) } : {}),
       }),
@@ -375,7 +375,7 @@ const RUNNERS: Partial<Record<string, WorkflowActionRunner>> = {
       throw new Error(`GitLab commit state "${raw}" must be success, failed, running, pending, or canceled.`);
     }
     const qs = new URLSearchParams({ state });
-    qs.set('name', str(params.name) || `nekko-agent/${slugify(ctx.run?.workflowName ?? 'workflow')}`);
+    qs.set('name', str(params.name) || `agent-nekko/${slugify(ctx.run?.workflowName ?? 'workflow')}`);
     if (str(params.description)) qs.set('description', str(params.description));
     if (str(params.targetUrl)) qs.set('target_url', str(params.targetUrl));
     const res = await fetch(`${base}/api/v4/projects/${project}/statuses/${encodeURIComponent(sha)}?${qs}`, {
@@ -454,7 +454,7 @@ const RUNNERS: Partial<Record<string, WorkflowActionRunner>> = {
       redirect: 'manual',
       headers: {
         'Content-Type': str(params.contentType) || 'application/json',
-        'User-Agent': 'nekko-agent-workflow',
+        'User-Agent': 'agent-nekko-workflow',
       },
       body: required(str(params.body), 'Body'),
     });

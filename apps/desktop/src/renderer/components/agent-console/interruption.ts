@@ -1,4 +1,4 @@
-import { lastReplyInterrupted, type ChatMessage } from '@nekko-agent/shared';
+import { lastReplyInterrupted, type ChatMessage } from '@agent-nekko/shared';
 
 /**
  * The notice for a reply the chat found already cut off in its transcript: the

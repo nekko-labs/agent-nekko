@@ -1,5 +1,5 @@
 import type { GpuAdapter } from '../gpu-adapters.js';
-import type { EngineBackend, EngineBuild, EnginePlatform, GpuStats } from '@nekko-agent/shared';
+import type { EngineBackend, EngineBuild, EnginePlatform, GpuStats } from '@agent-nekko/shared';
 
 /**
  * Which llama.cpp build this machine should run, and which file that is.

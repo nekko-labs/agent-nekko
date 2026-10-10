@@ -1,6 +1,6 @@
 [package]
 name = "nekko-infer"
-description = "The Nekko Agent model server's data plane: supervised model-server processes and the OpenAI-compatible router in front of them."
+description = "The Agent Nekko model server's data plane: supervised model-server processes and the OpenAI-compatible router in front of them."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

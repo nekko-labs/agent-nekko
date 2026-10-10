@@ -1,6 +1,6 @@
-# Nekko Agent CLI and MCP
+# Agent Nekko CLI and MCP
 
-The CLI makes the Nekko Agent host a subagent for Devin, Claude Code, Codex,
+The CLI makes the Agent Nekko host a subagent for Devin, Claude Code, Codex,
 Cursor, and other harnesses. It uses the same host engine as the desktop and
 web editions.
 
@@ -9,8 +9,8 @@ web editions.
 Published package:
 
 ```bash
-npm install --global nekko-agent   # publishing with the next release
-npx nekko-agent status
+npm install --global agent-nekko   # publishing with the next release
+npx agent-nekko status
 ```
 
 From a checkout:
@@ -21,14 +21,14 @@ npm run build --workspace=apps/cli
 node apps/cli/dist/index.js status
 ```
 
-Use `nekko-agent` after a global install or linking the built package, or invoke
+Use `agent-nekko` after a global install or linking the built package, or invoke
 the bundled binary from `apps/cli/dist/index.js`. Without `--url`, the CLI runs
 an in-process host
 against `~/.nekko` (override with `NEKKO_DATA_DIR`). To drive a web edition,
 use:
 
 ```bash
-nekko-agent --url http://127.0.0.1:1440 --token "$NEKKO_TOKEN" status --json
+agent-nekko --url http://127.0.0.1:1440 --token "$NEKKO_TOKEN" status --json
 ```
 
 `--url` can also be supplied as `NEKKO_URL`; `--token` can be supplied as
@@ -62,7 +62,7 @@ workspace list|add PATH|remove ID|index ID|search ID QUERY [--json]
 prompts [--json]
 tasks list|add|run ID|delete ID [--json]
 skills [--json]
-skills install ID [--target nekko-agent|claude|codex] [--json]
+skills install ID [--target agent-nekko|claude|codex] [--json]
 tools [--json]
 models [PROVIDER_ID] [--json]
 train start NAME GOAL [--provider ID] [--model ID] [--workspace ID] [--json]
@@ -71,8 +71,8 @@ watch [--session ID] [--json]
 mcp
 ```
 
-Prompts may be positional, piped through stdin (`nekko-agent chat -`), or loaded
-from a file (`nekko-agent chat --file prompt.md`). `--quiet` suppresses human
+Prompts may be positional, piped through stdin (`agent-nekko chat -`), or loaded
+from a file (`agent-nekko chat --file prompt.md`). `--quiet` suppresses human
 progress on stderr.
 
 ## Machine output
@@ -130,13 +130,13 @@ node apps/cli/dist/index.js mcp
 Claude Code:
 
 ```bash
-claude mcp add nekko-agent -- node /abs/path/nekko-agent/apps/cli/dist/index.js mcp
+claude mcp add agent-nekko -- node /abs/path/agent-nekko/apps/cli/dist/index.js mcp
 ```
 
 Codex:
 
 ```bash
-codex mcp add nekko-agent -- node /abs/path/nekko-agent/apps/cli/dist/index.js mcp
+codex mcp add agent-nekko -- node /abs/path/agent-nekko/apps/cli/dist/index.js mcp
 ```
 
 Cursor and generic `mcpServers` configuration:
@@ -144,62 +144,62 @@ Cursor and generic `mcpServers` configuration:
 ```json
 {
   "mcpServers": {
-    "nekko-agent": {
+    "agent-nekko": {
       "command": "node",
-      "args": ["/abs/path/nekko-agent/apps/cli/dist/index.js", "mcp"]
+      "args": ["/abs/path/agent-nekko/apps/cli/dist/index.js", "mcp"]
     }
   }
 }
 ```
 
-`nekko-agent_chat` accepts the same `approve` policy as the CLI and defaults to
-`guardrails`. `nekko-agent_train_start` also accepts an explicit `approve` argument;
+`agent-nekko_chat` accepts the same `approve` policy as the CLI and defaults to
+`guardrails`. `agent-nekko_train_start` also accepts an explicit `approve` argument;
 unattended training that intentionally permits ask-rules must pass
 `"approve": "yolo"`. The server negotiates MCP protocol versions, echoing a
 supported client version and otherwise selecting its newest supported version.
-`nekko-agent_task_create` exposes `title`, `prompt`, `kind`, `runAt`, `intervalMs`,
+`agent-nekko_task_create` exposes `title`, `prompt`, `kind`, `runAt`, `intervalMs`,
 `workspaceId`, `providerId`, `modelId`, `condition`, and `keepAlive` directly;
-`title`, `prompt`, and `kind` are required. A `nekko-agent_chat` result presents
+`title`, `prompt`, and `kind` are required. A `agent-nekko_chat` result presents
 the assistant reply first, followed by a metadata block containing session,
 tool-call, blocked-entry, duration, and usage details.
 
-The MCP tool list mirrors the CLI coverage: `nekko-agent_chat`,
-`nekko-agent_list_sessions`, `nekko-agent_new_session`, `nekko-agent_get_session`,
-`nekko-agent_workspace_list`, `nekko-agent_workspace_add`, `nekko-agent_workspace_remove`,
-`nekko-agent_workspace_index`, `nekko-agent_workspace_search`,
-`nekko-agent_prompts_list`, `nekko-agent_tasks_list`, `nekko-agent_task_create`,
-`nekko-agent_task_run`, `nekko-agent_task_delete`, `nekko-agent_skills_list`,
-`nekko-agent_skill_install`, `nekko-agent_tools_list`, `nekko-agent_models_list`,
-`nekko-agent_train_start`, `nekko-agent_train_status`, `nekko-agent_train_hint`,
-`nekko-agent_train_stop`, and `nekko-agent_status`.
+The MCP tool list mirrors the CLI coverage: `agent-nekko_chat`,
+`agent-nekko_list_sessions`, `agent-nekko_new_session`, `agent-nekko_get_session`,
+`agent-nekko_workspace_list`, `agent-nekko_workspace_add`, `agent-nekko_workspace_remove`,
+`agent-nekko_workspace_index`, `agent-nekko_workspace_search`,
+`agent-nekko_prompts_list`, `agent-nekko_tasks_list`, `agent-nekko_task_create`,
+`agent-nekko_task_run`, `agent-nekko_task_delete`, `agent-nekko_skills_list`,
+`agent-nekko_skill_install`, `agent-nekko_tools_list`, `agent-nekko_models_list`,
+`agent-nekko_train_start`, `agent-nekko_train_status`, `agent-nekko_train_hint`,
+`agent-nekko_train_stop`, and `agent-nekko_status`.
 
 ## Recipes
 
 ### Drive a repeated workflow
 
 ```bash
-nekko-agent tasks add --title "daily review" --kind recurring \
+agent-nekko tasks add --title "daily review" --kind recurring \
   --interval-ms 86400000 --prompt "Review the current workspace diff and summarize risks" \
   --workspace "$WORKSPACE_ID" --provider "$PROVIDER" --model "$MODEL" --json
-nekko-agent tasks list --json
-nekko-agent tasks run TASK_ID --json
+agent-nekko tasks list --json
+agent-nekko tasks run TASK_ID --json
 ```
 
 ### Fan out several sessions
 
 ```bash
-nekko-agent chat "Review security" --new --workspace "$W" --json > security.json &
-nekko-agent chat "Review tests" --new --workspace "$W" --json > tests.json &
-nekko-agent chat "Review API design" --new --workspace "$W" --json > api.json &
+agent-nekko chat "Review security" --new --workspace "$W" --json > security.json &
+agent-nekko chat "Review tests" --new --workspace "$W" --json > tests.json &
+agent-nekko chat "Review API design" --new --workspace "$W" --json > api.json &
 wait
 ```
 
 ### Hand off training and poll it
 
 ```bash
-nekko-agent train start "ranking-v1" "Improve ranking accuracy" \
+agent-nekko train start "ranking-v1" "Improve ranking accuracy" \
   --workspace "$W" --provider "$PROVIDER" --model "$MODEL" --json
-nekko-agent train status --json
-nekko-agent train hint RUN_ID "Try a larger validation split" --json
-nekko-agent train stop RUN_ID --json
+agent-nekko train status --json
+agent-nekko train hint RUN_ID "Try a larger validation split" --json
+agent-nekko train stop RUN_ID --json
 ```

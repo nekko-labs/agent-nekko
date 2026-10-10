@@ -4,11 +4,11 @@ import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
 import { chmod, mkdir, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import { join, relative, isAbsolute } from 'path';
-import type { EngineBuild, EngineInstall, EnginePlatform, GpuStats } from '@nekko-agent/shared';
+import type { EngineBuild, EngineInstall, EnginePlatform, GpuStats } from '@agent-nekko/shared';
 import { buildsFor, hasBinaries, matchAsset, matchCompanion, recommendedBuild } from './builds.js';
 import { diffusionBuilds, matchDiffusionAsset, matchDiffusionCompanion } from './diffusion.js';
 import { RUNTIME_RELEASES } from './runtime-releases.js';
-import type { EngineInstallPreview } from '@nekko-agent/shared';
+import type { EngineInstallPreview } from '@agent-nekko/shared';
 import type { Downloads } from './download.js';
 
 /**
@@ -121,8 +121,8 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
       available,
       recommended,
       reason: recommended
-        ? 'No engine installed yet. Nekko Agent can download one, or point it at a llama-server you already have.'
-        : `No llama.cpp build is published for ${platform}/${arch}. Point Nekko Agent at a llama-server you built yourself.`,
+        ? 'No engine installed yet. Agent Nekko can download one, or point it at a llama-server you already have.'
+        : `No llama.cpp build is published for ${platform}/${arch}. Point Agent Nekko at a llama-server you built yourself.`,
     };
   }
 
@@ -233,7 +233,7 @@ export function createEngineInstaller(deps: EngineInstallerDeps) {
   async function fetchRelease(): Promise<{ tag: string; assets: Array<{ name: string; url: string; size: number; digest?: string }> } | null> {
     try {
       const res = await doFetch(`https://api.github.com/repos/${releasePin.repo}/releases/tags/${releasePin.tag}`, {
-        headers: { accept: 'application/vnd.github+json', 'user-agent': 'nekko-agent' },
+        headers: { accept: 'application/vnd.github+json', 'user-agent': 'agent-nekko' },
         signal: AbortSignal.timeout(15_000),
       });
       if (!res.ok) return null;

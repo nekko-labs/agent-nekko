@@ -433,7 +433,7 @@
     "updatedAt": 1790000100000,
     "messageCount": 5,
     "exchangeCount": 3,
-    "firstUserText": "Open a PR for https://github.com/nekko-labs/nekko-agent/pull/219 follow-up",
+    "firstUserText": "Open a PR for https://github.com/nekko-labs/agent-nekko/pull/219 follow-up",
     "lastReplyText": "Opened https://github.com/o/r/pull/8.",
     "lastReplyAt": 1790000000002,
     "transcriptTokens": 85,
@@ -442,7 +442,7 @@
       {
         "id": "u1",
         "role": "user",
-        "text": "Open a PR for https://github.com/nekko-labs/nekko-agent/pull/219 follow-up",
+        "text": "Open a PR for https://github.com/nekko-labs/agent-nekko/pull/219 follow-up",
         "at": 1790000000002
       },
       {

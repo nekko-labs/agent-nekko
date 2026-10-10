@@ -2,8 +2,8 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentEvent, ProviderConfig, Session } from '@nekko-agent/shared';
-import type { Provider, ProviderChunk } from '@nekko-agent/core';
+import type { AgentEvent, ProviderConfig, Session } from '@agent-nekko/shared';
+import type { Provider, ProviderChunk } from '@agent-nekko/core';
 
 /**
  * A long agent run has to survive being cut off. These exercise the two halves
@@ -21,8 +21,8 @@ let round = 0;
 const daemonCall = vi.hoisted(() => vi.fn<() => unknown>(() => undefined));
 vi.mock('./engine/daemon.js', async () => ({ ...(await vi.importActual<typeof import('./engine/daemon.js')>('./engine/daemon.js')), daemonCall }));
 
-vi.mock('@nekko-agent/core', async () => {
-  const actual = await vi.importActual<typeof import('@nekko-agent/core')>('@nekko-agent/core');
+vi.mock('@agent-nekko/core', async () => {
+  const actual = await vi.importActual<typeof import('@agent-nekko/core')>('@agent-nekko/core');
   return {
     ...actual,
     createProvider: (config: ProviderConfig): Provider => ({

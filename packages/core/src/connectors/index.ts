@@ -1,4 +1,4 @@
-import type { ConnectorKind, ConnectorResource } from '@nekko-agent/shared';
+import type { ConnectorKind, ConnectorResource } from '@agent-nekko/shared';
 
 /** One event returned by a connector poll; listeners map these to WorkflowEvents. */
 export interface ConnectorPollEvent {
@@ -38,7 +38,7 @@ export const githubConnector: Connector = {
     const headers = {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'nekko-agent',
+      'User-Agent': 'agent-nekko',
     };
     if (query) {
       const res = await fetch(
@@ -70,7 +70,7 @@ export const githubConnector: Connector = {
     const headers = {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.github+json',
-      'User-Agent': 'nekko-agent',
+      'User-Agent': 'agent-nekko',
     };
     const repo = (settings.repo ?? '').trim();
     const since = new Date(cursor).toISOString();
@@ -462,7 +462,7 @@ export const teamsConnector: Connector = {
           id: 'webhook',
           title: 'Incoming webhook',
           subtitle: host,
-          body: 'Nekko Agent can post messages to this channel. Add a Graph token to read teams.',
+          body: 'Agent Nekko can post messages to this channel. Add a Graph token to read teams.',
         },
       ];
     }

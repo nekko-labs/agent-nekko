@@ -1,5 +1,5 @@
 /**
- * The Nekko engine: the model server Nekko Agent runs itself.
+ * The Nekko engine: the model server Agent Nekko runs itself.
  *
  * Everything else in `runtimes.ts` describes a server somebody else installed.
  * This file describes the one we own, which needs three things the others do not:
@@ -137,7 +137,7 @@ export interface EngineSettings {
   apiKey?: string;
   /** Allowed browser origins. `*` is permitted but never the default. */
   corsOrigins?: string;
-  /** Start the router when Nekko Agent starts. */
+  /** Start the router when Agent Nekko starts. */
   autoStart: boolean;
   /**
    * Model ids to load right after the router binds, in order.
@@ -605,7 +605,7 @@ export interface ModelFolderProvider {
 }
 
 export const MODEL_FOLDER_PROVIDERS: Record<ModelFolderProviderId, ModelFolderProvider> = {
-  nekko: { label: 'Nekko Agent', hint: 'Models downloaded here.' },
+  nekko: { label: 'Agent Nekko', hint: 'Models downloaded here.' },
   ollama: { label: 'Ollama', hint: 'Ollama stores models as hashed blobs; names come from its manifests.' },
   lmstudio: { label: 'LM Studio', hint: 'LM Studio keeps GGUF files under publisher/repo.' },
   jan: { label: 'Jan', hint: 'Jan keeps one folder per model.' },

@@ -2,7 +2,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AppSettings, ModelInfo, VaizerCatalog } from '@nekko-agent/shared';
+import type { AppSettings, ModelInfo, VaizerCatalog } from '@agent-nekko/shared';
 import { setDataDir } from './paths.js';
 import { startUpdateChecks } from './update-checks.js';
 

@@ -8,7 +8,7 @@ import {
   type KvCacheDtype,
   type LoadParams,
   type LocalModel,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { FitBar } from '../runtimes/FitBar.js';
 import { Toggle } from '../primitives/index.js';
 import { formatBytes, formatTokens, verdictColor, verdictLabel, verdictNotes, verdictSentence } from '../runtimes/verdict.js';

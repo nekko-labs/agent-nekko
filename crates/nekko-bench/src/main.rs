@@ -8,7 +8,7 @@
 //! ```json
 //! { "machine": "RTX 5090, Windows 11", "model": "gemma-4-12B-it Q4_K_M",
 //!   "repeats": 3,
-//!   "targets": [ { "name": "Nekko Agent engine", "baseUrl": "http://127.0.0.1:18080/v1", "model": "gemma" } ] }
+//!   "targets": [ { "name": "Agent Nekko engine", "baseUrl": "http://127.0.0.1:18080/v1", "model": "gemma" } ] }
 //! ```
 //!
 //! `nekko-bench <config.json> [--out results.json] [--markdown results.md] [--only decode,agent]`

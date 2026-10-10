@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { Session } from '@nekko-agent/shared';
+import type { Session } from '@agent-nekko/shared';
 vi.mock('../store.js', () => ({ useStore: (selector: (state: unknown) => unknown) => selector({ sessions: [], openChatPane: () => {}, settings: {} }) }));
 import { PlanRail, appendPlanChangeRequest, PLAN_CHANGE_REQUEST } from './PlanRail.js';
 

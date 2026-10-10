@@ -7,25 +7,25 @@ import { hypergateConnectPort } from './deepLinks.js';
  */
 describe('hypergateConnectPort', () => {
   it('reads the port out of a connect link', () => {
-    expect(hypergateConnectPort('nekko-agent://hypergate/connect?port=7777')).toBe(7777);
-    expect(hypergateConnectPort('nekko-agent://hypergate/connect?port=7999')).toBe(7999);
+    expect(hypergateConnectPort('agent-nekko://hypergate/connect?port=7777')).toBe(7777);
+    expect(hypergateConnectPort('agent-nekko://hypergate/connect?port=7999')).toBe(7999);
   });
 
   it('defaults to the daemon port when the link omits one', () => {
-    expect(hypergateConnectPort('nekko-agent://hypergate/connect')).toBe(7777);
-    expect(hypergateConnectPort('nekko-agent://hypergate/connect/')).toBe(7777);
+    expect(hypergateConnectPort('agent-nekko://hypergate/connect')).toBe(7777);
+    expect(hypergateConnectPort('agent-nekko://hypergate/connect/')).toBe(7777);
   });
 
-  it('rejects anything that is not a Nekko Agent connect link', () => {
+  it('rejects anything that is not an Agent Nekko connect link', () => {
     expect(hypergateConnectPort('https://hypergate.app/connect?port=7777')).toBeNull();
-    expect(hypergateConnectPort('nekko-agent://settings')).toBeNull();
-    expect(hypergateConnectPort('nekko-agent://hypergate/disconnect')).toBeNull();
+    expect(hypergateConnectPort('agent-nekko://settings')).toBeNull();
+    expect(hypergateConnectPort('agent-nekko://hypergate/disconnect')).toBeNull();
     expect(hypergateConnectPort('not a url at all')).toBeNull();
   });
 
   it('rejects a port that is not a port', () => {
     for (const bad of ['0', '-1', '70000', 'abc', '80.5', '']) {
-      expect(hypergateConnectPort(`nekko-agent://hypergate/connect?port=${bad}`)).toBeNull();
+      expect(hypergateConnectPort(`agent-nekko://hypergate/connect?port=${bad}`)).toBeNull();
     }
   });
 });

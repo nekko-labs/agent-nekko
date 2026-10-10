@@ -1,7 +1,7 @@
 import { anthropicCachePrefix, tokenCount } from './prompt-caching.js';
 import { withToolImages } from './tool-images.js';
-import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@nekko-agent/shared';
-import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels, parseClaudeModel } from '@nekko-agent/shared';
+import type { ModelAvailability, ModelInfo, ProviderConfig, ToolCall } from '@agent-nekko/shared';
+import { claudeContextWindow, claudeMaxOutputTokens, effectiveEffort, modelEffortLevels, parseClaudeModel } from '@agent-nekko/shared';
 import type { Provider, ChatRequest, ProviderChunk } from './types.js';
 import { parseSSE } from './sse.js';
 import { httpError } from './errors.js';

@@ -2,7 +2,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('../store.js', () => ({ useStore: { getState: () => ({}) } }));
-import type { GitStatus, Session } from '@nekko-agent/shared';
+import type { GitStatus, Session } from '@agent-nekko/shared';
 import { claimCheckoutNotice, WorktreeChip } from './WorktreeChip.js';
 
 const session = { id: 'chat', gitIsolation: true } as Session;

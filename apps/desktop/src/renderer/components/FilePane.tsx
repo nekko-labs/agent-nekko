@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LineComment } from '@nekko-agent/shared';
+import type { LineComment } from '@agent-nekko/shared';
 import { Markdown } from './Markdown.js';
 import { ArtifactPreview, MermaidDiagram } from './ArtifactPreview.js';
 import { FileTypeIcon } from '../fileIcons.js';
@@ -47,7 +47,7 @@ function readAutoSavePref(): boolean {
  * with auto-save, undo/redo, and clipboard actions. A gutter "+" lets you drop
  * an inline comment on any line that the agent picks up, Add to prompt (queue
  * it) or Run now (send it). Deliberately not a full IDE, just enough to read,
- * tweak, and steer changes without leaving Nekko Agent.
+ * tweak, and steer changes without leaving Agent Nekko.
  */
 export function FilePane({ path }: { path: string }) {
   const isMd = /\.(md|markdown)$/i.test(path);

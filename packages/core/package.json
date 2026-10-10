@@ -1,5 +1,5 @@
 {
-  "name": "@nekko-agent/core",
+  "name": "@agent-nekko/core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,6 +17,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@nekko-agent/shared": "*"
+    "@agent-nekko/shared": "*"
   }
 }

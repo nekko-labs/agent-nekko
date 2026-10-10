@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdir, mkdtemp, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { ModelFolder } from '@nekko-agent/shared';
+import type { ModelFolder } from '@agent-nekko/shared';
 import { createLibrary, PRIMARY_FOLDER_ID } from './library.js';
 import { folderId, knownFolderCandidates } from './folders.js';
 import { listOllamaModels, modelName } from './ollama.js';

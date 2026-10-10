@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { ModelFolder, ModelFolderReport, ModelFolderStatus, ModelFolderSuggestion } from '@nekko-agent/shared';
-import { MODEL_FOLDER_PROVIDERS } from '@nekko-agent/shared';
+import type { ModelFolder, ModelFolderReport, ModelFolderStatus, ModelFolderSuggestion } from '@agent-nekko/shared';
+import { MODEL_FOLDER_PROVIDERS } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
 import { CheckIcon, PlusIcon, TrashIcon } from '../../icons.js';
@@ -77,7 +77,7 @@ export function ModelFolders({ onChanged }: { onChanged: () => void }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11.5px] text-ink-faint">
-          Every folder here is scanned for GGUF files. Models found outside Nekko Agent's own folder can be run and
+          Every folder here is scanned for GGUF files. Models found outside Agent Nekko's own folder can be run and
           loaded, but never deleted from here.
         </p>
         <button className="btn btn-outline py-1 text-[11.5px]" onClick={() => setAdding((v) => !v)} disabled={busy}>
@@ -162,7 +162,7 @@ function FolderRow({
   useEffect(() => setDraft(folder.path), [folder.path]);
 
   const meta = folder.provider ? MODEL_FOLDER_PROVIDERS[folder.provider] : undefined;
-  const label = folder.primary ? 'Nekko Agent' : (meta?.label ?? 'Custom folder');
+  const label = folder.primary ? 'Agent Nekko' : (meta?.label ?? 'Custom folder');
   const off = !folder.enabled;
 
   return (

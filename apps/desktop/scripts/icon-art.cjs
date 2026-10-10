@@ -1,5 +1,5 @@
 /**
- * The Nekko Agent mark, as vector art: an outline cat head (two ears, a soft
+ * The Agent Nekko mark, as vector art: an outline cat head (two ears, a soft
  * curve of forehead between them, a round jaw, nothing inside) in one thin
  * stroke with sharp corners, on a deep tile, plus the installer banners that
  * reuse it. Pure

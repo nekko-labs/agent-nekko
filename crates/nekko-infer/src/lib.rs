@@ -1,4 +1,4 @@
-//! The Nekko Agent model server's data plane, run inside `nekkod`.
+//! The Agent Nekko model server's data plane, run inside `nekkod`.
 //!
 //! - [`Supervisor`]: one process per loaded model (llama.cpp, stable-diffusion.cpp
 //!   or MLX), started, health-checked, logged and stopped.

@@ -50,7 +50,7 @@ export interface EngineDaemon {
   decideLoad(req: { dir: string; precision?: string; name?: string }): Promise<Record<string, unknown>>;
   decideUnload(): Promise<void>;
   decideStatus(): Promise<Record<string, unknown>>;
-  decideRun(request: import('@nekko-agent/shared').DecisionRequest): Promise<Omit<import('@nekko-agent/shared').DecisionResponse, 'provider' | 'latencyMs'>>;
+  decideRun(request: import('@agent-nekko/shared').DecisionRequest): Promise<Omit<import('@agent-nekko/shared').DecisionResponse, 'provider' | 'latencyMs'>>;
 }
 
 /** Where `{port}` goes in a daemon spawn's arguments. */

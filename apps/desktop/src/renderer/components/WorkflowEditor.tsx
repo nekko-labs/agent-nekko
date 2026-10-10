@@ -12,7 +12,7 @@ import type {
   WorkflowTransition,
   WorkflowTrigger,
   WorkflowTriggerKind,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import {
   CONNECTOR_CATALOG,
   DEFAULT_WORKFLOW_CATEGORIES,
@@ -30,7 +30,7 @@ import {
   nextCronRun,
   slugify,
   unreachableSteps,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { Modal } from './primitives/index.js';
 import { WorkflowCanvas } from './WorkflowCanvas.js';
@@ -688,7 +688,7 @@ function ConnectorTriggerFields({
         />
       </label>
       <p className="text-[11px] text-ink-faint sm:col-span-2">
-        The connector must be connected under Connectors. Nekko Agent polls it on the interval and starts a run for each new matching event.
+        The connector must be connected under Connectors. Agent Nekko polls it on the interval and starts a run for each new matching event.
       </p>
     </div>
   );
@@ -875,7 +875,7 @@ function TriggerEditor({
             onChange={(e) => onPatch({ command: e.target.value || undefined })}
           />
           <span className="mt-1 block text-[11px] text-ink-faint">
-            Run it with <code className="font-mono">nekko-agent workflow trigger {trigger.command?.trim() || (slugSource ? cliCommand({ name: slugSource } as Workflow, undefined) : '<command>')}</code>
+            Run it with <code className="font-mono">agent-nekko workflow trigger {trigger.command?.trim() || (slugSource ? cliCommand({ name: slugSource } as Workflow, undefined) : '<command>')}</code>
           </span>
         </label>
       )}

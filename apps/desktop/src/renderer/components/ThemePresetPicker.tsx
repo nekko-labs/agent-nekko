@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { AppSettings, ThemePreset } from '@nekko-agent/shared';
-import { THEME_PRESETS, currentPresetAccent, findThemePreset } from '@nekko-agent/shared';
+import type { AppSettings, ThemePreset } from '@agent-nekko/shared';
+import { THEME_PRESETS, currentPresetAccent, findThemePreset } from '@agent-nekko/shared';
 import { useT } from '../i18n.js';
 import { ColorWheel } from './ColorWheel.js';
 

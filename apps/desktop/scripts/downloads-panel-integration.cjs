@@ -22,7 +22,7 @@ async function main() {
   }
   const entry = path.join(out, 'fixture-entry.tsx');
   fs.writeFileSync(entry, fs.readFileSync(path.join(__dirname, 'downloads-panel-fixture.tsx'), 'utf8').replaceAll('../src/renderer', renderer.replaceAll('\\', '/')));
-  await require(path.join(modules, 'esbuild')).build({ entryPoints: [entry], bundle: true, jsx: 'automatic', conditions: ['browser', 'import', 'default'], format: 'iife', outfile: path.join(out, 'fixture.js'), nodePaths: [modules], alias: { '@nekko-agent/shared': shared }, loader: { '.woff2': 'dataurl', '.svg': 'dataurl', '.png': 'dataurl', '.wasm': 'file' } });
+  await require(path.join(modules, 'esbuild')).build({ entryPoints: [entry], bundle: true, jsx: 'automatic', conditions: ['browser', 'import', 'default'], format: 'iife', outfile: path.join(out, 'fixture.js'), nodePaths: [modules], alias: { '@agent-nekko/shared': shared }, loader: { '.woff2': 'dataurl', '.svg': 'dataurl', '.png': 'dataurl', '.wasm': 'file' } });
   const cssSource = fs.readFileSync(path.join(repo, 'apps/desktop/src/renderer/styles.css'), 'utf8');
   const css = await require(path.join(modules, 'postcss'))([require(path.join(modules, '@tailwindcss/postcss/dist/index.js'))({ base: repo })]).process(cssSource, { from: path.join(repo, 'apps/desktop/src/renderer/styles.css') });
   fs.writeFileSync(path.join(out, 'styled.css'), css.css + '\n.fixture-shell{min-height:100vh;background:var(--bg);color:var(--ink);font:14px system-ui}.fixture-shell main{padding:24px}');

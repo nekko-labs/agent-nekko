@@ -1,8 +1,8 @@
-# Nekko Agent for iOS and Android
+# Agent Nekko for iOS and Android
 
 A native app (Expo, React Native) that does two things:
 
-- **Drives Nekko Agent on your computer** over the end-to-end encrypted relay: chats with Working /
+- **Drives Agent Nekko on your computer** over the end-to-end encrypted relay: chats with Working /
   Needs you badges, new chats on the computer's models and folders, streamed replies, approvals,
   the agent's questions, queued follow-ups, Stop. Guide: [docs/REMOTE.md](../../docs/REMOTE.md).
 - **Runs models on the phone** through llama.cpp ([llama.rn](https://github.com/mybigday/llama.rn)):
@@ -55,5 +55,5 @@ npm run test:relay     # phone ↔ relay ↔ computer, against a local relay and
 ## Release (not set up yet)
 
 Store builds need an EAS project, signing (Apple developer account, Play console), and for push an
-APNs key and FCM service account on the relay. `appId` is `dev.nekkolabs.nekkoagent` on both
+APNs key and FCM service account on the relay. `appId` is `dev.nekkolabs.agentnekko` on both
 platforms, matching the desktop bundle id.

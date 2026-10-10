@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { parsePrUrl } from '@nekko-agent/shared';
-import type { ToolSpec } from '@nekko-agent/core';
+import { parsePrUrl } from '@agent-nekko/shared';
+import type { ToolSpec } from '@agent-nekko/core';
 import { dataDir } from './paths.js';
 import { writeJsonAtomic } from './secure-file.js';
 

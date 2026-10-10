@@ -1,17 +1,17 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, statfsSync, chmodSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import { brandEnv, CLI_LINK_FILE, modelModality } from '@nekko-agent/shared';
+import { brandEnv, CLI_LINK_FILE, modelModality } from '@agent-nekko/shared';
 import { writeJsonAtomic } from './secure-file.js';
 
 export function defaultUserDataDir(): string {
-  return brandEnv('DATA_DIR') || join(homedir(), '.nekko-agent');
+  return brandEnv('DATA_DIR') || join(homedir(), '.agent-nekko');
 }
 
 export function legacyUserDataDirs(home = homedir(), appData?: string): string[] {
   const profile = appData ?? (process.platform === 'win32' ? process.env.APPDATA || join(home, 'AppData', 'Roaming') : process.platform === 'darwin' ? join(home, 'Library', 'Application Support') : join(home, '.config'));
-  const sources = [join(profile, 'Nekko Agent', 'nekko-agent'), join(home, '.nekko')].filter(p => existsSync(join(p, 'settings.json')));
-  const journal = join(home, '.nekko-agent', 'migration.json');
+  const sources = [join(profile, 'Agent Nekko', 'agent-nekko'), join(home, '.nekko')].filter(p => existsSync(join(p, 'settings.json')));
+  const journal = join(home, '.agent-nekko', 'migration.json');
   if (existsSync(journal)) {
     const pending = JSON.parse(readFileSync(journal, 'utf8')) as { from: string; phase: string };
     if (pending.phase !== 'complete' && !sources.includes(pending.from)) sources.push(pending.from);
@@ -48,13 +48,13 @@ export function migrateUserData(source: string, destination: string, desktopProf
     if (!link.enabled || !Number.isInteger(link.pid) || link.pid! <= 0 || link.pid === process.pid) continue;
     let live = false;
     try { process.kill(link.pid!, 0); live = true; } catch (e) { live = (e as NodeJS.ErrnoException).code === 'EPERM'; }
-    if (live) throw new Error('Another Nekko Agent process is still running. Close it before moving its data.');
+    if (live) throw new Error('Another Agent Nekko process is still running. Close it before moving its data.');
   }
   const journalPath = join(to, 'migration.json');
   const prior = existsSync(journalPath) ? JSON.parse(readFileSync(journalPath, 'utf8')) as { from: string; to: string; phase: string; desktopProfile?: string; moves?: Array<{ from: string; to: string }> } : null;
   if (prior && (prior.from !== from || prior.to !== to)) throw new Error('A different migration is pending. Resolve it before moving another profile.');
   if (!prior && existsSync(to) && readdirSync(to).some(n => n !== 'desktop')) throw new Error('The destination already contains user data. Choose which profile to keep; no files were overwritten.');
-  if (!prior && !existsSync(join(from, 'settings.json'))) throw new Error('The selected source has no Nekko Agent settings.');
+  if (!prior && !existsSync(join(from, 'settings.json'))) throw new Error('The selected source has no Agent Nekko settings.');
   mkdirSync(to, { recursive: true, mode: 0o700 });
   if (existsSync(from) && statSync(from).dev !== statSync(to).dev) throw new Error('This move crosses filesystems. Move the profile to the destination filesystem manually before continuing.');
   const disk = statfsSync(to);
@@ -139,8 +139,8 @@ export function prepareUserDataRoot(): string {
   if (pending?.phase === 'complete' || (existsSync(join(root, 'settings.json')) && !pending)) return root;
   if (!sources.length && !pending) return root;
   const selected = brandEnv('MIGRATE_FROM') || pending?.from || (sources.length === 1 ? sources[0] : undefined);
-  if (brandEnv('MIGRATE_DATA') !== '1' || !selected) throw new Error(`Existing Nekko Agent data needs a confirmed move to ${root}. Close other Nekko instances, then launch the desktop app to choose a profile, or set NEKKO_MIGRATE_DATA=1 and NEKKO_MIGRATE_FROM to the source folder. Original profiles are not merged automatically.`);
-  if (!pending && !sources.some(p => resolve(p) === resolve(selected))) throw new Error('The selected source is not a detected Nekko Agent profile.');
+  if (brandEnv('MIGRATE_DATA') !== '1' || !selected) throw new Error(`Existing Agent Nekko data needs a confirmed move to ${root}. Close other Nekko instances, then launch the desktop app to choose a profile, or set NEKKO_MIGRATE_DATA=1 and NEKKO_MIGRATE_FROM to the source folder. Original profiles are not merged automatically.`);
+  if (!pending && !sources.some(p => resolve(p) === resolve(selected))) throw new Error('The selected source is not a detected Agent Nekko profile.');
   migrateUserData(selected, root);
   return root;
 }

@@ -1,4 +1,4 @@
-import type { ReadinessCatalog } from '@nekko-agent/shared';
+import type { ReadinessCatalog } from '@agent-nekko/shared';
 
 /**
  * The versioned, curated component catalog for the offline PC-control stack.
