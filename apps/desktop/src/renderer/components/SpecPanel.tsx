@@ -10,7 +10,10 @@ import { useStore } from '../store.js';
  * Later artifacts are chained from the earlier ones server-side. The tasks doc
  * renders as an interactive checklist whose toggles write back to the file.
  */
-export function SpecPanel({ sessionId, session }: { sessionId: string; session: SessionMeta | null }) {
+export function SpecPanel(props: { sessionId: string; session: SessionMeta | null }) {
+  return props.session?.executionMode === 'sandbox' ? <p className="p-3 text-sm text-ink-soft">Host spec actions are unavailable in Sandbox.</p> : <HostSpecPanel {...props} />;
+}
+function HostSpecPanel({ sessionId, session }: { sessionId: string; session: SessionMeta | null }) {
   const refreshSessions = useStore((s) => s.refreshSessions);
   const pushToast = useStore((s) => s.pushToast);
   const settings = useStore((s) => s.settings);

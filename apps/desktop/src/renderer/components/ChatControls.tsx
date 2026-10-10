@@ -1,6 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import type { ChatMode, McpServerStatus, Session } from '@nekko-agent/shared';
+import { getExecutionMode, type ExecutionMode } from '@nekko-agent/shared';
+import { SandboxSetup, SandboxReview } from './SandboxSetup.js';
 import { useStore } from '../store.js';
 import { WrenchIcon, PlaneIcon, IncognitoIcon, PlugIcon, PlusIcon, GlobeIcon, GlobeOffIcon } from '../icons.js';
 import { afterPaint } from '../afterPaint.js';
@@ -203,8 +205,9 @@ export function ToolsMenu({ session, onChange }: { session: Session; onChange: (
   }, [open]);
   const offline = !!session.offline;
   const disabled = new Set(session.disabledTools ?? []);
-  const enabledCount = tools.filter((t) => !disabled.has(t.name)).length;
-  const shown = query.trim() ? tools.filter((t) => t.name.toLowerCase().includes(query.trim().toLowerCase())) : tools;
+  const availableTools = getExecutionMode(session) === 'sandbox' ? tools.filter((t) => ['read_file', 'write_file', 'edit_file', 'list_dir', 'glob', 'grep', 'bash'].includes(t.name)) : tools;
+  const enabledCount = availableTools.filter((t) => !disabled.has(t.name)).length;
+  const shown = query.trim() ? availableTools.filter((t) => t.name.toLowerCase().includes(query.trim().toLowerCase())) : availableTools;
   const toggle = async (name: string) => {
     const next = new Set(disabled);
     next.has(name) ? next.delete(name) : next.add(name);
@@ -223,12 +226,12 @@ export function ToolsMenu({ session, onChange }: { session: Session; onChange: (
       >
         <WrenchIcon className="h-3 w-3 text-ink-faint" />
         <span className="ctl-menu-label">Tools</span>
-        <span className="tabular-nums">{offline ? 'off' : `${enabledCount}/${tools.length}`}</span>
+        <span className="tabular-nums">{offline ? 'off' : `${enabledCount}/${availableTools.length}`}</span>
         <span className="ctl-caret">▾</span>
       </button>
       {open && !offline && createPortal(
         <div ref={pop} style={floating} className="card fixed z-[100] flex flex-col p-1.5 shadow-lg" role="menu" aria-label="Tools">
-          {tools.length > 7 && (
+          {availableTools.length > 7 && (
             <input className="input mb-1 rounded-lg px-2.5 py-1 text-[12px]" placeholder="Filter tools…" value={query} autoFocus aria-label="Filter tools" onChange={(e) => setQuery(e.target.value)} />
           )}
           <div className="min-h-0 flex-1 overflow-y-auto">
@@ -332,6 +335,8 @@ export function ChatControls({
   const [tools, setTools] = useState<Array<{ name: string; description: string }>>([]);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [executionError, setExecutionError] = useState('');
   const modeButton = useRef<HTMLButtonElement>(null);
   const modeMenu = useRef<HTMLDivElement>(null);
   const [modePosition, setModePosition] = useState<React.CSSProperties>({});
@@ -343,7 +348,7 @@ export function ChatControls({
       if (!anchor) return;
       const above = Math.max(0, anchor.top - 16);
       const below = Math.max(0, window.innerHeight - anchor.bottom - 16);
-      const width = Math.min(240, window.innerWidth - 16);
+      const width = Math.min(480, window.innerWidth - 16);
       setModePosition({
         width, left: Math.max(8, Math.min(anchor.left, window.innerWidth - width - 8)),
         maxHeight: Math.max(above, below),
@@ -374,14 +379,26 @@ export function ChatControls({
 
   if (!session) return null;
 
+  const execution = getExecutionMode(session);
+  const sandbox = execution === 'sandbox';
+  const selectExecution = async (executionMode: ExecutionMode) => {
+    setModeOpen(false); setExecutionError('');
+    if (executionMode === 'sandbox') { setSetupOpen(true); return; }
+    try {
+      onChange(await window.nekko.setSessionOptions(session.id, { executionMode, gitIsolation: executionMode === 'worktree' }));
+      await window.nekko.updateSettings({ defaultExecutionMode: executionMode, gitManagement: { ...settings?.gitManagement, mode: executionMode === 'worktree' ? 'worktree' : 'shared' } });
+      await useStore.getState().refreshSettings();
+    } catch (e) { setExecutionError(String((e as Error).message ?? e)); }
+  };
   const mode: ChatMode = session.mode ?? settings?.defaultChatMode ?? 'guardrails';
   const disabled = new Set(session.disabledTools ?? []);
-  const enabledCount = tools.length - disabled.size;
+  const availableTools = sandbox ? tools.filter((t) => ['read_file', 'write_file', 'edit_file', 'list_dir', 'glob', 'grep', 'bash'].includes(t.name)) : tools;
+  const enabledCount = availableTools.filter((t) => !disabled.has(t.name)).length;
   const offline = !!session.offline;
   const incognito = !!session.incognito;
   const shownTools = toolQuery.trim()
-    ? tools.filter((t) => t.name.toLowerCase().includes(toolQuery.trim().toLowerCase()))
-    : tools;
+    ? availableTools.filter((t) => t.name.toLowerCase().includes(toolQuery.trim().toLowerCase()))
+    : availableTools;
 
   const patch = async (p: Partial<Session>) => {
     const next = await window.nekko.setSessionOptions(session.id, p as any);
@@ -412,27 +429,36 @@ export function ChatControls({
           title={MODE_DESC[mode]}
         >
           <span className="ctl-menu-label">Mode</span>
-          {MODE_LABEL[mode]}
+          {execution === 'worktree' ? 'Worktree' : sandbox ? 'Sandbox' : 'Unified'} - {MODE_LABEL[mode]}
           <span className="ctl-caret">▾</span>
         </button>
         {modeOpen && createPortal(
           <div ref={modeMenu} style={modePosition} className="card fixed z-[100] overflow-y-auto p-1.5 shadow-lg" role="menu" aria-label="Chat mode">
+            <div className="grid grid-cols-2 gap-2">
+            <div><p className="px-2.5 text-[11px] text-ink-faint">Execution</p>
+              {([{ value: 'sandbox', label: 'Sandbox', description: 'Scoped files and bash in a local container.' }, { value: 'worktree', label: 'Worktree', description: 'Isolated Git checkout from committed HEAD.' }, { value: 'unified', label: 'Unified', description: 'Share current folders and local changes.' }] as const).map((item) => <button key={item.value} role="menuitemradio" aria-checked={execution === item.value} className="flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2" onClick={() => void selectExecution(item.value)}><span className="text-[13px] font-medium">{item.label}</span><span className="text-[11px] text-ink-faint">{item.description}</span></button>)}
+            </div><div><p className="px-2.5 text-[11px] text-ink-faint">Permissions</p>
             {(['ask', 'guardrails', 'yolo'] as ChatMode[]).map((m) => (
               <button
                 key={m}
                 role="menuitemradio"
+                data-chat-mode={m}
                 aria-checked={mode === m}
                 className={`flex w-full flex-col rounded-lg px-2.5 py-1.5 text-left hover:bg-surface-2 ${mode === m ? 'text-accent' : ''}`}
                 onClick={() => { patch({ mode: m }); setModeOpen(false); modeButton.current?.focus({ preventScroll: true }); }}
               >
-                <span className="text-[13px] font-medium">{MODE_LABEL[m]}</span>
+                <span className="text-[13px] font-medium">{MODE_LABEL[m]}{m === 'guardrails' ? ' (recommended)' : ''}</span>
                 <span className="text-[11px] text-ink-faint">{MODE_DESC[m]}</span>
               </button>
             ))}
+            </div></div>
           </div>, document.body
         )}
       </div>
 
+      {executionError && <p role="alert" className="text-danger">{executionError}</p>}
+      {setupOpen && <SandboxSetup session={session} onChange={onChange} onClose={() => setSetupOpen(false)} />}
+      {sandbox && <><span className="text-[11px] text-ink-faint">Scoped files/bash only; host previews, hooks and MCP unavailable.</span><button className="ctl-menu" onClick={() => setSetupOpen(true)}>Sandbox setup</button><SandboxReview sessionId={session.id} /></>}
       {/* Tools */}
       {!toolsInWindow && !only && <div className="relative shrink-0">
         <button
@@ -489,7 +515,7 @@ export function ChatControls({
       </div>}
 
       {/* MCP servers, right of Tools: their tools are what the agent can reach. */}
-      {!toolsInWindow && !only && <McpMenu />}
+      {!toolsInWindow && !only && (sandbox ? <span title="MCP is unavailable in Sandbox">MCP unavailable</span> : <McpMenu />)}
       </>)}
 
       {/* The privacy switches sit apart from the execution controls: pushed to

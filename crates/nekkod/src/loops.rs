@@ -231,6 +231,9 @@ async fn forward(
 impl Loops {
     /// `loop:run`: start driving one reply; `loop:end` reports when it is over.
     pub fn start(&self, backend: Arc<Backend>, hub: Hub, spec: Value) -> Result<Value, String> {
+        if spec.get("executionMode").and_then(Value::as_str) == Some("sandbox") {
+            return Err("Sandbox runs require the host container router; native loops are unsupported".into());
+        }
         let run_id = spec.get("runId").and_then(Value::as_str).ok_or("loop:run needs a runId")?.to_string();
         let config: ProviderConfig = serde_json::from_value(spec.get("provider").cloned().unwrap_or(Value::Null))
             .map_err(|e| format!("provider: {e}"))?;

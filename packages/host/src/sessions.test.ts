@@ -81,6 +81,20 @@ describe('listSessionSummaries', () => {
 });
 
 describe('setSessionOptions', () => {
+  it('cannot bypass sandbox through the legacy isolation flag or injected setup', () => {
+    const s = createSession();
+    s.executionMode = 'sandbox'; saveSession(s);
+    expect(setSessionOptions(s.id, { gitIsolation: false })?.executionMode).toBe('sandbox');
+    expect(setSessionOptions(s.id, { gitIsolation: true })?.gitIsolation).toBe(false);
+    expect(() => setSessionOptions(s.id, { sandbox: {} } as any)).toThrow('setup route');
+  });
+  it('persists the configured new-chat execution default', async () => {
+    const { saveSettings } = await import('./store.js');
+    saveSettings({ defaultExecutionMode: 'sandbox' });
+    const s = createSession();
+    expect(getSession(s.id)?.executionMode).toBe('sandbox');
+    saveSettings({ defaultExecutionMode: 'worktree' });
+  });
   it('persists per-session git isolation without dropping saved worktrees', () => {
     const s = createSession('w1');
     s.gitWorktrees = { w1: { sourceRoot: '/repo', root: '/wt', path: '/wt', branch: 'nekko/test', notice: 'notice' } };

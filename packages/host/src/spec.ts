@@ -1,3 +1,4 @@
+import { assertHostExecution } from './indirect-execution-guard.js';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createHostProvider as createProvider } from './prompt-caching.js';
@@ -9,12 +10,14 @@ import { resolveSubscriptionProvider } from './oauth.js';
 
 /** The methodology a session uses (its own override, else the global default). */
 function methodologyForSession(sessionId: string) {
+  assertHostExecution(sessionId, 'Host spec access');
   const session = getSession(sessionId);
   return getMethodology(session?.specMethodology ?? getSettings().specMethodology);
 }
 
 /** Absolute path of a workspace file for a session, or null if no workspace. */
 function workspacePath(sessionId: string, filename: string, workspaceId?: string): string | null {
+  assertHostExecution(sessionId, 'Host spec access');
   const session = getSession(sessionId);
   const targetId = workspaceId && session && getSessionWorkspaceIds(session).includes(workspaceId)
     ? workspaceId
@@ -58,6 +61,7 @@ export function readSpecDocs(
 
 /** Set the spec methodology for a session. */
 export function setSpecMethodology(sessionId: string, methodologyId: string): void {
+  assertHostExecution(sessionId, 'Host spec access');
   const session = getSession(sessionId);
   if (!session) return;
   session.specMethodology = getMethodology(methodologyId).id;
@@ -87,6 +91,7 @@ export async function buildSpecDoc(
   docId?: string,
   workspaceId?: string,
 ): Promise<{ ok: boolean; path?: string; docId?: string; message?: string }> {
+  assertHostExecution(sessionId, 'Host spec access');
   const session = getSession(sessionId);
   if (!session) return { ok: false, message: 'Session not found.' };
   const targetId = workspaceId && getSessionWorkspaceIds(session).includes(workspaceId)
@@ -153,6 +158,7 @@ Be concise and concrete. Output ONLY the markdown for ${doc.filename}, with no p
 
   out = out.replace(/^```(?:markdown|md)?\n?/i, '').replace(/\n?```\s*$/i, '').trim();
   if (!out) return { ok: false, message: 'The model returned an empty document.' };
+  assertHostExecution(sessionId, 'Host spec write');
   writeFileSync(path, out + '\n', 'utf8');
   return { ok: true, path, docId: doc.id };
 }

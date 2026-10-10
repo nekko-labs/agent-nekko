@@ -23,7 +23,7 @@ describe('session capability contract', () => {
     });
     it(`${policy} cannot use ungranted tools, connectors, MCP or network`, () => {
       for (const capability of ['tool:bash', 'connector:slack', 'mcp:filesystem', 'network:example.com'] as const) {
-        expect(evaluateCapability(context(policy), capability).action).toBe('request');
+        expect(evaluateCapability(context(policy), capability).action).toBe(capability === 'tool:bash' ? 'request' : 'deny');
       }
     });
     it(`${policy} respects deny guardrails even with a grant`, () => {

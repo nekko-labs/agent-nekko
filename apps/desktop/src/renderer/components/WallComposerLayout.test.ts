@@ -30,7 +30,7 @@ describe('wall composer layout', () => {
   it('lets ChatControls render just the mode menu or just the privacy switch', () => {
     expect(controls).toContain("only?: 'mode' | 'privacy';");
     expect(controls).toContain("{session.chatType !== 'image' && showMode && (<>");
-    expect(controls).toContain('{!toolsInWindow && !only && <McpMenu />}');
+    expect(controls).toContain('{!toolsInWindow && !only && (sandbox ? <span title="MCP is unavailable in Sandbox">MCP unavailable</span> : <McpMenu />)}');
     expect(controls).toContain('{showPrivacy && <div');
   });
   it('drops the keyboard hint from the row into the title tooltip', () => {

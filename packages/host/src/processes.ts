@@ -1,3 +1,4 @@
+import { assertHostExecution } from './indirect-execution-guard.js';
 import { spawn, type ChildProcess } from 'child_process';
 import { appendAgentTerminal } from './terminal.js';
 
@@ -85,6 +86,7 @@ function notify(entry: Entry): void {
 
 /** Start a command for a chat. Throws when the chat already has `PROCESS_LIMIT` running. */
 export function startProcess(opts: { sessionId: string; workspaceId?: string; command: string; cwd: string; name?: string }): ProcessInfo {
+  assertHostExecution(opts.sessionId, 'Host background process');
   const running = [...processes.values()].filter((e) => e.info.sessionId === opts.sessionId && e.info.exitCode === undefined);
   if (running.length >= PROCESS_LIMIT) {
     throw new Error(`This chat already has ${PROCESS_LIMIT} processes running. Stop one with kill_process first.`);

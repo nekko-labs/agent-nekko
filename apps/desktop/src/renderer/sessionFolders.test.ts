@@ -41,6 +41,13 @@ describe('auto-filing on send', () => {
     expect(shouldAutoFile(null, {})).toBe(false);
   });
 
+  it('does not auto-file after an explicit No folder choice', () => {
+    const storage = globalThis.localStorage;
+    Object.assign(globalThis, { localStorage: { getItem: () => 'null' } });
+    try { expect(shouldAutoFile({ messages: [] }, {})).toBe(false); }
+    finally { Object.assign(globalThis, { localStorage: storage }); }
+  });
+
   it('leaves a chat whose primary was cleared alone', () => {
     // withoutPrimary keeps the old primary as supporting.
     expect(shouldAutoFile({ messages: [] }, { supportingWorkspaceIds: ['a'] })).toBe(false);
@@ -77,6 +84,7 @@ describe('adding a folder to a chat', () => {
     expect(api.addWorkspaceByPath).toHaveBeenCalledWith('/code/b');
     expect(api.setSessionWorkspace).toHaveBeenCalledWith('s', 'b');
     expect(api.setSessionSupportingWorkspaces).toHaveBeenCalledWith('s', ['a']);
+    expect(useStore.getState().activeProjectId).toBe('b');
   });
 
   it('reuses an already registered folder', async () => {

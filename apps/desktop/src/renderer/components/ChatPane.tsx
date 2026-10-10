@@ -34,6 +34,7 @@ import { ImageModeControls } from './agent-console/ImageModeControls.js';
 import { ImageLiveTurn } from './agent-console/ImageLiveTurn.js';
 import { VirtualTranscript, type VirtualTranscriptHandle } from './agent-console/VirtualTranscript.js';
 import { MarkdownEditor, type MarkdownEditorElement } from './agent-console/MarkdownEditor.js';
+import { MarkdownSandbox } from './Markdown.js';
 import { CompactionSummary } from './agent-console/CompactionSummary.js';
 import { promptHistory, recallPrompt, type HistoryCursor } from './agent-console/promptHistory.js';
 import { PERSISTED_INTERRUPTION, shouldShowPersistedInterruption, describeInterruption, suggestedReplyClassName } from './agent-console/interruption.js';
@@ -1372,6 +1373,12 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   };
 
   const send = async (override?: string) => {
+    if (session?.executionMode === 'sandbox') {
+      try {
+        const status = await window.nekko.sandboxStatus(session.id);
+        if (status.phase !== 'configured' && status.phase !== 'ready') throw new Error(status.error ?? 'Configure Sandbox before executing.');
+      } catch (e) { useStore.getState().pushToast('error', String((e as Error).message ?? e)); return; }
+    }
     const input = override ?? draft;
     if (imageMode) {
       if (input.trim()) await sendImage(input.trim(), override === undefined);
@@ -2065,7 +2072,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   );
 
   return (
-    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable], [data-agent-logs]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-chat-surface={surface} className="relative flex h-full min-h-0 min-w-0 overflow-hidden">
+    <MarkdownSandbox.Provider value={session?.executionMode === 'sandbox'}>
+    <div ref={paneRef} onContextMenu={(e) => { if (surface === 'composer' || e.defaultPrevented || (e.target as HTMLElement).closest('a, img, textarea, [contenteditable], [data-agent-logs]')) return; e.preventDefault(); setChatMenu({ x: e.clientX, y: e.clientY }); }} data-session-id={sessionId} data-chat-surface={surface} className="relative flex h-full min-h-0 min-w-0 overflow-hidden">
       {contextChangeNotice && <Modal title="Context on your next reply" zIndex={100} overlayClassName="p-4" className="w-full max-w-md rounded-xl border border-line bg-surface p-5 text-ink shadow-xl" onClose={closeContextNotice}>
             <h2 className="font-semibold">Context on your next reply</h2>
             <p className="mt-3 text-sm text-ink-soft">Your selection is saved. Changing the model or effort does not send a request now or change an already-running reply. The next reply sends the assembled chat context again, as ordinary follow-up replies do.</p>
@@ -2101,9 +2109,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               className="btn btn-ghost shrink-0 px-2 py-1 text-[11px]"
               aria-label="Open agent logs"
               aria-expanded={commandCenter ? logsOpen : undefined}
+              disabled={session?.executionMode === 'sandbox'}
               // On the Agents wall the log bubbles out of this window; the Chat
               // view's workbench keeps opening it as a window beside the chat.
-              onClick={() => commandCenter ? setLogsOpen((o) => !o) : useStore.getState().openTerminalPane(`agent_${sessionId}`)}
+              onClick={() => {
+                if (session?.executionMode === 'sandbox') return;
+                commandCenter ? setLogsOpen((o) => !o) : useStore.getState().openTerminalPane(`agent_${sessionId}`);
+              }}
               title="Open the agent's command log"
             >
               {compact ? <TerminalIcon className="h-4 w-4" /> : 'Logs'}
@@ -2830,7 +2842,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
             <div className="agent-footer-reach ml-auto flex shrink-0 items-center gap-1" data-agent-footer-controls>
               {session && <>
                 <ToolsMenu session={session} onChange={setSession} />
-                <McpMenu />
+                {session?.executionMode === 'sandbox' ? <span className="text-[11px] text-ink-faint">MCP unavailable in Sandbox</span> : <McpMenu />}
               </>}
               <InternetToggle session={session} cloudModel={isCloudModel} onToggle={() => { void window.nekko.setSessionOptions(sessionId, { offline: !session?.offline }).then(setSession).catch(e => useStore.getState().pushToast('error', String(e))); }} />
               {status && <span className="agent-footer-status ml-1 inline-flex items-center" data-agent-status><StatusIcon status={status === 'idle' ? undefined : status} /></span>}
@@ -2906,6 +2918,7 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
         <ImageMenu x={imageMenu.x} y={imageMenu.y} src={imageMenu.src} onClose={() => setImageMenu(null)} />
       )}
     </div>
+    </MarkdownSandbox.Provider>
   );
 }
 

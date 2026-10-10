@@ -63,7 +63,11 @@ function baseName(p: string): string {
  *     counts. It takes the whole panel while every folder is collapsed and gives
  *     ground as soon as a tree opens.
  */
-export const ContextInspector = memo(function ContextInspector({ sessionId: shown }: { sessionId: string | null }) {
+export const ContextInspector = memo(function ContextInspector({ sessionId }: { sessionId: string | null }) {
+  const sandbox = useStore((s) => s.sessions.find((item) => item.id === sessionId)?.executionMode === 'sandbox');
+  return sandbox ? <p className="p-4 text-sm text-ink-soft">Host context, file previews, spec actions and hooks are unavailable in Sandbox. Only scoped files and bash are supported.</p> : <HostContextInspector sessionId={sessionId} />;
+});
+const HostContextInspector = memo(function HostContextInspector({ sessionId: shown }: { sessionId: string | null }) {
   // Follows the chat on screen one frame behind: switching chats paints the
   // chat first, and this panel's re-read of the new one comes after that frame
   // rather than inside the switch. (A deferred value is not enough: React can

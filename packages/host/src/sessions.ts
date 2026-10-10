@@ -3,7 +3,7 @@ import { readFile, readdir, stat } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { join } from 'path';
 import type { QueuePayload, QueuedPrompt, Session, SessionSummary } from '@nekko-agent/shared';
-import { archiveExpired, queueItemsEqual, summarizeSession } from '@nekko-agent/shared';
+import { archiveExpired, queueItemsEqual, summarizeSession, getExecutionMode } from '@nekko-agent/shared';
 import { dataDir, getSettings } from './store.js';
 import { deleteAgentLog } from './agent-log.js';
 
@@ -120,7 +120,7 @@ function writeAtomic(file: string, text: string): void {
  * The UI changes these while a turn is running, through the engine daemon or
  * this host; a turn's save must not put back the values it read at its start.
  */
-const USER_FIELDS = ['pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'chatType', 'imageParams', 'workspaceId', 'supportingWorkspaceIds', 'attachedPaths', 'specLinked', 'queue', 'archivedAt'] as const;
+const USER_FIELDS = ['pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'executionMode', 'gitIsolation', 'sandbox', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'chatType', 'imageParams', 'workspaceId', 'supportingWorkspaceIds', 'attachedPaths', 'specLinked', 'queue', 'archivedAt'] as const;
 
 /**
  * Save a chat a running turn has held in memory, keeping whatever the user
@@ -177,6 +177,7 @@ export function setSessionWorkspace(id: string, workspaceId?: string): Session |
     s.supportingWorkspaceIds = s.supportingWorkspaceIds.filter((wid) => wid !== workspaceId);
     if (s.supportingWorkspaceIds.length === 0) s.supportingWorkspaceIds = undefined;
   }
+  if (getExecutionMode(s) === 'sandbox') { s.mode = 'ask'; s.gitWorktrees = undefined; }
   saveSession(s);
   return s;
 }
@@ -228,12 +229,16 @@ export function forkSession(id: string, beforeMessageId?: string): Session | nul
   if (!src) return null;
   const idx = beforeMessageId ? src.messages.findIndex((m) => m.id === beforeMessageId) : -1;
   const fork = createSession(src.workspaceId, undefined, src.supportingWorkspaceIds);
+  fork.executionMode = getExecutionMode(src);
+  fork.gitIsolation = fork.executionMode === 'worktree';
+  if (fork.executionMode === 'sandbox') { fork.mode = 'ask'; fork.gitWorktrees = undefined; }
   fork.title = `${src.title} (split)`;
   fork.titleAuto = false;
   fork.messages = structuredClone(idx >= 0 ? src.messages.slice(0, idx) : src.messages);
   for (const key of ['providerId', 'modelId', 'autoModel', 'autoQuality', 'mode', 'thinking', 'chatType', 'imageParams', 'attachedPaths', 'disabledTools'] as const) {
     if (src[key] !== undefined) (fork as unknown as Record<string, unknown>)[key] = structuredClone(src[key]);
   }
+  if (getExecutionMode(fork) === 'sandbox') fork.mode = 'ask';
   saveSession(fork);
   return fork;
 }
@@ -274,20 +279,29 @@ export function clearSessions(scope: 'today' | 'month' | 'all'): number {
 }
 
 /** The fields `setSessionOptions` may change (crates/nekko-store/src/write.rs keeps the same list). */
-const OPTION_KEYS = ['title', 'pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'gitIsolation', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'providerId', 'modelId', 'plan', 'chatType', 'imageParams', 'archivedAt'] as const;
+const OPTION_KEYS = ['title', 'pinned', 'tags', 'order', 'mode', 'disabledTools', 'offline', 'incognito', 'executionMode', 'gitIsolation', 'autoModel', 'autoQuality', 'autoProviderSwitch', 'thinking', 'providerId', 'modelId', 'plan', 'chatType', 'imageParams', 'archivedAt'] as const;
 
 /** Patch per-chat options (title, pin, mode, disabled tools, offline, incognito, brain, archive). */
 export function setSessionOptions(
   id: string,
-  patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
+  patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'order' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'executionMode' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
 ): Session | null {
   const s = getSession(id);
   if (!s) return null;
+  if (patch.executionMode !== undefined && !['sandbox', 'worktree', 'unified'].includes(patch.executionMode)) throw new Error('Invalid execution mode');
+  if ((patch as Record<string, unknown>).sandbox !== undefined) throw new Error('Sandbox setup requires the setup route');
+  // A renderer may still synchronize the legacy flag after explicit setup.
+  const nextMode = patch.executionMode ?? (s.executionMode === 'sandbox' ? 'sandbox' : patch.gitIsolation !== undefined ? (patch.gitIsolation ? 'worktree' : 'unified') : getExecutionMode(s));
+  if (nextMode !== getExecutionMode(s) && (s.activeRun || s.messages.length || s.sandbox)) throw new Error('Execution mode can only change in an empty, idle chat. Create a new chat.');
+  if (nextMode === 'sandbox') { s.mode = 'ask'; s.gitWorktrees = undefined; }
+  if (patch.executionMode !== undefined || patch.gitIsolation !== undefined) { s.executionMode = nextMode; s.gitIsolation = nextMode === 'worktree'; }
   // Only the options this signature names: the patch arrives over the wire, and
   // assigning it whole would let a caller replace any field, the transcript included.
   for (const [key, value] of Object.entries(patch)) {
     if ((OPTION_KEYS as readonly string[]).includes(key)) (s as unknown as Record<string, unknown>)[key] = value;
   }
+  if (patch.executionMode !== undefined || patch.gitIsolation !== undefined) { s.executionMode = nextMode; s.gitIsolation = nextMode === 'worktree'; }
+  if (getExecutionMode(s) === 'sandbox') s.mode = 'ask';
   // A title the user typed is theirs; the auto-title pass may not overwrite it.
   if (patch.title !== undefined) s.titleAuto = false;
   saveSession(s);
@@ -327,6 +341,7 @@ export function createSession(workspaceId?: string, parentSessionId?: string, su
     id: `s_${now.toString(36)}_${randomBytes(6).toString('base64url')}`,
     title: parentSessionId ? 'Sub-agent' : 'New chat',
     workspaceId,
+    executionMode: parentSessionId ? getExecutionMode(getSession(parentSessionId) ?? undefined) : getSettings().defaultExecutionMode,
     gitIsolation: parentSessionId ? getSession(parentSessionId)?.gitIsolation ?? false : getSettings().gitManagement?.mode !== 'shared',
     gitWorktrees: parentSessionId ? getSession(parentSessionId)?.gitWorktrees : undefined,
     supportingWorkspaceIds: supportingWorkspaceIds?.length ? supportingWorkspaceIds : undefined,

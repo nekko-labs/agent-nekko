@@ -65,11 +65,13 @@ export function WorktreeChip({ session, git, disabled, onChange }: {
     setBusy(true);
     setError(null);
     try {
-      const next = await window.nekko.setSessionOptions(session.id, { gitIsolation });
+      if (session.executionMode === 'sandbox') throw new Error('Use the execution picker to leave Sandbox.');
+      const executionMode = gitIsolation ? 'worktree' : 'unified';
+      const next = await window.nekko.setSessionOptions(session.id, { gitIsolation, executionMode });
       if (!next) throw new Error('Chat no longer exists.');
       onChange(next);
       const settings = useStore.getState().settings;
-      await window.nekko.updateSettings({ gitManagement: { ...settings?.gitManagement, mode: gitIsolation ? 'worktree' : 'shared' } });
+      await window.nekko.updateSettings({ defaultExecutionMode: executionMode, gitManagement: { ...settings?.gitManagement, mode: gitIsolation ? 'worktree' : 'shared' } });
       await useStore.getState().refreshSettings();
     } catch (e) { setError(String((e as Error).message ?? e)); }
     finally { setBusy(false); }

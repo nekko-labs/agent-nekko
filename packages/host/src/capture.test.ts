@@ -1,4 +1,7 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+
+// These unit fixtures use synthetic normal-session handles, not persisted user data.
+vi.mock('./sessions.js', () => ({ getSession: (id: string) => ({ id, executionMode: 'unified' }) }));
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

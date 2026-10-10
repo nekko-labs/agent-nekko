@@ -115,6 +115,14 @@ function readPlanRailOpen(): boolean {
   return true;
 }
 
+export const LAST_FOLDER_KEY = 'nekko.lastPrimaryFolder';
+export function readLastFolder(): string | null {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(LAST_FOLDER_KEY) ?? 'null');
+    return typeof value === 'string' && value ? value : null;
+  } catch { return null; }
+}
+
 // The open workspaces come back from the last run (see workspacePersist.ts).
 // Both id counters restart at zero each launch, so they skip past every id
 // the restored layout already uses.
@@ -440,11 +448,16 @@ function updateWorkspace(s: UiState, id: string, fn: (w: Workspace) => Workspace
   };
 }
 
+function defaultChatFolder(state: UiState): string | undefined {
+  const id = state.activeProjectId;
+  return id && (!state.settingsLoaded || state.settings?.workspaces.some((w) => w.id === id)) ? id : undefined;
+}
+
 /** Target the active chat, creating one if there isn't a usable session, and show it. */
 async function openUsableChat(get: () => UiState, set: (p: Partial<UiState>) => void): Promise<string> {
   let sid = get().activeSessionId;
   if (!sid || !get().sessions.some((s) => s.id === sid)) {
-    const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    const s = await window.nekko.createSession(defaultChatFolder(get()));
     await get().refreshSessions();
     sid = s.id;
     set({ activeSessionId: sid });
@@ -483,7 +496,7 @@ export const useStore = create<UiState>((set, get) => ({
   mascotMood: 'waving',
   toasts: [],
   paletteOpen: false,
-  activeProjectId: null,
+  activeProjectId: readLastFolder(),
   terminals: [],
   workspaces: restored.workspaces,
   activeWorkspaceId: restored.activeWorkspaceId,
@@ -493,7 +506,10 @@ export const useStore = create<UiState>((set, get) => ({
   archivedViewId: null,
   composerSeed: null,
 
-  setActiveProject: (id) => set({ activeProjectId: id }),
+  setActiveProject: (id) => {
+    try { localStorage.setItem(LAST_FOLDER_KEY, JSON.stringify(id)); } catch { /* private mode */ }
+    set({ activeProjectId: id });
+  },
   pushToast: (kind, message) => {
     const id = `t_${Date.now().toString(36)}_${Math.floor(performance.now())}`;
     set((s) => ({ toasts: [...s.toasts, { id, kind, message }] }));
@@ -516,7 +532,7 @@ export const useStore = create<UiState>((set, get) => ({
       get().setView('models');
       return;
     }
-    const s = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    const s = await window.nekko.createSession(defaultChatFolder(get()));
     // The host already returned the full record: seed before opening the pane
     // so its first frame has the session and brain, without a round-trip.
     putCachedSession(s);
@@ -524,7 +540,7 @@ export const useStore = create<UiState>((set, get) => ({
     get().openChatPane(s.id);
   },
   newImageChat: async (modelId, defaults) => {
-    const created = await window.nekko.createSession(get().activeProjectId ?? undefined);
+    const created = await window.nekko.createSession(defaultChatFolder(get()));
     const s = (await window.nekko.setSessionOptions(created.id, {
       chatType: 'image',
       imageParams: { ...DEFAULT_IMAGE_CHAT_PARAMS, modelId, ...(defaults ?? {}) },
@@ -548,9 +564,7 @@ export const useStore = create<UiState>((set, get) => ({
       if (!get().activeProviderId && settings.defaultProviderId) {
         set({ activeProviderId: settings.defaultProviderId, activeModelId: settings.defaultModelId ?? null });
       }
-      if (!get().activeProjectId && settings.workspaces?.[0]) {
-        set({ activeProjectId: settings.workspaces[0].id });
-      }
+      // Refreshing the folder list never chooses a folder for the user.
     } catch {
       // Never leave the app on the loading gate: if settings can't be read,
       // unblock the UI and let surfaces fall back to their empty states.

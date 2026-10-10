@@ -1,3 +1,5 @@
+import { assertHostExecution } from './indirect-execution-guard.js';
+import { configureSandbox, sandboxStatus, sandboxDiff, applySandboxDiff, cleanupSandbox } from './execution-router.js';
 import { resourceQueue } from './resource-queue.js';
 import { EventEmitter } from 'events';
 import { basename, resolve } from 'path';
@@ -327,6 +329,11 @@ export interface Host {
   nextAgentWatchAt(sessionId: string): number | null;
   /** Every chat without its transcript, from a cache that re-reads only changed files. */
   listSessionSummaries(): Promise<SessionSummary[]>;
+  configureSandbox(sessionId: string, image: string): Promise<import('@nekko-agent/shared').SandboxStatus>;
+  cleanupSandbox(sessionId: string, identity: string): Promise<void>;
+  sandboxStatus(sessionId: string): import('@nekko-agent/shared').SandboxStatus;
+  sandboxDiff(sessionId: string): Promise<import('@nekko-agent/shared').SandboxDiff>;
+  applySandboxDiff(sessionId: string, identity: string, diffId: string, paths: string[]): Promise<never>;
   createSession(workspaceId?: string): Session;
   getSession(id: string): Session | null;
   deleteSession(id: string): void;
@@ -385,7 +392,7 @@ export interface Host {
   specPath(sessionId: string): string | null;
   setSessionOptions(
     id: string,
-    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
+    patch: Partial<Pick<Session, 'title' | 'pinned' | 'tags' | 'mode' | 'disabledTools' | 'offline' | 'incognito' | 'executionMode' | 'gitIsolation' | 'autoModel' | 'autoQuality' | 'autoProviderSwitch' | 'thinking' | 'providerId' | 'modelId' | 'plan' | 'chatType' | 'imageParams' | 'archivedAt'>>,
   ): Session | null;
   truncateSession(id: string, messageId: string): Session | null;
   clearSessions(scope: 'today' | 'month' | 'all'): number;
@@ -868,11 +875,27 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     listSessions: sessions.listSessions,
     nextAgentWatchAt: (id) => nextAgentWatchAt(id),
     listSessionSummaries: sessions.listSessionSummaries,
-    createSession: sessions.createSession,
+    configureSandbox: (id, image) => { if (isChatRunning(id) || activeChats.has(id)) throw new Error('Wait for the current reply to finish before sandbox setup.'); return configureSandbox(id, image); },
+    cleanupSandbox: (id, identity) => { if (isChatRunning(id) || activeChats.has(id)) throw new Error('Wait for the current reply to finish before sandbox cleanup.'); return cleanupSandbox(id, identity); },
+    sandboxStatus,
+    sandboxDiff,
+    applySandboxDiff,
+    createSession: (workspaceId) => {
+      if (workspaceId && !getSettings().workspaces.some((w) => w.id === workspaceId)) throw new Error('Workspace not found');
+      return sessions.createSession(workspaceId);
+    },
     getSession: sessions.getSession,
     deleteSession: sessions.deleteSession,
-    setSessionWorkspace: sessions.setSessionWorkspace,
-    setSessionSupportingWorkspaces: sessions.setSessionSupportingWorkspaces,
+    setSessionWorkspace: (id, workspaceId) => {
+      if (activeChats.has(id) || isChatRunning(id)) throw new Error('Wait for the current reply to finish before changing folders.');
+      if (workspaceId && !getSettings().workspaces.some((w) => w.id === workspaceId)) throw new Error('Workspace not found');
+      return sessions.setSessionWorkspace(id, workspaceId);
+    },
+    setSessionSupportingWorkspaces: (id, workspaceIds) => {
+      if (activeChats.has(id) || isChatRunning(id)) throw new Error('Wait for the current reply to finish before changing folders.');
+      if (workspaceIds.some((wid) => !getSettings().workspaces.some((w) => w.id === wid))) throw new Error('Workspace not found');
+      return sessions.setSessionSupportingWorkspaces(id, workspaceIds);
+    },
     setSessionAttachments: sessions.setSessionAttachments,
     buildSpec,
     buildSpecDoc,
@@ -882,7 +905,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     setSpecLinked: sessions.setSpecLinked,
     specPath: specPathForSession,
     setSessionOptions: (id, patch) => {
-      if (Object.prototype.hasOwnProperty.call(patch, 'gitIsolation') && isChatRunning(id)) {
+      if ((Object.prototype.hasOwnProperty.call(patch, 'gitIsolation') || Object.prototype.hasOwnProperty.call(patch, 'executionMode')) && (isChatRunning(id) || activeChats.has(id))) {
         throw new Error('Wait for the current reply to finish before changing this chat\'s Git isolation.');
       }
       return sessions.setSessionOptions(id, patch);
@@ -915,7 +938,13 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       if (!abortImageTurn(sessionId)) abortChat(sessionId);
     },
     sessionImages: (sessionId, limit) => sessionImages(sessionId, limit),
-    generateImageTurn: (o) => generateImageTurn(o, (request, onStage) => engine.generateImage(request, onStage), (e) => events.emit('agentEvent', e)),
+    generateImageTurn: (o) => {
+      assertHostExecution(o.sessionId, 'Image generation');
+      const run = generateImageTurn(o, (request, onStage) => engine.generateImage(request, onStage), (e) => events.emit('agentEvent', e));
+      activeChats.set(o.sessionId, run);
+      void run.finally(() => { if (activeChats.get(o.sessionId) === run) activeChats.delete(o.sessionId); }).catch(() => {});
+      return run;
+    },
     compactSession,
     cancelSessionCompaction,
     queuePrompt: sessions.queuePrompt,
@@ -995,6 +1024,16 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
       return workspaces;
     },
     removeWorkspace: (id) => {
+      const affected = sessions.listSessions().filter((s) => s.workspaceId === id || s.supportingWorkspaceIds?.includes(id));
+      if (affected.some((s) => activeChats.has(s.id) || isChatRunning(s.id))) {
+        throw new Error('Wait for chats using this folder to finish before revoking access.');
+      }
+      // Revoke saved access only. Never remove the folder or its files.
+      for (const s of affected) {
+        if (s.workspaceId === id) s.workspaceId = undefined;
+        s.supportingWorkspaceIds = s.supportingWorkspaceIds?.filter((wid) => wid !== id);
+        sessions.saveSession(s);
+      }
       const workspaces = getSettings().workspaces.filter((w) => w.id !== id);
       return saveSettings({ workspaces }).workspaces;
     },

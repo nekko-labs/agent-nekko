@@ -28,10 +28,12 @@ describe('composer folder picker', () => {
   });
 
   it('checks the primary and marks supporting folders', () => {
-    const out = renderToStaticMarkup(<FolderPickerMenu folders={folders} chat={{ workspaceId: 'a', supportingWorkspaceIds: ['b'] }} onPick={() => {}} onClear={() => {}} onAdd={() => {}} />);
+    const out = renderToStaticMarkup(<FolderPickerMenu folders={folders} chat={{ workspaceId: 'a', supportingWorkspaceIds: ['b'] }} onPick={() => {}} onClear={() => {}} onAdd={() => {}} onRemove={() => {}} />);
     expect(out.match(/aria-checked="true"/g)).toHaveLength(1);
     expect(out.indexOf('aria-checked="true"')).toBeLessThan(out.indexOf('nekko-agent'));
     expect(out).toContain('supporting');
     expect(out).toContain('Add folder…');
+    expect(out).toContain('aria-label="Revoke access to nekko-agent"');
+    expect(out).toContain('Revoke saved folder access, not delete files');
   });
 });

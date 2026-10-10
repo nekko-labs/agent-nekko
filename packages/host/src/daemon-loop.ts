@@ -1,3 +1,4 @@
+import { getExecutionMode } from '@nekko-agent/shared';
 import { randomBytes } from 'crypto';
 import { appendAgentTerminal } from './terminal.js';
 import { getSession, saveSession } from './sessions.js';
@@ -93,6 +94,7 @@ export async function loopApprove(runId: string, call: ToolCall, reason: string,
 
 /** `loop:log`: a line for a chat's agent command terminal, from a command the daemon ran. */
 export function loopLog(sessionId: string, workspaceId: string | undefined, data: string): void {
+  if (getExecutionMode(getSession(sessionId) ?? undefined) === 'sandbox') throw new Error('Sandbox daemon mutation denied');
   appendAgentTerminal(sessionId, workspaceId, data);
 }
 
@@ -106,6 +108,7 @@ function adoptOrphan(sessionId: string | undefined, history: ChatMessage[] | und
   if (!sessionId || !Array.isArray(history)) return;
   const session = getSession(sessionId);
   if (!session || session.incognito) return;
+  if (getExecutionMode(session) === 'sandbox') throw new Error('Sandbox daemon transcript mutation denied');
   session.messages = history;
   if (ended) delete session.activeRun;
   saveSession(session);
@@ -176,6 +179,7 @@ export interface DaemonRunOptions {
 }
 
 export async function* runAgentViaDaemon(call: Call, opts: DaemonRunOptions): AsyncGenerator<AgentEvent> {
+  if (getExecutionMode(getSession(opts.sessionId) ?? undefined) === 'sandbox') throw new Error('Sandbox execution through the daemon is denied until native enforcement is available.');
   const runId = `run_${Date.now().toString(36)}_${randomBytes(4).toString('hex')}`;
   opts.onRunId?.(runId);
   const replace = (next?: ChatMessage[]) => {

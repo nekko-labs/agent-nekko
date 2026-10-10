@@ -1,19 +1,20 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Session, SessionMeta, WorkspaceFolder } from '@nekko-agent/shared';
-import { FolderIcon, PlusIcon } from '../icons.js';
+import { CloseIcon, FolderIcon, PlusIcon } from '../icons.js';
 import { useStore } from '../store.js';
 import { addFolderToChat, applyFolderSelection, withoutPrimary, withPrimary } from '../sessionFolders.js';
 
 type ChatFolders = Pick<SessionMeta, 'workspaceId' | 'supportingWorkspaceIds'>;
 
 /** The menu body: one row per folder, "No folder", then "Add folder…". */
-export function FolderPickerMenu({ folders, chat, onPick, onClear, onAdd }: {
+export function FolderPickerMenu({ folders, chat, onPick, onClear, onAdd, onRemove }: {
   folders: WorkspaceFolder[];
   chat: ChatFolders | null;
   onPick: (id: string) => void;
   onClear: () => void;
   onAdd: () => void;
+  onRemove: (id: string) => void;
 }) {
   const primary = chat?.workspaceId;
   const supporting = new Set(chat?.supportingWorkspaceIds ?? []);
@@ -21,14 +22,19 @@ export function FolderPickerMenu({ folders, chat, onPick, onClear, onAdd }: {
 
   return <>
     {folders.map((f) => (
-      <button key={f.id} role="menuitemradio" aria-checked={primary === f.id} title={f.path}
-        className={`${row} ${primary === f.id ? 'text-accent' : ''}`} onClick={() => onPick(f.id)}>
-        <span className="flex items-center gap-1.5 text-[12px] font-medium">
-          {f.name}
-          {supporting.has(f.id) && <span className="text-[10px] font-normal text-ink-faint">supporting</span>}
-        </span>
-        <span className="truncate text-[10px] text-ink-faint">{f.path}</span>
-      </button>
+      <div key={f.id} className="flex items-center">
+        <button role="menuitemradio" aria-checked={primary === f.id} title={f.path}
+          className={`${row} ${primary === f.id ? 'text-accent' : ''}`} onClick={() => onPick(f.id)}>
+          <span className="flex items-center gap-1.5 text-[12px] font-medium">
+            {f.name}
+            {supporting.has(f.id) && <span className="text-[10px] font-normal text-ink-faint">supporting</span>}
+          </span>
+          <span className="truncate text-[10px] text-ink-faint">{f.path}</span>
+        </button>
+        <button type="button" aria-label={`Revoke access to ${f.name}`} title="Revoke saved folder access, not delete files" className="shrink-0 rounded p-1.5 text-ink-faint hover:bg-surface-2 hover:text-ink" onClick={() => onRemove(f.id)}>
+          <CloseIcon className="h-3.5 w-3.5" />
+        </button>
+      </div>
     ))}
 
     <button role="menuitemradio" aria-checked={!primary} className={`${row} ${!primary ? 'text-accent' : ''}`} onClick={onClear}>
@@ -107,9 +113,17 @@ export function FolderPicker({ sessionId, session, disabled, onChange }: {
       .then((s) => { if (s) onChange(s); })
       .catch((e) => useStore.getState().pushToast('error', String(e)));
   };
-  const pick = (id: string) => { if (id !== chat?.workspaceId) run(() => applyFolderSelection(sessionId, withPrimary(chat, id))); else setOpen(false); };
-  const clear = () => { if (chat?.workspaceId) run(() => applyFolderSelection(sessionId, withoutPrimary(chat))); else setOpen(false); };
+  const pick = (id: string) => { if (id !== chat?.workspaceId) run(() => applyFolderSelection(sessionId, withPrimary(chat, id))); else { useStore.getState().setActiveProject(id); setOpen(false); } };
+  const clear = () => { if (chat?.workspaceId) run(() => applyFolderSelection(sessionId, withoutPrimary(chat))); else { useStore.getState().setActiveProject(null); setOpen(false); } };
   const add = () => run(() => addFolderToChat(sessionId, chat, 'primary'));
+
+  const remove = (id: string) => run(async () => {
+    await window.nekko.removeWorkspace(id);
+    if (useStore.getState().activeProjectId === id) useStore.getState().setActiveProject(null);
+    await useStore.getState().refreshSettings();
+    await useStore.getState().refreshSessions();
+    return window.nekko.getSession(sessionId);
+  });
 
   return (
     <div className="relative min-w-0 shrink">
@@ -130,7 +144,7 @@ export function FolderPicker({ sessionId, session, disabled, onChange }: {
       </button>
       {open && createPortal(
         <div ref={menu} style={position} className="card fixed z-[100] overflow-y-auto p-1.5 shadow-lg" role="menu" aria-label="Primary folder">
-          <FolderPickerMenu folders={folders} chat={chat} onPick={pick} onClear={clear} onAdd={add} />
+          <FolderPickerMenu folders={folders} chat={chat} onPick={pick} onClear={clear} onAdd={add} onRemove={remove} />
         </div>, document.body,
       )}
     </div>

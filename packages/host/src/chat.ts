@@ -1,3 +1,5 @@
+import { getExecutionMode } from '@nekko-agent/shared';
+import { executeSandboxTool, sandboxWorkspaces, SANDBOX_TOOLS } from './execution-router.js';
 import { canResumeChildFailure, MAX_CHILD_RESUMES } from './delegation-recovery.js';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -543,24 +545,25 @@ const modelContextWindow = guessContextWindow;
 export async function previewContext(sessionId: string, attachedPaths: string[]): Promise<ContextBundle> {
   const session = getSession(sessionId);
   const settings = getSettings();
+  const sandbox = getExecutionMode(session ?? undefined) === 'sandbox';
   // The base system prompt (no per-turn context block — those items are counted
   // individually below) so the inspector reflects true window usage.
   const systemText = buildSystemPrompt({
-    workspaces: chatWorkspaces(session, settings),
-    systemInstructions: settings.systemInstructions,
-    turnWrapper: settings.turnWrapper ?? DEFAULT_TURN_WRAPPER,
-    aboutUser: settings.aboutUser,
+    workspaces: sandbox && session ? sandboxWorkspaces(session) : chatWorkspaces(session, settings),
+    systemInstructions: sandbox ? 'Isolated sandbox. Only copied folder-N paths are accessible.' : settings.systemInstructions,
+    turnWrapper: sandbox ? DEFAULT_TURN_WRAPPER : settings.turnWrapper ?? DEFAULT_TURN_WRAPPER,
+    aboutUser: sandbox ? undefined : settings.aboutUser,
     contextBlock: '',
     platform: process.platform,
   });
   const { contents: _contents, ...preview } = assembleContext({
-    attached: collectAttached([...(session?.attachedPaths ?? []), ...attachedPaths]),
-    guidelines: collectGuidelines(chatWorkspaces(session, settings)),
-    memory: [
+    attached: sandbox ? [] : collectAttached([...(session?.attachedPaths ?? []), ...attachedPaths]),
+    guidelines: sandbox ? [] : collectGuidelines(chatWorkspaces(session, settings)),
+    memory: sandbox ? [] : [
       ...listMemory('global'),
       ...((session ? getSessionWorkspaceIds(session) : []).flatMap((id) => listMemory('workspace', id))),
     ],
-    connectorSnippets: !session || session.offline ? [] : await collectConnectorSnippets(),
+    connectorSnippets: sandbox || !session || session.offline ? [] : await collectConnectorSnippets(),
     indexSnippets: [],
     // The whole message, not just its text: reasoning and tool traffic are
     // replayed to the model too, and on a long run they are most of the window.
@@ -752,7 +755,11 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     return;
   }
 
-  if (!session.incognito && !session.offline) {
+  const sandbox = getExecutionMode(session) === 'sandbox';
+  if (sandbox && (!session.sandbox || session.chatType === 'image' || opts.skill)) {
+    send({ type: 'error', sessionId: session.id, message: 'Sandbox requires explicit setup and supports text chat without host skills only.' }); return;
+  }
+  if (!sandbox && getExecutionMode(session) === 'worktree' && !session.incognito && !session.offline) {
     let created: ReturnType<typeof prepareChatWorktrees>;
     const before = JSON.stringify(session.gitWorktrees);
     try {
@@ -782,11 +789,11 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       announce();
     }
   }
-  const workspaces = chatWorkspaces(session, settings);
+  const workspaces = sandbox ? sandboxWorkspaces(session) : chatWorkspaces({ ...session, gitIsolation: getExecutionMode(session) === 'worktree' }, settings);
   const toolSettings = { ...settings, workspaces };
 
   // Per-chat policy.
-  const mode = session.mode ?? settings.defaultChatMode ?? 'guardrails';
+  const mode = sandbox ? 'ask' : session.mode ?? settings.defaultChatMode ?? 'guardrails';
   const offline = !!session.offline;
   const incognito = !!session.incognito;
   if (offline && !offlineProviderAllowed(provider)) {
@@ -808,12 +815,12 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   let tools: typeof BUILTIN_TOOLS = [];
   let decideWith: import('@nekko-agent/shared').DecisionProvider | null = null;
   if (!offline) {
-    if (settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
+    if (!sandbox && settings.mcpServers?.some((s) => s.enabled)) await syncMcp(settings.mcpServers);
     const disabled = new Set(session.disabledTools ?? []);
     if (!allowSpawn || disabled.has('spawn_agent') || session.incognito) disabled.add('delegation_targets');
     if (!allowSpawn) disabled.add('spawn_agent');
     if (!allowBrowserControl || !canAsk) { disabled.add('browser'); disabled.add('capture'); }
-    tools = [...BUILTIN_TOOLS, ...mcpToolSpecs(), ...(!session.incognito && !session.trainingRunId ? [AGENT_WATCH_TOOL] : [])].filter((t) => !disabled.has(t.name));
+    tools = [...BUILTIN_TOOLS, ...(sandbox ? [] : mcpToolSpecs()), ...(!session.incognito && !session.trainingRunId ? [AGENT_WATCH_TOOL] : [])].filter((t) => !disabled.has(t.name));
     // update_plan goes to every session: goal runs treat it as the execution
     // contract; ordinary chats publish it to the plan rail so the user sees the
     // plan the agent derived, not a re-listing of their own prompt.
@@ -835,9 +842,10 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     // automation, or a goal run has no one reading it, so a question would be a
     // run parked forever rather than a clarification.
     if (canAsk && !disabled.has(ASK_USER_TOOL.name)) tools.push(ASK_USER_TOOL);
-    decideWith = disabled.has(DECIDE_TOOL.name) ? null : await decisions?.available().catch(() => null) ?? null;
+    decideWith = sandbox || disabled.has(DECIDE_TOOL.name) ? null : await decisions?.available().catch(() => null) ?? null;
     if (decideWith) tools.push(DECIDE_TOOL);
   }
+  if (sandbox) tools = tools.filter(t => SANDBOX_TOOLS.has(t.name));
   // Persist only when not incognito. Preserve any prompts queued mid-run (they
   // land on disk via queuePrompt) so a normal save doesn't clobber them.
   const persist = () => {
@@ -847,14 +855,14 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
 
   // Build context with provenance. Offline mode skips internet connectors.
   const bundle = assembleContext({
-    attached: collectAttached([...(session.attachedPaths ?? []), ...(opts.attachedPaths ?? [])]),
-    guidelines: collectGuidelines(workspaces),
-    memory: [
+    attached: sandbox ? [] : collectAttached([...(session.attachedPaths ?? []), ...(opts.attachedPaths ?? [])]),
+    guidelines: sandbox ? [] : collectGuidelines(workspaces),
+    memory: sandbox ? [] : [
       ...listMemory('global'),
       ...getSessionWorkspaceIds(session).flatMap((id) => listMemory('workspace', id)),
     ],
-    connectorSnippets: offline ? [] : await collectConnectorSnippets(opts.text),
-    indexSnippets: session.gitWorktrees && Object.keys(session.gitWorktrees).length ? [] : collectIndexSnippets(getSessionWorkspaceIds(session), opts.text),
+    connectorSnippets: sandbox || offline ? [] : await collectConnectorSnippets(opts.text),
+    indexSnippets: sandbox ? [] : session.gitWorktrees && Object.keys(session.gitWorktrees).length ? [] : collectIndexSnippets(getSessionWorkspaceIds(session), opts.text),
     excluded: new Set(session.contextPrefs?.excluded ?? []),
     pinned: new Set(session.contextPrefs?.pinned ?? []),
   });
@@ -865,12 +873,12 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
 
   const system = buildSystemPrompt({
     workspaces,
-    systemInstructions: [settings.systemInstructions, tools.some((t) => t.name === 'agent_watch')
+    systemInstructions: [sandbox ? 'Sandbox: only folder-N copied paths are accessible. All tool actions require approval. No host controls, networking, MCP, delegation or host fallback.' : settings.systemInstructions, tools.some((t) => t.name === 'agent_watch')
       ? 'When work must wait for PR checks or another background task, register agent_watch before ending the turn. State its id and wake condition; do not claim to be watching unless registration succeeded. Use a deadline so waiting cannot silently last forever. On wake, verify current status and re-arm if necessary. Do not register automatic continuations when waiting for a user decision, missing permission, credentials, or visual evidence that requires human action.'
       : ''].filter(Boolean).join('\n\n'),
-    turnWrapper: settings.turnWrapper ?? DEFAULT_TURN_WRAPPER,
-    aboutUser: settings.aboutUser,
-    checkoutNotice: session.gitIsolation === false ? 'This chat uses the project’s current Git branch, including local changes.' : Object.values(session.gitWorktrees ?? {}).map((w) => w.notice).join('\n'),
+    turnWrapper: sandbox ? DEFAULT_TURN_WRAPPER : settings.turnWrapper ?? DEFAULT_TURN_WRAPPER,
+    aboutUser: sandbox ? undefined : settings.aboutUser,
+    checkoutNotice: sandbox ? 'This chat executes in an isolated container on copied folders, not a host checkout.' : getExecutionMode(session) === 'unified' ? 'This chat uses the project’s current Git branch, including local changes.' : Object.values(session.gitWorktrees ?? {}).map((w) => w.notice).join('\n'),
     contextBlock,
     platform: process.platform,
     canAsk: tools.some((t) => t.name === ASK_USER_TOOL.name),
@@ -1009,6 +1017,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     try {
       const defaultCwd = workspaces[0]?.path;
       const executeToolInner = async (call: ToolCall): Promise<ToolResult> => {
+        if (sandbox) return executeSandboxTool(session.id, call, requestApproval, abort.signal);
         if (!tools.some((tool) => tool.name === call.name)) {
           return { toolCallId: call.id, output: 'This tool is disabled or unavailable for this chat.', isError: true };
         }
@@ -1157,6 +1166,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
         // PostToolUse may add to its result. The settings are re-read per
         // call so a hook added mid-run applies to the next tool.
         executeTool: async (call: ToolCall): Promise<ToolResult> => {
+          if (sandbox) return executeToolInner(call);
           const hookSettings = getSettings();
           if (!hasToolHooks(hookSettings)) return executeToolInner(call);
           const hookCtx = { sessionId: opts.sessionId, cwd: defaultCwd ?? process.cwd() };
@@ -1189,7 +1199,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
       // run (daemonRunsLoops): an older one would cap it.
       // NEKKO_AGENT_LOOP=ts keeps every run in this process (a kill switch).
       const daemon = process.env.NEKKO_AGENT_LOOP === 'ts' ? undefined : daemonCall();
-      const viaDaemon = !!daemon && !runOptions.onHeaders && (await daemonRunsLoops(daemon)) &&
+      const viaDaemon = !sandbox && !!daemon && !runOptions.onHeaders && (await daemonRunsLoops(daemon)) &&
         (await daemonOwns(daemon, 'loop:prompt-caching'));
       // On disk while the turn runs: a host that starts and finds it knows the
       // turn was cut off, and marks the reply so the chat offers Continue
@@ -1204,7 +1214,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
             onRunId: (runId) => daemonRunIds.set(opts.sessionId, runId),
             // The built-in file and shell tools run in the daemon too.
             toolContext: {
-              native: hasToolHooks(settings) ? [] : tools.map((t) => t.name).filter((n) => DAEMON_TOOLS.has(n)),
+              native: sandbox || hasToolHooks(settings) ? [] : tools.map((t) => t.name).filter((n) => DAEMON_TOOLS.has(n)),
               sessionId: opts.sessionId,
               mode,
               sandboxMode: settings.sandboxMode,
@@ -1316,7 +1326,7 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
     send({ type: 'error', sessionId: opts.sessionId, message: lastError.message });
   }
   // TurnEnd hooks: how the reply ended, for whoever wants to know. Nothing waits.
-  turnEndHooks(getSettings(), {
+  if (!sandbox) turnEndHooks(getSettings(), {
     sessionId: opts.sessionId,
     cwd: workspaces[0]?.path ?? process.cwd(),
     stop: abort.signal.aborted ? 'stopped' : lastError ? 'error' : lastStop ?? 'complete',
@@ -1324,13 +1334,13 @@ export async function sendChat(opts: SendOptions, send: Sender, allowBrowserCont
   });
 
   // Keep the linked spec.md in sync with the conversation (best-effort).
-  if (session.specLinked && !incognito && !offline) {
+  if (!sandbox && session.specLinked && !incognito && !offline) {
     buildSpec(opts.sessionId).catch(() => {});
   }
 
   // With the first turn done, ask the model for a real title. titleAuto guards
   // a name the user typed; incognito/offline chats skip the extra call.
-  if (!incognito && !offline && session.titleAuto === true) {
+  if (!sandbox && !incognito && !offline && session.titleAuto === true) {
     void titleSession(opts.sessionId, resolvedProvider, opts.modelId, send);
   }
 

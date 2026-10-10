@@ -1,3 +1,4 @@
+import { assertHostExecution } from './indirect-execution-guard.js';
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { dirname, join, extname } from 'path';
 import type { DirEntry, FileContent } from '@nekko-agent/shared';
@@ -12,7 +13,8 @@ import type { DirEntry, FileContent } from '@nekko-agent/shared';
 const MAX_READ = 1_000_000;
 
 /** Read a file as text; flags binary (NUL byte present) and truncation. */
-export function readFile(path: string): FileContent {
+export function readFile(path: string, sessionId?: string): FileContent {
+  assertHostExecution(sessionId, 'Host file access');
   if (!existsSync(path) || statSync(path).isDirectory()) {
     return { content: '', truncated: false, binary: false };
   }
@@ -31,13 +33,15 @@ export function readFile(path: string): FileContent {
 }
 
 /** Write text to a file, creating parent directories as needed. */
-export function writeFile(path: string, content: string): void {
+export function writeFile(path: string, content: string, sessionId?: string): void {
+  assertHostExecution(sessionId, 'Host file write');
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, content, 'utf8');
 }
 
 /** List a directory's entries, directories first then files (alphabetical). */
-export function listDir(path: string): DirEntry[] {
+export function listDir(path: string, sessionId?: string): DirEntry[] {
+  assertHostExecution(sessionId, 'Host file access');
   if (!existsSync(path)) return [];
   return readdirSync(path, { withFileTypes: true })
     .map((e) => ({ name: e.name, path: join(path, e.name), dir: e.isDirectory() }))
