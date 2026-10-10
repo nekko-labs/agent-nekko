@@ -23,7 +23,7 @@ export function TitleBar() {
   if (!hasAppChrome) return null;
   return (
     <div className={`titlebar ${isMacChrome ? 'titlebar-mac' : ''}`}>
-      <BrandMark size={22} className="titlebar-mark" title="Nekko Agent" />
+      <BrandMark size={28} className="titlebar-mark" title="Nekko Agent" />
       {view === 'command' && <h1 className="titlebar-heading text-gradient">Agents</h1>}
       <UpdateControl />
       {/* Layout controls follow the heading and version in the same row. */}

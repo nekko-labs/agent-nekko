@@ -1715,9 +1715,12 @@
 /* ---------- Command Center wall ---------- */
 
 /* The brand mark at the leading edge of the desktop title bar. Nudged 4px down:
-   centred by its box it sits visibly high next to the
-   heading, whose x-height (not its line box) is what the eye lines up with. */
+   centred by its box it sits visibly high next to the heading, whose x-height
+   (not its line box) is what the eye lines up with. */
 .titlebar-mark { flex: none; display: block; color: var(--ink-soft); position: relative; top: 4px; }
+/* Off macOS it sits straight above the rail's first icon: the 28px mark is
+   centred on the 64px rail's midline (14px strip padding + 4px = 18px = 32 - 14). */
+.titlebar:not(.titlebar-mac) .titlebar-mark { margin-left: 4px; }
 
 /* Everything waiting on a person, in one line above the wall, with a jump to each. */
 .wall-ribbon {
