@@ -10,7 +10,7 @@ import {
   rejectsSampling,
   resetLearnedSampling,
 } from './anthropic.js';
-import type { EffortLevel, ProviderConfig } from '@nekko-agent/shared';
+import type { EffortLevel, ProviderConfig } from '@agent-nekko/shared';
 
 const apiKeyCfg: ProviderConfig = {
   id: 'p1',

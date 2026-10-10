@@ -2,8 +2,8 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, wr
 import { tmpdir } from 'os';
 import { dirname, join, posix, resolve, win32 } from 'path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import type { AppSettings, ChatMode, GuardrailRule, SandboxMode, ToolCall } from '@nekko-agent/shared';
-import { BUILTIN_TOOLS, DEFAULT_GUARDRAILS, classifyCommand } from '@nekko-agent/core';
+import type { AppSettings, ChatMode, GuardrailRule, SandboxMode, ToolCall } from '@agent-nekko/shared';
+import { BUILTIN_TOOLS, DEFAULT_GUARDRAILS, classifyCommand } from '@agent-nekko/core';
 import { acceptAllChanges, acceptChange, listChanges } from './changes.js';
 import { executeTool } from './tools.js';
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ArtifactKind, ExperimentNode, MazeNode, ModelInfo, ProviderConfig, TrainingRun } from '@nekko-agent/shared';
-import { formatRuntime, layoutMaze, runOutputDir, runStats, isLocalProvider, formatModelPriceLabel, modelPricing } from '@nekko-agent/shared';
+import type { ArtifactKind, ExperimentNode, MazeNode, ModelInfo, ProviderConfig, TrainingRun } from '@agent-nekko/shared';
+import { formatRuntime, layoutMaze, runOutputDir, runStats, isLocalProvider, formatModelPriceLabel, modelPricing } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store.js';
 import { LogSurface, StatTile } from './primitives/index.js';

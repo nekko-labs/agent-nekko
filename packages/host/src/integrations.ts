@@ -7,14 +7,14 @@ import type {
   SubagentInstallResult,
   SubagentSnippet,
   SubagentTarget,
-} from '@nekko-agent/shared';
-import { mcpServerEntry } from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
+import { mcpServerEntry } from '@agent-nekko/shared';
 import { backupFile, writeJsonAtomic, writeTextAtomic } from './secure-file.js';
 
 /**
- * Installing Nekko Agent as an MCP subagent inside other agent CLIs. Each tool
+ * Installing Agent Nekko as an MCP subagent inside other agent CLIs. Each tool
  * is detected by its user-level config directory; install merges an
- * `nekko-agent` entry into the tool's MCP config file. The existing file is
+ * `agent-nekko` entry into the tool's MCP config file. The existing file is
  * copied to `<file>.bak` before any write, and writes go through the atomic
  * temp+rename helpers so a crash can't leave a half-written config.
  *
@@ -22,7 +22,7 @@ import { backupFile, writeJsonAtomic, writeTextAtomic } from './secure-file.js';
  * server's URL and token when a `SubagentTarget` is supplied, which is what
  * makes the other tool drive *this* app rather than start a second agent on
  * the same data directory. With no target it falls back to the portable
- * `npx -y nekko-agent mcp`, which is what the web and self-hosted editions
+ * `npx -y agent-nekko mcp`, which is what the web and self-hosted editions
  * want.
  *
  * A `home` parameter is accepted by every function so tests (and unusual
@@ -30,7 +30,7 @@ import { backupFile, writeJsonAtomic, writeTextAtomic } from './secure-file.js';
  */
 
 /** The server key written into every tool's MCP config. */
-const SERVER_NAME = 'nekko-agent';
+const SERVER_NAME = 'agent-nekko';
 
 interface AgentToolSpec {
   id: AgentToolId;
@@ -87,7 +87,7 @@ function tomlString(value: string): string {
 /**
  * The TOML block appended to Codex's config.toml, pointed at this app.
  *
- * `env` is an inline table rather than its own `[mcp_servers.nekko-agent.env]`
+ * `env` is an inline table rather than its own `[mcp_servers.agent-nekko.env]`
  * section so the whole entry stays one appendable block: the installer works
  * by appending, and a sub-table that lands after some later section would
  * attach itself to the wrong parent.
@@ -107,7 +107,7 @@ function tomlSection(target: SubagentTarget = {}): string {
   return `${lines.join('\n')}\n`;
 }
 
-/** Matches an existing `[mcp_servers.nekko-agent]` table header, bare or quoted. */
+/** Matches an existing `[mcp_servers.agent-nekko]` table header, bare or quoted. */
 const TOML_ENTRY_RE = new RegExp(
   `^\\s*\\[\\s*mcp_servers\\s*\\.\\s*"?${SERVER_NAME}"?\\s*\\]\\s*$`,
   'm',
@@ -261,7 +261,7 @@ function isInstalled(spec: AgentToolSpec, home: string): boolean {
 }
 
 /**
- * Replace an existing `[mcp_servers.nekko-agent]` block, or null if there
+ * Replace an existing `[mcp_servers.agent-nekko]` block, or null if there
  * isn't one.
  *
  * The block runs from its header to the next `[` header at the start of a
@@ -296,7 +296,7 @@ export function detectAgentTools(home: string = homedir()): AgentToolStatus[] {
 }
 
 /**
- * Merge the nekko-agent MCP entry into a tool's config.
+ * Merge the agent-nekko MCP entry into a tool's config.
  *
  * Idempotent *by value*: an entry that already says the right thing is left
  * alone and reported as installed, but one that points somewhere stale (an old
@@ -307,8 +307,8 @@ export function detectAgentTools(home: string = homedir()): AgentToolStatus[] {
  * callers can re-render from one response.
  */
 /**
- * Whether an existing nekko-agent entry is one this app wrote: the portable
- * `npx … nekko-agent mcp` form, or the launcher the desktop app installs.
+ * Whether an existing agent-nekko entry is one this app wrote: the portable
+ * `npx … agent-nekko mcp` form, or the launcher the desktop app installs.
  *
  * Anything else was written by hand (a checkout's `node …/dist/index.js mcp`,
  * a wrapper script) and belongs to the person who wrote it, so an automatic
@@ -316,9 +316,9 @@ export function detectAgentTools(home: string = homedir()): AgentToolStatus[] {
  */
 export function isOwnEntry(command: string | undefined, args: string[] = []): boolean {
   if (!command) return false;
-  if (command === 'npx') return args.includes('nekko-agent');
+  if (command === 'npx') return args.includes('agent-nekko');
   const leaf = command.split(/[\\/]/).pop() ?? '';
-  return /^nekko-agent(\.cmd)?$/i.test(leaf);
+  return /^agent-nekko(\.cmd)?$/i.test(leaf);
 }
 
 /** The existing entry's command and args, from either config format. */

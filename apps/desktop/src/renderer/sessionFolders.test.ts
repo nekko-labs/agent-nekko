@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 vi.hoisted(() => { Object.assign(globalThis, { window: {}, localStorage: { getItem: () => null } }); });
-import type { WorkspaceFolder } from '@nekko-agent/shared';
+import type { WorkspaceFolder } from '@agent-nekko/shared';
 import { useStore } from './store.js';
 import { addFolderToChat, shouldAutoFile, withExcluded, withIncluded, withoutPrimary, withPrimary } from './sessionFolders.js';
 

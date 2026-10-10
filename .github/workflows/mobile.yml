@@ -31,7 +31,7 @@ jobs:
           cache: npm
       - run: npm ci
       # The integration test drives a real relay and a headless agent.
-      - run: npm run build:core && npm run build -w @nekko-agent/host && npm run build --workspace=apps/cli && npm run build -w @nekko-agent/server && npm run build -w @nekko-agent/relay
+      - run: npm run build:core && npm run build -w @agent-nekko/host && npm run build --workspace=apps/cli && npm run build -w @agent-nekko/server && npm run build -w @agent-nekko/relay
       - name: Install app dependencies
         working-directory: apps/mobile
         run: npm ci --ignore-scripts
@@ -74,7 +74,7 @@ jobs:
           ./gradlew assembleDebug --no-daemon
       - uses: actions/upload-artifact@v7
         with:
-          name: nekko-agent-android-debug
+          name: agent-nekko-android-debug
           path: apps/mobile/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 

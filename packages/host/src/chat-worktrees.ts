@@ -1,8 +1,8 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { basename, join, resolve, relative, sep } from 'node:path';
-import type { AppSettings, ChatWorktreeInfo, Session, WorkspaceFolder } from '@nekko-agent/shared';
-import { getSessionWorkspaceIds } from '@nekko-agent/shared';
+import type { AppSettings, ChatWorktreeInfo, Session, WorkspaceFolder } from '@agent-nekko/shared';
+import { getSessionWorkspaceIds } from '@agent-nekko/shared';
 
 type Checkout = NonNullable<Session['gitWorktrees']>[string];
 

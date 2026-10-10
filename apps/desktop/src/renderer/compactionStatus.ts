@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AgentEvent, CompactionProgress } from '@nekko-agent/shared';
+import type { AgentEvent, CompactionProgress } from '@agent-nekko/shared';
 
 /**
  * Each chat's latest compaction progress, from the host's `compaction` events.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionSummary } from '@nekko-agent/shared';
+import type { SessionSummary } from '@agent-nekko/shared';
 import type { Workspace } from '../store.js';
 import { unopenedChats } from './unopenedChats.js';
 

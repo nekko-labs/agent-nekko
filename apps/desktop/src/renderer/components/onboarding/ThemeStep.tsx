@@ -1,5 +1,5 @@
 import React from 'react';
-import type { AppSettings } from '@nekko-agent/shared';
+import type { AppSettings } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 import { ThemePresetPicker } from '../ThemePresetPicker.js';

@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, shell, systemPreferences } from 'electron';
-import { type EngineStatus, IpcChannels, IpcEvents } from '@nekko-agent/shared';
+import { type EngineStatus, IpcChannels, IpcEvents } from '@agent-nekko/shared';
 import { initUpdater, checkForUpdates, downloadUpdate, quitAndInstall } from './update.js';
 import type { EngineProcess } from './engine-process.js';
 import { setSessionOptionsCompat } from './session-options-compat.js';

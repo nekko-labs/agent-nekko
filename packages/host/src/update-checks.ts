@@ -1,5 +1,5 @@
-import type { AppSettings, ModelInfo, VaizerCatalog } from '@nekko-agent/shared';
-import { updateChecks } from '@nekko-agent/shared';
+import type { AppSettings, ModelInfo, VaizerCatalog } from '@agent-nekko/shared';
+import { updateChecks } from '@agent-nekko/shared';
 import { getVaizerCatalog } from './vaizer.js';
 
 /**

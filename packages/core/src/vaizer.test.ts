@@ -11,7 +11,7 @@ import {
   marketWorkflow,
   layoutWorkflow,
   MARKET_SKILLS,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 
 describe('vaizer catalog snapshot', () => {
   it('bundled snapshot is well-formed and offline-marked', () => {
@@ -47,11 +47,11 @@ describe('vaizer catalog snapshot', () => {
 });
 
 describe('vaizerCategory', () => {
-  it('maps vaizer categories onto Nekko Agent skill categories', () => {
+  it('maps vaizer categories onto Agent Nekko skill categories', () => {
     expect(vaizerCategory('research')).toBe('Research & planning');
     expect(vaizerCategory('engineering')).toBe('Code quality');
     expect(vaizerCategory('delivery')).toBe('Delivery');
-    // `career` (resume-checker) has no Nekko Agent equivalent; it reads as analysis work.
+    // `career` (resume-checker) has no Agent Nekko equivalent; it reads as analysis work.
     expect(vaizerCategory('career')).toBe('Research & planning');
     expect(vaizerCategory('something-else')).toBe('Automation');
   });

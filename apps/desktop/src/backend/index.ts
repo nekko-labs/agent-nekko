@@ -19,7 +19,7 @@
  * - `NEKKOD_URL` / `NEKKOD_TOKEN`: set when the daemon started us; the ptys are
  *   then the daemon's, and this host forwards terminal calls to it.
  */
-import { createHost, flushAgentLogs, useEngineDaemon, useTerminalDaemon } from '@nekko-agent/host';
+import { createHost, flushAgentLogs, useEngineDaemon, useTerminalDaemon } from '@agent-nekko/host';
 import { closeApiServer } from '../main/api-server.js';
 import { startLocalAccess, stopLocalAccess, type AppLike } from '../main/local-access.js';
 import { closeWorkflowLoopbackListener, manageWorkflowLoopbackListener } from '../main/workflow-listener.js';
@@ -108,6 +108,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
-  console.error(`nekko-agent backend: ${(e as Error)?.stack ?? e}`);
+  console.error(`agent-nekko backend: ${(e as Error)?.stack ?? e}`);
   process.exit(1);
 });

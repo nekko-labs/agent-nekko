@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ProviderConfig } from '@nekko-agent/shared';
+import type { ProviderConfig } from '@agent-nekko/shared';
 import { createProvider } from './index.js';
 import { resetLearnedSampling } from './anthropic.js';
 import { resetLearnedParams } from './openai-compat.js';

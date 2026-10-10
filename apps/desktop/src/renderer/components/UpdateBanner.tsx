@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { AppInfo, UpdateInfo } from '@nekko-agent/shared';
+import type { AppInfo, UpdateInfo } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 
 const LS_LAST_VERSION = 'op_last_version';
@@ -339,7 +339,7 @@ export function UpdateBanner() {
   if (!info) return null;
 
   const isDesktop = info.edition === 'desktop';
-  const notesUrl = update?.notesUrl ?? 'https://github.com/nekko-labs/nekko-agent/releases/latest';
+  const notesUrl = update?.notesUrl ?? 'https://github.com/nekko-labs/agent-nekko/releases/latest';
   const openNotes = () => window.nekko.openPath(notesUrl);
 
   // First-run prompt (desktop only, the web edition just refreshes).

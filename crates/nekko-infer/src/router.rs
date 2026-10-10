@@ -214,7 +214,7 @@ async fn route(s: Shared, req: Request) -> Response {
     // Health is deliberately unauthenticated: it carries nothing, and something
     // has to be able to tell whether the port is ours without a key.
     if path == "/health" || path == "/" {
-        return axum::Json(json!({ "status": "ok", "service": "nekko-agent-engine", "models": s.supervisor.len() }))
+        return axum::Json(json!({ "status": "ok", "service": "agent-nekko-engine", "models": s.supervisor.len() }))
             .into_response();
     }
     if let Some(key) = s.config.api_key.as_deref().filter(|k| !k.is_empty())

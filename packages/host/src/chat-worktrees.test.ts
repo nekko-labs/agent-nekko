@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, it } from 'vitest';
-import type { AppSettings, Session } from '@nekko-agent/shared';
+import type { AppSettings, Session } from '@agent-nekko/shared';
 import { chatWorkspaces, listChatWorktrees, prepareChatWorktrees, removeChatWorktree, runWorktreeSetup, slugifyTitle, worktreeName } from './chat-worktrees.js';
 
 let root: string;

@@ -352,7 +352,7 @@ export interface NekkoApi {
     providerId: string,
   ): Promise<import('./runtimes.js').RuntimeStatus | { error: string }>;
   /**
-   * Stop a local runtime. Without `force` this refuses a process Nekko Agent did
+   * Stop a local runtime. Without `force` this refuses a process Agent Nekko did
    * not start, returning `needsConfirmation` so the UI can ask first.
    */
   runtimeStop(providerId: string, force?: boolean): Promise<import('./runtimes.js').StopResult>;
@@ -468,7 +468,7 @@ export interface NekkoApi {
   apiServerNewToken(): Promise<import('./api-server.js').ApiServerStatus>;
 
   /**
-   * Whether the `nekko-agent` command is installed and reachable. The desktop
+   * Whether the `agent-nekko` command is installed and reachable. The desktop
    * app links its bundled CLI at first run; this is how the Server tab says
    * whether that worked. Web/self-hosted report `available: false`.
    */
@@ -742,7 +742,7 @@ export interface NekkoApi {
   /** Which agent CLIs are present and whether Nekko is installed as an MCP subagent. */
   detectAgentTools(): Promise<AgentToolStatus[]>;
   /**
-   * Merge the nekko-agent MCP entry into a tool's config (backs up to
+   * Merge the agent-nekko MCP entry into a tool's config (backs up to
    * <file>.bak first). The desktop transport points the entry at this app's
    * running server; pass a target to override what it writes.
    */
@@ -836,8 +836,8 @@ export interface NekkoApi {
   /** Fires when the skills marketplace catalog refreshed to a new skill set. */
   onSkillsUpdated(cb: (catalog: import('./vaizer.js').VaizerCatalog) => void): () => void;
   /**
-   * Fires when another app asks Nekko Agent to do something through an `nekko-agent://`
-   * URL: today, Hypergate's "Connect Nekko Agent" button. Desktop only, since the
+   * Fires when another app asks Agent Nekko to do something through an `agent-nekko://`
+   * URL: today, Hypergate's "Connect Agent Nekko" button. Desktop only, since the
    * web transport has no OS to hand it one.
    */
   onDeepLink(cb: (url: string) => void): () => void;

@@ -14,7 +14,7 @@ function fakeApp(withCli: boolean) {
   mkdirSync(appPath, { recursive: true });
   if (withCli) {
     mkdirSync(join(root, 'apps', 'cli', 'app-dist'), { recursive: true });
-    writeFileSync(join(root, 'apps', 'cli', 'app-dist', 'nekko-agent-cli.cjs'), '// cli');
+    writeFileSync(join(root, 'apps', 'cli', 'app-dist', 'agent-nekko-cli.cjs'), '// cli');
   }
   const userData = join(root, 'userData');
   return {
@@ -26,9 +26,9 @@ function fakeApp(withCli: boolean) {
 
 describe('cli install', () => {
   it('launches the bundled CLI through Electron as Node, passing arguments on', () => {
-    const script = launcherScript('/Apps/Nekko Agent', '/res/cli/nekko-agent-cli.cjs');
+    const script = launcherScript('/Apps/Agent Nekko', '/res/cli/agent-nekko-cli.cjs');
     expect(script).toContain('ELECTRON_RUN_AS_NODE=1');
-    expect(script).toContain('"/Apps/Nekko Agent" "/res/cli/nekko-agent-cli.cjs"');
+    expect(script).toContain('"/Apps/Agent Nekko" "/res/cli/agent-nekko-cli.cjs"');
     expect(script).toMatch(process.platform === 'win32' ? /%\*/ : /"\$@"/);
   });
 
@@ -43,7 +43,7 @@ describe('cli install', () => {
     const status = installCli(app, { path: false });
     expect(status.installed).toBe(true);
     expect(existsSync(cliBinPath(userData))).toBe(true);
-    expect(readFileSync(cliBinPath(userData), 'utf8')).toContain('nekko-agent-cli.cjs');
+    expect(readFileSync(cliBinPath(userData), 'utf8')).toContain('agent-nekko-cli.cjs');
     expect(cliInstallStatus(app).installed).toBe(true);
   });
 
@@ -51,7 +51,7 @@ describe('cli install', () => {
     const { app } = fakeApp(false);
     const status = installCli(app, { path: false });
     expect(status.installed).toBe(false);
-    expect(status.message).toMatch(/npm install -g nekko-agent/);
+    expect(status.message).toMatch(/npm install -g agent-nekko/);
   });
 
   it('writes the link file the CLI reads', () => {

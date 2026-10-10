@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { AgentToolId, AgentToolStatus, SubagentSnippet } from '@nekko-agent/shared';
+import type { AgentToolId, AgentToolStatus, SubagentSnippet } from '@agent-nekko/shared';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store.js';
 import { Badge } from '../primitives/index.js';
@@ -10,7 +10,7 @@ import { CheckIcon, CopyIcon, TerminalIcon } from '../../icons.js';
 /**
  * The integrations step, two groups. "Use Nekko inside other tools" installs
  * this app as an MCP subagent into detected agent CLIs: the host merges an
- * `nekko-agent` entry into the tool's MCP config (pointed at this app's server,
+ * `agent-nekko` entry into the tool's MCP config (pointed at this app's server,
  * with its address and token), backing up the file first, and a manual
  * copy-paste snippet is always offered. "Connect your apps" is the shared
  * connector grid in compact form.
@@ -64,7 +64,7 @@ export function IntegrationsStep({
       pushToast(
         res.ok ? 'success' : 'error',
         res.ok
-          ? `Nekko Agent is now an MCP server in ${res.tools.find((t) => t.id === id)?.label ?? id}. Restart the tool to pick it up.`
+          ? `Agent Nekko is now an MCP server in ${res.tools.find((t) => t.id === id)?.label ?? id}. Restart the tool to pick it up.`
           : (res.message ?? 'Install failed.'),
       );
     } catch (e) {
@@ -96,7 +96,7 @@ export function IntegrationsStep({
       }
       if (latest) setTools(latest);
       if (added.length) {
-        pushToast('success', `Nekko Agent is now an MCP server in ${added.join(', ')}. Restart ${added.length === 1 ? 'it' : 'them'} to pick it up.`);
+        pushToast('success', `Agent Nekko is now an MCP server in ${added.join(', ')}. Restart ${added.length === 1 ? 'it' : 'them'} to pick it up.`);
       }
     };
     return () => {
@@ -116,7 +116,7 @@ export function IntegrationsStep({
     <div className="w-full">
       <h1 className="text-center text-2xl font-semibold tracking-tight">Meet your tools</h1>
       <p className="mx-auto mt-2 max-w-md text-center text-[14px] leading-relaxed text-ink-soft">
-        Nekko Agent can run as a subagent inside the agent CLIs you already use, and plug into your
+        Agent Nekko can run as a subagent inside the agent CLIs you already use, and plug into your
         apps so chats and workflows can reach them.
       </p>
 
@@ -227,10 +227,10 @@ function AgentToolCard({
             </div>
             <p className="mt-0.5 text-[12px] text-ink-faint">
               {tool.installed
-                ? 'The nekko-agent MCP server is in this tool\'s config.'
+                ? 'The agent-nekko MCP server is in this tool\'s config.'
                 : tool.detected
                   ? checked
-                    ? 'Detected. Nekko Agent is added as an MCP server when you continue.'
+                    ? 'Detected. Agent Nekko is added as an MCP server when you continue.'
                     : 'Detected. Left as it is.'
                   : 'Not detected on this machine.'}
             </p>
@@ -239,7 +239,7 @@ function AgentToolCard({
         {!tool.installed && tool.detected && (
           <div className="flex shrink-0 items-center gap-2">
             <label className="flex cursor-pointer items-center gap-1.5 text-[12px] text-ink-soft">
-              <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Add Nekko Agent to ${tool.label}`} />
+              <input type="checkbox" checked={checked} onChange={onToggle} aria-label={`Add Agent Nekko to ${tool.label}`} />
               Add
             </label>
             <button

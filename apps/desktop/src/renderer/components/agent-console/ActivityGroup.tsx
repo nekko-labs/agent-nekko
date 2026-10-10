@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { summarizeThought, summarizeToolCall, truncateWords, type LiveActivity } from '@nekko-agent/shared';
+import { summarizeThought, summarizeToolCall, truncateWords, type LiveActivity } from '@agent-nekko/shared';
 import { ToolProgressChip } from './ToolProgressChip.js';
 import { toolQuietSince } from './toolProgress.js';
 import { ChatIcon, ThoughtIcon, ToolStepIcon } from '../../icons.js';

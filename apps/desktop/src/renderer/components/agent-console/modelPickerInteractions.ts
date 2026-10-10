@@ -1,4 +1,4 @@
-import type { ModelInfo, ProviderConfig } from '@nekko-agent/shared';
+import type { ModelInfo, ProviderConfig } from '@agent-nekko/shared';
 
 export const modelPickerKey = (providerId: string, modelId: string) => `${providerId}::${modelId}`;
 

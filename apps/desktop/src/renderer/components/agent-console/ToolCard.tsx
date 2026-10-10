@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ToolCall } from '@nekko-agent/shared';
+import type { ToolCall } from '@agent-nekko/shared';
 import { SubagentCue, subagentSummary } from './SubagentCue.js';
 
 /**

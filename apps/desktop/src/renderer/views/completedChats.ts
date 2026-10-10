@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@nekko-agent/shared';
+import type { SessionSummary } from '@agent-nekko/shared';
 
 /**
  * A completed chat's date as its sidebar row shows it: "Dec 20" within the

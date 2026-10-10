@@ -2,8 +2,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, s
 import { readFile, readdir, stat } from 'fs/promises';
 import { randomBytes } from 'crypto';
 import { join } from 'path';
-import type { QueuePayload, QueuedPrompt, Session, SessionSummary } from '@nekko-agent/shared';
-import { archiveExpired, queueItemsEqual, summarizeSession } from '@nekko-agent/shared';
+import type { QueuePayload, QueuedPrompt, Session, SessionSummary } from '@agent-nekko/shared';
+import { archiveExpired, queueItemsEqual, summarizeSession } from '@agent-nekko/shared';
 import { dataDir, getSettings } from './store.js';
 import { deleteAgentLog } from './agent-log.js';
 

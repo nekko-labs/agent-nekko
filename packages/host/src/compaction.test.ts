@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { estimateTranscriptTokens, type AgentEvent, type CompactionProgress, type ProviderConfig } from '@nekko-agent/shared';
-import type { ChatRequest, Provider } from '@nekko-agent/core';
+import { estimateTranscriptTokens, type AgentEvent, type CompactionProgress, type ProviderConfig } from '@agent-nekko/shared';
+import type { ChatRequest, Provider } from '@agent-nekko/core';
 
 const providerState = vi.hoisted(() => ({
   mode: 'success',
@@ -12,8 +12,8 @@ const providerState = vi.hoisted(() => ({
   requests: [] as string[],
 }));
 
-vi.mock('@nekko-agent/core', async () => {
-  const actual = await vi.importActual<typeof import('@nekko-agent/core')>('@nekko-agent/core');
+vi.mock('@agent-nekko/core', async () => {
+  const actual = await vi.importActual<typeof import('@agent-nekko/core')>('@agent-nekko/core');
   return {
     ...actual,
     createProvider: (config: ProviderConfig): Provider => ({
@@ -45,7 +45,7 @@ const { setDataDir } = await import('./paths.js');
 const { saveSettings } = await import('./store.js');
 const { createSession, getSession, saveSession } = await import('./sessions.js');
 const { cancelSessionCompaction, compactSession, setCompactionSender } = await import('./compaction.js');
-const { fromLatestCompaction } = await import('@nekko-agent/core');
+const { fromLatestCompaction } = await import('@agent-nekko/core');
 
 let progress: CompactionProgress[] = [];
 setCompactionSender((e: AgentEvent) => { if (e.type === 'compaction') progress.push(e.progress); });

@@ -1,5 +1,5 @@
 /**
- * Inbound messaging channels: reach a Nekko Agent chat from a messaging app
+ * Inbound messaging channels: reach an Agent Nekko chat from a messaging app
  * (Telegram first; Slack and BYO-Twilio follow the same adapter shape).
  *
  * The trust model is deliberately narrower than the relay's paired devices: a

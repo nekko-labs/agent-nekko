@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ModelInfo, ProviderConfig } from '@nekko-agent/shared';
+import type { ModelInfo, ProviderConfig } from '@agent-nekko/shared';
 import {
   filteredModelGroups,
   isModelPickerEscape,

@@ -1,4 +1,4 @@
-import type { DownloadJob } from '@nekko-agent/shared';
+import type { DownloadJob } from '@agent-nekko/shared';
 import { CloseIcon } from '../../icons.js';
 import { formatBytes } from '../runtimes/verdict.js';
 import { eta, fileRole, groupDownloads, isActive, type DownloadGroup } from './downloadGroups.js';

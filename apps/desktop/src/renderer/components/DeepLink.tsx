@@ -4,10 +4,10 @@ import { hypergateConnectPort } from '../deepLinks.js';
 import { Modal } from './primitives/index.js';
 
 /**
- * `nekko-agent://` links from other apps.
+ * `agent-nekko://` links from other apps.
  *
- * One route today: `nekko-agent://hypergate/connect?port=7777`, which is what
- * Hypergate's "Connect Nekko Agent" button fires. The link is a *request*, never
+ * One route today: `agent-nekko://hypergate/connect?port=7777`, which is what
+ * Hypergate's "Connect Agent Nekko" button fires. The link is a *request*, never
  * the action: any program on the machine can open a URL, and connecting a
  * gateway means trusting whatever tools it offers in every chat from then on.
  * So the link brings the window forward, names what is asking, and waits for a
@@ -30,14 +30,14 @@ export function DeepLinkListener() {
 
   useEffect(() => {
     const off = window.nekko.onDeepLink((url) => {
-      if (url === 'nekko-agent://chat/new') {
+      if (url === 'agent-nekko://chat/new') {
         void useStore.getState().newChat().catch(e => useStore.getState().pushToast('error', e.message));
         return;
       }
       const port = hypergateConnectPort(url);
       const { pushToast, refreshHypergate, settings } = useStore.getState();
       if (port === null) {
-        pushToast('error', `Nekko Agent did not understand that link: ${url}`);
+        pushToast('error', `Agent Nekko did not understand that link: ${url}`);
         return;
       }
       void (async () => {
@@ -81,13 +81,13 @@ export function DeepLinkListener() {
       <div>
         <h2 id="hypergate-link-title" className="text-[15px] font-semibold">{heading}</h2>
         <p className="mt-2 text-[12.5px] text-ink-soft">
-          Hypergate v{ask.version} on port {ask.port} is asking to connect to Nekko Agent.{' '}
+          Hypergate v{ask.version} on port {ask.port} is asking to connect to Agent Nekko.{' '}
           {ask.servers === 1
             ? 'The one server it manages becomes a single entry in your MCP list, and its tools are offered in every chat.'
             : `The ${ask.servers} servers it manages become a single entry in your MCP list, and their tools are offered in every chat.`}
         </p>
         <p className="mt-2 text-[11.5px] text-ink-faint">
-          Nekko Agent gets its own scoped token, so you can narrow or revoke it from Hypergate at any time.
+          Agent Nekko gets its own scoped token, so you can narrow or revoke it from Hypergate at any time.
         </p>
         <div className="mt-4 flex justify-end gap-2">
           <button className="btn btn-outline py-1 text-[12px]" onClick={() => setAsk(null)} disabled={busy}>Not now</button>

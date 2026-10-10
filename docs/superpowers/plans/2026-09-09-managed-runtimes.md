@@ -66,7 +66,7 @@
 - [ ] **Step 1: Write `packages/shared/src/capacity.ts`**
 
 ```ts
-/** Fit-planning types. The math lives in @nekko-agent/core; these are the contracts. */
+/** Fit-planning types. The math lives in @agent-nekko/core; these are the contracts. */
 
 /** KV-cache element type. Halving the element halves the cache. */
 export type KvCacheDtype = 'f16' | 'q8_0' | 'q4_0' | 'fp8';
@@ -383,7 +383,7 @@ describe('kvBytesPerElement', () => {
 - [ ] **Step 5: Run and commit**
 
 ```bash
-npm run test -w @nekko-agent/shared
+npm run test -w @agent-nekko/shared
 git add packages/shared/src && git commit -m "feat(shared): capacity and runtime control-plane types"
 ```
 
@@ -402,7 +402,7 @@ git add packages/shared/src && git commit -m "feat(shared): capacity and runtime
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import type { ModelFacts, FitRequest } from '@nekko-agent/shared';
+import type { ModelFacts, FitRequest } from '@agent-nekko/shared';
 import { kvCacheBytes, estimateOverheadBytes } from './kv.js';
 
 const llama8b: ModelFacts = {
@@ -449,14 +449,14 @@ describe('estimateOverheadBytes', () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-npm run test -w @nekko-agent/core -- capacity/kv
+npm run test -w @agent-nekko/core -- capacity/kv
 ```
 Expected: FAIL, cannot resolve `./kv.js`.
 
 - [ ] **Step 3: Implement `kv.ts`**
 
 ```ts
-import { kvBytesPerElement, type FitRequest, type ModelFacts } from '@nekko-agent/shared';
+import { kvBytesPerElement, type FitRequest, type ModelFacts } from '@agent-nekko/shared';
 
 /**
  * KV-cache bytes for a model at a given context and parallelism.
@@ -507,7 +507,7 @@ export function headDimOf(embeddingLength?: number, headCount?: number): number 
 - [ ] **Step 4: Run the test, expect PASS**
 
 ```bash
-npm run test -w @nekko-agent/core -- capacity/kv
+npm run test -w @agent-nekko/core -- capacity/kv
 ```
 
 - [ ] **Step 5: Commit**
@@ -531,7 +531,7 @@ git add packages/core/src/capacity && git commit -m "feat(core): KV-cache and ov
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import type { HardwareFacts, ModelFacts, FitRequest } from '@nekko-agent/shared';
+import type { HardwareFacts, ModelFacts, FitRequest } from '@agent-nekko/shared';
 import { planFit } from './plan.js';
 
 const GB = 1024 ** 3;
@@ -632,7 +632,7 @@ describe('planFit', () => {
 - [ ] **Step 2: Run it and watch it fail**
 
 ```bash
-npm run test -w @nekko-agent/core -- capacity/plan
+npm run test -w @agent-nekko/core -- capacity/plan
 ```
 
 - [ ] **Step 3: Implement `plan.ts`**
@@ -676,7 +676,7 @@ git add packages/core/src/capacity && git commit -m "feat(core): fit verdicts wi
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import type { HardwareFacts, ModelFacts, FitRequest } from '@nekko-agent/shared';
+import type { HardwareFacts, ModelFacts, FitRequest } from '@agent-nekko/shared';
 import { planFit } from './plan.js';
 
 const GB = 1024 ** 3;
@@ -839,7 +839,7 @@ describe('ollama adapter', () => {
 - [ ] **Step 4: Run tests. Step 5: Commit.**
 
 ```bash
-npm run test -w @nekko-agent/host -- runtimes/ollama
+npm run test -w @agent-nekko/host -- runtimes/ollama
 git add packages/host/src/runtimes && git commit -m "feat(host): Ollama runtime adapter with real model geometry"
 ```
 
@@ -925,7 +925,7 @@ Add a second test asserting `createVllmAdapter(ctx).start` is `undefined`, which
   - Keep owned children in a `Map<string, { child, startedAt, log: string[] }>`; the log is a ring buffer capped at 200 lines.
   - Health-poll the base URL every 500 ms up to a 60 s budget before declaring the start failed. A cold `ollama serve` on a slow disk is genuinely slow.
   - Stop is SIGTERM, then SIGKILL after 3 s, then remove from the map. On Windows use `taskkill /PID <pid> /T /F`, matching `servers.ts`.
-  - Register a `process.on('exit')` handler that kills every owned child, so quitting Nekko Agent does not leave orphaned servers.
+  - Register a `process.on('exit')` handler that kills every owned child, so quitting Agent Nekko does not leave orphaned servers.
   - `stop` for an unowned runtime returns `{ ok: false, needsConfirmation: true, processName }` where `processName` comes from the PID on the port. Only a second call with `force: true` routes to the existing `stopLocalServer`.
 
 - [ ] **Step 4: Run tests. Step 5: Commit.**

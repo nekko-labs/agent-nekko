@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { TerminalEvent, TerminalInfo, TerminalStream, TerminalRenderer } from '@nekko-agent/shared';
+import type { TerminalEvent, TerminalInfo, TerminalStream, TerminalRenderer } from '@agent-nekko/shared';
 import '@xterm/xterm/css/xterm.css';
 import { PaneActions, useInPaneFrame } from './PaneFrame.js';
 import { useStore } from '../store.js';

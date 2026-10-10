@@ -1,5 +1,5 @@
 /**
- * Nekko Agent's palette, carried over from the desktop's `styles.css` tokens
+ * Agent Nekko's palette, carried over from the desktop's `styles.css` tokens
  * (paper / surface / ink / accent and the status hues) so the phone reads as
  * the same product. Dark is the default look, matching the desktop.
  */

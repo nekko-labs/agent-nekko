@@ -17,8 +17,8 @@ import {
   triggerLabel,
   unreachableSteps,
   workflowEdges,
-} from '@nekko-agent/shared';
-import type { Workflow, WorkflowStep, WorkflowTrigger } from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
+import type { Workflow, WorkflowStep, WorkflowTrigger } from '@agent-nekko/shared';
 
 function step(id: string, over: Partial<WorkflowStep> = {}): WorkflowStep {
   return { id, name: id, kind: 'prompt', run: `do ${id}`, ...over };
@@ -180,19 +180,19 @@ describe('event matching', () => {
     kind: 'git',
     provider: 'github',
     events: ['pr_opened'],
-    repo: 'nekko-labs/nekko-agent',
+    repo: 'nekko-labs/agent-nekko',
     branches: ['main', 'release/*'],
   };
   const reviewer = wf({ id: 'r', triggers: [prTrigger] });
 
   it('accepts the event it was configured for', () => {
     expect(triggerAccepts(reviewer, prTrigger, {
-      kind: 'git', provider: 'github', event: 'pr_opened', repo: 'nekko-labs/nekko-agent', branch: 'main',
+      kind: 'git', provider: 'github', event: 'pr_opened', repo: 'nekko-labs/agent-nekko', branch: 'main',
     })).toBe(true);
   });
 
   it('rejects the wrong provider, event, repo, or branch', () => {
-    const base = { kind: 'git' as const, provider: 'github' as const, event: 'pr_opened' as const, repo: 'nekko-labs/nekko-agent', branch: 'main' };
+    const base = { kind: 'git' as const, provider: 'github' as const, event: 'pr_opened' as const, repo: 'nekko-labs/agent-nekko', branch: 'main' };
     expect(triggerAccepts(reviewer, prTrigger, { ...base, provider: 'gitlab' })).toBe(false);
     expect(triggerAccepts(reviewer, prTrigger, { ...base, event: 'pr_closed' })).toBe(false);
     expect(triggerAccepts(reviewer, prTrigger, { ...base, repo: 'someone/else' })).toBe(false);
@@ -202,7 +202,7 @@ describe('event matching', () => {
 
   it('never starts a disabled workflow', () => {
     const off = wf({ id: 'off', enabled: false, triggers: [prTrigger] });
-    const event = { kind: 'git' as const, provider: 'github' as const, event: 'pr_opened' as const, repo: 'nekko-labs/nekko-agent', branch: 'main' };
+    const event = { kind: 'git' as const, provider: 'github' as const, event: 'pr_opened' as const, repo: 'nekko-labs/agent-nekko', branch: 'main' };
     expect(matchWorkflows([off, reviewer], event).map((w) => w.id)).toEqual(['r']);
   });
 

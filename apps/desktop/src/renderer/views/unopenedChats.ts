@@ -1,4 +1,4 @@
-import type { SessionSummary } from '@nekko-agent/shared';
+import type { SessionSummary } from '@agent-nekko/shared';
 import type { Workspace } from '../store.js';
 
 /** Chats without a sidebar row remain available, even if open in a split pane. */

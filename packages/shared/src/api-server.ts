@@ -1,11 +1,11 @@
 /**
- * The local API server: Nekko Agent, reachable by other programs.
+ * The local API server: Agent Nekko, reachable by other programs.
  *
  * The desktop app already holds everything worth driving — the providers, the
  * workspaces, the sessions with their history — and until now the only way in
  * was the window. Turning this on puts the same host behind `POST /api/:channel`
  * and a `/api/events` socket on this machine, which is the surface the CLI and
- * the MCP server already speak. So `nekko-agent chat "…"` in a terminal, or
+ * the MCP server already speak. So `agent-nekko chat "…"` in a terminal, or
  * Claude Code over MCP, talks to *this* app rather than to a second copy of it
  * running on the same files.
  *
@@ -185,12 +185,12 @@ export function apiServerEnvLinesPowerShell(url: string, token: string): string[
  * The MCP entry other agent tools need, as the JSON they paste.
  *
  * `command` is the bundled CLI when the app knows where it put one, and `npx`
- * otherwise: a machine that has Nekko Agent installed already has the CLI, and
+ * otherwise: a machine that has Agent Nekko installed already has the CLI, and
  * pointing at it means the entry works offline and with no npm registry round
  * trip on every launch.
  */
 export function apiServerMcpConfig(url: string, token: string, command?: string): string {
-  return JSON.stringify({ mcpServers: { 'nekko-agent': mcpServerEntry(url, token, command) } }, null, 2);
+  return JSON.stringify({ mcpServers: { 'agent-nekko': mcpServerEntry(url, token, command) } }, null, 2);
 }
 
 /** One tool's MCP server entry: the command to run and the env it needs. */
@@ -202,7 +202,7 @@ export function mcpServerEntry(
   const env: Record<string, string> = {};
   if (url) env.NEKKO_URL = url;
   if (token) env.NEKKO_TOKEN = token;
-  const base = command ? { command, args: ['mcp'] } : { command: 'npx', args: ['-y', 'nekko-agent', 'mcp'] };
+  const base = command ? { command, args: ['mcp'] } : { command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] };
   // No env at all rather than an empty one, so an entry with nothing to point
   // at is byte-identical to the portable form tools already have.
   return Object.keys(env).length ? { ...base, env } : base;

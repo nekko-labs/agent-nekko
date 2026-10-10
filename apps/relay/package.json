@@ -1,9 +1,9 @@
 {
-  "name": "@nekko-agent/relay",
+  "name": "@agent-nekko/relay",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Nekko Agent relay, pairs a remote client with a local agent so a phone can drive your local model. Dumb, end-to-end pipe.",
+  "description": "Agent Nekko relay, pairs a remote client with a local agent so a phone can drive your local model. Dumb, end-to-end pipe.",
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",

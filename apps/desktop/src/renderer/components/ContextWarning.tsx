@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { Session } from '@nekko-agent/shared';
+import type { Session } from '@agent-nekko/shared';
 import { WarningIcon, CloseIcon } from '../icons.js';
 import { useStore } from '../store.js';
 import { clearCompaction, describeProgress, useCompaction, useCompactionStore } from '../compactionStatus.js';

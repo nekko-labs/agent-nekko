@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatMessage } from '@nekko-agent/shared';
+import type { ChatMessage } from '@agent-nekko/shared';
 import { LOOP_ERROR_STREAK, LOOP_REPEATS, LOOP_WINDOW, createLoopDetector } from './progress.js';
 import { runAgent } from './loop.js';
 import type { ChatRequest, Provider, ProviderChunk } from '../providers/types.js';

@@ -21,7 +21,7 @@ export function ConnectorsView() {
         </div>
         <h2 className="mt-10 text-lg font-semibold">Messaging channels</h2>
         <p className="mt-1 text-[13px] text-ink-faint">
-          Drive a chat from a messaging app: each channel binds a conversation to one Nekko Agent session,
+          Drive a chat from a messaging app: each channel binds a conversation to one Agent Nekko session,
           and only allowlisted chat ids can reach it.
         </p>
         <div className="mt-4">

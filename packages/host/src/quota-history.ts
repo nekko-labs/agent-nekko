@@ -1,7 +1,7 @@
 /** Local quota observations, deliberately separate from credentials and content. */
 import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { SubscriptionLimits } from '@nekko-agent/shared';
+import type { SubscriptionLimits } from '@agent-nekko/shared';
 import { dataDir } from './paths.js';
 import { getSettings } from './store.js';
 

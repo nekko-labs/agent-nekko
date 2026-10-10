@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
-import type { RepositoryReviewer } from '@nekko-agent/host';
+import type { RepositoryReviewer } from '@agent-nekko/host';
 
 export interface GitHubReviewConfig {
   appId: string; privateKey: string; secret: string; bot: string;

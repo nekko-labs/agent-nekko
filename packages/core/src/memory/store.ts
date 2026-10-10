@@ -1,4 +1,4 @@
-import type { MemoryEntry, MemoryScope } from '@nekko-agent/shared';
+import type { MemoryEntry, MemoryScope } from '@agent-nekko/shared';
 
 /**
  * Serialize a memory entry to a markdown document with YAML-ish frontmatter.

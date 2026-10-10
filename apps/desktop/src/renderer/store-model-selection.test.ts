@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ModelInfo } from '@nekko-agent/shared';
+import type { ModelInfo } from '@agent-nekko/shared';
 
 vi.hoisted(() => {
   Object.assign(globalThis, { window: { innerWidth: 1280, addEventListener() {} }, localStorage: { getItem: () => null } });

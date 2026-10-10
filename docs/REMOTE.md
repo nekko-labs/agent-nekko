@@ -1,6 +1,6 @@
 # Phone remote control
 
-Drive the Nekko Agent running on your computer from your phone: start and manage chats, watch and steer
+Drive the Agent Nekko running on your computer from your phone: start and manage chats, watch and steer
 training runs and goals, approve risky commands, and get a push when a long run finishes. Inference
 and tools always execute on **your** machine, under its guardrails; the phone is a thin client.
 
@@ -22,8 +22,8 @@ and tools always execute on **your** machine, under its guardrails; the phone is
 
 1. On your computer: **Settings → Remote access → Enable** (the managed relay is prefilled; or
    paste your self-hosted relay URL), then **Pair a device**.
-2. On your phone: scan the QR in the Nekko Agent app (**Computers → Pair a computer**), or with the
-   phone's camera app, which hands the `nekko-agent-pair:` link to the Nekko Agent app. Without the
+2. On your phone: scan the QR in the Agent Nekko app (**Computers → Pair a computer**), or with the
+   phone's camera app, which hands the `agent-nekko-pair:` link to the Agent Nekko app. Without the
    app, open the pairing link in a browser to get the full app over the relay.
 3. The phone shows up under **Paired devices**, with a live connection dot.
 
@@ -47,7 +47,7 @@ Manage devices from the same card: **rename** them, **revoke** one instantly (it
 denied from then on), or **Rotate secret** to cryptographically reset the room, which unpairs
 everything at once.
 
-Remote access survives restarts: if it was enabled, the agent reconnects when Nekko Agent starts.
+Remote access survives restarts: if it was enabled, the agent reconnects when Agent Nekko starts.
 
 ## Security model, honestly stated
 
@@ -67,9 +67,9 @@ and it's why relayed local-model use is inherently zero-data-retention for conte
 
 ## Choosing a relay
 
-### Managed relay (default): `wss://nekko-agent-relay.fly.dev`
+### Managed relay (default): `wss://agent-nekko-relay.fly.dev`
 
-Zero setup; free during beta with per-connection rate limits. When Nekko Agent Cloud launches, the
+Zero setup; free during beta with per-connection rate limits. When Agent Nekko Cloud launches, the
 managed relay becomes part of the paid plans (it already supports gating via
 `NEKKO_RELAY_AUTHZ_URL`), while self-hosting stays free forever.
 
@@ -80,17 +80,17 @@ The relay is a tiny stateless Node service; anything that runs a container can h
 **Docker**
 
 ```bash
-docker run -d --name nekko-agent-relay -p 4400:4400 --restart unless-stopped \
+docker run -d --name agent-nekko-relay -p 4400:4400 --restart unless-stopped \
   -e NEKKO_RELAY_ALLOW_UNAUTHENTICATED=1 \
-  ghcr.io/nekko-labs/nekko-agent-relay:latest
+  ghcr.io/nekko-labs/agent-nekko-relay:latest
 ```
 
 **Docker Compose**
 
 ```yaml
 services:
-  nekko-agent-relay:
-    image: ghcr.io/nekko-labs/nekko-agent-relay:latest
+  agent-nekko-relay:
+    image: ghcr.io/nekko-labs/agent-nekko-relay:latest
     ports: ["4400:4400"]
     environment:
       NEKKO_RELAY_ALLOW_UNAUTHENTICATED: "1"
@@ -98,8 +98,8 @@ services:
 ```
 
 **Coolify** (recommended if you already run one): add a new service → Docker image
-`ghcr.io/nekko-labs/nekko-agent-relay:latest`, expose port 4400, attach a domain, and let Coolify's
-proxy terminate TLS. Point Nekko Agent at `wss://relay.your-domain.com`.
+`ghcr.io/nekko-labs/agent-nekko-relay:latest`, expose port 4400, attach a domain, and let Coolify's
+proxy terminate TLS. Point Agent Nekko at `wss://relay.your-domain.com`.
 
 **Fly.io**: `fly deploy -c apps/relay/fly.toml` from a repo checkout. Keep it at **one machine**
 (`fly scale count 1`): rooms live in a machine's memory, so agent and phone must land on the same
@@ -116,7 +116,7 @@ Environment knobs:
 | `NEKKO_RELAY_PORT` / `NEKKO_RELAY_HOST` | Bind (default `0.0.0.0:4400`) |
 | `APNS_KEY_P8` / `APNS_KEY_ID` / `APNS_TEAM_ID` | Enable iOS push |
 | `FCM_SERVICE_ACCOUNT` | Enable Android push (service-account JSON) |
-| `NEKKO_RELAY_AUTHZ_URL` | Gate agent enrollment on a Nekko Agent Cloud account (managed hosting) |
+| `NEKKO_RELAY_AUTHZ_URL` | Gate agent enrollment on an Agent Nekko Cloud account (managed hosting) |
 | `NEKKO_RELAY_ALLOW_UNAUTHENTICATED=1` | Explicitly allow unauthenticated agent enrollment for trusted/private deployments; otherwise agent enrollment is disabled when no authz URL is configured |
 
 The relay validates device IDs as UUIDs and push tokens as non-empty platform
@@ -129,7 +129,7 @@ unauthenticated mode on a public endpoint.
 A machine without a screen (server, homelab box) can expose itself with the relay-agent mode:
 
 ```bash
-NEKKO_RELAY_URL=wss://your-relay NEKKO_ROOM=myroom NEKKO_PAIR_KEY=<secret> npx nekko-agent
+NEKKO_RELAY_URL=wss://your-relay NEKKO_ROOM=myroom NEKKO_PAIR_KEY=<secret> npx agent-nekko
 ```
 
 It prints a one-time pairing code (10 minutes) at boot and keeps the same persistent device

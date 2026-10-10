@@ -1,8 +1,8 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { describe, expect, it } from 'vitest';
-import type { AgentEvent, ChatMessage, ToolCall, ToolResult } from '@nekko-agent/shared';
-import { runAgent } from '@nekko-agent/core';
+import type { AgentEvent, ChatMessage, ToolCall, ToolResult } from '@agent-nekko/shared';
+import { runAgent } from '@agent-nekko/core';
 
 /**
  * What the TS agent loop does on scripted model responses, which the engine

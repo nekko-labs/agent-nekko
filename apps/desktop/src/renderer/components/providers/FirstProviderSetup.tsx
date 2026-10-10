@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { ProviderKind } from '@nekko-agent/shared';
-import { PROVIDER_DEFAULTS } from '@nekko-agent/shared';
+import type { ProviderKind } from '@agent-nekko/shared';
+import { PROVIDER_DEFAULTS } from '@agent-nekko/shared';
 import { useStore } from '../../store.js';
 import { AddProvider } from './AddProvider.js';
 import { ProviderChoices, SetupIllustration } from './ProviderChoices.js';
@@ -42,7 +42,7 @@ export function FirstProviderSetup() {
         <AddProvider fixedKind={kind} onCancel={() => setKind(undefined)} onDone={() => setConnected(true)} />
       </> : <>
         <ProviderChoices onPick={setKind} />
-        <button className="btn btn-outline mt-5 w-full" onClick={() => useStore.getState().setView('modelserver')}>Run a model with Nekko Agent instead →</button>
+        <button className="btn btn-outline mt-5 w-full" onClick={() => useStore.getState().setView('modelserver')}>Run a model with Agent Nekko instead →</button>
         <p className="mt-4 text-center text-[12px] text-ink-faint">Online providers receive the messages you send them. Local models run on your computer. Paid plans or usage charges may apply.</p>
       </>}
     </div>

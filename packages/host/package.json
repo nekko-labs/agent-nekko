@@ -1,5 +1,5 @@
 {
-  "name": "@nekko-agent/host",
+  "name": "@agent-nekko/host",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,8 +21,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@nekko-agent/core": "*",
-    "@nekko-agent/shared": "*",
+    "@agent-nekko/core": "*",
+    "@agent-nekko/shared": "*",
     "@browserbasehq/stagehand": "4.2.0",
     "@lydell/node-pty": "^1.2.0-beta.15"
   }

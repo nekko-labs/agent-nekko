@@ -1,7 +1,7 @@
 import { NumberedAgentIcon } from './NumberedChatIcon.js';
 import { StatusIcon, type AgentStatus } from './WorkspaceCard.js';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import type { SessionSummary } from '@nekko-agent/shared';
+import type { SessionSummary } from '@agent-nekko/shared';
 import { ChatPane } from './ChatPane.js';
 import { ChatIcon, FocusLayoutIcon, LayoutIcon } from '../icons.js';
 import { type ComposerDock, type ComposerAlign, type ComposerSide } from '../commandWall.js';

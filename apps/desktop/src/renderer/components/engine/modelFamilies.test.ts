@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CatalogModel } from '@nekko-agent/shared';
+import type { CatalogModel } from '@agent-nekko/shared';
 import { groupModelFamilies, gpuGuidance, modelFamilyName, type LibraryModel } from './modelFamilies.js';
 
 const local = (name: string, extra: Partial<LibraryModel> = {}): LibraryModel => ({ id: name, name, path: name, sizeBytes: 100, addedAt: 0, loaded: false, ...extra });

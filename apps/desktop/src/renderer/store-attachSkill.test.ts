@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMarketSkill, marketToSkillDef, SKILLS, summarizeSession, type Session } from '@nekko-agent/shared';
+import { getMarketSkill, marketToSkillDef, SKILLS, summarizeSession, type Session } from '@agent-nekko/shared';
 
 vi.hoisted(() => {
   (globalThis as { window?: unknown }).window = { innerWidth: 1280, addEventListener() {} };
@@ -8,7 +8,7 @@ const { useStore } = await import('./store.js');
 
 const existing: Session = { id: 'chat_1', title: 'Chat', createdAt: 1, updatedAt: 1, messages: [], providerId: 'p', modelId: 'm' };
 const created: Session = { ...existing, id: 'chat_new' };
-const skill = marketToSkillDef(getMarketSkill('nekko-agent-changelog')!);
+const skill = marketToSkillDef(getMarketSkill('agent-nekko-changelog')!);
 
 beforeEach(() => {
   window.nekko = {

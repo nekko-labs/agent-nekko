@@ -1,4 +1,4 @@
-import type { Session } from '@nekko-agent/shared';
+import type { Session } from '@agent-nekko/shared';
 
 /**
  * Transcripts of the chats opened most recently, kept in memory so opening one

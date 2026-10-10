@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import electronUpdater from 'electron-updater';
-import { RELEASE_NOTES_URL, type UpdateInfo } from '@nekko-agent/shared';
+import { RELEASE_NOTES_URL, type UpdateInfo } from '@agent-nekko/shared';
 
 // electron-updater ships CommonJS and `autoUpdater` is a lazy getter that
 // constructs the updater on first access — that needs a real Electron app.

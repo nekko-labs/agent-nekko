@@ -1,6 +1,6 @@
 import { ResourceQueueSection } from '../components/server/ResourceQueueSection.js';
 import { useCallback, useEffect, useState } from 'react';
-import type { EngineMemory, LocalModel } from '@nekko-agent/shared';
+import type { EngineMemory, LocalModel } from '@agent-nekko/shared';
 import { useStore } from '../store.js';
 import { EngineSection } from '../components/engine/EngineSection.js';
 import { ModelDetail } from '../components/engine/ModelDetail.js';
@@ -66,7 +66,7 @@ export function ModelServerView() {
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-8 sm:py-8">
         <h1 className="text-2xl font-semibold">Nekko Server</h1>
         <p className="mt-1 text-[13px] text-ink-faint">
-          Run models on this machine, and let anything else on it drive Nekko Agent.
+          Run models on this machine, and let anything else on it drive Agent Nekko.
         </p>
 
         <div className="mt-7">

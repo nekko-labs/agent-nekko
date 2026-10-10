@@ -86,8 +86,8 @@ import type {
   ModelFolder,
   ModelFolderReport,
   SkillDef,
-} from '@nekko-agent/shared';
-import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload, SKILLS, sameFolderPath } from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
+import { AUTO_MODEL_ID, brandEnv, DEFAULT_ENGINE_SETTINGS, engineBaseUrl, isLocalProvider, isRuntimeKind, queueItemPayload, SKILLS, sameFolderPath } from '@agent-nekko/shared';
 import { gatherMachineFacts } from './readiness.js';
 import { createRuntimes } from './runtimes/index.js';
 import { createEngine } from './engine/index.js';
@@ -101,7 +101,7 @@ import {
   BUILTIN_TOOLS,
   evaluateReadiness,
   OFFLINE_STACK_CATALOG,
-} from '@nekko-agent/core';
+} from '@agent-nekko/core';
 import { setDataDir, dataDir } from './paths.js';
 import { createVoiceService } from './engine/voice.js';
 import { join } from 'node:path';
@@ -217,7 +217,7 @@ import { randomUUID } from 'crypto';
  * per runtime (e.g. `addWorkspaceByPath`, since Electron uses a native dialog
  * while the web server takes a path string).
  *
- * Every edition, Electron, the web server, Nekko Agent Cloud, wraps the same Host.
+ * Every edition, Electron, the web server, Agent Nekko Cloud, wraps the same Host.
  */
 export interface Host {
   /** Emits 'agentEvent' (AgentEvent) and 'indexProgress' (IndexStatus). */
@@ -256,8 +256,8 @@ export interface Host {
   ): Promise<AutoFitSummary | null>;
 
   /** The built-in engine: install, catalog, library, and its own server. */
-  voiceStatus(): Promise<import('@nekko-agent/shared').VoiceStatus>;
-  voiceInstall(): Promise<import('@nekko-agent/shared').VoiceStatus>;
+  voiceStatus(): Promise<import('@agent-nekko/shared').VoiceStatus>;
+  voiceInstall(): Promise<import('@agent-nekko/shared').VoiceStatus>;
   voiceCancelInstall(): Promise<void>;
   voiceUninstall(): Promise<void>;
   voiceTranscribe(wav: number[]): Promise<string>;
@@ -265,21 +265,21 @@ export interface Host {
   /** For the engine daemon's router: load a model it was asked for, or say why not. */
   engineRouterLoad(modelId: string, image: boolean): Promise<{ ok: boolean; status?: number; message?: string }>;
   /** A daemon-driven run's callbacks (daemon-loop.ts): a tool call, its events, its end. */
-  loopTool(runId: string, call: import('@nekko-agent/shared').ToolCall): Promise<import('@nekko-agent/shared').ToolResult>;
-  loopEvent(runId: string, payload: { events?: import('@nekko-agent/shared').AgentEvent[]; history?: import('@nekko-agent/shared').ChatMessage[] }): Promise<void>;
-  loopEnd(runId: string, payload: { history?: import('@nekko-agent/shared').ChatMessage[] }): void;
-  loopApprove(runId: string, call: import('@nekko-agent/shared').ToolCall, reason: string, severity: 'low' | 'medium' | 'high'): Promise<boolean>;
+  loopTool(runId: string, call: import('@agent-nekko/shared').ToolCall): Promise<import('@agent-nekko/shared').ToolResult>;
+  loopEvent(runId: string, payload: { events?: import('@agent-nekko/shared').AgentEvent[]; history?: import('@agent-nekko/shared').ChatMessage[] }): Promise<void>;
+  loopEnd(runId: string, payload: { history?: import('@agent-nekko/shared').ChatMessage[] }): void;
+  loopApprove(runId: string, call: import('@agent-nekko/shared').ToolCall, reason: string, severity: 'low' | 'medium' | 'high'): Promise<boolean>;
   loopLog(sessionId: string, workspaceId: string | undefined, data: string): void;
   changesNotify(sessionId: string): void;
   /** For the engine daemon's router: `GET /v1/models`. */
   engineRouterModels(): Promise<unknown>;
   engineRouterModel(modelId: string): Promise<unknown>;
   engineInstall(buildId?: string, runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string; jobId?: string }>;
-  engineInstallPreview(runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string): Promise<import('@nekko-agent/shared').EngineInstallPreview | null>;
-  engineGenerateImage(request: import('@nekko-agent/shared').ImageGenerationRequest): Promise<import('@nekko-agent/shared').ImageGenerationResult>;
+  engineInstallPreview(runtime: 'llama' | 'diffusion' | 'mlx', buildId?: string): Promise<import('@agent-nekko/shared').EngineInstallPreview | null>;
+  engineGenerateImage(request: import('@agent-nekko/shared').ImageGenerationRequest): Promise<import('@agent-nekko/shared').ImageGenerationResult>;
   engineUninstall(runtime?: 'llama' | 'diffusion' | 'mlx'): Promise<{ ok: boolean; message: string }>;
   engineSettingsSave(patch: Partial<EngineSettings>): Promise<EngineSettings>;
-  engineModels(): Promise<Array<LocalModel & { loaded: boolean; gpuFit?: import('@nekko-agent/shared').GpuFit }>>;
+  engineModels(): Promise<Array<LocalModel & { loaded: boolean; gpuFit?: import('@agent-nekko/shared').GpuFit }>>;
   engineImportModel(path: string): Promise<{ ok: boolean; message: string; model?: LocalModel }>;
   engineDeleteModel(id: string): Promise<{ ok: boolean; message: string }>;
   engineSaveModelPreset(id: string, preset: EngineLoadPreset): Promise<void>;
@@ -292,17 +292,17 @@ export interface Host {
   engineDownloadModel(modelId: string, quantLabel: string): Promise<{ ok: boolean; message: string; jobId?: string }>;
   /** Fetch a resident-or-not model's missing companions (projector, configs). */
   engineDownloadCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
-  engineImageCompanions(modelId: string): Promise<import('@nekko-agent/shared').ImageCompanionStatus | null>;
+  engineImageCompanions(modelId: string): Promise<import('@agent-nekko/shared').ImageCompanionStatus | null>;
   engineDownloadImageCompanions(modelId: string): Promise<{ ok: boolean; message: string }>;
-  decisionsCatalog(): Promise<import('@nekko-agent/shared').DecisionCatalogEntry[]>;
-  decisionsModels(): Promise<import('@nekko-agent/shared').InstalledDecisionModel[]>;
-  decisionsDownload(catalogId: string, precision?: import('@nekko-agent/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsCatalog(): Promise<import('@agent-nekko/shared').DecisionCatalogEntry[]>;
+  decisionsModels(): Promise<import('@agent-nekko/shared').InstalledDecisionModel[]>;
+  decisionsDownload(catalogId: string, precision?: import('@agent-nekko/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
   decisionsDelete(id: string): Promise<{ ok: boolean; message: string }>;
   decisionsAddFolder(path: string): Promise<{ ok: boolean; message: string }>;
-  decisionsStatus(): Promise<import('@nekko-agent/shared').DecisionStatus>;
-  decisionsLoad(id: string, precision?: import('@nekko-agent/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
+  decisionsStatus(): Promise<import('@agent-nekko/shared').DecisionStatus>;
+  decisionsLoad(id: string, precision?: import('@agent-nekko/shared').DecisionPrecision): Promise<{ ok: boolean; message: string }>;
   decisionsUnload(): Promise<{ ok: boolean; message: string }>;
-  decisionsRun(provider: import('@nekko-agent/shared').DecisionProvider, request: import('@nekko-agent/shared').DecisionRequest): Promise<import('@nekko-agent/shared').DecisionResponse>;
+  decisionsRun(provider: import('@agent-nekko/shared').DecisionProvider, request: import('@agent-nekko/shared').DecisionRequest): Promise<import('@agent-nekko/shared').DecisionResponse>;
   decisionsCheckTypesafe(): Promise<{ ok: boolean; message: string }>;
   /** Set a resident model's idle TTL in seconds (0 keeps it loaded). */
   engineSetResidentTtl(modelId: string, ttlSeconds: number): Promise<{ ok: boolean; message: string }>;
@@ -334,7 +334,7 @@ export interface Host {
   setSessionSupportingWorkspaces(id: string, workspaceIds: string[]): Session | null;
   setSessionAttachments(id: string, paths: string[]): Session | null;
   sendChat(opts: SendOptions): Promise<void>;
-  generateImageTurn(opts: import('@nekko-agent/shared').ImageTurnOptions): Promise<void>;
+  generateImageTurn(opts: import('@agent-nekko/shared').ImageTurnOptions): Promise<void>;
   sessionImages(sessionId: string, limit: number): Array<{ messageId: string; src: string }>;
   abortChat(sessionId: string): void;
   compactSession(sessionId: string, opts?: { newChat?: boolean } | null): Promise<Session>;
@@ -349,7 +349,7 @@ export interface Host {
    * nothing to suggest from.
    */
   resourceQueue(action: string, input?: Record<string, unknown>): Promise<unknown>;
-  suggestReplies(sessionId: string): Promise<import('@nekko-agent/shared').ReplySuggestions | null>;
+  suggestReplies(sessionId: string): Promise<import('@agent-nekko/shared').ReplySuggestions | null>;
   /**
    * Model-drafted fill for a missing prompt part (analyzer click-to-fill).
    * Sideband, unpersisted; null falls back to the deterministic snippet.
@@ -452,11 +452,11 @@ export interface Host {
   installSkill(
     skillId: string,
     target: InstallTarget,
-    payload?: import('@nekko-agent/shared').MarketplaceSkill,
+    payload?: import('@agent-nekko/shared').MarketplaceSkill,
   ): { ok: boolean; message?: string; installed: InstalledSkillRecord[] };
   uninstallSkill(skillId: string, target: InstallTarget): InstalledSkillRecord[];
   /** Vaizer skills hub (optional): catalog + a skill's SKILL.md. */
-  vaizerCatalog(refresh?: boolean): Promise<import('@nekko-agent/shared').VaizerCatalog>;
+  vaizerCatalog(refresh?: boolean): Promise<import('@agent-nekko/shared').VaizerCatalog>;
   vaizerSkillMd(slug: string): Promise<string | null>;
 
   /** Automation tasks: scheduled, recurring, and long-running background agents. */
@@ -495,7 +495,7 @@ export interface Host {
   /** Which agent CLIs are present and whether Nekko is installed as a subagent. */
   detectAgentTools(): AgentToolStatus[];
   /**
-   * Merge the nekko-agent MCP entry into a tool's config (backs up first).
+   * Merge the agent-nekko MCP entry into a tool's config (backs up first).
    *
    * `target` points the entry at a running local server (URL, token, and the
    * CLI the app installed). The desktop transport fills it in; without it the
@@ -513,23 +513,23 @@ export interface Host {
   classifyCommand(command: string): GuardrailDecision;
   usageSummary(): UsageSummary;
   getLimits(tokenKey: string, refresh?: boolean): Promise<SubscriptionLimits | undefined>;
-  getLimitsProblem(tokenKey: string): Promise<import('@nekko-agent/shared').LimitsProblem | undefined>;
+  getLimitsProblem(tokenKey: string): Promise<import('@agent-nekko/shared').LimitsProblem | undefined>;
 
   /** Expose this machine over a relay so paired devices can reach it. */
   enableRemote(relayUrl: string): RemoteStatus;
   disableRemote(): RemoteStatus;
   remoteStatus(): RemoteStatus;
-  remotePairing(): import('@nekko-agent/shared').RemotePairing | null;
-  startRemotePairing(): import('@nekko-agent/shared').PairingGrant;
-  listRemoteDevices(): import('@nekko-agent/shared').RemoteDevice[];
-  revokeRemoteDevice(deviceId: string): import('@nekko-agent/shared').RemoteDevice[];
-  renameRemoteDevice(deviceId: string, name: string): import('@nekko-agent/shared').RemoteDevice[];
+  remotePairing(): import('@agent-nekko/shared').RemotePairing | null;
+  startRemotePairing(): import('@agent-nekko/shared').PairingGrant;
+  listRemoteDevices(): import('@agent-nekko/shared').RemoteDevice[];
+  revokeRemoteDevice(deviceId: string): import('@agent-nekko/shared').RemoteDevice[];
+  renameRemoteDevice(deviceId: string, name: string): import('@agent-nekko/shared').RemoteDevice[];
   rotateRemoteSecret(): RemoteStatus;
   /** The remote-access service itself (headless relay-agent mode attaches here). */
   remote: import('./remote.js').RemoteService;
 
   /** Inbound messaging channels (Telegram bot, …): live per-channel state. */
-  messagingStatus(): import('@nekko-agent/shared').MessagingStatus;
+  messagingStatus(): import('@agent-nekko/shared').MessagingStatus;
 
   beginOAuth(provider: OAuthProvider): Promise<OAuthSessionInfo>;
   finishOAuth(sessionId: string, pasted: string): Promise<OAuthStatus>;
@@ -544,13 +544,13 @@ export interface Host {
   /** Connect (or reconnect) configured MCP servers and return their status. */
   mcpStatus(): Promise<McpServerStatus[]>;
   /** Probe for a local Hypergate daemon and return its gateway info (no side effects). */
-  detectHypergate(port?: number): Promise<import('@nekko-agent/shared').HypergateInfo | null>;
+  detectHypergate(port?: number): Promise<import('@agent-nekko/shared').HypergateInfo | null>;
   /**
    * Connect this install to a local Hypergate daemon in one step: probe it,
    * claim this install's scoped agent token, save the MCP entry, and bring its
    * tools online. Null when no daemon is listening on that port.
    */
-  connectHypergate(port?: number): Promise<import('@nekko-agent/shared').HypergateInfo | null>;
+  connectHypergate(port?: number): Promise<import('@agent-nekko/shared').HypergateInfo | null>;
 }
 
 /** The chat whose isolated checkout lives at `worktreeRoot` (see chat-worktrees.ts), or null for a deleted chat's folder. */
@@ -637,7 +637,7 @@ export function createHost(opts: { dataDir: string; allowBrowserControl?: boolea
     const entry: ProviderConfig = {
       id: existing?.id ?? 'nekko-engine',
       kind: 'llamacpp',
-      label: existing?.label ?? 'Nekko Agent engine',
+      label: existing?.label ?? 'Agent Nekko engine',
       baseUrl,
       enabled: true,
     };

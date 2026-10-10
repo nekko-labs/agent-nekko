@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import type { AppSettings } from '@nekko-agent/shared';
+import type { AppSettings } from '@agent-nekko/shared';
 
 vi.hoisted(() => {
   Object.assign(globalThis, { window: { innerWidth: 1280, addEventListener() {} }, localStorage: { getItem: () => null } });

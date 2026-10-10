@@ -1,5 +1,5 @@
 /**
- * @nekko-agent/core, the pure-TS engine behind Nekko Agent. No Electron imports, so it
+ * @agent-nekko/core, the pure-TS engine behind Agent Nekko. No Electron imports, so it
  * is unit-testable and could be reused in a CLI or server. The Electron main
  * process wires these modules to the filesystem, shell, and IPC.
  */

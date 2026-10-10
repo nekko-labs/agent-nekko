@@ -1,7 +1,7 @@
 import { terminalExcerpt } from './terminalExcerpt.js';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { PendingInput, SessionSummary, TerminalInfo, WorkspaceFolder } from '@nekko-agent/shared';
-import { BLOCKED_META, LANE_META, sessionLane } from '@nekko-agent/shared';
+import type { PendingInput, SessionSummary, TerminalInfo, WorkspaceFolder } from '@agent-nekko/shared';
+import { BLOCKED_META, LANE_META, sessionLane } from '@agent-nekko/shared';
 import {
   allPanes,
   canSplit,

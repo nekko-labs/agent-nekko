@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { AgentEvent, ChatMessage, ToolCall } from '@nekko-agent/shared';
+import type { AgentEvent, ChatMessage, ToolCall } from '@agent-nekko/shared';
 import { loopApprove, loopEnd, loopEvent, loopTool, runAgentViaDaemon } from './daemon-loop.js';
 
 /**

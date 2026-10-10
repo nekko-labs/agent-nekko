@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import type { ChatMessage } from '@nekko-agent/shared';
+import type { ChatMessage } from '@agent-nekko/shared';
 import type { Provider, ProviderChunk } from '../providers/types.js';
 import { ProviderHttpError } from '../providers/errors.js';
 import { runAgent } from './loop.js';

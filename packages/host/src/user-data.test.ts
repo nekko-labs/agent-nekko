@@ -32,13 +32,13 @@ describe('confirmed user-data migration', () => {
     expect(()=>migrateUserData(source,target)).toThrow('already contains'); expect(readFileSync(join(target,'settings.json'),'utf8')).toContain('dark'); expect(existsSync(join(source,'settings.json'))).toBe(true);
   });
   it('moves the desktop browser profile beneath the new root after confirmation', () => {
-    const {dir,target}=fixture(); const profile=join(dir,'profile'), source=join(profile,'nekko-agent'); mkdirSync(source,{recursive:true});
+    const {dir,target}=fixture(); const profile=join(dir,'profile'), source=join(profile,'agent-nekko'); mkdirSync(source,{recursive:true});
     writeFileSync(join(source,'settings.json'),'{}'); mkdirSync(join(profile,'Local Storage')); writeFileSync(join(profile,'Local Storage','fixture'),'ui settings');
     migrateUserData(source,target,profile);
     expect(readFileSync(join(target,'desktop','Local Storage','fixture'),'utf8')).toBe('ui settings'); expect(existsSync(join(profile,'Local Storage'))).toBe(false);
   });
   it('moves the desktop browser profile into one the running app already started', () => {
-    const {dir,target}=fixture(); const profile=join(dir,'profile'), source=join(profile,'nekko-agent'), started=join(target,'desktop'); mkdirSync(source,{recursive:true}); mkdirSync(started,{recursive:true});
+    const {dir,target}=fixture(); const profile=join(dir,'profile'), source=join(profile,'agent-nekko'), started=join(target,'desktop'); mkdirSync(source,{recursive:true}); mkdirSync(started,{recursive:true});
     writeFileSync(join(source,'settings.json'),'{}'); writeFileSync(join(profile,'Local State'),'old'); mkdirSync(join(profile,'Local Storage')); writeFileSync(join(profile,'Local Storage','fixture'),'ui settings');
     writeFileSync(join(started,'Local State'),'running'); writeFileSync(join(started,'lockfile'),'');
     for (const name of ['SingletonLock','SingletonCookie','SingletonSocket']) {

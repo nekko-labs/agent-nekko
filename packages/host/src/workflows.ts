@@ -13,7 +13,7 @@ import type {
   WorkflowStepRun,
   WorkflowTriggerKind,
   WorkflowsSnapshot,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import {
   CONNECTOR_CATALOG,
   GIT_PROVIDERS,
@@ -27,14 +27,14 @@ import {
   readStepOutcome,
   slugify,
   stepOutcomeInstruction,
-} from '@nekko-agent/shared';
+} from '@agent-nekko/shared';
 import {
   renderTemplate,
   runWorkflowAction,
   templateContext,
   type WorkflowActionContext,
   type WorkflowTemplateContext,
-} from '@nekko-agent/core';
+} from '@agent-nekko/core';
 import { dataDir, getSettings } from './store.js';
 import { createSession, deleteSession, getSession, saveSession } from './sessions.js';
 import { abortChat, sendChat } from './chat.js';
@@ -722,7 +722,7 @@ export function reconcileWorkflowRuns(): void {
     if (run.status !== 'running') continue;
     run.status = 'failure';
     run.endedAt = run.endedAt ?? Date.now();
-    run.message = 'Interrupted: Nekko Agent stopped while this run was in progress.';
+    run.message = 'Interrupted: Agent Nekko stopped while this run was in progress.';
     for (const s of run.steps) if (s.status === 'running') { s.status = 'skipped'; s.endedAt = Date.now(); }
     changed = true;
   }

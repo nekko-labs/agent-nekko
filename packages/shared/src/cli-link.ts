@@ -1,7 +1,7 @@
 /**
  * The handshake file between the installed app and the installed CLI.
  *
- * `nekko-agent status` in a fresh terminal should just work. Environment
+ * `agent-nekko status` in a fresh terminal should just work. Environment
  * variables can't deliver that: the app would have to edit the user's shell
  * profile, which is somebody else's file, and the change wouldn't reach a
  * terminal that was already open anyway. So the app writes where it is
@@ -49,7 +49,7 @@ export function isCliLink(value: unknown): value is CliLink {
 }
 
 /**
- * The state of the `nekko-agent` command on this machine, as the Server tab
+ * The state of the `agent-nekko` command on this machine, as the Server tab
  * reports it.
  *
  * The desktop app ships the CLI inside itself and links a small launcher into
@@ -67,7 +67,7 @@ export interface CliInstallStatus {
   available: boolean;
   /** The launcher is in place. */
   installed: boolean;
-  /** Its directory is on PATH, so plain `nekko-agent` resolves. */
+  /** Its directory is on PATH, so plain `agent-nekko` resolves. */
   onPath: boolean;
   /**
    * PATH was changed but this machine's already-open shells predate it. The
@@ -78,7 +78,7 @@ export interface CliInstallStatus {
   binPath?: string;
   /** The directory that has to be on PATH. */
   binDir?: string;
-  /** What to type: `nekko-agent` when on PATH, the full path when not. */
+  /** What to type: `agent-nekko` when on PATH, the full path when not. */
   command: string;
   /** Why it isn't installed, when it isn't. */
   message?: string;

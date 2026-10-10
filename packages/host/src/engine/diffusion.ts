@@ -1,5 +1,5 @@
 import { stat } from 'fs/promises';
-import type { EngineBuild, EnginePlatform, GpuStats, ImageCompanionRole, LocalModel } from '@nekko-agent/shared';
+import type { EngineBuild, EnginePlatform, GpuStats, ImageCompanionRole, LocalModel } from '@agent-nekko/shared';
 import { companionsBeside, imageCompanionSetFor, imageCompanionStatus } from './image-companions.js';
 import { buildsFor } from './builds.js';
 

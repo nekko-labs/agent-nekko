@@ -33,7 +33,7 @@ export function ConnectionBanner() {
     tone = 'success';
     line = `${active.name} is online`;
   } else if (s.conn === 'offline') {
-    line = `${active.name} is offline. Open Nekko Agent on it, or chat on this phone.`;
+    line = `${active.name} is offline. Open Agent Nekko on it, or chat on this phone.`;
   }
 
   return (
