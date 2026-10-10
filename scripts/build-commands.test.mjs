@@ -6,12 +6,12 @@ test('default build builds and stages nekkod before building the app', () => {
   assert.equal(pkg.scripts.build, 'npm run build:nekkod && npm run build:app');
   assert.equal(pkg.scripts['build:nekkod'], 'node apps/desktop/scripts/stage-daemon.mjs');
   assert.match(pkg.scripts['build:app'], /build:core/);
-  assert.match(pkg.scripts['build:app'], /@agent-nekko\/host/);
+  assert.match(pkg.scripts['build:app'], /@nekko-agent\/host/);
   assert.match(pkg.scripts['build:app'], /build:app --workspace=apps\/cli/);
-  assert.match(pkg.scripts['build:app'], /@agent-nekko\/desktop/);
+  assert.match(pkg.scripts['build:app'], /@nekko-agent\/desktop/);
   assert.doesNotMatch(pkg.scripts['build:app'], /cargo|stage-daemon|build:nekkod/);
 });
 
 test('dev builds before starting the desktop development server', () => {
-  assert.equal(pkg.scripts.dev, 'npm run build && npm run dev -w @agent-nekko/desktop');
+  assert.equal(pkg.scripts.dev, 'npm run build && npm run dev -w @nekko-agent/desktop');
 });

@@ -4,8 +4,8 @@ import { mkdtemp, readFile, rm, writeFile } from 'fs/promises';
 import { createServer } from 'net';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import type { EngineSettings, LocalModel } from '@agent-nekko/shared';
-import { DEFAULT_ENGINE_SETTINGS } from '@agent-nekko/shared';
+import type { EngineSettings, LocalModel } from '@nekko-agent/shared';
+import { DEFAULT_ENGINE_SETTINGS } from '@nekko-agent/shared';
 import { buildArgs, createEngineServer, explainLoadError, probeFlags, resolveCompanions, type EngineServer } from './server.js';
 
 /**
@@ -208,7 +208,7 @@ describe('engine router', () => {
     const { port } = await start({ apiKey: 'sekrit' });
     const res = await call(port, '/health');
     expect(res.status).toBe(200);
-    expect(((await res.json()) as { service: string }).service).toBe('agent-nekko-engine');
+    expect(((await res.json()) as { service: string }).service).toBe('nekko-agent-engine');
   });
 
   it('sends no CORS headers unless origins are configured', async () => {

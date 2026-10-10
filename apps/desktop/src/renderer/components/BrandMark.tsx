@@ -1,7 +1,7 @@
 import React from 'react';
 
 /**
- * The Agent Nekko mark: an outline cat head, two ears with a soft curve of
+ * The Nekko Agent mark: an outline cat head, two ears with a soft curve of
  * forehead between them and a round jaw, nothing inside, drawn in one thin
  * stroke with sharp corners. The same path draws the app icon, the installer
  * art, the web manifest icon, the phone app's icons and the marketing site's

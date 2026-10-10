@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { createHostProvider as createProvider } from './prompt-caching.js';
-import type { SpecDocDef, SpecDocRole, SpecDocStatus } from '@agent-nekko/shared';
-import { getMethodology, getSessionWorkspaceIds, toggleTaskLine } from '@agent-nekko/shared';
+import type { SpecDocDef, SpecDocRole, SpecDocStatus } from '@nekko-agent/shared';
+import { getMethodology, getSessionWorkspaceIds, toggleTaskLine } from '@nekko-agent/shared';
 import { getSettings } from './store.js';
 import { getSession, saveSession } from './sessions.js';
 import { resolveSubscriptionProvider } from './oauth.js';

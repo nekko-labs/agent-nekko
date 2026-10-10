@@ -1,4 +1,4 @@
-// Agent Nekko marketing site: starfield backdrop, scroll reveals, OS highlight.
+// Nekko Agent marketing site: starfield backdrop, scroll reveals, OS highlight.
 (function () {
   // ---- drifting starfield (space-travel feel, honors reduced motion) ----
   const canvas = document.getElementById('stars');
@@ -74,8 +74,8 @@
   window.addEventListener('load', showInView);
 
   // ---- smart download: default to the visitor's machine, menu for everything else ----
-  const RELEASES = 'https://github.com/nekko-labs/agent-nekko/releases/latest';
-  const API = 'https://api.github.com/repos/nekko-labs/agent-nekko/releases/latest';
+  const RELEASES = 'https://github.com/nekko-labs/nekko-agent/releases/latest';
+  const API = 'https://api.github.com/repos/nekko-labs/nekko-agent/releases/latest';
 
   // Each build we publish, with the pattern that finds it in a release's assets.
   // `pick` is what the primary button chooses for a detected os+arch.
@@ -95,10 +95,10 @@
   // The same one-liner the button downloads, in the shell that visitor actually
   // has: fetch the exact release asset, then launch it.
   const CMD = {
-    win: (u) => `iwr ${u} -OutFile agent-nekko-setup.exe; .\\agent-nekko-setup.exe`,
-    mac: (u) => `curl -L ${u} -o AgentNekko.dmg && open AgentNekko.dmg`,
+    win: (u) => `iwr ${u} -OutFile nekko-agent-setup.exe; .\\nekko-agent-setup.exe`,
+    mac: (u) => `curl -L ${u} -o NekkoAgent.dmg && open NekkoAgent.dmg`,
     linux: (u) =>
-      `curl -L ${u} -o AgentNekko.AppImage && chmod +x AgentNekko.AppImage && ./AgentNekko.AppImage`,
+      `curl -L ${u} -o NekkoAgent.AppImage && chmod +x NekkoAgent.AppImage && ./NekkoAgent.AppImage`,
   };
   const SHELL = { win: 'PowerShell', mac: 'Terminal', linux: 'a shell' };
 
@@ -166,7 +166,7 @@
       const b = chosen();
       mainVer.textContent = version;
       if (!b) {
-        mainTitle.textContent = 'Download Agent Nekko';
+        mainTitle.textContent = 'Download Nekko Agent';
         main.href = RELEASES;
         main.title = mobile ? 'Install on your computer, then pair this phone' : 'All builds on GitHub Releases';
         return;
@@ -290,7 +290,7 @@
       note.textContent = `${b.fmt} · ${b.hint}. Not your machine? Use the arrow for every other build.`;
     } else {
       note.textContent = mobile
-        ? 'Agent Nekko runs on your computer. Choose a desktop build from the menu.'
+        ? 'Nekko Agent runs on your computer. Choose a desktop build from the menu.'
         : 'Pick a build from the menu, or see them all on GitHub Releases.';
     }
   }

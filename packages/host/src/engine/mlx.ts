@@ -3,7 +3,7 @@ import { createHash } from 'crypto';
 import { createReadStream } from 'fs';
 import { access, mkdir, readdir, readFile, rm, stat } from 'fs/promises';
 import { join } from 'path';
-import type { EngineBuild, EngineInstall, EngineInstallPreview, LoadParams, LocalModel } from '@agent-nekko/shared';
+import type { EngineBuild, EngineInstall, EngineInstallPreview, LoadParams, LocalModel } from '@nekko-agent/shared';
 import type { Downloads } from './download.js';
 
 /**

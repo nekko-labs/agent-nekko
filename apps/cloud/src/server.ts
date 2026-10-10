@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import { createHost, createDispatcher, withDataDir, type Host } from '@agent-nekko/host';
-import { IpcChannels, IpcEvents } from '@agent-nekko/shared';
+import { createHost, createDispatcher, withDataDir, type Host } from '@nekko-agent/host';
+import { IpcChannels, IpcEvents } from '@nekko-agent/shared';
 import { CloudStore, publicAccount, type Account } from './accounts.js';
 import { entitlements, requireWithin } from './entitlements.js';
 import { createBilling, planChangeFromEvent, type Billing, type PaidPlan } from './billing.js';
@@ -19,7 +19,7 @@ export interface CloudServerOptions {
 }
 
 /**
- * Agent Nekko Cloud server. Fronts the SAME host engine + dispatcher as every other
+ * Nekko Agent Cloud server. Fronts the SAME host engine + dispatcher as every other
  * edition, but per authenticated account: each account gets an isolated data
  * dir (its own settings/sessions/memory) via `withDataDir`, and feature limits
  * are enforced server-side from the account's plan. The OSS app never does any

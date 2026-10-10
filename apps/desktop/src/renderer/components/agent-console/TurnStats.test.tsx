@@ -6,7 +6,7 @@ vi.mock('../../store.js', async (original) => {
   const actual = await original<typeof import('../../store.js')>();
   return { ...actual, useStore: Object.assign((selector: (s: ReturnType<typeof actual.useStore.getState>) => unknown) => selector(actual.useStore.getState()), actual.useStore) };
 });
-import type { ChatMessage, TurnStats } from '@agent-nekko/shared';
+import type { ChatMessage, TurnStats } from '@nekko-agent/shared';
 import { TurnStatsLine, turnStatsParts } from './TurnStatsLine.js';
 import { MessageBubble } from './MessageBubble.js';
 import { ModelPicker } from './ModelPicker.js';

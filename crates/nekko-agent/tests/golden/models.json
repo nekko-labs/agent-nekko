@@ -40,8 +40,8 @@
         "headers": {
           "Content-Type": "application/json",
           "Authorization": "Bearer sk-or-test",
-          "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-          "X-Title": "Agent Nekko"
+          "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+          "X-Title": "Nekko Agent"
         },
         "body": null
       }

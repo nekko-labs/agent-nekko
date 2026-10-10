@@ -1,4 +1,4 @@
-import type { CodeSymbol } from '@agent-nekko/shared';
+import type { CodeSymbol } from '@nekko-agent/shared';
 
 /** Map file extensions to a language label. */
 export function detectLanguage(path: string): string | undefined {

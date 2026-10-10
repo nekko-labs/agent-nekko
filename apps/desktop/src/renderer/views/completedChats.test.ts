@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionSummary } from '@agent-nekko/shared';
+import type { SessionSummary } from '@nekko-agent/shared';
 import { completedDate, completedInGroup } from './completedChats.js';
 
 const chat = (id: string, extra: Partial<SessionSummary> = {}) => ({

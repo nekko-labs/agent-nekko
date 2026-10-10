@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { summarizeSession, type Session } from '@agent-nekko/shared';
+import { summarizeSession, type Session } from '@nekko-agent/shared';
 
 vi.hoisted(() => {
   (globalThis as { window?: unknown }).window = { innerWidth: 1280, addEventListener() {} };

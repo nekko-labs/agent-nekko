@@ -1,6 +1,6 @@
 <div align="center">
 
-# Agent Nekko
+# Nekko Agent
 
 **AI help on your computer. For coding and everyday work.**
 
@@ -12,7 +12,7 @@ Free and open source · MIT licensed · AI on your computer or online
 
 ## Overview
 
-Agent Nekko helps you write, code, and handle repetitive work. Use AI running
+Nekko Agent helps you write, code, and handle repetitive work. Use AI running
 on your computer or connect an online AI service. You choose what Nekko can
 access and review its work. A **model** is the AI you choose; **local** means
 it runs on your own computer.
@@ -71,7 +71,7 @@ open. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 > agent loop (single- and multi-step). Run `node scripts/itest-local.mjs <baseUrl> <model>`
 > to check your own server.
 
-![Agent Nekko, unified chat with the Context Inspector](docs/screenshots/chat.png)
+![Nekko Agent, unified chat with the Context Inspector](docs/screenshots/chat.png)
 
 <table>
   <tr>
@@ -82,11 +82,11 @@ open. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 > A full picture-by-picture tour is in the **[walkthrough guide](docs/WALKTHROUGH.md)**.
 
-## How to run Agent Nekko
+## How to run Nekko Agent
 
 **1. Download the installer.** Grab it for your OS from the
-[latest GitHub release](https://github.com/nekko-labs/agent-nekko/releases/latest)
-or [agentnekko.com](https://agentnekko.com): Windows NSIS `.exe`, macOS `.dmg`,
+[latest GitHub release](https://github.com/nekko-labs/nekko-agent/releases/latest)
+or [nekkoagent.com](https://nekkoagent.com): Windows NSIS `.exe`, macOS `.dmg`,
 or Linux `.AppImage`/`.deb`.
 
 **2. Run it locally from source.** Easiest and fastest, and the way to see your
@@ -121,11 +121,11 @@ Release macOS builds are signed with a Nekko Labs Developer ID certificate and
 notarized by Apple when the macOS signing secrets are configured, so the `.dmg`
 opens and installs normally with no Gatekeeper workaround. If those secrets are
 absent, the workflow publishes an unsigned fallback build; clear its quarantine
-flag once with `xattr -cr "/Applications/Agent Nekko.app"`. Verify a signed build
+flag once with `xattr -cr "/Applications/Nekko Agent.app"`. Verify a signed build
 yourself if you like:
 
 ```bash
-spctl --assess --type execute --verbose=4 "/Applications/Agent Nekko.app"
+spctl --assess --type execute --verbose=4 "/Applications/Nekko Agent.app"
 ```
 
 That should report `accepted` with `source=Notarized Developer ID`. How this is set up: [docs/signing.md](docs/signing.md).
@@ -143,14 +143,14 @@ installer format for updates.
 
 ### Uninstalling
 
-- **Windows**: *Settings → Apps → Installed apps → Agent Nekko → Uninstall*, or the **Uninstall Agent Nekko** shortcut in the Start Menu folder. The uninstaller asks whether to also delete your chats and settings (choose **No** to keep them for a reinstall).
-- **macOS**: drag **Agent Nekko** from Applications to the Trash. To also remove data: `rm -rf "$HOME/Library/Application Support/Agent Nekko"`.
-- **Linux**: remove the AppImage, or `sudo apt remove agentnekko` for the `.deb`.
+- **Windows**: *Settings → Apps → Installed apps → Nekko Agent → Uninstall*, or the **Uninstall Nekko Agent** shortcut in the Start Menu folder. The uninstaller asks whether to also delete your chats and settings (choose **No** to keep them for a reinstall).
+- **macOS**: drag **Nekko Agent** from Applications to the Trash. To also remove data: `rm -rf "$HOME/Library/Application Support/Nekko Agent"`.
+- **Linux**: remove the AppImage, or `sudo apt remove nekkoagent` for the `.deb`.
 
-## Why Agent Nekko
+## Why Nekko Agent
 
 **Use the hardware you already have, with frontier help when it matters.**
-Agent Nekko reads, edits, searches, and runs inside your codebases, combining
+Nekko Agent reads, edits, searches, and runs inside your codebases, combining
 local models, a multi-folder index, per-project memory, and guardrails with
 frontier providers in one agent environment.
 
@@ -169,9 +169,9 @@ Same engine, same UI, multiple runtimes (see the design in the project spec):
 | **Self-hosted web** | `npm run web`, offline, the same UI in your browser | ✅ available |
 | **Docker** | `docker compose up`, workspaces as volumes, local models via `host.docker.internal` | ✅ available |
 | **Phone remote control** | pair your phone (QR, one-time code) and run chats/training/goals on your home machine from anywhere, end-to-end encrypted; the iOS/Android app also runs small models on the phone itself; managed relay free in beta, or [self-host it](docs/REMOTE.md) with one Docker command | ✅ available |
-| **Agent Nekko Cloud** (paid) | managed hosting: subscriptions, always-available **Zero-Data-Retention** mode, cloud chat-history + file management | 🔜 planned |
+| **Nekko Agent Cloud** (paid) | managed hosting: subscriptions, always-available **Zero-Data-Retention** mode, cloud chat-history + file management | 🔜 planned |
 
-The desktop, web, and (coming) Docker editions all run the **same engine + same React UI**, only the transport differs (Electron IPC vs HTTP/WebSocket), via the shared `@agent-nekko/host`.
+The desktop, web, and (coming) Docker editions all run the **same engine + same React UI**, only the transport differs (Electron IPC vs HTTP/WebSocket), via the shared `@nekko-agent/host`.
 
 ### Run the web edition
 
@@ -189,7 +189,7 @@ checks can be extended for a proxy with comma-separated
 `NEKKO_ALLOWED_HOSTS` and `NEKKO_ALLOWED_ORIGINS`. Data lives in
 `~/.nekko` (override with `NEKKO_DATA_DIR`).
 
-![Agent Nekko web edition](docs/screenshots/web-edition.png)
+![Nekko Agent web edition](docs/screenshots/web-edition.png)
 
 ### Run with Docker
 
@@ -199,7 +199,7 @@ docker compose up        # build + run, then open http://localhost:1440
 
 Mount your codebases into `./workspace` (the sandbox confines file tools there),
 and reach a model server on your host at `http://host.docker.internal:<port>`.
-Settings/sessions persist in the `agent-nekko-data` volume.
+Settings/sessions persist in the `nekko-agent-data` volume.
 Compose generates and prints a random token; read it with `docker compose logs`
 (or set your own `NEKKO_TOKEN`) before exposing the service beyond localhost.
 
@@ -245,9 +245,9 @@ The core engine is Electron-free so it can be tested in isolation and reused.
 External harnesses can drive the same host through the CLI or MCP server:
 
 ```bash
-npm install --global agent-nekko   # publishing with the next release
-npx agent-nekko status --json
-npx agent-nekko mcp
+npm install --global nekko-agent   # publishing with the next release
+npx nekko-agent status --json
+npx nekko-agent mcp
 ```
 
 From a checkout:
@@ -308,7 +308,7 @@ npm run dist         # electron-builder → apps/desktop/release
 ```
 
 Releases are published to GitHub Releases by the [release workflow](.github/workflows/release.yml)
-on `v*` tags. Download links point to the [latest GitHub release](https://github.com/nekko-labs/agent-nekko/releases/latest).
+on `v*` tags. Download links point to the [latest GitHub release](https://github.com/nekko-labs/nekko-agent/releases/latest).
 
 ## License
 

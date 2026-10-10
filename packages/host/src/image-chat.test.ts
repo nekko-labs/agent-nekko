@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_IMAGE_CHAT_PARAMS, classifySession, summarizeSession, type AgentEvent, type ImageGenerationRequest } from '@agent-nekko/shared';
+import { DEFAULT_IMAGE_CHAT_PARAMS, classifySession, summarizeSession, type AgentEvent, type ImageGenerationRequest } from '@nekko-agent/shared';
 import { setDataDir } from './paths.js';
 import { createSession, getSession, queuePrompt } from './sessions.js';
 import { abortImageTurn, generateImageTurn, sessionImages } from './image-chat.js';

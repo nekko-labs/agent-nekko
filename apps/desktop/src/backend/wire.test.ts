@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Host } from '@agent-nekko/host';
+import type { Host } from '@nekko-agent/host';
 import { startWire, type Wire } from './wire.js';
 
 const TOKEN = 'wire-test-token-0123456789';

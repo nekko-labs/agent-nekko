@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FETCH_MAX_BYTES, decodeEntities, describeFetched, fetchUrl, htmlToText } from './web-fetch.js';
 
-const page = `<!doctype html><html><head><title>Agent Nekko &amp; friends</title><style>p{color:red}</style>
+const page = `<!doctype html><html><head><title>Nekko Agent &amp; friends</title><style>p{color:red}</style>
 <script>alert(1)</script></head><body><nav><a href="/docs">Docs</a></nav>
 <h1>Welcome</h1><p>Local agent, <b>frontier</b> brains.&nbsp;See <a href="https://example.com/x">the guide</a> and <a href="#top">top</a>.</p>
 <ul><li>One</li><li>Two &lt;3</li></ul><pre>npm i</pre><img alt="A cat" src="c.png"><!-- hidden --><p>Bye</p></body></html>`;
@@ -13,11 +13,11 @@ function fakeFetch(body: string, init: { status?: number; type?: string; url?: s
 
 describe('htmlToText', () => {
   it('keeps the words, the headings, the lists and the links, and drops the rest', () => {
-    const text = htmlToText(page, 'https://agentnekko.com/');
-    expect(text).toContain('# Agent Nekko & friends');
+    const text = htmlToText(page, 'https://nekkoagent.com/');
+    expect(text).toContain('# Nekko Agent & friends');
     expect(text).toContain('# Welcome');
     expect(text).toContain('Local agent, frontier brains. See the guide (https://example.com/x) and top.');
-    expect(text).toContain('Docs (https://agentnekko.com/docs)');
+    expect(text).toContain('Docs (https://nekkoagent.com/docs)');
     expect(text).toContain('- One\n- Two <3');
     expect(text).toContain('`npm i`');
     expect(text).toContain('[image: A cat]');
@@ -31,12 +31,12 @@ describe('htmlToText', () => {
 
 describe('fetchUrl', () => {
   it('fetches a page and hands back its text with a header line', async () => {
-    const got = await fetchUrl('https://agentnekko.com/', { fetchImpl: fakeFetch(page) });
+    const got = await fetchUrl('https://nekkoagent.com/', { fetchImpl: fakeFetch(page) });
     expect(got.status).toBe(200);
     expect(got.contentType).toBe('text/html');
     expect(got.text).toContain('# Welcome');
     expect(got.truncated).toBe(false);
-    expect(describeFetched(got)).toMatch(/^https:\/\/agentnekko\.com\/ \(HTTP 200, text\/html, [\d,]+ chars\)\n\n/);
+    expect(describeFetched(got)).toMatch(/^https:\/\/nekkoagent\.com\/ \(HTTP 200, text\/html, [\d,]+ chars\)\n\n/);
   });
 
   it('cuts long text at max_chars and says so', async () => {

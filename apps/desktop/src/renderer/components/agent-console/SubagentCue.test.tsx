@@ -6,7 +6,7 @@ import { ActivityGroup } from './ActivityGroup.js';
 import { ToolCard } from './ToolCard.js';
 import { toStreamBlocks } from './transcript.js';
 import { MessageBubble } from './MessageBubble.js';
-import type { ChatMessage, ToolCall } from '@agent-nekko/shared';
+import type { ChatMessage, ToolCall } from '@nekko-agent/shared';
 
 const call: ToolCall = { id: 'child', name: 'spawn_agent', input: { title: 'Integration checks', task: 'Run tests' } };
 it('keeps delegation identifiable in collapsed groups and tool cards', () => {

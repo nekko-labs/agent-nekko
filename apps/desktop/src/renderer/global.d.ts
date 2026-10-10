@@ -1,4 +1,4 @@
-import type { NekkoApi } from '@agent-nekko/shared';
+import type { NekkoApi } from '@nekko-agent/shared';
 
 declare global {
   interface Window {

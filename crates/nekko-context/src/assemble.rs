@@ -133,7 +133,7 @@ pub fn assemble(input: AssembleInput) -> Bundle {
             id: "system:base".into(),
             source: "system",
             label: "System prompt".into(),
-            origin: "Agent Nekko".into(),
+            origin: "Nekko Agent".into(),
             tokens: tokens(system),
             pinned: false,
             included: true,

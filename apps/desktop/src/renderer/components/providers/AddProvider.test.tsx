@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { OAuthStatus, ProviderConfig } from '@agent-nekko/shared';
+import type { OAuthStatus, ProviderConfig } from '@nekko-agent/shared';
 
 // AddProvider imports the store, which reads browser globals at import time;
 // node has none, so provide the minimum first (hoisted above module imports).

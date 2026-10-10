@@ -1,4 +1,4 @@
-import type { ChatMessage } from '@agent-nekko/shared';
+import type { ChatMessage } from '@nekko-agent/shared';
 
 /** Wire-only evidence turns, after every result in a multi-tool round trip.
  * These turns never become user messages in persisted history.

@@ -1,10 +1,10 @@
 import type { App } from 'electron';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
-import { defaultUserDataDir } from '@agent-nekko/host/user-data';
+import { defaultUserDataDir } from '@nekko-agent/host/user-data';
 
 /** The profile folder name. */
-const PROFILE = 'Agent Nekko';
+const PROFILE = 'Nekko Agent';
 
 /**
  * Pin the packaged app's profile to a stable folder.

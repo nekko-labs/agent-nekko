@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import type { DownloadJob } from '@agent-nekko/shared';
+import type { DownloadJob } from '@nekko-agent/shared';
 import { fileRole, groupDownloads, groupState } from './downloadGroups.js';
 import { DownloadsPanel } from './DownloadsPanel.js';
 

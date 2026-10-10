@@ -1,4 +1,4 @@
-import type { LiveActivity } from '@agent-nekko/shared';
+import type { LiveActivity } from '@nekko-agent/shared';
 
 export const TOOL_PROGRESS_MINUTE_MS = 60_000;
 

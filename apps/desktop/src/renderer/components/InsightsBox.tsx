@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ProviderConfig, RemoteStatus, ReplyStop, SessionSummary, UsageSummary } from '@agent-nekko/shared';
-import type { AgentType, OptimizationTip } from '@agent-nekko/shared';
-import { estimateCostUSD, formatUSD, isLocalProvider, DEFAULT_LOCAL_COST_BENCHMARK, MODEL_PRICING, optimizationTips } from '@agent-nekko/shared';
+import type { ProviderConfig, RemoteStatus, ReplyStop, SessionSummary, UsageSummary } from '@nekko-agent/shared';
+import type { AgentType, OptimizationTip } from '@nekko-agent/shared';
+import { estimateCostUSD, formatUSD, isLocalProvider, DEFAULT_LOCAL_COST_BENCHMARK, MODEL_PRICING, optimizationTips } from '@nekko-agent/shared';
 import { useStore } from '../store.js';
 import { INSIGHT_PANELS, type InsightPanel, type InsightsPrefs } from '../commandWall.js';
 import { PaneActions, useInPaneFrame } from './PaneFrame.js';
@@ -451,7 +451,7 @@ function CostPanel({ usage, sessions, providers }: { usage: UsageSummary | null;
 
 function ServicesPanel({ providers, usage }: { providers: ProviderConfig[]; usage: UsageSummary | null }) {
   const [remote, setRemote] = useState<RemoteStatus | null>(null);
-  const [mcp, setMcp] = useState<import('@agent-nekko/shared').McpServerStatus[]>([]);
+  const [mcp, setMcp] = useState<import('@nekko-agent/shared').McpServerStatus[]>([]);
   useEffect(() => { window.nekko.getRemoteStatus().then(setRemote).catch(() => setRemote(null)); }, []);
   useEffect(() => { window.nekko.getMcpStatus().then(setMcp).catch(() => setMcp([])); }, []);
   return (

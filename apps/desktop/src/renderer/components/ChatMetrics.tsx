@@ -1,6 +1,6 @@
 import React from 'react';
-import type { ContextBundle, ContextItem, EffortLevel } from '@agent-nekko/shared';
-import { effectiveEffort, modelDefaultEffort, modelEffortLevels, usesNativeEffort } from '@agent-nekko/shared';
+import type { ContextBundle, ContextItem, EffortLevel } from '@nekko-agent/shared';
+import { effectiveEffort, modelDefaultEffort, modelEffortLevels, usesNativeEffort } from '@nekko-agent/shared';
 import { useStore } from '../store.js';
 import { sourceMeta } from '../contextSources.js';
 

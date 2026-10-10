@@ -1,6 +1,6 @@
 [package]
 name = "nekko-chat"
-description = "Chat turns for the Agent Nekko engine daemon: the Rust agent loop wired to the Rust providers and tools."
+description = "Chat turns for the Nekko Agent engine daemon: the Rust agent loop wired to the Rust providers and tools."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

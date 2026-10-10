@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm, writeFile, mkdir, stat } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { modelModality, type LocalModel } from '@agent-nekko/shared';
+import { modelModality, type LocalModel } from '@nekko-agent/shared';
 import { diffusionBuilds, matchDiffusionAsset, matchDiffusionCompanion, diffusionArgs } from './diffusion.js';
 import { createEngineInstaller } from './install.js';
 import { createDownloads } from './download.js';

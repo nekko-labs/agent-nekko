@@ -34,7 +34,7 @@ describe('agent-tool detection and subagent install', () => {
     expect(tools.find((t) => t.id === 'cursor')?.detected).toBe(false);
   });
 
-  it('merges the agent-nekko entry into ~/.claude.json, preserving other keys', () => {
+  it('merges the nekko-agent entry into ~/.claude.json, preserving other keys', () => {
     mkdirSync(join(home, '.claude'));
     writeFileSync(
       join(home, '.claude.json'),
@@ -47,11 +47,11 @@ describe('agent-tool detection and subagent install', () => {
     const cfg = JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8'));
     expect(cfg.theme).toBe('dark');
     expect(cfg.mcpServers.other).toEqual({ command: 'x' });
-    expect(cfg.mcpServers['agent-nekko']).toEqual({ command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] });
+    expect(cfg.mcpServers['nekko-agent']).toEqual({ command: 'npx', args: ['-y', 'nekko-agent', 'mcp'] });
 
     // The pre-merge file was backed up.
     const bak = JSON.parse(readFileSync(join(home, '.claude.json.bak'), 'utf8'));
-    expect(bak.mcpServers['agent-nekko']).toBeUndefined();
+    expect(bak.mcpServers['nekko-agent']).toBeUndefined();
     expect(bak.mcpServers.other).toEqual({ command: 'x' });
 
     expect(detectAgentTools(home).find((t) => t.id === 'claude')?.installed).toBe(true);
@@ -62,7 +62,7 @@ describe('agent-tool detection and subagent install', () => {
     const res = installSubagent('cursor', home);
     expect(res.ok).toBe(true);
     const cfg = JSON.parse(readFileSync(join(home, '.cursor', 'mcp.json'), 'utf8'));
-    expect(cfg.mcpServers['agent-nekko'].command).toBe('npx');
+    expect(cfg.mcpServers['nekko-agent'].command).toBe('npx');
     // Nothing existed, so no backup was written.
     expect(existsSync(join(home, '.cursor', 'mcp.json.bak'))).toBe(false);
   });
@@ -75,8 +75,8 @@ describe('agent-tool detection and subagent install', () => {
     expect(res.ok).toBe(true);
     const text = readFileSync(join(home, '.codex', 'config.toml'), 'utf8');
     expect(text).toContain('model = "gpt-5"');
-    expect(text).toContain('[mcp_servers.agent-nekko]');
-    expect(text).toContain('args = ["-y", "agent-nekko", "mcp"]');
+    expect(text).toContain('[mcp_servers.nekko-agent]');
+    expect(text).toContain('args = ["-y", "nekko-agent", "mcp"]');
     expect(readFileSync(join(home, '.codex', 'config.toml.bak'), 'utf8')).toBe('model = "gpt-5"\n');
 
     // Second install is a no-op success, not a duplicate section.
@@ -102,20 +102,20 @@ describe('agent-tool detection and subagent install', () => {
     const res = installSubagent('cursor', home);
     expect(res.ok).toBe(true);
     const cfg = JSON.parse(readFileSync(join(home, '.cursor', 'mcp.json'), 'utf8'));
-    expect(cfg.mcpServers['agent-nekko'].command).toBe('npx');
+    expect(cfg.mcpServers['nekko-agent'].command).toBe('npx');
   });
 
   it('does not count a TOML section header inside a string or comment as installed', () => {
     mkdirSync(join(home, '.codex'));
     writeFileSync(
       join(home, '.codex', 'config.toml'),
-      '# [mcp_servers.agent-nekko]\nnote = "[mcp_servers.agent-nekko]"\n',
+      '# [mcp_servers.nekko-agent]\nnote = "[mcp_servers.nekko-agent]"\n',
     );
     expect(detectAgentTools(home).find((t) => t.id === 'codex')?.installed).toBe(false);
     const res = installSubagent('codex', home);
     expect(res.ok).toBe(true);
     const text = readFileSync(join(home, '.codex', 'config.toml'), 'utf8');
-    expect(text).toContain('[mcp_servers.agent-nekko]\ncommand = "npx"');
+    expect(text).toContain('[mcp_servers.nekko-agent]\ncommand = "npx"');
   });
 
   it('refuses to append to a TOML config it cannot read confidently', () => {
@@ -135,12 +135,12 @@ describe('agent-tool detection and subagent install', () => {
     mkdirSync(join(home, '.codex'));
     writeFileSync(
       join(home, '.codex', 'config.toml'),
-      'args = [\n  "-y",\n  "agent-nekko",\n]\ndoc = """\nmulti line\n"""\n',
+      'args = [\n  "-y",\n  "nekko-agent",\n]\ndoc = """\nmulti line\n"""\n',
     );
     const res = installSubagent('codex', home);
     expect(res.ok).toBe(true);
     expect(readFileSync(join(home, '.codex', 'config.toml'), 'utf8')).toContain(
-      '[mcp_servers.agent-nekko]',
+      '[mcp_servers.nekko-agent]',
     );
   });
 
@@ -149,7 +149,7 @@ describe('agent-tool detection and subagent install', () => {
     const res = installSubagent('windsurf', home);
     expect(res.ok).toBe(true);
     const cfg = JSON.parse(readFileSync(join(home, '.codeium', 'windsurf', 'mcp_config.json'), 'utf8'));
-    expect(cfg.mcpServers['agent-nekko']).toEqual({ command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] });
+    expect(cfg.mcpServers['nekko-agent']).toEqual({ command: 'npx', args: ['-y', 'nekko-agent', 'mcp'] });
   });
 
   it('will not install into a tool that was never detected', () => {
@@ -165,16 +165,16 @@ describe('agent-tool detection and subagent install', () => {
       expect(s.target).toBeTruthy();
       // Both the server key and the npx package it runs are the current name;
       // the snippet is copy-pasted by users, so it must not advertise an old one.
-      expect(s.snippet).toContain('agent-nekko');
+      expect(s.snippet).toContain('nekko-agent');
     }
-    expect(subagentSnippet('codex').snippet).toContain('[mcp_servers.agent-nekko]');
+    expect(subagentSnippet('codex').snippet).toContain('[mcp_servers.nekko-agent]');
     expect(subagentSnippet('claude').snippet).toContain('"mcpServers"');
   });
 });
 
 describe('refreshing entries this app wrote', () => {
   let home: string;
-  const target = { url: 'http://127.0.0.1:1439', token: 'fresh', command: '/opt/nekko/bin/agent-nekko' };
+  const target = { url: 'http://127.0.0.1:1439', token: 'fresh', command: '/opt/nekko/bin/nekko-agent' };
 
   beforeEach(() => {
     home = mkdtempSync(join(tmpdir(), 'nekko-refresh-'));
@@ -182,21 +182,21 @@ describe('refreshing entries this app wrote', () => {
   });
 
   it('recognises only its own entries', () => {
-    expect(isOwnEntry('npx', ['-y', 'agent-nekko', 'mcp'])).toBe(true);
-    expect(isOwnEntry(String.raw`C:\Users\me\AppData\Roaming\Agent Nekko\bin\agent-nekko.cmd`, ['mcp'])).toBe(true);
-    expect(isOwnEntry('node', ['C:/code/agent-nekko/apps/cli/dist/index.js', 'mcp'])).toBe(false);
+    expect(isOwnEntry('npx', ['-y', 'nekko-agent', 'mcp'])).toBe(true);
+    expect(isOwnEntry(String.raw`C:\Users\me\AppData\Roaming\Nekko Agent\bin\nekko-agent.cmd`, ['mcp'])).toBe(true);
+    expect(isOwnEntry('node', ['C:/code/nekko-agent/apps/cli/dist/index.js', 'mcp'])).toBe(false);
     expect(isOwnEntry(undefined)).toBe(false);
   });
 
   it('re-points an npx entry at the running app', () => {
     writeFileSync(
       join(home, '.claude.json'),
-      JSON.stringify({ mcpServers: { 'agent-nekko': { command: 'npx', args: ['-y', 'agent-nekko', 'mcp'] } } }),
+      JSON.stringify({ mcpServers: { 'nekko-agent': { command: 'npx', args: ['-y', 'nekko-agent', 'mcp'] } } }),
     );
     expect(refreshSubagent('claude', home, target)).toBe(true);
     const cfg = JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8'));
-    expect(cfg.mcpServers['agent-nekko']).toEqual({
-      command: '/opt/nekko/bin/agent-nekko',
+    expect(cfg.mcpServers['nekko-agent']).toEqual({
+      command: '/opt/nekko/bin/nekko-agent',
       args: ['mcp'],
       env: { NEKKO_URL: 'http://127.0.0.1:1439', NEKKO_TOKEN: 'fresh' },
     });
@@ -205,10 +205,10 @@ describe('refreshing entries this app wrote', () => {
   });
 
   it('never touches an entry someone wrote by hand', () => {
-    const own = { command: 'node', args: ['C:/code/agent-nekko/apps/cli/dist/index.js', 'mcp'] };
-    writeFileSync(join(home, '.claude.json'), JSON.stringify({ mcpServers: { 'agent-nekko': own } }));
+    const own = { command: 'node', args: ['C:/code/nekko-agent/apps/cli/dist/index.js', 'mcp'] };
+    writeFileSync(join(home, '.claude.json'), JSON.stringify({ mcpServers: { 'nekko-agent': own } }));
     expect(refreshSubagent('claude', home, target)).toBe(false);
-    expect(JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8')).mcpServers['agent-nekko']).toEqual(own);
+    expect(JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8')).mcpServers['nekko-agent']).toEqual(own);
   });
 
   it('rewrites a stale Codex section in place, keeping the rest of the file', () => {
@@ -216,13 +216,13 @@ describe('refreshing entries this app wrote', () => {
     const file = join(home, '.codex', 'config.toml');
     writeFileSync(
       file,
-      'model = "o4"\n\n[mcp_servers.agent-nekko]\ncommand = "npx"\nargs = ["-y", "agent-nekko", "mcp"]\n\n[profiles.fast]\nmodel = "mini"\n',
+      'model = "o4"\n\n[mcp_servers.nekko-agent]\ncommand = "npx"\nargs = ["-y", "nekko-agent", "mcp"]\n\n[profiles.fast]\nmodel = "mini"\n',
     );
     expect(refreshSubagent('codex', home, target)).toBe(true);
     const text = readFileSync(file, 'utf8');
-    expect(text).toContain('command = "/opt/nekko/bin/agent-nekko"');
+    expect(text).toContain('command = "/opt/nekko/bin/nekko-agent"');
     expect(text).toContain('NEKKO_TOKEN = "fresh"');
     expect(text).toContain('[profiles.fast]');
-    expect(text.match(/\[mcp_servers\.agent-nekko\]/g)).toHaveLength(1);
+    expect(text.match(/\[mcp_servers\.nekko-agent\]/g)).toHaveLength(1);
   });
 });

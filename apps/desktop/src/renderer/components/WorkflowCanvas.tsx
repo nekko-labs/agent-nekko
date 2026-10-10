@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import type { WorkflowEdge, WorkflowNode, WorkflowRun, WorkflowStep, WorkflowStepKind, WorkflowStepStatus } from '@agent-nekko/shared';
-import { layoutWorkflow, workflowGraph } from '@agent-nekko/shared';
+import type { WorkflowEdge, WorkflowNode, WorkflowRun, WorkflowStep, WorkflowStepKind, WorkflowStepStatus } from '@nekko-agent/shared';
+import { layoutWorkflow, workflowGraph } from '@nekko-agent/shared';
 import { STATUS } from '../tokens.js';
 
 /**

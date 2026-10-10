@@ -1,5 +1,5 @@
-import type { CommandWallSetting, PendingInput, SessionSummary, TerminalInfo, WallLayout, WallDock, WallDockPanel } from '@agent-nekko/shared';
-import { DEFAULT_WALL_LAYOUT, DEFAULT_WALL_DOCK, BLOCKED_META, isArchived, sessionLane } from '@agent-nekko/shared';
+import type { CommandWallSetting, PendingInput, SessionSummary, TerminalInfo, WallLayout, WallDock, WallDockPanel } from '@nekko-agent/shared';
+import { DEFAULT_WALL_LAYOUT, DEFAULT_WALL_DOCK, BLOCKED_META, isArchived, sessionLane } from '@nekko-agent/shared';
 import {
   allPanes,
   canSplit,
@@ -36,7 +36,7 @@ export type WallFilter = 'all' | 'chat' | 'terminal';
 export type WallKind = 'chat' | 'terminal';
 export const WALL_KINDS: readonly WallKind[] = ['chat', 'terminal'];
 
-export type { WallLayout, WallLayoutMode, WallDock, WallDockSide, WallDockPanel } from '@agent-nekko/shared';
+export type { WallLayout, WallLayoutMode, WallDock, WallDockSide, WallDockPanel } from '@nekko-agent/shared';
 export { DEFAULT_WALL_LAYOUT, DEFAULT_WALL_DOCK };
 export const DOCK_PANELS: Array<{ key: WallDockPanel; label: string; blurb: string }> = [
   { key: 'vitals', label: 'Vitals', blurb: 'Agents working and waiting on you' },

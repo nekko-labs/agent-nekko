@@ -5,7 +5,7 @@ import type {
   FitRequest,
   HardwareFacts,
   ModelFacts,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 import { estimateOverheadBytes, kvCacheBytes } from './kv.js';
 import { suggestFixes } from './suggest.js';
 

@@ -1,4 +1,4 @@
-import type { FitPlan, FitReason, ResidentModel } from '@agent-nekko/shared';
+import type { FitPlan, FitReason, ResidentModel } from '@nekko-agent/shared';
 
 /**
  * Turning a projection into one sentence a person can act on.

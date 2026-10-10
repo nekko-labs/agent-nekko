@@ -1,4 +1,4 @@
-import type { ProviderConfig } from '@agent-nekko/shared';
+import type { ProviderConfig } from '@nekko-agent/shared';
 
 /** Only the managed runtime may assert this capability; kind/URL alone is insufficient. */
 export type CacheCapableProviderConfig = ProviderConfig & { managedCachePrompt?: boolean };

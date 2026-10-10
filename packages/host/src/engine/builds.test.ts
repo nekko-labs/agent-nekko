@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { GpuStats } from '@agent-nekko/shared';
+import type { GpuStats } from '@nekko-agent/shared';
 import { buildsFor, hasBinaries, matchAsset, matchCompanion, recommendedBuild } from './builds.js';
 
 /**

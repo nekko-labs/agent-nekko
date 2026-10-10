@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { estimateCostUSD } from '@agent-nekko/shared';
+import { estimateCostUSD } from '@nekko-agent/shared';
 import { withDataDir, setDataDir } from './paths.js';
 import { saveSettings } from './store.js';
 import { recordUsage, usageSummary } from './usage.js';

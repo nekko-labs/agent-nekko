@@ -1,7 +1,7 @@
 import os from 'os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import type { SystemStats } from '@agent-nekko/shared';
+import type { SystemStats } from '@nekko-agent/shared';
 
 /**
  * CPU load + RAM use for monitor surfaces. macOS uses VM page accounting

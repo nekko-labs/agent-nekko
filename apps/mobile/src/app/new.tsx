@@ -82,7 +82,7 @@ export default function NewChatSheet() {
         ) : !online ? (
           <Card>
             <T variant="small" tone="soft">
-              {active.name} is {c.conn === 'connecting' ? 'connecting…' : 'offline'}. Start a chat on this phone instead, or open Agent Nekko on your computer.
+              {active.name} is {c.conn === 'connecting' ? 'connecting…' : 'offline'}. Start a chat on this phone instead, or open Nekko Agent on your computer.
             </T>
           </Card>
         ) : (

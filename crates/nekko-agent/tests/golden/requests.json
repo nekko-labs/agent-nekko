@@ -2785,8 +2785,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -2809,8 +2809,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "qwen3-coder-30b",
@@ -2877,8 +2877,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -2910,8 +2910,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "gemma-4-12b",
@@ -2971,8 +2971,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -3105,8 +3105,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "qwen3-8b",
@@ -3129,8 +3129,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "qwen3-8b",
@@ -3153,8 +3153,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-opus-5",
@@ -3177,8 +3177,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-opus-5-5",
@@ -3201,8 +3201,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-opus-5-5",
@@ -3225,8 +3225,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-opus-5",
@@ -3249,8 +3249,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-opus-5",
@@ -3273,8 +3273,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-opus-5",
@@ -3297,8 +3297,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-opus-5",
@@ -3321,8 +3321,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-sonnet-4-6",
@@ -3345,8 +3345,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-haiku-4-5-20251001",
@@ -3369,8 +3369,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-fable-5-1",
@@ -3393,8 +3393,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "claude-opus-4-20250514",
@@ -3417,8 +3417,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "anthropic/Claude-Opus-5",
@@ -3441,8 +3441,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "gpt-6-sol",
@@ -3468,8 +3468,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "gpt-6-sol",
@@ -3492,8 +3492,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "openai/o3",
@@ -3518,8 +3518,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -3542,8 +3542,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -3566,8 +3566,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -3613,8 +3613,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -3638,8 +3638,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -3772,8 +3772,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -3906,8 +3906,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "m",
@@ -4040,8 +4040,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "anthropic/claude-sonnet-4.5",
@@ -4177,8 +4177,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "anthropic/claude-sonnet-4.5",
@@ -4314,8 +4314,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "anthropic/claude-sonnet-4.5",
@@ -4448,8 +4448,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "~anthropic/claude-sonnet-latest",
@@ -4585,8 +4585,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "~anthropic/claude-sonnet-latest",
@@ -4722,8 +4722,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "~anthropic/claude-sonnet-latest",
@@ -4856,8 +4856,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "google/gemini-2.5-pro",
@@ -5006,8 +5006,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "google/gemini-2.5-pro",
@@ -5156,8 +5156,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "google/gemini-2.5-pro",
@@ -5290,8 +5290,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "google/gemini-2.0-flash-001",
@@ -5440,8 +5440,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "google/gemini-2.0-flash-001",
@@ -5590,8 +5590,8 @@
       "headers": {
         "Content-Type": "application/json",
         "Authorization": "Bearer sk-or-test",
-        "HTTP-Referer": "https://github.com/nekko-labs/agent-nekko",
-        "X-Title": "Agent Nekko"
+        "HTTP-Referer": "https://github.com/nekko-labs/nekko-agent",
+        "X-Title": "Nekko Agent"
       },
       "body": {
         "model": "google/gemini-2.0-flash-001",

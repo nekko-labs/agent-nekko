@@ -14,7 +14,7 @@ The latest CI runs examined were #394 (37814267450), #396 (37817659151), #399 (3
 | #400 | 28.6 | 27.8 |
 | #401 | 26.8 | 25.7 |
 
-Source: [CI #399](https://github.com/nekko-labs/agent-nekko/actions/runs/37840969917) and the corresponding CI runs above, including their diagnostic base/head artifacts. Paint dominates phase totals, but switch-critical samples also contain React dispatch, style recalculation and layout. Phase totals include settling time and are not causal attribution to the measured interval.
+Source: [CI #399](https://github.com/nekko-labs/nekko-agent/actions/runs/37840969917) and the corresponding CI runs above, including their diagnostic base/head artifacts. Paint dominates phase totals, but switch-critical samples also contain React dispatch, style recalculation and layout. Phase totals include settling time and are not causal attribution to the measured interval.
 
 ## Candidate
 

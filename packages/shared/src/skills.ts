@@ -34,7 +34,7 @@ export interface SkillDef {
 
 export type SkillCategory = 'Research & planning' | 'Code quality' | 'Delivery' | 'Automation' | 'Imported';
 
-/** Agent tools whose SKILL.md folders Agent Nekko can read. */
+/** Agent tools whose SKILL.md folders Nekko Agent can read. */
 export type ExternalSkillTool = 'claude' | 'codex' | 'gemini' | 'agents';
 
 /** Where an imported skill came from; absent for built-in and marketplace skills. */

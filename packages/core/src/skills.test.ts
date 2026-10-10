@@ -5,7 +5,7 @@ import {
   matchSkills,
   layoutWorkflow,
   type SkillDef,
-} from '@agent-nekko/shared';
+} from '@nekko-agent/shared';
 
 describe('SKILLS registry', () => {
   it('every skill has a category in the known set and a non-empty workflow', () => {

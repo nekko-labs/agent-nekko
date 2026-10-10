@@ -32,10 +32,10 @@
       "has": [
         {
           "type": "host",
-          "value": "^(?:(?:www\\.)?nekkoagent\\.com|www\\.agentnekko\\.com|(?:www\\.)?kotrain\\.com|(?:www\\.)?kotrain\\.app|(?:www\\.)?nekkos\\.app|(?:www\\.)?nekkos\\.dev)$"
+          "value": "^(?:(?:www\\.)?agentnekko\\.com|www\\.nekkoagent\\.com|(?:www\\.)?kotrain\\.com|(?:www\\.)?kotrain\\.app|(?:www\\.)?nekkos\\.app|(?:www\\.)?nekkos\\.dev)$"
         }
       ],
-      "destination": "https://agentnekko.com/:path*",
+      "destination": "https://nekkoagent.com/:path*",
       "permanent": true
     }
   ]

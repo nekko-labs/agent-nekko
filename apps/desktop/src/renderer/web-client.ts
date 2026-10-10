@@ -1,5 +1,5 @@
-import { IpcChannels, IpcEvents, deriveKey, seal, open, withApiServerDefaults, RELEASE_NOTES_URL } from '@agent-nekko/shared';
-import type { AppSettings, AgentEvent, IndexStatus, NekkoApi, AppInfo, UpdateInfo, TerminalEvent, OAuthStatus, SubscriptionLimits } from '@agent-nekko/shared';
+import { IpcChannels, IpcEvents, deriveKey, seal, open, withApiServerDefaults, RELEASE_NOTES_URL } from '@nekko-agent/shared';
+import type { AppSettings, AgentEvent, IndexStatus, NekkoApi, AppInfo, UpdateInfo, TerminalEvent, OAuthStatus, SubscriptionLimits } from '@nekko-agent/shared';
 import { readBrandKey } from './brandStorage.js';
 
 /**
@@ -41,14 +41,14 @@ function makeWebClient(): NekkoApi {
   const indexCbs = new Set<(s: IndexStatus) => void>();
   const terminalCbs = new Set<(e: TerminalEvent) => void>();
   const changesCbs = new Set<(e: { sessionId: string }) => void>();
-  const tasksCbs = new Set<(t: import('@agent-nekko/shared').AutomationTask[]) => void>();
-  const trainingCbs = new Set<(r: import('@agent-nekko/shared').TrainingRun[]) => void>();
-  const workflowCbs = new Set<(s: import('@agent-nekko/shared').WorkflowsSnapshot) => void>();
+  const tasksCbs = new Set<(t: import('@nekko-agent/shared').AutomationTask[]) => void>();
+  const trainingCbs = new Set<(r: import('@nekko-agent/shared').TrainingRun[]) => void>();
+  const workflowCbs = new Set<(s: import('@nekko-agent/shared').WorkflowsSnapshot) => void>();
   const oauthStatusCbs = new Set<(s: OAuthStatus) => void>();
   const limitsUpdatedCbs = new Set<(e: { tokenKey: string; limits: SubscriptionLimits }) => void>();
-  const downloadsUpdatedCbs = new Set<(jobs: import('@agent-nekko/shared').DownloadJob[]) => void>();
+  const downloadsUpdatedCbs = new Set<(jobs: import('@nekko-agent/shared').DownloadJob[]) => void>();
   const modelsUpdatedCbs = new Set<(e: { providerId: string }) => void>();
-  const skillsUpdatedCbs = new Set<(catalog: import('@agent-nekko/shared').VaizerCatalog) => void>();
+  const skillsUpdatedCbs = new Set<(catalog: import('@nekko-agent/shared').VaizerCatalog) => void>();
   // Server build version captured when this tab loaded (for refresh detection).
   let loadVersion: string | null = null;
   const dispatchEvent = (channel: string, payload: any) => {
@@ -334,8 +334,8 @@ function makeWebClient(): NekkoApi {
     apiServerSave: async () => webApiServerStatus(),
     apiServerNewToken: async () => webApiServerStatus(),
     // No binary ships with this edition to link; the CLI is an npm install here.
-    cliInstallStatus: async () => ({ available: false, installed: false, onPath: false, command: 'npx agent-nekko' }),
-    cliInstall: async () => ({ available: false, installed: false, onPath: false, command: 'npx agent-nekko' }),
+    cliInstallStatus: async () => ({ available: false, installed: false, onPath: false, command: 'npx nekko-agent' }),
+    cliInstall: async () => ({ available: false, installed: false, onPath: false, command: 'npx nekko-agent' }),
     machineReadiness: (language) => call(IpcChannels.machineReadiness, language),
     getGpuStats: () => call(IpcChannels.gpuStats),
     getSystemStats: () => call(IpcChannels.systemStats),
@@ -601,7 +601,7 @@ function makeWebClient(): NekkoApi {
       skillsUpdatedCbs.add(cb);
       return () => skillsUpdatedCbs.delete(cb);
     },
-    // A browser tab has no OS handing it `agent-nekko://` URLs, so this is the
+    // A browser tab has no OS handing it `nekko-agent://` URLs, so this is the
     // honest implementation rather than a missing one.
     onDeepLink: () => () => {},
     onUpdateEvent: (cb) => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { expect, it } from 'vitest';
-import type { SessionSummary } from '@agent-nekko/shared';
+import type { SessionSummary } from '@nekko-agent/shared';
 import { WorkingSubagents } from './WorkingSubagents.js';
 
 it('appears at bottom right only for running children with accessible expand control', () => {

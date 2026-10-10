@@ -3,7 +3,7 @@ import { mkdir, rename, rm, stat } from 'fs/promises';
 import { dirname } from 'path';
 import { Readable } from 'stream';
 import { pipeline } from 'stream/promises';
-import type { DownloadJob, DownloadState } from '@agent-nekko/shared';
+import type { DownloadJob, DownloadState } from '@nekko-agent/shared';
 
 /**
  * The download queue behind both acquisitions: engine builds and model files.

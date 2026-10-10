@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { HardwareFacts, ModelFacts } from '@agent-nekko/shared';
+import type { HardwareFacts, ModelFacts } from '@nekko-agent/shared';
 import { autoFit } from './autofit.js';
 
 /**

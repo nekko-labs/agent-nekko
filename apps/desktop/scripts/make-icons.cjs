@@ -141,7 +141,7 @@ app.whenReady().then(async () => {
   // NSIS art. Sizes are fixed by the installer: 150x57 header, 164x314 sidebar.
   const header = await shoot(
     win,
-    (pw, ph) => bannerSvg(150, 57, { markSize: 40, markX: 10, markY: 8, title: 'Agent Nekko', titleSize: 12, layout: 'row' }, pw, ph),
+    (pw, ph) => bannerSvg(150, 57, { markSize: 40, markX: 10, markY: 8, title: 'Nekko Agent', titleSize: 12, layout: 'row' }, pw, ph),
     150,
     57,
   );
@@ -152,7 +152,7 @@ app.whenReady().then(async () => {
       bannerSvg(
         164,
         314,
-        { markSize: 88, markX: 38, markY: 62, title: 'Agent Nekko', tagline: 'Local-first AI coding', titleSize: 22, layout: 'column' },
+        { markSize: 88, markX: 38, markY: 62, title: 'Nekko Agent', tagline: 'Local-first AI coding', titleSize: 22, layout: 'column' },
         pw,
         ph,
       ),

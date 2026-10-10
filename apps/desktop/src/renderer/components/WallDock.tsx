@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@agent-nekko/shared';
-import { RUNTIME_CAPABILITIES, MODEL_PRICING, MODEL_COMPARISON_TIERS, MODEL_PRICING_SOURCE, MODEL_PRICING_CHECKED_AT, getModelPrice, DEFAULT_LOCAL_COST_BENCHMARK, describeLimitsProblem, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
+import type { AutomationTask, ProviderConfig, RuntimeStatus, SessionSummary, UsageSummary } from '@nekko-agent/shared';
+import { RUNTIME_CAPABILITIES, MODEL_PRICING, MODEL_COMPARISON_TIERS, MODEL_PRICING_SOURCE, MODEL_PRICING_CHECKED_AT, getModelPrice, DEFAULT_LOCAL_COST_BENCHMARK, describeLimitsProblem, formatUSD, gpuMemoryLabel, isLocalProvider, limitsKeyFor } from '@nekko-agent/shared';
 import { DOCK_PANELS, normalizeDockPanelOrder, placeDockPanel, reorderDockPanel, type CommandWallState, type InsightsPrefs, type WallDockPanel } from '../commandWall.js';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
@@ -12,7 +12,7 @@ import type { InsightRange } from '../insightRanges.js';
 import { useMonitors, useResourceSample } from './ResourceMonitor.js';
 import { BoltIcon, BrainIcon, ServerIcon, MoneyIcon, ListIcon, GearIcon, CloseIcon, MinimizeIcon } from '../icons.js';
 import './wallDock.css';
-import type { OAuthStatus } from '@agent-nekko/shared';
+import type { OAuthStatus } from '@nekko-agent/shared';
 import { SubscriptionSignIn } from './SubscriptionSignIn.js';
 import { SUBSCRIPTION_KINDS, reconnectProviderConfig } from './providers/AddProvider.js';
 import { dockMinimizeTransition } from './dockMinimize.js';

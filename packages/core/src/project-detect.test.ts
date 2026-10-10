@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { detectSessionWorkspace } from '@agent-nekko/shared';
-import type { ProjectHint } from '@agent-nekko/shared';
+import { detectSessionWorkspace } from '@nekko-agent/shared';
+import type { ProjectHint } from '@nekko-agent/shared';
 
 const WS: ProjectHint[] = [
-  { id: 'w1', name: 'agent-nekko', path: 'C:/Users/phili/code/agent-nekko' },
+  { id: 'w1', name: 'nekko-agent', path: 'C:/Users/phili/code/nekko-agent' },
   { id: 'w2', name: 'hypergate', path: 'C:/Users/phili/code/hypergate' },
   { id: 'w3', name: 'app', path: 'C:/Users/phili/code/app' }, // generic name
 ];
 
 describe('detectSessionWorkspace', () => {
   it('files a chat under the project it names in the prompt', () => {
-    expect(detectSessionWorkspace({ text: 'fix the login bug in agent-nekko', workspaces: WS })).toBe('w1');
+    expect(detectSessionWorkspace({ text: 'fix the login bug in nekko-agent', workspaces: WS })).toBe('w1');
     expect(detectSessionWorkspace({ text: 'add a Hypergate MCP toggle', workspaces: WS })).toBe('w2');
   });
 
@@ -25,10 +25,10 @@ describe('detectSessionWorkspace', () => {
   });
 
   it('prefers the attached-path project over a mere name mention', () => {
-    // Prompt mentions agent-nekko, but the attached file lives in hypergate.
+    // Prompt mentions nekko-agent, but the attached file lives in hypergate.
     expect(
       detectSessionWorkspace({
-        text: 'port the agent-nekko approach here',
+        text: 'port the nekko-agent approach here',
         workspaces: WS,
         attachedPaths: ['C:/Users/phili/code/hypergate/README.md'],
       }),
@@ -46,8 +46,8 @@ describe('detectSessionWorkspace', () => {
   });
 
   it('does not match substrings inside other words', () => {
-    // "agent-nekkos" should not trip the "agent-nekko" workspace.
-    expect(detectSessionWorkspace({ text: 'the agent-nekkos library', workspaces: WS })).toBeNull();
+    // "nekko-agents" should not trip the "nekko-agent" workspace.
+    expect(detectSessionWorkspace({ text: 'the nekko-agents library', workspaces: WS })).toBeNull();
   });
 
   it('returns null when two different projects tie', () => {

@@ -1,6 +1,6 @@
 [package]
 name = "nekko-bench"
-description = "Reproducible local-inference benchmarks: the same model file through Agent Nekko's engine, Ollama, LM Studio and vLLM, measured the same way."
+description = "Reproducible local-inference benchmarks: the same model file through Nekko Agent's engine, Ollama, LM Studio and vLLM, measured the same way."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

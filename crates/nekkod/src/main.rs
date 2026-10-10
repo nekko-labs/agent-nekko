@@ -1,4 +1,4 @@
-//! `nekkod`, the Agent Nekko engine daemon.
+//! `nekkod`, the Nekko Agent engine daemon.
 //!
 //! Started by the desktop app with a JSON config in `NEKKOD_CONFIG` (see
 //! `config.rs`). Prints one line, `NEKKOD_READY {"port":N,"pid":P}`, once it

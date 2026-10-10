@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@agent-nekko/shared';
-import { formatUSD, isLocalProvider, limitsKeyFor } from '@agent-nekko/shared';
+import type { LimitWindow, ProviderConfig, SubscriptionLimits } from '@nekko-agent/shared';
+import { formatUSD, isLocalProvider, limitsKeyFor } from '@nekko-agent/shared';
 import { useStore } from '../store.js';
 import { useProviderLimitsPortfolio } from '../useLimits.js';
 import { ChevronIcon } from '../icons.js';

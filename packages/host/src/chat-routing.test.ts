@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { AgentEvent, ModelInfo, ProviderConfig, Session } from '@agent-nekko/shared';
-import type { ChatRequest, Provider, ProviderChunk } from '@agent-nekko/core';
+import type { AgentEvent, ModelInfo, ProviderConfig, Session } from '@nekko-agent/shared';
+import type { ChatRequest, Provider, ProviderChunk } from '@nekko-agent/core';
 
 let requests: Array<{ providerId: string; request: ChatRequest }> = [];
 let titleRequests: Array<{ providerId: string; request: ChatRequest }> = [];
@@ -24,8 +24,8 @@ const connectorFetch = vi.hoisted(() => vi.fn(async () => []));
 
 vi.mock('./spec.js', () => ({ buildSpec }));
 vi.mock('./mcp.js', () => ({ syncMcp, mcpToolSpecs, isMcpTool, callMcpTool }));
-vi.mock('@agent-nekko/core', async () => {
-  const actual = await vi.importActual<typeof import('@agent-nekko/core')>('@agent-nekko/core');
+vi.mock('@nekko-agent/core', async () => {
+  const actual = await vi.importActual<typeof import('@nekko-agent/core')>('@nekko-agent/core');
   return {
     ...actual,
     getConnector: () => ({ fetch: connectorFetch }),
@@ -73,7 +73,7 @@ const { terminalSnapshot, writeTerminal, closeTerminal } = await import('./termi
 const { createSession, getSession, saveSession, listSessions } = await import('./sessions.js');
 const { sendChat, previewContext, resolveApproval, suggestReplies, fillPromptPart } = await import('./chat.js');
 const { flushAgentLogs } = await import('./agent-log.js');
-const { BUILTIN_TOOLS } = await import('@agent-nekko/core');
+const { BUILTIN_TOOLS } = await import('@nekko-agent/core');
 let dir: string;
 let providers: ProviderConfig[];
 
