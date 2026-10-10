@@ -89,6 +89,7 @@ pub fn claude_context_window(model: &str) -> Option<u64> {
     let c = parse_claude_model(model)?;
     Some(match c.family {
         Family::Fable | Family::Mythos => 1_000_000,
+        Family::Haiku if c.major >= 5.0 => 1_000_000,
         Family::Haiku => 200_000,
         _ if at_least(&c, 4.0, 6.0) => 1_000_000,
         _ => 200_000,
@@ -102,6 +103,9 @@ pub fn claude_context_window(model: &str) -> Option<u64> {
 /// less says so in a 400 (see `output_limit_error`).
 pub fn claude_max_output_tokens(model: &str) -> u64 {
     let Some(c) = parse_claude_model(model) else { return 32_000 };
+    if c.family == Family::Haiku && c.major >= 5.0 {
+        return 128_000;
+    }
     if matches!(c.family, Family::Fable | Family::Mythos) || c.major >= 5.0 {
         return 64_000;
     }
@@ -166,7 +170,6 @@ pub fn uses_native_effort(model: &str) -> bool {
         None => false,
         Some(c) => match c.family {
             Family::Fable | Family::Mythos => true,
-            Family::Haiku => false,
             _ => at_least(&c, 4.0, 7.0),
         },
     }
@@ -447,9 +450,13 @@ mod tests {
     #[test]
     fn reads_effort_and_context_off_the_id() {
         assert_eq!(claude_context_window("claude-opus-5-5"), Some(1_000_000));
+        assert_eq!(claude_context_window("claude-haiku-5-5"), Some(1_000_000));
         assert_eq!(claude_context_window("claude-haiku-4-5-20251001"), Some(200_000));
         assert_eq!(claude_context_window("claude-sonnet-4-5"), Some(200_000));
         assert_eq!(claude_context_window("gpt-5"), None);
+        assert!(uses_native_effort("claude-haiku-5-5"));
+        assert!(!uses_native_effort("claude-haiku-4-5-20251001"));
+        assert_eq!(anthropic_effort("claude-haiku-5-5", Some(Xhigh)), Xhigh);
         assert_eq!(anthropic_effort("claude-opus-5", Some(Normal)), High);
         assert_eq!(anthropic_effort("claude-opus-5-5", Some(Normal)), Medium);
         assert_eq!(anthropic_effort("claude-opus-5", Some(Xhigh)), Xhigh);
@@ -467,6 +474,7 @@ mod tests {
         assert_eq!(claude_max_output_tokens("claude-sonnet-4-6"), 64_000);
         assert_eq!(claude_max_output_tokens("claude-sonnet-3-5"), 8_192);
         assert_eq!(claude_max_output_tokens("claude-haiku-4-5-20251001"), 64_000);
+        assert_eq!(claude_max_output_tokens("claude-haiku-5-5"), 128_000);
         assert_eq!(claude_max_output_tokens("claude-fable-5-1"), 64_000);
         assert_eq!(claude_max_output_tokens("my-proxy-model"), 32_000);
     }
