@@ -213,6 +213,8 @@ export interface AppSettings {
   providers: ProviderConfig[];
   guardrails: GuardrailRule[];
   workspaces: WorkspaceFolder[];
+  /** Folders a new agent starts with, in order: the first is its primary. Ids no longer in `workspaces` are ignored. */
+  defaultWorkspaceIds?: string[];
   connectors: ConnectorConfig[];
   defaultProviderId?: string;
   defaultModelId?: string;

@@ -456,6 +456,10 @@ function updateWorkspace(s: UiState, id: string, fn: (w: Workspace) => Workspace
 }
 
 function defaultChatFolder(state: UiState): string | undefined {
+  // A saved default folder wins; supporting defaults are applied where a new
+  // agent is configured (the wall), this path takes only the primary.
+  const saved = state.settings?.defaultWorkspaceIds?.find((d) => state.settings?.workspaces.some((w) => w.id === d));
+  if (saved) return saved;
   const id = state.activeProjectId;
   return id && (!state.settingsLoaded || state.settings?.workspaces.some((w) => w.id === id)) ? id : undefined;
 }

@@ -1,4 +1,4 @@
-import { AgentWindowPicker, type AgentWindowSelection } from '../components/AgentWindowPicker.js';
+import { AgentWindowPicker, defaultFolderIds, type AgentWindowSelection } from '../components/AgentWindowPicker.js';
 import { AgentSidebar } from './WorkspacesView.js';
 import { ChatPane } from '../components/ChatPane.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -230,6 +230,13 @@ export function CommandCenterView() {
   // not create a second orphan. Clear it only after configuration or deletion.
   const unfinishedChat = useRef<Awaited<ReturnType<typeof window.nekko.createSession>> | null>(null);
   const newChat = async (selection?: AgentWindowSelection, projectId = activeProjectId ?? undefined): Promise<string> => {
+    // A chat started with no picker (the toolbar, a window's split) gets the
+    // saved default folders, when there are any.
+    if (!selection) {
+      const saved = useStore.getState().settings;
+      const defaults = defaultFolderIds(saved?.defaultWorkspaceIds, saved?.workspaces ?? []);
+      if (defaults.length) selection = { kind: 'chat', chatType: 'multimodal', workspaceIds: defaults };
+    }
     // Folders picked in Add window override the project default: the first is
     // the chat's working folder, any others are supporting folders.
     const [primaryFolder, ...supportingFolders] = selection?.workspaceIds ?? [];
