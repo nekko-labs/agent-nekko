@@ -12,6 +12,13 @@ describe('development launcher safety', () => {
     expect(source).toContain('com.nekkoagent.desktop.dev');
     expect(source).toContain("env.ELECTRON_EXEC_PATH = prepared.launcher");
   });
+  it('stops cleanly from the keyboard and force-kills the whole tree only as a fallback', () => {
+    expect(source).toContain("key === '\\r'");
+    expect(source).toContain("key.toLowerCase() === 'q'");
+    expect(source).toContain('env.NEKKO_DEV_STOP_FILE = stopFile');
+    expect(source).toContain("'/T', '/F'");
+    expect(source).toContain('process.kill(-child.pid');
+  });
   it('rejects node-mode Electron and leaves user privacy grants alone', () => {
     expect(source).toContain('Unset ELECTRON_RUN_AS_NODE');
     expect(source).not.toContain('tccutil');

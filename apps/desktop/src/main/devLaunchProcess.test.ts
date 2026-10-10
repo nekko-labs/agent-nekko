@@ -20,6 +20,23 @@ describe('owned development launch receipt', () => {
     stop('SIGTERM'); expect(quit).toHaveBeenCalledOnce();
     finish(); expect(existsSync(file)).toBe(false); expect(process.listeners('SIGTERM')).not.toContain(stop);
   });
+  it('quits cleanly once the launcher drops its stop file, and stops watching on quit', () => {
+    vi.useFakeTimers();
+    try {
+      const dir = mkdtempSync(join(tmpdir(), 'nekko-launch-test-')); dirs.push(dir);
+      const stopFile = join(dir, 'stop');
+      vi.stubEnv('NEKKO_DEV_STOP_FILE', stopFile);
+      const quit = vi.fn();
+      registerDevLaunch({ quit, on: () => {} });
+      vi.advanceTimersByTime(1000);
+      expect(quit).not.toHaveBeenCalled();
+      writeFileSync(stopFile, 'stop');
+      vi.advanceTimersByTime(300);
+      expect(quit).toHaveBeenCalledOnce();
+      vi.advanceTimersByTime(1000);
+      expect(quit).toHaveBeenCalledOnce();
+    } finally { vi.useRealTimers(); }
+  });
   it('preserves a replacement receipt during cleanup', () => {
     const dir = mkdtempSync(join(tmpdir(), 'nekko-launch-test-')); dirs.push(dir);
     const file = join(dir, 'receipt.json');

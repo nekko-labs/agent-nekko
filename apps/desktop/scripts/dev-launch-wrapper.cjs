@@ -7,7 +7,7 @@ exports.launch = (bundle, cache) => {
   const token = randomUUID(), file = join(cache, `launch-${token}.json`);
   const args = ['-n', '-W', '-a', bundle];
   const env = { ...process.env, NEKKO_DEV_PID_FILE: file, NEKKO_DEV_LAUNCH_TOKEN: token };
-  for (const key of ['PATH', 'HOME', 'ELECTRON_RENDERER_URL', 'NODE_ENV', 'NODE_ENV_ELECTRON_VITE', 'NEKKO_DATA_DIR', 'NEKKO_DEV_OWNER', 'NEKKO_DEV_PID_FILE', 'NEKKO_DEV_LAUNCH_TOKEN']) {
+  for (const key of ['PATH', 'HOME', 'ELECTRON_RENDERER_URL', 'NODE_ENV', 'NODE_ENV_ELECTRON_VITE', 'NEKKO_DATA_DIR', 'NEKKO_DEV_OWNER', 'NEKKO_DEV_PID_FILE', 'NEKKO_DEV_LAUNCH_TOKEN', 'NEKKO_DEV_STOP_FILE']) {
     if (env[key]) args.push('--env', key + '=' + env[key]);
   }
   args.push('--args', ...process.argv.slice(2).map(a => a === '.' ? process.cwd() : a));
