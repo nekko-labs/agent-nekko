@@ -38,6 +38,7 @@ export * from './skills-market.js';
 export * from './skill-markdown.js';
 export * from './vaizer.js';
 export * from './agent-types.js';
+export * from './browser-tool.js';
 export * from './project-detect.js';
 export * from './connectors.js';
 export * from './integrations.js';

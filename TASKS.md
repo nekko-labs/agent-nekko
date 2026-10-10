@@ -1,6 +1,6 @@
 ---
 status: active
-last-updated: 2026-10-09
+last-updated: 2026-10-10
 owner:
 ---
 
@@ -1332,3 +1332,10 @@ Add window sits to the right of the shared composer in the same row, including t
 ### Memory contract (added 2026-10-10)
 
 - [x] Gate GPU tile memory, oversized animated layers and per-lap heap/DOM/listener growth in the `perf` job; harness uses Chromium (never Edge) and ends every spawned process tree. Done: 2026-10-10. See [spec](SPEC.md#speed--responsiveness-the-speed-contract), The memory contract.
+
+### T187: Playwright drives the in-app browser through Electron's own Chromium (2026-10-10) · [spec](SPEC.md#in-app-browser-automation-2026-10-10)
+
+- [x] **T187** `playwright-core` (pinned 1.63.0, no install script, no browsers) added to the desktop app and kept external to the main bundle. Playwright connects with `connectOverCDP(transport)` over an in-process transport (`agentCdpTransport.ts`) that reaches each agent window through `webContents.debugger`: no remote-debugging port, only the chat's own windows as targets, a page-session command policy (no file uploads, no target discovery or attachment, no download or certificate overrides, HTTP(S) or about:blank navigation). Rejected alternative: `--remote-debugging-port` on loopback, which any local process (including the agent's own shell commands) could use to drive the Nekko UI. The `browser` tool keeps navigate/inspect/click/fill/close and adds wait, type, press, scroll, extract, evaluate, screenshot (pixels as chat images), tabs, tab_new, tab_switch, tab_close and logs in dedicated mode; existing (Stagehand) mode refuses the new ones. Validation is shared in `packages/shared/src/browser-tool.ts` and runs in both the host and the bridge. Debuggers are detached before a window is destroyed, since destroying an attached window stalled Electron's main thread in the smoke run. Done: 2026-10-10
+  - Verified: unit tests (transport policy/routing, page actions, bridge tabs/screenshot/cleanup, host validation and approval text), `bundleExternals.test.ts`, typecheck, and `apps/desktop/scripts/browser-automation-smoke.mjs` under real Electron 44 (hidden windows, throwaway `--user-data-dir`, process tree killed, profile deleted). playwright-core also loaded from inside an asar archive and drove a hidden page.
+  - [ ] Not verified: a full electron-builder installer build, macOS and Linux runs, and live model use of the new actions.
+  - [ ] The `capture` tool's owned-window screenshot still uses `capturePage`, which returned a stale frame after scrolling a hidden window in the smoke run; the browser `screenshot` action uses Playwright instead. Move capture's owned-window path to a fresh frame too.
