@@ -131,7 +131,7 @@ export function DesignBoardView() {
   return (
     <div className="flex h-full min-w-0 flex-col">
       <header className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
-        <h1 className="text-[15px] font-semibold">Design</h1>
+        <h1 className="view-title">Design</h1>
         {workspaces.length > 1 && (
           <select className="input py-1 text-[12px]" value={wsId} onChange={(e) => setActiveProject(e.target.value)}>
             {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}

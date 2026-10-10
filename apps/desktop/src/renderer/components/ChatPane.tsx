@@ -45,7 +45,7 @@ import { PlanRail, appendPlanChangeRequest } from './PlanRail.js';
 import { TurnStatsLine } from './agent-console/TurnStatsLine.js';
 import { ComposerQuestion } from './ComposerQuestion.js';
 import { QuestionCard } from './QuestionCard.js';
-import { AgentLogsBubble } from './AgentLogsBubble.js';
+import { useWallLogs } from '../wallLogs.js';
 import { StatusIcon, type AgentStatus } from './WorkspaceCard.js';
 import { UsageLimitsChip } from './UsageLimitsChip.js';
 import { PaneActions, PaneMetadata, useInPaneFrame } from './PaneFrame.js';
@@ -641,9 +641,8 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
   // caches it), so the header and the card never disagree.
   const git = useGitStatus(session ? `session:${session.id}` : undefined, session?.gitIsolation);
   const [lightbox, setLightbox] = useState<string | null>(null);
-  // The agent's command log, bubbled out of this window (Agents wall).
-  const [logsOpen, setLogsOpen] = useState(false);
-  const chatViewOn = useStore((s) => s.settings?.developer?.chat === true);
+  // Whether this agent's command log drawer is out on the Agents wall.
+  const logsOpen = useWallLogs((s) => s.sessionId === sessionId && !s.closing);
   // Right-click menu for a chat image (copy / save), placed at the pointer.
   const [imageMenu, setImageMenu] = useState<{ x: number; y: number; src: string } | null>(null);
   const [changeCount, setChangeCount] = useState(0);
@@ -2107,11 +2106,13 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
               aria-label="Open agent logs"
               aria-expanded={commandCenter ? logsOpen : undefined}
               disabled={session?.executionMode === 'sandbox'}
-              // On the Agents wall the log bubbles out of this window; the Chat
-              // view's workbench keeps opening it as a window beside the chat.
+              // On the Agents wall the log slides out of this window's right
+              // edge as its own drawer (CommandWall lays it out and moves the
+              // windows beside it); the Chat view's workbench keeps opening it
+              // as a window beside the chat.
               onClick={() => {
                 if (session?.executionMode === 'sandbox') return;
-                commandCenter ? setLogsOpen((o) => !o) : useStore.getState().openTerminalPane(`agent_${sessionId}`);
+                commandCenter ? useWallLogs.getState().toggle(sessionId) : useStore.getState().openTerminalPane(`agent_${sessionId}`);
               }}
               title="Open the agent's command log"
             >
@@ -2853,15 +2854,6 @@ function ChatPaneImpl({ sessionId, onRunningChange, readOnly = false, commandCen
       {/* The work rail, in the quarter the transcript gives back. Kept inside
           the chat pane (not the workbench's right panel) because everything in
           it belongs to this one conversation. */}
-      {logsOpen && surface !== 'composer' && (
-        <AgentLogsBubble
-          sessionId={sessionId}
-          title={session?.title || 'this chat'}
-          onClose={() => setLogsOpen(false)}
-          onPopOut={chatViewOn ? () => { setLogsOpen(false); useStore.getState().openTerminalPane(`agent_${sessionId}`); } : undefined}
-        />
-      )}
-
       {surface !== 'composer' && planRailOpen && (
         <div className="shrink-0" style={{ width: PLAN_RAIL_WIDTH }}>
           <PlanRail

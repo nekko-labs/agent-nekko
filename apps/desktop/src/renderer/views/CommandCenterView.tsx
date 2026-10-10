@@ -1,4 +1,4 @@
-import { AgentWindowPicker, type AgentWindowSelection } from '../components/AgentWindowPicker.js';
+import { AgentWindowPicker, defaultFolderIds, type AgentWindowSelection } from '../components/AgentWindowPicker.js';
 import { AgentSidebar } from './WorkspacesView.js';
 import { ChatPane } from '../components/ChatPane.js';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -231,6 +231,13 @@ export function CommandCenterView() {
   // not create a second orphan. Clear it only after configuration or deletion.
   const unfinishedChat = useRef<Awaited<ReturnType<typeof window.nekko.createSession>> | null>(null);
   const newChat = async (selection?: AgentWindowSelection, projectId = activeProjectId ?? undefined): Promise<string> => {
+    // A chat started with no picker (the toolbar, a window's split) gets the
+    // saved default folders, when there are any.
+    if (!selection) {
+      const saved = useStore.getState().settings;
+      const defaults = defaultFolderIds(saved?.defaultWorkspaceIds, saved?.workspaces ?? []);
+      if (defaults.length) selection = { kind: 'chat', chatType: 'multimodal', workspaceIds: defaults };
+    }
     // Folders picked in Add window override the project default: the first is
     // the chat's working folder, any others are supporting folders.
     const [primaryFolder, ...supportingFolders] = selection?.workspaceIds ?? [];
@@ -501,7 +508,7 @@ export function WallToolbar({
 
   const controls = (
     <div className={`flex flex-wrap items-center gap-x-4 gap-y-2 ${slot ? 'wall-toolbar-titlebar' : ''}`} data-wall-toolbar>
-      {!hasAppChrome && <h1 className="text-gradient text-2xl font-semibold">Agents</h1>}
+      {!hasAppChrome && <h1 className="view-title text-gradient">Agents</h1>}
       <div className={`ml-auto flex flex-wrap items-center ${slot ? 'gap-2' : 'gap-3'}`}>
 
         {/* Adding to the wall, first in the row: an agent or a terminal of its
