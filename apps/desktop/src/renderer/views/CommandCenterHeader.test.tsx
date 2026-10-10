@@ -51,6 +51,8 @@ describe('Agents header placement', () => {
     // the selected agent's companions, then More (the full picker).
     for (const label of ['New agent', 'New terminal', 'Changes', 'Browser', 'Files', 'Add window']) expect(html).toContain(`aria-label="${label}"`);
     expect(html).toContain('Changes: select an agent first');
+    // The add bar leads the controls, left of the layout switcher.
+    expect(html.indexOf('aria-label="Add to the wall"')).toBeLessThan(html.indexOf('aria-label="Wall layout"'));
     const focus = renderToStaticMarkup(<WallToolbar wall={DEFAULT_WALL_STATE} setWall={() => {}} onAutoArrange={() => {}} addOpen={false} setAddOpen={() => {}} onAdd={() => {}} onCompanion={() => {}} companionFor="Perf chat 00" />);
     expect(focus).toContain('title="Changes for Perf chat 00"');
     expect(focus).not.toMatch(/aria-label="Changes"[^>]*disabled/);
