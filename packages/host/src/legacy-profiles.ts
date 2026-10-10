@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { CLI_LINK_FILE, modelModality } from '@nekko-agent/shared';
 import { writeTextAtomic } from './secure-file.js';
 import { defaultUserDataDir } from './user-data.js';
+import { applyToDataRoot, planDedupe, providerIdentity, type AccountOf, type FolderLike, type Plan, type ProviderLike } from './profile-repair.js';
 
 /**
  * Finding, merging and removing what earlier names of this app left behind.
@@ -323,6 +324,45 @@ export interface RootReport {
 export interface ConsolidateReport {
   backupDir: string;
   roots: RootReport[];
+  /** Duplicate providers and folders folded after the merge (dropped id -> kept id). */
+  deduped?: Plan;
+}
+
+/**
+ * Fold duplicate folders (same path) and providers (same server, or the same
+ * subscription account when the token store records the account) in a data
+ * root, rewriting every reference. A subscription whose account cannot be
+ * read is never folded on a guess. Ranked by usage so the id most history
+ * already uses survives.
+ */
+export function dedupeProfile(root: string, platform: NodeJS.Platform = process.platform, extra: { accountOf?: AccountOf; keepProvider?: Record<string, string>; removeProviders?: string[] } = {}): Plan | undefined {
+  const settings = readJson(join(root, 'settings.json'));
+  if (!isObj(settings)) return undefined;
+  const tokens = readJson(join(root, 'tokens.json'));
+  const accountOf: AccountOf = (key) => extra.accountOf?.(key) ?? (isObj(tokens) && isObj(tokens[key]) && typeof tokens[key].accountId === 'string' ? tokens[key].accountId as string : undefined);
+  const uses = new Map<string, number>();
+  for (const line of lines(join(root, 'usage.jsonl'))) {
+    try { const id = (JSON.parse(line) as { providerId?: string }).providerId; if (id) uses.set(id, (uses.get(id) ?? 0) + 1); } catch { /* skip */ }
+  }
+  for (const e of dirEntries(join(root, 'sessions'))) {
+    if (!e.name.endsWith('.json')) continue;
+    try {
+      const s = JSON.parse(readFileSync(join(root, 'sessions', e.name), 'utf8')) as { workspaceId?: string };
+      if (s.workspaceId) uses.set(s.workspaceId, (uses.get(s.workspaceId) ?? 0) + 1);
+    } catch { /* skip */ }
+  }
+  const plan = planDedupe(settings as { providers?: ProviderLike[]; workspaces?: FolderLike[] }, { accountOf, prefer: (id) => uses.get(id) ?? 0, platform, keepProvider: extra.keepProvider });
+  // Removing a duplicate of a provider that stays is a fold (its chats and
+  // usage follow the survivor); removing a survivor removes its whole group.
+  const removing = new Set(extra.removeProviders ?? []);
+  for (const [from, to] of Object.entries(plan.providers)) {
+    if (removing.has(to)) { removing.add(from); delete plan.providers[from]; }
+    else removing.delete(from);
+  }
+  plan.removeProviders = [...removing];
+  if (!Object.keys(plan.providers).length && !Object.keys(plan.folders).length && !plan.removeProviders.length) return plan;
+  applyToDataRoot(root, plan);
+  return plan;
 }
 
 function backupSmallFiles(dirs: Array<{ label: string; dir: string }>, backupDir: string): void {
@@ -349,7 +389,10 @@ export function consolidate(items: LegacyItem[], env: LegacyEnv = legacyEnv(), o
   mkdirSync(target, { recursive: true, mode: 0o700 });
   backupSmallFiles([{ label: 'current', dir: target }, ...roots.map((r, i) => ({ label: `source-${i + 1}-${basename(r)}`, dir: r }))], backupDir);
   const reports = roots.map((root) => mergeRoot(root, target, ci));
-  return { backupDir, roots: reports };
+  // Each install minted its own ids for the same folder and the same server;
+  // fold those now so the merged profile does not list them twice.
+  const deduped = dedupeProfile(target, env.platform);
+  return { backupDir, roots: reports, deduped };
 }
 
 function mergeRoot(src: string, target: string, ci: boolean): RootReport {
@@ -475,7 +518,14 @@ export function unmerged(root: string, target: string): string[] {
 
 function coversSettings(src: Json, dst: Json): boolean {
   const ids = (v: unknown) => new Set((Array.isArray(v) ? v : []).map(itemKey));
+  // A provider folded into a duplicate after the merge is covered by the one it became.
+  const folded = new Set<string>();
+  if (Array.isArray(dst.providers)) {
+    const keep = (dst.providers as ProviderLike[]).map((p) => providerIdentity(p));
+    for (const p of (Array.isArray(src.providers) ? src.providers : []) as ProviderLike[]) if (p?.baseUrl && keep.includes(providerIdentity(p))) folded.add(itemKey(p));
+  }
   for (const key of ['providers', 'mcpServers']) {
+    if (key === 'providers' && Array.isArray(src[key])) { const have = ids(dst[key]); if ((src[key] as unknown[]).some((x) => !have.has(itemKey(x)) && !folded.has(itemKey(x)))) return false; continue; }
     if (Array.isArray(src[key])) { const have = ids(dst[key]); if ((src[key] as unknown[]).some((x) => !have.has(itemKey(x)))) return false; }
     else if (isObj(src[key]) && Object.keys(src[key] as Json).some((k) => !isObj(dst[key]) || !(k in (dst[key] as Json)))) return false;
   }

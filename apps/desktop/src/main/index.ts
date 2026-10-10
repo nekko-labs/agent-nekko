@@ -5,11 +5,11 @@ import { existsSync } from 'fs';
 // Only the data-root helpers: the host itself runs in the engine process, and
 // importing the package root would load all of it (node-pty included) here.
 import { defaultUserDataDir, legacyUserDataDirs, migrateUserData, prepareUserDataRoot } from '@nekko-agent/host/user-data';
-import { brandEnv, IpcEvents, type AppSettings } from '@nekko-agent/shared';
+import { brandEnv, IpcChannels, IpcEvents, type ApiServerStatus, type AppSettings } from '@nekko-agent/shared';
 import { registerIpc } from './ipc.js';
 import { checkForUpdates } from './update.js';
 import { initialWindowBounds, loadWindowBounds, MIN_WINDOW, saveWindowBounds, setWindowStateDir } from './windowState.js';
-import { registerDevLaunch } from './devLaunchProcess.js';
+import { registerDevLaunch, reportDevReady } from './devLaunchProcess.js';
 import { preservePackagedProfile } from './appIdentity.js';
 import { EngineProcess } from './engine-process.js';
 import { createDesktopTray } from './tray.js';
@@ -392,6 +392,11 @@ app.whenReady().then(async () => {
       onError: message => dialog.showErrorBox('Nekko Agent', message),
     });
   }
+
+  // Under `npm run dev`, hand the launcher what it needs for its banner.
+  void engine.call<ApiServerStatus>(IpcChannels.apiServerStatus)
+    .then((s) => reportDevReady({ version: app.getVersion(), api: s ? { url: s.clientUrl, enabled: s.settings.enabled } : null, dataDir }))
+    .catch(() => reportDevReady({ version: app.getVersion(), api: null, dataDir }));
 
   // Auto-check for updates a few seconds after launch, if the user opted in.
   void engine.call<AppSettings>('settings:get').then((settings) => {

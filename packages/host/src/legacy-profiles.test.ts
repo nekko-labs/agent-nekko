@@ -115,6 +115,7 @@ describe('consolidate', () => {
     expect(settings.providers.map((p: { id: string }) => p.id)).toEqual(['nekko-engine', 'anthropic-new', 'chatgpt-1']);
     expect(settings.mcpServers).toEqual([{ name: 'hypergate' }]);
     expect(settings.workspaces).toHaveLength(2);
+    expect(report.deduped?.providers).toEqual({});
     expect(json(join(env.target, 'tokens.json'))['chatgpt:1'].accessToken).toBe('x');
 
     expect(readFileSync(join(env.target, 'models', '.companions', 'image', 'vae.safetensors'), 'utf8')).toBe('vae');
@@ -126,6 +127,19 @@ describe('consolidate', () => {
     expect(existsSync(join(report.backupDir, 'current', 'settings.json'))).toBe(true);
     expect(existsSync(join(report.backupDir, `source-1-${'.agent-nekko'}`, 'settings.json'))).toBe(true);
     expect(s.main).toBeTruthy();
+  });
+
+  it('folds the same folder added by two installs into one and repoints chats', () => {
+    const { env } = world(); const s = seed(env);
+    const shared = join(env.home, 'code', 'app');
+    put(join(s.main, 'settings.json'), { providers: [], workspaces: [{ id: 'old-ws', name: 'app', path: shared }] });
+    put(join(s.main, 'sessions', 's_ws.json'), { id: 's_ws', workspaceId: 'old-ws' });
+    put(join(env.target, 'settings.json'), { providers: [], workspaces: [{ id: 'new-ws', name: 'app', path: `${shared}\\` }] });
+    const report = consolidate(detectLegacy(env), env);
+    const settings = json(join(env.target, 'settings.json'));
+    expect(settings.workspaces).toHaveLength(1);
+    expect(json(join(env.target, 'sessions', 's_ws.json')).workspaceId).toBe(settings.workspaces[0].id);
+    expect(Object.keys(report.deduped!.folders)).toHaveLength(1);
   });
 
   it('rewrites paths that pointed into an old data folder', () => {
