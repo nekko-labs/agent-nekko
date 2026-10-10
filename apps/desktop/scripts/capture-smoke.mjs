@@ -114,7 +114,11 @@ app.whenReady().then(async () => {
   }
 });
 `;
-await build({ stdin: { contents: source, resolveDir: root, loader: 'ts' }, outfile: entry, bundle: true, platform: 'node', format: 'cjs', external: ['electron', 'file:*'] });
+// playwright-core (behind agentBrowser.ts) reads its own files at runtime and
+// must not be bundled; require it from this checkout's node_modules instead.
+const playwrightCore = require.resolve('playwright-core', { paths: [join(root, 'apps/desktop')] });
+await build({ stdin: { contents: source, resolveDir: root, loader: 'ts' }, outfile: entry, bundle: true, platform: 'node', format: 'cjs', external: ['electron', 'file:*'],
+  plugins: [{ name: 'playwright-core-external', setup(b) { b.onResolve({ filter: /^playwright-core$/ }, () => ({ path: playwrightCore, external: true })); } }] });
 const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
 const child = spawn(electron, [entry], { env, windowsHide: true, stdio: 'inherit' });
 const timer = setTimeout(() => child.kill(), 60_000);
