@@ -5,7 +5,10 @@
 //! provider only has to send it the way the endpoint requires.
 
 use super::Io;
-use crate::claude::{SamplingMemory, SamplingShape, anthropic_effort, claude_context_window, next_sampling_shape};
+use crate::claude::{
+    Family, SamplingMemory, SamplingShape, anthropic_effort, claude_context_window, next_sampling_shape,
+    parse_claude_model,
+};
 use crate::http::{HttpRequest, headers};
 use crate::js;
 use crate::sse::SseParser;
@@ -13,9 +16,11 @@ use crate::stream::{ChunkStream, DecodeClock, Sink, Stop, spawn};
 use crate::types::*;
 use serde_json::{Map, Value, json};
 use std::sync::Arc;
+use std::time::Duration;
 
-/// The shipped Claude catalog, newest first within a family, the previous
-/// generation included so a chat pinned to it still has a name for it.
+/// The shipped Claude catalog, served when `GET /v1/models` can't be reached.
+/// Newest first within a family, the previous generation included so a chat
+/// pinned to it still has a name for it.
 const CLAUDE_MODELS: &[(&str, &str)] = &[
     ("claude-opus-5-5", "Claude Opus 5.5"),
     ("claude-opus-5", "Claude Opus 5"),
@@ -26,6 +31,26 @@ const CLAUDE_MODELS: &[(&str, &str)] = &[
     ("claude-fable-5-1", "Claude Fable 5.1"),
     ("claude-haiku-4-5-20251001", "Claude Haiku 4.5"),
 ];
+
+/// How long the catalog may take, body included, before the shipped list is
+/// served instead. Opening a chat waits on this list, so a stalled connection
+/// must not hold it for the transport's minutes-long idle limit.
+const CATALOG_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Picker order by family, as the shipped list has it. The API lists newest
+/// release first, which would put a new Haiku above Opus; the sort is stable,
+/// so newest-first holds within each family. Ids that aren't a known family go
+/// last.
+fn family_rank(id: &str) -> usize {
+    match parse_claude_model(id).map(|c| c.family) {
+        Some(Family::Opus) => 0,
+        Some(Family::Sonnet) => 1,
+        Some(Family::Fable) => 2,
+        Some(Family::Mythos) => 3,
+        Some(Family::Haiku) => 4,
+        None => 5,
+    }
+}
 
 /// Subscription requests ride the Claude Code public client: the endpoint
 /// requires this beta flag and a first system block that is the Claude Code
@@ -192,7 +217,48 @@ impl AnthropicProvider {
         sink.emit(ProviderChunk::Done).await
     }
 
+    /// The live catalog: `GET {base}/v1/models`, every model this key or
+    /// subscription can call, including ones released after this build. One
+    /// page of up to 1000 holds the whole list. None on any failure, or after
+    /// `CATALOG_TIMEOUT`, so the caller falls back to the shipped list.
+    async fn fetch_catalog(&self) -> Option<Vec<ModelInfo>> {
+        self.config.api_key.as_deref().filter(|k| !k.is_empty())?;
+        let req = HttpRequest::get(format!("{}/v1/models?limit=1000", self.config.base_url), self.headers());
+        let fetch = async {
+            let mut res = self.io.transport.send(&req).await.ok()?;
+            if !res.ok() {
+                return None;
+            }
+            Some(res.text().await)
+        };
+        let text = tokio::time::timeout(CATALOG_TIMEOUT, fetch).await.ok()??;
+
+        let json: Value = serde_json::from_str(&text).ok()?;
+        let rows = json.get("data").and_then(Value::as_array)?;
+        let mut models: Vec<ModelInfo> = rows
+            .iter()
+            .filter_map(|m| {
+                let id = m.get("id").and_then(Value::as_str).filter(|id| !id.is_empty())?;
+                let name = m.get("display_name").and_then(Value::as_str).filter(|n| !n.is_empty()).unwrap_or(id);
+                let api_window = m.get("max_input_tokens").and_then(Value::as_u64).filter(|n| *n > 0);
+                Some(ModelInfo {
+                    id: id.to_string(),
+                    provider_id: self.config.id.clone(),
+                    name: name.to_string(),
+                    context_length: Some(api_window.or_else(|| claude_context_window(id)).unwrap_or(200_000)),
+                    ..Default::default()
+                })
+            })
+            .collect();
+        models.sort_by_key(|m| family_rank(&m.id));
+        (!models.is_empty()).then_some(models)
+    }
+
     pub async fn list_models(&self) -> Result<Vec<ModelInfo>, ProviderError> {
+        if let Some(models) = self.fetch_catalog().await {
+            return Ok(models);
+        }
+
         Ok(CLAUDE_MODELS
             .iter()
             .map(|(id, name)| ModelInfo {
